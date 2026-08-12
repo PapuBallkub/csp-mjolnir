@@ -15,7 +15,7 @@ import { priceDeltaPct } from "../_data/tors";
  *      colour-blind readers.
  */
 
-type Tone = "open" | "amend" | "risk" | "closed";
+export type Tone = "open" | "amend" | "risk" | "closed";
 
 /* Full class strings, never composed at runtime, so Tailwind can see them. */
 const TONE: Record<Tone, { text: string; bg: string; border: string; fill: string }> = {
@@ -30,15 +30,24 @@ const TONE: Record<Tone, { text: string; bg: string; border: string; fill: strin
   },
 };
 
-const STATUS_TONE: Record<Status, Tone> = { open: "open", amended: "amend", closed: "closed" };
-const RISK_TONE: Record<RiskLevel, Tone> = { low: "open", medium: "amend", high: "risk" };
+/* Exported so a whole panel can wear the same hue as the badge inside it. */
+export const STATUS_TONE: Record<Status, Tone> = {
+  open: "open",
+  amended: "amend",
+  closed: "closed",
+};
+export const RISK_TONE: Record<RiskLevel, Tone> = { low: "open", medium: "amend", high: "risk" };
 /**
  * An over-median budget is not the applicant's problem — a *below*-median one
  * is, because it is the contract that loses money the day it is signed. So
  * "under" carries the strongest warning here, while the watchdog screen reads
  * the same fact from the opposite end.
  */
-const PRICE_TONE: Record<PriceVerdict, Tone> = { fair: "open", over: "amend", under: "risk" };
+export const PRICE_TONE: Record<PriceVerdict, Tone> = {
+  fair: "open",
+  over: "amend",
+  under: "risk",
+};
 
 const STATUS_LABEL: Record<Status, Bi> = {
   open: { th: "เปิดรับข้อเสนอ", en: "Open" },

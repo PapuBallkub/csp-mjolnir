@@ -18,7 +18,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TORchlight — BMA procurement discovery",
+  title: "Mjölnir — BMA procurement discovery",
   description:
     "Find, read and sanity-check Bangkok government IT procurement documents without opening the PDF.",
 };
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 // Applies the stored theme before first paint so the page never flashes.
 const themeScript = `
 try {
-  var t = localStorage.getItem("torchlight-theme");
+  var t = localStorage.getItem("mjolnir-theme");
   if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
 } catch (e) {}
 `;

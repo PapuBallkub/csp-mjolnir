@@ -4,7 +4,7 @@ import Link from "next/link";
 import { tors } from "./_data/tors";
 import { useLang, LangToggle, ThemeToggle } from "./_components/prefs";
 import { Wordmark } from "./_components/shell";
-import { Chip, Panel, SectionLabel } from "./_components/ui";
+import { AccentPanel, Chip, Eyebrow, Panel, SectionHeading, Well } from "./_components/ui";
 import {
   LockSpecBadge,
   MatchScore,
@@ -25,30 +25,30 @@ import {
 const SCREENS = [
   {
     href: "/mockups/catalog",
-    title: { th: "รายการประกาศ TOR", en: "TOR catalog" },
+    title: { th: "ค้นหาประกาศ TOR", en: "Browse" },
     note: {
-      th: "ค้นหาและกรองตามเทคโนโลยี งบประมาณ กำหนดยื่น หน่วยงาน และขนาดงาน สถานะเห็นได้ในแถวเดียว",
-      en: "Search and filter by tech, budget, deadline, agency and scope size, with status readable in a single row.",
+      th: "หน้าเดียวสองโหมด — กรองเองตามเทคโนโลยี งบ กำหนดยื่น หน่วยงาน หรือให้ระบบจัดอันดับจากโปรไฟล์ สถานะอ่านได้ในแถวเดียว",
+      en: "One list, two modes — filter it by hand, or let the profile rank it. Status is readable in a single row either way.",
     },
-    us: ["US1", "US6", "US9", "US11"],
-    fr: ["FR06", "FR09"],
+    us: ["US1", "US3", "US6", "US9", "US11"],
+    fr: ["FR06", "FR07", "FR09"],
   },
   {
     href: `/mockups/tor/${tors[0].id}`,
     title: { th: "รายละเอียด TOR ที่ถอดความแล้ว", en: "Normalized TOR detail" },
     note: {
-      th: "หน้าหลักของผลิตภัณฑ์ สรุปทั้งฉบับพร้อมโมดูลความเสี่ยงสามชุดวางไว้ในหน้าเดียว ไม่ซ่อนใต้แท็บ",
-      en: "The core screen: the whole document summarised, with all three risk modules inline rather than hidden behind tabs.",
+      th: "หน้าหลักของผลิตภัณฑ์ สรุปทั้งฉบับเป็นแผ่นเดียว แล้วให้โมดูลความเสี่ยงสามชุดเป็นบล็อกแยกที่ติดสีคำตัดสินของตัวเอง",
+      en: "The core screen: the whole document as one clean sheet, then three risk modules as separate blocks, each wearing its own verdict colour.",
     },
     us: ["US2", "US7", "US8", "US13"],
     fr: ["FR05", "FR10", "FR12", "FR13"],
   },
   {
-    href: "/mockups/matchmaker",
-    title: { th: "จับคู่งานกับทักษะ", en: "Matchmaker and profile" },
+    href: "/mockups/profile",
+    title: { th: "โปรไฟล์และทักษะ", en: "Profile and skills" },
     note: {
-      th: "ผู้ใช้ใส่ทักษะและช่วงงบ คะแนนความตรงคำนวณสดและอธิบายที่มาได้ พร้อมตรวจสิทธิ์แต้มต่อ SME",
-      en: "Skills and budget in, a live match score out — with the reasons shown, plus SME advantage eligibility.",
+      th: "ที่เดียวที่ผู้ใช้อธิบายตัวเอง ทักษะ ช่วงงบ ขนาดงาน และสถานะ SME พร้อมแสดงผลลัพธ์สดว่าโปรไฟล์นี้หางานได้กี่รายการ",
+      en: "The one place the user describes themselves — skills, budget, scope, SME status — showing live what that description currently finds.",
     },
     us: ["US3"],
     fr: ["FR07"],
@@ -109,29 +109,29 @@ const PRINCIPLES = [
   {
     title: { th: "ชั้นคำตัดสินคือเอกลักษณ์", en: "The verdict layer is the identity" },
     body: {
-      th: "สถานะ ความเสี่ยงล็อกสเปก และการตรวจราคา เรียงลำดับเดิมทุกหน้า ผู้ใช้จำตำแหน่งครั้งเดียวแล้วอ่านได้ทุกจอ",
-      en: "Status, lock-spec risk and price check appear in that fixed order on every screen, so the position is learned once and read everywhere.",
+      th: "สถานะ ความเสี่ยงล็อกสเปก และการตรวจราคา เรียงลำดับเดิมทุกหน้า และเมื่อคำตัดสินผูกกับเนื้อหาก้อนไหน ก้อนนั้นจะติดแถบสีที่ขอบซ้ายเสมอ เป็นแถบเดียวกับที่ใช้ในหน้ารายการ",
+      en: "Status, lock-spec and price sit in that fixed order everywhere. When a verdict attaches to a block of content, that block wears the rail on its left edge — the same rail the browse rows use.",
     },
   },
   {
     title: { th: "สีมีความหมายเสมอ", en: "Colour always means something" },
     body: {
-      th: "โครงหน้าเป็นสีเทาดำล้วน สีสดสงวนไว้ให้สัญญาณเท่านั้น เขียวคือไปต่อ เหลืองคือดูให้ดี แดงคือเสียเวลาเปล่า เทาคือจบแล้ว",
-      en: "The chrome is monochrome graphite. Saturated colour is reserved for signal: green go, amber look closer, crimson this will cost you, grey dead.",
+      th: "โครงหน้าเป็นสีเทาดำล้วน สีสดสงวนไว้ให้สัญญาณเท่านั้น เขียวคือไปต่อ เหลืองคือดูให้ดี แดงคือเสียเวลาเปล่า เทาคือจบแล้ว และทุกป้ายมีสัญลักษณ์กับคำกำกับเสมอ อ่านได้แม้พิมพ์ขาวดำ",
+      en: "The chrome is monochrome graphite; saturated colour is reserved for signal — green go, amber look closer, crimson this will cost you, grey dead. Every badge also carries a glyph and a word, so it survives greyscale.",
     },
   },
   {
-    title: { th: "สีไม่เคยทำงานลำพัง", en: "Colour never works alone" },
+    title: { th: "โครงสร้างมาจากลำดับ ไม่ใช่เส้นคั่น", en: "Structure comes from rank, not rules" },
     body: {
-      th: "ทุกป้ายมีสัญลักษณ์และคำกำกับเสมอ อ่านได้แม้พิมพ์ขาวดำหรือตาบอดสี",
-      en: "Every badge pairs its hue with a glyph and a word, so it survives greyscale printing and colour-blind reading.",
+      th: "หัวข้อจริงและจังหวะช่องไฟเป็นตัวบอกโครงสร้าง ไม่ใช่เส้นบาง ๆ ระยะห่างในกลุ่มเดียวกันแคบ ระหว่างกลุ่มกว้างอย่างเห็นได้ชัด และใช้พื้นผิวอ่อนเฉพาะกับของที่เป็นคนละชนิดจริง ๆ",
+      en: "Real headings and an uneven spacing rhythm carry the structure, not hairlines. Tight inside a group, conspicuously loose between them, with a tinted well only where the content really is a different kind of thing.",
     },
   },
   {
     title: { th: "ความหนาแน่นตามงาน", en: "Density follows the task" },
     body: {
-      th: "หน้ารายการออกแบบให้กวาดตาเร็วเหมือนเว็บหางาน หน้ารายละเอียดให้พื้นที่หายใจเพราะเป็นการอ่านเพื่อตัดสินใจ",
-      en: "The catalog is tuned for job-board scanning speed; the detail page can breathe because it is a considered read.",
+      th: "หน้ารายการออกแบบให้กวาดตาเร็วเหมือนเว็บหางาน หน้ารายละเอียดให้พื้นที่หายใจเพราะเป็นการอ่านเพื่อตัดสินใจ แต่ยังคงแน่นและมีโครงชัด ไม่ใช่แดชบอร์ดโล่ง ๆ",
+      en: "Browse is tuned for job-board scanning speed; the detail page breathes because it is a considered read — still compact, just obviously structured.",
     },
   },
 ];
@@ -169,9 +169,7 @@ export default function MockupIndexPage() {
           </div>
 
           <h1 className="mt-8 max-w-2xl text-[32px] leading-tight font-semibold tracking-tight text-ink">
-            {lang === "th"
-              ? "แบบร่างหน้าจอ ระยะที่ 1"
-              : "Phase 1 interface mockups"}
+            {lang === "th" ? "แบบร่างหน้าจอ ระยะที่ 1" : "Phase 1 interface mockups"}
           </h1>
           <p className="mt-2 max-w-2xl text-[15px] leading-thai text-ink-2">
             {lang === "th"
@@ -185,41 +183,46 @@ export default function MockupIndexPage() {
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-[1000px] flex-col gap-10 px-4 py-10">
-        <section className="flex flex-col gap-4">
-          <SectionLabel>{lang === "th" ? "หลักการออกแบบ" : "Design principles"}</SectionLabel>
+      <main className="mx-auto max-w-[1000px] px-4 py-10">
+        <section>
+          <SectionHeading>{lang === "th" ? "หลักการออกแบบ" : "Design principles"}</SectionHeading>
           <div className="grid gap-3 sm:grid-cols-2">
             {PRINCIPLES.map((principle) => (
-              <Panel key={principle.title.en} className="p-3.5">
-                <h3 className="text-[14px] leading-thai font-medium text-ink">
+              <Panel key={principle.title.en} className="p-4">
+                <h3 className="text-[14px] leading-thai font-semibold text-ink">
                   {principle.title[lang]}
                 </h3>
-                <p className="mt-1.5 text-[13px] leading-thai text-ink-2">
-                  {principle.body[lang]}
-                </p>
+                <p className="mt-1.5 text-[13px] leading-thai text-ink-2">{principle.body[lang]}</p>
               </Panel>
             ))}
           </div>
         </section>
 
-        <section className="flex flex-col gap-4">
-          <SectionLabel right={<span className="font-mono text-[11px]">{SCREENS.length}</span>}>
+        <section className="mt-12">
+          <SectionHeading
+            sub={
+              lang === "th"
+                ? "แต่ละหน้าอ้างกลับไปยัง User Story และ Functional Requirement ที่รองรับ"
+                : "Each screen traces back to the user stories and requirements it serves."
+            }
+            right={<span className="font-mono text-[11px] text-ink-3">{SCREENS.length}</span>}
+          >
             {lang === "th" ? "หน้าจอทั้งหมด" : "The screens"}
-          </SectionLabel>
+          </SectionHeading>
 
           <ol className="flex flex-col gap-2">
             {SCREENS.map((screen, index) => (
               <li key={screen.href}>
                 <Link
                   href={screen.href}
-                  className="group flex gap-3.5 rounded-[3px] border border-line bg-surface px-3.5 py-3 transition-colors hover:bg-surface-2"
+                  className="group flex gap-3.5 rounded-[3px] border border-line bg-surface px-4 py-3.5 transition-colors hover:bg-surface-2"
                 >
                   <span className="pt-[3px] font-mono tnum text-[11px] text-ink-3">
                     {String(index + 1).padStart(2, "0")}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-baseline gap-2">
-                      <span className="text-[15px] font-medium text-ink group-hover:underline">
+                      <span className="text-[15px] font-semibold text-ink group-hover:underline">
                         {screen.title[lang]}
                       </span>
                       <span className="font-mono text-[11px] text-ink-3">{screen.href}</span>
@@ -227,7 +230,7 @@ export default function MockupIndexPage() {
                     <span className="mt-1 block text-[13px] leading-thai text-ink-2">
                       {screen.note[lang]}
                     </span>
-                    <span className="mt-2 flex flex-wrap gap-1">
+                    <span className="mt-2.5 flex flex-wrap gap-1">
                       {screen.us.map((id) => (
                         <Chip key={id}>{id}</Chip>
                       ))}
@@ -243,33 +246,37 @@ export default function MockupIndexPage() {
             ))}
           </ol>
 
-          <p className="text-[12px] leading-thai text-ink-3">
+          <p className="mt-3 text-[12px] leading-thai text-ink-3">
             {lang === "th"
               ? "ไม่ได้ออกแบบไว้โดยตั้งใจ: หน้าจัดทำหรือยื่นข้อเสนอ ตัวช่วยเขียนข้อเสนอ และการลงนามอิเล็กทรอนิกส์ ทั้งหมดอยู่นอกขอบเขตโครงการ"
               : "Deliberately not designed: bid drafting, submission forms, proposal builders and e-signing. All out of scope."}
           </p>
         </section>
 
-        <section className="flex flex-col gap-4">
-          <SectionLabel>{lang === "th" ? "ชุดสัญญาณ" : "The signal system"}</SectionLabel>
+        <section className="mt-12">
+          <SectionHeading
+            sub={
+              lang === "th"
+                ? "ป้ายทุกชิ้นประกอบด้วยสี สัญลักษณ์ และคำ ครบสามอย่างเสมอ"
+                : "Every badge is a hue, a glyph and a word — never fewer than all three."
+            }
+          >
+            {lang === "th" ? "ชุดสัญญาณ" : "The signal system"}
+          </SectionHeading>
 
-          <Panel className="flex flex-col gap-4 p-3.5">
-            <div className="flex flex-col gap-2">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
-                {lang === "th" ? "สถานะ" : "Status"}
-              </p>
-              <div className="flex flex-wrap gap-2">
+          <Panel className="divide-y divide-line">
+            <div className="p-4">
+              <Eyebrow>{lang === "th" ? "สถานะ" : "Status"}</Eyebrow>
+              <div className="mt-2 flex flex-wrap gap-2">
                 <StatusBadge status="open" lang={lang} />
                 <StatusBadge status="amended" lang={lang} round="ครั้งที่ 2" />
                 <StatusBadge status="closed" lang={lang} />
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 border-t border-line pt-3.5">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
-                {lang === "th" ? "ความเสี่ยงล็อกสเปก" : "Lock-spec risk"}
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="p-4">
+              <Eyebrow>{lang === "th" ? "ความเสี่ยงล็อกสเปก" : "Lock-spec risk"}</Eyebrow>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <LockSpecBadge level="low" score={18} lang={lang} />
                 <LockSpecBadge level="medium" score={54} lang={lang} />
                 <LockSpecBadge level="high" score={87} lang={lang} />
@@ -281,22 +288,18 @@ export default function MockupIndexPage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 border-t border-line pt-3.5">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
-                {lang === "th" ? "ตรวจสอบราคา" : "Price reality check"}
-              </p>
-              <div className="flex flex-wrap gap-2">
+            <div className="p-4">
+              <Eyebrow>{lang === "th" ? "ตรวจสอบราคา" : "Price reality check"}</Eyebrow>
+              <div className="mt-2 flex flex-wrap gap-2">
                 {[tors[1], tors[0], tors[5]].map((tor) => (
                   <PriceBadge key={tor.id} tor={tor} lang={lang} />
                 ))}
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 border-t border-line pt-3.5">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
-                {lang === "th" ? "ป้ายประเภท (ไม่ใช้สี)" : "Category tags (no hue)"}
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="p-4">
+              <Eyebrow>{lang === "th" ? "ป้ายประเภท (ไม่ใช้สี)" : "Category tags (no hue)"}</Eyebrow>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <ScopeBadge size="solo" lang={lang} />
                 <ScopeBadge size="small-team" lang={lang} />
                 <ScopeBadge size="firm" lang={lang} />
@@ -305,10 +308,29 @@ export default function MockupIndexPage() {
               </div>
             </div>
           </Panel>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {(["open", "amend", "risk"] as const).map((tone, index) => (
+              <AccentPanel key={tone} tone={tone} className="p-3.5">
+                <p className="text-[12px] font-semibold text-ink">
+                  {[
+                    lang === "th" ? "บล็อกที่ปลอดภัย" : "A block that is fine",
+                    lang === "th" ? "บล็อกที่ต้องดูให้ดี" : "A block to look at closely",
+                    lang === "th" ? "บล็อกที่เสียเวลาเปล่า" : "A block that will cost you",
+                  ][index]}
+                </p>
+                <p className="mt-1 text-[11px] leading-thai text-ink-3">
+                  {lang === "th"
+                    ? "แถบซ้ายคือแถบเดียวกับที่ใช้หน้ารายการ"
+                    : "The left rail is the same one the browse rows use."}
+                </p>
+              </AccentPanel>
+            ))}
+          </div>
         </section>
 
-        <section className="flex flex-col gap-4">
-          <SectionLabel>{lang === "th" ? "สีและตัวอักษร" : "Colour and type"}</SectionLabel>
+        <section className="mt-12">
+          <SectionHeading>{lang === "th" ? "สีและตัวอักษร" : "Colour and type"}</SectionHeading>
 
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
             {TOKENS.map((token) => (
@@ -322,25 +344,27 @@ export default function MockupIndexPage() {
             ))}
           </div>
 
-          <Panel className="flex flex-col gap-3 p-3.5">
+          <Panel className="mt-3 p-4">
             <p className="text-[27px] leading-thai font-semibold tracking-tight text-ink">
               {sample.title.th}
             </p>
-            <p className="text-[15px] leading-thai text-ink-2">
+            <p className="mt-2 text-[15px] leading-thai text-ink-2">
               ระบบต้องรองรับ NGINX Plus บน Windows Server 2019 และคิดค่าปรับร้อยละ 0.20 ต่อวัน
             </p>
-            <p className="font-mono tnum text-[15px] text-ink">
+            <p className="mt-2 font-mono tnum text-[15px] text-ink">
               ฿12,400,000 · 04 Sep 2026 · BMA-2569-0142
             </p>
-            <p className="text-[12px] leading-thai text-ink-3">
-              {lang === "th"
-                ? "IBM Plex Sans Thai สำหรับข้อความ และ IBM Plex Mono สำหรับตัวเลข รหัส และวันที่ เลือกเพราะครอบคลุมภาษาไทยเต็มรูปแบบ และคู่ละตินรับศัพท์เทคนิคที่แทรกกลางประโยคไทยได้พอดี"
-                : "IBM Plex Sans Thai for text, IBM Plex Mono for figures, IDs and dates — chosen for full Thai coverage and a Latin companion that carries the English tech terms running inline through Thai sentences."}
-            </p>
+            <Well className="mt-3 px-3 py-2.5">
+              <p className="text-[12px] leading-thai text-ink-3">
+                {lang === "th"
+                  ? "IBM Plex Sans Thai สำหรับข้อความ และ IBM Plex Mono สำหรับตัวเลข รหัส และวันที่ เลือกเพราะครอบคลุมภาษาไทยเต็มรูปแบบ และคู่ละตินรับศัพท์เทคนิคที่แทรกกลางประโยคไทยได้พอดี"
+                  : "IBM Plex Sans Thai for text, IBM Plex Mono for figures, IDs and dates — chosen for full Thai coverage and a Latin companion that carries the English tech terms running inline through Thai sentences."}
+              </p>
+            </Well>
           </Panel>
         </section>
 
-        <footer className="border-t border-line pt-4 font-mono text-[11px] text-ink-3">
+        <footer className="mt-12 border-t border-line pt-4 font-mono text-[11px] text-ink-3">
           {lang === "th"
             ? "แบบร่างนี้ใช้ข้อมูลตัวอย่างที่เขียนขึ้นให้ใกล้เคียงเอกสารจริง ไม่ใช่ข้อมูลจากระบบ e-GP"
             : "These mockups run on hand-written fixture data modelled on real documents. Nothing here is live e-GP data."}

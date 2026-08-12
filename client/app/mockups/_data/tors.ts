@@ -26,6 +26,8 @@ export type ScopeSize = "solo" | "small-team" | "firm";
 export type SourceFormat = "scanned-pdf" | "html" | "json" | "image";
 
 export type LockSpecReason = {
+  /** What kind of problem this is, so a reader can sort findings at a glance. */
+  tag: Bi;
   /** The verdict, in plain language. Stated first, before the evidence. */
   verdict: Bi;
   /** The clause as it appears in the source document. */
@@ -79,8 +81,6 @@ export type Tor = {
   scopeSize: ScopeSize;
   /** Eligible for the government's SME set-aside advantage. */
   smeAdvantage: boolean;
-  /** FR07 — match against the demo user's profile. */
-  matchScore: number;
   summary: Bi[];
   deliverables: Bi[];
   lockSpec: {
@@ -133,7 +133,6 @@ const CATALOG: Tor[] = [
     status: "amended",
     scopeSize: "firm",
     smeAdvantage: false,
-    matchScore: 42,
     summary: [
       {
         th: "ต่อยอดระบบเดิมจากระยะที่ 1 โดยเพิ่มการพยากรณ์ระดับน้ำรายชั่วโมงจากสถานีตรวจวัด 214 จุด",
@@ -158,6 +157,7 @@ const CATALOG: Tor[] = [
       score: 87,
       reasons: [
         {
+          tag: { th: "คุณสมบัติผู้เสนอราคา", en: "Bidder qualification" },
           verdict: {
             th: "ขอประสบการณ์ 10 ปี กับผลิตภัณฑ์ที่เพิ่งมีใช้ในราชการไทยราว 3 ปี",
             en: "Requires 10 years of experience with a product Thai agencies have only used for about 3.",
@@ -171,6 +171,7 @@ const CATALOG: Tor[] = [
           },
         },
         {
+          tag: { th: "สเปกผูกยี่ห้อ", en: "Brand-locked spec" },
           verdict: {
             th: "ตัดคำว่า “หรือเทียบเท่า” ออก ทำให้เหลือผู้ผลิตรายเดียวที่เสนอได้",
             en: "The “or equivalent” wording was removed, leaving exactly one qualifying vendor.",
@@ -184,6 +185,7 @@ const CATALOG: Tor[] = [
           },
         },
         {
+          tag: { th: "ข้อกำหนดทางการเงิน", en: "Financial threshold" },
           verdict: {
             th: "ทุนจดทะเบียนที่กำหนดสูงกว่าค่างานเกือบ 2.5 เท่า",
             en: "The registered-capital floor is nearly 2.5× the project's own budget.",
@@ -309,7 +311,6 @@ const CATALOG: Tor[] = [
     status: "open",
     scopeSize: "small-team",
     smeAdvantage: true,
-    matchScore: 91,
     summary: [
       {
         th: "พัฒนาเว็บไซต์เปิดเผยชุดข้อมูลของ กทม. พร้อมระบบค้นหาและ API สำหรับนักพัฒนา",
@@ -331,6 +332,7 @@ const CATALOG: Tor[] = [
       score: 18,
       reasons: [
         {
+          tag: { th: "ผลงานย้อนหลัง", en: "Past-work threshold" },
           verdict: {
             th: "ข้อกำหนดอยู่ในเกณฑ์ปกติ มีเพียงการขอผลงานย้อนหลังที่สูงกว่าค่ากลางเล็กน้อย",
             en: "Requirements are unremarkable; only the past-work threshold sits slightly above the norm.",
@@ -409,7 +411,6 @@ const CATALOG: Tor[] = [
     status: "open",
     scopeSize: "solo",
     smeAdvantage: true,
-    matchScore: 88,
     summary: [
       {
         th: "ระบบจองคิวล่วงหน้าผ่านเว็บและ LINE พร้อมหน้าจอเรียกคิวที่สำนักงานเขต",
@@ -430,6 +431,7 @@ const CATALOG: Tor[] = [
       score: 12,
       reasons: [
         {
+          tag: { th: "ผลงานย้อนหลัง", en: "Past-work threshold" },
           verdict: {
             th: "ไม่พบข้อกำหนดที่ผิดปกติ เปิดกว้างสำหรับผู้เสนอราคารายใหม่",
             en: "Nothing unusual — the requirements are open to first-time bidders.",
@@ -508,7 +510,6 @@ const CATALOG: Tor[] = [
     status: "amended",
     scopeSize: "small-team",
     smeAdvantage: true,
-    matchScore: 76,
     summary: [
       {
         th: "แอปมือถือสำหรับประชาชนแจ้งปัญหา พร้อมส่งต่อเรื่องเข้าระบบ Traffy Fondue เดิม",
@@ -529,6 +530,7 @@ const CATALOG: Tor[] = [
       score: 54,
       reasons: [
         {
+          tag: { th: "ผลงานเฉพาะทาง", en: "Niche experience" },
           verdict: {
             th: "ขอผลงานที่ต้องเคยเชื่อมต่อ Traffy Fondue มาก่อน ซึ่งมีผู้ผ่านเกณฑ์ไม่กี่ราย",
             en: "Demands prior Traffy Fondue integration work — a bar only a handful of vendors clear.",
@@ -542,6 +544,7 @@ const CATALOG: Tor[] = [
           },
         },
         {
+          tag: { th: "ขอบเขตกับเวลา", en: "Scope vs schedule" },
           verdict: {
             th: "กำหนดส่งมอบภายใน 210 วัน แต่เพิ่มขอบเขตงานในการแก้ไขครั้งที่ 2 โดยไม่ขยายเวลา",
             en: "Round 2 added scope without moving the 210-day delivery date.",
@@ -634,7 +637,6 @@ const CATALOG: Tor[] = [
     status: "open",
     scopeSize: "firm",
     smeAdvantage: false,
-    matchScore: 23,
     summary: [
       {
         th: "ติดตั้งกล้อง 240 ตัว พร้อมระบบวิเคราะห์ภาพนับปริมาณรถและตรวจจับอุบัติเหตุ",
@@ -655,6 +657,7 @@ const CATALOG: Tor[] = [
       score: 79,
       reasons: [
         {
+          tag: { th: "สเปกผูกยี่ห้อ", en: "Brand-locked spec" },
           verdict: {
             th: "ระบุยี่ห้อซอฟต์แวร์บริหารกล้องโดยตรง ไม่เปิดทางเลือกเทียบเท่า",
             en: "Names a specific video-management product with no equivalent option.",
@@ -667,6 +670,7 @@ const CATALOG: Tor[] = [
           },
         },
         {
+          tag: { th: "ผลงานย้อนหลัง", en: "Past-work threshold" },
           verdict: {
             th: "ขอผลงานติดตั้งกล้องขนาด 200 ตัวขึ้นไปในกรุงเทพฯ ซึ่งมีผู้ผ่านเกณฑ์เพียง 2–3 ราย",
             en: "Requires a 200+ camera Bangkok deployment — only two or three vendors qualify.",
@@ -746,7 +750,6 @@ const CATALOG: Tor[] = [
     status: "open",
     scopeSize: "firm",
     smeAdvantage: false,
-    matchScore: 31,
     summary: [
       {
         th: "พัฒนาระบบสารสนเทศโรงพยาบาลสำหรับ 4 โรงพยาบาลในสังกัด พร้อมย้ายข้อมูลผู้ป่วยเดิม",
@@ -767,6 +770,7 @@ const CATALOG: Tor[] = [
       score: 71,
       reasons: [
         {
+          tag: { th: "ขอบเขตกับงบประมาณ", en: "Scope vs budget" },
           verdict: {
             th: "ขอบเขตงานใหญ่กว่างบประมาณอย่างมีนัยสำคัญ เสี่ยงขาดทุนตั้งแต่เซ็นสัญญา",
             en: "The scope materially outruns the budget — a losing contract from the day it is signed.",
@@ -780,6 +784,7 @@ const CATALOG: Tor[] = [
           },
         },
         {
+          tag: { th: "บุคลากรที่กำหนด", en: "Required staffing" },
           verdict: {
             th: "กำหนดให้ต้องมีบุคลากรที่ได้รับใบรับรองเฉพาะทาง 6 คน ตลอดสัญญา",
             en: "Requires six specifically certified staff on the contract throughout.",
@@ -859,7 +864,6 @@ const CATALOG: Tor[] = [
     status: "open",
     scopeSize: "small-team",
     smeAdvantage: true,
-    matchScore: 64,
     summary: [
       {
         th: "แดชบอร์ดติดตามการเบิกจ่ายรายสำนัก พร้อมรายงานอัตโนมัติรายเดือน",
@@ -880,6 +884,7 @@ const CATALOG: Tor[] = [
       score: 48,
       reasons: [
         {
+          tag: { th: "สเปกผูกยี่ห้อ", en: "Brand-locked spec" },
           verdict: {
             th: "ผูกกับเครื่องมือของผู้ผลิตรายเดียว ทำให้ผู้เสนอราคาที่ถนัดเครื่องมืออื่นเสียเปรียบ",
             en: "Tied to one vendor's toolchain, which puts teams skilled in anything else at a disadvantage.",
@@ -951,7 +956,6 @@ const CATALOG: Tor[] = [
     status: "open",
     scopeSize: "solo",
     smeAdvantage: true,
-    matchScore: 55,
     summary: [
       {
         th: "งานที่ปรึกษา จัดทำแผนแม่บท IT 5 ปี พร้อมสำรวจความพร้อมของ 16 สำนัก",
@@ -969,6 +973,7 @@ const CATALOG: Tor[] = [
       score: 21,
       reasons: [
         {
+          tag: { th: "ผลงานย้อนหลัง", en: "Past-work threshold" },
           verdict: {
             th: "ข้อกำหนดทั่วไป เปิดให้ที่ปรึกษาอิสระเสนอราคาได้",
             en: "Standard requirements — independent consultants can bid.",
@@ -1039,7 +1044,6 @@ const CATALOG: Tor[] = [
     awardedAmount: 612_000,
     scopeSize: "solo",
     smeAdvantage: true,
-    matchScore: 61,
     summary: [
       { th: "บำรุงรักษาระบบสารบรรณเดิมรายปี พร้อมบริการ on-site 8x5", en: "Annual maintenance with 8x5 on-site support." },
       { th: "ผู้ชนะเสนอราคาต่ำกว่าราคากลาง 4.4%", en: "Winning bid came in 4.4% under the reference price." },
@@ -1052,6 +1056,7 @@ const CATALOG: Tor[] = [
       score: 44,
       reasons: [
         {
+          tag: { th: "ได้เปรียบรายเดิม", en: "Incumbent advantage" },
           verdict: {
             th: "ขอผลงานบำรุงรักษาระบบเดิมของหน่วยงานนี้โดยเฉพาะ ซึ่งผู้ให้บริการรายเดิมได้เปรียบ",
             en: "Asks for maintenance history on this agency's own system, which favours the incumbent.",
@@ -1139,7 +1144,6 @@ const CATALOG: Tor[] = [
     awardedAmount: 4_555_000,
     scopeSize: "firm",
     smeAdvantage: false,
-    matchScore: 39,
     summary: [
       { th: "ดูแลระบบเครือข่ายและเซิร์ฟเวอร์ของศาลาว่าการ 2 ตลอด 12 เดือน", en: "12 months of network and server support for City Hall 2." },
       { th: "ผู้ชนะเสนอราคาต่ำกว่าราคากลางเพียง 1%", en: "Winning bid was just 1% under the reference price." },
@@ -1150,6 +1154,7 @@ const CATALOG: Tor[] = [
       score: 51,
       reasons: [
         {
+          tag: { th: "รูปแบบการประมูล", en: "Bidding pattern" },
           verdict: {
             th: "มีผู้เสนอราคารายเดียวติดต่อกัน 3 ปี และราคาชนะต่ำกว่าราคากลางไม่ถึง 2% ทุกครั้ง",
             en: "One bidder three years running, each time winning within 2% of the reference price.",
@@ -1237,17 +1242,81 @@ export const techTerms: string[] = Array.from(
   .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
   .map(([term]) => term);
 
-/** The signed-in demo user, used by the matchmaker and watchlist screens. */
-export const demoProfile = {
+/**
+ * What the user tells us about themselves. Edited on the profile screen and
+ * read by the catalog's matched mode, so the two screens are the same feature
+ * seen from two ends.
+ */
+export type Profile = {
+  name: string;
+  role: Bi;
+  email: string;
+  skills: string[];
+  budgetMin: number;
+  budgetMax: number;
+  scopeSizes: ScopeSize[];
+  smeRegistered: boolean;
+  watchlist: string[];
+};
+
+export const demoProfile: Profile = {
   name: "สุชาติ ว.",
-  handle: "Freelance developer · Bangkok",
+  role: { th: "นักพัฒนาอิสระ · กรุงเทพฯ", en: "Freelance developer · Bangkok" },
+  email: "suchart.w@example.co.th",
   skills: ["Next.js", "React", "Node.js", "PostgreSQL", "MySQL", "LINE Messaging API"],
   budgetMin: 300_000,
   budgetMax: 5_000_000,
-  scopeSizes: ["solo", "small-team"] as ScopeSize[],
+  scopeSizes: ["solo", "small-team"],
   smeRegistered: true,
   watchlist: ["BMA-2569-0142", "BMA-2569-0217", "BMA-2569-0245"],
 };
+
+/** One reason the score came out where it did — shown, never left implicit. */
+export type MatchFactor = { met: boolean; label: Bi };
+
+/**
+ * FR07. Kept legible rather than magic: the score is a weighted sum of three
+ * things the user can see and change on the profile screen, and every surface
+ * that shows a score can also show which of the three actually fired.
+ */
+export function matchFactors(tor: Tor, profile: Profile): MatchFactor[] {
+  const matched = tor.techStack.filter((t) => profile.skills.includes(t));
+  const budgetFits = tor.budget >= profile.budgetMin && tor.budget <= profile.budgetMax;
+  const scopeFits = profile.scopeSizes.includes(tor.scopeSize);
+
+  return [
+    {
+      met: matched.length > 0,
+      label: {
+        th: `ทักษะตรง ${matched.length} จาก ${tor.techStack.length} รายการ`,
+        en: `${matched.length} of ${tor.techStack.length} technologies match your skills`,
+      },
+    },
+    {
+      met: budgetFits,
+      label: budgetFits
+        ? { th: "งบอยู่ในช่วงที่คุณรับงาน", en: "Budget sits inside your stated range" }
+        : { th: "งบอยู่นอกช่วงที่คุณตั้งไว้", en: "Budget is outside your stated range" },
+    },
+    {
+      met: scopeFits,
+      label: scopeFits
+        ? { th: "ขนาดงานอยู่ในกำลังของคุณ", en: "Scope is within the team size you set" }
+        : { th: "ขนาดงานใหญ่เกินกำลังที่คุณตั้งไว้", en: "Scope needs a bigger team than you set" },
+    },
+  ];
+}
+
+export function matchScore(tor: Tor, profile: Profile): number {
+  const matched = tor.techStack.filter((t) => profile.skills.includes(t)).length;
+  const skillFit = tor.techStack.length ? matched / tor.techStack.length : 0;
+  const budgetFit =
+    tor.budget >= profile.budgetMin && tor.budget <= profile.budgetMax ? 1 : 0.15;
+  const scopeFit = profile.scopeSizes.includes(tor.scopeSize) ? 1 : 0.2;
+  const smeBonus = profile.smeRegistered && tor.smeAdvantage ? 6 : 0;
+
+  return Math.min(100, Math.round(skillFit * 55 + budgetFit * 25 + scopeFit * 20 + smeBonus));
+}
 
 /* ---------------------------------- utils --------------------------------- */
 

@@ -7,7 +7,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import type { Lang } from "../_data/tors";
+import { demoProfile, type Lang, type Profile } from "../_data/tors";
 
 /**
  * Content language. Source documents are Thai and most users read Thai, so
@@ -21,13 +21,33 @@ const LangContext = createContext<{ lang: Lang; setLang: (lang: Lang) => void }>
   setLang: () => {},
 });
 
+/**
+ * The profile lives above the routes so editing skills on /profile changes the
+ * ranking on /catalog without a round trip — which is the whole point of
+ * splitting the two, and the thing a static mockup would fail to show.
+ */
+const ProfileContext = createContext<{
+  profile: Profile;
+  setProfile: (profile: Profile) => void;
+}>({ profile: demoProfile, setProfile: () => {} });
+
 export function PrefsProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>("th");
-  return <LangContext.Provider value={{ lang, setLang }}>{children}</LangContext.Provider>;
+  const [profile, setProfile] = useState<Profile>(demoProfile);
+
+  return (
+    <LangContext.Provider value={{ lang, setLang }}>
+      <ProfileContext.Provider value={{ profile, setProfile }}>{children}</ProfileContext.Provider>
+    </LangContext.Provider>
+  );
 }
 
 export function useLang() {
   return useContext(LangContext);
+}
+
+export function useProfile() {
+  return useContext(ProfileContext);
 }
 
 export function LangToggle() {
@@ -50,9 +70,7 @@ export function LangToggle() {
           onClick={() => setLang(option.value)}
           aria-pressed={lang === option.value}
           className={`rounded-[2px] px-2 py-[3px] text-[11px] font-medium transition-colors ${
-            lang === option.value
-              ? "bg-ink text-surface"
-              : "text-ink-3 hover:text-ink"
+            lang === option.value ? "bg-ink text-surface" : "text-ink-3 hover:text-ink"
           }`}
         >
           {option.label}
@@ -89,7 +107,7 @@ function readTheme(): Theme {
 
 function applyTheme(next: Theme) {
   document.documentElement.dataset.theme = next;
-  localStorage.setItem("torchlight-theme", next);
+  localStorage.setItem("mjolnir-theme", next);
   for (const listener of themeListeners) listener();
 }
 
@@ -106,10 +124,7 @@ export function ThemeToggle() {
     >
       {theme === "dark" ? (
         <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
-          <path
-            d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5Z"
-            fill="currentColor"
-          />
+          <path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5Z" fill="currentColor" />
         </svg>
       ) : (
         <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">

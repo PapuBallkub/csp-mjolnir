@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { daysUntil, demoProfile, formatDate, pick, tors, type Tor } from "../../_data/tors";
-import { useLang } from "../../_components/prefs";
+import { daysUntil, formatDate, pick, tors, type Tor } from "../../_data/tors";
+import { useLang, useProfile } from "../../_components/prefs";
 import { TorRow } from "../../_components/tor-row";
-import { btn, EmptyState, Panel, SectionLabel } from "../../_components/ui";
+import { btn, EmptyState, Panel, SectionHeading } from "../../_components/ui";
 
 type Alert = {
   tor: Tor;
@@ -23,7 +23,8 @@ const ALERT_TONE: Record<Alert["kind"], string> = {
 
 export default function WatchlistPage() {
   const { lang } = useLang();
-  const [saved, setSaved] = useState<string[]>(demoProfile.watchlist);
+  const { profile } = useProfile();
+  const [saved, setSaved] = useState<string[]>(profile.watchlist);
   const [dismissed, setDismissed] = useState<string[]>([]);
 
   const savedTors = useMemo(() => tors.filter((t) => saved.includes(t.id)), [saved]);
@@ -83,16 +84,21 @@ export default function WatchlistPage() {
       </header>
 
       {alerts.length > 0 ? (
-        <section className="mb-6 flex flex-col gap-3">
-          <SectionLabel
+        <section className="mb-8">
+          <SectionHeading
+            sub={
+              lang === "th"
+                ? "รวมทั้งการแก้ไขเอกสาร การปิดรับ และกำหนดยื่นที่ใกล้เข้ามา"
+                : "Amendments, closures and deadlines closing in."
+            }
             right={
-              <span className="font-mono text-[11px]">
+              <span className="font-mono text-[11px] text-ink-3">
                 {lang === "th" ? `${alerts.length} รายการใหม่` : `${alerts.length} new`}
               </span>
             }
           >
             {lang === "th" ? "เปลี่ยนแปลงตั้งแต่ครั้งที่แล้ว" : "Changed since you last looked"}
-          </SectionLabel>
+          </SectionHeading>
 
           <ul className="flex flex-col gap-2">
             {alerts.map((alert) => (
@@ -128,17 +134,17 @@ export default function WatchlistPage() {
         </section>
       ) : null}
 
-      <SectionLabel
+      <SectionHeading
         right={
-          <span className="font-mono text-[11px]">
+          <span className="font-mono text-[11px] text-ink-3">
             {savedTors.length} {lang === "th" ? "โครงการ" : "saved"}
           </span>
         }
       >
         {lang === "th" ? "โครงการที่บันทึกไว้" : "Saved projects"}
-      </SectionLabel>
+      </SectionHeading>
 
-      <div className="mt-3">
+      <div>
         {savedTors.length === 0 ? (
           <EmptyState
             headline={

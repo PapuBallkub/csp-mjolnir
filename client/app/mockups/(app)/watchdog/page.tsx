@@ -12,7 +12,7 @@ import {
 } from "../../_data/tors";
 import { useLang } from "../../_components/prefs";
 import { AmendmentModule } from "../../_components/modules";
-import { Panel, SectionLabel } from "../../_components/ui";
+import { Panel, SectionHeading } from "../../_components/ui";
 import { StatusBadge } from "../../_components/verdict";
 
 /** Deviations inside this band are ordinary and are drawn in neutral grey. */
@@ -138,8 +138,8 @@ export default function WatchdogPage() {
         </p>
       </header>
 
-      <section className="mb-8 flex flex-col gap-4">
-        <SectionLabel
+      <section className="mb-8">
+        <SectionHeading
           right={
             <span className="font-mono text-[11px]">
               {lang === "th" ? `${tors.length} โครงการ` : `${tors.length} projects`}
@@ -147,14 +147,14 @@ export default function WatchdogPage() {
           }
         >
           {lang === "th" ? "ส่วนต่างจากค่ากลางย้อนหลัง" : "Deviation from historical median"}
-        </SectionLabel>
+        </SectionHeading>
         <Panel className="p-3.5">
           <DeviationChart rows={byDeviation} lang={lang} />
         </Panel>
       </section>
 
-      <section className="mb-8 flex flex-col gap-4">
-        <SectionLabel
+      <section className="mb-8">
+        <SectionHeading
           right={
             <span className="font-mono text-[11px]">
               {lang === "th"
@@ -164,7 +164,7 @@ export default function WatchdogPage() {
           }
         >
           {lang === "th" ? "ตัวเปรียบเทียบฉบับแก้ไข" : "Amendment diff viewer"}
-        </SectionLabel>
+        </SectionHeading>
 
         <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
           <Panel className="overflow-hidden">
@@ -208,10 +208,10 @@ export default function WatchdogPage() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-4">
-        <SectionLabel>
+      <section>
+        <SectionHeading>
           {lang === "th" ? "ผลการประมูลที่ปิดแล้ว" : "Closed awards"}
-        </SectionLabel>
+        </SectionHeading>
         <Panel className="overflow-x-auto">
           <table className="w-full min-w-[640px] border-collapse text-left">
             <thead>
@@ -275,7 +275,7 @@ export default function WatchdogPage() {
             </tbody>
           </table>
         </Panel>
-        <p className="text-[11px] leading-thai text-ink-3">
+        <p className="mt-3 text-[11px] leading-thai text-ink-3">
           {lang === "th"
             ? "ราคาที่ชนะซึ่งเข้าใกล้ราคากลางมาก มักพบในงานที่มีผู้เสนอราคารายเดียว ตัวเลขนี้เป็นข้อสังเกต ไม่ใช่ข้อกล่าวหา"
             : "Winning bids that sit within a couple of percent of the ceiling are typical of single-bidder rounds. This is an observation, not an accusation."}

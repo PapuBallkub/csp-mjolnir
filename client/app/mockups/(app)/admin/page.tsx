@@ -8,7 +8,7 @@ import {
   type SourceHealth,
 } from "../../_data/ops";
 import { useLang } from "../../_components/prefs";
-import { btn, input, Label, Panel, SectionLabel } from "../../_components/ui";
+import { btn, input, Label, Panel, SectionHeading } from "../../_components/ui";
 
 /**
  * Operational surface, not a marketing one: dense tables, real failure text,
@@ -104,8 +104,8 @@ export default function AdminPage() {
         ))}
       </div>
 
-      <section className="mb-8 flex flex-col gap-3">
-        <SectionLabel
+      <section className="mb-8">
+        <SectionHeading
           right={
             <span className="font-mono text-[11px]">
               {lang === "th" ? "รอบล่าสุด 12 ส.ค. 06:33" : "Last run 12 Aug 06:33"}
@@ -113,7 +113,7 @@ export default function AdminPage() {
           }
         >
           {lang === "th" ? "ตัวเก็บข้อมูลรายแหล่ง" : "Scrapers by source"}
-        </SectionLabel>
+        </SectionHeading>
 
         <Panel className="overflow-x-auto">
           <table className="w-full min-w-[820px] border-collapse text-left">
@@ -193,8 +193,8 @@ export default function AdminPage() {
         </Panel>
       </section>
 
-      <section className="flex flex-col gap-3">
-        <SectionLabel
+      <section>
+        <SectionHeading
           right={
             <span className="font-mono text-[11px]">
               {pending.length} {lang === "th" ? "รอดำเนินการ" : "pending"}
@@ -202,7 +202,7 @@ export default function AdminPage() {
           }
         >
           {lang === "th" ? "คิวตรวจทานผลการอ่านเอกสาร" : "Extraction review queue"}
-        </SectionLabel>
+        </SectionHeading>
 
         <div className="flex flex-col gap-2">
           {reviewQueue.map((item) => {

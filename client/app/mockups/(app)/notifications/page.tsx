@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatTHBCompact, pick, tors } from "../../_data/tors";
 import { useLang } from "../../_components/prefs";
-import { btn, input, Label, Panel, SectionLabel } from "../../_components/ui";
+import { btn, input, Label, Panel, SectionHeading } from "../../_components/ui";
 import { LockSpecBadge, StatusBadge } from "../../_components/verdict";
 import { Wordmark } from "../../_components/shell";
 
@@ -234,7 +234,7 @@ export default function NotificationsPage() {
         </div>
 
         <aside className="flex flex-col gap-3">
-          <SectionLabel>{lang === "th" ? "ตัวอย่างอีเมล" : "What the email looks like"}</SectionLabel>
+          <SectionHeading>{lang === "th" ? "ตัวอย่างอีเมล" : "What the email looks like"}</SectionHeading>
           <Panel className="overflow-hidden">
             <div className="border-b border-line bg-surface-2 px-3 py-2">
               <Wordmark />

@@ -4,6 +4,12 @@ import type { ReactNode } from "react";
  * Generic chrome. Everything here is deliberately monochrome — saturated
  * colour belongs to the verdict layer (see `verdict.tsx`) so that colour
  * anywhere on a screen reads as a signal rather than decoration.
+ *
+ * Structure is carried by three devices, in this order of preference:
+ *   1. Typographic rank — a real heading, not a hairline rule with a caption.
+ *   2. Spacing rhythm — tight inside a group, conspicuously loose between.
+ *   3. Surface — a well or an accented panel, used only where a block really
+ *      is a different kind of thing. Boxes are the last resort, not the first.
  */
 
 export function Panel({
@@ -20,33 +26,102 @@ export function Panel({
   );
 }
 
-/** Small caps label over a hairline rule — the recurring section marker. */
-export function SectionLabel({
+const ACCENT: Record<string, string> = {
+  open: "border-l-open",
+  amend: "border-l-amend",
+  risk: "border-l-risk",
+  closed: "border-l-closed",
+  neutral: "border-l-line-2",
+};
+
+/**
+ * A panel wearing the signal rail on its edge. Used where a whole block *is* a
+ * verdict about the content next to it — the same rail the catalog rows use,
+ * so the device means one thing everywhere.
+ */
+export function AccentPanel({
+  tone,
   children,
-  right,
   className = "",
+  id,
 }: {
+  tone: "open" | "amend" | "risk" | "closed" | "neutral";
   children: ReactNode;
-  right?: ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
-    <div className={`flex items-baseline gap-3 ${className}`}>
-      <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-ink-3 whitespace-nowrap">
-        {children}
-      </h2>
-      <span className="h-px flex-1 bg-line" />
-      {right ? <div className="text-[12px] text-ink-3">{right}</div> : null}
+    <section
+      id={id}
+      className={`rounded-[3px] border border-l-[3px] border-line bg-surface ${ACCENT[tone]} ${className}`}
+    >
+      {children}
+    </section>
+  );
+}
+
+/**
+ * A quiet inset for supporting material — a quoted clause, a chart, a diff.
+ * It groups without adding another bordered card to the page.
+ */
+export function Well({
+  children,
+  className = "",
+  bordered = true,
+}: {
+  children: ReactNode;
+  className?: string;
+  bordered?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-[3px] bg-surface-2 ${bordered ? "border border-line" : ""} ${className}`}
+    >
+      {children}
     </div>
   );
 }
 
-/** Field label used inside key-fact tables and forms. */
+/** The main section rank inside a reading column. */
+export function SectionHeading({
+  children,
+  sub,
+  right,
+  id,
+}: {
+  children: ReactNode;
+  sub?: ReactNode;
+  right?: ReactNode;
+  id?: string;
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <div className="min-w-0">
+        <h2 id={id} className="text-[17px] leading-snug font-semibold tracking-tight text-ink">
+          {children}
+        </h2>
+        {sub ? <p className="mt-1 text-[12px] leading-thai text-ink-3">{sub}</p> : null}
+      </div>
+      {right ? <div className="shrink-0">{right}</div> : null}
+    </div>
+  );
+}
+
+/** Field-level label: forms, key-fact rows, chart annotations. Never a section. */
 export function Label({ children }: { children: ReactNode }) {
   return (
     <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-3">
       {children}
     </span>
+  );
+}
+
+/** Small caps eyebrow that sits above a heading to name a region. */
+export function Eyebrow({ children }: { children: ReactNode }) {
+  return (
+    <p className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-ink-3">
+      {children}
+    </p>
   );
 }
 

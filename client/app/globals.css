@@ -4,7 +4,7 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /*
-  TORchlight design tokens.
+  Mjölnir design tokens.
 
   Rule of the system: the chrome is monochrome graphite. Saturated colour is
   reserved almost entirely for the verdict layer (status, lock-spec risk, price

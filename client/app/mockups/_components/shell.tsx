@@ -2,43 +2,38 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LangToggle, ThemeToggle } from "./prefs";
+import { useProfile, LangToggle, ThemeToggle } from "./prefs";
 
-/** The beam sweeping across a page — the product's whole job in one mark. */
+/**
+ * The hammer, drawn flat and geometric rather than mythic — this is an
+ * instrument, not a fantasy brand. It reads at 18px, which is the only size
+ * that matters in the masthead.
+ */
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
     <span className={`inline-flex items-center gap-2 ${className}`}>
       <svg viewBox="0 0 20 20" className="h-[18px] w-[18px] text-ink" aria-hidden="true">
-        <rect
-          x="3.5"
-          y="2.5"
-          width="13"
-          height="15"
-          rx="1"
-          stroke="currentColor"
-          strokeWidth="1.3"
-          fill="none"
-          opacity="0.45"
+        <path
+          d="M2.5 2.5 H17.5 V8.6 H12.4 V11.4 H14 V17.5 H6 V11.4 H7.6 V8.6 H2.5 Z"
+          fill="currentColor"
         />
-        <path d="M4 3.2 L16 11 L16 16.8 L4 9 Z" fill="currentColor" />
       </svg>
-      <span className="text-[15px] leading-none tracking-tight text-ink">
-        <span className="font-mono font-semibold">TOR</span>
-        <span className="font-medium">chlight</span>
+      <span className="text-[15px] leading-none font-semibold tracking-tight text-ink">
+        Mjölnir
       </span>
     </span>
   );
 }
 
 const NAV = [
-  { href: "/mockups/catalog", label: "Catalog" },
-  { href: "/mockups/matchmaker", label: "Matchmaker" },
+  { href: "/mockups/catalog", label: "Browse" },
   { href: "/mockups/watchlist", label: "Watchlist" },
   { href: "/mockups/watchdog", label: "Watchdog" },
 ] as const;
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { profile } = useProfile();
 
   return (
     <div className="flex min-h-full flex-col">
@@ -116,10 +111,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <span className="absolute -right-[3px] -top-[3px] h-2 w-2 rounded-full border border-surface bg-amend" />
             </Link>
             <Link
-              href="/mockups/auth"
-              className="hidden h-[26px] items-center rounded-[3px] border border-line bg-surface-2 px-2 text-[12px] text-ink-2 transition-colors hover:text-ink sm:flex"
+              href="/mockups/profile"
+              className={`flex h-[26px] items-center rounded-[3px] border px-2 text-[12px] transition-colors ${
+                pathname.startsWith("/mockups/profile")
+                  ? "border-line-2 bg-surface-3 text-ink"
+                  : "border-line bg-surface-2 text-ink-2 hover:text-ink"
+              }`}
             >
-              สุชาติ ว.
+              {profile.name}
             </Link>
           </div>
         </div>
