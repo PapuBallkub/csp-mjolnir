@@ -1,26 +1,189 @@
 @import "tailwindcss";
 
+/* Manual theme override; falls back to the OS preference when unset. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+  TORchlight design tokens.
+
+  Rule of the system: the chrome is monochrome graphite. Saturated colour is
+  reserved almost entirely for the verdict layer (status, lock-spec risk, price
+  reality check) so that colour anywhere on a screen *means* a signal, and a
+  dense list can be scanned by hue alone.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  --canvas: #e8ebef;
+  --surface: #ffffff;
+  --surface-2: #f3f5f7;
+  --surface-3: #e4e8ed;
+  --ink: #101418;
+  --ink-2: #4e575f;
+  --ink-3: #7c8792;
+  --line: #d7dce2;
+  --line-2: #bcc4cd;
+  --focus: #101418;
+
+  /* Open — the project is live and worth your time */
+  --open: #06795a;
+  --open-bg: #dff2ea;
+  --open-line: #a8dcc8;
+
+  /* Amended — something changed under you */
+  --amend: #9a5a05;
+  --amend-bg: #fbeedc;
+  --amend-line: #ebcb99;
+
+  /* Risk — lock-spec / price outlier */
+  --risk: #be1d46;
+  --risk-bg: #fce6eb;
+  --risk-line: #f2b3c1;
+
+  /* Closed / awarded — deliberately drained, it should recede */
+  --closed: #6b747e;
+  --closed-bg: #e7eaee;
+  --closed-line: #cbd2d9;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --canvas: #0a0d10;
+  --surface: #12161a;
+  --surface-2: #181d22;
+  --surface-3: #1f252b;
+  --ink: #e6eaee;
+  --ink-2: #9ba5af;
+  --ink-3: #6e7883;
+  --line: #232a31;
+  --line-2: #333c45;
+  --focus: #e6eaee;
+
+  --open: #34d8a0;
+  --open-bg: #0e2a22;
+  --open-line: #1c4e3e;
+
+  --amend: #f0b24a;
+  --amend-bg: #2c2110;
+  --amend-line: #54401c;
+
+  --risk: #ff6e8c;
+  --risk-bg: #2e1219;
+  --risk-line: #58232f;
+
+  --closed: #7c8792;
+  --closed-bg: #1b2026;
+  --closed-line: #2c343b;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --canvas: #0a0d10;
+    --surface: #12161a;
+    --surface-2: #181d22;
+    --surface-3: #1f252b;
+    --ink: #e6eaee;
+    --ink-2: #9ba5af;
+    --ink-3: #6e7883;
+    --line: #232a31;
+    --line-2: #333c45;
+    --focus: #e6eaee;
+
+    --open: #34d8a0;
+    --open-bg: #0e2a22;
+    --open-line: #1c4e3e;
+
+    --amend: #f0b24a;
+    --amend-bg: #2c2110;
+    --amend-line: #54401c;
+
+    --risk: #ff6e8c;
+    --risk-bg: #2e1219;
+    --risk-line: #58232f;
+
+    --closed: #7c8792;
+    --closed-bg: #1b2026;
+    --closed-line: #2c343b;
   }
 }
 
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+
+  --color-open: var(--open);
+  --color-open-bg: var(--open-bg);
+  --color-open-line: var(--open-line);
+
+  --color-amend: var(--amend);
+  --color-amend-bg: var(--amend-bg);
+  --color-amend-line: var(--amend-line);
+
+  --color-risk: var(--risk);
+  --color-risk-bg: var(--risk-bg);
+  --color-risk-line: var(--risk-line);
+
+  --color-closed: var(--closed);
+  --color-closed-bg: var(--closed-bg);
+  --color-closed-line: var(--closed-line);
+
+  --font-sans: var(--font-plex-thai), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --radius-card: 3px;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /*
+    Thai does not space its words, so a whole clause can be a single run with
+    no break opportunity. Chrome breaks Thai by dictionary and does not need
+    this; engines with weaker Thai support do. Dictionary breaking still wins
+    where it exists — `anywhere` only takes over when a run genuinely cannot
+    fit, so this is insurance, not the primary mechanism.
+  */
+  overflow-wrap: anywhere;
+}
+
+/* Thai ascenders/descenders need more room than Latin defaults allow. */
+.leading-thai {
+  line-height: 1.65;
+}
+
+/* Figures line up in columns when they are scanned vertically. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+*:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/*
+  Signature texture: the faint horizontal ruling of a scanned document,
+  used only behind mastheads so the product never forgets what it replaces.
+*/
+.scanlines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--ink) 6%, transparent) 0px,
+    color-mix(in oklab, var(--ink) 6%, transparent) 1px,
+    transparent 1px,
+    transparent 5px
+  );
 }
