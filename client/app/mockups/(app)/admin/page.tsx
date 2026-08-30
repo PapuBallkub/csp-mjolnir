@@ -40,14 +40,14 @@ function confidenceTone(value: number): string {
 function ConfidenceBar({ value, label }: { value: number; label: string }) {
   return (
     <span className="flex items-center gap-2 whitespace-nowrap">
-      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-3">{label}</span>
+      <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink-3">{label}</span>
       <span className="relative h-[4px] w-16 overflow-hidden rounded-full bg-line">
         <span
           className={`absolute inset-y-0 left-0 rounded-full ${confidenceTone(value)}`}
           style={{ width: `${value * 100}%` }}
         />
       </span>
-      <span className="font-mono tnum text-[12px] text-ink">{Math.round(value * 100)}%</span>
+      <span className="font-mono tnum text-[14px] text-ink">{Math.round(value * 100)}%</span>
     </span>
   );
 }
@@ -85,7 +85,7 @@ export default function AdminPage() {
   return (
     <div className="mx-auto max-w-[1240px] px-4 py-6">
       <header className="mb-5">
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-3">
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-3">
           {lang === "th" ? "สำหรับผู้ดูแลระบบ" : "Platform admin"}
         </p>
         <h1 className="mt-1 text-[26px] leading-tight font-semibold tracking-tight text-ink">
@@ -99,7 +99,7 @@ export default function AdminPage() {
             <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
               {stat.value}
             </p>
-            <p className="mt-1.5 text-[11px] leading-thai text-ink-3">{stat.label[lang]}</p>
+            <p className="mt-1.5 text-[13px] leading-thai text-ink-2">{stat.label[lang]}</p>
           </Panel>
         ))}
       </div>
@@ -107,7 +107,7 @@ export default function AdminPage() {
       <section className="mb-8">
         <SectionHeading
           right={
-            <span className="font-mono text-[11px]">
+            <span className="font-mono text-[13px]">
               {lang === "th" ? "รอบล่าสุด 12 ส.ค. 06:33" : "Last run 12 Aug 06:33"}
             </span>
           }
@@ -129,7 +129,7 @@ export default function AdminPage() {
                 ].map((column) => (
                   <th
                     key={column.text}
-                    className={`px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
+                    className={`px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
                       column.right ? "text-right" : ""
                     }`}
                   >
@@ -145,19 +145,19 @@ export default function AdminPage() {
                   className="border-b border-line align-top last:border-b-0"
                 >
                   <td className="px-3 py-2.5">
-                    <span className="block text-[13px] leading-thai text-ink">{source.name}</span>
-                    <span className="mt-0.5 block font-mono text-[10px] text-ink-3">
+                    <span className="block text-[14px] leading-thai text-ink">{source.name}</span>
+                    <span className="mt-0.5 block font-mono text-[13px] text-ink-3">
                       {source.portal} · {source.format}
                     </span>
                     {source.error ? (
-                      <p className="mt-1.5 max-w-[420px] rounded-[3px] border border-line bg-surface-2 px-2 py-1.5 font-mono text-[11px] leading-relaxed text-ink-2">
+                      <p className="mt-1.5 max-w-[420px] rounded-[3px] border border-line bg-surface-2 px-2 py-1.5 font-mono text-[13px] leading-relaxed text-ink-2">
                         {source.error}
                       </p>
                     ) : null}
                   </td>
                   <td className="px-3 py-2.5">
                     <span
-                      className={`inline-flex rounded-[2px] border px-1.5 py-[3px] text-[11px] font-medium ${HEALTH[source.health].chip}`}
+                      className={`inline-flex rounded-[2px] border px-2 py-[3px] text-[12px] font-medium ${HEALTH[source.health].chip}`}
                     >
                       {HEALTH[source.health].label[lang]}
                     </span>
@@ -177,13 +177,13 @@ export default function AdminPage() {
                       {source.history.filter(Boolean).length}/14 runs succeeded
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-right font-mono tnum text-[12px] text-ink">
+                  <td className="px-3 py-2.5 text-right font-mono tnum text-[14px] text-ink">
                     {source.uptime.toFixed(1)}%
                   </td>
-                  <td className="px-3 py-2.5 text-right font-mono tnum text-[12px] text-ink-2">
+                  <td className="px-3 py-2.5 text-right font-mono tnum text-[14px] text-ink-2">
                     {source.docsLast7Days}
                   </td>
-                  <td className="px-3 py-2.5 text-right font-mono tnum text-[11px] text-ink-3">
+                  <td className="px-3 py-2.5 text-right font-mono tnum text-[13px] text-ink-3">
                     {source.lastRun}
                   </td>
                 </tr>
@@ -196,7 +196,7 @@ export default function AdminPage() {
       <section>
         <SectionHeading
           right={
-            <span className="font-mono text-[11px]">
+            <span className="font-mono text-[13px]">
               {pending.length} {lang === "th" ? "รอดำเนินการ" : "pending"}
             </span>
           }
@@ -219,22 +219,22 @@ export default function AdminPage() {
                 >
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono tnum text-[10px] text-ink-3">{item.docId}</span>
+                      <span className="font-mono tnum text-[13px] text-ink-3">{item.docId}</span>
                       {item.misclassified ? (
-                        <span className="rounded-[2px] border border-risk-line bg-risk-bg px-1.5 py-[2px] text-[10px] font-medium text-risk">
+                        <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-[3px] text-[12px] font-medium text-risk">
                           {lang === "th" ? "อาจจัดประเภทผิด" : "Likely misclassified"}
                         </span>
                       ) : null}
                       {resolution ? (
-                        <span className="rounded-[2px] border border-open-line bg-open-bg px-1.5 py-[2px] text-[10px] font-medium text-open">
+                        <span className="rounded-[2px] border border-open-line bg-open-bg px-2 py-[3px] text-[12px] font-medium text-open">
                           {resolution}
                         </span>
                       ) : null}
                     </span>
-                    <span className="mt-1 block text-[13px] leading-thai text-ink">
+                    <span className="mt-1 block text-[14px] leading-thai text-ink">
                       {item.title}
                     </span>
-                    <span className="mt-0.5 block text-[11px] text-ink-3">
+                    <span className="mt-0.5 block text-[13px] text-ink-3">
                       {item.agency} · {item.ingestedAt}
                     </span>
                   </span>
@@ -250,7 +250,7 @@ export default function AdminPage() {
                     {item.misclassified ? (
                       <div className="mb-3 flex flex-col gap-2 rounded-[3px] border border-line bg-surface p-3">
                         <Label>{lang === "th" ? "การจัดประเภท" : "Classification"}</Label>
-                        <p className="text-[13px] leading-thai text-ink-2">
+                        <p className="text-[14px] leading-thai text-ink-2">
                           {lang === "th"
                             ? `ระบบจัดเป็น “${item.misclassified.predicted}” แต่เนื้อหาน่าจะเป็น “${item.misclassified.likely}”`
                             : `Classified as “${item.misclassified.predicted}”, but the content reads as “${item.misclassified.likely}”.`}
@@ -299,7 +299,7 @@ export default function AdminPage() {
                             key={field.field}
                             className="flex flex-col gap-1.5 rounded-[3px] border border-line bg-surface p-3 sm:flex-row sm:items-center sm:gap-3"
                           >
-                            <span className="min-w-[200px] text-[12px] leading-thai text-ink-2">
+                            <span className="min-w-[200px] text-[14px] leading-thai text-ink-2">
                               {field.field}
                             </span>
                             <input
@@ -307,7 +307,7 @@ export default function AdminPage() {
                               className={`${input} font-mono flex-1`}
                               aria-label={field.field}
                             />
-                            <span className="font-mono tnum text-[11px] text-ink-3">
+                            <span className="font-mono tnum text-[13px] text-ink-3">
                               {Math.round(field.confidence * 100)}%
                             </span>
                           </div>

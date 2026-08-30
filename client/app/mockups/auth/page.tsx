@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useLang, LangToggle, ThemeToggle } from "../_components/prefs";
-import { Wordmark } from "../_components/shell";
 import { btn, input, Label, Panel } from "../_components/ui";
-import { LockSpecBadge, StatusBadge } from "../_components/verdict";
+import { AmendedFlag, LockSpecBadge, StatusBadge } from "../_components/verdict";
 
 function GoogleMark() {
   return (
@@ -40,8 +39,11 @@ export default function AuthPage() {
     <div className="flex min-h-full flex-col">
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-[1000px] items-center gap-4 px-4 py-2.5">
-          <Link href="/mockups">
-            <Wordmark />
+          <Link
+            href="/mockups"
+            className="font-mono text-[12px] uppercase tracking-[0.16em] text-ink-3 hover:text-ink"
+          >
+            ← All screens
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <LangToggle />
@@ -58,7 +60,7 @@ export default function AuthPage() {
                 key={option}
                 type="button"
                 onClick={() => setMode(option)}
-                className={`-mb-px border-b-2 px-2 py-2 text-[13px] font-medium transition-colors ${
+                className={`-mb-px border-b-2 px-2 py-2 text-[14px] font-medium transition-colors ${
                   mode === option
                     ? "border-ink text-ink"
                     : "border-transparent text-ink-3 hover:text-ink-2"
@@ -92,7 +94,7 @@ export default function AuthPage() {
                 {mode === "signin" ? (
                   <button
                     type="button"
-                    className="text-[11px] text-ink-3 underline underline-offset-2 hover:text-ink"
+                    className="text-[13px] text-ink-3 underline underline-offset-2 hover:text-ink"
                   >
                     {lang === "th" ? "ลืมรหัสผ่าน" : "Forgot password"}
                   </button>
@@ -104,14 +106,14 @@ export default function AuthPage() {
                 className={input}
               />
               {mode === "signup" ? (
-                <p className="text-[11px] text-ink-3">
+                <p className="text-[13px] text-ink-3">
                   {lang === "th" ? "อย่างน้อย 8 ตัวอักษร" : "At least 8 characters."}
                 </p>
               ) : null}
             </div>
 
             {mode === "signup" ? (
-              <label className="flex cursor-pointer items-start gap-2 text-[12px] leading-thai text-ink-2">
+              <label className="flex cursor-pointer items-start gap-2 text-[14px] leading-thai text-ink-2">
                 <input type="checkbox" className="mt-1 h-3.5 w-3.5 shrink-0 accent-ink" />
                 <span>
                   {lang === "th"
@@ -133,7 +135,7 @@ export default function AuthPage() {
 
             <div className="flex items-center gap-3 py-1">
               <span className="h-px flex-1 bg-line" />
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
+              <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">
                 {lang === "th" ? "หรือ" : "or"}
               </span>
               <span className="h-px flex-1 bg-line" />
@@ -161,10 +163,11 @@ export default function AuthPage() {
           <Panel className="flex flex-col gap-2 p-3.5">
             <Label>{lang === "th" ? "ตัวอย่างการแจ้งเตือน" : "A typical alert"}</Label>
             <div className="flex flex-wrap gap-1.5">
-              <StatusBadge status="amended" lang={lang} round="ครั้งที่ 2" />
+              <StatusBadge status="open" lang={lang} />
+              <AmendedFlag lang={lang} round="ครั้งที่ 2" />
               <LockSpecBadge level="high" score={87} lang={lang} showScore={false} />
             </div>
-            <p className="text-[13px] leading-thai text-ink-2">
+            <p className="text-[14px] leading-thai text-ink-2">
               {lang === "th"
                 ? "“ประสบการณ์ที่กำหนดเพิ่มจาก 3 ปี เป็น 10 ปี หลังปิดรับฟังความคิดเห็น” — แจ้งภายในวันเดียวกับที่เอกสารถูกเปลี่ยน"
                 : "“Required experience jumped from 3 years to 10 after the comment period closed” — sent the same day the file changed."}
@@ -173,7 +176,7 @@ export default function AuthPage() {
 
           <Link
             href="/mockups/catalog"
-            className="text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink"
+            className="text-[14px] text-ink-2 underline underline-offset-2 hover:text-ink"
           >
             {lang === "th" ? "ดูประกาศก่อนโดยไม่ต้องสมัคร →" : "Browse without an account →"}
           </Link>

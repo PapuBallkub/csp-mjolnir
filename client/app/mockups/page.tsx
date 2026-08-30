@@ -3,17 +3,22 @@
 import Link from "next/link";
 import { tors } from "./_data/tors";
 import { useLang, LangToggle, ThemeToggle } from "./_components/prefs";
-import { Wordmark } from "./_components/shell";
 import { AccentPanel, Chip, Eyebrow, Panel, SectionHeading, Well } from "./_components/ui";
 import {
+  AmendedFlag,
   LockSpecBadge,
   MatchScore,
   PriceBadge,
   RiskMeter,
   ScopeBadge,
   SmeBadge,
+  STATUS_NOTE,
   StatusBadge,
 } from "./_components/verdict";
+import type { Status } from "./_data/tors";
+
+/** The lifecycle in the order a project moves through it (FR09). */
+const LIFECYCLE: Status[] = ["draft", "open", "awarded", "closed", "cancelled"];
 
 /**
  * Cover page for the mockup set. It is about the mockups rather than part of
@@ -121,6 +126,13 @@ const PRINCIPLES = [
     },
   },
   {
+    title: { th: "แยกสิ่งที่เราเดาออกจากสิ่งที่หน่วยงานประกาศ", en: "Our inference is drawn differently" },
+    body: {
+      th: "สถานะสี่แบบมาจากประกาศของหน่วยงานโดยตรง แต่ “เลยกำหนดยื่นแล้ว” เราสรุปเอง จึงเป็นป้ายเดียวในระบบที่ใช้เส้นประและไม่มีพื้นสี ผู้ใช้จะได้ไม่เข้าใจผิดว่าเป็นคำประกาศ",
+      en: "Four of the five states come straight from an agency notice. `Closed` is ours — we infer it from a passed deadline — so it is the only badge drawn with a dashed edge and no fill, and never mistaken for the agency's word.",
+    },
+  },
+  {
     title: { th: "โครงสร้างมาจากลำดับ ไม่ใช่เส้นคั่น", en: "Structure comes from rank, not rules" },
     body: {
       th: "หัวข้อจริงและจังหวะช่องไฟเป็นตัวบอกโครงสร้าง ไม่ใช่เส้นบาง ๆ ระยะห่างในกลุ่มเดียวกันแคบ ระหว่างกลุ่มกว้างอย่างเห็นได้ชัด และใช้พื้นผิวอ่อนเฉพาะกับของที่เป็นคนละชนิดจริง ๆ",
@@ -161,7 +173,9 @@ export default function MockupIndexPage() {
         <div className="scanlines pointer-events-none absolute inset-0 opacity-50" aria-hidden />
         <div className="relative mx-auto max-w-[1000px] px-4 py-10">
           <div className="flex items-center justify-between gap-4">
-            <Wordmark />
+            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-ink-3">
+              {lang === "th" ? "เอกสารออกแบบ" : "Design set"}
+            </p>
             <div className="flex items-center gap-2">
               <LangToggle />
               <ThemeToggle />
@@ -176,7 +190,7 @@ export default function MockupIndexPage() {
               ? "แพลตฟอร์มค้นหาและอ่านประกาศจัดซื้อจัดจ้างไอทีของกรุงเทพมหานคร ทุกหน้าในชุดนี้เป็นแบบร่างที่ทำงานได้จริงบนข้อมูลตัวอย่าง ยังไม่ต่อกับฐานข้อมูลหรือตัวเก็บข้อมูล"
               : "A discovery platform for Bangkok's IT procurement documents. Every screen here is a working draft running on fixture data — no database and no scrapers behind it yet."}
           </p>
-          <p className="mt-4 font-mono text-[11px] text-ink-3">
+          <p className="mt-4 font-mono text-[13px] text-ink-3">
             01219346 · Kasetsart University · Amornrit Sirikham · Sivapon Channual · Pannawit
             Mahacharoensiri
           </p>
@@ -192,7 +206,7 @@ export default function MockupIndexPage() {
                 <h3 className="text-[14px] leading-thai font-semibold text-ink">
                   {principle.title[lang]}
                 </h3>
-                <p className="mt-1.5 text-[13px] leading-thai text-ink-2">{principle.body[lang]}</p>
+                <p className="mt-1.5 text-[14px] leading-thai text-ink-2">{principle.body[lang]}</p>
               </Panel>
             ))}
           </div>
@@ -205,7 +219,7 @@ export default function MockupIndexPage() {
                 ? "แต่ละหน้าอ้างกลับไปยัง User Story และ Functional Requirement ที่รองรับ"
                 : "Each screen traces back to the user stories and requirements it serves."
             }
-            right={<span className="font-mono text-[11px] text-ink-3">{SCREENS.length}</span>}
+            right={<span className="font-mono text-[13px] text-ink-3">{SCREENS.length}</span>}
           >
             {lang === "th" ? "หน้าจอทั้งหมด" : "The screens"}
           </SectionHeading>
@@ -217,7 +231,7 @@ export default function MockupIndexPage() {
                   href={screen.href}
                   className="group flex gap-3.5 rounded-[3px] border border-line bg-surface px-4 py-3.5 transition-colors hover:bg-surface-2"
                 >
-                  <span className="pt-[3px] font-mono tnum text-[11px] text-ink-3">
+                  <span className="pt-[3px] font-mono tnum text-[13px] text-ink-3">
                     {String(index + 1).padStart(2, "0")}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -225,9 +239,9 @@ export default function MockupIndexPage() {
                       <span className="text-[15px] font-semibold text-ink group-hover:underline">
                         {screen.title[lang]}
                       </span>
-                      <span className="font-mono text-[11px] text-ink-3">{screen.href}</span>
+                      <span className="font-mono text-[13px] text-ink-3">{screen.href}</span>
                     </span>
-                    <span className="mt-1 block text-[13px] leading-thai text-ink-2">
+                    <span className="mt-1 block text-[14px] leading-thai text-ink-2">
                       {screen.note[lang]}
                     </span>
                     <span className="mt-2.5 flex flex-wrap gap-1">
@@ -246,7 +260,7 @@ export default function MockupIndexPage() {
             ))}
           </ol>
 
-          <p className="mt-3 text-[12px] leading-thai text-ink-3">
+          <p className="mt-3 text-[14px] leading-thai text-ink-2">
             {lang === "th"
               ? "ไม่ได้ออกแบบไว้โดยตั้งใจ: หน้าจัดทำหรือยื่นข้อเสนอ ตัวช่วยเขียนข้อเสนอ และการลงนามอิเล็กทรอนิกส์ ทั้งหมดอยู่นอกขอบเขตโครงการ"
               : "Deliberately not designed: bid drafting, submission forms, proposal builders and e-signing. All out of scope."}
@@ -266,11 +280,28 @@ export default function MockupIndexPage() {
 
           <Panel className="divide-y divide-line">
             <div className="p-4">
-              <Eyebrow>{lang === "th" ? "สถานะ" : "Status"}</Eyebrow>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <StatusBadge status="open" lang={lang} />
-                <StatusBadge status="amended" lang={lang} round="ครั้งที่ 2" />
-                <StatusBadge status="closed" lang={lang} />
+              <Eyebrow>{lang === "th" ? "สถานะตามวงจรประกาศ" : "Lifecycle status"}</Eyebrow>
+              <ul className="mt-3 flex flex-col gap-3">
+                {LIFECYCLE.map((status) => (
+                  <li key={status} className="flex flex-col gap-1.5 sm:flex-row sm:gap-4">
+                    <span className="shrink-0 sm:w-[184px]">
+                      <StatusBadge status={status} lang={lang} />
+                    </span>
+                    <span className="text-[14px] leading-thai text-ink-2">
+                      {STATUS_NOTE[status][lang]}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 flex flex-col gap-1.5 border-t border-line pt-3.5 sm:flex-row sm:gap-4">
+                <span className="shrink-0 sm:w-[184px]">
+                  <AmendedFlag lang={lang} round="ครั้งที่ 2" />
+                </span>
+                <span className="text-[14px] leading-thai text-ink-2">
+                  {lang === "th"
+                    ? "ไม่ใช่สถานะ แต่เป็นธงซ้อนทับ เพราะเอกสารถูกแก้ไขได้ทั้งตอนเป็นร่าง ตอนเปิดรับ หรือก่อนประกาศผล"
+                    : "Not a status but an overlay flag — a document can be revised while it is a draft, while it is open, or right before the award."}
+                </span>
               </div>
             </div>
 
@@ -300,7 +331,6 @@ export default function MockupIndexPage() {
             <div className="p-4">
               <Eyebrow>{lang === "th" ? "ป้ายประเภท (ไม่ใช้สี)" : "Category tags (no hue)"}</Eyebrow>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <ScopeBadge size="solo" lang={lang} />
                 <ScopeBadge size="small-team" lang={lang} />
                 <ScopeBadge size="firm" lang={lang} />
                 <SmeBadge lang={lang} />
@@ -312,14 +342,14 @@ export default function MockupIndexPage() {
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             {(["open", "amend", "risk"] as const).map((tone, index) => (
               <AccentPanel key={tone} tone={tone} className="p-3.5">
-                <p className="text-[12px] font-semibold text-ink">
+                <p className="text-[14px] font-semibold text-ink">
                   {[
                     lang === "th" ? "บล็อกที่ปลอดภัย" : "A block that is fine",
                     lang === "th" ? "บล็อกที่ต้องดูให้ดี" : "A block to look at closely",
                     lang === "th" ? "บล็อกที่เสียเวลาเปล่า" : "A block that will cost you",
                   ][index]}
                 </p>
-                <p className="mt-1 text-[11px] leading-thai text-ink-3">
+                <p className="mt-1 text-[13px] leading-thai text-ink-3">
                   {lang === "th"
                     ? "แถบซ้ายคือแถบเดียวกับที่ใช้หน้ารายการ"
                     : "The left rail is the same one the browse rows use."}
@@ -339,7 +369,7 @@ export default function MockupIndexPage() {
                   className={`h-10 rounded-[3px] border border-line ${token.className}`}
                   aria-hidden
                 />
-                <span className="font-mono text-[10px] text-ink-3">{token.name}</span>
+                <span className="font-mono text-[11px] text-ink-3">{token.name}</span>
               </div>
             ))}
           </div>
@@ -355,7 +385,7 @@ export default function MockupIndexPage() {
               ฿12,400,000 · 04 Sep 2026 · BMA-2569-0142
             </p>
             <Well className="mt-3 px-3 py-2.5">
-              <p className="text-[12px] leading-thai text-ink-3">
+              <p className="text-[14px] leading-thai text-ink-2">
                 {lang === "th"
                   ? "IBM Plex Sans Thai สำหรับข้อความ และ IBM Plex Mono สำหรับตัวเลข รหัส และวันที่ เลือกเพราะครอบคลุมภาษาไทยเต็มรูปแบบ และคู่ละตินรับศัพท์เทคนิคที่แทรกกลางประโยคไทยได้พอดี"
                   : "IBM Plex Sans Thai for text, IBM Plex Mono for figures, IDs and dates — chosen for full Thai coverage and a Latin companion that carries the English tech terms running inline through Thai sentences."}
@@ -364,7 +394,7 @@ export default function MockupIndexPage() {
           </Panel>
         </section>
 
-        <footer className="mt-12 border-t border-line pt-4 font-mono text-[11px] text-ink-3">
+        <footer className="mt-12 border-t border-line pt-4 font-mono text-[13px] text-ink-3">
           {lang === "th"
             ? "แบบร่างนี้ใช้ข้อมูลตัวอย่างที่เขียนขึ้นให้ใกล้เคียงเอกสารจริง ไม่ใช่ข้อมูลจากระบบ e-GP"
             : "These mockups run on hand-written fixture data modelled on real documents. Nothing here is live e-GP data."}

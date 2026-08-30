@@ -4,8 +4,7 @@ import { useState } from "react";
 import { formatTHBCompact, pick, tors } from "../../_data/tors";
 import { useLang } from "../../_components/prefs";
 import { btn, input, Label, Panel, SectionHeading } from "../../_components/ui";
-import { LockSpecBadge, StatusBadge } from "../../_components/verdict";
-import { Wordmark } from "../../_components/shell";
+import { AmendedFlag, LockSpecBadge, StatusBadge } from "../../_components/verdict";
 
 function Switch({
   checked,
@@ -44,9 +43,9 @@ function Switch({
         />
       </button>
       <span className="min-w-0">
-        <span className="block text-[13px] leading-thai text-ink">{label}</span>
+        <span className="block text-[14px] leading-thai text-ink">{label}</span>
         {description ? (
-          <span className="mt-0.5 block text-[12px] leading-thai text-ink-3">{description}</span>
+          <span className="mt-0.5 block text-[14px] leading-thai text-ink-2">{description}</span>
         ) : null}
       </span>
     </label>
@@ -65,7 +64,7 @@ export default function NotificationsPage() {
   });
   const [frequency, setFrequency] = useState("daily");
   const [searches, setSearches] = useState([
-    { id: "s1", query: "Next.js · ต่ำกว่า 2 ล้าน · ทำคนเดียวไหว", on: true },
+    { id: "s1", query: "Next.js · ต่ำกว่า 2 ล้าน · ทีมเล็ก", on: true },
     { id: "s2", query: "LINE Messaging API · สำนักงานเขต", on: true },
     { id: "s3", query: "HL7 FHIR · สำนักการแพทย์", on: false },
   ]);
@@ -139,7 +138,7 @@ export default function NotificationsPage() {
                 className={`${input} max-w-xs font-mono`}
                 aria-label={lang === "th" ? "อีเมล" : "Email address"}
               />
-              <span className="rounded-[2px] border border-open-line bg-open-bg px-1.5 py-[3px] text-[11px] font-medium text-open">
+              <span className="rounded-[2px] border border-open-line bg-open-bg px-2 py-[3px] text-[12px] font-medium text-open">
                 {lang === "th" ? "ยืนยันแล้ว" : "Verified"}
               </span>
             </div>
@@ -184,7 +183,7 @@ export default function NotificationsPage() {
               {FREQUENCIES.map((option) => (
                 <label
                   key={option.id}
-                  className="flex cursor-pointer items-center gap-2 text-[13px] text-ink-2 hover:text-ink"
+                  className="flex cursor-pointer items-center gap-2 text-[14px] text-ink-2 hover:text-ink"
                 >
                   <input
                     type="radio"
@@ -197,7 +196,7 @@ export default function NotificationsPage() {
                 </label>
               ))}
             </div>
-            <p className="mt-2 text-[12px] leading-thai text-ink-3">
+            <p className="mt-2 text-[14px] leading-thai text-ink-2">
               {lang === "th"
                 ? "การแก้ไข TOR ที่คุณติดตามจะส่งทันทีเสมอ ไม่ว่าตั้งค่าความถี่ไว้แบบใด เพราะมักกระทบกำหนดยื่นข้อเสนอ"
                 : "Amendments to a watched TOR always send immediately regardless of this setting — they usually affect the deadline."}
@@ -236,21 +235,24 @@ export default function NotificationsPage() {
         <aside className="flex flex-col gap-3">
           <SectionHeading>{lang === "th" ? "ตัวอย่างอีเมล" : "What the email looks like"}</SectionHeading>
           <Panel className="overflow-hidden">
-            <div className="border-b border-line bg-surface-2 px-3 py-2">
-              <Wordmark />
-              <p className="mt-1.5 text-[12px] leading-thai font-medium text-ink">
+            <div className="border-b border-line bg-surface-2 px-4 py-3">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-ink-3">
+                {lang === "th" ? "อีเมลแจ้งเตือน" : "Alert email"}
+              </p>
+              <p className="mt-1.5 text-[15px] leading-thai font-semibold text-ink">
                 {lang === "th"
                   ? "TOR ที่คุณติดตามถูกแก้ไข"
                   : "A TOR you follow has been amended"}
               </p>
             </div>
             <div className="flex flex-col gap-2 px-3 py-3">
-              <p className="font-mono tnum text-[10px] text-ink-3">{sample.id}</p>
-              <p className="text-[13px] leading-thai font-medium text-ink">
+              <p className="font-mono tnum text-[13px] text-ink-3">{sample.id}</p>
+              <p className="text-[14px] leading-thai font-medium text-ink">
                 {pick(sample.title, lang)}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 <StatusBadge status={sample.status} lang={lang} />
+                {sample.amended ? <AmendedFlag lang={lang} /> : null}
                 <LockSpecBadge
                   level={sample.lockSpec.level}
                   score={sample.lockSpec.score}
@@ -258,18 +260,18 @@ export default function NotificationsPage() {
                   showScore={false}
                 />
               </div>
-              <p className="text-[12px] leading-thai text-ink-2">
+              <p className="text-[14px] leading-thai text-ink-2">
                 {lang === "th"
                   ? "ประสบการณ์ที่กำหนดเพิ่มจาก 3 ปี เป็น 10 ปี และตัดคำว่า “หรือเทียบเท่า” ออก"
                   : "Required experience went from 3 years to 10, and “or equivalent” was struck out."}
               </p>
-              <p className="font-mono tnum text-[11px] text-ink-3">
+              <p className="font-mono tnum text-[13px] text-ink-3">
                 {lang === "th" ? "ราคากลาง" : "Reference price"} {formatTHBCompact(sample.budget)}
               </p>
               <span className={`${btn.primary} w-full`}>
                 {lang === "th" ? "ดูสิ่งที่เปลี่ยน" : "See what changed"}
               </span>
-              <p className="text-[10px] leading-thai text-ink-3">
+              <p className="text-[13px] leading-thai text-ink-2">
                 {lang === "th"
                   ? "คุณได้รับอีเมลนี้เพราะบันทึกโครงการไว้ติดตาม · ยกเลิกการรับอีเมล"
                   : "You get this because you saved this project · unsubscribe"}

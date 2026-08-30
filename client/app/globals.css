@@ -4,109 +4,117 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /*
-  Mjölnir design tokens.
+  Design tokens.
 
   Rule of the system: the chrome is monochrome graphite. Saturated colour is
   reserved almost entirely for the verdict layer (status, lock-spec risk, price
   reality check) so that colour anywhere on a screen *means* a signal, and a
   dense list can be scanned by hue alone.
+
+  Two constraints shape the neutral ramp:
+    - Body text is read at 14px and up, so `ink-2` and `ink-3` are dark enough
+      to clear 4.5:1 on every surface they are allowed to sit on. A "quiet"
+      grey here means quiet in weight and size, never in contrast.
+    - The canvas is a full step darker than any tinted verdict background, so a
+      tinted block always reads as an object sitting *on* the page rather than
+      dissolving into it.
 */
 :root {
   color-scheme: light;
 
-  --canvas: #e8ebef;
+  --canvas: #dfe4ea;
   --surface: #ffffff;
-  --surface-2: #f3f5f7;
-  --surface-3: #e4e8ed;
-  --ink: #101418;
-  --ink-2: #4e575f;
-  --ink-3: #7c8792;
-  --line: #d7dce2;
-  --line-2: #bcc4cd;
-  --focus: #101418;
+  --surface-2: #f4f6f9;
+  --surface-3: #e9edf2;
+  --ink: #0d1114;
+  --ink-2: #39424a;
+  --ink-3: #5c6672;
+  --line: #d3d9e0;
+  --line-2: #b3bcc6;
+  --focus: #0d1114;
 
   /* Open — the project is live and worth your time */
-  --open: #06795a;
-  --open-bg: #dff2ea;
-  --open-line: #a8dcc8;
+  --open: #056b50;
+  --open-bg: #d8f0e5;
+  --open-line: #97d3bd;
 
   /* Amended — something changed under you */
-  --amend: #9a5a05;
-  --amend-bg: #fbeedc;
-  --amend-line: #ebcb99;
+  --amend: #8a5104;
+  --amend-bg: #fae3c0;
+  --amend-line: #e2b876;
 
-  /* Risk — lock-spec / price outlier */
-  --risk: #be1d46;
-  --risk-bg: #fce6eb;
-  --risk-line: #f2b3c1;
+  /* Risk — lock-spec / price outlier / cancelled */
+  --risk: #ad1a3f;
+  --risk-bg: #fbdde5;
+  --risk-line: #eda6b8;
 
   /* Closed / awarded — deliberately drained, it should recede */
-  --closed: #6b747e;
-  --closed-bg: #e7eaee;
-  --closed-line: #cbd2d9;
+  --closed: #56606b;
+  --closed-bg: #eceff3;
+  --closed-line: #c6ced7;
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --canvas: #0a0d10;
-  --surface: #12161a;
-  --surface-2: #181d22;
-  --surface-3: #1f252b;
-  --ink: #e6eaee;
-  --ink-2: #9ba5af;
-  --ink-3: #6e7883;
-  --line: #232a31;
-  --line-2: #333c45;
-  --focus: #e6eaee;
+  --canvas: #090c0f;
+  --surface: #13171c;
+  --surface-2: #1a1f25;
+  --surface-3: #232931;
+  --ink: #edf1f5;
+  --ink-2: #b2bcc6;
+  --ink-3: #8a95a1;
+  --line: #262d35;
+  --line-2: #39424b;
+  --focus: #edf1f5;
 
-  --open: #34d8a0;
-  --open-bg: #0e2a22;
-  --open-line: #1c4e3e;
+  --open: #3ddda6;
+  --open-bg: #0d2b23;
+  --open-line: #1e5342;
 
-  --amend: #f0b24a;
-  --amend-bg: #2c2110;
-  --amend-line: #54401c;
+  --amend: #f7bb5c;
+  --amend-bg: #30240f;
+  --amend-line: #5c451c;
 
-  --risk: #ff6e8c;
-  --risk-bg: #2e1219;
-  --risk-line: #58232f;
+  --risk: #ff7d97;
+  --risk-bg: #331420;
+  --risk-line: #5f2635;
 
-  --closed: #7c8792;
-  --closed-bg: #1b2026;
-  --closed-line: #2c343b;
+  --closed: #8a95a1;
+  --closed-bg: #1d232a;
+  --closed-line: #333c45;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
 
-    --canvas: #0a0d10;
-    --surface: #12161a;
-    --surface-2: #181d22;
-    --surface-3: #1f252b;
-    --ink: #e6eaee;
-    --ink-2: #9ba5af;
-    --ink-3: #6e7883;
-    --line: #232a31;
-    --line-2: #333c45;
-    --focus: #e6eaee;
+    --canvas: #090c0f;
+    --surface: #13171c;
+    --surface-2: #1a1f25;
+    --surface-3: #232931;
+    --ink: #edf1f5;
+    --ink-2: #b2bcc6;
+    --ink-3: #8a95a1;
+    --line: #262d35;
+    --line-2: #39424b;
+    --focus: #edf1f5;
 
-    --open: #34d8a0;
-    --open-bg: #0e2a22;
-    --open-line: #1c4e3e;
+    --open: #3ddda6;
+    --open-bg: #0d2b23;
+    --open-line: #1e5342;
 
-    --amend: #f0b24a;
-    --amend-bg: #2c2110;
-    --amend-line: #54401c;
+    --amend: #f7bb5c;
+    --amend-bg: #30240f;
+    --amend-line: #5c451c;
 
-    --risk: #ff6e8c;
-    --risk-bg: #2e1219;
-    --risk-line: #58232f;
+    --risk: #ff7d97;
+    --risk-bg: #331420;
+    --risk-line: #5f2635;
 
-    --closed: #7c8792;
-    --closed-bg: #1b2026;
-    --closed-line: #2c343b;
+    --closed: #8a95a1;
+    --closed-bg: #1d232a;
+    --closed-line: #333c45;
   }
 }
 

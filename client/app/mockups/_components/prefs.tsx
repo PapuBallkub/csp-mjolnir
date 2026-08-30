@@ -69,7 +69,7 @@ export function LangToggle() {
           type="button"
           onClick={() => setLang(option.value)}
           aria-pressed={lang === option.value}
-          className={`rounded-[2px] px-2 py-[3px] text-[11px] font-medium transition-colors ${
+          className={`rounded-[2px] px-2 py-[3px] text-[13px] font-medium transition-colors ${
             lang === option.value ? "bg-ink text-surface" : "text-ink-3 hover:text-ink"
           }`}
         >
@@ -107,7 +107,7 @@ function readTheme(): Theme {
 
 function applyTheme(next: Theme) {
   document.documentElement.dataset.theme = next;
-  localStorage.setItem("mjolnir-theme", next);
+  localStorage.setItem("bma-tor-theme", next);
   for (const listener of themeListeners) listener();
 }
 

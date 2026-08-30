@@ -10,6 +10,10 @@ import type { ReactNode } from "react";
  *   2. Spacing rhythm — tight inside a group, conspicuously loose between.
  *   3. Surface — a well or an accented panel, used only where a block really
  *      is a different kind of thing. Boxes are the last resort, not the first.
+ *
+ * Type scale: 14px is the floor for anything read as a sentence. Below that
+ * sit only labels *on* things — badges at 12px, uppercase field labels and
+ * eyebrows at 11px — where the reader is identifying a slot, not reading prose.
  */
 
 export function Panel({
@@ -36,7 +40,7 @@ const ACCENT: Record<string, string> = {
 
 /**
  * A panel wearing the signal rail on its edge. Used where a whole block *is* a
- * verdict about the content next to it — the same rail the catalog rows use,
+ * verdict about the content next to it — the same rail the catalog cards use,
  * so the device means one thing everywhere.
  */
 export function AccentPanel({
@@ -95,12 +99,12 @@ export function SectionHeading({
   id?: string;
 }) {
   return (
-    <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+    <div className="mb-3.5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
       <div className="min-w-0">
-        <h2 id={id} className="text-[17px] leading-snug font-semibold tracking-tight text-ink">
+        <h2 id={id} className="text-[18px] leading-snug font-semibold tracking-tight text-ink">
           {children}
         </h2>
-        {sub ? <p className="mt-1 text-[12px] leading-thai text-ink-3">{sub}</p> : null}
+        {sub ? <p className="mt-1.5 text-[14px] leading-thai text-ink-2">{sub}</p> : null}
       </div>
       {right ? <div className="shrink-0">{right}</div> : null}
     </div>
@@ -110,7 +114,7 @@ export function SectionHeading({
 /** Field-level label: forms, key-fact rows, chart annotations. Never a section. */
 export function Label({ children }: { children: ReactNode }) {
   return (
-    <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-3">
+    <span className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-ink-3">
       {children}
     </span>
   );
@@ -119,7 +123,7 @@ export function Label({ children }: { children: ReactNode }) {
 /** Small caps eyebrow that sits above a heading to name a region. */
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <p className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-ink-3">
+    <p className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-ink-3">
       {children}
     </p>
   );
@@ -138,7 +142,7 @@ export function Chip({
   return (
     <span
       title={title}
-      className={`inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-ink-2 ${className}`}
+      className={`inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-2 py-[3px] font-mono text-[12px] text-ink-2 ${className}`}
     >
       {children}
     </span>
@@ -147,15 +151,15 @@ export function Chip({
 
 export const btn = {
   primary:
-    "inline-flex items-center justify-center gap-2 rounded-[3px] bg-ink px-3.5 h-9 text-[13px] font-medium text-surface transition-opacity hover:opacity-85 disabled:opacity-40",
+    "inline-flex items-center justify-center gap-2 rounded-[3px] bg-ink px-4 h-10 text-[14px] font-medium text-surface transition-opacity hover:opacity-85 disabled:opacity-40",
   secondary:
-    "inline-flex items-center justify-center gap-2 rounded-[3px] border border-line-2 bg-surface px-3.5 h-9 text-[13px] font-medium text-ink transition-colors hover:bg-surface-2",
+    "inline-flex items-center justify-center gap-2 rounded-[3px] border border-line-2 bg-surface px-4 h-10 text-[14px] font-medium text-ink transition-colors hover:bg-surface-2",
   ghost:
-    "inline-flex items-center justify-center gap-2 rounded-[3px] px-2.5 h-9 text-[13px] font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink",
+    "inline-flex items-center justify-center gap-2 rounded-[3px] px-3 h-10 text-[14px] font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink",
 };
 
 export const input =
-  "h-9 w-full rounded-[3px] border border-line-2 bg-surface px-2.5 text-[13px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none";
+  "h-10 w-full rounded-[3px] border border-line-2 bg-surface px-3 text-[14px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none";
 
 /** Key-value row used in the detail sidebar and admin tables. */
 export function Fact({
@@ -168,10 +172,10 @@ export function Fact({
   mono?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1 border-b border-line py-2.5 last:border-b-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+    <div className="flex flex-col gap-1 border-b border-line py-3 last:border-b-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
       <Label>{label}</Label>
       <span
-        className={`text-[13px] text-ink sm:text-right ${mono ? "font-mono tnum" : "leading-thai"}`}
+        className={`text-[14px] text-ink sm:text-right ${mono ? "font-mono tnum" : "leading-thai"}`}
       >
         {children}
       </span>
@@ -193,9 +197,9 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-[3px] border border-dashed border-line-2 bg-surface-2 px-6 py-12 text-center">
-      <p className="max-w-md text-[15px] font-medium text-ink">{headline}</p>
-      <p className="max-w-md text-[13px] leading-thai text-ink-2">{body}</p>
+    <div className="flex flex-col items-center gap-3 rounded-[3px] border border-dashed border-line-2 bg-surface-2 px-6 py-14 text-center">
+      <p className="max-w-md text-[16px] font-medium text-ink">{headline}</p>
+      <p className="max-w-md text-[14px] leading-thai text-ink-2">{body}</p>
       {action}
     </div>
   );

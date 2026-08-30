@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import {
   formatTHB,
+  isDead,
   matchScore,
   pick,
   techTerms,
@@ -20,14 +21,12 @@ const SCOPE_OPTIONS: {
   note: { th: string; en: string };
 }[] = [
   {
-    id: "solo",
-    label: { th: "ทำคนเดียว", en: "Just me" },
-    note: { th: "งานเล็ก ราว 1 ล้านบาทลงมา", en: "Small jobs, roughly ฿1M and under" },
-  },
-  {
     id: "small-team",
     label: { th: "ทีมเล็ก 2–5 คน", en: "Small team, 2–5" },
-    note: { th: "งานกลาง 1–5 ล้านบาท", en: "Mid-size work, ฿1M–5M" },
+    note: {
+      th: "งานตั้งแต่หลักแสนถึงราว 5 ล้านบาท",
+      en: "Anything from a few hundred thousand up to about ฿5M",
+    },
   },
   {
     id: "firm",
@@ -53,7 +52,7 @@ export default function ProfilePage() {
   const ranked = useMemo(
     () =>
       tors
-        .filter((tor) => tor.status !== "closed")
+        .filter((tor) => !isDead(tor.status))
         .map((tor) => ({ tor, score: matchScore(tor, profile) }))
         .sort((a, b) => b.score - a.score),
     [profile],
@@ -120,7 +119,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setProfile({ ...profile, skills: [] })}
-                      className="text-[11px] text-ink-3 underline underline-offset-2 hover:text-ink"
+                      className="text-[13px] text-ink-3 underline underline-offset-2 hover:text-ink"
                     >
                       {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
                     </button>
@@ -138,7 +137,7 @@ export default function ProfilePage() {
                       type="button"
                       onClick={() => setProfile({ ...profile, skills: toggle(profile.skills, term) })}
                       aria-pressed={on}
-                      className={`rounded-[2px] border px-2 py-1 font-mono text-[11px] transition-colors ${
+                      className={`rounded-[2px] border px-2.5 py-1.5 font-mono text-[13px] transition-colors ${
                         on
                           ? "border-ink bg-ink text-surface"
                           : "border-line bg-surface-2 text-ink-3 hover:text-ink"
@@ -182,7 +181,7 @@ export default function ProfilePage() {
                   aria-label={lang === "th" ? "งบสูงสุด" : "Maximum budget"}
                 />
               </div>
-              <p className="mt-2 font-mono tnum text-[12px] text-ink-3">
+              <p className="mt-2 font-mono tnum text-[14px] text-ink-2">
                 {formatTHB(profile.budgetMin)} – {formatTHB(profile.budgetMax)}
               </p>
             </section>
@@ -215,10 +214,10 @@ export default function ProfilePage() {
                       className="mt-[3px] h-3.5 w-3.5 shrink-0 accent-ink"
                     />
                     <span className="min-w-0">
-                      <span className="block text-[13px] font-medium text-ink">
+                      <span className="block text-[14px] font-medium text-ink">
                         {pick(option.label, lang)}
                       </span>
-                      <span className="mt-0.5 block text-[12px] leading-thai text-ink-3">
+                      <span className="mt-0.5 block text-[14px] leading-thai text-ink-2">
                         {pick(option.note, lang)}
                       </span>
                     </span>
@@ -239,12 +238,12 @@ export default function ProfilePage() {
                   className="mt-[3px] h-3.5 w-3.5 shrink-0 accent-ink"
                 />
                 <span className="min-w-0">
-                  <span className="block text-[13px] font-medium text-ink">
+                  <span className="block text-[14px] font-medium text-ink">
                     {lang === "th"
                       ? "ขึ้นทะเบียน SME กับ สสว. แล้ว"
                       : "Registered as an SME with OSMEP"}
                   </span>
-                  <span className="mt-0.5 block text-[12px] leading-thai text-ink-3">
+                  <span className="mt-0.5 block text-[14px] leading-thai text-ink-2">
                     {lang === "th"
                       ? "ใช้ตรวจสิทธิ์แต้มต่อด้านราคาในงานที่เข้าเกณฑ์ และเพิ่มคะแนนให้งานเหล่านั้น"
                       : "Checks price-advantage eligibility on qualifying projects and scores them higher."}
@@ -267,13 +266,13 @@ export default function ProfilePage() {
         <aside className="lg:sticky lg:top-[70px] lg:self-start">
           <Panel className="overflow-hidden">
             <div className="border-b border-line bg-surface-2 px-4 py-3">
-              <h2 className="text-[13px] font-semibold text-ink">
+              <h2 className="text-[14px] font-semibold text-ink">
                 {lang === "th" ? "โปรไฟล์นี้ให้ผลอย่างไร" : "What this profile finds you"}
               </h2>
-              <p className="mt-0.5 text-[12px] leading-thai text-ink-3">
+              <p className="mt-0.5 text-[14px] leading-thai text-ink-2">
                 {lang === "th"
-                  ? "คำนวณสดจากประกาศที่ยังเปิดรับอยู่"
-                  : "Computed live against everything still open."}
+                  ? "คำนวณสดจากประกาศที่ยังยื่นได้อยู่"
+                  : "Computed live against everything you can still bid on."}
               </p>
             </div>
 
@@ -282,7 +281,7 @@ export default function ProfilePage() {
                 <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
                   {strong.length}
                 </p>
-                <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
+                <p className="mt-1.5 text-[13px] leading-thai text-ink-2">
                   {lang === "th" ? "งานที่ตรงมาก (70+)" : "Strong matches (70+)"}
                 </p>
               </div>
@@ -290,7 +289,7 @@ export default function ProfilePage() {
                 <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
                   {smeEligible}
                 </p>
-                <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
+                <p className="mt-1.5 text-[13px] leading-thai text-ink-2">
                   {lang === "th" ? "งานที่ได้แต้มต่อ SME" : "With SME advantage"}
                 </p>
               </div>
@@ -304,10 +303,10 @@ export default function ProfilePage() {
                   className="border-b border-line px-4 py-3 transition-colors hover:bg-surface-2"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="font-mono tnum text-[10px] text-ink-3">{tor.id}</span>
+                    <span className="font-mono tnum text-[13px] text-ink-3">{tor.id}</span>
                     <MatchScore score={score} lang={lang} />
                   </div>
-                  <p className="mt-1 text-[13px] leading-thai text-ink">{pick(tor.title, lang)}</p>
+                  <p className="mt-1 text-[14px] leading-thai text-ink">{pick(tor.title, lang)}</p>
                 </Link>
               ))}
             </div>

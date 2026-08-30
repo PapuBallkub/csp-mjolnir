@@ -4,17 +4,22 @@ import Link from "next/link";
 import { formatTHB, formatTHBCompact, matchScore, pick, type Tor } from "../_data/tors";
 import { useLang, useProfile } from "./prefs";
 import { Deadline } from "./deadline";
-import { MatchScore, ScopeBadge, SignalRail, SmeBadge, VerdictStrip } from "./verdict";
+import { MatchScore, ScopeBadge, SmeBadge, STATUS_RAIL, VerdictStrip } from "./verdict";
 import { Chip } from "./ui";
 
 /**
- * One browse row. Tuned for scan-speed rather than breathing room: users
- * arrive here to reject most of the list quickly, so status rail, verdicts,
- * budget and time-left all sit on fixed positions the eye can learn once.
+ * One project in a list, drawn as a discrete card rather than a table row.
  *
- * Spacing inside a row is deliberately uneven — the id, agency and title are
- * one thought and sit tight together; the verdicts and the tech list are
- * separate groups and get visibly more air.
+ * The earlier version stacked rows inside a single panel divided by hairlines,
+ * which made ten projects read as one continuous sheet — the eye had to find
+ * the boundaries before it could compare anything. Each project now owns a
+ * bordered card with real padding, and the list spaces them apart, so "where
+ * does this project end" is answered before reading starts.
+ *
+ * Spacing *inside* a card stays deliberately uneven: the id, agency and title
+ * are one thought and sit tight together; the verdicts and the tech list are
+ * separate groups and get visibly more air. Density comes from the card being
+ * compact, not from the type being small.
  */
 export function TorRow({
   tor,
@@ -33,37 +38,34 @@ export function TorRow({
   const restTech = tor.techStack.length - visibleTech.length;
 
   return (
-    <div className="group relative flex gap-3 border-b border-line bg-surface px-3 py-3.5 transition-colors last:border-b-0 hover:bg-surface-2">
-      <SignalRail status={tor.status} />
-
-      <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:gap-4">
+    <article
+      className={`group relative rounded-[3px] border border-l-[4px] border-line bg-surface transition-colors hover:border-line-2 ${
+        STATUS_RAIL[tor.status]
+      }`}
+    >
+      <div className="flex flex-col gap-5 p-5 sm:flex-row sm:gap-6 sm:p-6">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-3">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[13px] text-ink-3">
             <span className="font-mono tnum">{tor.id}</span>
-            <span className="h-3 w-px bg-line" />
-            <span className="truncate">{pick(tor.agency, lang)}</span>
-            {tor.smeAdvantage ? (
-              <>
-                <span className="h-3 w-px bg-line" />
-                <SmeBadge lang={lang} />
-              </>
-            ) : null}
+            <span className="h-3.5 w-px bg-line-2" />
+            <span className="truncate text-ink-2">{pick(tor.agency, lang)}</span>
+            {tor.smeAdvantage ? <SmeBadge lang={lang} /> : null}
           </div>
 
-          <h3 className="mt-1 text-[15px] leading-thai font-medium text-ink">
+          <h3 className="mt-2 text-[17px] leading-thai font-semibold text-ink">
             <Link
               href={`/mockups/tor/${tor.id}`}
-              className="after:absolute after:inset-0 group-hover:underline underline-offset-2"
+              className="after:absolute after:inset-0 group-hover:underline underline-offset-[3px]"
             >
               {pick(tor.title, lang)}
             </Link>
           </h3>
 
-          <div className="mt-2.5">
+          <div className="mt-4">
             <VerdictStrip tor={tor} lang={lang} />
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-1">
+          <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
             <ScopeBadge size={tor.scopeSize} lang={lang} />
             {visibleTech.map((term) => {
               const known = showMatch && profile.skills.includes(term);
@@ -78,15 +80,15 @@ export function TorRow({
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-row items-end justify-between gap-4 sm:w-[176px] sm:flex-col sm:items-end sm:justify-start sm:gap-2.5 sm:border-l sm:border-line sm:pl-4">
+        <div className="flex shrink-0 flex-row items-end justify-between gap-4 border-t border-line pt-4 sm:w-[200px] sm:flex-col sm:items-end sm:justify-start sm:gap-4 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
           <div className="flex flex-col items-start sm:items-end">
             <span
-              className="font-mono tnum text-[17px] leading-none font-medium text-ink"
+              className="font-mono tnum text-[21px] leading-none font-semibold text-ink"
               title={formatTHB(tor.budget)}
             >
               {formatTHBCompact(tor.budget)}
             </span>
-            <span className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+            <span className="mt-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
               {lang === "th" ? "ราคากลาง" : "reference price"}
             </span>
           </div>
@@ -97,6 +99,14 @@ export function TorRow({
           {trailing ? <div className="relative z-10">{trailing}</div> : null}
         </div>
       </div>
-    </div>
+    </article>
   );
+}
+
+/**
+ * The list a set of cards sits in. Spacing between projects is the boundary —
+ * it is wider than any gap inside a card, so the grouping is unambiguous.
+ */
+export function TorList({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-col gap-5">{children}</div>;
 }

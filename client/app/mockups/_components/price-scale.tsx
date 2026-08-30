@@ -52,7 +52,7 @@ export function PriceScale({ tor, lang }: { tor: Tor; lang: Lang }) {
           className={`absolute top-0 flex flex-col items-start gap-1 ${anchor(projectPos)}`}
           style={{ left: `${projectPos}%` }}
         >
-          <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+          <span className="whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
             {lang === "th" ? "โครงการนี้" : "This project"}
           </span>
           <span
@@ -81,13 +81,13 @@ export function PriceScale({ tor, lang }: { tor: Tor; lang: Lang }) {
           >
             <span className="block h-[10px] w-[10px] rounded-full bg-ink-3 ring-2 ring-surface transition-colors group-hover:bg-ink group-focus:bg-ink" />
             <span className="pointer-events-none absolute bottom-[18px] left-1/2 z-20 hidden w-max max-w-[240px] -translate-x-1/2 rounded-[3px] border border-line-2 bg-surface px-2 py-1.5 text-left shadow-sm group-hover:block group-focus:block">
-              <span className="block text-[12px] leading-snug text-ink">
+              <span className="block text-[14px] leading-snug text-ink">
                 {pick(comparable.title, lang)}
               </span>
-              <span className="mt-0.5 block font-mono tnum text-[11px] text-ink-2">
+              <span className="mt-0.5 block font-mono tnum text-[13px] text-ink-2">
                 {formatTHB(comparable.budget)} · {comparable.year}
               </span>
-              <span className="block text-[11px] text-ink-3">{pick(comparable.agency, lang)}</span>
+              <span className="block text-[13px] text-ink-3">{pick(comparable.agency, lang)}</span>
             </span>
           </div>
         ))}
@@ -108,10 +108,10 @@ export function PriceScale({ tor, lang }: { tor: Tor; lang: Lang }) {
           className={`absolute top-[82px] flex flex-col gap-0.5 ${anchor(medianPos)}`}
           style={{ left: `${medianPos}%` }}
         >
-          <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+          <span className="whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
             {lang === "th" ? "ค่ากลาง" : "Median"}
           </span>
-          <span className="whitespace-nowrap font-mono tnum text-[13px] font-medium text-ink-2">
+          <span className="whitespace-nowrap font-mono tnum text-[14px] font-medium text-ink-2">
             {formatTHBCompact(median)}
           </span>
         </div>
@@ -120,7 +120,7 @@ export function PriceScale({ tor, lang }: { tor: Tor; lang: Lang }) {
         {[lo, hi].map((value) => (
           <span
             key={value}
-            className={`absolute top-[112px] font-mono tnum text-[10px] text-ink-3 ${anchor(
+            className={`absolute top-[112px] font-mono tnum text-[11px] text-ink-3 ${anchor(
               pos(value),
             )}`}
             style={{ left: `${pos(value)}%` }}
@@ -130,7 +130,7 @@ export function PriceScale({ tor, lang }: { tor: Tor; lang: Lang }) {
         ))}
       </div>
 
-      <figcaption className="mt-1 text-[11px] leading-thai text-ink-3">
+      <figcaption className="mt-1 text-[13px] leading-thai text-ink-2">
         {lang === "th"
           ? `จุดสีเทาคือโครงการที่เทียบเคียงได้ ${tor.price.sampleSize} โครงการ ย้อนหลัง 3 ปีงบประมาณ`
           : `Grey dots are the ${tor.price.sampleSize} comparable projects from the last three fiscal years.`}

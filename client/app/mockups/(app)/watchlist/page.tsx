@@ -2,23 +2,28 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { daysUntil, formatDate, pick, tors, type Tor } from "../../_data/tors";
+import { daysUntil, formatDate, isDead, pick, tors, type Tor } from "../../_data/tors";
 import { useLang, useProfile } from "../../_components/prefs";
-import { TorRow } from "../../_components/tor-row";
-import { btn, EmptyState, Panel, SectionHeading } from "../../_components/ui";
+import { TorList, TorRow } from "../../_components/tor-row";
+import { btn, EmptyState, SectionHeading } from "../../_components/ui";
 
 type Alert = {
   tor: Tor;
-  kind: "amended" | "closing" | "closed";
+  kind: "amended" | "closing" | "settled" | "cancelled";
   date: string;
   text: { th: string; en: string };
 };
 
-/** Tone follows the same rule as everywhere else: amber = look, grey = dead. */
+/**
+ * Tone follows the same rule as everywhere else: amber = look at this, crimson
+ * = it cost you something, grey = dead. Each alert also wears its own left
+ * rail, so the feed can be sorted by eye before a single line is read.
+ */
 const ALERT_TONE: Record<Alert["kind"], string> = {
-  amended: "border-amend-line bg-amend-bg text-amend",
-  closing: "border-amend-line bg-amend-bg text-amend",
-  closed: "border-closed-line bg-closed-bg text-ink-2",
+  amended: "border-l-amend bg-amend-bg",
+  closing: "border-l-amend bg-amend-bg",
+  settled: "border-l-closed bg-closed-bg",
+  cancelled: "border-l-risk bg-risk-bg",
 };
 
 export default function WatchlistPage() {
@@ -32,28 +37,50 @@ export default function WatchlistPage() {
   const alerts = useMemo(() => {
     const list: Alert[] = [];
     for (const tor of savedTors) {
-      const amendment = tor.amendments.find((a) => a.changes.length > 0);
-      if (tor.status === "amended" && amendment) {
+      const revision = tor.amendments.find((a) => a.kind === "revision");
+      if (tor.amended && revision) {
         list.push({
           tor,
           kind: "amended",
-          date: amendment.date,
-          text: amendment.headline,
+          date: revision.date,
+          text: revision.headline,
+        });
+      }
+      if (tor.status === "awarded") {
+        list.push({
+          tor,
+          kind: "settled",
+          date: tor.amendments[0].date,
+          text: {
+            th: `ประกาศผู้ชนะแล้ว ผู้ชนะคือ ${tor.awardedTo ? tor.awardedTo.th : "-"}`,
+            en: `Awarded to ${tor.awardedTo ? tor.awardedTo.en : "-"}.`,
+          },
         });
       }
       if (tor.status === "closed") {
         list.push({
           tor,
-          kind: "closed",
-          date: tor.amendments[0].date,
+          kind: "settled",
+          date: tor.deadline,
           text: {
-            th: `ปิดรับข้อเสนอแล้ว ผู้ชนะคือ ${tor.awardedTo ? tor.awardedTo.th : "-"}`,
-            en: `Closed. Awarded to ${tor.awardedTo ? tor.awardedTo.en : "-"}.`,
+            th: "เลยกำหนดยื่นแล้ว และหน่วยงานยังไม่ประกาศผล เราจะแจ้งอีกครั้งถ้ามีประกาศตามมา",
+            en: "The deadline passed with no result posted. We will tell you if one appears.",
+          },
+        });
+      }
+      if (tor.status === "cancelled") {
+        list.push({
+          tor,
+          kind: "cancelled",
+          date: tor.amendments[0].date,
+          text: tor.cancelReason ?? {
+            th: "หน่วยงานยกเลิกประกาศนี้แล้ว",
+            en: "The agency withdrew this notice.",
           },
         });
       }
       const left = daysUntil(tor.deadline);
-      if (tor.status !== "closed" && left >= 0 && left <= 7) {
+      if (!isDead(tor.status) && left >= 0 && left <= 7) {
         list.push({
           tor,
           kind: "closing",
@@ -92,7 +119,7 @@ export default function WatchlistPage() {
                 : "Amendments, closures and deadlines closing in."
             }
             right={
-              <span className="font-mono text-[11px] text-ink-3">
+              <span className="font-mono text-[13px] text-ink-3">
                 {lang === "th" ? `${alerts.length} รายการใหม่` : `${alerts.length} new`}
               </span>
             }
@@ -100,23 +127,23 @@ export default function WatchlistPage() {
             {lang === "th" ? "เปลี่ยนแปลงตั้งแต่ครั้งที่แล้ว" : "Changed since you last looked"}
           </SectionHeading>
 
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-3">
             {alerts.map((alert) => (
               <li
                 key={`${alert.tor.id}-${alert.kind}`}
-                className={`flex flex-wrap items-start gap-x-3 gap-y-2 rounded-[3px] border px-3.5 py-3 ${ALERT_TONE[alert.kind]}`}
+                className={`flex flex-wrap items-start gap-x-4 gap-y-2 rounded-[3px] border border-l-[3px] border-line px-4 py-4 ${ALERT_TONE[alert.kind]}`}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="flex flex-wrap items-baseline gap-x-2 font-mono text-[11px] opacity-80">
+                  <p className="flex flex-wrap items-baseline gap-x-2.5 font-mono text-[13px] text-ink-2">
                     <span className="tnum">{alert.tor.id}</span>
                     <span className="tnum">{formatDate(alert.date, lang)}</span>
                   </p>
-                  <p className="mt-1 text-[14px] leading-thai font-medium">
+                  <p className="mt-1.5 text-[15px] leading-thai font-semibold text-ink">
                     {pick(alert.text, lang)}
                   </p>
                   <Link
                     href={`/mockups/tor/${alert.tor.id}`}
-                    className="mt-1 inline-block text-[13px] leading-thai text-ink-2 underline underline-offset-2 hover:text-ink"
+                    className="mt-1.5 inline-block text-[14px] leading-thai text-ink-2 underline underline-offset-2 hover:text-ink"
                   >
                     {pick(alert.tor.title, lang)}
                   </Link>
@@ -124,7 +151,7 @@ export default function WatchlistPage() {
                 <button
                   type="button"
                   onClick={() => setDismissed([...dismissed, `${alert.tor.id}-${alert.kind}`])}
-                  className="shrink-0 font-mono text-[11px] text-ink-3 underline underline-offset-2 hover:text-ink"
+                  className="shrink-0 font-mono text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink"
                 >
                   {lang === "th" ? "รับทราบ" : "Got it"}
                 </button>
@@ -136,7 +163,7 @@ export default function WatchlistPage() {
 
       <SectionHeading
         right={
-          <span className="font-mono text-[11px] text-ink-3">
+          <span className="font-mono text-[13px] text-ink-3">
             {savedTors.length} {lang === "th" ? "โครงการ" : "saved"}
           </span>
         }
@@ -162,7 +189,7 @@ export default function WatchlistPage() {
             }
           />
         ) : (
-          <Panel className="overflow-hidden">
+          <TorList>
             {savedTors.map((tor) => (
               <TorRow
                 key={tor.id}
@@ -171,14 +198,14 @@ export default function WatchlistPage() {
                   <button
                     type="button"
                     onClick={() => setSaved(saved.filter((id) => id !== tor.id))}
-                    className="font-mono text-[11px] text-ink-3 underline underline-offset-2 hover:text-ink"
+                    className="font-mono text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink"
                   >
                     {lang === "th" ? "เอาออก" : "Remove"}
                   </button>
                 }
               />
             ))}
-          </Panel>
+          </TorList>
         )}
       </div>
     </div>

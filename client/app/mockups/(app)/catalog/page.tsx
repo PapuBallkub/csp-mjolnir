@@ -7,6 +7,7 @@ import {
   daysUntil,
   formatDate,
   formatTHB,
+  isDead,
   matchScore,
   pick,
   techTerms,
@@ -16,8 +17,8 @@ import {
   type Status,
 } from "../../_data/tors";
 import { useLang, useProfile } from "../../_components/prefs";
-import { TorRow } from "../../_components/tor-row";
-import { RiskMeter, ScopeBadge, SmeBadge } from "../../_components/verdict";
+import { TorList, TorRow } from "../../_components/tor-row";
+import { AmendedFlag, RiskMeter, ScopeBadge, SmeBadge, StatusBadge } from "../../_components/verdict";
 import {
   btn,
   Chip,
@@ -52,14 +53,19 @@ const DEADLINE_BANDS = [
   { id: "30", label: { th: "ภายใน 30 วัน", en: "Within 30 days" }, days: 30 },
 ] as const;
 
+/**
+ * The five lifecycle states, in the order a project moves through them, so the
+ * filter list doubles as an explanation of the badge system (FR09).
+ */
 const STATUS_OPTIONS: { id: Status; label: { th: string; en: string } }[] = [
+  { id: "draft", label: { th: "ร่าง TOR", en: "Draft" } },
   { id: "open", label: { th: "เปิดรับข้อเสนอ", en: "Open" } },
-  { id: "amended", label: { th: "แก้ไขแล้ว", en: "Amended" } },
-  { id: "closed", label: { th: "ประกาศผู้ชนะแล้ว", en: "Closed — awarded" } },
+  { id: "awarded", label: { th: "ประกาศผู้ชนะแล้ว", en: "Awarded" } },
+  { id: "closed", label: { th: "เลยกำหนดยื่นแล้ว", en: "Closed" } },
+  { id: "cancelled", label: { th: "ยกเลิกประกาศ", en: "Cancelled" } },
 ];
 
 const SCOPE_OPTIONS: { id: ScopeSize; label: { th: string; en: string } }[] = [
-  { id: "solo", label: { th: "ทำคนเดียวไหว", en: "Solo-sized" } },
   { id: "small-team", label: { th: "ทีมเล็ก 2–5 คน", en: "Small team" } },
   { id: "firm", label: { th: "ต้องใช้บริษัท", en: "Firm-sized" } },
 ];
@@ -85,7 +91,7 @@ function toggle<T>(list: T[], value: T): T[] {
 function FilterGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="border-b border-line px-3 py-3.5 last:border-b-0">
-      <h3 className="mb-2.5 text-[12px] font-semibold text-ink">{title}</h3>
+      <h3 className="mb-2.5 text-[14px] font-semibold text-ink">{title}</h3>
       <div className="flex flex-col gap-2">{children}</div>
     </div>
   );
@@ -105,7 +111,7 @@ function Check({
   trailing?: ReactNode;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 text-[13px] leading-thai text-ink-2 hover:text-ink">
+    <label className="flex cursor-pointer items-center gap-2 text-[14px] leading-thai text-ink-2 hover:text-ink">
       <input
         type="checkbox"
         checked={checked}
@@ -115,7 +121,7 @@ function Check({
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {trailing}
       {count !== undefined ? (
-        <span className="font-mono tnum text-[11px] text-ink-3">{count}</span>
+        <span className="font-mono tnum text-[13px] text-ink-3">{count}</span>
       ) : null}
     </label>
   );
@@ -133,7 +139,7 @@ function Radio({
   name: string;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 text-[13px] text-ink-2 hover:text-ink">
+    <label className="flex cursor-pointer items-center gap-2 text-[14px] text-ink-2 hover:text-ink">
       <input
         type="radio"
         name={name}
@@ -159,6 +165,7 @@ export default function BrowsePage() {
   const [budgetBand, setBudgetBand] = useState<string>("any");
   const [deadlineBand, setDeadlineBand] = useState<string>("any");
   const [hideHighRisk, setHideHighRisk] = useState(false);
+  const [amendedOnly, setAmendedOnly] = useState(false);
   const [smeOnly, setSmeOnly] = useState(false);
   const [sort, setSort] = useState<string>("deadline");
   const [scoreFloor, setScoreFloor] = useState<number>(0);
@@ -173,6 +180,7 @@ export default function BrowsePage() {
     (budgetBand === "any" ? 0 : 1) +
     (deadlineBand === "any" ? 0 : 1) +
     (hideHighRisk ? 1 : 0) +
+    (amendedOnly ? 1 : 0) +
     (smeOnly ? 1 : 0);
 
   function clearAll() {
@@ -184,6 +192,7 @@ export default function BrowsePage() {
     setBudgetBand("any");
     setDeadlineBand("any");
     setHideHighRisk(false);
+    setAmendedOnly(false);
     setSmeOnly(false);
   }
 
@@ -196,14 +205,14 @@ export default function BrowsePage() {
     [profile],
   );
   const strongCount = ranked.filter(
-    (row) => row.score >= 70 && row.tor.status !== "closed",
+    (row) => row.score >= 70 && !isDead(row.tor.status),
   ).length;
 
   const results = useMemo(() => {
     if (mode === "match") {
       return ranked
         .filter((row) => row.score >= scoreFloor)
-        .filter((row) => (hideClosed ? row.tor.status !== "closed" : true))
+        .filter((row) => (hideClosed ? !isDead(row.tor.status) : true))
         .filter((row) => (hideHighRisk ? row.tor.lockSpec.level !== "high" : true))
         .map((row) => row.tor);
     }
@@ -236,11 +245,12 @@ export default function BrowsePage() {
         if (left < 0 || left > within) return false;
       }
       if (hideHighRisk && tor.lockSpec.level === "high") return false;
+      if (amendedOnly && !tor.amended) return false;
       if (smeOnly && !tor.smeAdvantage) return false;
       return true;
     });
 
-    const dead = (status: Status) => (status === "closed" ? 1 : 0);
+    const dead = (status: Status) => (isDead(status) ? 1 : 0);
     return [...filtered].sort((a, b) => {
       switch (sort) {
         case "newest":
@@ -270,6 +280,7 @@ export default function BrowsePage() {
     budgetBand,
     deadlineBand,
     hideHighRisk,
+    amendedOnly,
     smeOnly,
     sort,
   ]);
@@ -286,14 +297,14 @@ export default function BrowsePage() {
   const filterRail = (
     <Panel className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-line bg-surface-2 px-3 py-2.5">
-        <h2 className="text-[12px] font-semibold text-ink">
+        <h2 className="text-[14px] font-semibold text-ink">
           {lang === "th" ? "ตัวกรอง" : "Filters"}
         </h2>
         {activeCount > 0 ? (
           <button
             type="button"
             onClick={clearAll}
-            className="text-[11px] text-ink-2 underline underline-offset-2 hover:text-ink"
+            className="text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink"
           >
             {lang === "th" ? `ล้างทั้งหมด (${activeCount})` : `Clear all (${activeCount})`}
           </button>
@@ -306,10 +317,19 @@ export default function BrowsePage() {
             key={option.id}
             checked={statuses.includes(option.id)}
             onChange={() => setStatuses(toggle(statuses, option.id))}
-            label={pick(option.label, lang)}
+            label={<StatusBadge status={option.id} lang={lang} />}
             count={statusCounts[option.id]}
           />
         ))}
+        {/* A revision is not a status — it can happen in any of the five. */}
+        <div className="mt-1 border-t border-line pt-2.5">
+          <Check
+            checked={amendedOnly}
+            onChange={() => setAmendedOnly(!amendedOnly)}
+            label={<AmendedFlag lang={lang} />}
+            count={tors.filter((t) => t.amended).length}
+          />
+        </div>
       </FilterGroup>
 
       <FilterGroup title={lang === "th" ? "ขนาดงาน" : "Scope size"}>
@@ -368,7 +388,7 @@ export default function BrowsePage() {
               key={term}
               checked={techFilter.includes(term)}
               onChange={() => setTechFilter(toggle(techFilter, term))}
-              label={<span className="font-mono text-[12px]">{term}</span>}
+              label={<span className="font-mono text-[14px]">{term}</span>}
             />
           ))}
         </div>
@@ -393,7 +413,7 @@ export default function BrowsePage() {
     <div className="flex flex-col gap-4">
       <Panel className="overflow-hidden">
         <div className="border-b border-line bg-surface-2 px-3 py-2.5">
-          <h2 className="text-[12px] font-semibold text-ink">
+          <h2 className="text-[14px] font-semibold text-ink">
             {lang === "th" ? "จับคู่จากโปรไฟล์ของคุณ" : "Ranked from your profile"}
           </h2>
         </div>
@@ -403,7 +423,7 @@ export default function BrowsePage() {
             <Label>{lang === "th" ? "ทักษะ" : "Skills"}</Label>
             <div className="mt-1.5 flex flex-wrap gap-1">
               {profile.skills.length === 0 ? (
-                <span className="text-[12px] text-ink-3">
+                <span className="text-[14px] text-ink-2">
                   {lang === "th" ? "ยังไม่ได้เลือก" : "None selected"}
                 </span>
               ) : (
@@ -414,7 +434,7 @@ export default function BrowsePage() {
 
           <div className="border-t border-line pt-3">
             <Label>{lang === "th" ? "ช่วงงบ" : "Budget range"}</Label>
-            <p className="mt-1 font-mono tnum text-[12px] text-ink">
+            <p className="mt-1 font-mono tnum text-[14px] text-ink">
               {formatTHB(profile.budgetMin)} – {formatTHB(profile.budgetMax)}
             </p>
           </div>
@@ -437,7 +457,7 @@ export default function BrowsePage() {
 
       <Panel className="overflow-hidden">
         <div className="border-b border-line bg-surface-2 px-3 py-2.5">
-          <h2 className="text-[12px] font-semibold text-ink">
+          <h2 className="text-[14px] font-semibold text-ink">
             {lang === "th" ? "ปรับผลลัพธ์" : "Refine"}
           </h2>
         </div>
@@ -456,7 +476,7 @@ export default function BrowsePage() {
           <Check
             checked={hideClosed}
             onChange={() => setHideClosed(!hideClosed)}
-            label={lang === "th" ? "งานที่ปิดรับแล้ว" : "Projects already closed"}
+            label={lang === "th" ? "งานที่ยื่นไม่ได้แล้ว" : "Projects you can no longer bid on"}
           />
           <Check
             checked={hideHighRisk}
@@ -490,7 +510,7 @@ export default function BrowsePage() {
                 : "Normalized summaries of every posted TOR — read the whole thing without opening the PDF."}
             </p>
           </div>
-          <p className="font-mono text-[11px] text-ink-3">
+          <p className="font-mono text-[13px] text-ink-3">
             {tors.length} {lang === "th" ? "ประกาศ" : "postings"} ·{" "}
             {lang === "th" ? "อัปเดตล่าสุด" : "last crawl"} {formatDate(TODAY, lang)} 06:33
           </p>
@@ -509,7 +529,7 @@ export default function BrowsePage() {
                 type="button"
                 onClick={() => setMode(option.id)}
                 aria-pressed={mode === option.id}
-                className={`flex items-center gap-2 rounded-[2px] px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                className={`flex items-center gap-2 rounded-[2px] px-3 py-1.5 text-[14px] font-medium transition-colors ${
                   mode === option.id
                     ? "bg-surface text-ink shadow-sm"
                     : "text-ink-3 hover:text-ink"
@@ -518,7 +538,7 @@ export default function BrowsePage() {
                 {pick(option.label, lang)}
                 {option.badge !== undefined ? (
                   <span
-                    className={`rounded-[2px] px-1 font-mono tnum text-[11px] ${
+                    className={`rounded-[2px] px-1 font-mono tnum text-[13px] ${
                       mode === option.id
                         ? "bg-open-bg text-open"
                         : "bg-surface-3 text-ink-3"
@@ -531,7 +551,7 @@ export default function BrowsePage() {
             ))}
           </div>
 
-          <p className="text-[12px] leading-thai text-ink-3">
+          <p className="text-[14px] leading-thai text-ink-2">
             {mode === "filter"
               ? lang === "th"
                 ? "กรองเองตามเทคโนโลยี งบ กำหนดยื่น และหน่วยงาน"
@@ -557,7 +577,7 @@ export default function BrowsePage() {
                   ? "โปรไฟล์และการปรับผลลัพธ์"
                   : "Profile and refinements"}
             </span>
-            <span className="font-mono text-[11px] text-ink-3">{filtersOpen ? "−" : "+"}</span>
+            <span className="font-mono text-[13px] text-ink-3">{filtersOpen ? "−" : "+"}</span>
           </button>
           {filtersOpen ? <div className="mt-3">{rail}</div> : null}
         </div>
@@ -628,7 +648,7 @@ export default function BrowsePage() {
             </div>
           )}
 
-          <p className="mb-2 font-mono text-[11px] text-ink-3">
+          <p className="mb-2 font-mono text-[13px] text-ink-3">
             {lang === "th"
               ? `แสดง ${results.length} จาก ${tors.length} ประกาศ`
               : `${results.length} of ${tors.length} postings`}
@@ -683,11 +703,11 @@ export default function BrowsePage() {
               />
             )
           ) : (
-            <Panel className="overflow-hidden">
+            <TorList>
               {results.map((tor) => (
                 <TorRow key={tor.id} tor={tor} showMatch={mode === "match"} />
               ))}
-            </Panel>
+            </TorList>
           )}
         </div>
       </div>

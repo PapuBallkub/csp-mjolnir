@@ -13,7 +13,7 @@ import {
 import { useLang } from "../../_components/prefs";
 import { AmendmentModule } from "../../_components/modules";
 import { Panel, SectionHeading } from "../../_components/ui";
-import { StatusBadge } from "../../_components/verdict";
+import { AmendedFlag, amendRound, StatusBadge } from "../../_components/verdict";
 
 /** Deviations inside this band are ordinary and are drawn in neutral grey. */
 const NORMAL_BAND = 15;
@@ -39,11 +39,11 @@ function DeviationChart({ rows, lang }: { rows: Tor[]; lang: "th" | "en" }) {
       <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-[minmax(0,240px)_minmax(0,1fr)_54px]">
         <span className="hidden sm:block" />
         <div className="relative hidden h-4 sm:block">
-          <span className="absolute left-0 font-mono tnum text-[10px] text-ink-3">−{domain}%</span>
-          <span className="absolute left-1/2 -translate-x-1/2 font-mono text-[10px] text-ink-3">
+          <span className="absolute left-0 font-mono tnum text-[11px] text-ink-3">−{domain}%</span>
+          <span className="absolute left-1/2 -translate-x-1/2 font-mono text-[11px] text-ink-3">
             {lang === "th" ? "ค่ากลาง" : "median"}
           </span>
-          <span className="absolute right-0 font-mono tnum text-[10px] text-ink-3">+{domain}%</span>
+          <span className="absolute right-0 font-mono tnum text-[11px] text-ink-3">+{domain}%</span>
         </div>
         <span className="hidden sm:block" />
 
@@ -57,7 +57,7 @@ function DeviationChart({ rows, lang }: { rows: Tor[]; lang: "th" | "en" }) {
             <div key={tor.id} className="contents">
               <Link
                 href={`/mockups/tor/${tor.id}`}
-                className="min-w-0 truncate py-1 pr-3 text-[12px] text-ink-2 hover:text-ink hover:underline"
+                className="min-w-0 truncate py-1 pr-3 text-[14px] text-ink-2 hover:text-ink hover:underline"
                 title={pick(tor.title, lang)}
               >
                 <span className="font-mono tnum text-ink-3">{tor.id.slice(-4)}</span>{" "}
@@ -87,7 +87,7 @@ function DeviationChart({ rows, lang }: { rows: Tor[]; lang: "th" | "en" }) {
               </div>
 
               <span
-                className={`self-center py-1 text-right font-mono tnum text-[12px] font-medium ${valueTone}`}
+                className={`self-center py-1 text-right font-mono tnum text-[14px] font-medium ${valueTone}`}
               >
                 {delta >= 0 ? "+" : ""}
                 {delta}%
@@ -97,7 +97,7 @@ function DeviationChart({ rows, lang }: { rows: Tor[]; lang: "th" | "en" }) {
         })}
       </div>
 
-      <figcaption className="text-[11px] leading-thai text-ink-3">
+      <figcaption className="text-[13px] leading-thai text-ink-2">
         {lang === "th"
           ? `แถบเทาตรงกลางคือช่วง ±${NORMAL_BAND}% ซึ่งถือว่าปกติ ค่ากลางคำนวณจากโครงการที่มีขอบเขตใกล้เคียงกันย้อนหลัง 3 ปีงบประมาณ`
           : `The grey band is ±${NORMAL_BAND}%, which counts as ordinary. Medians are computed from comparable scopes over the last three fiscal years.`}
@@ -113,10 +113,10 @@ export default function WatchdogPage() {
     () => [...tors].sort((a, b) => priceDeltaPct(b) - priceDeltaPct(a)),
     [],
   );
-  const amended = useMemo(
-    () => tors.filter((tor) => tor.amendments.some((a) => a.changes.length > 0)),
-    [],
-  );
+  // Revisions only. An award or cancellation notice is also a recorded change,
+  // but calling it an amendment would inflate the count on a screen whose whole
+  // value is that its figures are quotable.
+  const amended = useMemo(() => tors.filter((tor) => tor.amended), []);
   const awarded = useMemo(() => tors.filter((tor) => tor.awardedAmount), []);
 
   const [selected, setSelected] = useState(amended[0]?.id ?? "");
@@ -125,7 +125,7 @@ export default function WatchdogPage() {
   return (
     <div className="mx-auto max-w-[1240px] px-4 py-6">
       <header className="mb-6">
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-3">
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-3">
           {lang === "th" ? "มุมมองสำหรับผู้ตรวจสอบ" : "Watchdog view"}
         </p>
         <h1 className="mt-1 text-[26px] leading-tight font-semibold tracking-tight text-ink">
@@ -141,7 +141,7 @@ export default function WatchdogPage() {
       <section className="mb-8">
         <SectionHeading
           right={
-            <span className="font-mono text-[11px]">
+            <span className="font-mono text-[13px]">
               {lang === "th" ? `${tors.length} โครงการ` : `${tors.length} projects`}
             </span>
           }
@@ -156,7 +156,7 @@ export default function WatchdogPage() {
       <section className="mb-8">
         <SectionHeading
           right={
-            <span className="font-mono text-[11px]">
+            <span className="font-mono text-[13px]">
               {lang === "th"
                 ? `${amended.length} ฉบับมีการแก้ไข`
                 : `${amended.length} documents changed`}
@@ -179,9 +179,12 @@ export default function WatchdogPage() {
                     active ? "bg-surface-3" : "hover:bg-surface-2"
                   }`}
                 >
-                  <span className="font-mono tnum text-[10px] text-ink-3">{tor.id}</span>
-                  <span className="text-[13px] leading-thai text-ink">{pick(tor.title, lang)}</span>
-                  <StatusBadge status={tor.status} lang={lang} />
+                  <span className="font-mono tnum text-[13px] text-ink-2">{tor.id}</span>
+                  <span className="text-[15px] leading-thai text-ink">{pick(tor.title, lang)}</span>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <StatusBadge status={tor.status} lang={lang} />
+                    {tor.amended ? <AmendedFlag lang={lang} round={amendRound(tor)} /> : null}
+                  </span>
                 </button>
               );
             })}
@@ -197,7 +200,7 @@ export default function WatchdogPage() {
                   >
                     {pick(selectedTor.title, lang)}
                   </Link>
-                  <span className="font-mono tnum text-[11px] text-ink-3">
+                  <span className="font-mono tnum text-[13px] text-ink-3">
                     {formatTHB(selectedTor.budget)}
                   </span>
                 </div>
@@ -225,7 +228,7 @@ export default function WatchdogPage() {
                 ].map((heading, index) => (
                   <th
                     key={heading}
-                    className={`px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
+                    className={`px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
                       index >= 2 ? "text-right" : ""
                     }`}
                   >
@@ -245,25 +248,25 @@ export default function WatchdogPage() {
                     <td className="px-3 py-2.5">
                       <Link
                         href={`/mockups/tor/${tor.id}`}
-                        className="text-[13px] leading-thai text-ink hover:underline"
+                        className="text-[14px] leading-thai text-ink hover:underline"
                       >
                         {pick(tor.title, lang)}
                       </Link>
-                      <span className="mt-0.5 block font-mono tnum text-[10px] text-ink-3">
+                      <span className="mt-0.5 block font-mono tnum text-[13px] text-ink-2">
                         {tor.id} · {pick(tor.agency, lang)}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-[12px] leading-thai text-ink-2">
+                    <td className="px-3 py-2.5 text-[14px] leading-thai text-ink-2">
                       {tor.awardedTo ? pick(tor.awardedTo, lang) : "—"}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono tnum text-[12px] text-ink-2">
+                    <td className="px-3 py-2.5 text-right font-mono tnum text-[14px] text-ink-2">
                       {formatTHBCompact(tor.budget)}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono tnum text-[12px] text-ink">
+                    <td className="px-3 py-2.5 text-right font-mono tnum text-[14px] text-ink">
                       {formatTHBCompact(tor.awardedAmount!)}
                     </td>
                     <td
-                      className={`px-3 py-2.5 text-right font-mono tnum text-[12px] font-medium ${
+                      className={`px-3 py-2.5 text-right font-mono tnum text-[14px] font-medium ${
                         tight ? "text-amend" : "text-ink-2"
                       }`}
                     >
@@ -275,7 +278,7 @@ export default function WatchdogPage() {
             </tbody>
           </table>
         </Panel>
-        <p className="mt-3 text-[11px] leading-thai text-ink-3">
+        <p className="mt-3 text-[13px] leading-thai text-ink-2">
           {lang === "th"
             ? "ราคาที่ชนะซึ่งเข้าใกล้ราคากลางมาก มักพบในงานที่มีผู้เสนอราคารายเดียว ตัวเลขนี้เป็นข้อสังเกต ไม่ใช่ข้อกล่าวหา"
             : "Winning bids that sit within a couple of percent of the ceiling are typical of single-bidder rounds. This is an observation, not an accusation."}

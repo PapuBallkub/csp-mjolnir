@@ -61,7 +61,7 @@ export function LockSpecModule({ tor, lang }: { tor: Tor; lang: Lang }) {
         right={
           <span className="flex items-center gap-2">
             <RiskMeter level={level} />
-            <span className="font-mono tnum text-[13px] font-medium text-ink">
+            <span className="font-mono tnum text-[14px] font-medium text-ink">
               {score}
               <span className="text-ink-3">/100</span>
             </span>
@@ -80,11 +80,11 @@ export function LockSpecModule({ tor, lang }: { tor: Tor; lang: Lang }) {
           <li key={reason.source} className="py-5 last:pb-0">
             {/* Tier one: everything needed to skim, before any evidence. */}
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              <span className="font-mono tnum text-[11px] text-ink-3">
+              <span className="font-mono tnum text-[13px] text-ink-3">
                 {String(index + 1).padStart(2, "0")}
               </span>
               <span
-                className={`rounded-[2px] border px-1.5 py-[2px] text-[11px] font-medium ${RISK_CHIP[level]}`}
+                className={`rounded-[2px] border px-2 py-[3px] text-[12px] font-medium ${RISK_CHIP[level]}`}
               >
                 {pick(reason.tag, lang)}
               </span>
@@ -96,8 +96,8 @@ export function LockSpecModule({ tor, lang }: { tor: Tor; lang: Lang }) {
             {/* Tier two: the clause itself, in the source language — it is
                 evidence, not copy, so it is never translated away. */}
             <Well className="mt-3 border-l-2 border-l-line-2 px-3 py-2.5">
-              <p className="text-[13px] leading-thai text-ink-2">“{reason.clauseTh}”</p>
-              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+              <p className="text-[14px] leading-thai text-ink-2">“{reason.clauseTh}”</p>
+              <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
                 {reason.source}
               </p>
             </Well>
@@ -106,7 +106,7 @@ export function LockSpecModule({ tor, lang }: { tor: Tor; lang: Lang }) {
               <span className="shrink-0 pt-[3px]">
                 <Label>{lang === "th" ? "ปกติแล้ว" : "Normally"}</Label>
               </span>
-              <p className="text-[13px] leading-thai text-ink-2">{pick(reason.baseline, lang)}</p>
+              <p className="text-[14px] leading-thai text-ink-2">{pick(reason.baseline, lang)}</p>
             </div>
           </li>
         ))}
@@ -138,7 +138,7 @@ export function PriceModule({ tor, lang }: { tor: Tor; lang: Lang }) {
       </Well>
 
       <div className="mt-6">
-        <h3 className="mb-1 text-[13px] font-semibold text-ink">
+        <h3 className="mb-2 text-[15px] font-semibold text-ink">
           {lang === "th" ? "โครงการที่ใช้เทียบ" : "The projects it was measured against"}
         </h3>
         <div className="overflow-x-auto">
@@ -154,7 +154,7 @@ export function PriceModule({ tor, lang }: { tor: Tor; lang: Lang }) {
                 ].map((heading, index) => (
                   <th
                     key={heading}
-                    className={`py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
+                    className={`py-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
                       index > 0 ? "text-right" : ""
                     }`}
                   >
@@ -167,28 +167,28 @@ export function PriceModule({ tor, lang }: { tor: Tor; lang: Lang }) {
               {tor.price.comparables.map((comparable) => (
                 <tr key={comparable.id} className="border-b border-line">
                   <td className="py-2 pr-3">
-                    <span className="block text-[13px] leading-thai text-ink">
+                    <span className="block text-[14px] leading-thai text-ink">
                       {pick(comparable.title, lang)}
                     </span>
-                    <span className="block text-[11px] text-ink-3">
+                    <span className="block text-[13px] text-ink-3">
                       {pick(comparable.agency, lang)}
                       {comparable.note ? ` · ${pick(comparable.note, lang)}` : ""}
                     </span>
                   </td>
-                  <td className="py-2 text-right align-top font-mono tnum text-[12px] text-ink-2">
+                  <td className="py-2 text-right align-top font-mono tnum text-[14px] text-ink-2">
                     {comparable.year}
                   </td>
-                  <td className="py-2 text-right align-top font-mono tnum text-[13px] text-ink">
+                  <td className="py-2 text-right align-top font-mono tnum text-[14px] text-ink">
                     {formatTHB(comparable.budget)}
                   </td>
                 </tr>
               ))}
               <tr className="bg-surface-2">
-                <td className="py-2.5 pr-3 pl-2 text-[13px] font-semibold text-ink">
+                <td className="py-2.5 pr-3 pl-2 text-[14px] font-semibold text-ink">
                   {lang === "th" ? "โครงการนี้" : "This project"}
                 </td>
-                <td className="py-2.5 text-right font-mono tnum text-[12px] text-ink-2">2026</td>
-                <td className="py-2.5 pr-2 text-right font-mono tnum text-[13px] font-semibold text-ink">
+                <td className="py-2.5 text-right font-mono tnum text-[14px] text-ink-2">2026</td>
+                <td className="py-2.5 pr-2 text-right font-mono tnum text-[14px] font-semibold text-ink">
                   {formatTHB(tor.budget)}
                   <span className="ml-1.5 font-normal text-ink-3">
                     {delta >= 0 ? "+" : ""}
@@ -202,7 +202,7 @@ export function PriceModule({ tor, lang }: { tor: Tor; lang: Lang }) {
       </div>
 
       {tor.awardedAmount ? (
-        <p className="mt-4 text-[13px] leading-thai text-ink-2">
+        <p className="mt-4 text-[14px] leading-thai text-ink-2">
           {lang === "th"
             ? `ผู้ชนะเสนอราคาที่ ${formatTHB(tor.awardedAmount)} ต่ำกว่าราคากลาง ${(
                 ((tor.budget - tor.awardedAmount) / tor.budget) *
@@ -225,7 +225,7 @@ const KIND_LABEL = {
 } as const;
 
 export function AmendmentModule({ tor, lang }: { tor: Tor; lang: Lang }) {
-  const amended = tor.amendments.filter((a) => a.changes.length > 0);
+  const revisions = tor.amendments.filter((a) => a.kind === "revision");
 
   return (
     <>
@@ -239,7 +239,7 @@ export function AmendmentModule({ tor, lang }: { tor: Tor; lang: Lang }) {
         {lang === "th" ? "ประวัติการแก้ไข" : "Amendment history"}
       </SectionHeading>
 
-      {amended.length === 0 ? (
+      {revisions.length === 0 ? (
         <p className="text-[16px] leading-thai font-medium text-ink">
           {lang === "th"
             ? `ยังไม่มีการแก้ไขนับจากประกาศครั้งแรกเมื่อ ${formatDate(tor.postedAt, lang)}`
@@ -265,10 +265,10 @@ export function AmendmentModule({ tor, lang }: { tor: Tor; lang: Lang }) {
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-                  <h3 className="text-[14px] font-semibold text-ink">
+                  <h3 className="text-[15px] font-semibold text-ink">
                     {pick(amendment.round, lang)}
                   </h3>
-                  <span className="font-mono tnum text-[11px] text-ink-3">
+                  <span className="font-mono tnum text-[13px] text-ink-3">
                     {formatDate(amendment.date, lang)}
                   </span>
                 </div>
@@ -284,22 +284,22 @@ export function AmendmentModule({ tor, lang }: { tor: Tor; lang: Lang }) {
                         className="rounded-[3px] border border-line bg-surface-2 px-3 py-2.5"
                       >
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1 py-[1px] font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-amend">
+                          <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-[2px] font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-amend">
                             {pick(KIND_LABEL[change.kind], lang)}
                           </span>
-                          <span className="text-[13px] font-medium text-ink">
+                          <span className="text-[15px] font-medium text-ink">
                             {pick(change.field, lang)}
                           </span>
                         </div>
 
                         {change.before ? (
-                          <p className="mt-2 flex gap-2 text-[13px] leading-thai text-ink-3">
+                          <p className="mt-2 flex gap-2 text-[14px] leading-thai text-ink-3">
                             <span className="shrink-0 font-mono">−</span>
                             <span>{change.before}</span>
                           </p>
                         ) : null}
                         {change.after ? (
-                          <p className="mt-1 flex gap-2 border-l-2 border-amend pl-2 text-[13px] leading-thai text-ink">
+                          <p className="mt-1 flex gap-2 border-l-2 border-amend pl-2 text-[14px] leading-thai text-ink">
                             <span className="shrink-0 font-mono">+</span>
                             <span>{change.after}</span>
                           </p>
@@ -335,14 +335,14 @@ export function SourceModule({ tor, lang }: { tor: Tor; lang: Lang }) {
     <>
       <SectionHeading>{lang === "th" ? "ที่มาของข้อมูล" : "Where this came from"}</SectionHeading>
 
-      <p className="text-[13px] leading-thai text-ink-2">
+      <p className="text-[14px] leading-thai text-ink-2">
         {lang === "th"
           ? `ถอดความจาก${pick(formatLabel[tor.source.format], lang)} จำนวน ${tor.source.pages} หน้า จาก ${tor.source.portal} ดึงข้อมูลเมื่อ ${formatDate(tor.postedAt, lang)}`
           : `Read from a ${pick(formatLabel[tor.source.format], lang)} of ${tor.source.pages} pages on ${tor.source.portal}, ingested ${formatDate(tor.postedAt, lang)}.`}
       </p>
 
       {unreviewed ? (
-        <p className="mt-3 rounded-[3px] border border-amend-line bg-amend-bg px-3 py-2.5 text-[13px] leading-thai text-amend">
+        <p className="mt-3 rounded-[3px] border border-amend-line bg-amend-bg px-3 py-2.5 text-[14px] leading-thai text-amend">
           {lang === "th"
             ? "ต้นฉบับเป็นไฟล์สแกนคุณภาพต่ำ ตัวเลขงบประมาณและรายการเทคโนโลยียังไม่ผ่านการตรวจทานโดยเจ้าหน้าที่ ควรยืนยันกับไฟล์ต้นฉบับก่อนตัดสินใจ"
             : "The source scan is poor quality. The budget figure and tech stack have not been checked by a human yet — confirm against the original before you commit."}

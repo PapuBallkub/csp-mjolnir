@@ -5,7 +5,7 @@ import { priceDeltaPct } from "../_data/tors";
  * The verdict layer — the one thing this product has that a plain listing site
  * does not, so it is also the visual thread that runs through every screen.
  *
- * Two rules hold the system together:
+ * Three rules hold the system together:
  *
  *   1. Hue encodes a verdict, never a category. Green = go, amber = look
  *      closer, crimson = this will cost you, grey = dead. That is why a "low
@@ -13,9 +13,12 @@ import { priceDeltaPct } from "../_data/tors";
  *   2. Colour is never the only carrier. Every badge pairs its hue with a
  *      glyph and a word, so the system survives greyscale printing and
  *      colour-blind readers.
+ *   3. A dashed edge means *we* inferred it; a solid edge means the agency
+ *      said it. Only `closed` is drawn dashed, because it is the one state we
+ *      derive ourselves — the deadline passed and no result was ever posted.
  */
 
-export type Tone = "open" | "amend" | "risk" | "closed";
+export type Tone = "open" | "amend" | "risk" | "closed" | "neutral";
 
 /* Full class strings, never composed at runtime, so Tailwind can see them. */
 const TONE: Record<Tone, { text: string; bg: string; border: string; fill: string }> = {
@@ -28,14 +31,41 @@ const TONE: Record<Tone, { text: string; bg: string; border: string; fill: strin
     border: "border-closed-line",
     fill: "bg-closed",
   },
+  neutral: { text: "text-ink-2", bg: "bg-surface-3", border: "border-line-2", fill: "bg-ink-3" },
 };
 
 /* Exported so a whole panel can wear the same hue as the badge inside it. */
 export const STATUS_TONE: Record<Status, Tone> = {
+  draft: "neutral",
   open: "open",
-  amended: "amend",
+  awarded: "closed",
   closed: "closed",
+  cancelled: "risk",
 };
+
+/**
+ * The badge skin per lifecycle state. Tone alone is not enough here: `awarded`
+ * and `closed` share the drained grey, and the whole point of the distinction
+ * is that one is the agency's word and the other is our inference — so the
+ * inferred one is the only badge in the system with no fill and a dashed edge.
+ */
+const STATUS_SKIN: Record<Status, string> = {
+  draft: "border-line-2 bg-surface-3 text-ink-2",
+  open: "border-open-line bg-open-bg text-open",
+  awarded: "border-closed-line bg-closed-bg text-closed",
+  closed: "border-dashed border-closed-line bg-transparent text-closed",
+  cancelled: "border-risk-line bg-risk-bg text-risk",
+};
+
+/** Left-edge rail colour for a card or row wearing this status. */
+export const STATUS_RAIL: Record<Status, string> = {
+  draft: "border-l-line-2",
+  open: "border-l-open",
+  awarded: "border-l-closed",
+  closed: "border-l-closed-line",
+  cancelled: "border-l-risk",
+};
+
 export const RISK_TONE: Record<RiskLevel, Tone> = { low: "open", medium: "amend", high: "risk" };
 /**
  * An over-median budget is not the applicant's problem — a *below*-median one
@@ -50,9 +80,35 @@ export const PRICE_TONE: Record<PriceVerdict, Tone> = {
 };
 
 const STATUS_LABEL: Record<Status, Bi> = {
+  draft: { th: "ร่าง TOR", en: "Draft" },
   open: { th: "เปิดรับข้อเสนอ", en: "Open" },
-  amended: { th: "แก้ไขแล้ว", en: "Amended" },
-  closed: { th: "ประกาศผู้ชนะแล้ว", en: "Closed — awarded" },
+  awarded: { th: "ประกาศผู้ชนะแล้ว", en: "Awarded" },
+  closed: { th: "เลยกำหนดยื่นแล้ว", en: "Closed" },
+  cancelled: { th: "ยกเลิกประกาศ", en: "Cancelled" },
+};
+
+/** What each state means, in one sentence, wherever there is room to say it. */
+export const STATUS_NOTE: Record<Status, Bi> = {
+  draft: {
+    th: "ยังเป็นร่าง อยู่ระหว่างรับฟังความคิดเห็น ยังยื่นข้อเสนอไม่ได้ และข้อกำหนดยังเปลี่ยนได้",
+    en: "Still a draft under public comment — you cannot bid yet, and the requirements can still move.",
+  },
+  open: {
+    th: "เปิดรับข้อเสนออยู่ ณ ขณะนี้",
+    en: "Accepting proposals right now.",
+  },
+  awarded: {
+    th: "หน่วยงานประกาศผู้ชนะแล้ว",
+    en: "The agency has announced a winner.",
+  },
+  closed: {
+    th: "เราสรุปเองว่าปิดแล้ว เพราะเลยกำหนดยื่นและหน่วยงานยังไม่ประกาศผล ควรยืนยันกับต้นทางก่อน",
+    en: "Our inference, not the agency's word: the deadline passed and no result was posted. Worth confirming at the source.",
+  },
+  cancelled: {
+    th: "หน่วยงานยกเลิกประกาศนี้แล้ว",
+    en: "The agency withdrew this notice.",
+  },
 };
 
 const RISK_LABEL: Record<RiskLevel, Bi> = {
@@ -62,7 +118,6 @@ const RISK_LABEL: Record<RiskLevel, Bi> = {
 };
 
 const SCOPE_LABEL: Record<ScopeSize, Bi> = {
-  solo: { th: "ทำคนเดียวไหว", en: "Solo-sized" },
   "small-team": { th: "ทีมเล็ก 2–5 คน", en: "Small team" },
   firm: { th: "ต้องใช้บริษัท", en: "Firm-sized" },
 };
@@ -72,25 +127,50 @@ const say = (v: Bi, lang: Lang) => (lang === "th" ? v.th : v.en);
 
 /* --------------------------------- glyphs --------------------------------- */
 
-function StatusGlyph({ status, className = "" }: { status: Status; className?: string }) {
+function StatusGlyph({ status }: { status: Status }) {
   return (
-    <svg viewBox="0 0 10 10" className={`h-2.5 w-2.5 shrink-0 ${className}`} aria-hidden="true">
-      {status === "open" && <circle cx="5" cy="5" r="3.2" fill="currentColor" />}
-      {/* Two offset bars: the same mark the amendment diff uses. */}
-      {status === "amended" && (
-        <>
-          <rect x="0" y="2.2" width="7" height="1.8" fill="currentColor" />
-          <rect x="3" y="6" width="7" height="1.8" fill="currentColor" />
-        </>
+    <svg viewBox="0 0 10 10" className="h-3 w-3 shrink-0" aria-hidden="true">
+      {/* Draft — an outline, because nothing is settled yet. */}
+      {status === "draft" && (
+        <circle cx="5" cy="5" r="3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      )}
+      {status === "open" && <circle cx="5" cy="5" r="3.4" fill="currentColor" />}
+      {/* Awarded — a decision was made and recorded. */}
+      {status === "awarded" && (
+        <path
+          d="M1.4 5.4 L4 8 L8.8 2.2"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       )}
       {status === "closed" && (
         <path
-          d="M1.5 1.5 L8.5 8.5 M8.5 1.5 L1.5 8.5"
+          d="M1.6 1.6 L8.4 8.4 M8.4 1.6 L1.6 8.4"
           stroke="currentColor"
           strokeWidth="1.8"
           strokeLinecap="round"
         />
       )}
+      {/* Cancelled — struck through, the way the notice itself is. */}
+      {status === "cancelled" && (
+        <>
+          <circle cx="5" cy="5" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M2.5 7.5 L7.5 2.5" stroke="currentColor" strokeWidth="1.5" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+/** Two offset bars — the same mark the amendment diff uses. */
+function AmendGlyph() {
+  return (
+    <svg viewBox="0 0 10 10" className="h-3 w-3 shrink-0" aria-hidden="true">
+      <rect x="0" y="2" width="7" height="2" fill="currentColor" />
+      <rect x="3" y="6" width="7" height="2" fill="currentColor" />
     </svg>
   );
 }
@@ -99,7 +179,7 @@ function StatusGlyph({ status, className = "" }: { status: Status; className?: s
 export function RiskMeter({ level, className = "" }: { level: RiskLevel; className?: string }) {
   const filled = { low: 1, medium: 2, high: 3 }[level];
   const tone = TONE[RISK_TONE[level]];
-  const heights = ["h-[5px]", "h-[8px]", "h-[11px]"];
+  const heights = ["h-[5px]", "h-[9px]", "h-[13px]"];
 
   return (
     <span className={`inline-flex items-end gap-[2px] ${className}`} aria-hidden="true">
@@ -115,7 +195,7 @@ export function RiskMeter({ level, className = "" }: { level: RiskLevel; classNa
 
 function DirectionGlyph({ verdict }: { verdict: PriceVerdict }) {
   return (
-    <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 shrink-0" aria-hidden="true">
+    <svg viewBox="0 0 10 10" className="h-3 w-3 shrink-0" aria-hidden="true">
       {verdict === "over" && <path d="M5 1.5 L9 8 L1 8 Z" fill="currentColor" />}
       {verdict === "under" && <path d="M5 8.5 L1 2 L9 2 Z" fill="currentColor" />}
       {verdict === "fair" && (
@@ -133,25 +213,50 @@ function DirectionGlyph({ verdict }: { verdict: PriceVerdict }) {
 
 /* --------------------------------- badges --------------------------------- */
 
+/**
+ * Badges run smaller than body copy on purpose — they are labels on an object,
+ * not text to be read in sequence — but not so small that a glance costs
+ * effort, so 12px with a real border is the floor.
+ */
 const badgeBase =
-  "inline-flex items-center gap-1.5 rounded-[2px] border px-1.5 py-[3px] text-[11px] font-medium leading-none whitespace-nowrap";
+  "inline-flex items-center gap-1.5 rounded-[2px] border px-2 py-[3px] text-[12px] font-medium leading-none whitespace-nowrap";
 
-export function StatusBadge({
-  status,
-  lang,
-  round,
-}: {
-  status: Status;
-  lang: Lang;
-  /** e.g. "ครั้งที่ 2" — shown next to an amended status. */
-  round?: string;
-}) {
-  const tone = TONE[STATUS_TONE[status]];
+export function StatusBadge({ status, lang }: { status: Status; lang: Lang }) {
   return (
-    <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
+    <span className={`${badgeBase} ${STATUS_SKIN[status]}`} title={say(STATUS_NOTE[status], lang)}>
       <StatusGlyph status={status} />
       {say(STATUS_LABEL[status], lang)}
-      {round ? <span className="font-mono opacity-70">{round}</span> : null}
+    </span>
+  );
+}
+
+/**
+ * The revision flag. It is not a status — a TOR can be revised while it is a
+ * draft, while it is open, or right up to the award — so it rides alongside
+ * the lifecycle badge rather than replacing it (§5).
+ */
+export function AmendedFlag({
+  lang,
+  round,
+  className = "",
+}: {
+  lang: Lang;
+  /** e.g. "ครั้งที่ 2" — which revision this is. */
+  round?: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`${badgeBase} border-amend-line bg-amend-bg text-amend ${className}`}
+      title={
+        lang === "th"
+          ? "เอกสารฉบับนี้ถูกแก้ไขหลังประกาศครั้งแรก"
+          : "This document was revised after it was first posted"
+      }
+    >
+      <AmendGlyph />
+      {lang === "th" ? "แก้ไขแล้ว" : "Amended"}
+      {round ? <span className="font-mono opacity-80">{round}</span> : null}
     </span>
   );
 }
@@ -172,7 +277,7 @@ export function LockSpecBadge({
     <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
       <RiskMeter level={level} />
       {say(RISK_LABEL[level], lang)}
-      {showScore ? <span className="font-mono tnum opacity-70">{score}</span> : null}
+      {showScore ? <span className="font-mono tnum opacity-80">{score}</span> : null}
     </span>
   );
 }
@@ -198,10 +303,10 @@ export function PriceBadge({ tor, lang }: { tor: Tor; lang: Lang }) {
 export function ScopeBadge({ size, lang }: { size: ScopeSize; lang: Lang }) {
   return (
     <span className={`${badgeBase} border-line bg-surface-2 text-ink-2`}>
-      <svg viewBox="0 0 12 10" className="h-2.5 w-3 shrink-0" aria-hidden="true">
-        <circle cx="3" cy="5" r="2.2" fill="currentColor" />
-        <circle cx="7.5" cy="5" r="2.2" fill="currentColor" opacity={size === "solo" ? 0.2 : 1} />
-        <circle cx="11" cy="5" r="1" fill="currentColor" opacity={size === "firm" ? 1 : 0.2} />
+      <svg viewBox="0 0 14 10" className="h-3 w-4 shrink-0" aria-hidden="true">
+        <circle cx="3" cy="5" r="2.4" fill="currentColor" />
+        <circle cx="8" cy="5" r="2.4" fill="currentColor" />
+        <circle cx="12.4" cy="5" r="1.4" fill="currentColor" opacity={size === "firm" ? 1 : 0.22} />
       </svg>
       {say(SCOPE_LABEL[size], lang)}
     </span>
@@ -223,30 +328,18 @@ export function SmeBadge({ lang }: { lang: Lang }) {
   );
 }
 
-/** Left-edge rail. In a dense list the rails form a scannable column of status. */
-export function SignalRail({ status, className = "" }: { status: Status; className?: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={`w-[3px] shrink-0 rounded-full ${TONE[STATUS_TONE[status]].fill} ${
-        status === "closed" ? "opacity-50" : ""
-      } ${className}`}
-    />
-  );
-}
-
 export function MatchScore({ score, lang }: { score: number; lang: Lang }) {
   const strong = score >= 80;
   return (
     <span className="inline-flex items-center gap-2 whitespace-nowrap">
-      <span className="relative h-[3px] w-12 overflow-hidden rounded-full bg-line">
+      <span className="relative h-[4px] w-14 overflow-hidden rounded-full bg-line-2">
         <span
           className={`absolute inset-y-0 left-0 rounded-full ${strong ? "bg-open" : "bg-ink-2"}`}
           style={{ width: `${score}%` }}
         />
       </span>
       <span
-        className={`font-mono tnum text-[12px] font-medium ${strong ? "text-open" : "text-ink-2"}`}
+        className={`font-mono tnum text-[14px] font-medium ${strong ? "text-open" : "text-ink-2"}`}
       >
         {score}
         <span className="text-ink-3">/100</span>
@@ -257,8 +350,21 @@ export function MatchScore({ score, lang }: { score: number; lang: Lang }) {
 }
 
 /**
- * The three verdicts in a fixed order — status, lock-spec, price — so a reader
- * learns the position once and can then read any screen at a glance.
+ * Which revision of the document we are on, if it has been revised at all.
+ * Award and cancellation notices are skipped: they move the status, not the
+ * requirements, and calling one of those "the amendment" would tell a reader
+ * the spec changed when it did not.
+ */
+export function amendRound(tor: Tor): string | undefined {
+  if (!tor.amended) return undefined;
+  const latest = tor.amendments.find((a) => a.kind === "revision");
+  return latest?.round.th.replace("ประกาศร่าง TOR ", "");
+}
+
+/**
+ * The verdicts in a fixed order — status (with its revision flag), lock-spec,
+ * price — so a reader learns the position once and can then read any screen at
+ * a glance.
  */
 export function VerdictStrip({
   tor,
@@ -269,13 +375,13 @@ export function VerdictStrip({
   lang: Lang;
   size?: "compact" | "full";
 }) {
-  const round =
-    tor.status === "amended" ? tor.amendments[0].round.th.replace("ประกาศร่าง TOR ", "") : undefined;
+  const round = amendRound(tor);
 
   if (size === "compact") {
     return (
       <div className="flex flex-wrap items-center gap-1.5">
-        <StatusBadge status={tor.status} lang={lang} round={round} />
+        <StatusBadge status={tor.status} lang={lang} />
+        {tor.amended ? <AmendedFlag lang={lang} round={round} /> : null}
         <LockSpecBadge level={tor.lockSpec.level} score={tor.lockSpec.score} lang={lang} />
         <PriceBadge tor={tor} lang={lang} />
       </div>
@@ -285,7 +391,12 @@ export function VerdictStrip({
   const cells: { label: string; node: React.ReactNode }[] = [
     {
       label: lang === "th" ? "สถานะ" : "Status",
-      node: <StatusBadge status={tor.status} lang={lang} round={round} />,
+      node: (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge status={tor.status} lang={lang} />
+          {tor.amended ? <AmendedFlag lang={lang} round={round} /> : null}
+        </div>
+      ),
     },
     {
       label: lang === "th" ? "ความเสี่ยงล็อกสเปก" : "Lock-spec risk",
@@ -300,8 +411,8 @@ export function VerdictStrip({
   return (
     <div className="grid grid-cols-1 divide-y divide-line rounded-[3px] border border-line bg-surface-2 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
       {cells.map((cell) => (
-        <div key={cell.label} className="flex flex-col gap-2 px-3.5 py-3">
-          <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-3">
+        <div key={cell.label} className="flex flex-col gap-2.5 px-4 py-3.5">
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-ink-3">
             {cell.label}
           </span>
           {cell.node}

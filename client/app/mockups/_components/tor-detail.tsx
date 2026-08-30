@@ -8,12 +8,14 @@ import {
   matchFactors,
   matchScore,
   pick,
+  type Lang,
   type Tor,
 } from "../_data/tors";
 import { useLang, useProfile } from "./prefs";
-import { Deadline, deadlineText } from "./deadline";
+import { Deadline, deadlineLabel, deadlineText } from "./deadline";
 import { AmendmentModule, LockSpecModule, PriceModule, SourceModule } from "./modules";
 import {
+  amendRound,
   MatchScore,
   PRICE_TONE,
   RISK_TONE,
@@ -30,77 +32,147 @@ import { AccentPanel, btn, Chip, Eyebrow, Fact, Label, Panel, SectionHeading } f
  * Structure carries the reading order. The normalized summary is one clean
  * sheet — the thing that replaces the document. Each risk module is then its
  * own panel wearing its verdict hue on the left edge, the same rail the
- * catalog rows use, so a verdict attached to content always looks the same.
+ * catalog cards use, so a verdict attached to content always looks the same.
  * Provenance sits last and quietest, on no surface at all.
  */
+
+/**
+ * The one line that decides whether to keep reading. It appears above the
+ * summary for every state except a plain open listing, where there is nothing
+ * to warn about and the strip already said so.
+ */
+function StatusBanner({ tor, lang }: { tor: Tor; lang: Lang }) {
+  if (tor.status === "open") return null;
+
+  const skin: Record<string, string> = {
+    draft: "border-l-line-2 bg-surface",
+    awarded: "border-l-closed bg-closed-bg",
+    closed: "border-l-closed-line bg-closed-bg",
+    cancelled: "border-l-risk bg-risk-bg",
+  };
+
+  const headline: Record<string, { th: string; en: string }> = {
+    draft: {
+      th: "ยังยื่นข้อเสนอไม่ได้ ฉบับนี้เป็นร่างที่อยู่ระหว่างรับฟังความคิดเห็น",
+      en: "You cannot bid on this yet — it is a draft in the public-comment stage.",
+    },
+    awarded: {
+      th: "โครงการนี้ประกาศผู้ชนะแล้ว ไม่ต้องเสียเวลาอ่านต่อ",
+      en: "This project has been awarded — you can stop reading here.",
+    },
+    closed: {
+      th: "เลยกำหนดยื่นแล้ว และหน่วยงานยังไม่ประกาศผล",
+      en: "The deadline has passed and the agency has not posted a result.",
+    },
+    cancelled: {
+      th: "หน่วยงานยกเลิกประกาศนี้แล้ว ไม่ต้องเสียเวลาอ่านต่อ",
+      en: "The agency cancelled this notice — you can stop reading here.",
+    },
+  };
+
+  let detail: string | null = null;
+  if (tor.status === "draft") {
+    detail =
+      lang === "th"
+        ? `ข้อกำหนดยังเปลี่ยนได้จนกว่าจะประกาศฉบับจริง กำหนดยื่นชั่วคราวคือ ${formatDate(tor.deadline, lang)} บันทึกไว้ติดตามเพื่อรู้ทันทีที่เปิดรับจริง`
+        : `The requirements can still change before the real notice. The provisional deadline is ${formatDate(tor.deadline, lang)} — save it and we will tell you when it opens for real.`;
+  } else if (tor.status === "awarded") {
+    detail =
+      lang === "th"
+        ? `ผู้ชนะคือ ${tor.awardedTo ? pick(tor.awardedTo, lang) : "-"} เสนอราคา ${
+            tor.awardedAmount ? formatTHB(tor.awardedAmount) : "-"
+          }`
+        : `Awarded to ${tor.awardedTo ? pick(tor.awardedTo, lang) : "-"} at ${
+            tor.awardedAmount ? formatTHB(tor.awardedAmount) : "-"
+          }.`;
+  } else if (tor.status === "closed") {
+    detail =
+      lang === "th"
+        ? "สถานะนี้เราสรุปเอง ไม่ใช่คำประกาศของหน่วยงาน จึงยังเป็นไปได้ที่ผลจะประกาศตามมาภายหลัง ควรตรวจสอบกับไฟล์ต้นฉบับก่อนสรุป"
+        : "This state is our inference, not an agency announcement — a result may still be posted later. Check the source file before you conclude anything.";
+  } else if (tor.status === "cancelled") {
+    detail = tor.cancelReason ? pick(tor.cancelReason, lang) : null;
+  }
+
+  return (
+    <div className={`rounded-[3px] border border-l-[3px] border-line px-5 py-4 ${skin[tor.status]}`}>
+      <p className="text-[16px] leading-thai font-semibold text-ink">
+        {pick(headline[tor.status], lang)}
+      </p>
+      {detail ? <p className="mt-1.5 text-[14px] leading-thai text-ink-2">{detail}</p> : null}
+    </div>
+  );
+}
+
 export function TorDetail({ tor }: { tor: Tor }) {
   const { lang } = useLang();
   const { profile } = useProfile();
   const [saved, setSaved] = useState(profile.watchlist.includes(tor.id));
 
   const secondaryTitle = lang === "th" ? tor.title.en : tor.title.th;
-  const latestAmendment = tor.amendments.find((a) => a.changes.length > 0);
+  const latestRevision = tor.amendments.find((a) => a.kind === "revision");
   const score = matchScore(tor, profile);
   const factors = matchFactors(tor, profile);
   const matchedTech = tor.techStack.filter((t) => profile.skills.includes(t));
+  const round = amendRound(tor);
 
   return (
     <article>
       <header className="relative border-b border-line bg-surface">
         <div className="scanlines pointer-events-none absolute inset-0 opacity-50" aria-hidden />
 
-        <div className="relative mx-auto max-w-[1240px] px-4 py-6">
-          <nav className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-ink-3">
+        <div className="relative mx-auto max-w-[1240px] px-4 py-7">
+          <nav className="flex flex-wrap items-center gap-2 font-mono text-[13px] text-ink-3">
             <Link href="/mockups/catalog" className="hover:text-ink hover:underline">
               {lang === "th" ? "ประกาศทั้งหมด" : "Browse"}
             </Link>
             <span>/</span>
             <span className="tnum text-ink-2">{tor.id}</span>
-            <span className="h-3 w-px bg-line" />
+            <span className="h-3.5 w-px bg-line-2" />
             <span>e-GP {tor.egpRef}</span>
           </nav>
 
-          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink-2">
+          <p className="mt-5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[15px] text-ink-2">
             <span className="font-medium">{pick(tor.agency, lang)}</span>
             {tor.unit ? (
               <>
-                <span className="h-3 w-px bg-line" />
+                <span className="h-3.5 w-px bg-line-2" />
                 <span className="text-ink-3">{pick(tor.unit, lang)}</span>
               </>
             ) : null}
           </p>
 
-          <h1 className="mt-1.5 max-w-4xl text-[28px] leading-thai font-semibold tracking-tight text-ink">
+          <h1 className="mt-2 max-w-4xl text-[30px] leading-thai font-semibold tracking-tight text-ink">
             {pick(tor.title, lang)}
           </h1>
           {/* Both languages, always — the source is Thai and the gloss is ours. */}
-          <p className="mt-1.5 max-w-4xl text-[14px] leading-thai text-ink-3">{secondaryTitle}</p>
+          <p className="mt-2 max-w-4xl text-[15px] leading-thai text-ink-2">{secondaryTitle}</p>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <ScopeBadge size={tor.scopeSize} lang={lang} />
             {tor.smeAdvantage ? <SmeBadge lang={lang} /> : null}
           </div>
 
-          <div className="mt-5">
+          <div className="mt-6">
             <VerdictStrip tor={tor} lang={lang} size="full" />
           </div>
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1240px] gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_312px]">
+      <div className="mx-auto grid max-w-[1240px] gap-6 px-4 py-7 lg:grid-cols-[minmax(0,1fr)_336px]">
         {/* Key facts lead on mobile, but the reading column leads on desktop. */}
-        <aside className="order-1 flex flex-col gap-4 lg:order-2 lg:sticky lg:top-[70px] lg:self-start">
-          <Panel className="px-4 pt-4 pb-1">
+        <aside className="order-1 flex flex-col gap-4 lg:order-2 lg:sticky lg:top-[74px] lg:self-start">
+          <Panel className="px-5 pt-5 pb-1">
             <Label>{lang === "th" ? "ราคากลาง" : "Reference price"}</Label>
-            <p className="mt-1.5 font-mono tnum text-[28px] leading-none font-medium text-ink">
+            <p className="mt-2 font-mono tnum text-[30px] leading-none font-semibold text-ink">
               {formatTHB(tor.budget)}
             </p>
 
-            <div className="mt-4 flex flex-col">
-              <Fact label={lang === "th" ? "กำหนดยื่นข้อเสนอ" : "Submission deadline"}>
+            <div className="mt-5 flex flex-col">
+              <Fact label={deadlineLabel(tor.status, lang)}>
                 <span className="flex flex-col sm:items-end">
                   <span className="font-mono tnum">{formatDate(tor.deadline, lang)}</span>
-                  <span className="font-mono tnum text-[11px] text-ink-3">
+                  <span className="font-mono tnum text-[13px] text-ink-3">
                     {deadlineText(tor.deadline, tor.status, lang)}
                   </span>
                 </span>
@@ -117,7 +189,7 @@ export function TorDetail({ tor }: { tor: Tor }) {
             </div>
           </Panel>
 
-          <Panel className="p-4">
+          <Panel className="p-5">
             <button
               type="button"
               onClick={() => setSaved(!saved)}
@@ -132,7 +204,7 @@ export function TorDetail({ tor }: { tor: Tor }) {
                   ? "บันทึกไว้ติดตาม"
                   : "Save to watchlist"}
             </button>
-            <p className="mt-2.5 text-[12px] leading-thai text-ink-3">
+            <p className="mt-3 text-[14px] leading-thai text-ink-2">
               {saved
                 ? lang === "th"
                   ? "เราจะส่งอีเมลแจ้งคุณทันทีที่เอกสารนี้ถูกแก้ไข หรือเมื่อประกาศผู้ชนะ"
@@ -143,14 +215,14 @@ export function TorDetail({ tor }: { tor: Tor }) {
             </p>
           </Panel>
 
-          <Panel className="p-4">
+          <Panel className="p-5">
             <div className="flex items-center justify-between gap-2">
               <Label>{lang === "th" ? "ตรงกับโปรไฟล์คุณ" : "Match with you"}</Label>
               <MatchScore score={score} lang={lang} />
             </div>
-            <ul className="mt-3 flex flex-col gap-2 border-t border-line pt-3 text-[12px] leading-thai text-ink-2">
+            <ul className="mt-4 flex flex-col gap-2.5 border-t border-line pt-4 text-[14px] leading-thai text-ink-2">
               {factors.map((factor) => (
-                <li key={factor.label.en} className="flex gap-2">
+                <li key={factor.label.en} className="flex gap-2.5">
                   <span className={`font-mono ${factor.met ? "text-open" : "text-ink-3"}`}>
                     {factor.met ? "✓" : "✕"}
                   </span>
@@ -160,7 +232,7 @@ export function TorDetail({ tor }: { tor: Tor }) {
             </ul>
             <Link
               href="/mockups/profile"
-              className="mt-3 inline-block text-[12px] text-ink-2 underline underline-offset-2 hover:text-ink"
+              className="mt-4 inline-block text-[14px] text-ink-2 underline underline-offset-2 hover:text-ink"
             >
               {lang === "th" ? "แก้ไขทักษะและเงื่อนไข" : "Edit your skills and limits"}
             </Link>
@@ -168,34 +240,21 @@ export function TorDetail({ tor }: { tor: Tor }) {
         </aside>
 
         <div className="order-2 flex min-w-0 flex-col gap-5 lg:order-1">
-          {tor.status === "closed" ? (
-            <div className="rounded-[3px] border border-l-[3px] border-line border-l-closed bg-closed-bg px-4 py-3.5">
-              <p className="text-[15px] leading-thai font-semibold text-ink">
-                {lang === "th"
-                  ? "โครงการนี้ปิดรับข้อเสนอแล้ว ไม่ต้องเสียเวลาอ่านต่อ"
-                  : "This project is closed — you can stop reading here."}
-              </p>
-              <p className="mt-1 text-[13px] leading-thai text-ink-2">
-                {lang === "th"
-                  ? `ผู้ชนะคือ ${tor.awardedTo ? pick(tor.awardedTo, lang) : "-"} เสนอราคา ${
-                      tor.awardedAmount ? formatTHB(tor.awardedAmount) : "-"
-                    }`
-                  : `Awarded to ${tor.awardedTo ? pick(tor.awardedTo, lang) : "-"} at ${
-                      tor.awardedAmount ? formatTHB(tor.awardedAmount) : "-"
-                    }.`}
-              </p>
-            </div>
-          ) : null}
+          <StatusBanner tor={tor} lang={lang} />
 
-          {tor.status === "amended" && latestAmendment ? (
-            <div className="rounded-[3px] border border-l-[3px] border-line border-l-amend bg-amend-bg px-4 py-3.5">
-              <p className="text-[15px] leading-thai font-semibold text-amend">
+          {tor.amended && latestRevision ? (
+            <div className="rounded-[3px] border border-l-[3px] border-line border-l-amend bg-amend-bg px-5 py-4">
+              <p className="text-[16px] leading-thai font-semibold text-ink">
                 {lang === "th"
-                  ? `เอกสารนี้ถูกแก้ไขเมื่อ ${formatDate(latestAmendment.date, lang)} หลังจากคุณอาจเคยอ่านฉบับเดิม`
-                  : `This document changed on ${formatDate(latestAmendment.date, lang)} — after the version you may have read.`}
+                  ? `เอกสารนี้ถูกแก้ไขเมื่อ ${formatDate(latestRevision.date, lang)}${
+                      round ? ` (${round})` : ""
+                    } หลังจากคุณอาจเคยอ่านฉบับเดิม`
+                  : `This document changed on ${formatDate(latestRevision.date, lang)}${
+                      round ? ` (${round})` : ""
+                    } — after the version you may have read.`}
               </p>
-              <p className="mt-1 text-[13px] leading-thai text-ink-2">
-                {pick(latestAmendment.headline, lang)}{" "}
+              <p className="mt-1.5 text-[14px] leading-thai text-ink-2">
+                {pick(latestRevision.headline, lang)}{" "}
                 <a href="#amendments" className="underline underline-offset-2 hover:text-ink">
                   {lang === "th" ? "ดูสิ่งที่เปลี่ยน" : "See exactly what changed"}
                 </a>
@@ -204,7 +263,7 @@ export function TorDetail({ tor }: { tor: Tor }) {
           ) : null}
 
           {/* The normalized summary: one sheet, three sections, no boxes. */}
-          <Panel className="px-4 py-5 sm:px-6 sm:py-6">
+          <Panel className="px-5 py-6 sm:px-7 sm:py-7">
             <section>
               <SectionHeading
                 sub={
@@ -215,31 +274,31 @@ export function TorDetail({ tor }: { tor: Tor }) {
               >
                 {lang === "th" ? "งานนี้คืออะไร" : "What this project is"}
               </SectionHeading>
-              <ul className="flex flex-col gap-2.5">
+              <ul className="flex flex-col gap-3">
                 {tor.summary.map((line) => (
-                  <li key={line.th} className="flex gap-3 text-[15px] leading-thai text-ink">
-                    <span className="mt-[10px] h-[3px] w-[3px] shrink-0 rounded-full bg-ink-3" />
+                  <li key={line.th} className="flex gap-3 text-[16px] leading-thai text-ink">
+                    <span className="mt-[11px] h-[4px] w-[4px] shrink-0 rounded-full bg-ink-3" />
                     <span>{pick(line, lang)}</span>
                   </li>
                 ))}
               </ul>
             </section>
 
-            <section className="mt-9">
+            <section className="mt-10">
               <SectionHeading>
                 {lang === "th" ? "สิ่งที่ต้องส่งมอบ" : "What you would deliver"}
               </SectionHeading>
-              <ul className="flex flex-col gap-2">
+              <ul className="flex flex-col gap-2.5">
                 {tor.deliverables.map((line) => (
-                  <li key={line.th} className="flex gap-3 text-[14px] leading-thai text-ink-2">
-                    <span className="mt-[9px] h-[3px] w-[3px] shrink-0 rounded-full bg-ink-3" />
+                  <li key={line.th} className="flex gap-3 text-[15px] leading-thai text-ink-2">
+                    <span className="mt-[10px] h-[4px] w-[4px] shrink-0 rounded-full bg-ink-3" />
                     <span>{pick(line, lang)}</span>
                   </li>
                 ))}
               </ul>
             </section>
 
-            <section className="mt-9">
+            <section className="mt-10">
               <SectionHeading
                 sub={
                   lang === "th"
@@ -249,7 +308,7 @@ export function TorDetail({ tor }: { tor: Tor }) {
               >
                 {lang === "th" ? "เทคโนโลยีที่ต้องใช้" : "Technologies required"}
               </SectionHeading>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {tor.techStack.map((term) => {
                   const known = profile.skills.includes(term);
                   return (
@@ -273,34 +332,31 @@ export function TorDetail({ tor }: { tor: Tor }) {
             </section>
           </Panel>
 
-          <AccentPanel
-            tone={RISK_TONE[tor.lockSpec.level]}
-            className="px-4 py-5 sm:px-6 sm:py-6"
-          >
+          <AccentPanel tone={RISK_TONE[tor.lockSpec.level]} className="px-5 py-6 sm:px-7 sm:py-7">
             <LockSpecModule tor={tor} lang={lang} />
           </AccentPanel>
 
-          <AccentPanel tone={PRICE_TONE[tor.price.verdict]} className="px-4 py-5 sm:px-6 sm:py-6">
+          <AccentPanel tone={PRICE_TONE[tor.price.verdict]} className="px-5 py-6 sm:px-7 sm:py-7">
             <PriceModule tor={tor} lang={lang} />
           </AccentPanel>
 
           <AccentPanel
             id="amendments"
-            tone={tor.status === "amended" ? "amend" : "neutral"}
-            className="scroll-mt-20 px-4 py-5 sm:px-6 sm:py-6"
+            tone={tor.amended ? "amend" : "neutral"}
+            className="scroll-mt-20 px-5 py-6 sm:px-7 sm:py-7"
           >
             <AmendmentModule tor={tor} lang={lang} />
           </AccentPanel>
 
           {/* Provenance is supporting material, so it gets no surface at all. */}
-          <div className="mt-1 border-t border-line pt-5">
+          <div className="mt-2 border-t border-line pt-6">
             <Eyebrow>{lang === "th" ? "ตรวจสอบย้อนกลับได้" : "Traceable"}</Eyebrow>
-            <div className="mt-2">
+            <div className="mt-2.5">
               <SourceModule tor={tor} lang={lang} />
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
+          <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">
             <Link href="/mockups/catalog" className={btn.ghost}>
               ← {lang === "th" ? "กลับไปหน้าประกาศทั้งหมด" : "Back to browsing"}
             </Link>

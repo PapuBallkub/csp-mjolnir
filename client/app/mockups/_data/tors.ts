@@ -18,12 +18,32 @@ export function pick(value: Bi, lang: Lang): string {
   return lang === "th" ? value.th : value.en;
 }
 
-export type Status = "open" | "amended" | "closed";
+/**
+ * The procurement lifecycle, as the agency runs it (FR09).
+ *
+ * Four of the five are states an agency declares. `closed` is the one we
+ * infer: the deadline has passed and no result has been posted yet. Because it
+ * is our inference and not the agency's word, every surface draws it more
+ * quietly than the rest — see `STATUS_TONE` in `verdict.tsx`.
+ *
+ * Whether a document has been *revised* is deliberately not a status: a TOR can
+ * be amended while open, while still a draft, or right up to the award. It
+ * rides alongside as `Tor.amended` and is drawn as its own overlay flag.
+ */
+export type Status = "draft" | "open" | "awarded" | "closed" | "cancelled";
 export type RiskLevel = "low" | "medium" | "high";
 export type PriceVerdict = "under" | "fair" | "over";
 /** How big a team the scope realistically needs — drives the US11 filter. */
-export type ScopeSize = "solo" | "small-team" | "firm";
+export type ScopeSize = "small-team" | "firm";
 export type SourceFormat = "scanned-pdf" | "html" | "json" | "image";
+
+/** Statuses where there is nothing left to bid on. */
+const DEAD: ReadonlySet<Status> = new Set<Status>(["awarded", "closed", "cancelled"]);
+
+/** True once a listing can no longer be won — the thing the catalog sinks. */
+export function isDead(status: Status): boolean {
+  return DEAD.has(status);
+}
 
 export type LockSpecReason = {
   /** What kind of problem this is, so a reader can sort findings at a glance. */
@@ -55,6 +75,13 @@ export type AmendmentChange = {
 };
 
 export type Amendment = {
+  /**
+   * What this entry in the history actually is. A lifecycle *notice* (an award
+   * or a cancellation) changes the project's status without touching the
+   * requirements, so it must not be mistaken for a revision of the document —
+   * that distinction is what `Tor.amended` and the Amended flag depend on.
+   */
+  kind: "posting" | "revision" | "notice";
   round: Bi;
   date: string;
   headline: Bi;
@@ -76,8 +103,12 @@ export type Tor = {
   techStack: string[];
   penalty: Bi;
   status: Status;
+  /** The document has been revised since first posting (FR09, US9). */
+  amended: boolean;
   awardedTo?: Bi;
   awardedAmount?: number;
+  /** Why the agency pulled it — only ever set on a cancelled listing. */
+  cancelReason?: Bi;
   scopeSize: ScopeSize;
   /** Eligible for the government's SME set-aside advantage. */
   smeAdvantage: boolean;
@@ -130,7 +161,8 @@ const CATALOG: Tor[] = [
       "Power BI",
     ],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "amended",
+    status: "open",
+    amended: true,
     scopeSize: "firm",
     smeAdvantage: false,
     summary: [
@@ -241,6 +273,7 @@ const CATALOG: Tor[] = [
     },
     amendments: [
       {
+        kind: "revision",
         round: { th: "ประกาศร่าง TOR ครั้งที่ 2", en: "Draft TOR, round 2" },
         date: "2026-07-28",
         headline: {
@@ -279,6 +312,7 @@ const CATALOG: Tor[] = [
         ],
       },
       {
+        kind: "posting",
         round: { th: "ประกาศร่าง TOR ครั้งที่ 1", en: "Draft TOR, round 1" },
         date: "2026-06-30",
         headline: { th: "ประกาศฉบับแรก", en: "First posting" },
@@ -309,6 +343,7 @@ const CATALOG: Tor[] = [
     techStack: ["React", "Node.js", "PostgreSQL", "CKAN", "Docker"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
     status: "open",
+    amended: false,
     scopeSize: "small-team",
     smeAdvantage: true,
     summary: [
@@ -380,6 +415,7 @@ const CATALOG: Tor[] = [
     },
     amendments: [
       {
+        kind: "posting",
         round: { th: "ประกาศร่าง TOR ครั้งที่ 1", en: "Draft TOR, round 1" },
         date: "2026-07-21",
         headline: { th: "ประกาศฉบับแรก", en: "First posting" },
@@ -404,12 +440,13 @@ const CATALOG: Tor[] = [
     },
     agency: { th: "สำนักงานเขตบางรัก", en: "Bang Rak District Office" },
     budget: 890_000,
-    deadline: "2026-08-24",
-    postedAt: "2026-07-25",
+    deadline: "2026-07-24",
+    postedAt: "2026-06-18",
     techStack: ["Next.js", "Node.js", "MySQL", "LINE Messaging API"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "open",
-    scopeSize: "solo",
+    status: "closed",
+    amended: false,
+    scopeSize: "small-team",
     smeAdvantage: true,
     summary: [
       {
@@ -417,8 +454,8 @@ const CATALOG: Tor[] = [
         en: "Web and LINE queue booking, plus an in-office calling display.",
       },
       {
-        th: "ขอบเขตงานเล็ก เหมาะกับนักพัฒนาอิสระหรือทีมขนาด 1–2 คน",
-        en: "Small scope — realistic for a freelancer or a one-to-two person team.",
+        th: "ขอบเขตงานเล็ก เหมาะกับทีมขนาด 2–3 คน",
+        en: "Small scope — realistic for a two-to-three person team.",
       },
       { th: "ระยะเวลาดำเนินการ 120 วัน", en: "120 days." },
     ],
@@ -479,8 +516,9 @@ const CATALOG: Tor[] = [
     },
     amendments: [
       {
+        kind: "posting",
         round: { th: "ประกาศร่าง TOR ครั้งที่ 1", en: "Draft TOR, round 1" },
-        date: "2026-07-25",
+        date: "2026-06-18",
         headline: { th: "ประกาศฉบับแรก", en: "First posting" },
         changes: [],
       },
@@ -507,7 +545,8 @@ const CATALOG: Tor[] = [
     postedAt: "2026-07-09",
     techStack: ["Flutter", "Firebase", "REST API", "PostgreSQL"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "amended",
+    status: "open",
+    amended: true,
     scopeSize: "small-team",
     smeAdvantage: true,
     summary: [
@@ -585,6 +624,7 @@ const CATALOG: Tor[] = [
     },
     amendments: [
       {
+        kind: "revision",
         round: { th: "ประกาศร่าง TOR ครั้งที่ 2", en: "Draft TOR, round 2" },
         date: "2026-08-01",
         headline: {
@@ -606,6 +646,7 @@ const CATALOG: Tor[] = [
         ],
       },
       {
+        kind: "posting",
         round: { th: "ประกาศร่าง TOR ครั้งที่ 1", en: "Draft TOR, round 1" },
         date: "2026-07-09",
         headline: { th: "ประกาศฉบับแรก", en: "First posting" },
@@ -634,7 +675,12 @@ const CATALOG: Tor[] = [
     postedAt: "2026-06-12",
     techStack: ["NVIDIA DeepStream", "Milestone XProtect", "Ubuntu Server 22.04", "Kubernetes"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "open",
+    status: "cancelled",
+    amended: true,
+    cancelReason: {
+      th: "หน่วยงานยกเลิกประกาศเมื่อ 5 ส.ค. 2569 โดยระบุเหตุผลว่าจะทบทวนขอบเขตงานและราคากลางใหม่",
+      en: "The department withdrew the notice on 5 Aug 2026, saying it would revisit the scope and the reference price.",
+    },
     scopeSize: "firm",
     smeAdvantage: false,
     summary: [
@@ -719,6 +765,52 @@ const CATALOG: Tor[] = [
     },
     amendments: [
       {
+        kind: "notice",
+        round: { th: "ประกาศยกเลิก", en: "Cancellation notice" },
+        date: "2026-08-05",
+        headline: {
+          th: "ยกเลิกประกาศเชิญชวน เพื่อทบทวนขอบเขตงานและราคากลาง",
+          en: "The invitation was cancelled pending a review of the scope and reference price.",
+        },
+        changes: [
+          {
+            kind: "changed",
+            field: { th: "สถานะ", en: "Status" },
+            before: "เปิดรับข้อเสนอ",
+            after: "ยกเลิกประกาศ",
+          },
+        ],
+      },
+      {
+        kind: "revision",
+        round: { th: "ประกาศร่าง TOR ครั้งที่ 2", en: "Draft TOR, round 2" },
+        date: "2026-07-16",
+        headline: {
+          th: "เพิ่มเงื่อนไขศูนย์บริการในพื้นที่ และลดจำนวนแยกจาก 15 เหลือ 12 แยก",
+          en: "A local service-centre requirement was added and the junction count cut from 15 to 12.",
+        },
+        changes: [
+          {
+            kind: "added",
+            field: { th: "ศูนย์บริการในพื้นที่", en: "Local service centre" },
+            after: "ต้องมีศูนย์บริการและอะไหล่สำรองในเขตกรุงเทพมหานคร",
+          },
+          {
+            kind: "changed",
+            field: { th: "จำนวนแยกที่ติดตั้ง", en: "Junctions covered" },
+            before: "15 แยก",
+            after: "12 แยก",
+          },
+          {
+            kind: "changed",
+            field: { th: "ราคากลาง", en: "Reference price" },
+            before: "52,000,000 บาท",
+            after: "48,000,000 บาท",
+          },
+        ],
+      },
+      {
+        kind: "posting",
         round: { th: "ประกาศร่าง TOR ครั้งที่ 1", en: "Draft TOR, round 1" },
         date: "2026-06-12",
         headline: { th: "ประกาศฉบับแรก", en: "First posting" },
@@ -748,6 +840,7 @@ const CATALOG: Tor[] = [
     techStack: ["HL7 FHIR", "Java Spring Boot", "PostgreSQL", "Kubernetes", "Keycloak"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
     status: "open",
+    amended: false,
     scopeSize: "firm",
     smeAdvantage: false,
     summary: [
@@ -833,6 +926,7 @@ const CATALOG: Tor[] = [
     },
     amendments: [
       {
+        kind: "posting",
         round: { th: "ประกาศร่าง TOR ครั้งที่ 1", en: "Draft TOR, round 1" },
         date: "2026-05-19",
         headline: { th: "ประกาศฉบับแรก", en: "First posting" },
@@ -862,6 +956,7 @@ const CATALOG: Tor[] = [
     techStack: ["Power BI", ".NET 8", "SQL Server 2022", "Azure AD"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
     status: "open",
+    amended: false,
     scopeSize: "small-team",
     smeAdvantage: true,
     summary: [
@@ -925,6 +1020,7 @@ const CATALOG: Tor[] = [
     },
     amendments: [
       {
+        kind: "posting",
         round: { th: "ประกาศร่าง TOR ครั้งที่ 1", en: "Draft TOR, round 1" },
         date: "2026-07-14",
         headline: { th: "ประกาศฉบับแรก", en: "First posting" },
@@ -953,8 +1049,9 @@ const CATALOG: Tor[] = [
     postedAt: "2026-08-04",
     techStack: ["IT Strategy", "Enterprise Architecture", "TOGAF"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "open",
-    scopeSize: "solo",
+    status: "draft",
+    amended: false,
+    scopeSize: "small-team",
     smeAdvantage: true,
     summary: [
       {
@@ -1008,6 +1105,7 @@ const CATALOG: Tor[] = [
     },
     amendments: [
       {
+        kind: "posting",
         round: { th: "ประกาศร่าง TOR ครั้งที่ 1", en: "Draft TOR, round 1" },
         date: "2026-08-04",
         headline: { th: "ประกาศฉบับแรก", en: "First posting" },
@@ -1039,10 +1137,11 @@ const CATALOG: Tor[] = [
     postedAt: "2026-04-28",
     techStack: ["PHP", "MySQL", "Apache", "Linux"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "closed",
+    status: "awarded",
+    amended: false,
     awardedTo: { th: "บริษัท ไทยด็อคคิวเมนต์ ซิสเต็มส์ จำกัด", en: "Thai Document Systems Co., Ltd." },
     awardedAmount: 612_000,
-    scopeSize: "solo",
+    scopeSize: "small-team",
     smeAdvantage: true,
     summary: [
       { th: "บำรุงรักษาระบบสารบรรณเดิมรายปี พร้อมบริการ on-site 8x5", en: "Annual maintenance with 8x5 on-site support." },
@@ -1094,6 +1193,7 @@ const CATALOG: Tor[] = [
     },
     amendments: [
       {
+        kind: "notice",
         round: { th: "ประกาศผู้ชนะการเสนอราคา", en: "Award notice" },
         date: "2026-06-11",
         headline: {
@@ -1110,6 +1210,7 @@ const CATALOG: Tor[] = [
         ],
       },
       {
+        kind: "posting",
         round: { th: "ประกาศร่าง TOR ครั้งที่ 1", en: "Draft TOR, round 1" },
         date: "2026-04-28",
         headline: { th: "ประกาศฉบับแรก", en: "First posting" },
@@ -1139,7 +1240,8 @@ const CATALOG: Tor[] = [
     postedAt: "2026-05-22",
     techStack: ["Cisco IOS", "Windows Server 2019", "VMware vSphere", "Fortinet"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "closed",
+    status: "awarded",
+    amended: false,
     awardedTo: { th: "บริษัท เน็ตเวิร์ค โซลูชั่นส์ (ประเทศไทย) จำกัด", en: "Network Solutions (Thailand) Co., Ltd." },
     awardedAmount: 4_555_000,
     scopeSize: "firm",
@@ -1192,6 +1294,7 @@ const CATALOG: Tor[] = [
     },
     amendments: [
       {
+        kind: "notice",
         round: { th: "ประกาศผู้ชนะการเสนอราคา", en: "Award notice" },
         date: "2026-07-03",
         headline: { th: "ประกาศผู้ชนะการเสนอราคา", en: "Winner announced." },
@@ -1205,6 +1308,7 @@ const CATALOG: Tor[] = [
         ],
       },
       {
+        kind: "posting",
         round: { th: "ประกาศร่าง TOR ครั้งที่ 1", en: "Draft TOR, round 1" },
         date: "2026-05-22",
         headline: { th: "ประกาศฉบับแรก", en: "First posting" },
@@ -1266,7 +1370,7 @@ export const demoProfile: Profile = {
   skills: ["Next.js", "React", "Node.js", "PostgreSQL", "MySQL", "LINE Messaging API"],
   budgetMin: 300_000,
   budgetMax: 5_000_000,
-  scopeSizes: ["solo", "small-team"],
+  scopeSizes: ["small-team"],
   smeRegistered: true,
   watchlist: ["BMA-2569-0142", "BMA-2569-0217", "BMA-2569-0245"],
 };

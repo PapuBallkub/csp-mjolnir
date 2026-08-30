@@ -7,7 +7,7 @@ import Link from "next/link";
 export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-[560px] flex-1 flex-col justify-center gap-4 px-4 py-16">
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-3">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-3">
         01219346 · Kasetsart University
       </p>
       <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-ink">
@@ -19,7 +19,7 @@ export default function Home() {
       </p>
       <Link
         href="/mockups"
-        className="inline-flex h-9 w-fit items-center rounded-[3px] bg-ink px-3.5 text-[13px] font-medium text-surface transition-opacity hover:opacity-85"
+        className="inline-flex h-9 w-fit items-center rounded-[3px] bg-ink px-3.5 text-[14px] font-medium text-surface transition-opacity hover:opacity-85"
       >
         View the Phase 1 mockups →
       </Link>
