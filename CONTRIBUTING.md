@@ -10,8 +10,8 @@ and the history readable — nothing beyond that.
 | `client/` | Next.js frontend. Phase 1 mockups live in `client/app/mockups`. |
 | `server/` | Node + Express API, and from Phase 2 the ingestion pipeline. |
 | `docs/decisions/` | Why we chose things. See [Decisions](#decisions). |
-| `AGENTS.md` | Design guide for mockup and UI work. Read it before touching `client/app/mockups`. |
-| `CSP_Proposal.md` | The proposal — user stories (US1–US17) and requirements (FR01–FR15). |
+| `AGENTS.md` | Design guide for mockup and UI work, and what coding agents read first. Check it before touching `client/app/mockups`. |
+| `CSP_Proposal.md` | The proposal — user stories (US1–US17) and requirements (FR01–FR15), which the code cites by number. |
 
 ## Getting set up
 
