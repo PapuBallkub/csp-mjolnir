@@ -2,9 +2,10 @@
 client/node_modules
 server/node_modules
 
-# env files
+# env files — server/.env.example is tracked on purpose, as the template
 client/.env*
 server/.env*
+!server/.env.example
 
 # next.js
 client/.next/
