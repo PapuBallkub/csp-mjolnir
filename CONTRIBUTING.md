@@ -9,9 +9,18 @@ and the history readable — nothing beyond that.
 | :--- | :--- |
 | `client/` | Next.js frontend. Phase 1 mockups live in `client/app/mockups`. |
 | `server/` | Node + Express API, and from Phase 2 the ingestion pipeline. |
+| `server/src/common/` | Plumbing every feature uses: config, db, errors, middleware. |
+| `server/src/models/` | Every Mongoose schema, in one place. Shape only, no logic. |
+| `server/src/features/` | One folder per feature, each owning its routes, controller, and service. |
 | `docs/decisions/` | Why we chose things. See [Decisions](#decisions). |
 | `AGENTS.md` | Design guide for mockup and UI work, and what coding agents read first. Check it before touching `client/app/mockups`. |
 | `CSP_Proposal.md` | The proposal — user stories (US1–US17) and requirements (FR01–FR15), which the code cites by number. |
+
+`server/src` is sliced by feature, with the schemas kept together in one
+`models/` folder. Two rules keep that from collapsing back into a pile: only the
+feature that owns a collection writes to it, and a feature is imported through
+its `index.js` and never by reaching into the files beside it. The reasoning is
+in [0003](docs/decisions/0003-feature-based-server-layout.md).
 
 ## Getting set up
 
@@ -28,10 +37,9 @@ cp server/.env.example server/.env
 ```
 
 `MONGO_URI` is the Atlas connection string — ask in the team chat, and never
-commit it. Note that if it is unset the server falls back to a local `mongod`
-and **still starts**, so a blank `.env` looks like a working API sitting on an
-empty database. Check the console for `MongoDB connected` before assuming the
-data layer is live.
+commit it. It is required: the server refuses to boot without it, and connects
+before it starts listening, so a process that is up is a process that reached
+Atlas.
 
 ## Branches
 
@@ -60,8 +68,10 @@ merging. A one-line typo fix is not worth the ceremony — merge your own.
 | `chore` | dependencies, config, tooling |
 | `test` | tests |
 
-Scopes follow the folders — `client`, `server`, `docs`. Phase 2 adds `scraper`
-and `ocr`.
+Scopes follow the folders. `client` and `docs` stay flat, but `server/src` is
+sliced by feature, so scope a server commit by the feature it touches — `tors`,
+`auth`, `matching`, and from Phase 2 `ingestion` and `ocr`. Keep `server` for
+the skeleton itself: `app.js`, `common/`, `models/`, config.
 
 Write the subject in the imperative, under roughly 50 characters:
 
