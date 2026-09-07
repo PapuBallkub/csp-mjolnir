@@ -10,7 +10,12 @@ export async function connectDatabase() {
   // it is not something to do against a populated Atlas cluster.
   mongoose.set('autoIndex', !isProduction);
 
-  await mongoose.connect(env.mongoUri);
+  // Set here rather than in each MONGO_URI: the database name is not a secret
+  // and not per-developer, and three gitignored .env files that each have to
+  // agree on it is exactly the kind of drift nobody can see in a diff. dbName
+  // takes precedence over the path in the connection string.
+  await mongoose.connect(env.mongoUri, { dbName: 'mjolnir' });
+
   return mongoose.connection;
 }
 
