@@ -35,6 +35,22 @@ jobs:
   backend:
     runs-on: ubuntu-latest
 
+    # The smoke test boots against a real database. This one is disposable, so
+    # nothing in CI can reach — or write to — the shared Atlas cluster.
+    services:
+      mongodb:
+        image: mongo:8
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      MONGO_URI: mongodb://localhost:27017
+
     defaults:
       run:
         working-directory: server
@@ -52,3 +68,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Smoke test
+        run: npm test
