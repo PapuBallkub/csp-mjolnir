@@ -5,8 +5,8 @@ import { hashPassword, verifyPassword } from './password.js';
 
 const DUPLICATE_KEY = 11000;
 
-// The only shape of a user that leaves this feature. Everything the API returns
-// is built here, so there is one place to check that the hash never ships.
+// The only shape of a user that leaves this feature, so there is one place to
+// check that the hash never ships.
 export function toPublicUser(user) {
   return {
     id: user.id,
@@ -23,10 +23,8 @@ export async function registerWithPassword({ email, password, notificationConsen
     const user = await User.create({ email, passwordHash, notificationConsent });
     return toPublicUser(user);
   } catch (error) {
-    // Checked by letting the unique index refuse the write rather than by
-    // looking first. Two people submitting the same address at the same moment
-    // both pass a look-first check and one of them creates a duplicate; the
-    // index is the only thing that actually holds.
+    // Left to the unique index rather than a lookup first, which two
+    // simultaneous signups would both pass before either one writes.
     if (error.code === DUPLICATE_KEY) {
       throw new HttpError(409, 'That email already has an account.', {
         email: 'That email already has an account.',
@@ -37,13 +35,11 @@ export async function registerWithPassword({ email, password, notificationConsen
 }
 
 export async function signInWithPassword({ email, password }) {
-  // The hash is select: false on the schema, so it has to be asked for by name.
+  // select: false on the schema, so the hash has to be asked for by name.
   const user = await User.findOne({ email }).select('+passwordHash');
 
-  // One message for both a missing account and a wrong password: a sign-in form
-  // that distinguishes them tells anyone who asks which addresses are
-  // registered. Sign-up cannot hide the same fact — see
-  // docs/decisions/0004-sessions-as-signed-cookies.md.
+  // One message for a missing account and a wrong password. Separate ones tell
+  // anyone who asks which addresses are registered. See 0004.
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
     throw unauthorized('Invalid email or password.');
   }
@@ -51,9 +47,8 @@ export async function signInWithPassword({ email, password }) {
   return toPublicUser(user);
 }
 
-// Backs requireAuth. A token stays cryptographically valid until it expires, so
-// this is what makes a deleted account stop working immediately, and what keeps
-// the caller reading consent as it is now rather than as it was at sign-in.
+// Backs requireAuth. Reading the user per request is what makes a deleted
+// account stop working before its token expires.
 export async function findUserById(userId) {
   const user = await User.findById(userId);
   return user ? toPublicUser(user) : null;

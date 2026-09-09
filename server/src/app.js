@@ -12,9 +12,8 @@ import { healthRoutes } from '#features/health/index.js';
 export function createApp() {
   const app = express();
 
-  // `credentials` is what lets the browser send the session cookie on a
-  // cross-origin request at all, and it only works against a named origin —
-  // pair it with `origin: '*'` and the browser refuses every response.
+  // credentials is what sends the session cookie cross-origin at all, and it
+  // needs a named origin: with '*' the browser rejects every response.
   app.use(cors({ origin: env.corsOrigin, credentials: true }));
   app.use(express.json());
   app.use(cookieParser());

@@ -7,37 +7,28 @@ export const SESSION_COOKIE = 'mjolnir_session';
 const SESSION_TTL_DAYS = 7;
 const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
 
-// A cookie is cleared by matching the attributes it was set with, not by name
-// alone. Sharing one object is what stops a logout from leaving the browser
-// holding a live session because `path` drifted between the two call sites.
+// Shared, because a cookie is cleared by matching the attributes it was set
+// with. If these two drift apart, logout stops working.
 const cookieOptions = {
-  // The browser will not hand this to JavaScript, so a script injected into the
-  // client cannot read the session out and post it somewhere. This is the whole
-  // reason the token lives in a cookie rather than in localStorage.
+  // Unreadable from JavaScript, so an XSS in the client cannot steal a session.
   httpOnly: true,
   secure: isProduction,
-  // In development the client (:3000) and the API (:8000) differ only by port,
-  // which is same-site, so Lax sends the cookie. A deployment that splits them
-  // across domains — Vercel and a separate API host — is cross-site, where
-  // nothing but None will be sent at all.
+  // Dev is same-site (:3000 and :8000), so Lax is sent. A deploy that splits the
+  // client and API across domains is cross-site, where only None is sent at all.
   sameSite: isProduction ? 'none' : 'lax',
   path: '/',
 };
 
+// JWT claims are readable without the secret, so the payload is the id and
+// nothing else. Anything that changes is read from the database per request.
 export function signSessionToken(user) {
-  // The payload carries nothing but the subject. Anyone can read a JWT's claims
-  // without the secret — the signature stops them being forged, not seen — so
-  // the id is the one thing worth putting in, and everything else is read from
-  // the database at request time where it is also current.
   return jwt.sign({}, env.jwtSecret, {
     subject: user.id,
     expiresIn: `${SESSION_TTL_DAYS}d`,
   });
 }
 
-// Returns the user id the token vouches for, or null if it is missing, expired,
-// tampered with, or signed by a different secret. The caller gets one answer to
-// check instead of a try/catch around every use.
+// The user id, or null if the token is missing, expired, or not ours.
 export function readSessionToken(token) {
   if (!token) {
     return null;

@@ -5,10 +5,8 @@ import { env, isProduction } from '#common/config/env.js';
 // Registers every model before anything can populate a ref. See src/models/index.js.
 import '#models/index.js';
 
-// `dbName` exists for one caller: a test that writes. Running the suite locally
-// points at whatever is in server/.env, which is the shared Atlas cluster, so a
-// test that creates users has to be able to send them somewhere disposable
-// rather than into everyone's real data.
+// dbName exists for the tests that write. A local run points at the shared
+// Atlas cluster, so they need somewhere disposable to put users.
 export async function connectDatabase({ dbName = 'mjolnir' } = {}) {
   // Building indexes on every boot is fine while the collections are small, but
   // it is not something to do against a populated Atlas cluster.

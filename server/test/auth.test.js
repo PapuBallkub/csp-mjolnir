@@ -1,7 +1,6 @@
-// Drives the real routes against a real database, the way smoke.test.js does.
-// The difference is that these tests write, and a local run points MONGO_URI at
-// the shared Atlas cluster — so everything here goes to a separate `mjolnir_test`
-// database, and every user it creates is deleted on the way out.
+// Drives the real routes against a real database, like smoke.test.js — except
+// these write, so they go to a separate mjolnir_test database and delete what
+// they create rather than touching the shared Atlas data.
 
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
@@ -14,8 +13,8 @@ import { createApp } from '../src/app.js';
 const TEST_DB = 'mjolnir_test';
 const PASSWORD = 'correct horse battery';
 
-// Stamped into every address so a run that dies before its cleanup leaves
-// nothing the next run can collide with.
+// Stamped into every address, so a run that dies before cleanup cannot collide
+// with the next one.
 const runId = Date.now().toString(36);
 const emailFor = (name) => `${name}-${runId}@example.test`;
 
@@ -89,7 +88,7 @@ test('an address is normalized, so casing cannot open a second account', async (
   });
   assert.equal(duplicate.status, 409);
 
-  // Consent defaults to off: FR08 mails the people who asked to be mailed.
+  // Consent defaults to off. FR08 mails the people who asked to be mailed.
   const stored = await User.findOne({ email });
   assert.equal(stored.notificationConsent, false);
 });
@@ -184,9 +183,8 @@ test('the hash stays out of an ordinary query, and a partial document still save
   const user = await User.findOne({ email });
   assert.equal(user.passwordHash, undefined, 'select: false should hold on a plain find');
 
-  // `required` plus `select: false` is a known Mongoose trap. If validation ran
-  // on the unselected path, withdrawing consent on a user loaded this way would
-  // fail with "passwordHash is required" — or worse, save and drop the hash.
+  // required plus select: false is a known Mongoose trap. If validation ran on
+  // the unselected path, this save would fail, or drop the hash.
   user.notificationConsent = false;
   await user.save();
 

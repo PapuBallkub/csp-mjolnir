@@ -18,11 +18,9 @@ export const env = {
     'MONGO_URI',
     'Copy server/.env.example to server/.env and fill it in. For a local mongod, use mongodb://localhost:27017/mjolnir.',
   ),
-  // Signs the session cookie. Required for the same reason MONGO_URI is: a
-  // development fallback here is a hardcoded signing key, and a hardcoded
-  // signing key that reaches production lets anyone mint a session for any
-  // account. Unlike MONGO_URI this one is per-developer — generate your own,
-  // and the only thing a mismatch costs is your own local sessions.
+  // Signs the session cookie. Required like MONGO_URI: a fallback here is a
+  // hardcoded key, and in production that lets anyone mint any session.
+  // Per-developer, not shared, so a mismatch only drops your local sessions.
   jwtSecret: required(
     'JWT_SECRET',
     'Generate one with: node -e "console.log(crypto.randomUUID() + crypto.randomUUID())".',

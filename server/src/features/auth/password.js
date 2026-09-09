@@ -1,16 +1,11 @@
 import bcrypt from 'bcryptjs';
 
-// Work factor. Every step up doubles the time an attacker needs per guess and
-// the time our own login takes, so it is a budget, not a score: 12 keeps a
-// bcryptjs hash in the low hundreds of milliseconds, which nobody notices on a
-// form submit and which makes an offline dictionary run against a stolen dump
-// expensive. Raising it later is safe — an old hash carries its own cost inside
-// the string, so existing users keep verifying against theirs.
+// Cost per guess, for us as well as an attacker. An old hash carries its own
+// cost inside the string, so this can be raised without breaking existing users.
 const WORK_FACTOR = 12;
 
-// bcrypt only looks at the first 72 bytes and silently ignores the rest. Left
-// unchecked that turns a long passphrase into a shorter one without telling
-// anyone, so validation rejects anything longer rather than truncating it here.
+// bcrypt silently ignores anything past 72 bytes. Validation rejects instead, so
+// a long passphrase never becomes a shorter one without telling anyone.
 export const MAX_PASSWORD_BYTES = 72;
 
 export function hashPassword(password) {

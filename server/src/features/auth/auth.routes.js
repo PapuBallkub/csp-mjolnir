@@ -9,6 +9,5 @@ authRoutes.post('/register', register);
 authRoutes.post('/login', login);
 authRoutes.post('/logout', logout);
 
-// What the client calls on load to find out whether the cookie it is holding is
-// still good, and who it belongs to.
+// What the client calls on load to find out whether its cookie is still good.
 authRoutes.get('/me', requireAuth, readCurrentUser);
