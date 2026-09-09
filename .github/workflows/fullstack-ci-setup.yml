@@ -50,6 +50,10 @@ jobs:
 
     env:
       MONGO_URI: mongodb://localhost:27017
+      # Throwaway, and deliberately in the clear: it signs cookies for a server
+      # that lives for one job and is reachable by nothing. A real secret in a
+      # workflow file would be committed to a public repo.
+      JWT_SECRET: ci-not-a-secret
 
     defaults:
       run:
