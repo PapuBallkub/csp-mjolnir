@@ -14,6 +14,10 @@ export function createApp() {
   app.use(express.json());
 
   // One mount per feature. Each feature owns everything below its prefix.
+  app.get('/', (req, res) => {
+    res.json({ message: 'Mjolnir API Server is running', status: 'ok', health: '/health' });
+  });
+
   app.use('/health', healthRoutes);
 
   // Both stay last, and in this order.
