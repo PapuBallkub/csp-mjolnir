@@ -18,6 +18,13 @@ export const env = {
     'MONGO_URI',
     'Copy server/.env.example to server/.env and fill it in. For a local mongod, use mongodb://localhost:27017/mjolnir.',
   ),
+  // Signs the session cookie. Required like MONGO_URI: a fallback here is a
+  // hardcoded key, and in production that lets anyone mint any session.
+  // Per-developer, not shared, so a mismatch only drops your local sessions.
+  jwtSecret: required(
+    'JWT_SECRET',
+    'Generate one with: node -e "console.log(crypto.randomUUID() + crypto.randomUUID())".',
+  ),
 };
 
 export const isProduction = env.nodeEnv === 'production';

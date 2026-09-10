@@ -50,6 +50,9 @@ jobs:
 
     env:
       MONGO_URI: mongodb://localhost:27017
+      # Throwaway: signs cookies for a server that lives for one job. A real
+      # secret never goes in a workflow file.
+      JWT_SECRET: ci-not-a-secret
 
     defaults:
       run:
