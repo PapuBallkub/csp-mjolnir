@@ -12,6 +12,5 @@
 //
 // Add each model here as it lands:
 //   export { Tor } from './tor.model.js';
-//   export { User } from './user.model.js';
 
-export {};
+export { User } from './user.model.js';

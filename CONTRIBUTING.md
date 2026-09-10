@@ -41,6 +41,20 @@ commit it. It is required: the server refuses to boot without it, and connects
 before it starts listening, so a process that is up is a process that reached
 Atlas.
 
+`JWT_SECRET` signs the session cookie and is required for the same reason — a
+development fallback is a hardcoded signing key, and a hardcoded signing key in
+production lets anyone mint a session for any account. This one is yours alone,
+not a shared value, so generate it and don't ask for anyone else's:
+
+```
+node -e "console.log(crypto.randomUUID() + crypto.randomUUID())"
+```
+
+Running `npm test` in `server/` boots the app against whatever `MONGO_URI`
+points at. The tests that write users send them to a separate `mjolnir_test`
+database and delete them afterwards, so a local run never touches the shared
+data — keep it that way when you add tests that write.
+
 ## Branches
 
 Branch off `main`; don't commit to it directly. Name the branch for the change,
