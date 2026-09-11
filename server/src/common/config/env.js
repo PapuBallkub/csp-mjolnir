@@ -25,6 +25,18 @@ export const env = {
     'JWT_SECRET',
     'Generate one with: node -e "console.log(crypto.randomUUID() + crypto.randomUUID())".',
   ),
+  // Optional, unlike the two above: the server runs fine without Google
+  // sign-in, and requiring it would stop CI and every teammate who has not set
+  // it up. The routes answer 503 when it is missing.
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID ?? '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+    redirectUri: process.env.GOOGLE_REDIRECT_URI ?? '',
+  },
 };
 
 export const isProduction = env.nodeEnv === 'production';
+
+export const isGoogleConfigured = Boolean(
+  env.google.clientId && env.google.clientSecret && env.google.redirectUri,
+);
