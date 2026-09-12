@@ -13,9 +13,9 @@ import { createApp } from '../src/app.js';
 const TEST_DB = 'mjolnir_test';
 const PASSWORD = 'correct horse battery';
 
-// Stamped into every address, so a run that dies before cleanup cannot collide
-// with the next one.
-const runId = Date.now().toString(36);
+// Random per process, not time-based: test files run in parallel, and two
+// people can run the suite against the same cluster at once.
+const runId = crypto.randomUUID().slice(0, 8);
 const emailFor = (name) => `${name}-${runId}@example.test`;
 
 let server;

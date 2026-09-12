@@ -47,6 +47,33 @@ export async function signInWithPassword({ email, password }) {
   return toPublicUser(user);
 }
 
+// Returning user, linked account, or new account, in that order. Does no
+// network of its own: the caller turns a code into a profile first, which is
+// what makes this testable without Google.
+export async function signInWithGoogle({ googleId, email, emailVerified }) {
+  const returning = await User.findOne({ googleId });
+  if (returning) {
+    return toPublicUser(returning);
+  }
+
+  // Linking by address is only safe once Google vouches for the address.
+  // Without this, an account claiming an address it does not own could take
+  // over the password account already using it.
+  if (!emailVerified) {
+    throw new HttpError(403, 'Your Google account has no verified email address.');
+  }
+
+  // Link-or-create in one atomic write, so two callbacks arriving together
+  // cannot both insert. The filter seeds email on insert.
+  const user = await User.findOneAndUpdate(
+    { email },
+    { $set: { googleId } },
+    { new: true, upsert: true },
+  );
+
+  return toPublicUser(user);
+}
+
 // Backs requireAuth. Reading the user per request is what makes a deleted
 // account stop working before its token expires.
 export async function findUserById(userId) {

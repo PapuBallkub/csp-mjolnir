@@ -13,9 +13,15 @@ const userSchema = new mongoose.Schema(
     },
     passwordHash: {
       type: String,
-      required: true,
-      // Kept out of every query that does not ask for it by name.
+      // Optional since 0005: an account created through Google has no password.
+      // features/auth is what guarantees every user has one credential or the other.
       select: false,
+    },
+    googleId: {
+      type: String,
+      // sparse, or every password-only user collides on a null googleId.
+      unique: true,
+      sparse: true,
     },
     // FR08 consent. A field, so it can be withdrawn later.
     notificationConsent: {
