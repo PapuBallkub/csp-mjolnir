@@ -34,7 +34,7 @@ export function Deadline({
   showDate?: boolean;
 }) {
   return (
-    <span className="flex flex-col items-end gap-0.5 whitespace-nowrap">
+    <span className="flex flex-col items-end gap-0.5 whitespace-nowrap transition-opacity duration-150">
       <span className={`font-mono tnum text-[12px] font-medium ${deadlineTone(deadline, status)}`}>
         {deadlineText(deadline, status, lang)}
       </span>

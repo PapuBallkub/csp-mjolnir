@@ -111,13 +111,15 @@ export default function LandingPage() {
       {/* Minimal header for landing */}
       <header className="border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
-          <Wordmark />
+          <Link href="/" className="shrink-0 transition-opacity hover:opacity-80" title="Mjölnir Home">
+            <Wordmark />
+          </Link>
           <div className="ml-auto flex items-center gap-2">
             <LangToggle />
             <ThemeToggle />
             <Link
               href="/auth"
-              className="rounded-[3px] px-3 py-1.5 text-[13px] text-ink-2 transition-colors hover:text-ink"
+              className="inline-flex w-[74px] justify-center rounded-[3px] py-1.5 text-[13px] text-ink-2 transition-colors hover:text-ink"
             >
               {lang === "th" ? "เข้าสู่ระบบ" : "Sign in"}
             </Link>
@@ -143,13 +145,13 @@ export default function LandingPage() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/search"
-                className="inline-flex h-10 items-center rounded-[3px] bg-ink px-5 text-[14px] font-medium text-surface transition-opacity hover:opacity-85"
+                className="inline-flex h-10 min-w-[190px] items-center justify-center rounded-[3px] bg-ink px-5 text-[14px] font-medium text-surface transition-opacity hover:opacity-85"
               >
                 {t.cta}
               </Link>
               <Link
                 href="/auth"
-                className="inline-flex h-10 items-center rounded-[3px] border border-line px-5 text-[14px] font-medium text-ink transition-colors hover:bg-surface-2"
+                className="inline-flex h-10 min-w-[130px] items-center justify-center rounded-[3px] border border-line px-5 text-[14px] font-medium text-ink transition-colors hover:bg-surface-2"
               >
                 {t.secondary}
               </Link>
@@ -225,13 +227,13 @@ export default function LandingPage() {
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/search"
-              className="inline-flex h-10 items-center rounded-[3px] bg-ink px-5 text-[14px] font-medium text-surface transition-opacity hover:opacity-85"
+              className="inline-flex h-10 min-w-[160px] items-center justify-center rounded-[3px] bg-ink px-5 text-[14px] font-medium text-surface transition-opacity hover:opacity-85"
             >
               {lang === "th" ? "ค้นหา TOR" : "Browse TORs"}
             </Link>
             <Link
               href="/auth"
-              className="inline-flex h-10 items-center rounded-[3px] border border-line px-5 text-[14px] font-medium text-ink transition-colors hover:bg-surface-3"
+              className="inline-flex h-10 min-w-[160px] items-center justify-center rounded-[3px] border border-line px-5 text-[14px] font-medium text-ink transition-colors hover:bg-surface-3"
             >
               {lang === "th" ? "สมัครใช้งานฟรี" : "Sign up for free"}
             </Link>

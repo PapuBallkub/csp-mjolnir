@@ -509,13 +509,15 @@ export default function BrowsePage() {
                 type="button"
                 onClick={() => setMode(option.id)}
                 aria-pressed={mode === option.id}
-                className={`flex items-center gap-2 rounded-[2px] px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                className={`flex items-center justify-center gap-2 rounded-[2px] px-3 py-1.5 text-[13px] font-medium transition-all duration-150 ${
+                  option.id === "filter" ? "min-w-[110px]" : "min-w-[165px]"
+                } ${
                   mode === option.id
                     ? "bg-surface text-ink shadow-sm"
                     : "text-ink-3 hover:text-ink"
                 }`}
               >
-                {pick(option.label, lang)}
+                <span className="transition-opacity duration-150">{pick(option.label, lang)}</span>
                 {option.badge !== undefined ? (
                   <span
                     className={`rounded-[2px] px-1 font-mono tnum text-[11px] ${

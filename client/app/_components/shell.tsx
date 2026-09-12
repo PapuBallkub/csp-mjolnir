@@ -11,8 +11,8 @@ import { useProfile, LangToggle, ThemeToggle } from "./prefs";
  */
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-2 ${className}`}>
-      <svg viewBox="0 0 20 20" className="h-[18px] w-[18px] text-ink" aria-hidden="true">
+    <span className={`inline-flex items-center gap-1 ${className}`}>
+      <svg viewBox="0 0 20 20" className="h-[18px] w-[18px] text-ink shrink-0" aria-hidden="true">
         <path
           d="M2.5 2.5 H17.5 V8.6 H12.4 V11.4 H14 V17.5 H6 V11.4 H7.6 V8.6 H2.5 Z"
           fill="currentColor"
@@ -39,7 +39,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
-          <Link href="/search" className="shrink-0">
+          <Link href="/" className="shrink-0 transition-opacity hover:opacity-80" title="Mjölnir Home">
             <Wordmark />
           </Link>
 

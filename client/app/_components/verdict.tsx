@@ -134,7 +134,7 @@ function DirectionGlyph({ verdict }: { verdict: PriceVerdict }) {
 /* --------------------------------- badges --------------------------------- */
 
 const badgeBase =
-  "inline-flex items-center gap-1.5 rounded-[2px] border px-1.5 py-[3px] text-[11px] font-medium leading-none whitespace-nowrap";
+  "inline-flex items-center gap-1.5 rounded-[2px] border px-2 py-[3px] text-[11px] font-medium leading-none whitespace-nowrap transition-all duration-150";
 
 export function StatusBadge({
   status,
@@ -148,9 +148,9 @@ export function StatusBadge({
 }) {
   const tone = TONE[STATUS_TONE[status]];
   return (
-    <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
+    <span className={`${badgeBase} min-w-[74px] justify-center ${tone.bg} ${tone.border} ${tone.text}`}>
       <StatusGlyph status={status} />
-      {say(STATUS_LABEL[status], lang)}
+      <span className="transition-opacity duration-150">{say(STATUS_LABEL[status], lang)}</span>
       {round ? <span className="font-mono opacity-70">{round}</span> : null}
     </span>
   );
@@ -171,7 +171,7 @@ export function LockSpecBadge({
   return (
     <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
       <RiskMeter level={level} />
-      {say(RISK_LABEL[level], lang)}
+      <span className="transition-opacity duration-150">{say(RISK_LABEL[level], lang)}</span>
       {showScore ? <span className="font-mono tnum opacity-70">{score}</span> : null}
     </span>
   );
@@ -189,7 +189,7 @@ export function PriceBadge({ tor, lang }: { tor: Tor; lang: Lang }) {
   return (
     <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
       <DirectionGlyph verdict={tor.price.verdict} />
-      {say(label[tor.price.verdict], lang)}
+      <span className="transition-opacity duration-150">{say(label[tor.price.verdict], lang)}</span>
     </span>
   );
 }
@@ -197,13 +197,13 @@ export function PriceBadge({ tor, lang }: { tor: Tor; lang: Lang }) {
 /** Scope size and SME eligibility are categories, so they stay monochrome. */
 export function ScopeBadge({ size, lang }: { size: ScopeSize; lang: Lang }) {
   return (
-    <span className={`${badgeBase} border-line bg-surface-2 text-ink-2`}>
+    <span className={`${badgeBase} min-w-[84px] justify-center border-line bg-surface-2 text-ink-2`}>
       <svg viewBox="0 0 12 10" className="h-2.5 w-3 shrink-0" aria-hidden="true">
         <circle cx="3" cy="5" r="2.2" fill="currentColor" />
         <circle cx="7.5" cy="5" r="2.2" fill="currentColor" opacity={size === "solo" ? 0.2 : 1} />
         <circle cx="11" cy="5" r="1" fill="currentColor" opacity={size === "firm" ? 1 : 0.2} />
       </svg>
-      {say(SCOPE_LABEL[size], lang)}
+      <span className="transition-opacity duration-150">{say(SCOPE_LABEL[size], lang)}</span>
     </span>
   );
 }
@@ -211,7 +211,7 @@ export function ScopeBadge({ size, lang }: { size: ScopeSize; lang: Lang }) {
 export function SmeBadge({ lang }: { lang: Lang }) {
   return (
     <span
-      className={`${badgeBase} border-line bg-surface-2 text-ink-2`}
+      className={`${badgeBase} min-w-[74px] justify-center border-line bg-surface-2 text-ink-2`}
       title={
         lang === "th"
           ? "เข้าเกณฑ์แต้มต่อ SME ตามกฎกระทรวง"
