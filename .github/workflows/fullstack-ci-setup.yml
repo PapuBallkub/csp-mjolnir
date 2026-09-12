@@ -53,6 +53,11 @@ jobs:
       # Throwaway: signs cookies for a server that lives for one job. A real
       # secret never goes in a workflow file.
       JWT_SECRET: ci-not-a-secret
+      # Also throwaway. Present so the tests that build the Google redirect run
+      # here; nothing in the suite calls Google.
+      GOOGLE_CLIENT_ID: ci-not-a-client
+      GOOGLE_CLIENT_SECRET: ci-not-a-secret
+      GOOGLE_REDIRECT_URI: http://localhost:8000/auth/google/callback
 
     defaults:
       run:
