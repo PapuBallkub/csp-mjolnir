@@ -258,7 +258,7 @@ export default function ProfilePage() {
             <button type="button" className={btn.primary}>
               {lang === "th" ? "บันทึกโปรไฟล์" : "Save profile"}
             </button>
-            <Link href="/mockups/notifications" className={btn.secondary}>
+            <Link href="/notifications" className={btn.secondary}>
               {lang === "th" ? "ตั้งค่าการแจ้งเตือน" : "Notification settings"}
             </Link>
           </div>
@@ -300,7 +300,7 @@ export default function ProfilePage() {
               {ranked.slice(0, 3).map(({ tor, score }) => (
                 <Link
                   key={tor.id}
-                  href={`/mockups/tor/${tor.id}`}
+                  href={`/tor/${tor.id}`}
                   className="border-b border-line px-4 py-3 transition-colors hover:bg-surface-2"
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -318,7 +318,7 @@ export default function ProfilePage() {
                   <SmeBadge lang={lang} />
                 </div>
               ) : null}
-              <Link href="/mockups/catalog" className={`${btn.secondary} w-full`}>
+              <Link href="/catalog" className={`${btn.secondary} w-full`}>
                 {lang === "th" ? "ดูรายการที่ตรงทั้งหมด" : "See every match"}
               </Link>
             </div>

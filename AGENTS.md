@@ -1,6 +1,6 @@
-# AGENTS.md — Web Mockup Design Guide
+# AGENTS.md — Frontend Design Guide
 
-This file guides any AI coding agent (Claude Code, Cursor, etc.) working on **web mockups / UI design** for this project. Read this before generating pages, components, or design tokens. It does not cover backend, scraping, or OCR/LLM pipeline work — mockup work only.
+This file guides any AI coding agent (Claude Code, Cursor, etc.) working on **frontend UI design** for this project. Read this before generating pages, components, or design tokens. It does not cover backend, scraping, or OCR/LLM pipeline work — frontend work only.
 
 ## 1. Project in one paragraph
 
@@ -8,12 +8,12 @@ We are building a web platform that discovers, reads, and normalizes Bangkok Met
 
 Reference doc: `CSP_Proposal.md` in this repo for full user stories (US1–US17) and functional requirements (FR01–FR15).
 
-## 2. Tech stack for mockups
+## 2. Tech stack
 
-- **Frontend:** Next.js (React) — build mockups as real Next.js pages/components, not static HTML, so they can graduate into the real app.
+- **Frontend:** Next.js (React) — pages live under `client/app/(app)/` (shell-wrapped routes) and `client/app/` (standalone pages like auth and the landing page).
 - **Styling:** Tailwind CSS utility classes.
-- **Backend/DB for mockups:** none — use mock/fixture JSON that mirrors the normalized TOR schema (see §5). Do not wire up MongoDB or scrapers for mockup work.
-- Keep mockups in a clearly separated route/folder (e.g. `/mockups` or a `design/` branch) until a page is approved, so exploratory work doesn't get mistaken for production code.
+- **Shared components:** `client/app/_components/` — shared UI, verdict badges, shell, and preference toggles.
+- **Fixture data:** `client/app/_data/` — mock JSON mirroring the normalized TOR schema (see §5). Until the backend API is connected, pages consume fixture data from here.
 
 ## 3. Audience and tone
 

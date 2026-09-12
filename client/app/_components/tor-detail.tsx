@@ -51,7 +51,7 @@ export function TorDetail({ tor }: { tor: Tor }) {
 
         <div className="relative mx-auto max-w-[1240px] px-4 py-6">
           <nav className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-ink-3">
-            <Link href="/mockups/catalog" className="hover:text-ink hover:underline">
+            <Link href="/catalog" className="hover:text-ink hover:underline">
               {lang === "th" ? "ประกาศทั้งหมด" : "Browse"}
             </Link>
             <span>/</span>
@@ -159,7 +159,7 @@ export function TorDetail({ tor }: { tor: Tor }) {
               ))}
             </ul>
             <Link
-              href="/mockups/profile"
+              href="/profile"
               className="mt-3 inline-block text-[12px] text-ink-2 underline underline-offset-2 hover:text-ink"
             >
               {lang === "th" ? "แก้ไขทักษะและเงื่อนไข" : "Edit your skills and limits"}
@@ -301,7 +301,7 @@ export function TorDetail({ tor }: { tor: Tor }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
-            <Link href="/mockups/catalog" className={btn.ghost}>
+            <Link href="/catalog" className={btn.ghost}>
               ← {lang === "th" ? "กลับไปหน้าประกาศทั้งหมด" : "Back to browsing"}
             </Link>
             <span className="ml-auto">

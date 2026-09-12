@@ -56,7 +56,7 @@ function DeviationChart({ rows, lang }: { rows: Tor[]; lang: "th" | "en" }) {
           return (
             <div key={tor.id} className="contents">
               <Link
-                href={`/mockups/tor/${tor.id}`}
+                href={`/tor/${tor.id}`}
                 className="min-w-0 truncate py-1 pr-3 text-[12px] text-ink-2 hover:text-ink hover:underline"
                 title={pick(tor.title, lang)}
               >
@@ -192,7 +192,7 @@ export default function WatchdogPage() {
               <>
                 <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-line pb-3">
                   <Link
-                    href={`/mockups/tor/${selectedTor.id}`}
+                    href={`/tor/${selectedTor.id}`}
                     className="text-[15px] leading-thai font-medium text-ink hover:underline"
                   >
                     {pick(selectedTor.title, lang)}
@@ -244,7 +244,7 @@ export default function WatchdogPage() {
                   <tr key={tor.id} className="border-b border-line last:border-b-0">
                     <td className="px-3 py-2.5">
                       <Link
-                        href={`/mockups/tor/${tor.id}`}
+                        href={`/tor/${tor.id}`}
                         className="text-[13px] leading-thai text-ink hover:underline"
                       >
                         {pick(tor.title, lang)}

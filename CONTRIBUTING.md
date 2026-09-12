@@ -7,13 +7,13 @@ and the history readable — nothing beyond that.
 
 | Path | What it is |
 | :--- | :--- |
-| `client/` | Next.js frontend. Phase 1 mockups live in `client/app/mockups`. |
+| `client/` | Next.js frontend. Pages live in `client/app/(app)/` (shell-wrapped) and `client/app/` (standalone). |
 | `server/` | Node + Express API, and from Phase 2 the ingestion pipeline. |
 | `server/src/common/` | Plumbing every feature uses: config, db, errors, middleware. |
 | `server/src/models/` | Every Mongoose schema, in one place. Shape only, no logic. |
 | `server/src/features/` | One folder per feature, each owning its routes, controller, and service. |
 | `docs/decisions/` | Why we chose things. See [Decisions](#decisions). |
-| `AGENTS.md` | Design guide for mockup and UI work, and what coding agents read first. Check it before touching `client/app/mockups`. |
+| `AGENTS.md` | Design guide for frontend UI work, and what coding agents read first. Check it before touching `client/app/`. |
 | `CSP_Proposal.md` | The proposal — user stories (US1–US17) and requirements (FR01–FR15), which the code cites by number. |
 
 `server/src` is sliced by feature, with the schemas kept together in one

@@ -115,7 +115,7 @@ export default function WatchlistPage() {
                     {pick(alert.text, lang)}
                   </p>
                   <Link
-                    href={`/mockups/tor/${alert.tor.id}`}
+                    href={`/tor/${alert.tor.id}`}
                     className="mt-1 inline-block text-[13px] leading-thai text-ink-2 underline underline-offset-2 hover:text-ink"
                   >
                     {pick(alert.tor.title, lang)}
@@ -156,7 +156,7 @@ export default function WatchlistPage() {
                 : "Save a project from its detail page and we will watch the source file daily, then tell you the moment the TOR is amended, closed or awarded."
             }
             action={
-              <Link href="/mockups/catalog" className={btn.secondary}>
+              <Link href="/catalog" className={btn.secondary}>
                 {lang === "th" ? "ไปดูประกาศทั้งหมด" : "Browse the catalog"}
               </Link>
             }

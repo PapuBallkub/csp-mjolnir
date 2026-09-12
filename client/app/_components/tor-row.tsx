@@ -52,7 +52,7 @@ export function TorRow({
 
           <h3 className="mt-1 text-[15px] leading-thai font-medium text-ink">
             <Link
-              href={`/mockups/tor/${tor.id}`}
+              href={`/tor/${tor.id}`}
               className="after:absolute after:inset-0 group-hover:underline underline-offset-2"
             >
               {pick(tor.title, lang)}

@@ -429,7 +429,7 @@ export default function BrowsePage() {
             </div>
           </div>
 
-          <Link href="/mockups/profile" className={`${btn.secondary} w-full`}>
+          <Link href="/profile" className={`${btn.secondary} w-full`}>
             {lang === "th" ? "แก้ไขโปรไฟล์" : "Edit your profile"}
           </Link>
         </div>
@@ -648,7 +648,7 @@ export default function BrowsePage() {
                     : "Pick the technologies you can build with on your profile and this list re-ranks immediately."
                 }
                 action={
-                  <Link href="/mockups/profile" className={btn.secondary}>
+                  <Link href="/profile" className={btn.secondary}>
                     {lang === "th" ? "ไปตั้งค่าโปรไฟล์" : "Set up your profile"}
                   </Link>
                 }

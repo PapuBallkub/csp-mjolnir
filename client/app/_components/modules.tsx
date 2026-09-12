@@ -362,7 +362,7 @@ export function SourceModule({ tor, lang }: { tor: Tor; lang: Lang }) {
             />
           </svg>
         </a>
-        <Link href="/mockups/notifications" className={btn.ghost}>
+        <Link href="/notifications" className={btn.ghost}>
           {lang === "th" ? "แจ้งข้อมูลผิดพลาด" : "Report an error"}
         </Link>
       </div>

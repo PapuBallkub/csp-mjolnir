@@ -26,9 +26,9 @@ export function Wordmark({ className = "" }: { className?: string }) {
 }
 
 const NAV = [
-  { href: "/mockups/catalog", label: "Browse" },
-  { href: "/mockups/watchlist", label: "Watchlist" },
-  { href: "/mockups/watchdog", label: "Watchdog" },
+  { href: "/catalog", label: "Browse" },
+  { href: "/watchlist", label: "Watchlist" },
+  { href: "/watchdog", label: "Watchdog" },
 ] as const;
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -37,27 +37,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-full flex-col">
-      {/* Mockups must never be mistaken for the shipped product (AGENTS §2). */}
-      <div className="border-b border-line bg-surface-3">
-        <div className="mx-auto flex max-w-[1240px] items-center gap-3 px-4 py-1.5">
-          <span className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-ink-2">
-            Mockup
-          </span>
-          <span className="hidden text-[11px] text-ink-3 sm:inline">
-            Fixture data, no backend. Phase 1 UI exploration.
-          </span>
-          <Link
-            href="/mockups"
-            className="ml-auto text-[11px] text-ink-2 underline underline-offset-2 hover:text-ink"
-          >
-            All screens
-          </Link>
-        </div>
-      </div>
-
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
-          <Link href="/mockups/catalog" className="shrink-0">
+          <Link href="/catalog" className="shrink-0">
             <Wordmark />
           </Link>
 
@@ -80,9 +62,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
             })}
             <span className="mx-1 h-4 w-px shrink-0 bg-line" />
             <Link
-              href="/mockups/admin"
+              href="/admin"
               className={`rounded-[3px] px-2.5 py-1.5 font-mono text-[11px] whitespace-nowrap uppercase tracking-[0.1em] transition-colors ${
-                pathname.startsWith("/mockups/admin")
+                pathname.startsWith("/admin")
                   ? "bg-surface-3 text-ink"
                   : "text-ink-3 hover:bg-surface-2 hover:text-ink"
               }`}
@@ -95,7 +77,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <LangToggle />
             <ThemeToggle />
             <Link
-              href="/mockups/notifications"
+              href="/notifications"
               aria-label="Notification preferences"
               className="relative flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
             >
@@ -111,9 +93,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <span className="absolute -right-[3px] -top-[3px] h-2 w-2 rounded-full border border-surface bg-amend" />
             </Link>
             <Link
-              href="/mockups/profile"
+              href="/profile"
               className={`flex h-[26px] items-center rounded-[3px] border px-2 text-[12px] transition-colors ${
-                pathname.startsWith("/mockups/profile")
+                pathname.startsWith("/profile")
                   ? "border-line-2 bg-surface-3 text-ink"
                   : "border-line bg-surface-2 text-ink-2 hover:text-ink"
               }`}

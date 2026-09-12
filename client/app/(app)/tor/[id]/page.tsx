@@ -6,7 +6,7 @@ export function generateStaticParams() {
   return tors.map((tor) => ({ id: tor.id }));
 }
 
-export default async function TorDetailPage({ params }: PageProps<"/mockups/tor/[id]">) {
+export default async function TorDetailPage({ params }: PageProps<"/tor/[id]">) {
   const { id } = await params;
   const tor = getTor(id);
   if (!tor) notFound();

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans_Thai, IBM_Plex_Mono } from "next/font/google";
+import { PrefsProvider } from "./_components/prefs";
 import "./globals.css";
 
 // Thai is the source language of every document on this platform, so the UI
@@ -41,7 +42,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <PrefsProvider>{children}</PrefsProvider>
+      </body>
     </html>
   );
 }
