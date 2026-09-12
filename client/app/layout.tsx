@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans_Thai, IBM_Plex_Mono } from "next/font/google";
+import { Noto_Sans_Thai, Inter, IBM_Plex_Mono } from "next/font/google";
 import { PrefsProvider } from "./_components/prefs";
 import "./globals.css";
 
-// Thai is the source language of every document on this platform, so the UI
-// face is chosen for its Thai coverage first; its Latin companion carries the
-// English tech terms that run inline through Thai sentences.
-const plexThai = IBM_Plex_Sans_Thai({
-  variable: "--font-plex-thai",
-  subsets: ["latin", "thai"],
+// Noto Sans Thai provides optimal screen legibility with clear letter loops
+// for dense text, while Inter pairs cleanly for Latin technical terms.
+const notoSansThai = Noto_Sans_Thai({
+  variable: "--font-noto-thai",
+  subsets: ["thai"],
+  weight: ["300", "400", "500", "600", "700"],
+});
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
 });
 
@@ -36,7 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="th"
-      className={`${plexThai.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${notoSansThai.variable} ${inter.variable} ${plexMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

@@ -137,7 +137,7 @@
   --color-closed-bg: var(--closed-bg);
   --color-closed-line: var(--closed-line);
 
-  --font-sans: var(--font-plex-thai), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), var(--font-noto-thai), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 
   --radius-card: 3px;

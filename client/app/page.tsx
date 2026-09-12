@@ -109,7 +109,7 @@ export default function LandingPage() {
   return (
     <div className="flex min-h-full flex-col">
       {/* Minimal header for landing */}
-      <header className="border-b border-line bg-surface/95 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
           <Link href="/" className="shrink-0 transition-opacity hover:opacity-80" title="Mjölnir Home">
             <Wordmark />
@@ -130,7 +130,7 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="relative overflow-hidden bg-surface">
         <div className="mx-auto max-w-[1240px] px-4 py-20 sm:py-28">
-          <div className="max-w-[640px]">
+          <div className="max-w-[800px]">
             <h1 className="text-[32px] leading-[1.25] font-bold tracking-tight text-ink sm:text-[44px]">
               {t.headline.split("\n").map((line, i) => (
                 <span key={i}>
@@ -139,7 +139,7 @@ export default function LandingPage() {
                 </span>
               ))}
             </h1>
-            <p className="mt-5 max-w-[520px] text-[15px] leading-thai text-ink-2">
+            <p className="mt-5 max-w-[760px] text-[15px] leading-thai text-ink-2">
               {t.sub}
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
