@@ -23,7 +23,7 @@ const LangContext = createContext<{ lang: Lang; setLang: (lang: Lang) => void }>
 
 /**
  * The profile lives above the routes so editing skills on /profile changes the
- * ranking on /catalog without a round trip — which is the whole point of
+ * ranking on /search without a round trip — which is the whole point of
  * splitting the two, and the thing a static mockup would fail to show.
  */
 const ProfileContext = createContext<{

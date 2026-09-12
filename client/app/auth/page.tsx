@@ -172,7 +172,7 @@ export default function AuthPage() {
           </Panel>
 
           <Link
-            href="/catalog"
+            href="/search"
             className="text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink"
           >
             {lang === "th" ? "ดูประกาศก่อนโดยไม่ต้องสมัคร →" : "Browse without an account →"}

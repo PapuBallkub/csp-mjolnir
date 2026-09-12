@@ -26,7 +26,7 @@ export function Wordmark({ className = "" }: { className?: string }) {
 }
 
 const NAV = [
-  { href: "/catalog", label: "Browse" },
+  { href: "/search", label: "Search" },
   { href: "/watchlist", label: "Watchlist" },
   { href: "/watchdog", label: "Watchdog" },
 ] as const;
@@ -39,7 +39,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
-          <Link href="/catalog" className="shrink-0">
+          <Link href="/search" className="shrink-0">
             <Wordmark />
           </Link>
 

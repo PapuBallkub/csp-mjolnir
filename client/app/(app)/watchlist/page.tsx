@@ -156,8 +156,8 @@ export default function WatchlistPage() {
                 : "Save a project from its detail page and we will watch the source file daily, then tell you the moment the TOR is amended, closed or awarded."
             }
             action={
-              <Link href="/catalog" className={btn.secondary}>
-                {lang === "th" ? "ไปดูประกาศทั้งหมด" : "Browse the catalog"}
+              <Link href="/search" className={btn.secondary}>
+                {lang === "th" ? "ไปหน้าค้นหาประกาศ" : "Go to search"}
               </Link>
             }
           />

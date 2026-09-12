@@ -318,7 +318,7 @@ export default function ProfilePage() {
                   <SmeBadge lang={lang} />
                 </div>
               ) : null}
-              <Link href="/catalog" className={`${btn.secondary} w-full`}>
+              <Link href="/search" className={`${btn.secondary} w-full`}>
                 {lang === "th" ? "ดูรายการที่ตรงทั้งหมด" : "See every match"}
               </Link>
             </div>

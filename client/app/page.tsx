@@ -142,7 +142,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
-                href="/catalog"
+                href="/search"
                 className="inline-flex h-10 items-center rounded-[3px] bg-ink px-5 text-[14px] font-medium text-surface transition-opacity hover:opacity-85"
               >
                 {t.cta}
@@ -224,7 +224,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="/catalog"
+              href="/search"
               className="inline-flex h-10 items-center rounded-[3px] bg-ink px-5 text-[14px] font-medium text-surface transition-opacity hover:opacity-85"
             >
               {lang === "th" ? "ค้นหา TOR" : "Browse TORs"}
