@@ -40,7 +40,7 @@ export default function AuthPage() {
     <div className="flex min-h-full flex-col">
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-[1000px] items-center gap-4 px-4 py-2.5">
-          <Link href="/mockups">
+          <Link href="/">
             <Wordmark />
           </Link>
           <div className="ml-auto flex items-center gap-2">
@@ -172,7 +172,7 @@ export default function AuthPage() {
           </Panel>
 
           <Link
-            href="/mockups/catalog"
+            href="/search"
             className="text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink"
           >
             {lang === "th" ? "ดูประกาศก่อนโดยไม่ต้องสมัคร →" : "Browse without an account →"}

@@ -137,7 +137,7 @@
   --color-closed-bg: var(--closed-bg);
   --color-closed-line: var(--closed-line);
 
-  --font-sans: var(--font-plex-thai), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), var(--font-noto-thai), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 
   --radius-card: 3px;
@@ -186,4 +186,23 @@ body {
     transparent 1px,
     transparent 5px
   );
+}
+
+/*
+  Smooth, hardware-accelerated full-page View Transitions for theme changes.
+  Cross-fades both light/dark states at once without component desynchronization.
+*/
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.22s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Fallback coordinated theme transition */
+.theme-transitioning,
+.theme-transitioning *,
+.theme-transitioning *::before,
+.theme-transitioning *::after {
+  transition: background-color 0.22s ease, border-color 0.22s ease, color 0.22s ease, fill 0.22s ease !important;
+  transition-delay: 0s !important;
 }

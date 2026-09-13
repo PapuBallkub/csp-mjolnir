@@ -23,7 +23,7 @@ const LangContext = createContext<{ lang: Lang; setLang: (lang: Lang) => void }>
 
 /**
  * The profile lives above the routes so editing skills on /profile changes the
- * ranking on /catalog without a round trip — which is the whole point of
+ * ranking on /search without a round trip — which is the whole point of
  * splitting the two, and the thing a static mockup would fail to show.
  */
 const ProfileContext = createContext<{
@@ -69,8 +69,8 @@ export function LangToggle() {
           type="button"
           onClick={() => setLang(option.value)}
           aria-pressed={lang === option.value}
-          className={`rounded-[2px] px-2 py-[3px] text-[11px] font-medium transition-colors ${
-            lang === option.value ? "bg-ink text-surface" : "text-ink-3 hover:text-ink"
+          className={`flex h-5 w-9 items-center justify-center rounded-[2px] text-[11px] font-medium transition-all duration-150 ${
+            lang === option.value ? "bg-ink text-surface shadow-xs" : "text-ink-3 hover:text-ink"
           }`}
         >
           {option.label}
@@ -106,9 +106,30 @@ function readTheme(): Theme {
 }
 
 function applyTheme(next: Theme) {
-  document.documentElement.dataset.theme = next;
-  localStorage.setItem("mjolnir-theme", next);
-  for (const listener of themeListeners) listener();
+  const update = () => {
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("mjolnir-theme", next);
+    for (const listener of themeListeners) listener();
+  };
+
+  if (typeof document === "undefined") {
+    update();
+    return;
+  }
+
+  const doc = document as Document & {
+    startViewTransition?: (callback: () => void) => void;
+  };
+
+  if (typeof doc.startViewTransition === "function") {
+    doc.startViewTransition(update);
+  } else {
+    document.documentElement.classList.add("theme-transitioning");
+    update();
+    window.setTimeout(() => {
+      document.documentElement.classList.remove("theme-transitioning");
+    }, 260);
+  }
 }
 
 export function ThemeToggle() {
