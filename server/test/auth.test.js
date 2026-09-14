@@ -18,13 +18,23 @@ const PASSWORD = 'correct horse battery';
 const runId = crypto.randomUUID().slice(0, 8);
 const emailFor = (name) => `${name}-${runId}@example.test`;
 
+// The limiters get their own file. Here they are set far out of the way, so
+// that adding a test to this one can never turn CI red with a surprise 429 —
+// and so the production numbers stay chosen for production.
+const UNLIMITED = { windowMs: 60_000, limit: 10_000 };
+const NO_RATE_LIMITS = {
+  loginByIp: UNLIMITED,
+  loginByEmail: UNLIMITED,
+  registerByIp: UNLIMITED,
+};
+
 let server;
 let baseUrl;
 
 before(async () => {
   await connectDatabase({ dbName: TEST_DB });
 
-  server = createApp().listen(0);
+  server = createApp({ rateLimits: NO_RATE_LIMITS }).listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
 
   baseUrl = `http://localhost:${server.address().port}`;
