@@ -13,6 +13,7 @@ and the history readable — nothing beyond that.
 | `server/src/models/` | Every Mongoose schema, in one place. Shape only, no logic. |
 | `server/src/features/` | One folder per feature, each owning its routes, controller, and service. |
 | `docs/decisions/` | Why we chose things. See [Decisions](#decisions). |
+| `docs/deployment-checklist.md` | What has to be set and verified before a production deploy. Read it before the first one, and before every one after. |
 | `AGENTS.md` | Design guide for frontend UI work, and what coding agents read first. Check it before touching `client/app/`. |
 | `CSP_Proposal.md` | The proposal — user stories (US1–US17) and requirements (FR01–FR15), which the code cites by number. |
 
