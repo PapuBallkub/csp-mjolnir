@@ -14,6 +14,15 @@ export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: Number(process.env.PORT ?? 8000),
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+  // How many reverse proxies stand between the internet and this process, which
+  // is the only way Express can work out a caller's real address. 0 is right
+  // for a local run and for docker compose, where nothing sits in front.
+  //
+  // It must stay a count, never `true`: a count is read from the right of
+  // X-Forwarded-For, where the proxy's own entries are, while `true` takes the
+  // leftmost entry, which the caller writes. Rate limiting keyed on a value the
+  // caller chooses is not rate limiting. See docs/deployment-checklist.md.
+  trustProxyHops: Number(process.env.TRUST_PROXY_HOPS ?? 0),
   mongoUri: required(
     'MONGO_URI',
     'Copy server/.env.example to server/.env and fill it in. For a local mongod, use mongodb://localhost:27017/mjolnir.',
