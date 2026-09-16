@@ -32,5 +32,8 @@ client/*.tsbuildinfo
 # Downloaded TOR documents (large binary PDFs, not tracked)
 server/data/
 
+# Tesseract OCR language training data
+*.traineddata
+
 # Temporary reference code (delete after porting)
 _temp_api_test/

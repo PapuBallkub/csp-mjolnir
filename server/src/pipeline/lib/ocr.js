@@ -8,9 +8,15 @@
  */
 
 import fs from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { PDFParse } from 'pdf-parse';
 import { pdf } from 'pdf-to-img';
 import { createWorker } from 'tesseract.js';
+
+const require = createRequire(import.meta.resolve('pdf-to-img'));
+const pdfjsDistPkg = require.resolve('pdfjs-dist/package.json');
+const wasmDir = path.join(path.dirname(pdfjsDistPkg), 'wasm') + path.sep;
 
 const MAX_OCR_PAGES = 20; // Memory & performance guard for scanned documents
 const PAGE_TIMEOUT_MS = 60000; // 60s timeout per page
@@ -84,7 +90,14 @@ async function ocrScannedPdf(pdfPath, fallbackPages = 0) {
   let worker = null;
 
   try {
-    doc = await pdf(pdfPath, { scale: 2 });
+    // Reset global worker state from any preceding pdf-parse calls
+    delete globalThis.pdfjsWorker;
+    delete globalThis.pdfjsLib;
+
+    doc = await pdf(pdfPath, {
+      scale: 2,
+      docInitParams: { wasmUrl: wasmDir },
+    });
     worker = await createWorker(['tha', 'eng']);
 
     let pageIndex = 0;
