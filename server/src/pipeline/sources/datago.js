@@ -172,12 +172,6 @@ export async function fetchFromDataGo({
               projectStatus: projectStatus || '',
             },
             egpUrl: `https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=${projectId}`,
-            classification: {
-              isIT: true,
-              matchedKeywords: [query],
-              method: 'API_KEYWORD_PREFILTER',
-              classifiedAt: new Date(),
-            },
             document: {
               fileName: expectedPdfFileName,
               storagePath: isDownloaded ? targetPdfPath : null,

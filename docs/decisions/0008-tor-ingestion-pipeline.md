@@ -43,20 +43,19 @@ Express routes. All pipeline logic lives under `server/src/pipeline/`:
 ### 2. Dedicated Mongoose Model `Tor` in `src/models/`
 Indexed on `projectId` (11-digit e-GP ID) as the primary deduplication key. Tracks the
 pipeline lifecycle via `pipelineStatus`:
-- `'fetched'`: Metadata discovered and pre-filtered from sources.
+- `'fetched'`: Metadata discovered from sources.
 - `'downloaded'`: Official attachment resolved and stored on disk.
 - `'ocr_done'`: Digital or scanned text extracted and cleaned.
-- `'classified'`: IT relevance confirmed.
 
 `findOneAndUpdate` with `upsert: true` ensures idempotency across scrapers and reruns.
 
-### 3. Unified Fetch & IT Pre-Filtering
-Because external procurement queries already pre-filter for IT keywords
-(e.g., `"คอมพิวเตอร์"`, `"ซอฟต์แวร์"`, `"ระบบ"`), the fetch step automatically tags
-discovered projects with `classification: { isIT: true, method: 'API_KEYWORD_PREFILTER' }`.
-This eliminates redundant classification steps during ingestion. A secondary deep
-classifier (`classifyIT`) remains available to evaluate long document bodies where
-incidental keyword mentions could produce false positives.
+### 3. IT-Exclusive Scope & Lean Raw Schema
+Because the scraper queries exclusively target Thai IT procurement announcements
+(e.g., `"คอมพิวเตอร์"`, `"ซอฟต์แวร์"`, `"ระบบ"`), every ingested document is an IT project
+by definition. Storing redundant flags (like `isIT: true` or recording arbitrary scraper CLI
+keywords) in the raw database is eliminated. Detailed tech stack identification (e.g.,
+`['Docker', 'PostgreSQL', 'React']`) and project scoping belong to the subsequent AI
+Summary and Extraction stage (FR05).
 
 ### 4. Decoupled, Independent Pipeline Services
 The pipeline is divided into three independently runnable services, orchestrated by
@@ -116,8 +115,8 @@ Every service in the pipeline can be tested independently or end-to-end. All com
 from the `server/` directory.
 
 ### 1. Unit Tests (Isolated, No Database Required)
-Run automated unit tests covering IT classification, Thai digit conversion, Windows-874 / UTF-8
-decoding, and OCR text cleaning / normalization:
+Run automated unit tests covering Thai digit conversion, Windows-874 / UTF-8 decoding, and
+OCR text cleaning / normalization:
 
 ```bash
 # Run all pipeline unit tests
@@ -126,24 +125,23 @@ node --test test/pipeline/*.test.js
 
 Expected output:
 ```text
-✔ classifyIT identifies short IT titles with 1 or more keywords
-✔ classifyIT requires >=2 keywords for long document bodies
 ✔ cleanOcrText normalizes Unicode to NFC
 ✔ cleanOcrText strips isolated page markers
 ✔ cleanOcrText preserves short Thai and English specifications
 ✔ cleanOcrText removes lines containing only scanner noise and punctuation
 ✔ cleanOcrText collapses horizontal spaces and excessive newlines
+✔ cleanOcrText handles empty and non-string inputs safely
 ✔ convertThaiDigitsToArabic converts all Thai digits ๐-๙ to 0-9
 ✔ decodeThaiXml properly decodes UTF-8 Thai XML buffers
 ✔ decodeThaiXml handles Windows-874 byte sequences cleanly
-ℹ tests 13, pass 13, fail 0
+ℹ tests 9, pass 9, fail 0
 ```
 
 ---
 
-### 2. Service 1: Fetch & Pre-Filter IT Metadata
-Discovers announcements from e-GP RSS or data.go.th CKAN, verifies IT relevance, and stores
-records with `pipelineStatus: 'fetched'` without downloading attachments:
+### 2. Service 1: Fetch Project Metadata
+Discovers IT announcements from e-GP RSS or data.go.th CKAN and stores project records with
+`pipelineStatus: 'fetched'` without downloading attachments:
 
 ```bash
 # Fetch from all sources (default query: คอมพิวเตอร์, limit: 3 per source)

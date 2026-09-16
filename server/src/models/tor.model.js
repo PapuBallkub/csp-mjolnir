@@ -104,18 +104,10 @@ const torSchema = new mongoose.Schema(
       processedAt: { type: Date, default: null },
     },
 
-    // IT-relevance classification result (FR04)
-    classification: {
-      isIT: { type: Boolean, default: null },
-      matchedKeywords: [{ type: String }],
-      method: { type: String, default: 'keyword' },
-      classifiedAt: { type: Date, default: null },
-    },
-
-    // Pipeline status: 'fetched' -> 'downloaded' -> 'ocr_done' -> 'classified'
+    // Pipeline status: 'fetched' -> 'downloaded' -> 'ocr_done'
     pipelineStatus: {
       type: String,
-      enum: ['fetched', 'downloaded', 'ocr_done', 'classified'],
+      enum: ['fetched', 'downloaded', 'ocr_done'],
       default: 'fetched',
       index: true,
     },

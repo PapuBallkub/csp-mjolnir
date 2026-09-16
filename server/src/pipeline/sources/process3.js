@@ -189,12 +189,6 @@ export async function fetchFromProcess3({
               announceDate: currentItem.pubDate || new Date().toISOString(),
               procurementMethod: annType.name.split(' (')[0],
               egpUrl: link,
-              classification: {
-                isIT: true,
-                matchedKeywords: [query],
-                method: 'API_KEYWORD_PREFILTER',
-                classifiedAt: new Date(),
-              },
               document: {
                 fileName: expectedPdfName,
                 storagePath: isDownloaded ? targetPdfPath : null,
@@ -290,12 +284,6 @@ export async function fetchFromProcess3({
                 cand['กลุ่มวิธีจัดซื้อฯ'] || cand['วิธีจัดซื้อฯ'] || '',
               ).trim(),
               egpUrl: `https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=${projectId}`,
-              classification: {
-                isIT: true,
-                matchedKeywords: [query],
-                method: 'API_KEYWORD_PREFILTER',
-                classifiedAt: new Date(),
-              },
               document: {
                 fileName: expectedPdfName,
                 storagePath: isDownloaded ? targetPdfPath : null,

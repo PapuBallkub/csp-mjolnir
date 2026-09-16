@@ -29,7 +29,6 @@ import { Tor } from '#models/index.js';
 import { fetchFromProcess3 } from './sources/process3.js';
 import { fetchFromDataGo } from './sources/datago.js';
 import { extractText } from './lib/ocr.js';
-import { classifyIT } from './lib/classifier.js';
 import {
   resolveAndDownloadEgpTorDocument,
   parseTorDocument,
@@ -47,7 +46,6 @@ function parseCliArgs() {
   let limit = 5;
   let source = 'all'; // 'all' | 'process3' | 'datago'
   let skipOcr = false;
-  let skipClassify = false;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -74,12 +72,10 @@ function parseCliArgs() {
       source = arg.split('=')[1].toLowerCase();
     } else if (arg === '--skip-ocr') {
       skipOcr = true;
-    } else if (arg === '--skip-classify') {
-      skipClassify = true;
     }
   }
 
-  return { step, id, query, limit, source, skipOcr, skipClassify };
+  return { step, id, query, limit, source, skipOcr };
 }
 
 /**
@@ -295,36 +291,6 @@ export async function runOcrStep({ id, documentsDir }) {
   return successCount;
 }
 
-/**
- * Service 4: Deep IT classification (for documents where full text is available).
- */
-export async function runClassifyStep({ id }) {
-  console.log('\n[Service 4: CLASSIFY] Verifying IT relevance on extracted text...');
-  const queryFilter = id
-    ? { projectId: id }
-    : { pipelineStatus: { $in: ['ocr_done', 'downloaded'] } };
-
-  const pending = await Tor.find(queryFilter);
-  let classifiedCount = 0;
-
-  for (const tor of pending) {
-    const textToAnalyze = tor.ocr?.rawText || tor.title || '';
-    const result = classifyIT(textToAnalyze);
-
-    tor.classification = {
-      isIT: result.isIT,
-      matchedKeywords: result.matchedKeywords,
-      method: result.method,
-      classifiedAt: new Date(),
-    };
-    tor.pipelineStatus = 'classified';
-    await tor.save();
-    classifiedCount++;
-  }
-
-  return classifiedCount;
-}
-
 async function main() {
   const args = parseCliArgs();
 
@@ -340,7 +306,6 @@ async function main() {
   console.log(`Source Target   : ${args.source}`);
   console.log(`Document Dir    : ${DOCUMENTS_DIR}`);
   console.log(`Skip OCR        : ${args.skipOcr}`);
-  console.log(`Skip Classify   : ${args.skipClassify}`);
   console.log('='.repeat(70));
 
   await connectDatabase();
@@ -370,17 +335,11 @@ async function main() {
     });
   }
 
-  if ((isAll && !args.skipClassify) || args.step === 'classify') {
-    await runClassifyStep({ id: args.id });
-  }
-
   // ----------------------------------------------------
   // Execution Summary
   // ----------------------------------------------------
   const stats = {
     totalInDb: await Tor.countDocuments(),
-    itRelevant: await Tor.countDocuments({ 'classification.isIT': true }),
-    nonIT: await Tor.countDocuments({ 'classification.isIT': false }),
     scannedPdfs: await Tor.countDocuments({
       'document.documentType': 'SCANNED_PAPER_PDF',
     }),
@@ -391,7 +350,6 @@ async function main() {
       fetched: await Tor.countDocuments({ pipelineStatus: 'fetched' }),
       downloaded: await Tor.countDocuments({ pipelineStatus: 'downloaded' }),
       ocrDone: await Tor.countDocuments({ pipelineStatus: 'ocr_done' }),
-      classified: await Tor.countDocuments({ pipelineStatus: 'classified' }),
     },
   };
 
@@ -399,8 +357,6 @@ async function main() {
   console.log(' PIPELINE SUMMARY');
   console.log('='.repeat(70));
   console.log(`Total TOR Records in DB : ${stats.totalInDb}`);
-  console.log(`IT-Relevant Projects    : ${stats.itRelevant}`);
-  console.log(`Non-IT Projects         : ${stats.nonIT}`);
   console.log(`Digital Text PDFs       : ${stats.digitalPdfs}`);
   console.log(`Scanned Paper PDFs (OCR): ${stats.scannedPdfs}`);
   console.log(`Pipeline Status States  :`, stats.statusBreakdown);
