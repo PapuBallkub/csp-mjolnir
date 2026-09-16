@@ -14,3 +14,4 @@
 //   export { Tor } from './tor.model.js';
 
 export { User } from './user.model.js';
+export { Tor } from './tor.model.js';
