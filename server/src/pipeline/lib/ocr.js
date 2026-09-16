@@ -24,6 +24,45 @@ const PAGE_TIMEOUT_MS = 60000; // 60s timeout per single page
 const DOCUMENT_TIMEOUT_MS = 240000; // 4-minute safety ceiling per document
 
 /**
+ * Safely cleans OCR / extracted text without removing critical specification data.
+ * - Normalizes Unicode using Form C (NFC) for Thai composite characters & tone marks.
+ * - Strips isolated page markers (e.g. "-- 1 of 12 --").
+ * - Collapses consecutive spaces without altering newlines.
+ * - Removes lines consisting purely of punctuation/scanner dust artifacts while preserving
+ *   short specification lines (e.g. "๑ ชุด", "24 Core", digits, bullet numbers).
+ * - Collapses 3+ consecutive newlines to 2.
+ *
+ * @param {string} text - Raw extracted text
+ * @returns {string} Cleaned normalized text
+ */
+export function cleanOcrText(text) {
+  if (!text || typeof text !== 'string') return '';
+
+  const rawLines = text
+    .normalize('NFC')
+    .replace(/--\s*\d+\s*of\s*\d+\s*--/gi, '')
+    .split('\n');
+
+  const filteredLines = [];
+  for (const rawLine of rawLines) {
+    const trimmed = rawLine.replace(/[^\S\r\n]+/g, ' ').trim();
+    if (trimmed === '') {
+      // Preserve intentional paragraph breaks
+      filteredLines.push('');
+    } else if (/[\p{L}\p{N}]/u.test(trimmed)) {
+      // Keep meaningful line containing letters or digits
+      filteredLines.push(trimmed);
+    }
+    // Else: line contains only punctuation/scanner dust, drop it
+  }
+
+  return filteredLines
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
  * Extracts text from a PDF file on disk.
  * Detects whether the document has digital text or requires OCR.
  *
@@ -55,6 +94,7 @@ export async function extractText(pdfPath, options = {}) {
 
 /**
  * Attempts to extract embedded digital text from PDF buffer.
+ * Formats output with page demarcations (=== Page X ===).
  * @param {Buffer} buffer
  * @returns {Promise<{ isDigital: boolean, text: string, pages: number }>}
  */
@@ -62,19 +102,23 @@ async function tryEmbeddedDigitalText(buffer) {
   try {
     const parser = new PDFParse({ data: new Uint8Array(buffer) });
     const parsed = await parser.getText();
-    const rawText = parsed?.text || '';
-    const totalPages = parsed?.pages?.length || 0;
+    const rawPages = parsed?.pages || [];
+    const totalPages = rawPages.length;
 
-    // Remove page markers like "-- 1 of 12 --"
-    const cleanedText = rawText
-      .replace(/--\s*\d+\s*of\s*\d+\s*--/gi, '')
-      .trim();
+    const formattedPages = rawPages
+      .map((p, idx) => {
+        const pageNum = p.num || idx + 1;
+        const cleaned = cleanOcrText(p.text || '');
+        return cleaned ? `=== Page ${pageNum} ===\n${cleaned}` : '';
+      })
+      .filter(Boolean);
 
-    const isDigital = cleanedText.length >= 50;
+    const combinedText = formattedPages.join('\n\n').trim();
+    const isDigital = combinedText.length >= 50;
 
     return {
       isDigital,
-      text: cleanedText,
+      text: combinedText,
       pages: totalPages,
     };
   } catch {
@@ -88,6 +132,7 @@ async function tryEmbeddedDigitalText(buffer) {
 
 /**
  * Renders pages to images and runs Tesseract OCR.
+ * Demarcates pages with === Page X === headers.
  * @param {string} pdfPath
  * @param {number} [fallbackPages=0]
  * @returns {Promise<{ text: string, confidence: number, usedOcr: boolean, pages: number }>}
@@ -143,7 +188,10 @@ async function ocrScannedPdf(
 
         const result = await Promise.race([recPromise, timeoutPromise]);
         if (result?.data?.text) {
-          pageTexts.push(result.data.text.trim());
+          const cleaned = cleanOcrText(result.data.text);
+          if (cleaned) {
+            pageTexts.push(`=== Page ${pageIndex} ===\n${cleaned}`);
+          }
           if (typeof result.data.confidence === 'number') {
             confidences.push(result.data.confidence);
           }
