@@ -73,6 +73,7 @@ export function decodeThaiXml(buffer) {
  * @param {number} [options.limit=5]
  * @param {string} [options.deptId='']
  * @param {string} options.documentsDir
+ * @param {boolean} [options.downloadAttachments=false]
  * @returns {Promise<{ fetched: number, errors: string[] }>}
  */
 export async function fetchFromProcess3({
@@ -80,6 +81,7 @@ export async function fetchFromProcess3({
   limit = 5,
   deptId = '',
   documentsDir,
+  downloadAttachments = false,
 }) {
   await fs.mkdir(documentsDir, { recursive: true });
 
@@ -98,44 +100,50 @@ export async function fetchFromProcess3({
 
     const annType = ANNOUNCEMENT_TYPES[i];
     const requestUrl = new URL(BASE_URL);
-    if (deptId) requestUrl.searchParams.set('deptId', deptId);
-    requestUrl.searchParams.set('anounceType', annType.code);
+    requestUrl.searchParams.set('announceType', annType.code);
+    if (deptId) {
+      requestUrl.searchParams.set('deptId', deptId);
+    }
 
     try {
       const response = await axios.get(requestUrl.toString(), {
         headers: {
           'User-Agent': USER_AGENT,
-          Accept: 'application/rss+xml, application/xml, text/xml, */*',
+          Accept: 'application/xml, text/xml, */*',
         },
-        timeout: REQUEST_TIMEOUT_MS,
         responseType: 'arraybuffer',
-        validateStatus: (status) => status >= 200 && status < 400,
+        timeout: REQUEST_TIMEOUT_MS,
       });
 
       const { xmlText } = decodeThaiXml(response.data);
       const parsed = parser.parse(xmlText);
-      const rawItems = parsed?.rss?.channel?.item || [];
+      const channel = parsed?.rss?.channel || parsed?.channel;
+      const items = channel?.item || [];
 
-      let filteredItems = rawItems;
-      if (query) {
-        filteredItems = rawItems.filter((item) => {
-          const title = String(item.title || '');
-          const desc = String(item.description || '');
-          return title.includes(query) || desc.includes(query);
-        });
-      }
+      const queryLower = query.toLowerCase();
+      const filtered = items.filter((item) => {
+        const title = String(item.title || '').toLowerCase();
+        const desc = String(item.description || '').toLowerCase();
+        return title.includes(queryLower) || desc.includes(queryLower);
+      });
 
-      for (let j = 0; j < filteredItems.length; j++) {
+      for (const currentItem of filtered) {
         if (fetchedCount >= limit) break;
 
-        const currentItem = filteredItems[j];
-        const projIdMatch = String(currentItem.description || '').match(
-          /\b(\d{11})\b/,
+        const rawTorId =
+          currentItem.project_id ||
+          currentItem.projectId ||
+          currentItem.guid?.['#text'] ||
+          currentItem.guid ||
+          currentItem.link?.match(/project_id=(\d+)/i)?.[1] ||
+          currentItem.link?.match(/projectId=(\d+)/i)?.[1];
+
+        const torId = convertThaiDigitsToArabic(String(rawTorId || '')).replace(
+          /\D/g,
+          '',
         );
-        const torId = projIdMatch
-          ? projIdMatch[1]
-          : currentItem.link?.match(/fileId=([a-f0-9]+)/i)?.[1] ||
-            `${annType.code}-${Date.now()}-${j}`;
+        if (!torId) continue;
+
         const title = currentItem.title
           ? String(currentItem.title).trim()
           : 'No Title';
@@ -150,7 +158,7 @@ export async function fetchFromProcess3({
 
         if (alreadyDownloaded) {
           documentInfo = await parseTorDocument(targetPdfPath);
-        } else {
+        } else if (downloadAttachments) {
           downloadRes = await resolveAndDownloadEgpTorDocument({
             projectId: String(torId),
             directUrl: link.startsWith('http') ? link : null,
@@ -181,6 +189,12 @@ export async function fetchFromProcess3({
               announceDate: currentItem.pubDate || new Date().toISOString(),
               procurementMethod: annType.name.split(' (')[0],
               egpUrl: link,
+              classification: {
+                isIT: true,
+                matchedKeywords: [query],
+                method: 'API_KEYWORD_PREFILTER',
+                classifiedAt: new Date(),
+              },
               document: {
                 fileName: expectedPdfName,
                 storagePath: isDownloaded ? targetPdfPath : null,
@@ -234,7 +248,7 @@ export async function fetchFromProcess3({
 
         if (alreadyDownloaded) {
           documentInfo = await parseTorDocument(targetPdfPath);
-        } else {
+        } else if (downloadAttachments) {
           downloadRes = await resolveAndDownloadEgpTorDocument({
             projectId,
             destDir: documentsDir,
@@ -276,6 +290,12 @@ export async function fetchFromProcess3({
                 cand['กลุ่มวิธีจัดซื้อฯ'] || cand['วิธีจัดซื้อฯ'] || '',
               ).trim(),
               egpUrl: `https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=${projectId}`,
+              classification: {
+                isIT: true,
+                matchedKeywords: [query],
+                method: 'API_KEYWORD_PREFILTER',
+                classifiedAt: new Date(),
+              },
               document: {
                 fileName: expectedPdfName,
                 storagePath: isDownloaded ? targetPdfPath : null,

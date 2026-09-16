@@ -17,8 +17,9 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "ingest": "node src/pipeline/ingest.js",
-    "ingest:fetch-only": "node src/pipeline/ingest.js --skip-ocr --skip-classify",
-    "test:ocr": "node src/pipeline/test-ocr-all.js"
+    "ingest:fetch": "node src/pipeline/ingest.js --step fetch",
+    "ingest:download": "node src/pipeline/ingest.js --step download",
+    "ingest:ocr": "node src/pipeline/ingest.js --step ocr"
   },
   "dependencies": {
     "adm-zip": "^0.6.0",

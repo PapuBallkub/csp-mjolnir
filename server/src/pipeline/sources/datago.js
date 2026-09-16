@@ -30,6 +30,7 @@ const REQUEST_TIMEOUT_MS = 35000;
  * @param {number} [options.limit=5]
  * @param {string} [options.resourceId=DEFAULT_RESOURCE_ID]
  * @param {string} options.documentsDir
+ * @param {boolean} [options.downloadAttachments=false]
  * @returns {Promise<{ fetched: number, errors: string[] }>}
  */
 export async function fetchFromDataGo({
@@ -37,6 +38,7 @@ export async function fetchFromDataGo({
   limit = 5,
   resourceId = DEFAULT_RESOURCE_ID,
   documentsDir,
+  downloadAttachments = false,
 }) {
   await fs.mkdir(documentsDir, { recursive: true });
 
@@ -99,18 +101,18 @@ export async function fetchFromDataGo({
       : String(rec['ชื่อผู้ชนะ'] || '').trim();
     const winnerTaxId = hasColumnShift
       ? String(rec['พิกัดของโครงการ'] || '').trim()
-      : String(rec['เลขนิติบุคคล'] || '').trim();
+      : String(rec['เลขประจำตัวผู้เสียภาษีอากร'] || '').trim();
     const contractNo = hasColumnShift
       ? String(rec['ลองจิจูดโครงการ'] || '').trim()
-      : String(rec['เลขที่สัญญา'] || '').trim();
+      : String(rec['เลขที่สัญญา/ใบสั่งซื้อสั่งจ้าง'] || '').trim();
     const contractSignDate = hasColumnShift
-      ? rec['เลขนิติบุคคล'] || null
-      : rec['วันที่ลงนามสัญญา'] || null;
+      ? String(rec['ชื่อผู้ชนะ'] || '').trim()
+      : String(rec['วันที่ลงนามในสัญญา'] || '').trim();
     const contractEndDate = hasColumnShift
-      ? rec['ชื่อผู้ชนะ'] || null
-      : rec['วันที่สิ้นสุดสัญญา'] || null;
+      ? String(rec['เลขคุมสัญญา'] || '').trim()
+      : String(rec['วันที่สิ้นสุดสัญญา'] || '').trim();
     const projectStatus = hasColumnShift
-      ? String(rec['วันที่ลงนามสัญญา'] || '').trim()
+      ? String(rec['ชื่อโครงการ'] || '').trim()
       : String(rec['สถานะโครงการ'] || '').trim();
 
     const expectedPdfFileName = `${projectId}_TOR.pdf`;
@@ -122,7 +124,7 @@ export async function fetchFromDataGo({
 
     if (alreadyDownloaded) {
       documentInfo = await parseTorDocument(targetPdfPath);
-    } else {
+    } else if (downloadAttachments) {
       downloadResult = await resolveAndDownloadEgpTorDocument({
         projectId,
         destDir: documentsDir,
@@ -170,6 +172,12 @@ export async function fetchFromDataGo({
               projectStatus: projectStatus || '',
             },
             egpUrl: `https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=${projectId}`,
+            classification: {
+              isIT: true,
+              matchedKeywords: [query],
+              method: 'API_KEYWORD_PREFILTER',
+              classifiedAt: new Date(),
+            },
             document: {
               fileName: expectedPdfFileName,
               storagePath: isDownloaded ? targetPdfPath : null,
