@@ -17,18 +17,25 @@ import { createWorker } from 'tesseract.js';
 const require = createRequire(import.meta.resolve('pdf-to-img'));
 const pdfjsDistPkg = require.resolve('pdfjs-dist/package.json');
 const wasmDir = path.join(path.dirname(pdfjsDistPkg), 'wasm') + path.sep;
+const napiCanvas = require('@napi-rs/canvas');
 
-const MAX_OCR_PAGES = 20; // Memory & performance guard for scanned documents
-const PAGE_TIMEOUT_MS = 60000; // 60s timeout per page
+const MAX_OCR_PAGES = 30; // Scan up to 30 pages for thorough specification extraction
+const PAGE_TIMEOUT_MS = 60000; // 60s timeout per single page
+const DOCUMENT_TIMEOUT_MS = 240000; // 4-minute safety ceiling per document
 
 /**
  * Extracts text from a PDF file on disk.
  * Detects whether the document has digital text or requires OCR.
  *
  * @param {string} pdfPath - Absolute or relative path to PDF file
+ * @param {Object} [options]
+ * @param {number} [options.maxPages=30] - Maximum pages to OCR
+ * @param {number} [options.timeoutMs=240000] - Maximum milliseconds for OCR pass
  * @returns {Promise<{ text: string, confidence: number, usedOcr: boolean, pages: number }>}
  */
-export async function extractText(pdfPath) {
+export async function extractText(pdfPath, options = {}) {
+  const maxPages = options.maxPages || MAX_OCR_PAGES;
+  const timeoutMs = options.timeoutMs || DOCUMENT_TIMEOUT_MS;
   const buffer = await fs.readFile(pdfPath);
 
   // 1. Fast path: try embedded digital text
@@ -43,7 +50,7 @@ export async function extractText(pdfPath) {
   }
 
   // 2. Slow path: scanned PDF -> render pages to images -> Tesseract OCR
-  return ocrScannedPdf(pdfPath, digitalResult.pages);
+  return ocrScannedPdf(pdfPath, digitalResult.pages, { maxPages, timeoutMs });
 }
 
 /**
@@ -85,14 +92,20 @@ async function tryEmbeddedDigitalText(buffer) {
  * @param {number} [fallbackPages=0]
  * @returns {Promise<{ text: string, confidence: number, usedOcr: boolean, pages: number }>}
  */
-async function ocrScannedPdf(pdfPath, fallbackPages = 0) {
+async function ocrScannedPdf(
+  pdfPath,
+  fallbackPages = 0,
+  { maxPages = MAX_OCR_PAGES, timeoutMs = DOCUMENT_TIMEOUT_MS } = {},
+) {
   let doc = null;
   let worker = null;
+  const startTime = Date.now();
 
   try {
     // Reset global worker state from any preceding pdf-parse calls
     delete globalThis.pdfjsWorker;
     delete globalThis.pdfjsLib;
+    globalThis.Path2D = napiCanvas.Path2D;
 
     doc = await pdf(pdfPath, {
       scale: 2,
@@ -106,7 +119,18 @@ async function ocrScannedPdf(pdfPath, fallbackPages = 0) {
 
     for await (const pageImageBuffer of doc) {
       pageIndex++;
-      if (pageIndex > MAX_OCR_PAGES) break;
+      if (pageIndex > maxPages) {
+        console.log(`[OCR Notice] Reached maximum page limit of ${maxPages} pages.`);
+        break;
+      }
+
+      if (Date.now() - startTime > timeoutMs) {
+        console.warn(
+          `[OCR Notice] Reached document timeout limit of ${Math.round(timeoutMs / 1000)}s ` +
+            `at page ${pageIndex}. Returning extracted text accumulated so far.`,
+        );
+        break;
+      }
 
       try {
         const recPromise = worker.recognize(pageImageBuffer);
