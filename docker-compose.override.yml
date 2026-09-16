@@ -1,2 +1,48 @@
-# docker-compose.override.yml (Optional local development overrides)
-# To run containers in production mode, leave this file empty or remove it.
+# docker-compose.override.yml (Local development overrides)
+#
+# Compose loads this on top of docker-compose.yml automatically, so
+# `docker compose up` is the development stack. To run the production stack
+# instead, name the base file on its own:
+#
+#   docker compose -f docker-compose.yml up
+#
+# What it adds is a MongoDB container, so development depends on neither the
+# network nor a seat on the Atlas IP allowlist. See docs/decisions/0006.
+
+services:
+  # Local MongoDB. Same major version as the CI service container, so a failure
+  # here and a failure there mean the same thing.
+  mongo:
+    image: mongo:8
+    # Bound to loopback on purpose. Published as "27017:27017" this database
+    # would accept connections from everyone else on the cafe wifi, and it runs
+    # without authentication.
+    ports:
+      - "127.0.0.1:27017:27017"
+    # Named volume, so `docker compose down` keeps the data and only
+    # `docker compose down -v` throws it away.
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', 'db.adminCommand({ ping: 1 })']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # Failures during startup do not count against retries.
+      start_period: 20s
+
+  server:
+    environment:
+      # Overrides whatever server/.env holds. Inside the compose network the
+      # database answers to the service name; "localhost" in a container means
+      # that container, which is the mistake this line exists to prevent.
+      MONGO_URI: mongodb://mongo:27017
+    depends_on:
+      # Not just "started". server.js connects before it listens and exits if it
+      # cannot, so starting it against a mongo still opening its data files is a
+      # crash loop rather than a wait.
+      mongo:
+        condition: service_healthy
+
+volumes:
+  mongo-data:

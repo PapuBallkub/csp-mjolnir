@@ -13,6 +13,7 @@ and the history readable — nothing beyond that.
 | `server/src/models/` | Every Mongoose schema, in one place. Shape only, no logic. |
 | `server/src/features/` | One folder per feature, each owning its routes, controller, and service. |
 | `docs/decisions/` | Why we chose things. See [Decisions](#decisions). |
+| `docker-compose.yml` | The production stack. `docker-compose.override.yml` adds the local database on top of it, and Compose loads it automatically. |
 | `docs/deployment-checklist.md` | What has to be set and verified before a production deploy. Read it before the first one, and before every one after. |
 | `AGENTS.md` | Design guide for frontend UI work, and what coding agents read first. Check it before touching `client/app/`. |
 | `CSP_Proposal.md` | The proposal — user stories (US1–US17) and requirements (FR01–FR15), which the code cites by number. |
@@ -25,10 +26,23 @@ in [0003](docs/decisions/0003-feature-based-server-layout.md).
 
 ## Getting set up
 
+The database runs in Docker and everything else expects it to be there, so start
+it first:
+
+```
+docker compose up -d mongo                  # mongodb://localhost:27017
+```
+
+Then the two apps, natively:
+
 ```
 cd client && npm install && npm run dev     # http://localhost:3000
 cd server && npm install && npm run dev     # http://localhost:8000
 ```
+
+`docker compose up` on its own runs all three in containers instead. Stopping
+with `docker compose down` keeps your data; `docker compose down -v` throws it
+away and gives you an empty database.
 
 The server reads `server/.env`, which is gitignored. Copy the template and fill
 in your own values:
@@ -37,10 +51,13 @@ in your own values:
 cp server/.env.example server/.env
 ```
 
-`MONGO_URI` is the Atlas connection string — ask in the team chat, and never
-commit it. It is required: the server refuses to boot without it, and connects
-before it starts listening, so a process that is up is a process that reached
-Atlas.
+`MONGO_URI` points at the local database by default and needs no secret. Point
+it at the shared Atlas cluster on the days you want the real scraped data — ask
+in the team chat, never commit it, and note that your current IP has to be on
+the Atlas allowlist, which is the reason local is the default. Either way it is
+required: the server refuses to boot without it, and connects before it starts
+listening, so a process that is up is a process that reached a database. The
+reasoning is in [0006](docs/decisions/0006-local-mongodb-for-development.md).
 
 `JWT_SECRET` signs the session cookie and is required for the same reason — a
 development fallback is a hardcoded signing key, and a hardcoded signing key in
@@ -53,8 +70,8 @@ node -e "console.log(crypto.randomUUID() + crypto.randomUUID())"
 
 Running `npm test` in `server/` boots the app against whatever `MONGO_URI`
 points at. The tests that write users send them to a separate `mjolnir_test`
-database and delete them afterwards, so a local run never touches the shared
-data — keep it that way when you add tests that write.
+database and delete them afterwards, so a run against Atlas never touches the
+shared data — keep it that way when you add tests that write.
 
 ## Branches
 
