@@ -17,6 +17,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import { Tor } from '#models/index.js';
 import {
+  convertThaiDigitsToArabic,
   resolveAndDownloadEgpTorDocument,
   parseTorDocument,
 } from '../lib/tor-downloader.js';

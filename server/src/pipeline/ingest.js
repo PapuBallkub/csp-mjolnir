@@ -6,7 +6,6 @@
  * 1. Fetch: Query procurement sources (process3, datago) & pre-filter IT metadata
  * 2. Download: Resolve & stream download official TOR PDF packages from e-GP backend
  * 3. OCR: Hybrid text extraction (digital PDF text or Tesseract OCR for scans)
- * 4. Classify: Deep IT-relevance classification for long document bodies
  *
  * Usage:
  *   # End-to-end
@@ -121,7 +120,7 @@ export async function runFetchStep({ query, limit, source, documentsDir }) {
 /**
  * Service 2: Download attached TOR packages/PDFs from e-GP backend.
  */
-export async function runDownloadStep({ id, documentsDir }) {
+export async function runDownloadStep({ id, documentsDir, source = 'manual' }) {
   console.log('\n[Service 2: DOWNLOAD] Resolving and downloading TOR PDFs...');
   await fs.mkdir(documentsDir, { recursive: true });
 
@@ -138,7 +137,7 @@ export async function runDownloadStep({ id, documentsDir }) {
     const placeholder = new Tor({
       projectId: id,
       title: `Project ${id}`,
-      source: 'manual',
+      source: ['process3', 'datago'].includes(source) ? source : 'manual',
       pipelineStatus: 'fetched',
       document: {
         fileName: `${id}_TOR.pdf`,
@@ -207,7 +206,7 @@ export async function runDownloadStep({ id, documentsDir }) {
 /**
  * Service 3: OCR and Text Extraction on downloaded PDF documents.
  */
-export async function runOcrStep({ id, documentsDir }) {
+export async function runOcrStep({ id, documentsDir, source = 'manual' }) {
   console.log('\n[Service 3: OCR] Extracting text & running OCR on PDF documents...');
 
   let queryFilter = {
@@ -230,7 +229,7 @@ export async function runOcrStep({ id, documentsDir }) {
         {
           $set: {
             title: `Project ${id}`,
-            source: 'manual',
+            source: ['process3', 'datago'].includes(source) ? source : 'manual',
             pipelineStatus: 'downloaded',
             'document.fileName': `${id}_TOR.pdf`,
             'document.storagePath': expectedPdfPath,
@@ -324,6 +323,7 @@ async function main() {
   if (isAll || args.step === 'download') {
     await runDownloadStep({
       id: args.id,
+      source: args.source,
       documentsDir: DOCUMENTS_DIR,
     });
   }
@@ -331,6 +331,7 @@ async function main() {
   if ((isAll && !args.skipOcr) || args.step === 'ocr') {
     await runOcrStep({
       id: args.id,
+      source: args.source,
       documentsDir: DOCUMENTS_DIR,
     });
   }

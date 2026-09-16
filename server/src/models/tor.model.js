@@ -16,7 +16,7 @@ const torSchema = new mongoose.Schema(
     source: {
       type: String,
       required: true,
-      enum: ['process3', 'datago'],
+      enum: ['process3', 'datago', 'manual'],
     },
 
     // Raw procurement metadata from source API

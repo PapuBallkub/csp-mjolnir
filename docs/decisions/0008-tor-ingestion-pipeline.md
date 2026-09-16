@@ -25,7 +25,7 @@ Government TOR documents present several distinct technical challenges:
    `24 Core`, `๑๒ เดือน`) that must not be corrupted or stripped.
 4. **Pipeline modularity & cost**: Running cloud OCR APIs across multi-page PDFs
    incurs recurring costs. The pipeline must allow each stage (fetching, downloading,
-   OCR, classification) to run independently for debugging, ad-hoc execution, and
+   and OCR) to run independently for debugging, ad-hoc execution, and
    offline testing without forcing full end-to-end runs.
 
 ---
@@ -36,7 +36,7 @@ Government TOR documents present several distinct technical challenges:
 Per [0003](0003-feature-based-server-layout.md), scrapers and ingestion jobs contain no
 Express routes. All pipeline logic lives under `server/src/pipeline/`:
 - `sources/`: Source-specific fetchers (`process3.js`, `datago.js`).
-- `lib/`: Core helpers (`ocr.js`, `classifier.js`, `tor-downloader.js`).
+- `lib/`: Core helpers (`ocr.js`, `tor-downloader.js`).
 - `ingest.js`: Standalone CLI orchestrator.
 - `index.js`: Re-exports public interfaces for other server features.
 
@@ -205,7 +205,7 @@ Expected behavior:
 ---
 
 ### 5. Full End-to-End Pipeline
-Executes Fetch ➔ Download ➔ OCR ➔ Classification in a single orchestrated run:
+Executes Fetch ➔ Download ➔ OCR in a single orchestrated run:
 
 ```bash
 # Run complete pipeline with custom query and limit
@@ -217,7 +217,7 @@ npm run ingest -- --query "คอมพิวเตอร์" --limit 2 --skip-o
 
 Expected behavior:
 - Executes Service 1 (Fetch) ➔ Service 2 (Download) ➔ Service 3 (OCR).
-- Prints a consolidated execution summary showing total records, IT breakdown, digital vs. scanned
+- Prints a consolidated execution summary showing total records, digital vs. scanned
   counts, and status breakdown.
 
 ---
