@@ -15,17 +15,27 @@
   "scripts": {
     "test": "node --test \"test/**/*.test.js\"",
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "ingest": "node src/pipeline/ingest.js",
+    "ingest:fetch": "node src/pipeline/ingest.js --step fetch",
+    "ingest:download": "node src/pipeline/ingest.js --step download",
+    "ingest:ocr": "node src/pipeline/ingest.js --step ocr"
   },
   "dependencies": {
+    "adm-zip": "^0.6.0",
+    "axios": "^1.7.9",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
+    "fast-xml-parser": "^4.5.3",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.9.4"
+    "mongoose": "^9.9.4",
+    "pdf-parse": "^2.4.5",
+    "pdf-to-img": "^7.0.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
