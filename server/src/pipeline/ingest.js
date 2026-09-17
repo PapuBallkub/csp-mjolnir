@@ -193,6 +193,8 @@ export async function runDownloadStep({ id, documentsDir, source = 'manual' }) {
         sizeBytes: fsSync.statSync(targetPdfPath).size,
         pages: documentInfo?.totalPages || null,
         documentType: documentInfo?.documentType || 'UNKNOWN',
+        contentHash: documentInfo?.contentHash || null,
+        version: tor.document?.version || 1,
       };
       tor.pipelineStatus = 'downloaded';
       await tor.save();

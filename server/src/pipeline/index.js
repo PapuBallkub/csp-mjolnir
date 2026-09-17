@@ -8,6 +8,7 @@ export { fetchFromProcess3 } from './sources/process3.js';
 export { fetchFromDataGo } from './sources/datago.js';
 export { extractText, cleanOcrText } from './lib/ocr.js';
 export {
+  computeContentHash,
   convertThaiDigitsToArabic,
   downloadTorPdf,
   resolveAndDownloadEgpTorDocument,

@@ -8,6 +8,7 @@
  * 3. PDF parsing, scanned vs. digital detection, and Thai procurement spec extraction.
  */
 
+import crypto from 'node:crypto';
 import axios from 'axios';
 import AdmZip from 'adm-zip';
 import fs from 'node:fs/promises';
@@ -24,6 +25,19 @@ const EGP_SERVICE_HEADERS = {
   Origin: 'http://process.gprocurement.go.th',
   Accept: '*/*',
 };
+
+/**
+ * Computes a SHA-256 cryptographic hash of a buffer or string.
+ * Used for document fingerprinting and amendment revision detection (FR10).
+ *
+ * @param {Buffer|string} input - Buffer or string to hash
+ * @returns {string} - Hex-encoded SHA-256 hash
+ */
+export function computeContentHash(input) {
+  if (!input) return '';
+  const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input);
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}
 
 /**
  * Converts Thai digits (๐-๙) to standard Arabic digits (0-9).
@@ -90,12 +104,14 @@ export async function downloadTorPdf({
       };
     }
 
+    const contentHash = computeContentHash(buffer);
     await fs.writeFile(targetFilePath, buffer);
 
     return {
       success: true,
       filePath: targetFilePath,
       sizeBytes: buffer.length,
+      contentHash,
     };
   } catch (err) {
     return {
@@ -192,6 +208,7 @@ export async function resolveAndDownloadEgpTorDocument({
 
     // If direct PDF
     if (rawBuffer.subarray(0, 4).toString('ascii').startsWith('%PDF')) {
+      const contentHash = computeContentHash(rawBuffer);
       await fs.writeFile(targetPath, rawBuffer);
       return {
         success: true,
@@ -199,6 +216,7 @@ export async function resolveAndDownloadEgpTorDocument({
         sizeBytes: rawBuffer.length,
         originalFileName: fileName,
         packageName,
+        contentHash,
       };
     }
 
@@ -239,6 +257,7 @@ export async function resolveAndDownloadEgpTorDocument({
 
     const bestEntry = pdfEntries[0];
     const pdfData = bestEntry.getData();
+    const contentHash = computeContentHash(pdfData);
 
     await fs.writeFile(targetPath, pdfData);
 
@@ -268,6 +287,7 @@ export async function resolveAndDownloadEgpTorDocument({
       packageName,
       companionText,
       totalArchiveFiles: pdfEntries.length,
+      contentHash,
     };
   } catch (err) {
     return {
@@ -295,6 +315,7 @@ export async function parseTorDocument(filePathOrBuffer, companionText = '') {
       buffer = filePathOrBuffer;
     }
 
+    const contentHash = computeContentHash(buffer);
     const parser = new PDFParse({ data: new Uint8Array(buffer) });
     const parsed = await parser.getText();
 
@@ -373,6 +394,7 @@ export async function parseTorDocument(filePathOrBuffer, companionText = '') {
       isScanned,
       documentType: isScanned ? 'SCANNED_PAPER_PDF' : 'DIGITAL_TEXT_PDF',
       rawTextLength: cleanedText.length,
+      contentHash,
       snippet:
         cleanedText.slice(0, 300) ||
         (isScanned

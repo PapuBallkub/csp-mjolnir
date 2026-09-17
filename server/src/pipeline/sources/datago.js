@@ -162,6 +162,7 @@ export async function fetchFromDataGo({
             announceDate: rec['วันที่ประกาศ'] || null,
             budgetTHB: budget,
             medianPriceTHB: medianPrice,
+            status: winnerName ? 'Awarded' : 'Open',
             contract: {
               winnerName: winnerName || null,
               winnerTaxId: winnerTaxId || null,
@@ -180,6 +181,8 @@ export async function fetchFromDataGo({
                 (alreadyDownloaded ? fsSync.statSync(targetPdfPath).size : null),
               pages: documentInfo?.totalPages || null,
               documentType: documentInfo?.documentType || 'UNKNOWN',
+              contentHash: documentInfo?.contentHash || null,
+              version: 1,
             },
             pipelineStatus: isDownloaded ? 'downloaded' : 'fetched',
           },

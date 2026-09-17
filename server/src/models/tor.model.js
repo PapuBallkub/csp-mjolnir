@@ -94,6 +94,9 @@ const torSchema = new mongoose.Schema(
       pages: { type: Number, default: null },
       // 'DIGITAL_TEXT_PDF' | 'SCANNED_PAPER_PDF' | 'UNKNOWN'
       documentType: { type: String, default: 'UNKNOWN' },
+      // Cryptographic SHA-256 fingerprint for amendment detection (FR10)
+      contentHash: { type: String, default: null, index: true },
+      version: { type: Number, default: 1 },
     },
 
     // OCR & text extraction results
@@ -103,6 +106,41 @@ const torSchema = new mongoose.Schema(
       usedOcr: { type: Boolean, default: false },
       processedAt: { type: Date, default: null },
     },
+
+    // Public lifecycle status (FR09: Draft, Open, Awarded, Closed, Cancelled)
+    status: {
+      type: String,
+      enum: ['Draft', 'Open', 'Awarded', 'Closed', 'Cancelled'],
+      default: 'Open',
+      index: true,
+    },
+
+    // Amendment tracking & watchdog history (FR09, FR10, FR11)
+    isAmended: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    amendments: [
+      {
+        round: { type: String, default: '' }, // e.g. "ครั้งที่ 2"
+        date: { type: Date, default: Date.now },
+        headline: { type: String, default: '' },
+        contentHash: { type: String, default: null },
+        changes: [
+          {
+            kind: {
+              type: String,
+              enum: ['added', 'removed', 'changed'],
+              default: 'changed',
+            },
+            field: { type: String, default: '' },
+            before: { type: String, default: null },
+            after: { type: String, default: null },
+          },
+        ],
+      },
+    ],
 
     // Pipeline status: 'fetched' -> 'downloaded' -> 'ocr_done'
     pipelineStatus: {

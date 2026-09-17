@@ -1,7 +1,26 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { convertThaiDigitsToArabic } from '#pipeline/lib/tor-downloader.js';
+import {
+  computeContentHash,
+  convertThaiDigitsToArabic,
+} from '#pipeline/lib/tor-downloader.js';
 import { decodeThaiXml } from '#pipeline/sources/process3.js';
+
+test('computeContentHash generates deterministic 64-char SHA-256 hex string', () => {
+  const content = 'Test TOR document content';
+  const hash1 = computeContentHash(content);
+  const hash2 = computeContentHash(Buffer.from(content));
+
+  assert.equal(typeof hash1, 'string');
+  assert.equal(hash1.length, 64);
+  assert.equal(hash1, hash2);
+
+  const differentHash = computeContentHash('Different content');
+  assert.notEqual(hash1, differentHash);
+
+  assert.equal(computeContentHash(''), '');
+  assert.equal(computeContentHash(null), '');
+});
 
 test('convertThaiDigitsToArabic converts all Thai digits ๐-๙ to 0-9', () => {
   assert.equal(convertThaiDigitsToArabic('๐๑๒๓๔๕๖๗๘๙'), '0123456789');
