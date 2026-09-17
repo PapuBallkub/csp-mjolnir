@@ -67,6 +67,7 @@ refuses to send back, and `/auth/me` answers `401` forever.
 | `PORT` | Leave unset on Cloud Run — it injects one | Container listens on the wrong port and fails its health check |
 | `GOOGLE_CLIENT_ID` / `_SECRET` | Production OAuth client | `/auth/google` answers 503 |
 | `GOOGLE_REDIRECT_URI` | `https://<api-domain>/auth/google/callback` | Google refuses the code exchange |
+| `TRUST_PROXY_HOPS` | The number of proxies in front of the server — see §5 | Too low: every user on the internet shares one rate limit bucket. Set to `true`: the caller forges `X-Forwarded-For` and the limiter is decorative |
 
 - [ ] All of the above set in the host's secret manager, not baked into an image
 - [ ] `JWT_SECRET` confirmed different from `ci-not-a-secret`
@@ -133,10 +134,18 @@ set in `docker-compose.yml`.
 
 Do not assume these are handled just because the app works.
 
-- [ ] **No rate limiting on `/auth/login` or `/auth/register`.** Password
-      guessing is unlimited, and bcrypt at cost 12 makes login spam a cheap way
-      to exhaust the server's CPU. Named as a production blocker in
-      [0004](decisions/0004-sessions-as-signed-cookies.md).
+- [ ] **Rate limiting is in-memory and single-process.** The limiters ship
+      (see [0007](decisions/0007-rate-limiting-on-the-auth-routes.md)), but
+      counters live in one process's memory: two instances mean a limit of 5 is
+      really 10, with no error, no log, and no failing test. Correct today —
+      `docker-compose.yml` runs one container. See §5 if the target autoscales.
+- [ ] **Password spraying is not mitigated.** One common password against many
+      accounts: each account sees a single failure, so the email limiter never
+      trips, and a botnet spreads thin enough that no address does either. The
+      honest fix is password strength and breach lists, not rate limiting — do
+      not let a green limiter suggest otherwise.
+- [ ] **`/auth/google/callback` is unlimited**, and does a token exchange
+      against Google for an anonymous caller. Deliberate, per 0007.
 - [ ] **Sessions cannot be revoked** before they expire, seven days out.
       Deleting an account works; changing a password does not sign out other
       browsers.
@@ -164,6 +173,6 @@ A checklist you cannot check is a wish list. Run these against the deployed API.
       `SameSite=None` must both be present
 - [ ] Sign in with Google end to end, since the redirect URI, `CORS_ORIGIN`, and
       the state cookie all have to agree before it works
-- [ ] Once rate limiting ships: fail the same login repeatedly and confirm the
-      429 arrives at the configured attempt, from a machine that is not on the
-      same network as another tester
+- [ ] Fail the same login repeatedly and confirm the 429 arrives at the
+      configured attempt, from a machine that is not on the same network as
+      another tester
