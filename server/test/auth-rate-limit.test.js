@@ -56,13 +56,13 @@ test('failed sign-ins for one account are cut off, as JSON like every other erro
   await withServer(
     { loginByIp: GENEROUS, loginByEmail: { windowMs: 60_000, limit: 2 }, registerByIp: GENEROUS },
     async (send) => {
-      assert.equal((await send('POST', '/auth/register', { email, password: PASSWORD })).status, 201);
+      assert.equal((await send('POST', '/api/auth/register', { email, password: PASSWORD })).status, 201);
 
       const wrong = { email, password: `${PASSWORD}!` };
-      assert.equal((await send('POST', '/auth/login', wrong)).status, 401);
-      assert.equal((await send('POST', '/auth/login', wrong)).status, 401);
+      assert.equal((await send('POST', '/api/auth/login', wrong)).status, 401);
+      assert.equal((await send('POST', '/api/auth/login', wrong)).status, 401);
 
-      const blocked = await send('POST', '/auth/login', wrong);
+      const blocked = await send('POST', '/api/auth/login', wrong);
       assert.equal(blocked.status, 429);
       assert.match(blocked.headers.get('content-type'), /application\/json/);
 
@@ -79,12 +79,12 @@ test('the right password never spends the account budget', async () => {
   await withServer(
     { loginByIp: GENEROUS, loginByEmail: { windowMs: 60_000, limit: 1 }, registerByIp: GENEROUS },
     async (send) => {
-      await send('POST', '/auth/register', { email, password: PASSWORD });
+      await send('POST', '/api/auth/register', { email, password: PASSWORD });
 
       // Well past a limit of 1. Only failures are counted, so none of these
       // bring the account closer to being locked.
       for (let attempt = 0; attempt < 3; attempt += 1) {
-        assert.equal((await send('POST', '/auth/login', { email, password: PASSWORD })).status, 200);
+        assert.equal((await send('POST', '/api/auth/login', { email, password: PASSWORD })).status, 200);
       }
     },
   );
@@ -96,13 +96,13 @@ test('casing cannot buy a second budget for the same account', async () => {
   await withServer(
     { loginByIp: GENEROUS, loginByEmail: { windowMs: 60_000, limit: 2 }, registerByIp: GENEROUS },
     async (send) => {
-      await send('POST', '/auth/register', { email, password: PASSWORD });
+      await send('POST', '/api/auth/register', { email, password: PASSWORD });
 
       // Spend the budget through spellings the key has to normalise away.
-      await send('POST', '/auth/login', { email: email.toUpperCase(), password: 'wrong-one' });
-      await send('POST', '/auth/login', { email: `  ${email}  `, password: 'wrong-two' });
+      await send('POST', '/api/auth/login', { email: email.toUpperCase(), password: 'wrong-one' });
+      await send('POST', '/api/auth/login', { email: `  ${email}  `, password: 'wrong-two' });
 
-      const blocked = await send('POST', '/auth/login', { email, password: 'wrong-three' });
+      const blocked = await send('POST', '/api/auth/login', { email, password: 'wrong-three' });
       assert.equal(blocked.status, 429, 'Victim@x.com and victim@x.com are one account, so one budget');
     },
   );
@@ -116,9 +116,9 @@ test('an account that does not exist is counted like one that does', async () =>
     async (send) => {
       const ghost = { email: emailFor('never-registered'), password: PASSWORD };
 
-      assert.equal((await send('POST', '/auth/login', ghost)).status, 401);
-      assert.equal((await send('POST', '/auth/login', ghost)).status, 401);
-      assert.equal((await send('POST', '/auth/login', ghost)).status, 429);
+      assert.equal((await send('POST', '/api/auth/login', ghost)).status, 401);
+      assert.equal((await send('POST', '/api/auth/login', ghost)).status, 401);
+      assert.equal((await send('POST', '/api/auth/login', ghost)).status, 429);
     },
   );
 });
@@ -128,14 +128,14 @@ test('signing up repeatedly from one address is cut off', async () => {
     { loginByIp: GENEROUS, loginByEmail: GENEROUS, registerByIp: { windowMs: 60_000, limit: 2 } },
     async (send) => {
       for (const name of ['flood-a', 'flood-b']) {
-        const created = await send('POST', '/auth/register', {
+        const created = await send('POST', '/api/auth/register', {
           email: emailFor(name),
           password: PASSWORD,
         });
         assert.equal(created.status, 201);
       }
 
-      const blocked = await send('POST', '/auth/register', {
+      const blocked = await send('POST', '/api/auth/register', {
         email: emailFor('flood-c'),
         password: PASSWORD,
       });
@@ -152,7 +152,7 @@ test('a request with no email still fails validation rather than the limiter', a
     { loginByIp: GENEROUS, loginByEmail: { windowMs: 60_000, limit: 1 }, registerByIp: GENEROUS },
     async (send) => {
       for (const body of [{ password: PASSWORD }, { email: '   ', password: PASSWORD }, {}]) {
-        const response = await send('POST', '/auth/login', body);
+        const response = await send('POST', '/api/auth/login', body);
         assert.equal(response.status, 400, 'a malformed body is a validation error, not a 429');
         assert.ok((await response.json()).error.details, 'errors stay keyed by field');
       }
@@ -169,7 +169,7 @@ test('a forged X-Forwarded-For cannot buy a fresh address budget', async () => {
     { loginByIp: GENEROUS, loginByEmail: GENEROUS, registerByIp: { windowMs: 60_000, limit: 1 } },
     async (send) => {
       const signUp = (name, forwardedFor) =>
-        send('POST', '/auth/register', { email: emailFor(name), password: PASSWORD },
+        send('POST', '/api/auth/register', { email: emailFor(name), password: PASSWORD },
           forwardedFor ? { 'x-forwarded-for': forwardedFor } : {});
 
       assert.equal((await signUp('spoof-a')).status, 201);

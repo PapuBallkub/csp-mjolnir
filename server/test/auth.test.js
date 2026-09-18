@@ -67,7 +67,7 @@ function sessionCookie(response) {
 test('registering creates the account, signs you in, and never returns the hash', async () => {
   const email = emailFor('signup');
 
-  const response = await send('POST', '/auth/register', {
+  const response = await send('POST', '/api/auth/register', {
     body: { email, password: PASSWORD, notificationConsent: true },
   });
 
@@ -87,13 +87,13 @@ test('registering creates the account, signs you in, and never returns the hash'
 test('an address is normalized, so casing cannot open a second account', async () => {
   const email = emailFor('casing');
 
-  const created = await send('POST', '/auth/register', {
+  const created = await send('POST', '/api/auth/register', {
     body: { email: `  ${email.toUpperCase()}  `, password: PASSWORD },
   });
   assert.equal(created.status, 201);
   assert.equal((await created.json()).user.email, email);
 
-  const duplicate = await send('POST', '/auth/register', {
+  const duplicate = await send('POST', '/api/auth/register', {
     body: { email, password: PASSWORD },
   });
   assert.equal(duplicate.status, 409);
@@ -106,7 +106,7 @@ test('an address is normalized, so casing cannot open a second account', async (
 test('a bad password is refused per field, and writes nothing', async () => {
   const email = emailFor('weak');
 
-  const response = await send('POST', '/auth/register', {
+  const response = await send('POST', '/api/auth/register', {
     body: { email, password: 'short' },
   });
 
@@ -120,7 +120,7 @@ test('a bad password is refused per field, and writes nothing', async () => {
 });
 
 test('a password past the bcrypt 72-byte ceiling is refused, not truncated', async () => {
-  const response = await send('POST', '/auth/register', {
+  const response = await send('POST', '/api/auth/register', {
     body: { email: emailFor('long'), password: 'a'.repeat(73) },
   });
 
@@ -130,12 +130,12 @@ test('a password past the bcrypt 72-byte ceiling is refused, not truncated', asy
 
 test('signing in needs the right password, and says no more than that', async () => {
   const email = emailFor('login');
-  await send('POST', '/auth/register', { body: { email, password: PASSWORD } });
+  await send('POST', '/api/auth/register', { body: { email, password: PASSWORD } });
 
-  const wrong = await send('POST', '/auth/login', { body: { email, password: `${PASSWORD}!` } });
+  const wrong = await send('POST', '/api/auth/login', { body: { email, password: `${PASSWORD}!` } });
   assert.equal(wrong.status, 401);
 
-  const missing = await send('POST', '/auth/login', {
+  const missing = await send('POST', '/api/auth/login', {
     body: { email: emailFor('never-registered'), password: PASSWORD },
   });
   assert.equal(missing.status, 401);
@@ -146,27 +146,27 @@ test('signing in needs the right password, and says no more than that', async ()
     'a different message for a missing account tells anyone who asks which addresses are registered',
   );
 
-  const right = await send('POST', '/auth/login', { body: { email, password: PASSWORD } });
+  const right = await send('POST', '/api/auth/login', { body: { email, password: PASSWORD } });
   assert.equal(right.status, 200);
   assert.ok(sessionCookie(right));
 });
 
-test('/auth/me is closed without a session and open with one, and logout closes it', async () => {
+test('/api/auth/me is closed without a session and open with one, and logout closes it', async () => {
   const email = emailFor('session');
-  const registered = await send('POST', '/auth/register', { body: { email, password: PASSWORD } });
+  const registered = await send('POST', '/api/auth/register', { body: { email, password: PASSWORD } });
   const cookie = sessionCookie(registered);
 
-  const anonymous = await send('GET', '/auth/me');
+  const anonymous = await send('GET', '/api/auth/me');
   assert.equal(anonymous.status, 401);
 
-  const authenticated = await send('GET', '/auth/me', { cookie });
+  const authenticated = await send('GET', '/api/auth/me', { cookie });
   assert.equal(authenticated.status, 200);
   assert.equal((await authenticated.json()).user.email, email);
 
-  const forged = await send('GET', '/auth/me', { cookie: 'mjolnir_session=not.a.token' });
+  const forged = await send('GET', '/api/auth/me', { cookie: 'mjolnir_session=not.a.token' });
   assert.equal(forged.status, 401, 'an unsigned token must not pass');
 
-  const loggedOut = await send('POST', '/auth/logout', { cookie });
+  const loggedOut = await send('POST', '/api/auth/logout', { cookie });
   assert.equal(loggedOut.status, 204);
   assert.match(
     loggedOut.headers.getSetCookie().find((c) => c.startsWith('mjolnir_session=')),
@@ -177,18 +177,18 @@ test('/auth/me is closed without a session and open with one, and logout closes 
 
 test('a deleted account cannot keep using a token that is still valid', async () => {
   const email = emailFor('deleted');
-  const registered = await send('POST', '/auth/register', { body: { email, password: PASSWORD } });
+  const registered = await send('POST', '/api/auth/register', { body: { email, password: PASSWORD } });
   const cookie = sessionCookie(registered);
 
   await User.deleteOne({ email });
 
-  const response = await send('GET', '/auth/me', { cookie });
+  const response = await send('GET', '/api/auth/me', { cookie });
   assert.equal(response.status, 401);
 });
 
 test('the hash stays out of an ordinary query, and a partial document still saves', async () => {
   const email = emailFor('projection');
-  await send('POST', '/auth/register', { body: { email, password: PASSWORD } });
+  await send('POST', '/api/auth/register', { body: { email, password: PASSWORD } });
 
   const user = await User.findOne({ email });
   assert.equal(user.passwordHash, undefined, 'select: false should hold on a plain find');
