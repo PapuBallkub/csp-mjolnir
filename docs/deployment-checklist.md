@@ -48,7 +48,7 @@ things change at once:
 The second row is the dangerous one. A client on one domain and an API on
 another is cross-site, and `SameSite=Lax` cookies are not sent cross-site at
 all. Nothing errors: registration returns `201`, sets a cookie the browser then
-refuses to send back, and `/auth/me` answers `401` forever.
+refuses to send back, and `/api/auth/me` answers `401` forever.
 
 - [ ] Set `NODE_ENV=production` in the deployed server environment
 - [ ] Better — add `ENV NODE_ENV=production` to `server/Dockerfile` so it cannot
@@ -65,8 +65,8 @@ refuses to send back, and `/auth/me` answers `401` forever.
 | `JWT_SECRET` | A freshly generated secret, **not** the CI value in `fullstack-ci-setup.yml` and not any developer's local one | Anyone who knows the value can mint a session for any account |
 | `CORS_ORIGIN` | The deployed client origin, exact, **no trailing slash** | The browser rejects every API response and the app looks completely dead |
 | `PORT` | Leave unset on Cloud Run — it injects one | Container listens on the wrong port and fails its health check |
-| `GOOGLE_CLIENT_ID` / `_SECRET` | Production OAuth client | `/auth/google` answers 503 |
-| `GOOGLE_REDIRECT_URI` | `https://<api-domain>/auth/google/callback` | Google refuses the code exchange |
+| `GOOGLE_CLIENT_ID` / `_SECRET` | Production OAuth client | `/api/auth/google` answers 503 |
+| `GOOGLE_REDIRECT_URI` | `https://<api-domain>/api/auth/google/callback` | Google refuses the code exchange |
 | `TRUST_PROXY_HOPS` | The number of proxies in front of the server — see §5 | Too low: every user on the internet shares one rate limit bucket. Set to `true`: the caller forges `X-Forwarded-For` and the limiter is decorative |
 
 - [ ] All of the above set in the host's secret manager, not baked into an image
@@ -108,6 +108,10 @@ set in `docker-compose.yml`.
 
 - [ ] The production redirect URI is registered **verbatim** in Google Cloud
       Console, including scheme and full path
+- [ ] That path is `/api/auth/google/callback`, not `/auth/google/callback` —
+      the prefix landed in [0009](decisions/0009-api-prefix-without-a-version.md)
+      and an entry registered before it is now wrong by one segment. Google
+      matches the string exactly and fails the exchange, it does not redirect
 - [ ] `GOOGLE_REDIRECT_URI` matches that entry character for character
 - [ ] `CORS_ORIGIN` points at the production client, since
       `completeGoogleSignIn` redirects the browser there after the exchange
@@ -144,7 +148,7 @@ Do not assume these are handled just because the app works.
       trips, and a botnet spreads thin enough that no address does either. The
       honest fix is password strength and breach lists, not rate limiting — do
       not let a green limiter suggest otherwise.
-- [ ] **`/auth/google/callback` is unlimited**, and does a token exchange
+- [ ] **`/api/auth/google/callback` is unlimited**, and does a token exchange
       against Google for an anonymous caller. Deliberate, per 0007.
 - [ ] **Sessions cannot be revoked** before they expire, seven days out.
       Deleting an account works; changing a password does not sign out other

@@ -52,8 +52,8 @@ after(async () => {
   await disconnectDatabase();
 });
 
-test('GET /auth/google sends you to Google and remembers the state', needsConfig, async () => {
-  const response = await fetch(`${baseUrl}/auth/google`, { redirect: 'manual' });
+test('GET /api/auth/google sends you to Google and remembers the state', needsConfig, async () => {
+  const response = await fetch(`${baseUrl}/api/auth/google`, { redirect: 'manual' });
 
   assert.equal(response.status, 302);
 
@@ -73,13 +73,13 @@ test('GET /auth/google sends you to Google and remembers the state', needsConfig
 });
 
 test('the callback refuses a state that does not match the cookie', needsConfig, async () => {
-  const withoutCookie = await fetch(`${baseUrl}/auth/google/callback?code=x&state=abc`, {
+  const withoutCookie = await fetch(`${baseUrl}/api/auth/google/callback?code=x&state=abc`, {
     redirect: 'manual',
   });
   assert.equal(withoutCookie.status, 302);
   assert.match(withoutCookie.headers.get('location'), /auth=failed/);
 
-  const mismatched = await fetch(`${baseUrl}/auth/google/callback?code=x&state=abc`, {
+  const mismatched = await fetch(`${baseUrl}/api/auth/google/callback?code=x&state=abc`, {
     redirect: 'manual',
     headers: { cookie: 'mjolnir_oauth_state=something-else' },
   });
@@ -88,7 +88,7 @@ test('the callback refuses a state that does not match the cookie', needsConfig,
 });
 
 test('the callback refuses a missing code', needsConfig, async () => {
-  const response = await fetch(`${baseUrl}/auth/google/callback?state=abc`, {
+  const response = await fetch(`${baseUrl}/api/auth/google/callback?state=abc`, {
     redirect: 'manual',
     headers: { cookie: 'mjolnir_oauth_state=abc' },
   });
@@ -113,7 +113,7 @@ test('a first-time Google user gets an account, with no password', async () => {
 test('a verified address links to the account that already uses it', async () => {
   const email = emailFor('linked');
 
-  const registered = await fetch(`${baseUrl}/auth/register`, {
+  const registered = await fetch(`${baseUrl}/api/auth/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, password: 'correct horse battery' }),

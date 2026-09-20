@@ -26,15 +26,21 @@ export function createApp({ rateLimits = authRateLimits } = {}) {
   app.use(express.json());
   app.use(cookieParser());
 
-  // One mount per feature. Each feature owns everything below its prefix.
+  // One mount per feature, all under /api. The prefix is what lets a reverse
+  // proxy tell an API route from a client page route, so the two can share one
+  // origin and the session cookie stops being cross-site. No version segment —
+  // see 0009.
   app.get('/', (req, res) => {
     res.json({ message: 'Mjolnir API Server is running', status: 'ok', health: '/health' });
   });
 
-  // Unlimited on purpose: an uptime monitor polling this is the point of it,
-  // and a limiter here would eventually report an outage that is not one.
+  // Outside /api on purpose. This is infrastructure, not API: an uptime monitor
+  // and the host's health check both probe it, and neither should have to move
+  // when the API surface is reorganised. Unlimited for the same reason — a
+  // limiter here would eventually report an outage that is not one.
   app.use('/health', healthRoutes);
-  app.use('/auth', createAuthRoutes(rateLimits));
+
+  app.use('/api/auth', createAuthRoutes(rateLimits));
 
   // Both stay last, and in this order.
   app.use(notFoundHandler);

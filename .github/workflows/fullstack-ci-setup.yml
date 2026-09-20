@@ -57,7 +57,7 @@ jobs:
       # here; nothing in the suite calls Google.
       GOOGLE_CLIENT_ID: ci-not-a-client
       GOOGLE_CLIENT_SECRET: ci-not-a-secret
-      GOOGLE_REDIRECT_URI: http://localhost:8000/auth/google/callback
+      GOOGLE_REDIRECT_URI: http://localhost:8000/api/auth/google/callback
 
     defaults:
       run:
