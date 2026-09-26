@@ -172,7 +172,6 @@ export async function runDownloadStep({ id, documentsDir, source = 'manual' }) {
     } else {
       const dlRes = await resolveAndDownloadEgpTorDocument({
         projectId: tor.projectId,
-        directUrl: tor.egpUrl?.startsWith('http') ? tor.egpUrl : null,
         destDir: documentsDir,
         fileName: expectedPdfName,
       });

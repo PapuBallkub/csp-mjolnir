@@ -17,7 +17,7 @@ import { PDFParse } from 'pdf-parse';
 
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-const MAX_PDF_SIZE_BYTES = 15 * 1024 * 1024; // 15MB safety limit for storage
+const MAX_PDF_SIZE_BYTES = 50 * 1024 * 1024; // 50MB safety limit for large scanned TORs & archives
 
 const EGP_SERVICE_HEADERS = {
   'User-Agent': DEFAULT_USER_AGENT,
@@ -150,7 +150,15 @@ export async function resolveAndDownloadEgpTorDocument({
 
   let zipId = null;
   let packageName = null;
-  let downloadUrl = directUrl || null;
+
+  // Only treat directUrl as downloadUrl if it is an actual binary package/file,
+  // rather than a web portal search/announcement page (e.g. procsearch.sch)
+  const isDirectBinaryUrl =
+    Boolean(directUrl) &&
+    (/\.(pdf|zip)$/i.test(directUrl) ||
+      directUrl.includes('downloadFile') ||
+      directUrl.includes('v1/download'));
+  let downloadUrl = isDirectBinaryUrl ? directUrl : null;
 
   if (!downloadUrl) {
     // 1. Check official announcement & TOR document package

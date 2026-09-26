@@ -162,7 +162,6 @@ export async function fetchFromProcess3({
         } else if (downloadAttachments) {
           downloadRes = await resolveAndDownloadEgpTorDocument({
             projectId: String(torId),
-            directUrl: link.startsWith('http') ? link : null,
             destDir: documentsDir,
             fileName: expectedPdfName,
           });
