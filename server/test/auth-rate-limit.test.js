@@ -16,6 +16,7 @@ import { createApp } from '../src/app.js';
 
 const TEST_DB = 'mjolnir_test';
 const PASSWORD = 'correct horse battery';
+const NAME = 'Somchai Test';
 
 const runId = crypto.randomUUID().slice(0, 8);
 const emailFor = (name) => `${name}-${runId}@example.test`;
@@ -56,7 +57,7 @@ test('failed sign-ins for one account are cut off, as JSON like every other erro
   await withServer(
     { loginByIp: GENEROUS, loginByEmail: { windowMs: 60_000, limit: 2 }, registerByIp: GENEROUS },
     async (send) => {
-      assert.equal((await send('POST', '/api/auth/register', { email, password: PASSWORD })).status, 201);
+      assert.equal((await send('POST', '/api/auth/register', { email, password: PASSWORD, name: NAME })).status, 201);
 
       const wrong = { email, password: `${PASSWORD}!` };
       assert.equal((await send('POST', '/api/auth/login', wrong)).status, 401);
@@ -79,7 +80,7 @@ test('the right password never spends the account budget', async () => {
   await withServer(
     { loginByIp: GENEROUS, loginByEmail: { windowMs: 60_000, limit: 1 }, registerByIp: GENEROUS },
     async (send) => {
-      await send('POST', '/api/auth/register', { email, password: PASSWORD });
+      await send('POST', '/api/auth/register', { email, password: PASSWORD, name: NAME });
 
       // Well past a limit of 1. Only failures are counted, so none of these
       // bring the account closer to being locked.
@@ -96,7 +97,7 @@ test('casing cannot buy a second budget for the same account', async () => {
   await withServer(
     { loginByIp: GENEROUS, loginByEmail: { windowMs: 60_000, limit: 2 }, registerByIp: GENEROUS },
     async (send) => {
-      await send('POST', '/api/auth/register', { email, password: PASSWORD });
+      await send('POST', '/api/auth/register', { email, password: PASSWORD, name: NAME });
 
       // Spend the budget through spellings the key has to normalise away.
       await send('POST', '/api/auth/login', { email: email.toUpperCase(), password: 'wrong-one' });
@@ -131,6 +132,7 @@ test('signing up repeatedly from one address is cut off', async () => {
         const created = await send('POST', '/api/auth/register', {
           email: emailFor(name),
           password: PASSWORD,
+          name: NAME,
         });
         assert.equal(created.status, 201);
       }
@@ -138,6 +140,7 @@ test('signing up repeatedly from one address is cut off', async () => {
       const blocked = await send('POST', '/api/auth/register', {
         email: emailFor('flood-c'),
         password: PASSWORD,
+        name: NAME,
       });
       assert.equal(blocked.status, 429);
       assert.equal((await blocked.json()).error.message.length > 0, true);
@@ -169,7 +172,7 @@ test('a forged X-Forwarded-For cannot buy a fresh address budget', async () => {
     { loginByIp: GENEROUS, loginByEmail: GENEROUS, registerByIp: { windowMs: 60_000, limit: 1 } },
     async (send) => {
       const signUp = (name, forwardedFor) =>
-        send('POST', '/api/auth/register', { email: emailFor(name), password: PASSWORD },
+        send('POST', '/api/auth/register', { email: emailFor(name), password: PASSWORD, name: NAME },
           forwardedFor ? { 'x-forwarded-for': forwardedFor } : {});
 
       assert.equal((await signUp('spoof-a')).status, 201);

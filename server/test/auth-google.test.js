@@ -116,7 +116,7 @@ test('a verified address links to the account that already uses it', async () =>
   const registered = await fetch(`${baseUrl}/api/auth/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password: 'correct horse battery' }),
+    body: JSON.stringify({ email, password: 'correct horse battery', name: 'Somchai Test' }),
   });
   const existing = (await registered.json()).user;
 
@@ -161,4 +161,56 @@ test('signing in again finds the same account, even if the Google email changed'
 
   assert.equal(second.id, first.id);
   assert.equal(second.email, original, 'the googleId is the identity, the address is not');
+});
+
+test('a new Google account keeps the name Google reported', async () => {
+  const email = emailFor('named-google');
+
+  const user = await signInWithGoogle({
+    googleId: googleIdFor('named'),
+    email,
+    emailVerified: true,
+    name: 'Somchai Wongsawat',
+  });
+
+  assert.equal(user.name, 'Somchai Wongsawat');
+  assert.equal(user.role, 'user', 'a Google account is no more privileged than any other');
+});
+
+// $setOnInsert, not $set. Google is the source of a name only for an account it
+// is creating: on a link the address already belongs to someone who may have
+// typed their own name at signup, and on a return they may have changed it.
+test('signing in with Google again never overwrites the name on the account', async () => {
+  const email = emailFor('keeps-name');
+  const googleId = googleIdFor('keeps');
+
+  await signInWithGoogle({ googleId, email, emailVerified: true, name: 'Original Name' });
+  const again = await signInWithGoogle({
+    googleId,
+    email,
+    emailVerified: true,
+    name: 'Renamed At Google',
+  });
+
+  assert.equal(again.name, 'Original Name');
+});
+
+test('linking to an existing account leaves the name that account already had', async () => {
+  const email = emailFor('link-name');
+
+  const registered = await fetch(`${baseUrl}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password: 'correct horse battery', name: 'Typed At Signup' }),
+  });
+  assert.equal(registered.status, 201);
+
+  const linked = await signInWithGoogle({
+    googleId: googleIdFor('link-name'),
+    email,
+    emailVerified: true,
+    name: 'From Google Profile',
+  });
+
+  assert.equal(linked.name, 'Typed At Signup', 'linking adds a way in, it does not rewrite you');
 });

@@ -10,17 +10,18 @@ import {
   issueState,
   OAUTH_STATE_COOKIE,
 } from './google.js';
-import { parseCredentials } from './auth.validation.js';
+import { parseCredentials, parseRegistration } from './auth.validation.js';
 import { clearSessionCookie, setSessionCookie, signSessionToken } from './session.js';
 
 // Registering signs you in: the password was just chosen by whoever owns the
 // account, so a second form asking for it again proves nothing.
 export async function register(req, res) {
-  const { email, password } = parseCredentials(req.body);
+  const { email, password, name } = parseRegistration(req.body);
 
   const user = await registerWithPassword({
     email,
     password,
+    name,
     // FR08 consent. Absent means no, so a missing field never becomes a signup.
     notificationConsent: req.body?.notificationConsent === true,
   });

@@ -90,5 +90,9 @@ export async function exchangeCodeForProfile(code) {
     googleId: claims.sub,
     email: claims.email.toLowerCase(),
     emailVerified: claims.email_verified === true,
+    // Already in scope: the authorization URL asks for `profile`. Sliced to the
+    // schema's ceiling rather than validated, because a name Google gave us is
+    // not something a person can fix at this point in the flow.
+    name: typeof claims.name === 'string' ? claims.name.trim().slice(0, 80) : '',
   };
 }
