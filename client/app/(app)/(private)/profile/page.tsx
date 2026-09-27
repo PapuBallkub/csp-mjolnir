@@ -9,10 +9,10 @@ import {
   techTerms,
   tors,
   type ScopeSize,
-} from "../../_data/tors";
-import { useLang, useProfile } from "../../_components/prefs";
-import { MatchScore, SmeBadge } from "../../_components/verdict";
-import { btn, Eyebrow, input, Label, Panel, SectionHeading } from "../../_components/ui";
+} from "../../../_data/tors";
+import { useLang, useProfile } from "../../../_components/prefs";
+import { MatchScore, SmeBadge } from "../../../_components/verdict";
+import { btn, Eyebrow, input, Label, Panel, SectionHeading } from "../../../_components/ui";
 
 const SCOPE_OPTIONS: {
   id: ScopeSize;

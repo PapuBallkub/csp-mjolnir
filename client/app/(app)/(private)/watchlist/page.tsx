@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { daysUntil, formatDate, pick, tors, type Tor } from "../../_data/tors";
-import { useLang, useProfile } from "../../_components/prefs";
-import { TorRow } from "../../_components/tor-row";
-import { btn, EmptyState, Panel, SectionHeading } from "../../_components/ui";
+import { daysUntil, formatDate, pick, tors, type Tor } from "../../../_data/tors";
+import { useLang, useProfile } from "../../../_components/prefs";
+import { TorRow } from "../../../_components/tor-row";
+import { btn, EmptyState, Panel, SectionHeading } from "../../../_components/ui";
 
 type Alert = {
   tor: Tor;

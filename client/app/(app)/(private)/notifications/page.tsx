@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { formatTHBCompact, pick, tors } from "../../_data/tors";
-import { useLang } from "../../_components/prefs";
-import { btn, input, Label, Panel, SectionHeading } from "../../_components/ui";
-import { LockSpecBadge, StatusBadge } from "../../_components/verdict";
-import { Wordmark } from "../../_components/shell";
+import { formatTHBCompact, pick, tors } from "../../../_data/tors";
+import { useLang } from "../../../_components/prefs";
+import { btn, input, Label, Panel, SectionHeading } from "../../../_components/ui";
+import { LockSpecBadge, StatusBadge } from "../../../_components/verdict";
+import { Wordmark } from "../../../_components/shell";
 
 function Switch({
   checked,
