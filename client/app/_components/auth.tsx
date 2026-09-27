@@ -105,6 +105,25 @@ export function useAuth() {
 }
 
 /**
+ * For pages inside (app)/(private), where the layout has already established
+ * that someone is signed in. Saves every one of them repeating a null check
+ * the router has made impossible.
+ *
+ * It throws rather than returning null because reaching it unauthenticated
+ * means the page was mounted outside the guard — a routing mistake, which is
+ * worth failing loudly in development instead of rendering a blank panel.
+ */
+export function useAuthedUser() {
+  const { user } = useAuth();
+
+  if (!user) {
+    throw new Error("useAuthedUser was called outside an (app)/(private) route.");
+  }
+
+  return user;
+}
+
+/**
  * What to call someone in the chrome. Accounts predating the name field, and
  * Google profiles that had no name, both read as "" — so this is a real
  * fallback, not decoration. There is no PATCH /api/auth/me yet, so a person in
