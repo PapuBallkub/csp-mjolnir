@@ -133,6 +133,17 @@ client-side, and are a courtesy, not a boundary.
   unread dot was permanent, shown to every visitor including signed-out ones,
   with no notification backend behind it.
 
+- **`/admin` is protected by moving its data, not by hiding its link.** A
+  Server Component that checked the role and rendered nothing would be the
+  ordinary answer, and it is unavailable here for the reason above: the Next
+  server never receives the session cookie, so it cannot know who is asking.
+  Anything shipped to a browser is readable by it, so the only real protection
+  is to not send it. The fixtures moved to `server/src/features/admin/` behind
+  `requireAuth` and `requireRole('admin')`, and the page fetches them — 401 for
+  a guest, 403 for an ordinary user, each carrying no payload. The page's markup
+  still ships, which is fine; markup is not the secret. That `/admin` exists is
+  also not hidden, and is not worth hiding.
+
 - **Server error messages are English, in a bilingual UI.** Every `details`
   string and every rate-limit message reaches a Thai-reading user in English.
   Known cost, accepted for now. The fix is a stable `code` alongside each
@@ -154,7 +165,7 @@ client-side, and are a courtesy, not a boundary.
 | Skills, budget, scope, SME flag | `demoProfile`, in memory | FR07, after TOR processing |
 | Watchlist | `demoProfile`, in memory | FR11 |
 | Match scores and the `/search` match tab | computed client-side from the above | FR07 |
-| `/admin` | `_data/ops.ts` | FR14/FR15, behind `requireRole` |
+| `/admin` | fixtures, but server-side behind `requireRole('admin')` | FR14/FR15 replace the fixtures; the guard stays |
 
 A guest currently sees `demoProfile` in the match tab, which is wrong but
 harmless while none of it is anyone's data. It is listed here rather than

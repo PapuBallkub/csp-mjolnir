@@ -142,3 +142,61 @@ export function me() {
 
 /** Where the browser goes to start Google sign-in. A top-level navigation, never a fetch. */
 export const googleSignInUrl = `${API}/api/auth/google`;
+
+/* ------------------------------------------------------------------ */
+/*  Admin (FR14, FR15)                                                */
+/* ------------------------------------------------------------------ */
+
+export type SourceHealth = "ok" | "degraded" | "failed";
+
+export type ScraperSource = {
+  id: string;
+  name: string;
+  portal: string;
+  format: string;
+  health: SourceHealth;
+  /** Uptime over the trailing 30 days. */
+  uptime: number;
+  lastRun: string;
+  docsLast7Days: number;
+  /** One bar per day for the last 14 days, oldest first: true = run succeeded. */
+  history: boolean[];
+  error?: string;
+};
+
+export type ReviewItem = {
+  docId: string;
+  title: string;
+  agency: string;
+  ingestedAt: string;
+  ocr: number;
+  extraction: number;
+  /** Fields the model itself was unsure about. */
+  lowFields: { field: string; value: string; confidence: number }[];
+  /** Set when the classifier's IT/non-IT call looks wrong. */
+  misclassified?: { predicted: string; likely: string };
+};
+
+export type AdminOperations = {
+  sources: ScraperSource[];
+  reviewQueue: ReviewItem[];
+  stats: {
+    docsIngestedToday: number;
+    docsAwaitingReview: number;
+    avgOcrConfidence: number;
+    avgExtractionConfidence: number;
+    amendmentsDetected7d: number;
+  };
+};
+
+/**
+ * Everything the admin dashboard renders, in one call.
+ *
+ * This data used to be a module-scope import in the admin page, which put
+ * scraper internals, document ids and confidence scores into a public JS chunk
+ * — the nav link was hidden, the chunk was not. It comes from the API now, and
+ * a non-admin gets a 403 with nothing attached to it. See 0011.
+ */
+export function adminOperations() {
+  return request<AdminOperations>("/api/admin/operations", { cache: "no-store" });
+}
