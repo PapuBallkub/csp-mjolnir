@@ -9,10 +9,11 @@ import {
   techTerms,
   tors,
   type ScopeSize,
-} from "../../_data/tors";
-import { useLang, useProfile } from "../../_components/prefs";
-import { MatchScore, SmeBadge } from "../../_components/verdict";
-import { btn, Eyebrow, input, Label, Panel, SectionHeading } from "../../_components/ui";
+} from "../../../_data/tors";
+import { useAuthedUser } from "../../../_components/auth";
+import { useLang, useProfile } from "../../../_components/prefs";
+import { MatchScore, SmeBadge } from "../../../_components/verdict";
+import { btn, Eyebrow, input, Label, Panel, SectionHeading } from "../../../_components/ui";
 
 const SCOPE_OPTIONS: {
   id: ScopeSize;
@@ -48,6 +49,7 @@ function toggle<T>(list: T[], value: T): T[] {
  */
 export default function ProfilePage() {
   const { lang } = useLang();
+  const user = useAuthedUser();
   const { profile, setProfile } = useProfile();
 
   const ranked = useMemo(
@@ -88,24 +90,36 @@ export default function ProfilePage() {
               >
                 {lang === "th" ? "บัญชีผู้ใช้" : "Account"}
               </SectionHeading>
+              {/*
+                These two are the account, not the profile — they come from the
+                session and are the only fields on this page that are real. They
+                are read-only because there is no endpoint to change them yet;
+                an input that accepts a new name and silently discards it is
+                worse than one that admits it cannot.
+              */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5">
                   <Label>{lang === "th" ? "ชื่อที่แสดง" : "Display name"}</Label>
                   <input
-                    value={profile.name}
-                    onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                    className={input}
+                    value={user.name}
+                    readOnly
+                    className={`${input} text-ink-2`}
                   />
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <Label>{lang === "th" ? "อีเมล" : "Email"}</Label>
                   <input
-                    value={profile.email}
-                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                    className={`${input} font-mono`}
+                    value={user.email}
+                    readOnly
+                    className={`${input} font-mono text-ink-2`}
                   />
                 </label>
               </div>
+              <p className="mt-2 text-[11px] leading-thai text-ink-3">
+                {lang === "th"
+                  ? "ชื่อและอีเมลมาจากบัญชีของคุณ ยังแก้ไขที่นี่ไม่ได้"
+                  : "Your name and email come from your account. They cannot be changed here yet."}
+              </p>
             </section>
 
             <section className="mt-9">

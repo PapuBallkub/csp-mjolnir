@@ -1,8 +1,60 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useAuth } from "./_components/auth";
 import { useLang, LangToggle, ThemeToggle } from "./_components/prefs";
 import { Wordmark } from "./_components/shell";
+
+/**
+ * Google sends a failed sign-in back here with ?auth=failed and nothing else —
+ * the reason stays in the server log on purpose (0005), so all we can honestly
+ * do is say it did not complete and offer the other way in. Without this the
+ * whole thing is silent: the browser simply reappears on the landing page,
+ * apparently signed out, with no explanation.
+ *
+ * useSearchParams opts a client component out of prerendering, so it is walled
+ * off behind its own Suspense boundary rather than taking the landing page
+ * with it. A null fallback is right for a strip that is usually absent.
+ */
+function AuthFailedNotice() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const { lang } = useLang();
+  const [dismissed, setDismissed] = useState(false);
+
+  if (dismissed || params.get("auth") !== "failed") return null;
+
+  return (
+    <div
+      role="alert"
+      className="border-b border-risk-line bg-risk-bg px-4 py-2.5 text-[13px] leading-thai text-risk"
+    >
+      <div className="mx-auto flex max-w-[1240px] items-center gap-3">
+        <span className="flex-1">
+          {lang === "th"
+            ? "เข้าสู่ระบบด้วย Google ไม่สำเร็จ ลองอีกครั้ง หรือใช้อีเมลและรหัสผ่าน"
+            : "Google sign-in did not complete. Try again, or use your email and password."}
+        </span>
+        <Link href="/auth" className="shrink-0 underline underline-offset-2">
+          {lang === "th" ? "ไปที่หน้าเข้าสู่ระบบ" : "Go to sign in"}
+        </Link>
+        <button
+          type="button"
+          onClick={() => {
+            setDismissed(true);
+            router.replace("/");
+          }}
+          aria-label={lang === "th" ? "ปิด" : "Dismiss"}
+          className="shrink-0 px-1 text-[15px] leading-none opacity-70 hover:opacity-100"
+        >
+          &times;
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /*  Copy                                                              */
@@ -104,11 +156,16 @@ const PROBLEMS = [
 
 export default function LandingPage() {
   const { lang } = useLang();
+  const { status } = useAuth();
   const t = HERO[lang];
 
   return (
     <div className="flex min-h-full flex-col">
       {/* Minimal header for landing */}
+      <Suspense fallback={null}>
+        <AuthFailedNotice />
+      </Suspense>
+
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
           <Link href="/" className="shrink-0 transition-opacity hover:opacity-80" title="Mjölnir Home">
@@ -117,11 +174,20 @@ export default function LandingPage() {
           <div className="ml-auto flex items-center gap-2">
             <LangToggle />
             <ThemeToggle />
+            {/* A signed-in visitor on the marketing page should not be
+                invited to sign in again. Fixed width either way, so the label
+                resolving does not shift the header. */}
             <Link
-              href="/auth"
+              href={status === "authenticated" ? "/search" : "/auth"}
               className="inline-flex w-[74px] justify-center rounded-[3px] py-1.5 text-[13px] text-ink-2 transition-colors hover:text-ink"
             >
-              {lang === "th" ? "เข้าสู่ระบบ" : "Sign in"}
+              {status === "authenticated"
+                ? lang === "th"
+                  ? "ค้นหา"
+                  : "Browse"
+                : lang === "th"
+                  ? "เข้าสู่ระบบ"
+                  : "Sign in"}
             </Link>
           </div>
         </div>

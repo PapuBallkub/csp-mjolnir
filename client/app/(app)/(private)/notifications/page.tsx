@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { formatTHBCompact, pick, tors } from "../../_data/tors";
-import { useLang } from "../../_components/prefs";
-import { btn, input, Label, Panel, SectionHeading } from "../../_components/ui";
-import { LockSpecBadge, StatusBadge } from "../../_components/verdict";
-import { Wordmark } from "../../_components/shell";
+import { formatTHBCompact, pick, tors } from "../../../_data/tors";
+import { useAuthedUser } from "../../../_components/auth";
+import { useLang } from "../../../_components/prefs";
+import { btn, input, Label, Panel, SectionHeading } from "../../../_components/ui";
+import { LockSpecBadge, StatusBadge } from "../../../_components/verdict";
+import { Wordmark } from "../../../_components/shell";
 
 function Switch({
   checked,
@@ -55,7 +56,12 @@ function Switch({
 
 export default function NotificationsPage() {
   const { lang } = useLang();
-  const [consent, setConsent] = useState(true);
+  const user = useAuthedUser();
+  // Seeded from the account, not from true: this is the FR08 consent the user
+  // actually gave at signup, and showing it checked when they declined is the
+  // same class of lie as the "Verified" badge that used to sit above. Toggling
+  // it does not persist yet — there is no PATCH /api/auth/me.
+  const [consent, setConsent] = useState(user.notificationConsent);
   const [events, setEvents] = useState({
     newMatch: true,
     amended: true,
@@ -133,15 +139,19 @@ export default function NotificationsPage() {
         <div className="flex flex-col gap-4">
           <Panel className="flex flex-col gap-3 p-3.5">
             <Label>{lang === "th" ? "ส่งไปที่" : "Send to"}</Label>
+            {/*
+              The account's address, read-only: there is no endpoint to change
+              it. The "Verified" badge that used to sit here was removed rather
+              than wired up — nothing in this system verifies an email, so it
+              asserted something that was never true.
+            */}
             <div className="flex flex-wrap items-center gap-2">
               <input
-                defaultValue="suchart.w@example.co.th"
-                className={`${input} max-w-xs font-mono`}
+                value={user.email}
+                readOnly
+                className={`${input} max-w-xs font-mono text-ink-2`}
                 aria-label={lang === "th" ? "อีเมล" : "Email address"}
               />
-              <span className="rounded-[2px] border border-open-line bg-open-bg px-1.5 py-[3px] text-[11px] font-medium text-open">
-                {lang === "th" ? "ยืนยันแล้ว" : "Verified"}
-              </span>
             </div>
           </Panel>
 

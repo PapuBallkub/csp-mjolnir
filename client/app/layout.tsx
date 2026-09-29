@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Noto_Sans_Thai, Inter, IBM_Plex_Mono } from "next/font/google";
+import { AuthProvider } from "./_components/auth";
 import { PrefsProvider } from "./_components/prefs";
 import "./globals.css";
 
@@ -48,7 +49,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-full flex flex-col">
-        <PrefsProvider>{children}</PrefsProvider>
+        {/*
+          AuthProvider wraps PrefsProvider, not the other way round: the
+          profile has to react to signing in and out, and a child can read a
+          parent's context but not the reverse.
+        */}
+        <AuthProvider>
+          <PrefsProvider>{children}</PrefsProvider>
+        </AuthProvider>
       </body>
     </html>
   );

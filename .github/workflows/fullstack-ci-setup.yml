@@ -29,6 +29,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # node --test with native TypeScript type-stripping, so this needs no
+      # test framework and no config. Node 24 above is what makes that work.
+      - name: Test
+        run: npm test
+
       - name: Build
         run: npm run build
 

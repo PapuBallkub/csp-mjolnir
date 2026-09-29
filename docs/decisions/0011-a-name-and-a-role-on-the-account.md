@@ -92,19 +92,33 @@ admin through `npm run role -- <email> admin` and no other way.
   obvious follow-up and would also make the profile and notification screens
   stop pretending to save.
 
-- **`requireRole` ships with no caller.** The admin routes arrive with FR14/FR15
-  in Phase 4. The field on the model is the expensive half to retrofit; the
-  middleware is ten lines, and it is unit-tested directly rather than mounted on
-  a route invented for the test. It must be mounted *after* `requireAuth` — the
-  same ordering trap `limitByUser` already warns about — and it answers 401
-  rather than 403 when nothing has authenticated, because telling an anonymous
-  caller they are the wrong kind of person says more than that they are nobody.
+- **`requireRole` must be mounted *after* `requireAuth`** — the same ordering
+  trap `limitByUser` already warns about — and it answers 401 rather than 403
+  when nothing has authenticated, because telling an anonymous caller they are
+  the wrong kind of person says more than that they are nobody.
 
-- **Hiding the Admin link is not protecting `/admin`.** That page is a client
-  component importing `_data/ops.ts` at module scope, so its fixtures ship
-  inside the JavaScript bundle whoever is looking. The role field takes the link
-  off the public surface and gives Phase 4 a correct primitive. It does not make
-  the page private, and nothing here should be read as claiming otherwise.
+  *Amended by 0012:* this shipped with no production caller, on the reasoning
+  that the field on the model was the expensive half to retrofit and the admin
+  routes could wait for FR14/FR15. That lasted one pull request.
+  `GET /api/admin/operations` is now its first caller, and the reason is below.
+
+- **Hiding the Admin link never protected `/admin`.** The page was a client
+  component importing `_data/ops.ts` at module scope, so every scraper name,
+  error string, document id and OCR confidence score shipped inside a public
+  JavaScript chunk that anyone could fetch by URL. The role field took the link
+  off the public surface and changed nothing about the data.
+
+  The only fix for data is not to send it. The fixtures moved to
+  `features/admin/`, behind `requireAuth` and `requireRole('admin')`, and the
+  page fetches them. Note what this does and does not buy: the *data* is now
+  genuinely private, the page's *markup* still ships and does not need to be
+  secret, and the existence of `/admin` is not hidden and is not worth hiding.
+
+  The usual alternative — a Server Component that checks the role and renders
+  nothing — is unavailable here, and 0012 explains why: the session cookie is
+  host-only on the API's origin, so the Next server never receives it. It would
+  work in development and fail in production, which is the same trap as
+  `middleware.ts`.
 
 ### Becoming an admin
 

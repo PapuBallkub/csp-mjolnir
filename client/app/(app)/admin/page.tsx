@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  pipelineStats,
-  reviewQueue,
-  scraperSources,
+  adminOperations,
+  type AdminOperations,
+  type ApiError,
   type SourceHealth,
-} from "../../_data/ops";
+} from "../../_lib/api";
 import { useLang } from "../../_components/prefs";
-import { btn, input, Label, Panel, SectionHeading } from "../../_components/ui";
+import { SignInPrompt } from "../../_components/sign-in-prompt";
+import { btn, EmptyState, input, Label, Panel, SectionHeading } from "../../_components/ui";
 
 /**
  * Operational surface, not a marketing one: dense tables, real failure text,
@@ -52,8 +53,87 @@ function ConfidenceBar({ value, label }: { value: number; label: string }) {
   );
 }
 
+/**
+ * Loads the dashboard, and is the only thing on this route that runs for a
+ * non-admin.
+ *
+ * The data is not in the bundle. It arrives from /api/admin/operations behind
+ * requireRole('admin'), so a guest gets 401 and an ordinary user gets 403,
+ * each with nothing attached. That is the actual protection — this component
+ * only decides what to say about it. Hiding the nav link never protected
+ * anything, because a JavaScript chunk cannot be hidden from the browser it
+ * was sent to. See 0011.
+ */
 export default function AdminPage() {
   const { lang } = useLang();
+  const [ops, setOps] = useState<AdminOperations | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    adminOperations().then((result) => {
+      if (cancelled) return;
+      if (result.ok) setOps(result.data);
+      else setError(result.error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (error?.status === 401) {
+    return (
+      <div className="mx-auto max-w-[1240px] px-4 py-10">
+        <SignInPrompt
+          next="/admin"
+          headline={lang === "th" ? "ส่วนนี้สำหรับผู้ดูแลระบบ" : "This area is for administrators"}
+          body={
+            lang === "th"
+              ? "เข้าสู่ระบบด้วยบัญชีผู้ดูแลเพื่อดูสถานะ scraper และคิวตรวจทาน"
+              : "Sign in with an administrator account to see scraper health and the review queue."
+          }
+          cta={lang === "th" ? "เข้าสู่ระบบ" : "Sign in"}
+        />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-[1240px] px-4 py-10">
+        <EmptyState
+          headline={
+            error.status === 403
+              ? lang === "th"
+                ? "บัญชีของคุณไม่มีสิทธิ์เข้าถึงส่วนนี้"
+                : "Your account does not have access to this area"
+              : lang === "th"
+                ? "โหลดข้อมูลไม่สำเร็จ"
+                : "Could not load the dashboard"
+          }
+          body={
+            error.status === 403
+              ? lang === "th"
+                ? "ส่วนนี้จำกัดเฉพาะผู้ดูแลระบบ หากคุณควรมีสิทธิ์ ให้ติดต่อคนในทีมเพื่อกำหนดบทบาทให้"
+                : "Administrator accounts only. If you should have access, ask a teammate to grant it."
+              : error.message
+          }
+        />
+      </div>
+    );
+  }
+
+  if (!ops) {
+    return <div className="mx-auto min-h-[60vh] max-w-[1240px] px-4 py-10" aria-busy="true" />;
+  }
+
+  return <AdminDashboard ops={ops} lang={lang} />;
+}
+
+function AdminDashboard({ ops, lang }: { ops: AdminOperations; lang: "th" | "en" }) {
+  const { sources: scraperSources, reviewQueue, stats: pipelineStats } = ops;
   const [expanded, setExpanded] = useState<string | null>(reviewQueue[0]?.docId ?? null);
   const [handled, setHandled] = useState<Record<string, string>>({});
 

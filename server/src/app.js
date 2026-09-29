@@ -5,6 +5,7 @@ import express from 'express';
 import { env } from '#common/config/env.js';
 import { errorHandler } from '#common/middleware/error-handler.js';
 import { notFoundHandler } from '#common/middleware/not-found.js';
+import { adminRoutes } from '#features/admin/index.js';
 import { authRateLimits, createAuthRoutes } from '#features/auth/index.js';
 import { healthRoutes } from '#features/health/index.js';
 
@@ -41,6 +42,11 @@ export function createApp({ rateLimits = authRateLimits } = {}) {
   app.use('/health', healthRoutes);
 
   app.use('/api/auth', createAuthRoutes(rateLimits));
+
+  // Guarded inside the feature rather than here: the router applies
+  // requireAuth and requireRole('admin') to everything mounted under it, so a
+  // route added later cannot be left open by forgetting a middleware. See 0011.
+  app.use('/api/admin', adminRoutes);
 
   // Both stay last, and in this order.
   app.use(notFoundHandler);

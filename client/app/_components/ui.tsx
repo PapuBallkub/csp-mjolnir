@@ -108,12 +108,23 @@ export function SectionHeading({
 }
 
 /** Field-level label: forms, key-fact rows, chart annotations. Never a section. */
-export function Label({ children }: { children: ReactNode }) {
-  return (
-    <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-3">
-      {children}
-    </span>
-  );
+/**
+ * Renders as a real <label> when given an input id, and a <span> otherwise —
+ * most uses are column headings with no field to point at, but a form control
+ * needs the association or its label is decoration to a screen reader.
+ */
+export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) {
+  const className = "font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-3";
+
+  if (htmlFor) {
+    return (
+      <label htmlFor={htmlFor} className={className}>
+        {children}
+      </label>
+    );
+  }
+
+  return <span className={className}>{children}</span>;
 }
 
 /** Small caps eyebrow that sits above a heading to name a region. */
