@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 // Shape only. Writes and hashing live in features/auth (0003).
+// Schema specification: docs/database/user-schema.md
 const userSchema = new mongoose.Schema(
   {
     email: {

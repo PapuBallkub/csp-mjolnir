@@ -15,3 +15,4 @@
 
 export { User } from './user.model.js';
 export { Tor } from './tor.model.js';
+export { TorInsight } from './tor-insight.model.js';

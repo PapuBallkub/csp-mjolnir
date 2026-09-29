@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 // Shape only. Pipeline writes live in pipeline/ (ADR 0003).
+// Schema specification: docs/database/tor-schema.md
 const torSchema = new mongoose.Schema(
   {
     // The 11-digit e-GP project ID (e.g. "68039469567"). Primary dedup key.
