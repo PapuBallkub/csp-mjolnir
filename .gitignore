@@ -35,3 +35,6 @@ server/data/
 
 # Tesseract OCR language training data
 *.traineddata
+
+# local context files
+context/
