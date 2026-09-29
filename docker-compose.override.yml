@@ -37,6 +37,9 @@ services:
       # database answers to the service name; "localhost" in a container means
       # that container, which is the mistake this line exists to prevent.
       MONGO_URI: mongodb://mongo:27017
+    volumes:
+      # Mount server/data folder into the container
+      - ./server/data:/app/data
     depends_on:
       # Not just "started". server.js connects before it listens and exits if it
       # cannot, so starting it against a mongo still opening its data files is a
