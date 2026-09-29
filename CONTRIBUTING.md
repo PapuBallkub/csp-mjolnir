@@ -73,6 +73,23 @@ points at. The tests that write users send them to a separate `mjolnir_test`
 database and delete them afterwards, so a run against Atlas never touches the
 shared data — keep it that way when you add tests that write.
 
+## Admin accounts
+
+Every account is created as a plain `user`. There is no way to sign up as an
+admin, and no route that grants it — a platform admin is one of us, not a thing
+the product offers. Grant it against the database:
+
+```
+cd server
+npm run role -- someone@example.com admin
+npm run role -- someone@example.com user    # and back again
+```
+
+The change takes effect on that person's next request, since `requireAuth`
+re-reads the account every time. See
+[0011](docs/decisions/0011-a-name-and-a-role-on-the-account.md) for why this is
+a command rather than an `ADMIN_EMAILS` variable.
+
 ## Branches
 
 Branch off `main`; don't commit to it directly. Name the branch for the change,

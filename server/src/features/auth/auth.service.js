@@ -11,16 +11,20 @@ export function toPublicUser(user) {
   return {
     id: user.id,
     email: user.email,
+    name: user.name,
+    // Load-bearing: requireRole reads req.user.role, and req.user is whatever
+    // this returned. Drop it here and every admin is silently forbidden.
+    role: user.role,
     notificationConsent: user.notificationConsent,
     createdAt: user.createdAt,
   };
 }
 
-export async function registerWithPassword({ email, password, notificationConsent }) {
+export async function registerWithPassword({ email, password, name, notificationConsent }) {
   const passwordHash = await hashPassword(password);
 
   try {
-    const user = await User.create({ email, passwordHash, notificationConsent });
+    const user = await User.create({ email, passwordHash, name, notificationConsent });
     return toPublicUser(user);
   } catch (error) {
     // Left to the unique index rather than a lookup first, which two
@@ -50,7 +54,7 @@ export async function signInWithPassword({ email, password }) {
 // Returning user, linked account, or new account, in that order. Does no
 // network of its own: the caller turns a code into a profile first, which is
 // what makes this testable without Google.
-export async function signInWithGoogle({ googleId, email, emailVerified }) {
+export async function signInWithGoogle({ googleId, email, emailVerified, name }) {
   const returning = await User.findOne({ googleId });
   if (returning) {
     return toPublicUser(returning);
@@ -65,9 +69,15 @@ export async function signInWithGoogle({ googleId, email, emailVerified }) {
 
   // Link-or-create in one atomic write, so two callbacks arriving together
   // cannot both insert. The filter seeds email on insert.
+  //
+  // $setOnInsert for the name, never $set: Google is the source of a name only
+  // for an account it is creating. On a link, the address already belongs to
+  // someone who may have typed their own name at signup, and overwriting it
+  // with whatever their Google profile says is not ours to do. A returning user
+  // is handled above and never reaches this write at all.
   const user = await User.findOneAndUpdate(
     { email },
-    { $set: { googleId } },
+    { $set: { googleId }, $setOnInsert: { name } },
     { new: true, upsert: true },
   );
 

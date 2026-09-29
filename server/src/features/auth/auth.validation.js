@@ -8,9 +8,15 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const MIN_PASSWORD_LENGTH = 8;
 
-// Both fields are checked before throwing, and errors come back keyed by field
-// so the form can put each message under the input it belongs to.
-export function parseCredentials(body) {
+// Characters, not bytes. The password ceiling below is in bytes because bcrypt
+// truncates at 72 of them; nothing truncates a name, and a byte limit would
+// stop a Thai name at about 26 characters for no reason anyone could explain.
+const MAX_NAME_LENGTH = 80;
+
+// Shared by both entry points below, which is the point: login and register
+// agree on what a credential is, and neither throws here, so each caller can
+// finish collecting its own fields and report all of them in one 400.
+function collectCredentials(body) {
   const errors = {};
 
   const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
@@ -31,9 +37,38 @@ export function parseCredentials(body) {
     errors.password = `Password must be at most ${MAX_PASSWORD_BYTES} bytes.`;
   }
 
+  return { email, password, errors };
+}
+
+function throwIfAny(errors) {
   if (Object.keys(errors).length > 0) {
     throw badRequest('Check the details you entered.', errors);
   }
+}
 
+// Login. Deliberately does not look at `name`: the same body shape that
+// registers has to keep working here, and a signed-in user sending one extra
+// field is not an error.
+export function parseCredentials(body) {
+  const { email, password, errors } = collectCredentials(body);
+  throwIfAny(errors);
   return { email, password };
+}
+
+// Registration. Every field is checked before throwing, and errors come back
+// keyed by field so the form can put each message under the input it belongs to.
+export function parseRegistration(body) {
+  const { email, password, errors } = collectCredentials(body);
+
+  const name = typeof body?.name === 'string' ? body.name.trim() : '';
+
+  if (!name) {
+    errors.name = 'Your name is required.';
+  } else if (name.length > MAX_NAME_LENGTH) {
+    errors.name = `Your name must be at most ${MAX_NAME_LENGTH} characters.`;
+  }
+
+  throwIfAny(errors);
+
+  return { email, password, name };
 }

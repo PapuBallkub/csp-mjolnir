@@ -11,6 +11,18 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    // Not required, for the same reason passwordHash is not: signInWithGoogle
+    // creates accounts through findOneAndUpdate(upsert), where runValidators is
+    // off by default, so a required field there is enforced or not depending on
+    // an option nobody set. Shape here, invariant in features/auth — see 0005.
+    // Characters, not bytes: the 72-byte ceiling on a password exists because
+    // bcrypt truncates, and there is no such reason to give a Thai name ~26.
+    name: {
+      type: String,
+      trim: true,
+      default: '',
+      maxlength: 80,
+    },
     passwordHash: {
       type: String,
       // Optional since 0005: an account created through Google has no password.
@@ -27,6 +39,16 @@ const userSchema = new mongoose.Schema(
     notificationConsent: {
       type: Boolean,
       default: false,
+    },
+    // The only authorization fact about an account. An enum rather than a
+    // permissions array because there are two kinds of person here and the
+    // second kind is us; a role nobody can self-assign is the whole point, so
+    // it is granted out of band — see 0011 and `npm run role`.
+    role: {
+      type: String,
+      enum: ['user', 'admin'],
+      default: 'user',
+      index: true,
     },
   },
   { timestamps: true },

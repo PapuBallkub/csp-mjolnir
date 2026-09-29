@@ -16,6 +16,7 @@
     "test": "node --test \"test/**/*.test.js\"",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "role": "node scripts/grant-role.js",
     "ingest": "node src/pipeline/ingest.js",
     "ingest:fetch": "node src/pipeline/ingest.js --step fetch",
     "ingest:download": "node src/pipeline/ingest.js --step download",

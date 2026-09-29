@@ -12,6 +12,7 @@ import { createApp } from '../src/app.js';
 
 const TEST_DB = 'mjolnir_test';
 const PASSWORD = 'correct horse battery';
+const NAME = 'Somchai Test';
 
 // Random per process, not time-based: test files run in parallel, and two
 // people can run the suite against the same cluster at once.
@@ -68,7 +69,7 @@ test('registering creates the account, signs you in, and never returns the hash'
   const email = emailFor('signup');
 
   const response = await send('POST', '/api/auth/register', {
-    body: { email, password: PASSWORD, notificationConsent: true },
+    body: { email, password: PASSWORD, name: NAME, notificationConsent: true },
   });
 
   assert.equal(response.status, 201);
@@ -88,13 +89,13 @@ test('an address is normalized, so casing cannot open a second account', async (
   const email = emailFor('casing');
 
   const created = await send('POST', '/api/auth/register', {
-    body: { email: `  ${email.toUpperCase()}  `, password: PASSWORD },
+    body: { email: `  ${email.toUpperCase()}  `, password: PASSWORD, name: NAME },
   });
   assert.equal(created.status, 201);
   assert.equal((await created.json()).user.email, email);
 
   const duplicate = await send('POST', '/api/auth/register', {
-    body: { email, password: PASSWORD },
+    body: { email, password: PASSWORD, name: NAME },
   });
   assert.equal(duplicate.status, 409);
 
@@ -107,7 +108,7 @@ test('a bad password is refused per field, and writes nothing', async () => {
   const email = emailFor('weak');
 
   const response = await send('POST', '/api/auth/register', {
-    body: { email, password: 'short' },
+    body: { email, password: 'short', name: NAME },
   });
 
   assert.equal(response.status, 400);
@@ -121,7 +122,7 @@ test('a bad password is refused per field, and writes nothing', async () => {
 
 test('a password past the bcrypt 72-byte ceiling is refused, not truncated', async () => {
   const response = await send('POST', '/api/auth/register', {
-    body: { email: emailFor('long'), password: 'a'.repeat(73) },
+    body: { email: emailFor('long'), password: 'a'.repeat(73), name: NAME },
   });
 
   assert.equal(response.status, 400);
@@ -130,7 +131,7 @@ test('a password past the bcrypt 72-byte ceiling is refused, not truncated', asy
 
 test('signing in needs the right password, and says no more than that', async () => {
   const email = emailFor('login');
-  await send('POST', '/api/auth/register', { body: { email, password: PASSWORD } });
+  await send('POST', '/api/auth/register', { body: { email, password: PASSWORD, name: NAME } });
 
   const wrong = await send('POST', '/api/auth/login', { body: { email, password: `${PASSWORD}!` } });
   assert.equal(wrong.status, 401);
@@ -153,7 +154,7 @@ test('signing in needs the right password, and says no more than that', async ()
 
 test('/api/auth/me is closed without a session and open with one, and logout closes it', async () => {
   const email = emailFor('session');
-  const registered = await send('POST', '/api/auth/register', { body: { email, password: PASSWORD } });
+  const registered = await send('POST', '/api/auth/register', { body: { email, password: PASSWORD, name: NAME } });
   const cookie = sessionCookie(registered);
 
   const anonymous = await send('GET', '/api/auth/me');
@@ -177,7 +178,7 @@ test('/api/auth/me is closed without a session and open with one, and logout clo
 
 test('a deleted account cannot keep using a token that is still valid', async () => {
   const email = emailFor('deleted');
-  const registered = await send('POST', '/api/auth/register', { body: { email, password: PASSWORD } });
+  const registered = await send('POST', '/api/auth/register', { body: { email, password: PASSWORD, name: NAME } });
   const cookie = sessionCookie(registered);
 
   await User.deleteOne({ email });
@@ -188,7 +189,7 @@ test('a deleted account cannot keep using a token that is still valid', async ()
 
 test('the hash stays out of an ordinary query, and a partial document still saves', async () => {
   const email = emailFor('projection');
-  await send('POST', '/api/auth/register', { body: { email, password: PASSWORD } });
+  await send('POST', '/api/auth/register', { body: { email, password: PASSWORD, name: NAME } });
 
   const user = await User.findOne({ email });
   assert.equal(user.passwordHash, undefined, 'select: false should hold on a plain find');
@@ -200,4 +201,70 @@ test('the hash stays out of an ordinary query, and a partial document still save
 
   const reloaded = await User.findOne({ email }).select('+passwordHash');
   assert.match(reloaded.passwordHash, /^\$2[aby]\$/, 'the hash must survive a partial save');
+});
+
+test('registering needs a name, and reports it beside every other bad field', async () => {
+  const missing = await send('POST', '/api/auth/register', {
+    body: { email: emailFor('noname'), password: PASSWORD },
+  });
+  assert.equal(missing.status, 400);
+  assert.match((await missing.json()).error.details.name, /name is required/i);
+
+  // One 400 carrying both, not the first failure it happens to reach. The
+  // validation split is the easiest way to lose this property.
+  const both = await send('POST', '/api/auth/register', {
+    body: { email: emailFor('bothbad'), password: 'short', name: '   ' },
+  });
+  assert.equal(both.status, 400);
+
+  const { error } = await both.json();
+  assert.match(error.details.name, /name is required/i);
+  assert.match(error.details.password, /at least 8/);
+  assert.equal(error.details.email, undefined, 'a valid field should not be reported');
+});
+
+test('a name past 80 characters is refused by length, not by bytes', async () => {
+  // Thai is three bytes a character. A byte ceiling here — the rule bcrypt
+  // forces on passwords — would stop this at about 26, so this has to pass.
+  const thai = 'ก'.repeat(80);
+  const ok = await send('POST', '/api/auth/register', {
+    body: { email: emailFor('thainame'), password: PASSWORD, name: thai },
+  });
+  assert.equal(ok.status, 201, '80 Thai characters is 240 bytes and must still be accepted');
+  assert.equal((await ok.json()).user.name, thai);
+
+  const tooLong = await send('POST', '/api/auth/register', {
+    body: { email: emailFor('longname'), password: PASSWORD, name: 'a'.repeat(81) },
+  });
+  assert.equal(tooLong.status, 400);
+  assert.match((await tooLong.json()).error.details.name, /at most 80/);
+});
+
+// The direct regression guard for the validation split: parseCredentials is
+// shared, so a name check added to it would 400 every login in the product.
+test('signing in still works with no name in the body', async () => {
+  const email = emailFor('loginnoname');
+  await send('POST', '/api/auth/register', { body: { email, password: PASSWORD, name: NAME } });
+
+  const response = await send('POST', '/api/auth/login', { body: { email, password: PASSWORD } });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).user.name, NAME);
+});
+
+test('the name is trimmed on the way in and comes back from /me, with a role', async () => {
+  const email = emailFor('trimmed');
+  const registered = await send('POST', '/api/auth/register', {
+    body: { email, password: PASSWORD, name: `  ${NAME}  ` },
+  });
+  assert.equal(registered.status, 201);
+
+  const me = await send('GET', '/api/auth/me', { cookie: sessionCookie(registered) });
+  const { user } = await me.json();
+
+  assert.equal(user.name, NAME, 'trimmed, or the shell renders padded whitespace');
+  // requireRole reads this. Without it on the public shape every admin is
+  // silently forbidden, and nothing else in the suite would notice.
+  assert.equal(user.role, 'user', 'a fresh account is never an admin');
+  assert.equal(user.passwordHash, undefined);
+  assert.equal(user.googleId, undefined);
 });
