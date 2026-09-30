@@ -11,6 +11,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { Tor } from '#models/index.js';
+import { parseThaiAmount } from '../../shared/thai-text.js';
 import {
   resolveAndDownloadEgpTorDocument,
   parseTorDocument,
@@ -84,13 +85,10 @@ export async function fetchFromDataGo({
     const projectId = String(rec['รหัสโครงการ'] || '').trim();
     if (!projectId) continue;
 
-    // Safe numeric parsing handling commas
-    const budget =
-      Number(String(rec['งบประมาณ(บาท)'] || '').replace(/,/g, '')) || 0;
-    const medianPrice =
-      Number(String(rec['ราคากลาง(บาท)'] || '').replace(/,/g, '')) || 0;
-    const agreedPrice =
-      Number(String(rec['ราคาตกลงซื้อ/จ้าง'] || '').replace(/,/g, '')) || 0;
+    // null when a figure is missing or unreadable, never 0 (ADR 0014)
+    const budget = parseThaiAmount(rec['งบประมาณ(บาท)']);
+    const referencePrice = parseThaiAmount(rec['ราคากลาง(บาท)']);
+    const agreedPrice = parseThaiAmount(rec['ราคาตกลงซื้อ/จ้าง']);
 
     // Detect if column shift anomaly exists in this data.go.th record
     const hasColumnShift = /^\d{13}$/.test(
@@ -161,7 +159,7 @@ export async function fetchFromDataGo({
             ).trim(),
             announceDate: rec['วันที่ประกาศ'] || null,
             budgetTHB: budget,
-            medianPriceTHB: medianPrice,
+            referencePriceTHB: referencePrice,
             status: winnerName ? 'Awarded' : 'Open',
             contract: {
               winnerName: winnerName || null,
