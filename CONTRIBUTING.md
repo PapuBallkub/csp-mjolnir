@@ -16,7 +16,8 @@ and the history readable — nothing beyond that.
 | `docker-compose.yml` | The production stack. `docker-compose.override.yml` adds the local database on top of it, and Compose loads it automatically. |
 | `docs/deployment-checklist.md` | What has to be set and verified before a production deploy. Read it before the first one, and before every one after. |
 | `AGENTS.md` | Design guide for frontend UI work, and what coding agents read first. Check it before touching `client/app/`. |
-| `CSP_Proposal.md` | The proposal — user stories (US1–US17) and requirements (FR01–FR15), which the code cites by number. |
+| `docs/requirements.md` | What the product has to do — the public summary of our SRS, with every requirement by the ID the code cites (`FR-01`–`FR-23`). Older citations use the proposal's numbering; the table at its end translates them. |
+| `context/` | Local only, and gitignored: the full SRS and working notes, for discussion before anything is written up in `docs/`. Never commit it or link to it. |
 
 `server/src` is sliced by feature, with the schemas kept together in one
 `models/` folder. Two rules keep that from collapsing back into a pile: only the
