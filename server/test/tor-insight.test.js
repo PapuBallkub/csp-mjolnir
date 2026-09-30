@@ -38,12 +38,16 @@ test('TorInsight schema: validates document structure, types, and defaults offli
     identification: {
       titleTh: 'โครงการพัฒนาระบบบริหารจัดการข้อมูลภาครัฐ',
       agency: 'สำนักยุทธศาสตร์และประเมินผล',
+      status: 'Open',
     },
     facts: {
       referencePriceTHB: 1850000,
     },
+    evidence: {
+      referencePriceTHB: { quote: 'ราคากลาง ๑,๘๕๐,๐๐๐ บาท', page: 3 },
+    },
     technicalRequirements: {
-      requiredTechnologies: ['Kubernetes', 'PostgreSQL'],
+      requiredTechnologies: [{ name: 'Kubernetes' }, { name: 'Windows Server', version: '2019' }],
     },
     analytics: {
       lockSpec: {
@@ -63,16 +67,33 @@ test('TorInsight schema: validates document structure, types, and defaults offli
   const validationError = await doc.validate().catch((err) => err);
   assert.equal(validationError, undefined, 'Valid document should pass schema validation');
 
-  // Verify defaults
-  assert.equal(doc.identification.category, 'Software / IT');
-  assert.equal(doc.identification.status, 'Open');
-  assert.equal(doc.amendmentInfo.isAmended, false);
   assert.equal(doc.facts.referencePriceTHB, 1850000);
-  assert.deepEqual(doc.technicalRequirements.requiredTechnologies, ['Kubernetes', 'PostgreSQL']);
+  assert.equal(doc.evidence.get('referencePriceTHB').page, 3);
+  assert.equal(doc.technicalRequirements.requiredTechnologies[1].version, '2019');
+  assert.equal(doc.technicalRequirements.requiredTechnologies[0].version, null);
+  assert.equal(doc.amendmentInfo.isAmended, false);
   assert.equal(doc.analytics.lockSpec.findings[0].severity, 'medium');
+  assert.equal(doc.metadata.reviewStatus, 'pending');
 });
 
-test('TorInsight schema: rejects missing required fields (projectId, titleTh, agency)', async () => {
+test('TorInsight schema: leaves unstated facts null instead of inventing a value', () => {
+  const doc = new TorInsight({
+    projectId: '68039469567',
+    identification: { titleTh: 'โครงการ', agency: 'หน่วยงาน', status: 'Open' },
+  });
+
+  // A 0 or a guessed label would reach the page looking like a real fact (ADR 0014)
+  assert.equal(doc.facts.budgetTHB, null);
+  assert.equal(doc.facts.referencePriceTHB, null);
+  assert.equal(doc.eligibility.previousExperienceMinTHB, null);
+  assert.equal(doc.contractConditions.evaluationMethod, null);
+  assert.equal(doc.identification.category, null);
+  assert.equal(doc.metadata.confidenceScore, null);
+  assert.equal(doc.metadata.excluded, null);
+  assert.equal(doc.facts.medianPriceTHB, undefined, 'our own median lives in analytics, not facts');
+});
+
+test('TorInsight schema: rejects missing required fields (projectId, titleTh, agency, status)', async () => {
   const invalidDoc = new TorInsight({});
   const validationError = await invalidDoc.validate().catch((err) => err);
 
@@ -80,6 +101,32 @@ test('TorInsight schema: rejects missing required fields (projectId, titleTh, ag
   assert.ok(validationError.errors.projectId, 'projectId is required');
   assert.ok(validationError.errors['identification.titleTh'], 'titleTh is required');
   assert.ok(validationError.errors['identification.agency'], 'agency is required');
+  assert.ok(
+    validationError.errors['identification.status'],
+    'status is copied from the Tor, never defaulted to Open',
+  );
+});
+
+test('TorInsight schema: accepts the minimal record saved for a non-IT document', async () => {
+  const excluded = new TorInsight({
+    projectId: '68039469567',
+    identification: { titleTh: 'จ้างก่อสร้างถนนคอนกรีต', agency: 'หน่วยงาน', status: 'Open' },
+    metadata: { excluded: { reason: 'Road construction, no software or IT scope', quote: 'ก่อสร้างถนน' } },
+  });
+
+  assert.equal(await excluded.validate().catch((err) => err), undefined);
+  assert.equal(excluded.metadata.excluded.reason, 'Road construction, no software or IT scope');
+});
+
+test('TorInsight schema: keeps the confidence score on its 0–100 scale', async () => {
+  const doc = new TorInsight({
+    projectId: '68039469567',
+    identification: { titleTh: 'โครงการ', agency: 'หน่วยงาน', status: 'Open' },
+    metadata: { confidenceScore: 140 },
+  });
+
+  const validationError = await doc.validate().catch((err) => err);
+  assert.ok(validationError?.errors['metadata.confidenceScore']);
 });
 
 test('TorInsight model: creates, validates, queries, and updates a complete normalized TOR document', async (t) => {
@@ -100,8 +147,8 @@ test('TorInsight model: creates, validates, queries, and updates a complete norm
       status: 'Open',
     },
     facts: {
+      budgetTHB: 1900000,
       referencePriceTHB: 1850000,
-      medianPriceTHB: 1700000,
       submissionDeadline: new Date('2026-08-18T16:30:00Z'),
       deliveryPeriodDays: 120,
       procurementMethod: 'e-Bidding',
@@ -120,7 +167,12 @@ test('TorInsight model: creates, validates, queries, and updates a complete norm
       supportingWork: ['Training 50 users', '1-year Maintenance'],
     },
     technicalRequirements: {
-      requiredTechnologies: ['Kubernetes', 'PostgreSQL', 'Node.js', 'REST API'],
+      requiredTechnologies: [
+        { name: 'Kubernetes' },
+        { name: 'PostgreSQL', version: '16' },
+        { name: 'Node.js' },
+        { name: 'REST API' },
+      ],
       requiredCapabilities: ['High Availability', 'Role-Based Access Control'],
       infrastructureSpecifications: [
         { key: 'CPU', spec: '≥ 24 cores' },
@@ -188,9 +240,23 @@ test('TorInsight model: creates, validates, queries, and updates a complete norm
       amendmentSummary: '',
       changedSections: [],
     },
+    evidence: {
+      referencePriceTHB: { quote: 'ราคากลาง ๑,๘๕๐,๐๐๐ บาท', page: 3 },
+      submissionDeadline: { quote: 'ยื่นข้อเสนอภายในวันที่ ๑๘ สิงหาคม ๒๕๖๙', page: 1 },
+    },
     metadata: {
-      modelName: 'gemini-1.5-pro',
-      confidenceScore: 0.94,
+      modelName: 'gemini-3.7-flash',
+      promptVersion: 'extract-v1',
+      sourceFingerprint: 'a3f1c2',
+      confidenceScore: 72,
+      checks: [
+        {
+          check: 'cross-source',
+          field: 'facts.budgetTHB',
+          severity: 'critical',
+          detail: { feed: 1850000, ai: 1900000 },
+        },
+      ],
     },
   };
 
@@ -205,6 +271,10 @@ test('TorInsight model: creates, validates, queries, and updates a complete norm
   assert.equal(fetched.identification.titleTh, 'โครงการพัฒนาระบบบริหารจัดการข้อมูลภาครัฐ');
   assert.equal(fetched.facts.referencePriceTHB, 1850000);
   assert.equal(fetched.technicalRequirements.requiredTechnologies.length, 4);
+  assert.equal(fetched.technicalRequirements.requiredTechnologies[1].version, '16');
+  assert.equal(fetched.evidence.submissionDeadline.page, 1);
+  assert.equal(fetched.metadata.checks[0].detail.feed, 1850000);
+  assert.equal(fetched.metadata.reviewStatus, 'pending');
   assert.equal(fetched.analytics.lockSpec.riskScore, 18);
   assert.equal(fetched.analytics.priceAnalysis.comparableProjects.length, 2);
 
