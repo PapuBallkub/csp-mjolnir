@@ -6,4 +6,5 @@
  */
 
 export * from './ingestion/index.js';
-export { convertThaiDigitsToArabic } from './shared/thai-text.js';
+export { convertThaiDigitsToArabic, parseThaiAmount } from './shared/thai-text.js';
+export { egpAnnouncementUrl } from './shared/egp-links.js';
