@@ -59,6 +59,7 @@ Stores extraction output, pipeline flags, and confidence scores from OCR process
 | `rawText` | `String` | `""` | Complete raw text extracted from PDF pages | `"รายละเอียดคุณลักษณะเฉพาะ..."` |
 | `confidence` | `Number` | `0` | Confidence score of the extraction (0.0 to 1.0 or percentage) | `0.92` |
 | `usedOcr` | `Boolean` | `false` | `true` if Tesseract / Vision OCR was invoked (for scanned PDFs) | `true` |
+| `truncated` | `Boolean` | `false` | `true` if part of the document never reached `rawText` (page limit, timeout, or failed pages). Extraction treats it as a failed check ([0013](../decisions/0013-split-ingestion-and-ai-extraction.md)). | `false` |
 | `processedAt` | `Date` | `null` | Timestamp when OCR extraction completed | `"2026-09-29T17:17:08.000Z"` |
 
 ---
@@ -163,6 +164,7 @@ Tracks watchdog audit trail when government revisions occur (FR09, FR10, FR11).
     "rawText": "",
     "confidence": 0,
     "usedOcr": false,
+    "truncated": false,
     "processedAt": null
   },
   "status": "Awarded",

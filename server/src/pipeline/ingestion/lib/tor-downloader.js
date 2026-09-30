@@ -1,5 +1,5 @@
 /**
- * server/src/pipeline/lib/tor-downloader.js
+ * server/src/pipeline/ingestion/lib/tor-downloader.js
  *
  * Shared helper module for automated TOR downloader & parser.
  * Handles:
@@ -14,6 +14,7 @@ import AdmZip from 'adm-zip';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { PDFParse } from 'pdf-parse';
+import { convertThaiDigitsToArabic } from '../../shared/thai-text.js';
 
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -37,20 +38,6 @@ export function computeContentHash(input) {
   if (!input) return '';
   const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input);
   return crypto.createHash('sha256').update(buffer).digest('hex');
-}
-
-/**
- * Converts Thai digits (๐-๙) to standard Arabic digits (0-9).
- * @param {string} str
- * @returns {string}
- */
-export function convertThaiDigitsToArabic(str) {
-  if (!str) return '';
-  const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-  return str.replace(/[๐-๙]/g, (char) => {
-    const idx = thaiDigits.indexOf(char);
-    return idx !== -1 ? String(idx) : char;
-  });
 }
 
 /**

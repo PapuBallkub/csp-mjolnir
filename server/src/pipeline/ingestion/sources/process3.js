@@ -1,5 +1,5 @@
 /**
- * server/src/pipeline/sources/process3.js
+ * server/src/pipeline/ingestion/sources/process3.js
  *
  * Scraper/fetcher for Thailand e-GP RSS feed (process3.gprocurement.go.th).
  * Handles:
@@ -16,8 +16,8 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { Tor } from '#models/index.js';
+import { convertThaiDigitsToArabic } from '../../shared/thai-text.js';
 import {
-  convertThaiDigitsToArabic,
   resolveAndDownloadEgpTorDocument,
   parseTorDocument,
 } from '../lib/tor-downloader.js';

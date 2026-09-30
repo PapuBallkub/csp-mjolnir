@@ -1,5 +1,5 @@
 /**
- * server/src/pipeline/ingest.js
+ * server/src/pipeline/ingestion/ingest.js
  *
  * Automated CLI runner for the TOR ingestion pipeline (FR01-FR04).
  * Supports independent stage execution and end-to-end chaining:
@@ -9,20 +9,21 @@
  *
  * Usage:
  *   # End-to-end
- *   node src/pipeline/ingest.js
+ *   node src/pipeline/ingestion/ingest.js
  *   npm run ingest
  *
  *   # Independent services
- *   node src/pipeline/ingest.js --step fetch --query "คอมพิวเตอร์" --limit 3
- *   node src/pipeline/ingest.js --step download
- *   node src/pipeline/ingest.js --step download --id 68039469567
- *   node src/pipeline/ingest.js --step ocr
- *   node src/pipeline/ingest.js --step ocr --id 67109111284
+ *   node src/pipeline/ingestion/ingest.js --step fetch --query "คอมพิวเตอร์" --limit 3
+ *   node src/pipeline/ingestion/ingest.js --step download
+ *   node src/pipeline/ingestion/ingest.js --step download --id 68039469567
+ *   node src/pipeline/ingestion/ingest.js --step ocr
+ *   node src/pipeline/ingestion/ingest.js --step ocr --id 67109111284
  */
 
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Tor } from '#models/index.js';
 import { fetchFromProcess3 } from './sources/process3.js';
@@ -35,7 +36,7 @@ import {
 
 const DOCUMENTS_DIR =
   process.env.DOCUMENTS_DIR ||
-  path.resolve(import.meta.dirname, '../../data/documents');
+  path.resolve(import.meta.dirname, '../../../data/documents');
 
 function parseCliArgs() {
   const argv = process.argv.slice(2);
@@ -268,6 +269,7 @@ export async function runOcrStep({ id, documentsDir, source = 'manual' }) {
         rawText: ocrResult.text,
         confidence: ocrResult.confidence,
         usedOcr: ocrResult.usedOcr,
+        truncated: ocrResult.truncated,
         processedAt: new Date(),
       };
       tor.document.pages = ocrResult.pages;
@@ -280,7 +282,8 @@ export async function runOcrStep({ id, documentsDir, source = 'manual' }) {
       console.log(
         `        Type: ${ocrResult.usedOcr ? 'Scanned Paper (OCR)' : 'Digital Text PDF'} | ` +
           `Pages: ${ocrResult.pages} | Confidence: ${Math.round(ocrResult.confidence * 100)}% | ` +
-          `Chars: ${ocrResult.text.length.toLocaleString()}`,
+          `Chars: ${ocrResult.text.length.toLocaleString()}` +
+          (ocrResult.truncated ? ' | TRUNCATED: some pages were not read' : ''),
       );
       successCount++;
     } catch (err) {
@@ -367,8 +370,10 @@ async function main() {
   await disconnectDatabase();
 }
 
-// Only execute main when invoked as direct CLI script
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Only execute main when invoked as direct CLI script. import.meta.url is a
+// file URL (file:///D:/...) and argv[1] a platform path (D:\...), so compare
+// them as URLs: a string template matches on Linux and silently never on Windows.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((err) => {
     console.error('[FATAL] Pipeline failure:', err);
     process.exit(1);

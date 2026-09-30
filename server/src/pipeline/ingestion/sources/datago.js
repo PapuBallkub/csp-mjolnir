@@ -1,5 +1,5 @@
 /**
- * server/src/pipeline/sources/datago.js
+ * server/src/pipeline/ingestion/sources/datago.js
  *
  * Scraper/fetcher for Thailand Open Government Data CKAN REST API (data.go.th).
  * Queries dataset egp-contact-2568, handles column-shift anomalies,

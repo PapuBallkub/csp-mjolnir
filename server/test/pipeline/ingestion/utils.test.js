@@ -1,10 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  computeContentHash,
-  convertThaiDigitsToArabic,
-} from '#pipeline/lib/tor-downloader.js';
-import { decodeThaiXml } from '#pipeline/sources/process3.js';
+import { computeContentHash } from '#pipeline/ingestion/lib/tor-downloader.js';
+import { decodeThaiXml } from '#pipeline/ingestion/sources/process3.js';
+import { convertThaiDigitsToArabic } from '#pipeline/shared/thai-text.js';
 
 test('computeContentHash generates deterministic 64-char SHA-256 hex string', () => {
   const content = 'Test TOR document content';
