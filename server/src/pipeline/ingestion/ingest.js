@@ -23,6 +23,7 @@
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Tor } from '#models/index.js';
 import { fetchFromProcess3 } from './sources/process3.js';
@@ -367,8 +368,10 @@ async function main() {
   await disconnectDatabase();
 }
 
-// Only execute main when invoked as direct CLI script
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Only execute main when invoked as direct CLI script. import.meta.url is a
+// file URL (file:///D:/...) and argv[1] a platform path (D:\...), so compare
+// them as URLs: a string template matches on Linux and silently never on Windows.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((err) => {
     console.error('[FATAL] Pipeline failure:', err);
     process.exit(1);
