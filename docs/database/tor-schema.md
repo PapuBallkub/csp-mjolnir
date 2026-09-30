@@ -31,7 +31,7 @@ Stores contractor award, winning bidder, and contract finalization data (availab
 | `contractNo` | `String` | `null` | Official government contract number | `"9/2568"` |
 | `contractSignDate` | `String` | `null` | Date when the contract was signed (Thai format) | `"14 ม.ค. 69"` |
 | `contractEndDate` | `String` | `null` | Contract expiration or completion date | `null` or `"30 ก.ย. 69"` |
-| `agreedPriceTHB` | `Number` | `0` | Final agreed contract price in Thai Baht (THB) | `12300000` |
+| `agreedPriceTHB` | `Number` | `null` | Final agreed contract price (ราคาตกลงซื้อ/จ้าง) in Thai Baht (THB). `null` when the source doesn't give one. | `12300000` |
 | `projectStatus` | `String` | `""` | Description of the contract status from upstream agency | `"ประกวดราคาจ้างพัฒนาคลังข้อมูลสุขภาพดิจิทัล..."` |
 
 ---
@@ -94,8 +94,8 @@ Tracks watchdog audit trail when government revisions occur (FR09, FR10, FR11).
 | `subAgency` | `String` | No | `""` | Sub-department, bureau, or division | `"สำนักสุขภาพดิจิทัล"` |
 | `province` | `String` | No | `""` | Province location of the procuring entity | `"นนทบุรี"` |
 | `district` | `String` | No | `""` | District / Subdistrict location | `"ตลาดขวัญ"` |
-| `budgetTHB` | `Number` | No | `0` | Allocated project budget in Thai Baht (THB) | `12500000` |
-| `medianPriceTHB` | `Number` | No | `0` | Official reference price (ราคากลาง) in Thai Baht (THB) | `12492771` |
+| `budgetTHB` | `Number` | No | `null` | Budget (งบประมาณ): what the agency has set aside, in Thai Baht (THB). `null` when the feed doesn't give one. | `12500000` |
+| `referencePriceTHB` | `Number` | No | `null` | Reference price (ราคากลาง): the official price bids are judged against, in Thai Baht (THB). Not a statistical median. Was `medianPriceTHB` before [0014](../decisions/0014-price-names-and-insight-data-rules.md). | `12492771` |
 | `announceDate` | `String` | No | `null` | Date of announcement as string from source | `"13 พ.ค. 68"` |
 | `procurementMethod` | `String` | No | `""` | Procurement method name from upstream source | `"ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)"` |
 | `egpUrl` | `String` | No | `""` | Direct link to e-GP search page for this project | `"https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=68049205582"` |
@@ -137,7 +137,7 @@ Tracks watchdog audit trail when government revisions occur (FR09, FR10, FR11).
   "province": "นนทบุรี",
   "district": "ตลาดขวัญ",
   "budgetTHB": 12500000,
-  "medianPriceTHB": 12492771,
+  "referencePriceTHB": 12492771,
   "announceDate": "13 พ.ค. 68",
   "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
   "egpUrl": "https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=68049205582",

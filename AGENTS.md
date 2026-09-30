@@ -69,7 +69,7 @@ Do not design: bid drafting/submission forms, proposal builders, e-signing flows
 Every TOR card/detail should be built against the normalized shape, not the raw document. The core fields are the ones the LLM extracts (FR-07) plus what the platform derives:
 
 ```
-Project Title · Agency Name · Maximum Budget (ราคากลาง) · Submission Deadline ·
+Project Title · Agency Name · Budget (งบประมาณ) · Reference Price (ราคากลาง) · Submission Deadline ·
 Required Tech Stack (list) · Penalty Clause (e.g. "0.20%/day delay") ·
 Status (Draft / Open / Awarded / Closed / Cancelled, plus a separate Amended flag) ·
 Lock-spec Risk (flag + reasons) · Price Comparison (vs. historical median and average) ·
