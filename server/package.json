@@ -17,10 +17,10 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "role": "node scripts/grant-role.js",
-    "ingest": "node src/pipeline/ingest.js",
-    "ingest:fetch": "node src/pipeline/ingest.js --step fetch",
-    "ingest:download": "node src/pipeline/ingest.js --step download",
-    "ingest:ocr": "node src/pipeline/ingest.js --step ocr"
+    "ingest": "node src/pipeline/ingestion/ingest.js",
+    "ingest:fetch": "node src/pipeline/ingestion/ingest.js --step fetch",
+    "ingest:download": "node src/pipeline/ingestion/ingest.js --step download",
+    "ingest:ocr": "node src/pipeline/ingestion/ingest.js --step ocr"
   },
   "dependencies": {
     "adm-zip": "^0.6.0",

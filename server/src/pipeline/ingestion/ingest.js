@@ -1,5 +1,5 @@
 /**
- * server/src/pipeline/ingest.js
+ * server/src/pipeline/ingestion/ingest.js
  *
  * Automated CLI runner for the TOR ingestion pipeline (FR01-FR04).
  * Supports independent stage execution and end-to-end chaining:
@@ -9,15 +9,15 @@
  *
  * Usage:
  *   # End-to-end
- *   node src/pipeline/ingest.js
+ *   node src/pipeline/ingestion/ingest.js
  *   npm run ingest
  *
  *   # Independent services
- *   node src/pipeline/ingest.js --step fetch --query "คอมพิวเตอร์" --limit 3
- *   node src/pipeline/ingest.js --step download
- *   node src/pipeline/ingest.js --step download --id 68039469567
- *   node src/pipeline/ingest.js --step ocr
- *   node src/pipeline/ingest.js --step ocr --id 67109111284
+ *   node src/pipeline/ingestion/ingest.js --step fetch --query "คอมพิวเตอร์" --limit 3
+ *   node src/pipeline/ingestion/ingest.js --step download
+ *   node src/pipeline/ingestion/ingest.js --step download --id 68039469567
+ *   node src/pipeline/ingestion/ingest.js --step ocr
+ *   node src/pipeline/ingestion/ingest.js --step ocr --id 67109111284
  */
 
 import fs from 'node:fs/promises';
@@ -35,7 +35,7 @@ import {
 
 const DOCUMENTS_DIR =
   process.env.DOCUMENTS_DIR ||
-  path.resolve(import.meta.dirname, '../../data/documents');
+  path.resolve(import.meta.dirname, '../../../data/documents');
 
 function parseCliArgs() {
   const argv = process.argv.slice(2);

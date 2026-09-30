@@ -1,5 +1,5 @@
 /**
- * server/src/pipeline/lib/ocr.js
+ * server/src/pipeline/ingestion/lib/ocr.js
  *
  * Hybrid text extraction module for TOR PDFs.
  * - Fast path: Extracts embedded digital text via pdf-parse.

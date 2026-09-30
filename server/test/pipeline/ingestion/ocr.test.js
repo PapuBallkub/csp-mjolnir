@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cleanOcrText } from '../../src/pipeline/lib/ocr.js';
+import { cleanOcrText } from '#pipeline/ingestion/lib/ocr.js';
 
 test('cleanOcrText normalizes Unicode to NFC', () => {
   // Decomposed Thai character (e.g. 'ก' + upper vowel 'ิ')

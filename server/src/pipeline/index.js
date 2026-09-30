@@ -1,16 +1,9 @@
 /**
  * server/src/pipeline/index.js
  *
- * Public surface of the pipeline module (per ADR 0003 Rule 2).
+ * Public surface of both pipelines (per ADR 0003 Rule 2). Ingestion and
+ * extraction never import each other; they meet in the database. See ADR 0013.
  */
 
-export { fetchFromProcess3 } from './sources/process3.js';
-export { fetchFromDataGo } from './sources/datago.js';
-export { extractText, cleanOcrText } from './lib/ocr.js';
-export {
-  computeContentHash,
-  convertThaiDigitsToArabic,
-  downloadTorPdf,
-  resolveAndDownloadEgpTorDocument,
-  parseTorDocument,
-} from './lib/tor-downloader.js';
+export * from './ingestion/index.js';
+export { convertThaiDigitsToArabic } from './shared/thai-text.js';
