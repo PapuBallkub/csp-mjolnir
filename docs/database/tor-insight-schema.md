@@ -10,7 +10,9 @@
 
 ## 1. Overview
 
-The `TorInsight` model represents the normalized, intelligence-enriched view of a government procurement Terms of Reference (TOR) document (primarily Bangkok Metropolitan Administration — BMA / e-GP).
+The `TorInsight` model represents the normalized, intelligence-enriched view of a Thai government procurement Terms of Reference (TOR) document, from any agency on e-GP.
+
+**Missing is `null`, never a guess** ([0014](../decisions/0014-price-names-and-insight-data-rules.md)). A field the TOR doesn't state stays `null`, so the page shows "not specified" instead of ฿0 or a made-up label. Lists default to `[]`.
 
 It serves as the data backbone for the **TOR Detail Page**, **Catalog Filters**, **Search**, **Matchmaker**, and **Risk Analysis Engines** (Lock-Spec Detector, Price Reality Check).
 
@@ -47,6 +49,40 @@ Used within `analytics.priceAnalysis.comparableProjects` to list historical refe
 | `year` | `Number` | Yes | — | Fiscal year of the historical project | `2024` or `2567` |
 | `referencePriceTHB` | `Number` | Yes | — | Approved reference price (ราคากลาง) of that project in Thai Baht (THB) | `15000000` |
 
+### 2.3 `evidenceSchema`
+Used as the values of the `evidence` map (§3.2b): where an extracted value came from.
+
+| Field | Type | Required | Default | Description | Example |
+|---|---|---|---|---|---|
+| `quote` | `String` | Yes | — | The exact text in the TOR that states the value | `"ราคากลาง ๑,๘๕๐,๐๐๐ บาท"` |
+| `page` | `Number` | No | `null` | The page it's on | `3` |
+
+### 2.4 `technologySchema`
+Used in `technicalRequirements.requiredTechnologies`.
+
+| Field | Type | Required | Default | Description | Example |
+|---|---|---|---|---|---|
+| `name` | `String` | Yes | — | Canonical name from the technologies vocabulary ([technology-schema.md](./technology-schema.md)) | `"Windows Server"` |
+| `version` | `String` | No | `null` | The version the TOR requires, kept apart because a required exact version is itself a lock-spec signal | `"2019"` |
+
+### 2.5 `checkSchema`
+Used in `metadata.checks`: one entry per **failed** check.
+
+| Field | Type | Required | Default | Description | Example |
+|---|---|---|---|---|---|
+| `check` | `String` | Yes | — | Which check failed | `grounding`, `cross-source`, `sanity`, `ocr-quality`, `truncation` |
+| `field` | `String` | No | `null` | The field it failed on | `"facts.referencePriceTHB"` |
+| `severity` | `String` | Yes | — | `critical` caps the confidence score below 80 | `'critical'`, `'minor'` |
+| `detail` | `Mixed` | No | `null` | What a reviewer needs to see why | `{ "feed": 1850000, "ai": 1580000 }` |
+
+### 2.6 `exclusionSchema`
+Used in `metadata.excluded`, when the classify step finds the document isn't IT.
+
+| Field | Type | Required | Default | Description | Example |
+|---|---|---|---|---|---|
+| `reason` | `String` | Yes | — | Why it isn't IT, in plain language | `"Road construction, no software or IT scope"` |
+| `quote` | `String` | No | `null` | The text that shows it | `"จ้างก่อสร้างถนนคอนกรีต"` |
+
 ---
 
 ## 3. Main `torInsightSchema` Fields
@@ -65,18 +101,18 @@ Used within `analytics.priceAnalysis.comparableProjects` to list historical refe
 | Field | Type | Required / Indexed | Default | Description | Example |
 |---|---|---|---|---|---|
 | `titleTh` | `String` | Required | — | Official Thai title of the procurement project | `"โครงการพัฒนาระบบบริหารจัดการข้อมูลภาครัฐ"` |
-| `titleEn` | `String` | No | `""` | English translation or romanized project title | `"Government Data Management Platform Development"` |
-| `agency` | `String` | Required, Indexed | — | Name of the procuring government organization | `"Bangkok Metropolitan Administration"` (กรุงเทพมหานคร) |
-| `department` | `String` | No | `""` | Division/office responsible for the project | `"สำนักยุทธศาสตร์และประเมินผล"` |
-| `egpReference` | `String` | No | `""` | Official e-GP announcement reference code | `"e-GP 67011234567"` |
-| `category` | `String` | Indexed | `'Software / IT'` | Industry category/scope | `'Software / IT'`, `'Hardware / Infra'`, `'Network / Security'` |
-| `status` | `String` | Indexed | `'Open'` | Lifecycle status of the procurement opportunity | `'Draft'`, `'Open'`, `'Awarded'`, `'Closed'`, `'Cancelled'` |
+| `titleEn` | `String` | No | `null` | English title. Not extracted while output is Thai only. | `"Government Data Management Platform Development"` |
+| `agency` | `String` | Required, Indexed | — | Name of the procuring government organization, from the feed first | `"กรุงเทพมหานคร"` |
+| `department` | `String` | No | `null` | Division/office responsible for the project | `"สำนักยุทธศาสตร์และประเมินผล"` |
+| `egpReference` | `String` | No | `null` | Official e-GP announcement reference code | `"e-GP 67011234567"` |
+| `category` | `String` | Indexed | `null` | Set by the classify step | `'Software / IT'`, `'Network / Security'` |
+| `status` | `String` | Required, Indexed | — | Copied from `Tor.status`; never extracted, never defaulted | `'Draft'`, `'Open'`, `'Awarded'`, `'Closed'`, `'Cancelled'` |
 
 > **Status Semantics:**
 > - `Draft`: Pre-announcement or public hearing stage.
 > - `Open`: Active tender currently accepting submissions.
 > - `Awarded`: Contractor selected and contract awarded.
-> - `Closed`: Submission deadline has passed without official winner posted yet.
+> - `Closed`: Submission deadline has passed without official winner posted yet. **Worked out when the data is read** ("Open and past the deadline"), not stored, so neither pipeline writes the other's collection ([0013](../decisions/0013-split-ingestion-and-ai-extraction.md)).
 > - `Cancelled`: Procurement cancelled by procuring agency.
 
 ---
@@ -86,16 +122,29 @@ Used within `analytics.priceAnalysis.comparableProjects` to list historical refe
 
 | Field | Type | Default | Indexed | Description |
 |---|---|---|---|---|
-| `referencePriceTHB` | `Number` | `0` | Yes | Maximum budget / Reference price (ราคากลาง) in Thai Baht (THB). |
-| `medianPriceTHB` | `Number` | `0` | No | Estimated median market value for similar scope. |
+| `budgetTHB` | `Number` | `null` | No | Budget (งบประมาณ): what the agency has set aside, in Thai Baht (THB). From the feed first; the AI fills gaps. |
+| `referencePriceTHB` | `Number` | `null` | Yes | Reference price (ราคากลาง): the official price bids are judged against, in Thai Baht (THB). From the feed first; the AI fills gaps. |
 | `submissionDeadline` | `Date` | `null` | No | Deadline date & time for bids submission. |
 | `deliveryPeriodDays` | `Number` | `null` | No | Project implementation & delivery period (calendar days). |
-| `procurementMethod` | `String` | `""` | No | Bidding method (e.g. `"e-Bidding"`, `"Specific Method (เฉพาะเจาะจง)"`, `"Selection (คัดเลือก)"`). |
+| `procurementMethod` | `String` | `null` | No | Bidding method (e.g. `"e-Bidding"`, `"Specific Method (เฉพาะเจาะจง)"`, `"Selection (คัดเลือก)"`). |
 | `warrantyYears` | `Number` | `null` | No | Warranty / maintenance obligation duration (in years). |
 | `contractDurationDays` | `Number` | `null` | No | Total legal contract validity duration (days). |
-| `penaltyClause` | `String` | `""` | No | Late delivery penalty clause (e.g. `"0.20% of contract value per day"`). |
+| `penaltyClause` | `String` | `null` | No | Late delivery penalty clause (e.g. `"0.20% of contract value per day"`). |
 | `postedDate` | `Date` | `null` | No | Official publishing date of the TOR. |
-| `sourceUrl` | `String` | `""` | No | Direct URL to original TOR document / announcement on agency portal. |
+| `sourceUrl` | `String` | `null` | No | The feed's own link, copied from `Tor.egpUrl`. For admins and tracing; not shown to users. |
+| `webUrl` | `String` | `null` | No | The e-GP page users open ("Open on e-GP"). Built from `projectId` by `egpAnnouncementUrl()`, never by the AI. |
+
+Our own numbers, such as the historical median and average, are **not** facts. They live in `analytics.priceAnalysis`.
+
+### 3.2b `evidence` (Where each fact came from)
+A map from a field name inside `facts` to an `evidenceSchema` (§2.3). Every value the AI extracts carries its quote and page, so a reviewer can check it against the TOR and the grounding check can find it in `rawText`. Values copied from the feed have no entry.
+
+```json
+"evidence": {
+  "referencePriceTHB": { "quote": "ราคากลาง ๑,๘๕๐,๐๐๐ บาท", "page": 3 },
+  "submissionDeadline": { "quote": "ยื่นข้อเสนอภายในวันที่ ๑๘ สิงหาคม ๒๕๖๙", "page": 1 }
+}
+```
 
 ---
 
@@ -104,9 +153,9 @@ Used within `analytics.priceAnalysis.comparableProjects` to list historical refe
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `objective` | `String` | `""` | High-level business and technical objectives of the project. |
+| `objective` | `String` | `null` | High-level business and technical objectives of the project. |
 | `majorComponents` | `[String]` | `[]` | List of primary modules, sub-systems, or architectural blocks to be built. |
-| `highLevelScope` | `String` | `""` | Plain-language summary of what is within the scope of work. |
+| `highLevelScope` | `String` | `null` | Plain-language summary of what is within the scope of work. |
 
 ---
 
@@ -127,7 +176,7 @@ Used within `analytics.priceAnalysis.comparableProjects` to list historical refe
 
 | Field | Type | Description |
 |---|---|---|
-| `requiredTechnologies` | `[String]` (Indexed) | Specific technologies, languages, databases, or frameworks specified (e.g. `["Kubernetes", "PostgreSQL", "Next.js", "Docker"]`). Used for matchmaker & skill filtering. |
+| `requiredTechnologies` | `[technologySchema]` | Technologies the TOR requires, each as a canonical `name` from the vocabulary plus an optional `version` (§2.4), e.g. `[{ "name": "Windows Server", "version": "2019" }]`. Used for search, matching and lock-spec. |
 | `requiredCapabilities` | `[String]` | Required functional or architectural capabilities (e.g. `["Single Sign-On (OAuth2/OpenID)", "Role-Based Access Control", "Full-text Search"]`). |
 | `infrastructureSpecifications` | `[{ key: String, spec: String }]` | Hardware/server specifications (e.g. `key: "CPU"`, `spec: "≥ 24 cores"`). |
 | `technicalConstraints` | `[{ metric: String, value: String }]` | Non-functional performance/SLA metrics (e.g. `metric: "System Availability"`, `value: "≥ 99.9% uptime"`). |
@@ -141,8 +190,8 @@ Used within `analytics.priceAnalysis.comparableProjects` to list historical refe
 |---|---|---|---|
 | `existingSystems` | `[String]` | `[]` | Existing agency databases or legacy platforms the system must interface with. |
 | `interfacesAndApis` | `[String]` | `[]` | Specific integration protocols or web services (e.g. REST API, SOAP, Webhook, Kafka). |
-| `dataMigrationNotes` | `String` | `""` | Details regarding legacy data volume, cleansing, transformation, and migration. |
-| `deploymentLocation` | `String` | `""` | Target deployment environment (e.g. `"BMA Data Center (On-Premise)"`, `"GDCC Government Cloud"`). |
+| `dataMigrationNotes` | `String` | `null` | Details regarding legacy data volume, cleansing, transformation, and migration. |
+| `deploymentLocation` | `String` | `null` | Target deployment environment (e.g. `"BMA Data Center (On-Premise)"`, `"GDCC Government Cloud"`). |
 
 ---
 
@@ -153,7 +202,7 @@ Used within `analytics.priceAnalysis.comparableProjects` to list historical refe
 |---|---|---|---|
 | `installationAndConfig` | `[String]` | `[]` | Environment setup, staging, network configuration, and installation tasks. |
 | `training` | `[String]` | `[]` | User and administrator training programs, course hours, and attendee requirements. |
-| `technicalSupportAndSla` | `String` | `""` | Support SLA requirements (e.g. `"24x7 support with 2-hour response time for severity 1 incidents"`). |
+| `technicalSupportAndSla` | `String` | `null` | Support SLA requirements (e.g. `"24x7 support with 2-hour response time for severity 1 incidents"`). |
 | `maintenance` | `[String]` | `[]` | Preventive maintenance schedules, patch management, and support periods. |
 
 ---
@@ -166,8 +215,8 @@ Used within `analytics.priceAnalysis.comparableProjects` to list historical refe
 | `companyRequirements` | `[String]` | `[]` | Required legal entity type, registered capital, years in operation, or Thai SME registration. |
 | `requiredCertifications` | `[String]` | `[]` | Required company certifications (e.g. `["ISO 29110", "ISO 27001", "CMMI Level 3"]`). |
 | `manufacturerAuthorizations` | `[String]` | `[]` | Manufacturer Authorization Letters (MAF) required from OEMs/vendors. |
-| `previousExperience` | `String` | `""` | Description of required past government/enterprise track record. |
-| `previousExperienceMinTHB` | `Number` | `0` | Minimum value of a single past completed contract in Thai Baht (THB). |
+| `previousExperience` | `String` | `null` | Description of required past government/enterprise track record. |
+| `previousExperienceMinTHB` | `Number` | `null` | Minimum value of a single past completed contract in Thai Baht (THB). |
 | `personnelQualifications` | `[String]` | `[]` | Qualifications and certificates required for key personnel (PM, Lead Architect, Security Engineer). |
 
 ---
@@ -177,16 +226,16 @@ Used within `analytics.priceAnalysis.comparableProjects` to list historical refe
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `paymentTerms` | `String` | `""` | Milestone-based payment schedule (e.g. `"Installment 1: 20% on SRS approval, Installment 2: 40% on UAT, Installment 3: 40% on final acceptance"`). |
-| `deliveryConditions` | `String` | `""` | Acceptance criteria, inspection conditions, and handover process. |
-| `evaluationMethod` | `String` | `'Price'` | Evaluation scheme: `'Price'` (เกณฑ์ราคา) or `'Price Performance'` (เกณฑ์คุณภาพ/ราคาประกอบผลงาน). |
+| `paymentTerms` | `String` | `null` | Milestone-based payment schedule (e.g. `"Installment 1: 20% on SRS approval, Installment 2: 40% on UAT, Installment 3: 40% on final acceptance"`). |
+| `deliveryConditions` | `String` | `null` | Acceptance criteria, inspection conditions, and handover process. |
+| `evaluationMethod` | `String` | `null` | Evaluation scheme: `'Price'` (เกณฑ์ราคา) or `'Price Performance'` (เกณฑ์คุณภาพ/ราคาประกอบผลงาน). |
 
 ---
 
 ### 3.10 `analytics` (Decision Support & Intelligence Analytics)
 *Corresponds to Feature Spec Sections 4.10, 4.11, 4.12*
 
-Analytical values generated by GIPDP algorithms and LLM pipelines:
+Analytical values generated by GIPDP algorithms and LLM pipelines. This section is reshaped when price analysis (FR-19) and lock-spec (FR-20, FR-21) are built, which is why it still has `0` defaults.
 
 #### `analytics.lockSpec` (Lock-Spec Risk Analysis)
 - `riskScore` (`Number`, 0–100): Calculated risk probability score (0 = clean, 100 = heavily locked/tailored).
@@ -221,9 +270,16 @@ Tracks post-publishing changes and revisions to the procurement document:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `modelName` | `String` | `""` | Name/version of LLM or extraction pipeline (e.g. `"gemini-1.5-pro"`, `"ocr-pipeline-v2"`). |
-| `confidenceScore` | `Number` | `0` | Overall extraction confidence score (0–100). |
+| `modelName` | `String` | `null` | The Gemini model that produced it (e.g. `"gemini-3.7-flash"`). |
+| `promptVersion` | `String` | `null` | The prompt version (e.g. `"extract-v1"`). An older version is re-processed only with `--outdated`. |
 | `processedAt` | `Date` | `Date.now` | Timestamp when the extraction and normalization pipeline completed. |
+| `sourceFingerprint` | `String` | `null` | A hash over [main PDF hash, ...amendment document hashes]. When it no longer matches the `Tor`, the source changed, and the insight is always re-processed. |
+| `confidenceScore` | `Number` (0–100) | `null` | Worked out from the checks, never reported by the model. Under 80, the TOR is hidden from the public and waits for review (NFR-17). |
+| `checks` | `[checkSchema]` | `[]` | The checks that failed, with reasons (§2.5). |
+| `reviewStatus` | `String` (Indexed) | `'pending'` | `'pending'`, `'approved'` or `'rejected'`. During the pilot, every result starts as `pending`. |
+| `reviewedBy` | `ObjectId` → `User` | `null` | The admin who reviewed it. |
+| `reviewedAt` | `Date` | `null` | When it was reviewed. |
+| `excluded` | `exclusionSchema` | `null` | Set when the document isn't IT (§2.6). Extraction stops there, so the other sections stay empty (NFR-16). |
 
 ---
 
@@ -242,23 +298,29 @@ Tracks post-publishing changes and revisions to the procurement document:
   "identification": {
     "titleTh": "โครงการพัฒนาระบบบริหารจัดการข้อมูลภาครัฐ",
     "titleEn": "Government Data Management Platform Development",
-    "agency": "Bangkok Metropolitan Administration",
+    "agency": "กรุงเทพมหานคร",
     "department": "สำนักยุทธศาสตร์และประเมินผล",
     "egpReference": "e-GP 67010012345",
     "category": "Software / IT",
     "status": "Open"
   },
   "facts": {
+    "budgetTHB": 15500000,
     "referencePriceTHB": 15000000,
-    "medianPriceTHB": 14200000,
     "submissionDeadline": "2026-10-15T09:30:00.000Z",
     "deliveryPeriodDays": 180,
     "procurementMethod": "e-Bidding",
     "warrantyYears": 2,
-    "contractDurationDays": 240,
+    "contractDurationDays": null,
     "penaltyClause": "0.20% of contract value per day",
     "postedDate": "2026-09-15T00:00:00.000Z",
-    "sourceUrl": "https://process3.gprocurement.go.th/..."
+    "sourceUrl": "https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=67010012345",
+    "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=67010012345"
+  },
+  "evidence": {
+    "submissionDeadline": { "quote": "ยื่นข้อเสนอภายในวันที่ ๑๕ ตุลาคม ๒๕๖๙ เวลา ๑๖.๓๐ น.", "page": 1 },
+    "deliveryPeriodDays": { "quote": "ส่งมอบงานภายใน ๑๘๐ วัน", "page": 12 },
+    "penaltyClause": { "quote": "ค่าปรับเป็นรายวันในอัตราร้อยละ ๐.๒๐ ของราคาค่าจ้าง", "page": 14 }
   },
   "overview": {
     "objective": "To establish a centralized data management and API platform for BMA departments.",
@@ -290,10 +352,10 @@ Tracks post-publishing changes and revisions to the procurement document:
   },
   "technicalRequirements": {
     "requiredTechnologies": [
-      "Kubernetes",
-      "PostgreSQL",
-      "Node.js",
-      "Docker"
+      { "name": "Kubernetes", "version": null },
+      { "name": "PostgreSQL", "version": "16" },
+      { "name": "Node.js", "version": null },
+      { "name": "Docker", "version": null }
     ],
     "requiredCapabilities": [
       "OAuth 2.0 / OpenID Connect Single Sign-On",
@@ -382,9 +444,16 @@ Tracks post-publishing changes and revisions to the procurement document:
     "changedSections": []
   },
   "metadata": {
-    "modelName": "gemini-1.5-pro",
+    "modelName": "gemini-3.7-flash",
+    "promptVersion": "extract-v1",
+    "processedAt": "2026-09-15T08:30:00.000Z",
+    "sourceFingerprint": "9f2c41d0…",
     "confidenceScore": 94,
-    "processedAt": "2026-09-15T08:30:00.000Z"
+    "checks": [],
+    "reviewStatus": "pending",
+    "reviewedBy": null,
+    "reviewedAt": null,
+    "excluded": null
   }
 }
 ```

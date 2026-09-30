@@ -16,7 +16,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { Tor } from '#models/index.js';
-import { convertThaiDigitsToArabic } from '../../shared/thai-text.js';
+import { convertThaiDigitsToArabic, parseThaiAmount } from '../../shared/thai-text.js';
 import {
   resolveAndDownloadEgpTorDocument,
   parseTorDocument,
@@ -264,10 +264,9 @@ export async function fetchFromProcess3({
 
         const isDownloaded =
           alreadyDownloaded || (downloadRes && downloadRes.success);
-        const budget =
-          Number(String(cand['งบประมาณ(บาท)'] || '').replace(/,/g, '')) || 0;
-        const medianPrice =
-          Number(String(cand['ราคากลาง(บาท)'] || '').replace(/,/g, '')) || 0;
+        // null when a figure is missing or unreadable, never 0 (ADR 0014)
+        const budget = parseThaiAmount(cand['งบประมาณ(บาท)']);
+        const referencePrice = parseThaiAmount(cand['ราคากลาง(บาท)']);
 
         await Tor.findOneAndUpdate(
           { projectId },
@@ -280,7 +279,7 @@ export async function fetchFromProcess3({
               province: String(cand['จังหวัด'] || '').trim(),
               district: String(cand['เขต/อำเภอ'] || '').trim(),
               budgetTHB: budget,
-              medianPriceTHB: medianPrice,
+              referencePriceTHB: referencePrice,
               announceType: 'B0',
               announceDate: cand['วันที่ประกาศ'] || new Date().toISOString(),
               procurementMethod: String(
