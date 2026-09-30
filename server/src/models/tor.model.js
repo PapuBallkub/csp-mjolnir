@@ -105,6 +105,9 @@ const torSchema = new mongoose.Schema(
       rawText: { type: String, default: '' },
       confidence: { type: Number, default: 0 }, // 0.0 - 1.0
       usedOcr: { type: Boolean, default: false },
+      // Part of the document never reached rawText (page limit, timeout, or
+      // failed pages). Extraction treats it as a failed check (ADR 0013).
+      truncated: { type: Boolean, default: false },
       processedAt: { type: Date, default: null },
     },
 

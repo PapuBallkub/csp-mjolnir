@@ -21,9 +21,44 @@ const pdfjsDistPkg = require.resolve('pdfjs-dist/package.json');
 const wasmDir = path.join(path.dirname(pdfjsDistPkg), 'wasm').split(path.sep).join('/') + '/';
 const napiCanvas = require('@napi-rs/canvas');
 
-const MAX_OCR_PAGES = 30; // Scan up to 30 pages for thorough specification extraction
+// Scanned pages have measured 2.6 s (ADR 0008) to 3.8 s (a 30-page TOR on a
+// Windows laptop) each: 10 s per page leaves 2.5-4x headroom, and the budget
+// grows with the page count instead of a fixed ceiling that long TORs used to
+// hit. Both can be raised per machine through the environment (ADR 0013).
+const DEFAULT_MAX_PAGES = 150;
+const DEFAULT_SECONDS_PER_PAGE = 10;
 const PAGE_TIMEOUT_MS = 60000; // 60s timeout per single page
-const DOCUMENT_TIMEOUT_MS = 240000; // 4-minute safety ceiling per document
+
+/**
+ * Reads a positive number from the environment. An unset or malformed value
+ * falls back to the default, so a typo can never switch a limit off.
+ */
+function positiveNumberFromEnv(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+/**
+ * Decides whether the OCR text is missing part of the document, so extraction
+ * can send the TOR to review instead of trusting an answer that may sit on a
+ * page we never read (ADR 0013).
+ *
+ * @param {Object} run
+ * @param {'page-limit' | 'timeout' | null} run.stoppedEarly - Why the page loop ended before the last page, or null if it reached the end
+ * @param {number[]} run.skippedPages - Pages whose OCR threw or timed out and contributed no text
+ * @param {number} run.pagesAttempted - Pages the loop tried to read
+ * @param {number} run.totalPages - Pages in the PDF (0 when unknown)
+ * @returns {boolean}
+ */
+export function isTruncated({ stoppedEarly, skippedPages, pagesAttempted, totalPages }) {
+  return (
+    stoppedEarly === 'page-limit' ||
+    stoppedEarly === 'timeout' ||
+    skippedPages.length > 0 ||
+    totalPages === 0 ||
+    pagesAttempted < totalPages
+  );
+}
 
 /**
  * Safely cleans OCR / extracted text without removing critical specification data.
@@ -70,13 +105,16 @@ export function cleanOcrText(text) {
  *
  * @param {string} pdfPath - Absolute or relative path to PDF file
  * @param {Object} [options]
- * @param {number} [options.maxPages=30] - Maximum pages to OCR
- * @param {number} [options.timeoutMs=240000] - Maximum milliseconds for OCR pass
- * @returns {Promise<{ text: string, confidence: number, usedOcr: boolean, pages: number }>}
+ * @param {number} [options.maxPages] - Maximum pages to OCR (default OCR_MAX_PAGES, else 150)
+ * @param {number} [options.secondsPerPage] - OCR time budget per page (default OCR_SECONDS_PER_PAGE, else 10)
+ * @returns {Promise<{ text: string, confidence: number, usedOcr: boolean, pages: number, truncated: boolean }>}
  */
 export async function extractText(pdfPath, options = {}) {
-  const maxPages = options.maxPages || MAX_OCR_PAGES;
-  const timeoutMs = options.timeoutMs || DOCUMENT_TIMEOUT_MS;
+  const maxPages =
+    options.maxPages ?? positiveNumberFromEnv('OCR_MAX_PAGES', DEFAULT_MAX_PAGES);
+  const secondsPerPage =
+    options.secondsPerPage ??
+    positiveNumberFromEnv('OCR_SECONDS_PER_PAGE', DEFAULT_SECONDS_PER_PAGE);
   const buffer = await fs.readFile(pdfPath);
 
   // 1. Fast path: try embedded digital text
@@ -87,11 +125,12 @@ export async function extractText(pdfPath, options = {}) {
       confidence: 1.0,
       usedOcr: false,
       pages: digitalResult.pages,
+      truncated: false,
     };
   }
 
   // 2. Slow path: scanned PDF -> render pages to images -> Tesseract OCR
-  return ocrScannedPdf(pdfPath, digitalResult.pages, { maxPages, timeoutMs });
+  return ocrScannedPdf(pdfPath, digitalResult.pages, { maxPages, secondsPerPage });
 }
 
 /**
@@ -137,13 +176,10 @@ async function tryEmbeddedDigitalText(buffer) {
  * Demarcates pages with === Page X === headers.
  * @param {string} pdfPath
  * @param {number} [fallbackPages=0]
- * @returns {Promise<{ text: string, confidence: number, usedOcr: boolean, pages: number }>}
+ * @param {{ maxPages: number, secondsPerPage: number }} limits
+ * @returns {Promise<{ text: string, confidence: number, usedOcr: boolean, pages: number, truncated: boolean }>}
  */
-async function ocrScannedPdf(
-  pdfPath,
-  fallbackPages = 0,
-  { maxPages = MAX_OCR_PAGES, timeoutMs = DOCUMENT_TIMEOUT_MS } = {},
-) {
+async function ocrScannedPdf(pdfPath, fallbackPages = 0, { maxPages, secondsPerPage }) {
   let doc = null;
   let worker = null;
   const startTime = Date.now();
@@ -160,18 +196,27 @@ async function ocrScannedPdf(
     });
     worker = await createWorker(['tha', 'eng']);
 
+    // The budget covers the pages we will actually read. When the page count
+    // is unknown, budget for the page limit rather than for nothing.
+    const totalPages = doc.length || fallbackPages;
+    const timeoutMs = Math.min(totalPages || maxPages, maxPages) * secondsPerPage * 1000;
+
     let pageIndex = 0;
+    let stoppedEarly = null;
+    const skippedPages = [];
     const pageTexts = [];
     const confidences = [];
 
     for await (const pageImageBuffer of doc) {
       pageIndex++;
       if (pageIndex > maxPages) {
+        stoppedEarly = 'page-limit';
         console.log(`[OCR Notice] Reached maximum page limit of ${maxPages} pages.`);
         break;
       }
 
       if (Date.now() - startTime > timeoutMs) {
+        stoppedEarly = 'timeout';
         console.warn(
           `[OCR Notice] Reached document timeout limit of ${Math.round(timeoutMs / 1000)}s ` +
             `at page ${pageIndex}. Returning extracted text accumulated so far.`,
@@ -199,10 +244,13 @@ async function ocrScannedPdf(
           }
         }
       } catch (err) {
+        skippedPages.push(pageIndex);
         console.warn(`[OCR Warning] Skipping page ${pageIndex}: ${err.message}`);
       }
     }
 
+    // A loop that broke early counted the page it stopped at without reading it.
+    const pagesAttempted = stoppedEarly ? pageIndex - 1 : pageIndex;
     const combinedText = pageTexts.join('\n\n').trim();
     const avgConfidence =
       confidences.length > 0
@@ -213,7 +261,8 @@ async function ocrScannedPdf(
       text: combinedText,
       confidence: Math.round(avgConfidence * 100) / 100,
       usedOcr: true,
-      pages: pageIndex || fallbackPages,
+      pages: totalPages || pagesAttempted,
+      truncated: isTruncated({ stoppedEarly, skippedPages, pagesAttempted, totalPages }),
     };
   } finally {
     if (doc?.destroy) {

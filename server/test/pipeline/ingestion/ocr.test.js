@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cleanOcrText } from '#pipeline/ingestion/lib/ocr.js';
+import { cleanOcrText, isTruncated } from '#pipeline/ingestion/lib/ocr.js';
 
 test('cleanOcrText normalizes Unicode to NFC', () => {
   // Decomposed Thai character (e.g. 'ก' + upper vowel 'ิ')
@@ -61,4 +61,31 @@ test('cleanOcrText handles empty and non-string inputs safely', () => {
   assert.equal(cleanOcrText(null), '');
   assert.equal(cleanOcrText(undefined), '');
   assert.equal(cleanOcrText('    \n\n   '), '');
+});
+
+// Any page that did not reach rawText counts: a TOR is sent to review rather
+// than trusted when the answer could sit on a page we never read (ADR 0013).
+const complete = { stoppedEarly: null, skippedPages: [], pagesAttempted: 30, totalPages: 30 };
+
+test('isTruncated is false only when every page of a known-length document was read', () => {
+  assert.equal(isTruncated(complete), false);
+});
+
+test('isTruncated flags a document cut short by the page limit or the time budget', () => {
+  assert.equal(
+    isTruncated({ ...complete, stoppedEarly: 'page-limit', pagesAttempted: 150, totalPages: 210 }),
+    true,
+  );
+  assert.equal(
+    isTruncated({ ...complete, stoppedEarly: 'timeout', pagesAttempted: 40, totalPages: 83 }),
+    true,
+  );
+});
+
+test('isTruncated flags a single page whose OCR failed, even mid-document', () => {
+  assert.equal(isTruncated({ ...complete, skippedPages: [7] }), true);
+});
+
+test('isTruncated flags a document whose page count is unknown', () => {
+  assert.equal(isTruncated({ ...complete, pagesAttempted: 5, totalPages: 0 }), true);
 });

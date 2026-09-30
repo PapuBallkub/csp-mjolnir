@@ -269,6 +269,7 @@ export async function runOcrStep({ id, documentsDir, source = 'manual' }) {
         rawText: ocrResult.text,
         confidence: ocrResult.confidence,
         usedOcr: ocrResult.usedOcr,
+        truncated: ocrResult.truncated,
         processedAt: new Date(),
       };
       tor.document.pages = ocrResult.pages;
@@ -281,7 +282,8 @@ export async function runOcrStep({ id, documentsDir, source = 'manual' }) {
       console.log(
         `        Type: ${ocrResult.usedOcr ? 'Scanned Paper (OCR)' : 'Digital Text PDF'} | ` +
           `Pages: ${ocrResult.pages} | Confidence: ${Math.round(ocrResult.confidence * 100)}% | ` +
-          `Chars: ${ocrResult.text.length.toLocaleString()}`,
+          `Chars: ${ocrResult.text.length.toLocaleString()}` +
+          (ocrResult.truncated ? ' | TRUNCATED: some pages were not read' : ''),
       );
       successCount++;
     } catch (err) {
