@@ -16,7 +16,9 @@ import { createWorker } from 'tesseract.js';
 
 const require = createRequire(import.meta.resolve('pdf-to-img'));
 const pdfjsDistPkg = require.resolve('pdfjs-dist/package.json');
-const wasmDir = path.join(path.dirname(pdfjsDistPkg), 'wasm') + path.sep;
+// pdf.js insists the directory ends in "/" and reads it with fs.readFile, so
+// build it with forward slashes: path.sep would end it in "\" on Windows.
+const wasmDir = path.join(path.dirname(pdfjsDistPkg), 'wasm').split(path.sep).join('/') + '/';
 const napiCanvas = require('@napi-rs/canvas');
 
 const MAX_OCR_PAGES = 30; // Scan up to 30 pages for thorough specification extraction
