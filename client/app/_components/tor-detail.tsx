@@ -2,50 +2,101 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import {
-  formatDate,
-  formatTHB,
-  matchFactors,
-  matchScore,
-  pick,
-  type Tor,
-} from "../_data/tors";
+import type { TorInsightDetail } from "../_lib/api";
+import type { Lang, Tor } from "../_data/tors";
 import { useLang, useProfile } from "./prefs";
-import { Deadline, deadlineText } from "./deadline";
-import { AmendmentModule, LockSpecModule, PriceModule, SourceModule } from "./modules";
-import {
-  MatchScore,
-  PRICE_TONE,
-  RISK_TONE,
-  ScopeBadge,
-  SmeBadge,
-  VerdictStrip,
-} from "./verdict";
-import { AccentPanel, btn, Chip, Eyebrow, Fact, Label, Panel, SectionHeading } from "./ui";
+import { AccentPanel, btn, Chip, Eyebrow, Fact, Label, Panel, SectionHeading, Well } from "./ui";
 
-/**
- * The "never open the PDF" screen, and the one that gets the most design
- * effort.
- *
- * Structure carries the reading order. The normalized summary is one clean
- * sheet — the thing that replaces the document. Each risk module is then its
- * own panel wearing its verdict hue on the left edge, the same rail the
- * catalog rows use, so a verdict attached to content always looks the same.
- * Provenance sits last and quietest, on no surface at all.
- */
-export function TorDetail({ tor }: { tor: Tor }) {
+function formatMoney(amount: number | null | undefined): string {
+  if (amount == null) return "ไม่ระบุใน TOR";
+  return `฿${amount.toLocaleString("en-US")}`;
+}
+
+function formatDateString(val: string | Date | null | undefined, lang: Lang): string {
+  if (!val) return lang === "th" ? "ไม่ระบุใน TOR" : "Not specified in TOR";
+  try {
+    const d = new Date(val);
+    if (Number.isNaN(d.getTime())) return String(val);
+    const day = d.getDate();
+    const monthTh = [
+      "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+      "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
+    ][d.getMonth()];
+    const monthEn = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ][d.getMonth()];
+    const yearTh = d.getFullYear() + 543;
+    const yearEn = d.getFullYear();
+    return lang === "th" ? `${day} ${monthTh} ${yearTh}` : `${day} ${monthEn} ${yearEn}`;
+  } catch {
+    return String(val);
+  }
+}
+
+function getScopeSize(budget: number | null): { th: string; en: string } {
+  if (!budget) return { th: "ไม่ระบุขนาด", en: "Unspecified" };
+  if (budget < 5_000_000) return { th: "ทำคนเดียว / ทีมเล็ก", en: "Solo / Small team" };
+  if (budget <= 30_000_000) return { th: "ทีมขนาดกลาง (2–5 คน)", en: "Mid-size team" };
+  return { th: "องค์กร / บริษัทขนาดใหญ่", en: "Firm-sized" };
+}
+
+export function TorDetail({
+  insight,
+  tor,
+}: {
+  insight?: TorInsightDetail;
+  tor?: Tor;
+}) {
   const { lang } = useLang();
   const { profile } = useProfile();
-  const [saved, setSaved] = useState(profile.watchlist.includes(tor.id));
 
-  const secondaryTitle = lang === "th" ? tor.title.en : tor.title.th;
-  const latestAmendment = tor.amendments.find((a) => a.changes.length > 0);
-  const score = matchScore(tor, profile);
-  const factors = matchFactors(tor, profile);
-  const matchedTech = tor.techStack.filter((t) => profile.skills.includes(t));
+  const projectId = insight?.projectId || tor?.id || "";
+  const [saved, setSaved] = useState(profile.watchlist.includes(projectId));
+
+  // If rendering from legacy fixture tor
+  if (!insight && tor) {
+    return <LegacyTorDetail tor={tor} lang={lang} />;
+  }
+
+  if (!insight) return null;
+
+  const iden = insight.identification;
+  const facts = insight.facts;
+  const overview = insight.overview;
+  const deliverables = insight.deliverables;
+  const tech = insight.technicalRequirements;
+  const integration = insight.integrationEnvironment;
+  const ops = insight.operationalRequirements;
+  const elig = insight.eligibility;
+  const conditions = insight.contractConditions;
+  const lockSpec = insight.analytics.lockSpec;
+  const price = insight.analytics.priceAnalysis;
+  const amend = insight.amendmentInfo;
+
+  const scope = getScopeSize(facts.referencePriceTHB || facts.budgetTHB);
+
+  // Match profile skills with required technologies
+  const requiredTechNames = tech.requiredTechnologies.map((t) => t.name);
+  const matchedSkills = requiredTechNames.filter((t) =>
+    profile.skills.some((s) => s.toLowerCase() === t.toLowerCase() || t.toLowerCase().includes(s.toLowerCase()))
+  );
+
+  // Determine lock-spec tone
+  const lockScore = lockSpec.riskScore;
+  const lockTone: "open" | "amend" | "risk" =
+    lockScore >= 70 ? "risk" : lockScore >= 35 ? "amend" : "open";
+
+  // Determine price tone
+  const diffPct = price.diffPercentage;
+  const priceTone: "open" | "amend" | "risk" =
+    diffPct > 15 ? "amend" : diffPct < -15 ? "risk" : "open";
 
   return (
-    <article>
+    <article className="pb-16">
+      {/* ------------------------------------------------------------------ */}
+      {/* 1. PROJECT IDENTIFICATION (Header)                                 */}
+      {/* ------------------------------------------------------------------ */}
       <header className="relative border-b border-line bg-surface">
         <div className="scanlines pointer-events-none absolute inset-0 opacity-50" aria-hidden />
 
@@ -55,260 +106,1022 @@ export function TorDetail({ tor }: { tor: Tor }) {
               {lang === "th" ? "ค้นหาประกาศ" : "Search"}
             </Link>
             <span>/</span>
-            <span className="tnum text-ink-2">{tor.id}</span>
+            <span className="tnum text-ink-2">{insight.projectId}</span>
             <span className="h-3 w-px bg-line" />
-            <span>e-GP {tor.egpRef}</span>
+            <span>e-GP {iden.egpReference || insight.projectId}</span>
           </nav>
 
           <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink-2">
-            <span className="font-medium">{pick(tor.agency, lang)}</span>
-            {tor.unit ? (
+            <span className="font-medium text-ink">{iden.agency}</span>
+            {iden.department ? (
               <>
                 <span className="h-3 w-px bg-line" />
-                <span className="text-ink-3">{pick(tor.unit, lang)}</span>
+                <span className="text-ink-3">{iden.department}</span>
+              </>
+            ) : null}
+            {iden.category ? (
+              <>
+                <span className="h-3 w-px bg-line" />
+                <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-ink-3">
+                  {iden.category}
+                </span>
               </>
             ) : null}
           </p>
 
-          <h1 className="mt-1.5 max-w-4xl text-[28px] leading-thai font-semibold tracking-tight text-ink">
-            {pick(tor.title, lang)}
+          <h1 className="mt-2 max-w-4xl text-[26px] sm:text-[28px] leading-thai font-semibold tracking-tight text-ink">
+            {iden.titleTh}
           </h1>
-          {/* Both languages, always — the source is Thai and the gloss is ours. */}
-          <p className="mt-1.5 max-w-4xl text-[14px] leading-thai text-ink-3">{secondaryTitle}</p>
+
+          {iden.titleEn ? (
+            <p className="mt-1.5 max-w-4xl text-[14px] leading-thai text-ink-3">
+              {iden.titleEn}
+            </p>
+          ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <ScopeBadge size={tor.scopeSize} lang={lang} />
-            {tor.smeAdvantage ? <SmeBadge lang={lang} /> : null}
+            {/* Status Badge */}
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-[2px] border px-2.5 py-[3px] text-[11px] font-medium leading-none ${
+                iden.status === "Open"
+                  ? "border-open-line bg-open-bg text-open"
+                  : iden.status === "Closed"
+                  ? "border-closed-line bg-closed-bg text-closed"
+                  : "border-line bg-surface-2 text-ink-2"
+              }`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+              {iden.status === "Open"
+                ? lang === "th"
+                  ? "เปิดรับข้อเสนอ"
+                  : "Open"
+                : iden.status}
+            </span>
+
+            {/* Amended Flag */}
+            {amend.isAmended ? (
+              <span className="inline-flex items-center gap-1 rounded-[2px] border border-amend-line bg-amend-bg px-2 py-[3px] text-[11px] font-medium text-amend">
+                <span>✎</span>
+                <span>{lang === "th" ? "มีเอกสารแก้ไข" : "Amended"}</span>
+              </span>
+            ) : null}
+
+            {/* Scope Badge */}
+            <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-2 py-[3px] text-[11px] font-medium text-ink-2">
+              {lang === "th" ? scope.th : scope.en}
+            </span>
           </div>
 
-          <div className="mt-5">
-            <VerdictStrip tor={tor} lang={lang} size="full" />
+          {/* Verdict Strip */}
+          <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[3px] border border-line bg-surface-2/60 p-2.5 sm:gap-6 sm:px-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] text-ink-3">
+                {lang === "th" ? "วิเคราะห์ล็อกสเปก:" : "Lock-spec:"}
+              </span>
+              <span
+                className={`font-mono text-[12px] font-semibold ${
+                  lockTone === "risk"
+                    ? "text-risk"
+                    : lockTone === "amend"
+                    ? "text-amend"
+                    : "text-open"
+                }`}
+              >
+                {lockScore}/100 (
+                {lockScore >= 70
+                  ? lang === "th" ? "เสี่ยงสูง" : "High Risk"
+                  : lockScore >= 35
+                  ? lang === "th" ? "ปานกลาง" : "Medium"
+                  : lang === "th" ? "เสี่ยงต่ำ" : "Low Risk"}
+                )
+              </span>
+            </div>
+
+            <div className="hidden h-3 w-px bg-line sm:block" />
+
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] text-ink-3">
+                {lang === "th" ? "เทียบราคากลางในอดีต:" : "Price vs median:"}
+              </span>
+              <span
+                className={`font-mono text-[12px] font-semibold ${
+                  diffPct > 15
+                    ? "text-amend"
+                    : diffPct < -15
+                    ? "text-risk"
+                    : "text-open"
+                }`}
+              >
+                {diffPct > 0 ? `+${diffPct}%` : `${diffPct}%`}
+              </span>
+            </div>
+
+            <div className="hidden h-3 w-px bg-line sm:block" />
+
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] text-ink-3">
+                {lang === "th" ? "ตรงกับทักษะคุณ:" : "Skill match:"}
+              </span>
+              <span className="font-mono text-[12px] font-medium text-ink">
+                {matchedSkills.length}/{requiredTechNames.length} {lang === "th" ? "รายการ" : "skills"}
+              </span>
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1240px] gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_312px]">
-        {/* Key facts lead on mobile, but the reading column leads on desktop. */}
+      {/* ------------------------------------------------------------------ */}
+      {/* 2. BODY LAYOUT (Aside Facts + Main 13 Sections)                   */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="mx-auto grid max-w-[1240px] gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        {/* ASIDE: Key Procurement Facts (Desktop right, mobile top) */}
         <aside className="order-1 flex flex-col gap-4 lg:order-2 lg:sticky lg:top-[70px] lg:self-start">
-          <Panel className="px-4 pt-4 pb-1">
-            <Label>{lang === "th" ? "ราคากลาง" : "Reference price"}</Label>
-            <p className="mt-1.5 font-mono tnum text-[28px] leading-none font-medium text-ink">
-              {formatTHB(tor.budget)}
+          <Panel className="px-4 pt-4 pb-2">
+            <Label>{lang === "th" ? "ราคากลาง (Reference Price)" : "Reference price"}</Label>
+            <p className="mt-1.5 font-mono tnum text-[28px] leading-none font-semibold text-ink">
+              {formatMoney(facts.referencePriceTHB || facts.budgetTHB)}
             </p>
 
-            <div className="mt-4 flex flex-col">
+            {facts.budgetTHB && facts.budgetTHB !== facts.referencePriceTHB ? (
+              <p className="mt-1 text-[12px] text-ink-3">
+                {lang === "th" ? "วงเงินงบประมาณ:" : "Budget:"}{" "}
+                <span className="font-mono">{formatMoney(facts.budgetTHB)}</span>
+              </p>
+            ) : null}
+
+            <div className="mt-4 flex flex-col border-t border-line/60 pt-2">
               <Fact label={lang === "th" ? "กำหนดยื่นข้อเสนอ" : "Submission deadline"}>
-                <span className="flex flex-col sm:items-end">
-                  <span className="font-mono tnum">{formatDate(tor.deadline, lang)}</span>
-                  <span className="font-mono tnum text-[11px] text-ink-3">
-                    {deadlineText(tor.deadline, tor.status, lang)}
-                  </span>
+                <span className="font-mono text-[13px] font-medium text-ink">
+                  {formatDateString(facts.submissionDeadline, lang)}
                 </span>
               </Fact>
+
+              <Fact label={lang === "th" ? "วิธีการจัดซื้อจัดจ้าง" : "Procurement method"}>
+                <span className="text-[12px] text-ink-2">
+                  {facts.procurementMethod || (lang === "th" ? "ไม่ระบุใน TOR" : "Not specified")}
+                </span>
+              </Fact>
+
+              <Fact label={lang === "th" ? "ระยะเวลาส่งมอบ" : "Delivery period"}>
+                <span className="font-mono text-[12px] text-ink">
+                  {facts.deliveryPeriodDays
+                    ? `${facts.deliveryPeriodDays} ${lang === "th" ? "วัน" : "days"}`
+                    : (lang === "th" ? "ไม่ระบุใน TOR" : "Not specified")}
+                </span>
+              </Fact>
+
+              <Fact label={lang === "th" ? "ระยะเวลารับประกัน" : "Warranty"}>
+                <span className="font-mono text-[12px] text-ink">
+                  {facts.warrantyYears
+                    ? `${facts.warrantyYears} ${lang === "th" ? "ปี" : "years"}`
+                    : (lang === "th" ? "ไม่ระบุใน TOR" : "Not specified")}
+                </span>
+              </Fact>
+
               <Fact label={lang === "th" ? "ค่าปรับความล่าช้า" : "Delay penalty"}>
-                {pick(tor.penalty, lang)}
+                <span className="text-[12px] text-ink-2">
+                  {facts.penaltyClause || (lang === "th" ? "ไม่ระบุใน TOR" : "Not specified")}
+                </span>
               </Fact>
-              <Fact label={lang === "th" ? "ประกาศเมื่อ" : "Posted"} mono>
-                {formatDate(tor.postedAt, lang)}
-              </Fact>
-              <Fact label={lang === "th" ? "ที่มา" : "Source"} mono>
-                {tor.source.portal}
+
+              <Fact label={lang === "th" ? "วันที่เผยแพร่" : "Posted date"} mono>
+                <span className="font-mono text-[12px]">
+                  {formatDateString(facts.postedDate, lang)}
+                </span>
               </Fact>
             </div>
+
+            {/* Official e-GP Link */}
+            {facts.webUrl || facts.sourceUrl ? (
+              <div className="mt-4 border-t border-line pt-3 pb-1">
+                <a
+                  href={facts.webUrl || facts.sourceUrl || "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${btn.primary} flex w-full items-center justify-center gap-1.5 text-[12px]`}
+                >
+                  <span>{lang === "th" ? "เปิดดูบนระบบ e-GP ทางการ" : "Open on official e-GP"}</span>
+                  <span>↗</span>
+                </a>
+                <p className="mt-1.5 text-center text-[11px] text-ink-3">
+                  {lang === "th"
+                    ? "การยื่นข้อเสนอและการประมูลทางการทำผ่าน e-GP เท่านั้น"
+                    : "All official bids are submitted on e-GP."}
+                </p>
+              </div>
+            ) : null}
           </Panel>
 
+          {/* Watchlist Action */}
           <Panel className="p-4">
             <button
               type="button"
               onClick={() => setSaved(!saved)}
-              className={saved ? `${btn.secondary} w-full` : `${btn.primary} w-full`}
+              className={saved ? `${btn.secondary} w-full text-[13px]` : `${btn.primary} w-full text-[13px]`}
               aria-pressed={saved}
             >
               {saved
                 ? lang === "th"
-                  ? "✓ บันทึกไว้ติดตามแล้ว"
+                  ? "✓ ติดตามประกาศนี้แล้ว"
                   : "✓ On your watchlist"
                 : lang === "th"
-                  ? "บันทึกไว้ติดตาม"
-                  : "Save to watchlist"}
+                  ? "★ บันทึกไว้ติดตามการเปลี่ยนแปลง"
+                  : "★ Save to watchlist"}
             </button>
-            <p className="mt-2.5 text-[12px] leading-thai text-ink-3">
+            <p className="mt-2 text-[11px] leading-thai text-ink-3">
               {saved
                 ? lang === "th"
-                  ? "เราจะส่งอีเมลแจ้งคุณทันทีที่เอกสารนี้ถูกแก้ไข หรือเมื่อประกาศผู้ชนะ"
-                  : "We will email you the moment this document is amended or awarded."
+                  ? "ระบบจะแจ้งเตือนเมื่อมีการออกเอกสารแก้ไข (Amendment) หรือประกาศผู้ชนะ"
+                  : "You will be alerted if amended or awarded."
                 : lang === "th"
-                  ? "บันทึกไว้แล้วจะได้รับแจ้งเตือนเมื่อ TOR ถูกแก้ไข"
-                  : "Saved projects alert you when the TOR changes."}
+                  ? "บันทึกเพื่อรับการแจ้งเตือนทันทีเมื่อมีการแก้ไข TOR หรือเลื่อนวันยื่นข้อเสนอ"
+                  : "Save to get alerted when this TOR is amended."}
             </p>
           </Panel>
 
+          {/* Capability Matchbox */}
           <Panel className="p-4">
             <div className="flex items-center justify-between gap-2">
-              <Label>{lang === "th" ? "ตรงกับโปรไฟล์คุณ" : "Match with you"}</Label>
-              <MatchScore score={score} lang={lang} />
+              <Label>{lang === "th" ? "ความตรงกับทักษะของคุณ" : "Skills match"}</Label>
+              <span className="font-mono text-[13px] font-semibold text-open">
+                {Math.round((matchedSkills.length / Math.max(requiredTechNames.length, 1)) * 100)}%
+              </span>
             </div>
-            <ul className="mt-3 flex flex-col gap-2 border-t border-line pt-3 text-[12px] leading-thai text-ink-2">
-              {factors.map((factor) => (
-                <li key={factor.label.en} className="flex gap-2">
-                  <span className={`font-mono ${factor.met ? "text-open" : "text-ink-3"}`}>
-                    {factor.met ? "✓" : "✕"}
+
+            <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-3">
+              {requiredTechNames.map((tName) => {
+                const isMatch = matchedSkills.includes(tName);
+                return (
+                  <span
+                    key={tName}
+                    className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[11px] ${
+                      isMatch
+                        ? "border-open-line bg-open-bg text-open font-medium"
+                        : "border-line bg-surface-2 text-ink-3"
+                    }`}
+                  >
+                    <span>{isMatch ? "✓" : "○"}</span>
+                    <span>{tName}</span>
                   </span>
-                  <span>{pick(factor.label, lang)}</span>
-                </li>
-              ))}
-            </ul>
+                );
+              })}
+            </div>
+
             <Link
               href="/profile"
-              className="mt-3 inline-block text-[12px] text-ink-2 underline underline-offset-2 hover:text-ink"
+              className="mt-3 inline-block text-[11px] text-ink-2 underline underline-offset-2 hover:text-ink"
             >
-              {lang === "th" ? "แก้ไขทักษะและเงื่อนไข" : "Edit your skills and limits"}
+              {lang === "th" ? "แก้ไขทักษะในโปรไฟล์ของคุณ →" : "Edit your skills profile →"}
             </Link>
           </Panel>
         </aside>
 
-        <div className="order-2 flex min-w-0 flex-col gap-5 lg:order-1">
-          {tor.status === "closed" ? (
-            <div className="rounded-[3px] border border-l-[3px] border-line border-l-closed bg-closed-bg px-4 py-3.5">
-              <p className="text-[15px] leading-thai font-semibold text-ink">
+        {/* MAIN COLUMN: 13 Modular Sections */}
+        <div className="order-2 flex min-w-0 flex-col gap-6 lg:order-1">
+          {/* Status Alert if Closed or Cancelled */}
+          {iden.status === "Closed" || iden.status === "Cancelled" ? (
+            <div className="rounded-[3px] border border-l-[4px] border-line border-l-closed bg-closed-bg px-4 py-3.5">
+              <p className="text-[15px] font-semibold text-ink">
                 {lang === "th"
-                  ? "โครงการนี้ปิดรับข้อเสนอแล้ว ไม่ต้องเสียเวลาอ่านต่อ"
-                  : "This project is closed — you can stop reading here."}
+                  ? "โครงการนี้สิ้นสุดการรับข้อเสนอแล้ว"
+                  : "This procurement is closed."}
               </p>
-              <p className="mt-1 text-[13px] leading-thai text-ink-2">
+              <p className="mt-1 text-[13px] text-ink-2">
                 {lang === "th"
-                  ? `ผู้ชนะคือ ${tor.awardedTo ? pick(tor.awardedTo, lang) : "-"} เสนอราคา ${
-                      tor.awardedAmount ? formatTHB(tor.awardedAmount) : "-"
-                    }`
-                  : `Awarded to ${tor.awardedTo ? pick(tor.awardedTo, lang) : "-"} at ${
-                      tor.awardedAmount ? formatTHB(tor.awardedAmount) : "-"
-                    }.`}
+                  ? "โครงการนี้พ้นกำหนดยื่นข้อเสนอหรือมีการประกาศผลเรียบร้อยแล้ว ไม่จำเป็นต้องอ่านต่อเพื่อเตรียมยื่นซอง"
+                  : "The submission deadline has passed or results have been awarded."}
               </p>
             </div>
           ) : null}
 
-          {tor.status === "amended" && latestAmendment ? (
-            <div className="rounded-[3px] border border-l-[3px] border-line border-l-amend bg-amend-bg px-4 py-3.5">
-              <p className="text-[15px] leading-thai font-semibold text-amend">
+          {/* Amendment Alert Banner if Amended */}
+          {amend.isAmended ? (
+            <div className="rounded-[3px] border border-l-[4px] border-line border-l-amend bg-amend-bg px-4 py-3.5">
+              <p className="text-[15px] font-semibold text-amend">
                 {lang === "th"
-                  ? `เอกสารนี้ถูกแก้ไขเมื่อ ${formatDate(latestAmendment.date, lang)} หลังจากคุณอาจเคยอ่านฉบับเดิม`
-                  : `This document changed on ${formatDate(latestAmendment.date, lang)} — after the version you may have read.`}
+                  ? `ประกาศนี้มีการแก้ไข TOR (ปรับปรุงล่าสุด ${formatDateString(amend.lastAmendedDate, lang)})`
+                  : `This TOR has been amended (Last updated ${formatDateString(amend.lastAmendedDate, lang)})`}
               </p>
-              <p className="mt-1 text-[13px] leading-thai text-ink-2">
-                {pick(latestAmendment.headline, lang)}{" "}
-                <a href="#amendments" className="underline underline-offset-2 hover:text-ink">
-                  {lang === "th" ? "ดูสิ่งที่เปลี่ยน" : "See exactly what changed"}
-                </a>
-              </p>
+              {amend.amendmentSummary ? (
+                <p className="mt-1 text-[13px] leading-thai text-ink-2">
+                  {amend.amendmentSummary}
+                </p>
+              ) : null}
+              {amend.changedSections && amend.changedSections.length > 0 ? (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] text-ink-3">
+                    {lang === "th" ? "ส่วนที่มีการแก้ไข:" : "Changed sections:"}
+                  </span>
+                  {amend.changedSections.map((sec) => (
+                    <span key={sec} className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-amend border border-amend-line">
+                      {sec}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
-          {/* The normalized summary: one sheet, three sections, no boxes. */}
+          {/* ---------------------------------------------------------------- */}
+          {/* 3. PROJECT OVERVIEW                                              */}
+          {/* ---------------------------------------------------------------- */}
           <Panel className="px-4 py-5 sm:px-6 sm:py-6">
-            <section>
-              <SectionHeading
-                sub={
-                  lang === "th"
-                    ? "สรุปจากเอกสารต้นฉบับ อ่านเท่านี้ก็ตัดสินใจได้"
-                    : "Distilled from the source document — this is meant to be enough."
-                }
-              >
-                {lang === "th" ? "งานนี้คืออะไร" : "What this project is"}
-              </SectionHeading>
-              <ul className="flex flex-col gap-2.5">
-                {tor.summary.map((line) => (
-                  <li key={line.th} className="flex gap-3 text-[15px] leading-thai text-ink">
-                    <span className="mt-[10px] h-[3px] w-[3px] shrink-0 rounded-full bg-ink-3" />
-                    <span>{pick(line, lang)}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <SectionHeading
+              sub={
+                lang === "th"
+                  ? "วัตถุประสงค์และขอบเขตภาพรวมของงานจ้างตามเอกสาร TOR"
+                  : "Objective and high-level scope from the source TOR document"
+              }
+            >
+              {lang === "th" ? "3. วัตถุประสงค์และขอบเขตโครงการ" : "3. Project Overview"}
+            </SectionHeading>
 
-            <section className="mt-9">
-              <SectionHeading>
-                {lang === "th" ? "สิ่งที่ต้องส่งมอบ" : "What you would deliver"}
-              </SectionHeading>
-              <ul className="flex flex-col gap-2">
-                {tor.deliverables.map((line) => (
-                  <li key={line.th} className="flex gap-3 text-[14px] leading-thai text-ink-2">
-                    <span className="mt-[9px] h-[3px] w-[3px] shrink-0 rounded-full bg-ink-3" />
-                    <span>{pick(line, lang)}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            {overview.objective ? (
+              <div className="mt-3">
+                <Label>{lang === "th" ? "วัตถุประสงค์ (Objective)" : "Objective"}</Label>
+                <p className="mt-1 text-[15px] leading-thai text-ink">
+                  {overview.objective}
+                </p>
+              </div>
+            ) : null}
 
-            <section className="mt-9">
-              <SectionHeading
-                sub={
-                  lang === "th"
-                    ? `ตรงกับทักษะที่คุณระบุไว้ ${matchedTech.length} จาก ${tor.techStack.length} รายการ`
-                    : `${matchedTech.length} of ${tor.techStack.length} match the skills on your profile.`
-                }
-              >
-                {lang === "th" ? "เทคโนโลยีที่ต้องใช้" : "Technologies required"}
-              </SectionHeading>
-              <div className="flex flex-wrap gap-1.5">
-                {tor.techStack.map((term) => {
-                  const known = profile.skills.includes(term);
+            {overview.highLevelScope ? (
+              <div className="mt-4">
+                <Label>{lang === "th" ? "ขอบเขตภาพรวม (High-level Scope)" : "High-level Scope"}</Label>
+                <p className="mt-1 text-[14px] leading-thai text-ink-2">
+                  {overview.highLevelScope}
+                </p>
+              </div>
+            ) : null}
+
+            {overview.majorComponents && overview.majorComponents.length > 0 ? (
+              <div className="mt-5 border-t border-line/60 pt-4">
+                <Label>{lang === "th" ? "องค์ประกอบหลักของงาน (Major Components)" : "Major Components"}</Label>
+                <ul className="mt-2 flex flex-col gap-2">
+                  {overview.majorComponents.map((item, idx) => (
+                    <li key={idx} className="flex gap-2.5 text-[14px] leading-thai text-ink">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-ink-3" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </Panel>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* 4. CONTRACTOR DELIVERABLES                                       */}
+          {/* ---------------------------------------------------------------- */}
+          <Panel className="px-4 py-5 sm:px-6 sm:py-6">
+            <SectionHeading
+              sub={
+                lang === "th"
+                  ? "สิ่งที่ผู้รับจ้างต้องจัดทำและส่งมอบตามสัญญาเพื่อรับการตรวจรับ"
+                  : "Everything required to deliver and pass official acceptance inspection"
+              }
+            >
+              {lang === "th" ? "4. สิ่งที่ต้องส่งมอบ (Deliverables)" : "4. Deliverables"}
+            </SectionHeading>
+
+            <div className="mt-4 grid gap-5 sm:grid-cols-2">
+              {deliverables.system && deliverables.system.length > 0 ? (
+                <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+                  <h3 className="text-[13px] font-semibold text-ink">
+                    {lang === "th" ? "📦 ระบบซอฟต์แวร์และเอกสารระบบ" : "System & Documentation"}
+                  </h3>
+                  <ul className="mt-2 flex flex-col gap-1.5">
+                    {deliverables.system.map((item, idx) => (
+                      <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
+                        <span className="text-ink-3">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {deliverables.implementation && deliverables.implementation.length > 0 ? (
+                <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+                  <h3 className="text-[13px] font-semibold text-ink">
+                    {lang === "th" ? "⚙️ การติดตั้งและย้ายข้อมูล" : "Implementation & Migration"}
+                  </h3>
+                  <ul className="mt-2 flex flex-col gap-1.5">
+                    {deliverables.implementation.map((item, idx) => (
+                      <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
+                        <span className="text-ink-3">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {deliverables.validation && deliverables.validation.length > 0 ? (
+                <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+                  <h3 className="text-[13px] font-semibold text-ink">
+                    {lang === "th" ? "🔍 การทดสอบระบบและการตรวจรับ" : "Testing & Acceptance"}
+                  </h3>
+                  <ul className="mt-2 flex flex-col gap-1.5">
+                    {deliverables.validation.map((item, idx) => (
+                      <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
+                        <span className="text-ink-3">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {deliverables.supportingWork && deliverables.supportingWork.length > 0 ? (
+                <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+                  <h3 className="text-[13px] font-semibold text-ink">
+                    {lang === "th" ? "🎓 การฝึกอบรมและการสนับสนุน" : "Training & Support"}
+                  </h3>
+                  <ul className="mt-2 flex flex-col gap-1.5">
+                    {deliverables.supportingWork.map((item, idx) => (
+                      <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
+                        <span className="text-ink-3">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          </Panel>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* 5. TECHNICAL REQUIREMENTS                                        */}
+          {/* ---------------------------------------------------------------- */}
+          <Panel className="px-4 py-5 sm:px-6 sm:py-6">
+            <SectionHeading
+              sub={
+                lang === "th"
+                  ? "เทคโนโลยี สถาปัตยกรรมระบบ และข้อกำหนดประสิทธิภาพ"
+                  : "Required technology stack, system architecture and performance metrics"
+              }
+            >
+              {lang === "th" ? "5. ข้อกำหนดด้านเทคนิค (Technical Requirements)" : "5. Technical Requirements"}
+            </SectionHeading>
+
+            {/* Technologies */}
+            <div className="mt-3">
+              <Label>{lang === "th" ? "เทคโนโลยีที่กำหนดระบุไว้" : "Required Technologies"}</Label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {tech.requiredTechnologies.map((t) => {
+                  const isMatch = matchedSkills.includes(t.name);
                   return (
                     <Chip
-                      key={term}
-                      className={known ? "border-open-line bg-open-bg text-open" : ""}
-                      title={
-                        known
-                          ? lang === "th"
-                            ? "อยู่ในทักษะของคุณ"
-                            : "On your skills list"
-                          : undefined
-                      }
+                      key={t.name}
+                      className={isMatch ? "border-open-line bg-open-bg text-open" : ""}
                     >
-                      {known ? <span className="mr-1">✓</span> : null}
-                      {term}
+                      {isMatch ? <span className="mr-1">✓</span> : null}
+                      <span className="font-medium">{t.name}</span>
+                      {t.version ? (
+                        <span className="ml-1 opacity-70 font-mono text-[10px]">v{t.version}</span>
+                      ) : null}
                     </Chip>
                   );
                 })}
               </div>
-            </section>
+            </div>
+
+            {/* Required Capabilities */}
+            {tech.requiredCapabilities && tech.requiredCapabilities.length > 0 ? (
+              <div className="mt-5 border-t border-line/60 pt-4">
+                <Label>{lang === "th" ? "ขีดความสามารถที่ระบบต้องมี" : "System Capabilities"}</Label>
+                <ul className="mt-2 flex flex-col gap-2">
+                  {tech.requiredCapabilities.map((cap, idx) => (
+                    <li key={idx} className="flex gap-2 text-[13.5px] leading-thai text-ink-2">
+                      <span className="text-ink-3">✓</span>
+                      <span>{cap}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {/* Infrastructure Specs */}
+            {tech.infrastructureSpecifications && tech.infrastructureSpecifications.length > 0 ? (
+              <div className="mt-5 border-t border-line/60 pt-4">
+                <Label>{lang === "th" ? "ข้อกำหนดโครงสร้างพื้นฐานและฮาร์ดแวร์" : "Infrastructure Specs"}</Label>
+                <div className="mt-2 divide-y divide-line rounded-[3px] border border-line bg-surface-2/30">
+                  {tech.infrastructureSpecifications.map((spec, idx) => (
+                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between px-3.5 py-2 text-[13px]">
+                      <span className="font-medium text-ink">{spec.key}</span>
+                      <span className="font-mono text-ink-2">{spec.spec}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </Panel>
 
-          <AccentPanel
-            tone={RISK_TONE[tor.lockSpec.level]}
-            className="px-4 py-5 sm:px-6 sm:py-6"
-          >
-            <LockSpecModule tor={tor} lang={lang} />
-          </AccentPanel>
+          {/* ---------------------------------------------------------------- */}
+          {/* 6. INTEGRATION & EXISTING ENVIRONMENT                            */}
+          {/* ---------------------------------------------------------------- */}
+          <Panel className="px-4 py-5 sm:px-6 sm:py-6">
+            <SectionHeading
+              sub={
+                lang === "th"
+                  ? "ระบบเดิมที่ต้องเชื่อมต่อ สภาพแวดล้อมเครือข่าย และสถานที่ติดตั้ง"
+                  : "Legacy systems, interfaces, and host deployment environment"
+              }
+            >
+              {lang === "th" ? "6. สภาพแวดล้อมและการเชื่อมต่อระบบเดิม" : "6. Integration & Environment"}
+            </SectionHeading>
 
-          <AccentPanel tone={PRICE_TONE[tor.price.verdict]} className="px-4 py-5 sm:px-6 sm:py-6">
-            <PriceModule tor={tor} lang={lang} />
-          </AccentPanel>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label>{lang === "th" ? "ระบบเดิมของหน่วยงานที่ต้องเชื่อมต่อ" : "Existing Systems"}</Label>
+                <ul className="mt-1.5 flex flex-col gap-1.5">
+                  {integration.existingSystems && integration.existingSystems.length > 0 ? (
+                    integration.existingSystems.map((item, idx) => (
+                      <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
+                        <span className="text-ink-3">→</span>
+                        <span>{item}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <span className="text-[13px] text-ink-3">
+                      {lang === "th" ? "ไม่ระบุใน TOR" : "Not specified in TOR"}
+                    </span>
+                  )}
+                </ul>
+              </div>
 
-          <AccentPanel
-            id="amendments"
-            tone={tor.status === "amended" ? "amend" : "neutral"}
-            className="scroll-mt-20 px-4 py-5 sm:px-6 sm:py-6"
-          >
-            <AmendmentModule tor={tor} lang={lang} />
-          </AccentPanel>
+              <div>
+                <Label>{lang === "th" ? "ช่องทางเชื่อมต่อ (APIs & Protocols)" : "Interfaces & APIs"}</Label>
+                <ul className="mt-1.5 flex flex-col gap-1.5">
+                  {integration.interfacesAndApis && integration.interfacesAndApis.length > 0 ? (
+                    integration.interfacesAndApis.map((item, idx) => (
+                      <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
+                        <span className="text-ink-3">⇄</span>
+                        <span>{item}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <span className="text-[13px] text-ink-3">
+                      {lang === "th" ? "ไม่ระบุใน TOR" : "Not specified in TOR"}
+                    </span>
+                  )}
+                </ul>
+              </div>
+            </div>
 
-          {/* Provenance is supporting material, so it gets no surface at all. */}
-          <div className="mt-1 border-t border-line pt-5">
-            <Eyebrow>{lang === "th" ? "ตรวจสอบย้อนกลับได้" : "Traceable"}</Eyebrow>
+            {integration.deploymentLocation ? (
+              <div className="mt-4 border-t border-line/60 pt-3 text-[13px]">
+                <span className="text-ink-3">{lang === "th" ? "สถานที่ติดตั้ง/โฮสต์:" : "Deployment location:"} </span>
+                <span className="font-medium text-ink">{integration.deploymentLocation}</span>
+              </div>
+            ) : null}
+          </Panel>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* 7. IMPLEMENTATION & OPERATIONS                                   */}
+          {/* ---------------------------------------------------------------- */}
+          <Panel className="px-4 py-5 sm:px-6 sm:py-6">
+            <SectionHeading
+              sub={
+                lang === "th"
+                  ? "การฝึกอบรม การสนับสนุนทางเทคนิค และเงื่อนไขการบำรุงรักษา"
+                  : "Training, SLA response times, and ongoing maintenance expectations"
+              }
+            >
+              {lang === "th" ? "7. การดำเนินงานและการบำรุงรักษา" : "7. Operations & Maintenance"}
+            </SectionHeading>
+
+            <div className="mt-3 flex flex-col gap-4">
+              {ops.technicalSupportAndSla ? (
+                <div>
+                  <Label>{lang === "th" ? "ระดับการให้บริการ (SLA) และการสนับสนุน" : "Technical Support & SLA"}</Label>
+                  <p className="mt-1 text-[13.5px] leading-thai text-ink-2">
+                    {ops.technicalSupportAndSla}
+                  </p>
+                </div>
+              ) : null}
+
+              {ops.training && ops.training.length > 0 ? (
+                <div>
+                  <Label>{lang === "th" ? "การจัดฝึกอบรมบุคลากร" : "Training Requirements"}</Label>
+                  <ul className="mt-1 flex flex-col gap-1">
+                    {ops.training.map((t, idx) => (
+                      <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
+                        <span className="text-ink-3">•</span>
+                        <span>{t}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          </Panel>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* 8. BID ELIGIBILITY & QUALIFICATIONS                              */}
+          {/* ---------------------------------------------------------------- */}
+          <Panel className="px-4 py-5 sm:px-6 sm:py-6">
+            <SectionHeading
+              sub={
+                lang === "th"
+                  ? "เกณฑ์คุณสมบัติของผู้ยื่นข้อเสนอ มูลค่าผลงานขั้นต่ำ และมาตรฐานที่ต้องมี"
+                  : "Qualifications, minimal prior contract value, and mandatory certifications"
+              }
+            >
+              {lang === "th" ? "8. คุณสมบัติผู้ยื่นข้อเสนอ (Eligibility)" : "8. Bidder Eligibility"}
+            </SectionHeading>
+
+            <div className="mt-3 flex flex-col gap-4">
+              {/* Previous Experience */}
+              {elig.previousExperience || elig.previousExperienceMinTHB ? (
+                <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+                  <Label>{lang === "th" ? "ผลงานในอดีตขั้นต่ำ (Previous Experience)" : "Prior Experience"}</Label>
+                  <p className="mt-1 text-[14px] font-medium leading-thai text-ink">
+                    {elig.previousExperience || (
+                      `${lang === "th" ? "สัญญาเดียวไม่น้อยกว่า" : "Single contract at least"} ${formatMoney(elig.previousExperienceMinTHB)}`
+                    )}
+                  </p>
+                </div>
+              ) : null}
+
+              {/* Company Requirements */}
+              {elig.companyRequirements && elig.companyRequirements.length > 0 ? (
+                <div>
+                  <Label>{lang === "th" ? "คุณสมบัติทางนิติบุคคล" : "Corporate Requirements"}</Label>
+                  <ul className="mt-1 flex flex-col gap-1.5">
+                    {elig.companyRequirements.map((req, idx) => (
+                      <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
+                        <span className="text-ink-3">✓</span>
+                        <span>{req}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {/* Certifications */}
+              {elig.requiredCertifications && elig.requiredCertifications.length > 0 ? (
+                <div>
+                  <Label>{lang === "th" ? "ใบรับรองมาตรฐานสากล (ISO / CMMI)" : "Required Certifications"}</Label>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {elig.requiredCertifications.map((cert, idx) => (
+                      <span key={idx} className="rounded border border-line bg-surface px-2 py-1 text-[12px] font-medium text-ink">
+                        {cert}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Manufacturer Authorization */}
+              {elig.manufacturerAuthorizations && elig.manufacturerAuthorizations.length > 0 ? (
+                <div className="rounded-[3px] border border-amend-line bg-amend-bg/40 p-3">
+                  <div className="flex items-center gap-1.5 text-[12px] font-semibold text-amend">
+                    <span>⚠️</span>
+                    <span>{lang === "th" ? "หนังสือแต่งตั้งตัวแทนจำหน่าย (Manufacturer Authorization)" : "Manufacturer Authorization"}</span>
+                  </div>
+                  <ul className="mt-1.5 flex flex-col gap-1">
+                    {elig.manufacturerAuthorizations.map((auth, idx) => (
+                      <li key={idx} className="text-[13px] leading-thai text-ink">
+                        {auth}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          </Panel>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* 9. CONTRACT CONDITIONS                                           */}
+          {/* ---------------------------------------------------------------- */}
+          <Panel className="px-4 py-5 sm:px-6 sm:py-6">
+            <SectionHeading
+              sub={
+                lang === "th"
+                  ? "การแบ่งจ่ายเงินงวด การส่งมอบ และเกณฑ์การพิจารณาคัดเลือก"
+                  : "Payment milestones, delivery conditions, and bid evaluation methodology"
+              }
+            >
+              {lang === "th" ? "9. เงื่อนไขสัญญาและการส่งมอบ" : "9. Contract Conditions"}
+            </SectionHeading>
+
+            <div className="mt-3 flex flex-col gap-3 text-[13.5px]">
+              <div>
+                <Label>{lang === "th" ? "เงื่อนไขการจ่ายเงิน (Payment Terms)" : "Payment Terms"}</Label>
+                <p className="mt-1 leading-thai text-ink-2">
+                  {conditions.paymentTerms || (lang === "th" ? "ไม่ระบุใน TOR" : "Not specified")}
+                </p>
+              </div>
+
+              <div>
+                <Label>{lang === "th" ? "เกณฑ์การพิจารณาตัดสิน (Evaluation Method)" : "Evaluation Method"}</Label>
+                <p className="mt-1 leading-thai text-ink-2">
+                  {conditions.evaluationMethod || (lang === "th" ? "ไม่ระบุใน TOR" : "Not specified")}
+                </p>
+              </div>
+            </div>
+          </Panel>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* 10. DECISION SUPPORT: LOCK-SPEC RISK (Analytical Layer)          */}
+          {/* ---------------------------------------------------------------- */}
+          <AccentPanel tone={lockTone} className="px-4 py-5 sm:px-6 sm:py-6">
+            <SectionHeading
+              sub={
+                lang === "th"
+                  ? "วิเคราะห์โดยระบบ GIPDP เพื่อประเมินความเป็นไปได้ในการแข่งขันอย่างเป็นธรรม"
+                  : "GIPDP analytical assessment of competition fairness and restrictive clauses"
+              }
+              right={
+                <span className="flex items-center gap-2">
+                  <span className="font-mono text-[16px] font-bold text-ink">
+                    {lockScore}
+                    <span className="text-ink-3 text-[12px]">/100</span>
+                  </span>
+                </span>
+              }
+            >
+              {lang === "th" ? "10. วิเคราะห์ความเสี่ยงล็อกสเปก (Lock-Spec Risk)" : "10. Lock-Spec Risk Analysis"}
+            </SectionHeading>
+
             <div className="mt-2">
-              <SourceModule tor={tor} lang={lang} />
+              <p className="text-[15px] leading-thai font-semibold text-ink">
+                {lockSpec.verdictText}
+              </p>
+            </div>
+
+            {/* Modular Finding Cards */}
+            {lockSpec.findings && lockSpec.findings.length > 0 ? (
+              <div className="mt-5 flex flex-col gap-4">
+                {lockSpec.findings.map((finding, idx) => (
+                  <div
+                    key={finding.id || idx}
+                    className="rounded-[3px] border border-line bg-surface p-4 shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[12px] font-bold text-ink-3">
+                          #{String(idx + 1).padStart(2, "0")}
+                        </span>
+                        <span className="rounded bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink-2 border border-line">
+                          {finding.category}
+                        </span>
+                      </div>
+
+                      <span
+                        className={`rounded px-2 py-0.5 text-[11px] font-semibold uppercase ${
+                          finding.severity === "high"
+                            ? "bg-risk-bg text-risk border border-risk-line"
+                            : "bg-amend-bg text-amend border border-amend-line"
+                        }`}
+                      >
+                        {finding.severity}
+                      </span>
+                    </div>
+
+                    <h4 className="mt-2.5 text-[14.5px] leading-thai font-semibold text-ink">
+                      {finding.title}
+                    </h4>
+
+                    <div className="mt-2 text-[13px] leading-thai text-ink-2">
+                      <span className="font-medium text-ink">{lang === "th" ? "ข้อกำหนดใน TOR:" : "Requirement:"} </span>
+                      {finding.requirementText}
+                    </div>
+
+                    {finding.normalBenchmark ? (
+                      <div className="mt-1 text-[13px] leading-thai text-ink-3">
+                        <span className="font-medium text-ink-2">{lang === "th" ? "เกณฑ์มาตรฐานทั่วไป:" : "Normal Benchmark:"} </span>
+                        {finding.normalBenchmark}
+                      </div>
+                    ) : null}
+
+                    {finding.sourceExcerpt ? (
+                      <Well className="mt-3 border-l-2 border-l-line-2 px-3 py-2 text-[12.5px] text-ink-2">
+                        <p>“{finding.sourceExcerpt}”</p>
+                        {finding.sourceLocation ? (
+                          <p className="mt-1 font-mono text-[11px] text-ink-3">
+                            📍 {finding.sourceLocation}
+                          </p>
+                        ) : null}
+                      </Well>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-[3px] border border-open-line bg-open-bg/40 p-4 text-[13.5px] leading-thai text-open">
+                {lang === "th"
+                  ? "✓ ไม่พบเงื่อนไขล็อกสเปกที่ผิดปกติ ข้อกำหนดเป็นไปตามมาตรฐานการเปิดกว้างสำหรับผู้ยื่นข้อเสนอทั่วไป"
+                  : "✓ No abnormal lock-spec criteria found. Standard open requirements."}
+              </div>
+            )}
+          </AccentPanel>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* 11. DECISION SUPPORT: PRICE REALITY CHECK                        */}
+          {/* ---------------------------------------------------------------- */}
+          <AccentPanel tone={priceTone} className="px-4 py-5 sm:px-6 sm:py-6">
+            <SectionHeading
+              sub={
+                lang === "th"
+                  ? "เปรียบเทียบราคากลางกับโครงการเทคโนโลยีลักษณะเดียวกันในอดีต (FR-19)"
+                  : "Comparison against historical median of similar past projects"
+              }
+              right={
+                <span className="font-mono text-[14px] font-bold">
+                  {diffPct > 0 ? `+${diffPct}%` : `${diffPct}%`}
+                </span>
+              }
+            >
+              {lang === "th" ? "11. ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "11. Price Reality Check"}
+            </SectionHeading>
+
+            <p className="mt-2 text-[14.5px] leading-thai text-ink">
+              {price.interpretation}
+            </p>
+
+            <div className="mt-4 grid grid-cols-2 gap-4 rounded-[3px] border border-line bg-surface p-3.5 sm:grid-cols-3">
+              <div>
+                <Label>{lang === "th" ? "ราคากลางโครงการนี้" : "Reference Price"}</Label>
+                <p className="mt-1 font-mono text-[16px] font-semibold text-ink">
+                  {formatMoney(price.referencePriceTHB || facts.referencePriceTHB)}
+                </p>
+              </div>
+
+              <div>
+                <Label>{lang === "th" ? "ค่ามัธยฐานในอดีต" : "Historical Median"}</Label>
+                <p className="mt-1 font-mono text-[16px] font-semibold text-ink-2">
+                  {formatMoney(price.historicalMedianTHB)}
+                </p>
+              </div>
+
+              <div className="col-span-2 sm:col-span-1">
+                <Label>{lang === "th" ? "ส่วนต่างเทียบมัธยฐาน" : "Diff vs Median"}</Label>
+                <p className={`mt-1 font-mono text-[16px] font-bold ${
+                  diffPct > 10 ? "text-amend" : diffPct < -10 ? "text-risk" : "text-open"
+                }`}>
+                  {diffPct > 0 ? `+${diffPct}%` : `${diffPct}%`}
+                </p>
+              </div>
+            </div>
+
+            {/* Comparable Projects Table */}
+            {price.comparableProjects && price.comparableProjects.length > 0 ? (
+              <div className="mt-5">
+                <Label>{lang === "th" ? "โครงการในอดีตที่ใช้เปรียบเทียบอ้างอิง" : "Comparable Reference Projects"}</Label>
+                <div className="mt-2 overflow-x-auto rounded-[3px] border border-line">
+                  <table className="w-full text-left text-[12.5px]">
+                    <thead className="border-b border-line bg-surface-2 text-ink-3">
+                      <tr>
+                        <th className="px-3 py-2 font-medium">{lang === "th" ? "ชื่อโครงการ" : "Project"}</th>
+                        <th className="px-3 py-2 font-medium">{lang === "th" ? "ปีงบ" : "Year"}</th>
+                        <th className="px-3 py-2 text-right font-medium">{lang === "th" ? "ราคากลาง" : "Price"}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line bg-surface">
+                      {price.comparableProjects.map((p, idx) => (
+                        <tr key={idx}>
+                          <td className="px-3 py-2 font-medium text-ink">{p.title}</td>
+                          <td className="px-3 py-2 font-mono text-ink-2">{p.year}</td>
+                          <td className="px-3 py-2 text-right font-mono text-ink">
+                            {formatMoney(p.referencePriceTHB)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+          </AccentPanel>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* 12. AMENDMENT / STATUS INFORMATION                               */}
+          {/* ---------------------------------------------------------------- */}
+          {amend.isAmended ? (
+            <AccentPanel tone="amend" className="px-4 py-5 sm:px-6 sm:py-6">
+              <SectionHeading
+                sub={
+                  lang === "th"
+                    ? "ประวัติและสาระสำคัญที่มีการแก้ไขเปลี่ยนแปลงจากประกาศเดิม"
+                    : "Summary of changes made since original announcement"
+                }
+              >
+                {lang === "th" ? "12. ประวัติการแก้ไขเอกสาร TOR" : "12. Amendment History"}
+              </SectionHeading>
+
+              <div className="mt-2">
+                <p className="text-[14px] leading-thai text-ink">
+                  {amend.amendmentSummary || (lang === "th" ? "มีการแก้ไขเอกสารแนบท้าย" : "Attachments amended.")}
+                </p>
+
+                <p className="mt-2 font-mono text-[12px] text-ink-3">
+                  {lang === "th" ? "วันที่ประกาศแก้ไข:" : "Amended on:"} {formatDateString(amend.lastAmendedDate, lang)}
+                </p>
+              </div>
+            </AccentPanel>
+          ) : null}
+
+          {/* ---------------------------------------------------------------- */}
+          {/* 13. SOURCE & TRACEABILITY                                        */}
+          {/* ---------------------------------------------------------------- */}
+          <div className="mt-2 border-t border-line pt-6">
+            <Eyebrow>{lang === "th" ? "13. การตรวจสอบย้อนกลับและเอกสารต้นทาง" : "13. Source & Traceability"}</Eyebrow>
+
+            <div className="mt-3 rounded-[3px] border border-line bg-surface-2/40 p-4">
+              <div className="flex flex-col gap-2 text-[12.5px] leading-thai text-ink-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-ink">{lang === "th" ? "รหัสโครงการ e-GP:" : "Project ID:"}</span>
+                  <span className="font-mono text-ink">{insight.projectId}</span>
+                </div>
+
+                {insight.document?.fileName ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-ink">{lang === "th" ? "เอกสารต้นฉบับ:" : "Source document:"}</span>
+                    <span className="font-mono text-ink-2">{insight.document.fileName}</span>
+                    {insight.document.pages ? (
+                      <span className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-mono border border-line">
+                        {insight.document.pages} {lang === "th" ? "หน้า" : "pages"}
+                      </span>
+                    ) : null}
+                    {insight.document.documentType ? (
+                      <span className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-mono border border-line">
+                        {insight.document.documentType === "DIGITAL_TEXT_PDF" ? "Digital PDF" : "Scanned Paper (OCR)"}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {facts.sourceUrl ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-ink">{lang === "th" ? "ประกาศทางการ:" : "Official Notice:"}</span>
+                    <a
+                      href={facts.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-open underline hover:text-ink break-all"
+                    >
+                      {facts.sourceUrl}
+                    </a>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Mandatory Third-Party Disclaimer per AGENTS.md §6 */}
+              <div className="mt-4 border-t border-line/60 pt-3 text-[11.5px] leading-thai text-ink-3">
+                <p>
+                  <strong>{lang === "th" ? "ข้อความปฏิเสธความรับผิดชอบ:" : "Disclaimer:"}</strong>{" "}
+                  {lang === "th"
+                    ? "แพลตฟอร์มนี้เป็นเครื่องมือสนับสนุนการค้นหาและสรุปข้อมูลประกาศจัดซื้อจัดจ้างเท่านั้น (Third-party Discovery Tool) ไม่ใช่ระบบยื่นข้อเสนอทางการ การดำเนินการจัดซื้อจัดจ้างและยื่นซองข้อเสนอทั้งหมดต้องกระทำผ่านระบบ e-GP ของกรมบัญชีกลางเท่านั้น เอกสาร TOR ฉบับทางการเป็นเอกสารที่มีผลผูกพันทางกฎหมายสูงสุด"
+                    : "This platform is an independent third-party discovery and summarization tool. Official submissions and contract awards occur strictly via the Comptroller General's Department e-GP portal. The original TOR PDF remains the authoritative legal document."}
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
+          <div className="flex items-center justify-between border-t border-line pt-4">
             <Link href="/search" className={btn.ghost}>
-              ← {lang === "th" ? "กลับไปหน้าค้นหา" : "Back to search"}
+              ← {lang === "th" ? "กลับไปหน้ารายการค้นหา" : "Back to catalog"}
             </Link>
-            <span className="ml-auto">
-              <Deadline deadline={tor.deadline} status={tor.status} lang={lang} />
-            </span>
           </div>
         </div>
+      </div>
+    </article>
+  );
+}
+
+/** Fallback renderer for legacy fixture Tor objects */
+function LegacyTorDetail({
+  tor,
+  lang,
+}: {
+  tor: Tor;
+  lang: Lang;
+}) {
+  return (
+    <article className="pb-16">
+      <header className="relative border-b border-line bg-surface">
+        <div className="relative mx-auto max-w-[1240px] px-4 py-6">
+          <nav className="flex items-center gap-2 font-mono text-[11px] text-ink-3">
+            <Link href="/search" className="hover:underline">{lang === "th" ? "ค้นหา" : "Search"}</Link>
+            <span>/</span>
+            <span>{tor.id}</span>
+          </nav>
+          <h1 className="mt-2 text-[26px] font-semibold text-ink">{tor.title.th}</h1>
+          <p className="mt-1 text-[13px] text-ink-2">{tor.agency.th}</p>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-[1240px] px-4 py-6">
+        <Panel className="p-6">
+          <h2 className="text-[18px] font-semibold text-ink mb-4">{lang === "th" ? "สาระสำคัญ" : "Summary"}</h2>
+          <ul className="flex flex-col gap-2">
+            {tor.summary.map((s, idx) => (
+              <li key={idx} className="text-[14px] text-ink-2">• {s.th}</li>
+            ))}
+          </ul>
+        </Panel>
       </div>
     </article>
   );

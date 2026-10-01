@@ -23,7 +23,8 @@
     "ingest:ocr": "node src/pipeline/ingestion/ingest.js --step ocr",
     "gemini:check": "node scripts/check-gemini.js",
     "technologies:seed": "node scripts/seed-technologies.js",
-    "extract": "node src/pipeline/extraction/extract.js"
+    "extract": "node src/pipeline/extraction/extract.js",
+    "seed": "node scripts/seed.js"
   },
   "dependencies": {
     "@google/genai": "^2.25.0",

@@ -200,3 +200,178 @@ export type AdminOperations = {
 export function adminOperations() {
   return request<AdminOperations>("/api/admin/operations", { cache: "no-store" });
 }
+
+/* ------------------------------------------------------------------ */
+/*  TOR & Insight (FR-10, FR-11, FR-13, FR-15, FR-16, FR-19, FR-20)   */
+/* ------------------------------------------------------------------ */
+
+export type LockSpecFinding = {
+  id: string;
+  title: string;
+  category: string;
+  requirementText: string;
+  normalBenchmark: string;
+  sourceExcerpt: string;
+  sourceLocation: string;
+  severity: "high" | "medium" | "low";
+};
+
+export type ComparableProject = {
+  title: string;
+  year: number;
+  referencePriceTHB: number;
+};
+
+export type TorInsightSummary = {
+  projectId: string;
+  identification: {
+    titleTh: string;
+    titleEn: string | null;
+    agency: string;
+    department: string | null;
+    category: string | null;
+    status: "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";
+  };
+  facts: {
+    budgetTHB: number | null;
+    referencePriceTHB: number | null;
+    submissionDeadline: string | null;
+    procurementMethod: string | null;
+    penaltyClause: string | null;
+    postedDate: string | null;
+    webUrl: string | null;
+  };
+  technicalRequirements?: {
+    requiredTechnologies: { name: string; version: string | null }[];
+  };
+  analytics?: {
+    lockSpec?: {
+      riskScore: number;
+      verdictText: string;
+    };
+    priceAnalysis?: {
+      diffPercentage: number;
+    };
+  };
+  amendmentInfo?: {
+    isAmended: boolean;
+  };
+  createdAt?: string;
+};
+
+export type TorInsightDetail = {
+  projectId: string;
+  identification: {
+    titleTh: string;
+    titleEn: string | null;
+    agency: string;
+    department: string | null;
+    egpReference: string | null;
+    category: string | null;
+    status: "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";
+  };
+  facts: {
+    budgetTHB: number | null;
+    referencePriceTHB: number | null;
+    submissionDeadline: string | null;
+    deliveryPeriodDays: number | null;
+    procurementMethod: string | null;
+    warrantyYears: number | null;
+    contractDurationDays: number | null;
+    penaltyClause: string | null;
+    postedDate: string | null;
+    sourceUrl: string | null;
+    webUrl: string | null;
+  };
+  evidence?: Record<string, { quote: string; page: number | null }>;
+  overview: {
+    objective: string | null;
+    majorComponents: string[];
+    highLevelScope: string | null;
+  };
+  deliverables: {
+    system: string[];
+    implementation: string[];
+    validation: string[];
+    supportingWork: string[];
+  };
+  technicalRequirements: {
+    requiredTechnologies: { name: string; version: string | null }[];
+    requiredCapabilities: string[];
+    infrastructureSpecifications: { key: string; spec: string }[];
+    technicalConstraints: { metric: string; value: string }[];
+  };
+  integrationEnvironment: {
+    existingSystems: string[];
+    interfacesAndApis: string[];
+    dataMigrationNotes: string | null;
+    deploymentLocation: string | null;
+  };
+  operationalRequirements: {
+    installationAndConfig: string[];
+    training: string[];
+    technicalSupportAndSla: string | null;
+    maintenance: string[];
+  };
+  eligibility: {
+    companyRequirements: string[];
+    requiredCertifications: string[];
+    manufacturerAuthorizations: string[];
+    previousExperience: string | null;
+    previousExperienceMinTHB: number | null;
+    personnelQualifications: string[];
+  };
+  contractConditions: {
+    paymentTerms: string | null;
+    deliveryConditions: string | null;
+    evaluationMethod: string | null;
+  };
+  analytics: {
+    lockSpec: {
+      riskScore: number;
+      verdictText: string;
+      findings: LockSpecFinding[];
+    };
+    priceAnalysis: {
+      referencePriceTHB: number;
+      historicalMedianTHB: number;
+      diffPercentage: number;
+      interpretation: string;
+      comparableProjects: ComparableProject[];
+    };
+  };
+  amendmentInfo: {
+    isAmended: boolean;
+    lastAmendedDate: string | null;
+    amendmentSummary: string;
+    changedSections: string[];
+  };
+  document?: {
+    fileName: string | null;
+    sizeBytes: number | null;
+    pages: number | null;
+    documentType: string | null;
+  } | null;
+  source?: string | null;
+};
+
+export type TorListResponse = {
+  tors: TorInsightSummary[];
+  total: number;
+  page: number;
+  pages: number;
+  limit: number;
+};
+
+export function listTors(params?: Record<string, string | number>) {
+  const qs = params
+    ? "?" + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString()
+    : "";
+  return request<TorListResponse>(`/api/tors${qs}`, { cache: "no-store" });
+}
+
+export function getTorInsight(projectId: string) {
+  return request<TorInsightDetail>(`/api/tors/${encodeURIComponent(projectId)}`, {
+    cache: "no-store",
+  });
+}
