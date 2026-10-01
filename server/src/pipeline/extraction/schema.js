@@ -127,6 +127,13 @@ export const classifySchema = {
       type: Type.STRING,
       description: 'One short sentence in Thai: why this project is or is not in scope.',
     },
+    agency: {
+      type: Type.STRING,
+      nullable: true,
+      description:
+        'The government organization that is buying, as the document names it. Kept even for a ' +
+        'TOR that is out of scope, whose record still needs it. null if the pages given do not say.',
+    },
     isIT: {
       type: Type.BOOLEAN,
       description:
@@ -143,8 +150,8 @@ export const classifySchema = {
       description: 'The kind of IT project. null when isIT is false.',
     },
   },
-  required: ['quote', 'reason', 'isIT', 'category'],
-  propertyOrdering: ['quote', 'reason', 'isIT', 'category'],
+  required: ['quote', 'reason', 'agency', 'isIT', 'category'],
+  propertyOrdering: ['quote', 'reason', 'agency', 'isIT', 'category'],
 };
 
 /** Step 2: read the whole TOR into the TorInsight sections 4.1–4.9. */

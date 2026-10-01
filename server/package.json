@@ -21,7 +21,9 @@
     "ingest:fetch": "node src/pipeline/ingestion/ingest.js --step fetch",
     "ingest:download": "node src/pipeline/ingestion/ingest.js --step download",
     "ingest:ocr": "node src/pipeline/ingestion/ingest.js --step ocr",
-    "gemini:check": "node scripts/check-gemini.js"
+    "gemini:check": "node scripts/check-gemini.js",
+    "technologies:seed": "node scripts/seed-technologies.js",
+    "extract": "node src/pipeline/extraction/extract.js"
   },
   "dependencies": {
     "@google/genai": "^2.25.0",

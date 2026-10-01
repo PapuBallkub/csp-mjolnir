@@ -7,7 +7,7 @@ and [0013](decisions/0013-split-ingestion-and-ai-extraction.md).
 There are two pipelines, and they meet only in the database:
 
 ```
-INGESTION                                    AI EXTRACTION (coming next)
+INGESTION                                    AI EXTRACTION
 fetch ─► download ─► OCR ─► Tor              Tor ─► classify ─► extract ─► check ─► TorInsight
 ```
 
@@ -99,8 +99,16 @@ On a slow machine, raise the two limits and run `ingest:ocr -- --id` again.
 
 ## AI extraction
 
-Extraction calls Gemini through the team's Google Cloud project. It's still
-being built. For now, there's one command, to check the setup.
+Extraction reads each TOR at `ocr_done` with Gemini, and saves a `TorInsight`.
+For each TOR it runs:
+1. **Classify** (the first pages): is this IT? A non-IT TOR is saved as
+   `excluded` and stops here.
+2. **Extract** (the whole text).
+3. **Check:** every value against its quote, the feed and common sense.
+4. **Save.**
+
+Every result starts as `pending` review. A score below 80 means a person must
+look before the public sees it.
 
 ### Setup, once per person
 
@@ -139,3 +147,41 @@ If it fails, the message says which part is wrong:
 - a missing setting
 - a permission error (`403`): ask for the role
 - a model not found (`404`): check `GEMINI_MODEL` and `GOOGLE_CLOUD_LOCATION`
+
+### `npm run technologies:seed`
+
+**Loads the starter list of technologies**, so that "Postgres", "PostgreSQL 14"
+and "PostgreSQL" all count as one. Run it once per database before the first
+extraction. It's safe to run again.
+
+Names a TOR uses that aren't in the list are added as `new`, for a person to
+merge or confirm.
+
+### `npm run extract`
+
+**Extracts every TOR that needs it:** TORs that have no insight yet, and TORs
+whose PDF or OCR text has changed since.
+
+```
+npm run extract                        # what needs doing
+npm run extract -- --id 68049205582    # one TOR, whatever its state
+npm run extract -- --limit 3           # at most 3 this run (cost control)
+npm run extract -- --dry-run           # save nothing; review files only
+npm run extract -- --outdated          # also redo results from an older prompt
+npm run extract -- --force             # redo everything, reviewed results too
+npm run extract -- --recheck           # rebuild from saved answers: no Gemini call
+```
+
+| Option | When to use it |
+|---|---|
+| `--outdated` | After changing the prompt or schema. Old results are only redone when you ask, because it costs money. |
+| `--recheck` | After changing the checks or the assembly code. It's free: it reuses Gemini's saved answers. |
+| `--force` | Redoes results a person has already reviewed. It warns, because their review is lost. |
+
+Each run prints a score and the failed checks for every TOR, plus the tokens
+used. A TOR that fails saves nothing, and is picked up again by the next run.
+
+**Review files:** every TOR also gets
+`server/data/extractions/<projectId>.json`. It holds Gemini's own answers,
+with the quote and page behind every value. Check these against the PDF.
+`--recheck` rebuilds from them too.

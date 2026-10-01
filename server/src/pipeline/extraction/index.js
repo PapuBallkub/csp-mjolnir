@@ -13,6 +13,10 @@ export {
   readGeminiConfig,
 } from './gemini.js';
 export { PROJECT_CATEGORIES, classifySchema, extractSchema } from './schema.js';
+export { processTor, saveInsight } from './process-tor.js';
+export { decide, sourceFingerprint } from './select.js';
+export { confidenceScore, runChecks } from './checks.js';
+export { resolveTechnologies } from './vocabulary.js';
 export {
   CLASSIFY_CHARS,
   CLASSIFY_INSTRUCTION,

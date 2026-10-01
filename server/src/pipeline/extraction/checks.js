@@ -10,7 +10,7 @@
 
 import { convertThaiDigitsToArabic, parseThaiAmount } from '../shared/thai-text.js';
 import { findThaiAmountInWords } from '../shared/thai-number-words.js';
-import { toAmount, toDate, toNumber, toText } from './convert.js';
+import { feedAmount, feedDate, toAmount, toDate, toNumber, toText } from './convert.js';
 
 // A failed check on one of these caps the score below 80, so the TOR is hidden
 // and waits for review (D6, NFR-17).
@@ -164,18 +164,6 @@ function sameText(a, b, core = normalizeForMatch) {
   const y = core(b);
   if (!x || !y) return false;
   return x.includes(y) || y.includes(x) || textSimilarity(x, y) >= TEXT_SIMILARITY_MIN;
-}
-
-// The feed's own "missing": null, or 0 from records saved before ADR 0014 (R10)
-const feedAmount = (value) => (Number.isFinite(value) && value > 0 ? value : null);
-
-function feedDate(value) {
-  if (!value) return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  // A Thai source may give a Buddhist year that Date read as-is
-  if (parsed.getUTCFullYear() > 2400) parsed.setUTCFullYear(parsed.getUTCFullYear() - 543);
-  return parsed;
 }
 
 const bangkokDay = (date) => new Date(date.getTime() + BANGKOK_OFFSET_MS).toISOString().slice(0, 10);

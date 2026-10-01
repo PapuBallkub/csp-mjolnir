@@ -7,6 +7,10 @@ const evidence = (value) => ({ quote: 'q', page: 1, value });
 
 test('toAmount reads the number the model copied, and nothing else', () => {
   assert.equal(toAmount(evidence('๑๒,๕๐๐,๐๐๐')), 12_500_000);
+  // ".-" means "no satang"; seen on 2 of the first 3 real TORs
+  assert.equal(toAmount(evidence('๒๓,๑๓๐,๐๐๐.-')), 23_130_000);
+  // An OCR-mangled number stays unreadable: lost comma, so wrong grouping
+  assert.equal(toAmount(evidence('๓๓๕๓๐,๐๐๐')), null);
   assert.equal(toAmount(evidence('ประมาณ ๑๒ ล้าน')), null);
   assert.equal(toAmount(null), null);
 });

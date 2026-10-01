@@ -11,9 +11,34 @@ import { parseThaiAmount } from '../shared/thai-text.js';
 const BUDDHIST_ERA_OFFSET = 543;
 const BANGKOK_UTC_OFFSET_HOURS = 7;
 
-/** An evidenced amount ("๑๒,๕๐๐,๐๐๐") as a number, or null. */
+/** A feed price, or null: null or 0, from records saved before ADR 0014 (R10). */
+export function feedAmount(value) {
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/**
+ * A feed date string as a Date, or null when it can't be read. Formats vary by
+ * source; Thai short dates such as "13 พ.ค. 68" aren't read yet, so they stay
+ * null rather than being guessed.
+ */
+export function feedDate(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  // A Thai source may give a Buddhist year that Date read as it is
+  if (parsed.getUTCFullYear() > 2400) parsed.setUTCFullYear(parsed.getUTCFullYear() - BUDDHIST_ERA_OFFSET);
+  return parsed;
+}
+
+/**
+ * An evidenced amount ("๑๒,๕๐๐,๐๐๐") as a number, or null. Thai documents
+ * write ".-" after a whole amount ("๒๓,๑๓๐,๐๐๐.- บาท": no satang); the model
+ * copies it as written, so it's dropped before the strict parse.
+ */
 export function toAmount(evidenced) {
-  return evidenced ? parseThaiAmount(evidenced.value) : null;
+  if (!evidenced) return null;
+  const value = typeof evidenced.value === 'string' ? evidenced.value.replace(/\.?\s*[-–]\s*$/, '') : evidenced.value;
+  return parseThaiAmount(value);
 }
 
 /** An evidenced count (days, years) as a non-negative number, or null. */
