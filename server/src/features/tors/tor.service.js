@@ -59,6 +59,42 @@ export function toPublic(insight, now = new Date()) {
   };
 }
 
+const DAY = 24 * 60 * 60 * 1000;
+export const STATUSES = ['Draft', 'Open', 'Awarded', 'Closed', 'Cancelled'];
+// The same line the detail page draws between medium and high lock-spec risk
+const HIGH_RISK = 70;
+// Agencies and technologies offered as filters: the most common, not every one
+const FACET_LIMIT = 40;
+
+// A query value is a string, or an array when the key repeats (?tech=A&tech=B)
+function toList(value) {
+  const values = Array.isArray(value) ? value : [value];
+  return values.filter((item) => typeof item === 'string').map((item) => item.trim()).filter(Boolean);
+}
+
+// displayStatus as an aggregation expression, for counting and sorting
+const isDate = (path) => ({ $eq: [{ $type: path }, 'date'] });
+const pastDeadline = (now) => ({
+  $and: [{ $eq: ['$identification.status', 'Open'] }, isDate('$facts.submissionDeadline'), { $lt: ['$facts.submissionDeadline', now] }],
+});
+const stillOpen = (now) => ({
+  $and: [{ $eq: ['$identification.status', 'Open'] }, isDate('$facts.submissionDeadline'), { $gte: ['$facts.submissionDeadline', now] }],
+});
+
+/**
+ * Sort orders the catalog offers. Only the default puts real pipeline results
+ * before demo data (ADR 0015): a reader who asks for "closing soonest" gets
+ * exactly that.
+ */
+const SORTS = {
+  newest: { 'metadata.origin': -1, 'facts.postedDate': -1, createdAt: -1 },
+  // Still open first, soonest deadline first; dead and undated ones after
+  deadline: { _open: -1, 'facts.submissionDeadline': 1, createdAt: -1 },
+  // A TOR with no reference price sorts last either way, never as ฿0
+  'budget-desc': { _priced: -1, 'facts.referencePriceTHB': -1, createdAt: -1 },
+  'budget-asc': { _priced: -1, 'facts.referencePriceTHB': 1, createdAt: -1 },
+};
+
 // Status as the public sees it: "Closed" includes Open TORs past their deadline
 function statusCondition(status, now) {
   if (status === 'Closed') {
@@ -79,29 +115,50 @@ function statusCondition(status, now) {
 }
 
 /**
- * Searches and filters the TOR catalog.
+ * Searches and filters the TOR catalog (FR-10, FR-11). `status`, `tech` and
+ * `agency` each take several values, by repeating the key; a TOR matches any
+ * one of them.
  */
 export async function listTors(
-  { q, status, minBudget, maxBudget, tech, page = 1, limit = 20 } = {},
+  {
+    q,
+    status,
+    amended,
+    minBudget,
+    maxBudget,
+    tech,
+    agency,
+    closingWithin,
+    excludeHighRisk,
+    sort,
+    page = 1,
+    limit = 20,
+  } = {},
   { showUnreviewed, now = new Date() } = {},
 ) {
   const conditions = [visibilityFilter({ showUnreviewed })];
 
-  // Text search on title, agency and department
+  // Text search on title, agency, department and technology names
   if (typeof q === 'string' && q.trim()) {
     const pattern = { $regex: escapeRegex(q.trim()), $options: 'i' };
     conditions.push({
       $or: [
         { 'identification.titleTh': pattern },
+        { 'identification.titleEn': pattern },
         { 'identification.agency': pattern },
         { 'identification.department': pattern },
+        { 'technicalRequirements.requiredTechnologies.name': pattern },
       ],
     });
   }
 
-  if (typeof status === 'string' && status.trim()) {
-    conditions.push(statusCondition(status.trim(), now));
+  const statuses = toList(status);
+  if (statuses.length) {
+    conditions.push({ $or: statuses.map((value) => statusCondition(value, now)) });
   }
+
+  // Amended is a flag over the status, not a status of its own (FR-15)
+  if (amended === 'true') conditions.push({ 'amendmentInfo.isAmended': true });
 
   // Budget range on the reference price (ราคากลาง)
   const range = {};
@@ -111,10 +168,31 @@ export async function listTors(
   if (maxBudget !== undefined && maxBudget !== '' && Number.isFinite(max) && max > 0) range.$lte = max;
   if (Object.keys(range).length > 0) conditions.push({ 'facts.referencePriceTHB': range });
 
-  if (typeof tech === 'string' && tech.trim()) {
+  // A technology by its whole name: "React" must not match "React Native"
+  const technologies = toList(tech);
+  if (technologies.length) {
     conditions.push({
-      'technicalRequirements.requiredTechnologies.name': { $regex: escapeRegex(tech.trim()), $options: 'i' },
+      'technicalRequirements.requiredTechnologies.name': {
+        $in: technologies.map((name) => new RegExp(`^${escapeRegex(name)}$`, 'i')),
+      },
     });
+  }
+
+  const agencies = toList(agency);
+  if (agencies.length) conditions.push({ 'identification.agency': { $in: agencies } });
+
+  // Still open, and closing within this many days
+  const days = parseInt(closingWithin, 10);
+  if (Number.isFinite(days) && days > 0) {
+    conditions.push({
+      'identification.status': 'Open',
+      'facts.submissionDeadline': { $gte: now, $lte: new Date(now.getTime() + days * DAY) },
+    });
+  }
+
+  // Analysis that wasn't run has no score, so it is never hidden as high risk
+  if (excludeHighRisk === 'true') {
+    conditions.push({ 'analytics.lockSpec.riskScore': { $not: { $gte: HIGH_RISK } } });
   }
 
   const query = { $and: conditions };
@@ -149,12 +227,15 @@ export async function listTors(
 
   const [total, insights] = await Promise.all([
     TorInsight.countDocuments(query),
-    TorInsight.find(query, projection)
-      // Real pipeline results before demo data, then newest first
-      .sort({ 'metadata.origin': -1, 'facts.postedDate': -1, createdAt: -1 })
-      .skip((safePage - 1) * safeLimit)
-      .limit(safeLimit)
-      .lean(),
+    TorInsight.aggregate([
+      { $match: query },
+      // Sort keys a plain find can't express; the projection drops them again
+      { $addFields: { _open: stillOpen(now), _priced: { $isNumber: '$facts.referencePriceTHB' } } },
+      { $sort: SORTS[sort] ?? SORTS.newest },
+      { $skip: (safePage - 1) * safeLimit },
+      { $limit: safeLimit },
+      { $project: projection },
+    ]),
   ]);
 
   return {
@@ -163,6 +244,51 @@ export async function listTors(
     page: safePage,
     pages: Math.ceil(total / safeLimit) || 1,
     limit: safeLimit,
+  };
+}
+
+/**
+ * What the catalog's filters offer, counted over everything the public may
+ * see: each status as the public sees it, the most common agencies and
+ * technologies, and when the catalog last changed.
+ */
+export async function torFacets({ showUnreviewed, now = new Date() } = {}) {
+  const top = (path) => [
+    { $group: { _id: path, count: { $sum: 1 } } },
+    { $match: { _id: { $type: 'string' } } },
+    { $sort: { count: -1, _id: 1 } },
+    { $limit: FACET_LIMIT },
+  ];
+
+  const [facets] = await TorInsight.aggregate([
+    { $match: visibilityFilter({ showUnreviewed }) },
+    {
+      $facet: {
+        statuses: [
+          { $group: { _id: { $cond: [pastDeadline(now), 'Closed', '$identification.status'] }, count: { $sum: 1 } } },
+        ],
+        amended: [{ $match: { 'amendmentInfo.isAmended': true } }, { $count: 'count' }],
+        agencies: top('$identification.agency'),
+        // Each TOR counted once per technology, even if it lists two versions
+        technologies: [
+          { $project: { names: { $setUnion: [{ $ifNull: ['$technicalRequirements.requiredTechnologies.name', []] }, []] } } },
+          { $unwind: '$names' },
+          ...top('$names'),
+        ],
+        totals: [{ $group: { _id: null, total: { $sum: 1 }, lastUpdated: { $max: '$updatedAt' } } }],
+      },
+    },
+  ]);
+
+  const counted = Object.fromEntries(facets.statuses.map(({ _id, count }) => [_id, count]));
+  const named = (rows) => rows.map(({ _id, count }) => ({ name: _id, count }));
+  return {
+    total: facets.totals[0]?.total ?? 0,
+    lastUpdated: facets.totals[0]?.lastUpdated ?? null,
+    statuses: Object.fromEntries(STATUSES.map((value) => [value, counted[value] ?? 0])),
+    amended: facets.amended[0]?.count ?? 0,
+    agencies: named(facets.agencies),
+    technologies: named(facets.technologies),
   };
 }
 

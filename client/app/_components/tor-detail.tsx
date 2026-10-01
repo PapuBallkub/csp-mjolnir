@@ -6,6 +6,7 @@ import type { TorInsightDetail } from "../_lib/api";
 import type { Lang, Tor } from "../_data/tors";
 import { useLang, useProfile } from "./prefs";
 import { AccentPanel, btn, Chip, Eyebrow, Fact, Label, Panel, SectionHeading, Well } from "./ui";
+import { AmendedFlag, CompaniesOnlyBadge, LifecycleBadge } from "./verdict";
 
 function formatMoney(amount: number | null | undefined): string {
   if (amount == null) return "ไม่ระบุใน TOR";
@@ -193,38 +194,11 @@ export function TorDetail({
           ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {/* Status Badge */}
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-[2px] border px-2.5 py-[3px] text-[11px] font-medium leading-none ${
-                iden.status === "Open"
-                  ? "border-open-line bg-open-bg text-open"
-                  : iden.status === "Closed"
-                  ? "border-closed-line bg-closed-bg text-closed"
-                  : "border-line bg-surface-2 text-ink-2"
-              }`}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-current" />
-              {iden.status === "Open"
-                ? lang === "th"
-                  ? "เปิดรับข้อเสนอ"
-                  : "Open"
-                : iden.status}
-            </span>
-
-            {/* Amended Flag */}
-            {amend.isAmended ? (
-              <span className="inline-flex items-center gap-1 rounded-[2px] border border-amend-line bg-amend-bg px-2 py-[3px] text-[11px] font-medium text-amend">
-                <span>✎</span>
-                <span>{lang === "th" ? "มีเอกสารแก้ไข" : "Amended"}</span>
-              </span>
-            ) : null}
-
+            {/* The same badges as the catalog rows, so a status reads the same everywhere */}
+            <LifecycleBadge status={iden.status} lang={lang} />
+            {amend.isAmended ? <AmendedFlag lang={lang} /> : null}
             {/* Who may bid: decisive for freelancers, so it sits with the status */}
-            {insight.companiesOnly ? (
-              <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-2 py-[3px] text-[11px] font-medium text-ink-2">
-                {lang === "th" ? "เฉพาะนิติบุคคล" : "Companies only"}
-              </span>
-            ) : null}
+            {insight.companiesOnly ? <CompaniesOnlyBadge lang={lang} /> : null}
           </div>
 
           <ReviewNotice review={insight.review} webUrl={facts.webUrl} lang={lang} />

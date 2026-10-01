@@ -253,6 +253,12 @@ export type PriceAnalysis = {
   comparableProjects: ComparableProject[];
 };
 
+/**
+ * The lifecycle as the public sees it (FR-15). Closed is the platform's
+ * inference: past the deadline with no word from the agency (ADR 0013).
+ */
+export type TorStatus = "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";
+
 export type TorInsightSummary = {
   projectId: string;
   identification: {
@@ -261,7 +267,7 @@ export type TorInsightSummary = {
     agency: string;
     department: string | null;
     category: string | null;
-    status: "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";
+    status: TorStatus;
   };
   facts: {
     budgetTHB: number | null;
@@ -298,7 +304,7 @@ export type TorInsightDetail = {
     department: string | null;
     egpReference: string | null;
     category: string | null;
-    status: "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";
+    status: TorStatus;
   };
   facts: {
     budgetTHB: number | null;
@@ -389,11 +395,53 @@ export type TorListResponse = {
   limit: number;
 };
 
-export function listTors(params?: Record<string, string | number>) {
-  const qs = params
-    ? "?" + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString()
-    : "";
-  return request<TorListResponse>(`/api/tors${qs}`, { cache: "no-store" });
+/**
+ * The catalog's filters (FR-11). A list matches any one of its values, and is
+ * sent as a repeated key, so a value may contain a comma.
+ */
+export type TorListParams = {
+  q?: string;
+  status?: TorStatus[];
+  /** Only TORs the agency has amended */
+  amended?: boolean;
+  minBudget?: number;
+  maxBudget?: number;
+  tech?: string[];
+  agency?: string[];
+  /** Still open, and closing within this many days */
+  closingWithin?: number;
+  excludeHighRisk?: boolean;
+  sort?: "newest" | "deadline" | "budget-desc" | "budget-asc";
+  page?: number;
+  limit?: number;
+};
+
+export function listTors(params: TorListParams = {}) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    // Unset filters are left out, never sent as "undefined" or "false"
+    if (value === undefined || value === "" || value === false) continue;
+    for (const item of Array.isArray(value) ? value : [value]) query.append(key, String(item));
+  }
+  const qs = query.toString();
+  return request<TorListResponse>(`/api/tors${qs ? `?${qs}` : ""}`, { cache: "no-store" });
+}
+
+export type FacetCount = { name: string; count: number };
+
+/** What the catalog's filters can offer, counted over everything public. */
+export type TorFacets = {
+  total: number;
+  lastUpdated: string | null;
+  statuses: Record<TorStatus, number>;
+  amended: number;
+  /** The most common, not every one */
+  agencies: FacetCount[];
+  technologies: FacetCount[];
+};
+
+export function torFacets() {
+  return request<TorFacets>("/api/tors/facets", { cache: "no-store" });
 }
 
 export function getTorInsight(projectId: string) {
