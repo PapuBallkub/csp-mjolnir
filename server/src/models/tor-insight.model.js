@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { STANDARD_CONDITION_KEYS } from './standard-conditions.js';
 
 // Missing is null, never a plausible default: a field the TOR does not state
 // must read as "not specified", not as ฿0 or "Open" (ADR 0014). Lists default
@@ -180,6 +181,10 @@ const torInsightSchema = new mongoose.Schema(
 
     // 4.8 Bid Eligibility & Qualifications
     eligibility: {
+      // Which of the conditions every e-GP TOR repeats this one lists, as fixed
+      // keys. Matched against the user's checklist; not shown on the TOR page.
+      standardConditions: [{ type: String, enum: STANDARD_CONDITION_KEYS }],
+      // Only the conditions specific to this project, shown on the page
       companyRequirements: [{ type: String, trim: true }],
       requiredCertifications: [{ type: String, trim: true }],
       manufacturerAuthorizations: [{ type: String, trim: true }],

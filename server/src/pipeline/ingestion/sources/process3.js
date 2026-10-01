@@ -187,8 +187,11 @@ export async function fetchFromProcess3({
               subAgency: deptId || '',
               status: annType.code === 'B0' ? 'Draft' : 'Open',
               announceType: annType.code,
-              announceDate: currentItem.pubDate || new Date().toISOString(),
-              procurementMethod: annType.name.split(' (')[0],
+              // Missing stays null (ADR 0014): a fetch time would pass for a
+              // publication date, and the RSS feed says nothing about the
+              // procurement method (the announcement type is in announceType)
+              announceDate: currentItem.pubDate || null,
+              procurementMethod: null,
               egpUrl: link,
               document: {
                 fileName: expectedPdfName,
@@ -281,7 +284,7 @@ export async function fetchFromProcess3({
               budgetTHB: budget,
               referencePriceTHB: referencePrice,
               announceType: 'B0',
-              announceDate: cand['วันที่ประกาศ'] || new Date().toISOString(),
+              announceDate: cand['วันที่ประกาศ'] || null,
               procurementMethod: String(
                 cand['กลุ่มวิธีจัดซื้อฯ'] || cand['วิธีจัดซื้อฯ'] || '',
               ).trim(),

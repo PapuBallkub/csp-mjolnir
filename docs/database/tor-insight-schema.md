@@ -212,7 +212,8 @@ A map from a field name inside `facts` to an `evidenceSchema` (§2.3). Every val
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `companyRequirements` | `[String]` | `[]` | Required legal entity type, registered capital, years in operation, or Thai SME registration. |
+| `standardConditions` | `[String]` (enum) | `[]` | Which of the conditions every e-GP TOR repeats this one lists, as fixed keys from `server/src/models/standard-conditions.js` (e.g. `juristic-person`, `egp-registered`). Matched against the user's profile checklist, and **not shown** on the TOR page, except `juristic-person`, which shows as "เฉพาะนิติบุคคล". |
+| `companyRequirements` | `[String]` | `[]` | Only the conditions **specific** to this project, such as a registered-capital or financial-standing threshold. These are what the TOR page shows. |
 | `requiredCertifications` | `[String]` | `[]` | Required company certifications (e.g. `["ISO 29110", "ISO 27001", "CMMI Level 3"]`). |
 | `manufacturerAuthorizations` | `[String]` | `[]` | Manufacturer Authorization Letters (MAF) required from OEMs/vendors. |
 | `previousExperience` | `String` | `null` | Description of required past government/enterprise track record. |
