@@ -14,6 +14,7 @@
  */
 
 import { Type } from '@google/genai';
+import { STANDARD_CONDITIONS, STANDARD_CONDITION_KEYS } from '#models/standard-conditions.js';
 
 /**
  * Kinds of IT project. Price analysis (FR-19) uses this to find similar past
@@ -62,7 +63,8 @@ const amount = (description) =>
       type: Type.STRING,
       description:
         'The amount exactly as written, digits and separators only, e.g. "๑,๘๕๐,๐๐๐.๐๐". ' +
-        'Do not convert it.',
+        'Do not convert it. Copy the digits even when the Thai words beside them say a ' +
+        'different amount: never choose the words instead.',
     },
     description,
   );
@@ -300,7 +302,18 @@ export const extractSchema = {
       type: Type.OBJECT,
       description: 'Who may bid. Kept separate from technical requirements.',
       properties: {
-        companyRequirements: list('Requirements on the bidding company itself, one per item.'),
+        standardConditions: {
+          type: Type.ARRAY,
+          description:
+            'The standard conditions, repeated in every e-GP TOR, that this document lists. Give ' +
+            'the key for each one it states, in any wording:\n' +
+            STANDARD_CONDITIONS.map(({ key, th }) => `${key}: ${th}`).join('\n'),
+          items: { type: Type.STRING, format: 'enum', enum: STANDARD_CONDITION_KEYS },
+        },
+        companyRequirements: list(
+          'Requirements on the bidding company that are NOT one of the standard conditions, one per ' +
+            'item, e.g. a registered-capital or financial-standing threshold.',
+        ),
         requiredCertifications: quotedItems('The certification, e.g. "ISO/IEC 27001".', 'Certifications the bidder must hold.'),
         manufacturerAuthorizations: quotedItems(
           'What must be authorized, e.g. "ตัวแทนจำหน่ายจากผู้ผลิต Oracle".',
@@ -311,6 +324,7 @@ export const extractSchema = {
         personnelQualifications: list('Required staff and their qualifications.'),
       },
       required: [
+        'standardConditions',
         'companyRequirements',
         'requiredCertifications',
         'manufacturerAuthorizations',

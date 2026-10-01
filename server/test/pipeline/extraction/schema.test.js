@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Type } from '@google/genai';
 
+import { STANDARD_CONDITION_KEYS } from '#models/standard-conditions.js';
 import { PROJECT_CATEGORIES, classifySchema, extractSchema } from '#pipeline/extraction/schema.js';
 
 // Visits every object schema in the tree, with a readable path for messages.
@@ -41,6 +42,11 @@ test('classifySchema: the category is one of the fixed project kinds, and null f
   assert.equal(isIT.type, Type.BOOLEAN);
   assert.deepEqual(category.enum, PROJECT_CATEGORIES);
   assert.equal(category.nullable, true);
+});
+
+test('extractSchema: offers exactly the standard condition keys the model stores', () => {
+  const { standardConditions } = extractSchema.properties.eligibility.properties;
+  assert.deepEqual(standardConditions.items.enum, STANDARD_CONDITION_KEYS);
 });
 
 test('extractSchema: money is copied as written, for code to parse', () => {
