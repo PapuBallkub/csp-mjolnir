@@ -70,6 +70,9 @@ const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * Throws GeminiResponseError when the answer is unusable, such as when it was
  * cut off at the output limit. Nothing partial is ever returned (R4).
  *
+ * `thinkingLevel` ('MINIMAL', 'LOW', …) matters for cost: thinking is on by
+ * default and billed, and the model spent 195 thinking tokens to say "OK".
+ *
  * @returns {Promise<{ data: object, usage: object, finishReason: string }>}
  */
 export async function generateJson({
@@ -78,6 +81,8 @@ export async function generateJson({
   systemInstruction,
   contents,
   responseSchema,
+  thinkingLevel = null,
+  maxOutputTokens = null,
   sleep = defaultSleep,
 }) {
   for (let attempt = 1; ; attempt++) {
@@ -95,6 +100,8 @@ export async function generateJson({
           // so this loop is the one retry policy: otherwise 5 inside 4 would
           // allow 20 requests for a single TOR.
           httpOptions: { timeout: REQUEST_TIMEOUT_MS, retryOptions: { attempts: 1 } },
+          ...(thinkingLevel && { thinkingConfig: { thinkingLevel } }),
+          ...(maxOutputTokens && { maxOutputTokens }),
         },
       });
     } catch (error) {

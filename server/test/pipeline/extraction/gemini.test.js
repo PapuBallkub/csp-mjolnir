@@ -68,6 +68,17 @@ test('generateJson returns the parsed answer and asks for JSON at temperature 0'
   assert.equal(client.calls[0].config.httpOptions.retryOptions.attempts, 1);
 });
 
+test('generateJson sets thinking and the output limit only when asked', async () => {
+  const client = fakeClient([ok({}), ok({})]);
+  await generateJson({ client, model: 'm', contents: 'c', responseSchema: {}, thinkingLevel: 'MINIMAL', maxOutputTokens: 32768 });
+  await generateJson({ client, model: 'm', contents: 'c', responseSchema: {} });
+
+  assert.deepEqual(client.calls[0].config.thinkingConfig, { thinkingLevel: 'MINIMAL' });
+  assert.equal(client.calls[0].config.maxOutputTokens, 32768);
+  assert.equal(client.calls[1].config.thinkingConfig, undefined);
+  assert.equal(client.calls[1].config.maxOutputTokens, undefined);
+});
+
 test('generateJson retries a rate limit with growing waits, then succeeds', async () => {
   const delays = [];
   const client = fakeClient([apiError(429), apiError(503), ok({ reply: 'OK' })]);

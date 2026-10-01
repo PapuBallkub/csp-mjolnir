@@ -12,3 +12,12 @@ export {
   isRetryable,
   readGeminiConfig,
 } from './gemini.js';
+export { PROJECT_CATEGORIES, classifySchema, extractSchema } from './schema.js';
+export {
+  CLASSIFY_CHARS,
+  CLASSIFY_INSTRUCTION,
+  EXTRACT_INSTRUCTION,
+  PROMPT_VERSION,
+  buildClassifyContents,
+  buildExtractContents,
+} from './prompts.js';
