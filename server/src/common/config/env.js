@@ -2,6 +2,14 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// "true"/"false" from the environment; anything else keeps the default, so a
+// typo can't flip a safety setting
+function flag(value, fallback) {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return fallback;
+}
+
 function required(name, hint) {
   const value = process.env[name];
   if (!value) {
@@ -42,6 +50,14 @@ export const env = {
     clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
     redirectUri: process.env.GOOGLE_REDIRECT_URI ?? '',
   },
+  // Pilot mode: the API shows TOR insights nobody has reviewed yet, and demo
+  // data, each labelled as such. Off, it shows only what a person approved
+  // with a score of 80 or more (NFR-17). On by default outside production,
+  // and on in production only when set explicitly.
+  showUnreviewedInsights: flag(
+    process.env.SHOW_UNREVIEWED_INSIGHTS,
+    (process.env.NODE_ENV ?? 'development') !== 'production',
+  ),
 };
 
 export const isProduction = env.nodeEnv === 'production';
