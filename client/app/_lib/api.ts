@@ -222,6 +222,37 @@ export type ComparableProject = {
   referencePriceTHB: number;
 };
 
+/**
+ * What the API says about where a TOR summary came from (ADR 0015). In pilot
+ * mode the API also returns summaries nobody has checked, and demo data: the
+ * page must label both.
+ */
+export type TorReview = {
+  /** "pipeline": real AI output; "demo": made-up seed data for the UI */
+  origin: "pipeline" | "demo";
+  status: "pending" | "approved" | "rejected";
+  /** A person approved this pipeline result. Demo data is never checked. */
+  checked: boolean;
+  /** 0–100, from the pipeline's checks; null for demo data */
+  score: number | null;
+  failedChecks: number;
+  processedAt: string | null;
+};
+
+export type LockSpecAnalysis = {
+  riskScore: number;
+  verdictText: string;
+  findings: LockSpecFinding[];
+};
+
+export type PriceAnalysis = {
+  referencePriceTHB: number;
+  historicalMedianTHB: number;
+  diffPercentage: number;
+  interpretation: string;
+  comparableProjects: ComparableProject[];
+};
+
 export type TorInsightSummary = {
   projectId: string;
   identification: {
@@ -244,18 +275,17 @@ export type TorInsightSummary = {
   technicalRequirements?: {
     requiredTechnologies: { name: string; version: string | null }[];
   };
-  analytics?: {
-    lockSpec?: {
-      riskScore: number;
-      verdictText: string;
-    };
-    priceAnalysis?: {
-      diffPercentage: number;
-    };
+  /** null: the analysis hasn't been run, never a measured 0 */
+  analytics: {
+    lockSpec: { riskScore: number; verdictText: string } | null;
+    priceAnalysis: { diffPercentage: number } | null;
   };
   amendmentInfo?: {
     isAmended: boolean;
   };
+  /** Only companies may bid ("เฉพาะนิติบุคคล") */
+  companiesOnly: boolean;
+  review: TorReview;
   createdAt?: string;
 };
 
@@ -314,6 +344,9 @@ export type TorInsightDetail = {
     maintenance: string[];
   };
   eligibility: {
+    /** Conditions every e-GP TOR repeats, as keys; matched later, not shown */
+    standardConditions?: string[];
+    /** Only the conditions specific to this TOR */
     companyRequirements: string[];
     requiredCertifications: string[];
     manufacturerAuthorizations: string[];
@@ -326,19 +359,10 @@ export type TorInsightDetail = {
     deliveryConditions: string | null;
     evaluationMethod: string | null;
   };
+  /** null: the analysis hasn't been run, never a measured 0 */
   analytics: {
-    lockSpec: {
-      riskScore: number;
-      verdictText: string;
-      findings: LockSpecFinding[];
-    };
-    priceAnalysis: {
-      referencePriceTHB: number;
-      historicalMedianTHB: number;
-      diffPercentage: number;
-      interpretation: string;
-      comparableProjects: ComparableProject[];
-    };
+    lockSpec: LockSpecAnalysis | null;
+    priceAnalysis: PriceAnalysis | null;
   };
   amendmentInfo: {
     isAmended: boolean;
@@ -346,6 +370,8 @@ export type TorInsightDetail = {
     amendmentSummary: string;
     changedSections: string[];
   };
+  companiesOnly: boolean;
+  review: TorReview;
   document?: {
     fileName: string | null;
     sizeBytes: number | null;

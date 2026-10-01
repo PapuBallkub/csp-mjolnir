@@ -34,11 +34,65 @@ function formatDateString(val: string | Date | null | undefined, lang: Lang): st
   }
 }
 
-function getScopeSize(budget: number | null): { th: string; en: string } {
-  if (!budget) return { th: "ไม่ระบุขนาด", en: "Unspecified" };
-  if (budget < 5_000_000) return { th: "ทำคนเดียว / ทีมเล็ก", en: "Solo / Small team" };
-  if (budget <= 30_000_000) return { th: "ทีมขนาดกลาง (2–5 คน)", en: "Mid-size team" };
-  return { th: "องค์กร / บริษัทขนาดใหญ่", en: "Firm-sized" };
+/**
+ * Says what a summary is, before anyone reads it (ADR 0015). Demo data is made
+ * up; an AI summary nobody has checked may be wrong. A checked one needs no note.
+ */
+function ReviewNotice({ review, webUrl, lang }: { review: TorInsightDetail["review"]; webUrl: string | null; lang: Lang }) {
+  if (review.origin === "demo") {
+    return (
+      <p className="mt-3 max-w-4xl rounded-[3px] border border-amend-line bg-amend-bg px-3 py-2 text-[12.5px] leading-thai text-amend">
+        {lang === "th"
+          ? "ข้อมูลตัวอย่างสำหรับทดสอบหน้าจอ — เนื้อหาและผลวิเคราะห์ในหน้านี้สร้างขึ้นเอง ไม่ได้อ่านจากเอกสาร TOR จริง"
+          : "Demo data for testing the page — the content and analysis here are made up, not read from the real TOR."}
+      </p>
+    );
+  }
+  if (review.checked) return null;
+
+  return (
+    <div className="mt-3 max-w-4xl rounded-[3px] border border-line bg-surface-2 px-3 py-2 text-[12.5px] leading-thai text-ink-2">
+      <p className="font-medium text-ink">
+        {lang === "th" ? "สรุปโดย AI จากเอกสาร TOR · ยังไม่มีเจ้าหน้าที่ตรวจสอบ" : "AI summary of the TOR · not yet checked by a person"}
+      </p>
+      <p className="mt-0.5">
+        {review.score !== null
+          ? lang === "th"
+            ? `คะแนนความน่าเชื่อถือ ${review.score}/100`
+            : `Confidence ${review.score}/100`
+          : null}
+        {review.failedChecks > 0
+          ? lang === "th"
+            ? ` · ระบบพบ ${review.failedChecks} จุดที่ควรตรวจซ้ำ`
+            : ` · ${review.failedChecks} point(s) flagged for a second look`
+          : null}
+        {" · "}
+        {lang === "th" ? "ตรวจสอบกับเอกสารต้นฉบับก่อนตัดสินใจ" : "Check against the original before deciding"}
+        {webUrl ? (
+          <>
+            {" "}
+            <a href={webUrl} target="_blank" rel="noreferrer" className="underline hover:text-ink">
+              {lang === "th" ? "เปิดใน e-GP" : "Open on e-GP"}
+            </a>
+          </>
+        ) : null}
+      </p>
+    </div>
+  );
+}
+
+/** A decision-support section whose analysis hasn't been run: said plainly, never a 0. */
+function NotAnalysed({ heading, lang }: { heading: string; lang: Lang }) {
+  return (
+    <Panel className="px-4 py-5 sm:px-6 sm:py-6">
+      <SectionHeading>{heading}</SectionHeading>
+      <p className="mt-2 text-[13.5px] leading-thai text-ink-3">
+        {lang === "th"
+          ? "ยังไม่ได้วิเคราะห์ส่วนนี้ — ระบบจะเปรียบเทียบกับโครงการในอดีตเมื่อมีข้อมูลเพียงพอ"
+          : "Not analysed yet — this compares against past projects once there is enough data."}
+      </p>
+    </Panel>
+  );
 }
 
 export function TorDetail({
@@ -74,23 +128,22 @@ export function TorDetail({
   const price = insight.analytics.priceAnalysis;
   const amend = insight.amendmentInfo;
 
-  const scope = getScopeSize(facts.referencePriceTHB || facts.budgetTHB);
-
   // Match profile skills with required technologies
   const requiredTechNames = tech.requiredTechnologies.map((t) => t.name);
   const matchedSkills = requiredTechNames.filter((t) =>
     profile.skills.some((s) => s.toLowerCase() === t.toLowerCase() || t.toLowerCase().includes(s.toLowerCase()))
   );
 
-  // Determine lock-spec tone
-  const lockScore = lockSpec.riskScore;
+  // null: the analysis hasn't been run yet. Shown as such, never as a 0 that
+  // reads like "measured, low risk" (ADR 0015)
+  const lockScore = lockSpec?.riskScore ?? null;
   const lockTone: "open" | "amend" | "risk" =
-    lockScore >= 70 ? "risk" : lockScore >= 35 ? "amend" : "open";
+    lockScore === null ? "open" : lockScore >= 70 ? "risk" : lockScore >= 35 ? "amend" : "open";
 
-  // Determine price tone
-  const diffPct = price.diffPercentage;
+  const diffPct = price?.diffPercentage ?? null;
   const priceTone: "open" | "amend" | "risk" =
-    diffPct > 15 ? "amend" : diffPct < -15 ? "risk" : "open";
+    diffPct === null ? "open" : diffPct > 15 ? "amend" : diffPct < -15 ? "risk" : "open";
+  const notAnalysed = lang === "th" ? "ยังไม่ได้วิเคราะห์" : "Not analysed yet";
 
   return (
     <article className="pb-16">
@@ -166,11 +219,15 @@ export function TorDetail({
               </span>
             ) : null}
 
-            {/* Scope Badge */}
-            <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-2 py-[3px] text-[11px] font-medium text-ink-2">
-              {lang === "th" ? scope.th : scope.en}
-            </span>
+            {/* Who may bid: decisive for freelancers, so it sits with the status */}
+            {insight.companiesOnly ? (
+              <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-2 py-[3px] text-[11px] font-medium text-ink-2">
+                {lang === "th" ? "เฉพาะนิติบุคคล" : "Companies only"}
+              </span>
+            ) : null}
           </div>
+
+          <ReviewNotice review={insight.review} webUrl={facts.webUrl} lang={lang} />
 
           {/* Verdict Strip */}
           <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[3px] border border-line bg-surface-2/60 p-2.5 sm:gap-6 sm:px-4">
@@ -178,23 +235,27 @@ export function TorDetail({
               <span className="text-[12px] text-ink-3">
                 {lang === "th" ? "วิเคราะห์ล็อกสเปก:" : "Lock-spec:"}
               </span>
-              <span
-                className={`font-mono text-[12px] font-semibold ${
-                  lockTone === "risk"
-                    ? "text-risk"
-                    : lockTone === "amend"
-                    ? "text-amend"
-                    : "text-open"
-                }`}
-              >
-                {lockScore}/100 (
-                {lockScore >= 70
-                  ? lang === "th" ? "เสี่ยงสูง" : "High Risk"
-                  : lockScore >= 35
-                  ? lang === "th" ? "ปานกลาง" : "Medium"
-                  : lang === "th" ? "เสี่ยงต่ำ" : "Low Risk"}
-                )
-              </span>
+              {lockScore === null ? (
+                <span className="text-[12px] text-ink-3">{notAnalysed}</span>
+              ) : (
+                <span
+                  className={`font-mono text-[12px] font-semibold ${
+                    lockTone === "risk"
+                      ? "text-risk"
+                      : lockTone === "amend"
+                      ? "text-amend"
+                      : "text-open"
+                  }`}
+                >
+                  {lockScore}/100 (
+                  {lockScore >= 70
+                    ? lang === "th" ? "เสี่ยงสูง" : "High Risk"
+                    : lockScore >= 35
+                    ? lang === "th" ? "ปานกลาง" : "Medium"
+                    : lang === "th" ? "เสี่ยงต่ำ" : "Low Risk"}
+                  )
+                </span>
+              )}
             </div>
 
             <div className="hidden h-3 w-px bg-line sm:block" />
@@ -203,17 +264,21 @@ export function TorDetail({
               <span className="text-[12px] text-ink-3">
                 {lang === "th" ? "เทียบราคากลางในอดีต:" : "Price vs median:"}
               </span>
-              <span
-                className={`font-mono text-[12px] font-semibold ${
-                  diffPct > 15
-                    ? "text-amend"
-                    : diffPct < -15
-                    ? "text-risk"
-                    : "text-open"
-                }`}
-              >
-                {diffPct > 0 ? `+${diffPct}%` : `${diffPct}%`}
-              </span>
+              {diffPct === null ? (
+                <span className="text-[12px] text-ink-3">{notAnalysed}</span>
+              ) : (
+                <span
+                  className={`font-mono text-[12px] font-semibold ${
+                    diffPct > 15
+                      ? "text-amend"
+                      : diffPct < -15
+                      ? "text-risk"
+                      : "text-open"
+                  }`}
+                >
+                  {diffPct > 0 ? `+${diffPct}%` : `${diffPct}%`}
+                </span>
+              )}
             </div>
 
             <div className="hidden h-3 w-px bg-line sm:block" />
@@ -826,6 +891,7 @@ export function TorDetail({
           {/* ---------------------------------------------------------------- */}
           {/* 10. DECISION SUPPORT: LOCK-SPEC RISK (Analytical Layer)          */}
           {/* ---------------------------------------------------------------- */}
+          {lockSpec ? (
           <AccentPanel tone={lockTone} className="px-4 py-5 sm:px-6 sm:py-6">
             <SectionHeading
               sub={
@@ -917,10 +983,17 @@ export function TorDetail({
               </div>
             )}
           </AccentPanel>
+          ) : (
+            <NotAnalysed
+              heading={lang === "th" ? "10. วิเคราะห์ความเสี่ยงล็อกสเปก (Lock-Spec Risk)" : "10. Lock-Spec Risk Analysis"}
+              lang={lang}
+            />
+          )}
 
           {/* ---------------------------------------------------------------- */}
           {/* 11. DECISION SUPPORT: PRICE REALITY CHECK                        */}
           {/* ---------------------------------------------------------------- */}
+          {price ? (
           <AccentPanel tone={priceTone} className="px-4 py-5 sm:px-6 sm:py-6">
             <SectionHeading
               sub={
@@ -930,7 +1003,7 @@ export function TorDetail({
               }
               right={
                 <span className="font-mono text-[14px] font-bold">
-                  {diffPct > 0 ? `+${diffPct}%` : `${diffPct}%`}
+                  {price.diffPercentage > 0 ? `+${price.diffPercentage}%` : `${price.diffPercentage}%`}
                 </span>
               }
             >
@@ -959,9 +1032,9 @@ export function TorDetail({
               <div className="col-span-2 sm:col-span-1">
                 <Label>{lang === "th" ? "ส่วนต่างเทียบมัธยฐาน" : "Diff vs Median"}</Label>
                 <p className={`mt-1 font-mono text-[16px] font-bold ${
-                  diffPct > 10 ? "text-amend" : diffPct < -10 ? "text-risk" : "text-open"
+                  price.diffPercentage > 10 ? "text-amend" : price.diffPercentage < -10 ? "text-risk" : "text-open"
                 }`}>
-                  {diffPct > 0 ? `+${diffPct}%` : `${diffPct}%`}
+                  {price.diffPercentage > 0 ? `+${price.diffPercentage}%` : `${price.diffPercentage}%`}
                 </p>
               </div>
             </div>
@@ -995,6 +1068,12 @@ export function TorDetail({
               </div>
             ) : null}
           </AccentPanel>
+          ) : (
+            <NotAnalysed
+              heading={lang === "th" ? "11. ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "11. Price Reality Check"}
+              lang={lang}
+            />
+          )}
 
           {/* ---------------------------------------------------------------- */}
           {/* 12. AMENDMENT / STATUS INFORMATION                               */}
