@@ -118,6 +118,19 @@ test('TorInsight schema: accepts the minimal record saved for a non-IT document'
   assert.equal(excluded.metadata.excluded.reason, 'Road construction, no software or IT scope');
 });
 
+test('TorInsight schema: standard conditions are fixed keys, so matching can compare them exactly', async () => {
+  const doc = new TorInsight({
+    projectId: '68039469567',
+    identification: { titleTh: 'โครงการ', agency: 'หน่วยงาน', status: 'Open' },
+    eligibility: { standardConditions: ['juristic-person', 'egp-registered'] },
+  });
+  assert.equal(await doc.validate().catch((err) => err), undefined);
+
+  doc.eligibility.standardConditions.push('ไม่เป็นบุคคลล้มละลาย'); // text, not a key
+  const validationError = await doc.validate().catch((err) => err);
+  assert.ok(validationError?.errors['eligibility.standardConditions.2']);
+});
+
 test('TorInsight schema: keeps the confidence score on its 0–100 scale', async () => {
   const doc = new TorInsight({
     projectId: '68039469567',
