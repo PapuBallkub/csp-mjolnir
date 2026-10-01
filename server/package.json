@@ -20,7 +20,8 @@
     "ingest": "node src/pipeline/ingestion/ingest.js",
     "ingest:fetch": "node src/pipeline/ingestion/ingest.js --step fetch",
     "ingest:download": "node src/pipeline/ingestion/ingest.js --step download",
-    "ingest:ocr": "node src/pipeline/ingestion/ingest.js --step ocr"
+    "ingest:ocr": "node src/pipeline/ingestion/ingest.js --step ocr",
+    "seed": "node scripts/seed.js"
   },
   "dependencies": {
     "adm-zip": "^0.6.0",

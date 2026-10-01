@@ -8,6 +8,7 @@ import { notFoundHandler } from '#common/middleware/not-found.js';
 import { adminRoutes } from '#features/admin/index.js';
 import { authRateLimits, createAuthRoutes } from '#features/auth/index.js';
 import { healthRoutes } from '#features/health/index.js';
+import { torRoutes } from '#features/tors/index.js';
 
 // Builds the app without listening, so a test can drive it directly. rateLimits
 // is injectable for the same reason: the suite drives the real routes, so it
@@ -47,6 +48,7 @@ export function createApp({ rateLimits = authRateLimits } = {}) {
   // requireAuth and requireRole('admin') to everything mounted under it, so a
   // route added later cannot be left open by forgetting a middleware. See 0011.
   app.use('/api/admin', adminRoutes);
+  app.use('/api/tors', torRoutes);
 
   // Both stay last, and in this order.
   app.use(notFoundHandler);
