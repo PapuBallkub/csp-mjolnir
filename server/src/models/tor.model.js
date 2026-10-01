@@ -46,13 +46,18 @@ const torSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    // Two different figures in every TOR, and never interchangeable (ADR 0014).
+    // null means the feed did not give one: a 0 would read as a real price.
+    // งบประมาณ: what the agency has set aside for the project.
     budgetTHB: {
       type: Number,
-      default: 0,
+      default: null,
     },
-    medianPriceTHB: {
+    // ราคากลาง: the official price the agency's committee worked out, which bids
+    // are judged against. Not a statistical median, whatever "กลาง" suggests.
+    referencePriceTHB: {
       type: Number,
-      default: 0,
+      default: null,
     },
     announceDate: {
       type: String,
@@ -83,7 +88,7 @@ const torSchema = new mongoose.Schema(
       contractNo: { type: String, default: null },
       contractSignDate: { type: String, default: null },
       contractEndDate: { type: String, default: null },
-      agreedPriceTHB: { type: Number, default: 0 },
+      agreedPriceTHB: { type: Number, default: null }, // ราคาตกลงซื้อ/จ้าง: the signed contract price
       projectStatus: { type: String, default: '' },
     },
 
