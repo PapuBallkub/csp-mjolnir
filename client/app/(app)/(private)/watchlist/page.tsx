@@ -33,7 +33,7 @@ export default function WatchlistPage() {
     const list: Alert[] = [];
     for (const tor of savedTors) {
       const amendment = tor.amendments.find((a) => a.changes.length > 0);
-      if (tor.status === "amended" && amendment) {
+      if (tor.isAmended && amendment) {
         list.push({
           tor,
           kind: "amended",
@@ -41,11 +41,11 @@ export default function WatchlistPage() {
           text: amendment.headline,
         });
       }
-      if (tor.status === "closed") {
+      if (tor.status === "Closed" || tor.status === "Awarded") {
         list.push({
           tor,
           kind: "closed",
-          date: tor.amendments[0].date,
+          date: tor.amendments[0]?.date || tor.postedAt,
           text: {
             th: `ปิดรับข้อเสนอแล้ว ผู้ชนะคือ ${tor.awardedTo ? tor.awardedTo.th : "-"}`,
             en: `Closed. Awarded to ${tor.awardedTo ? tor.awardedTo.en : "-"}.`,
@@ -53,7 +53,7 @@ export default function WatchlistPage() {
         });
       }
       const left = daysUntil(tor.deadline);
-      if (tor.status !== "closed" && left >= 0 && left <= 7) {
+      if (tor.status !== "Closed" && tor.status !== "Awarded" && tor.status !== "Cancelled" && left >= 0 && left <= 7) {
         list.push({
           tor,
           kind: "closing",

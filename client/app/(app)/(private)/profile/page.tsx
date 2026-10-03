@@ -55,7 +55,7 @@ export default function ProfilePage() {
   const ranked = useMemo(
     () =>
       tors
-        .filter((tor) => tor.status !== "closed")
+        .filter((tor) => tor.status !== "Closed" && tor.status !== "Awarded" && tor.status !== "Cancelled")
         .map((tor) => ({ tor, score: matchScore(tor, profile) }))
         .sort((a, b) => b.score - a.score),
     [profile],

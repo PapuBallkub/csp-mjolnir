@@ -2,7 +2,9 @@ import type { Lang, PriceVerdict, RiskLevel, ScopeSize, Status, Tor } from "../_
 import { priceDeltaPct } from "../_data/tors";
 import type { TorInsightSummary } from "../_lib/api";
 
-export type ApiStatus = "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";
+// Re-export Status and keep backward-compat alias
+export type { Status };
+export type ApiStatus = Status;
 
 /**
  * The verdict layer — the one thing this product has that a plain listing site
@@ -33,19 +35,15 @@ export const TONE: Record<Tone, { text: string; bg: string; border: string; fill
   },
 };
 
-export function getStatusTone(status: Status | ApiStatus): Tone {
+export function getStatusTone(status: Status): Tone {
   switch (status) {
-    case "open":
     case "Open":
       return "open";
-    case "amended":
-      return "amend";
     case "Cancelled":
       return "risk";
-    case "closed":
+    case "Draft":
     case "Closed":
     case "Awarded":
-    case "Draft":
     default:
       return "closed";
   }
@@ -53,9 +51,11 @@ export function getStatusTone(status: Status | ApiStatus): Tone {
 
 /* Exported so a whole panel can wear the same hue as the badge inside it. */
 export const STATUS_TONE: Record<Status, Tone> = {
-  open: "open",
-  amended: "amend",
-  closed: "closed",
+  Draft: "closed",
+  Open: "open",
+  Awarded: "closed",
+  Closed: "closed",
+  Cancelled: "risk",
 };
 export const RISK_TONE: Record<RiskLevel, Tone> = { low: "open", medium: "amend", high: "risk" };
 /**
@@ -70,12 +70,9 @@ export const PRICE_TONE: Record<PriceVerdict, Tone> = {
   under: "risk",
 };
 
-const STATUS_LABEL: Record<Status | ApiStatus, Bi> = {
-  open: { th: "เปิดรับข้อเสนอ", en: "Open" },
-  amended: { th: "แก้ไขแล้ว", en: "Amended" },
-  closed: { th: "ประกาศผู้ชนะแล้ว", en: "Closed — awarded" },
-  Open: { th: "เปิดรับข้อเสนอ", en: "Open" },
+const STATUS_LABEL: Record<Status, Bi> = {
   Draft: { th: "ร่างประกาศ / วิจารณ์", en: "Draft TOR" },
+  Open: { th: "เปิดรับข้อเสนอ", en: "Open" },
   Awarded: { th: "ประกาศผู้ชนะแล้ว", en: "Awarded" },
   Closed: { th: "ปิดรับข้อเสนอ", en: "Closed" },
   Cancelled: { th: "ยกเลิกประกาศ", en: "Cancelled" },
@@ -98,19 +95,11 @@ const say = (v: Bi, lang: Lang) => (lang === "th" ? v.th : v.en);
 
 /* --------------------------------- glyphs --------------------------------- */
 
-function StatusGlyph({ status, className = "" }: { status: Status | ApiStatus; className?: string }) {
-  if (status === "open" || status === "Open") {
+function StatusGlyph({ status, className = "" }: { status: Status; className?: string }) {
+  if (status === "Open") {
     return (
       <svg viewBox="0 0 10 10" className={`h-2.5 w-2.5 shrink-0 ${className}`} aria-hidden="true">
         <circle cx="5" cy="5" r="3.2" fill="currentColor" />
-      </svg>
-    );
-  }
-  if (status === "amended") {
-    return (
-      <svg viewBox="0 0 10 10" className={`h-2.5 w-2.5 shrink-0 ${className}`} aria-hidden="true">
-        <rect x="0" y="2.2" width="7" height="1.8" fill="currentColor" />
-        <rect x="3" y="6" width="7" height="1.8" fill="currentColor" />
       </svg>
     );
   }
@@ -138,10 +127,12 @@ function StatusGlyph({ status, className = "" }: { status: Status | ApiStatus; c
   return (
     <svg viewBox="0 0 10 10" className={`h-2.5 w-2.5 shrink-0 ${className}`} aria-hidden="true">
       <path
-        d="M1.5 1.5 L8.5 8.5 M8.5 1.5 L1.5 8.5"
+        d="M2.5 5.2 L4.2 7 L7.8 3"
         stroke="currentColor"
-        strokeWidth="1.8"
+        strokeWidth="1.6"
+        fill="none"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -194,7 +185,7 @@ export function StatusBadge({
   round,
   isAmended = false,
 }: {
-  status: Status | ApiStatus;
+  status: Status;
   lang: Lang;
   /** e.g. "ครั้งที่ 2" — shown next to an amended status. */
   round?: string;
@@ -325,10 +316,10 @@ export function SmeBadge({ lang }: { lang: Lang }) {
 }
 
 /** Left-edge rail. In a dense list the rails form a scannable column of status. */
-export function SignalRail({ status, className = "" }: { status: Status | ApiStatus; className?: string }) {
+export function SignalRail({ status, className = "" }: { status: Status; className?: string }) {
   const toneKey = getStatusTone(status);
   const fill = status === "Draft" ? "bg-ink-3" : TONE[toneKey].fill;
-  const isMuted = status === "closed" || status === "Closed" || status === "Draft" || status === "Awarded";
+  const isMuted = status === "Closed" || status === "Draft" || status === "Awarded";
   return (
     <span
       aria-hidden="true"
@@ -422,12 +413,14 @@ export function VerdictStrip({
   if (!tor) return null;
 
   const round =
-    tor.status === "amended" ? tor.amendments[0].round.th.replace("ประกาศร่าง TOR ", "") : undefined;
+    tor.isAmended && tor.amendments?.[0]
+      ? tor.amendments[0].round.th.replace("ประกาศร่าง TOR ", "")
+      : undefined;
 
   if (size === "compact") {
     return (
       <div className="flex flex-wrap items-center gap-1.5">
-        <StatusBadge status={tor.status} lang={lang} round={round} />
+        <StatusBadge status={tor.status} isAmended={tor.isAmended} lang={lang} round={round} />
         <LockSpecBadge level={tor.lockSpec.level} score={tor.lockSpec.score} lang={lang} />
         <PriceBadge tor={tor} lang={lang} />
       </div>
@@ -437,7 +430,7 @@ export function VerdictStrip({
   const cells: { label: string; node: React.ReactNode }[] = [
     {
       label: lang === "th" ? "สถานะ" : "Status",
-      node: <StatusBadge status={tor.status} lang={lang} round={round} />,
+      node: <StatusBadge status={tor.status} isAmended={tor.isAmended} lang={lang} round={round} />,
     },
     {
       label: lang === "th" ? "ความเสี่ยงล็อกสเปก" : "Lock-spec risk",

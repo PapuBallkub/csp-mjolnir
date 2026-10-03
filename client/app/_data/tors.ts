@@ -18,7 +18,7 @@ export function pick(value: Bi, lang: Lang): string {
   return lang === "th" ? value.th : value.en;
 }
 
-export type Status = "open" | "amended" | "closed";
+export type Status = "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";
 export type RiskLevel = "low" | "medium" | "high";
 export type PriceVerdict = "under" | "fair" | "over";
 /** How big a team the scope realistically needs — drives the US11 filter. */
@@ -76,6 +76,7 @@ export type Tor = {
   techStack: string[];
   penalty: Bi;
   status: Status;
+  isAmended?: boolean;
   awardedTo?: Bi;
   awardedAmount?: number;
   scopeSize: ScopeSize;
@@ -130,7 +131,8 @@ const CATALOG: Tor[] = [
       "Power BI",
     ],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "amended",
+    status: "Open",
+    isAmended: true,
     scopeSize: "firm",
     smeAdvantage: false,
     summary: [
@@ -308,7 +310,7 @@ const CATALOG: Tor[] = [
     postedAt: "2026-07-21",
     techStack: ["React", "Node.js", "PostgreSQL", "CKAN", "Docker"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "open",
+    status: "Open",
     scopeSize: "small-team",
     smeAdvantage: true,
     summary: [
@@ -408,7 +410,7 @@ const CATALOG: Tor[] = [
     postedAt: "2026-07-25",
     techStack: ["Next.js", "Node.js", "MySQL", "LINE Messaging API"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "open",
+    status: "Open",
     scopeSize: "solo",
     smeAdvantage: true,
     summary: [
@@ -507,7 +509,8 @@ const CATALOG: Tor[] = [
     postedAt: "2026-07-09",
     techStack: ["Flutter", "Firebase", "REST API", "PostgreSQL"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "amended",
+    status: "Open",
+    isAmended: true,
     scopeSize: "small-team",
     smeAdvantage: true,
     summary: [
@@ -634,7 +637,7 @@ const CATALOG: Tor[] = [
     postedAt: "2026-06-12",
     techStack: ["NVIDIA DeepStream", "Milestone XProtect", "Ubuntu Server 22.04", "Kubernetes"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "open",
+    status: "Open",
     scopeSize: "firm",
     smeAdvantage: false,
     summary: [
@@ -747,7 +750,7 @@ const CATALOG: Tor[] = [
     postedAt: "2026-05-19",
     techStack: ["HL7 FHIR", "Java Spring Boot", "PostgreSQL", "Kubernetes", "Keycloak"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "open",
+    status: "Open",
     scopeSize: "firm",
     smeAdvantage: false,
     summary: [
@@ -861,7 +864,7 @@ const CATALOG: Tor[] = [
     postedAt: "2026-07-14",
     techStack: ["Power BI", ".NET 8", "SQL Server 2022", "Azure AD"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "open",
+    status: "Open",
     scopeSize: "small-team",
     smeAdvantage: true,
     summary: [
@@ -953,7 +956,7 @@ const CATALOG: Tor[] = [
     postedAt: "2026-08-04",
     techStack: ["IT Strategy", "Enterprise Architecture", "TOGAF"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "open",
+    status: "Open",
     scopeSize: "solo",
     smeAdvantage: true,
     summary: [
@@ -1039,7 +1042,7 @@ const CATALOG: Tor[] = [
     postedAt: "2026-04-28",
     techStack: ["PHP", "MySQL", "Apache", "Linux"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "closed",
+    status: "Awarded",
     awardedTo: { th: "บริษัท ไทยด็อคคิวเมนต์ ซิสเต็มส์ จำกัด", en: "Thai Document Systems Co., Ltd." },
     awardedAmount: 612_000,
     scopeSize: "solo",
@@ -1139,7 +1142,7 @@ const CATALOG: Tor[] = [
     postedAt: "2026-05-22",
     techStack: ["Cisco IOS", "Windows Server 2019", "VMware vSphere", "Fortinet"],
     penalty: { th: "ค่าปรับร้อยละ 0.20 ต่อวัน", en: "0.20% of contract value per day late" },
-    status: "closed",
+    status: "Closed",
     awardedTo: { th: "บริษัท เน็ตเวิร์ค โซลูชั่นส์ (ประเทศไทย) จำกัด", en: "Network Solutions (Thailand) Co., Ltd." },
     awardedAmount: 4_555_000,
     scopeSize: "firm",

@@ -1,12 +1,11 @@
 import { daysUntil, formatDate, type Lang, type Status } from "../_data/tors";
-import type { ApiStatus } from "./verdict";
 
 /**
  * Time pressure is a verdict too, so it follows the same colour rule:
  * amber once a week is left, crimson inside two days, drained once it's dead.
  */
-export function deadlineTone(deadline: string | null | undefined, status: Status | ApiStatus): string {
-  if (status === "closed" || status === "Closed" || status === "Awarded" || status === "Cancelled") {
+export function deadlineTone(deadline: string | null | undefined, status: Status): string {
+  if (status === "Closed" || status === "Awarded" || status === "Cancelled") {
     return "text-ink-3";
   }
   if (!deadline) return "text-ink-3";
@@ -17,10 +16,10 @@ export function deadlineTone(deadline: string | null | undefined, status: Status
   return "text-ink-2";
 }
 
-export function deadlineText(deadline: string | null | undefined, status: Status | ApiStatus, lang: Lang): string {
+export function deadlineText(deadline: string | null | undefined, status: Status, lang: Lang): string {
   if (status === "Awarded") return lang === "th" ? "ประกาศผู้ชนะแล้ว" : "Awarded";
   if (status === "Cancelled") return lang === "th" ? "ยกเลิกแล้ว" : "Cancelled";
-  if (status === "closed" || status === "Closed") return lang === "th" ? "ปิดรับแล้ว" : "Closed";
+  if (status === "Closed") return lang === "th" ? "ปิดรับแล้ว" : "Closed";
   if (!deadline) return lang === "th" ? "ไม่ระบุวันปิดรับ" : "No deadline";
   const days = daysUntil(deadline);
   if (days < 0) return lang === "th" ? "เลยกำหนดแล้ว" : "Deadline passed";
@@ -36,7 +35,7 @@ export function Deadline({
   showDate = true,
 }: {
   deadline?: string | null;
-  status: Status | ApiStatus;
+  status: Status;
   lang: Lang;
   showDate?: boolean;
 }) {

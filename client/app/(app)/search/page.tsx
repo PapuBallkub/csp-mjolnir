@@ -13,7 +13,7 @@ import { listTors, type TorInsightSummary } from "../../_lib/api";
 import { useLang, useProfile } from "../../_components/prefs";
 import { useAuth } from "../../_components/auth";
 import { TorRow } from "../../_components/tor-row";
-import { RiskMeter, ScopeBadge, SmeBadge, type ApiStatus } from "../../_components/verdict";
+import { RiskMeter, ScopeBadge, SmeBadge, type Status } from "../../_components/verdict";
 import {
   btn,
   Chip,
@@ -41,7 +41,7 @@ const DEADLINE_BANDS = [
   { id: "30", label: { th: "ภายใน 30 วัน", en: "Within 30 days" }, days: 30 },
 ] as const;
 
-const STATUS_OPTIONS: { id: ApiStatus; label: { th: string; en: string } }[] = [
+const STATUS_OPTIONS: { id: Status; label: { th: string; en: string } }[] = [
   { id: "Open", label: { th: "เปิดรับข้อเสนอ", en: "Open" } },
   { id: "Draft", label: { th: "ร่างประกาศ / วิจารณ์", en: "Draft TOR" } },
   { id: "Awarded", label: { th: "ประกาศผู้ชนะแล้ว", en: "Awarded" } },
@@ -169,7 +169,7 @@ export default function BrowsePage() {
   // Filters state
   const [mode, setMode] = useState<Mode>("filter");
   const [query, setQuery] = useState("");
-  const [statuses, setStatuses] = useState<ApiStatus[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
   const [scopes, setScopes] = useState<ScopeSize[]>([]);
   const [techFilter, setTechFilter] = useState<string[]>([]);
   const [agencyFilter, setAgencyFilter] = useState<string[]>([]);
