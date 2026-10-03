@@ -227,6 +227,9 @@ const torInsightSchema = new mongoose.Schema(
 
     // Pipeline Extraction Metadata & Traceability (ADR 0013)
     metadata: {
+      // Where the record came from. `demo` is seed data for building the UI:
+      // made up, never reviewed, and always labelled as such where it's shown.
+      origin: { type: String, enum: ['pipeline', 'demo'], default: 'pipeline', index: true },
       modelName: { type: String, default: null, trim: true },
       promptVersion: { type: String, default: null, trim: true }, // e.g. "extract-v1"
       processedAt: { type: Date, default: Date.now },

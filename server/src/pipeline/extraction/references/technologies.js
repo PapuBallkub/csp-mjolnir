@@ -21,6 +21,7 @@ export const STARTER_TECHNOLOGIES = [
   { name: 'Redis', category: 'database', aliases: [] },
   { name: 'Elasticsearch', category: 'database', aliases: ['Elastic Search', 'ELK'] },
   { name: 'SQLite', category: 'database', aliases: [] },
+  { name: 'ClickHouse', category: 'database', aliases: ['Click House'] },
 
   // Operating systems
   { name: 'Windows Server', category: 'os', aliases: ['Microsoft Windows Server', 'Win Server', 'MS Windows Server'] },
@@ -37,6 +38,9 @@ export const STARTER_TECHNOLOGIES = [
   { name: 'Kubernetes', category: 'container', aliases: ['K8s', 'K8S'] },
   { name: 'Docker', category: 'container', aliases: ['Docker Engine'] },
   { name: 'Red Hat OpenShift', category: 'container', aliases: ['OpenShift', 'Open Shift'] },
+  { name: 'Rancher', category: 'container', aliases: ['SUSE Rancher'] },
+  { name: 'Prometheus', category: 'monitoring', aliases: [] },
+  { name: 'Grafana', category: 'monitoring', aliases: [] },
 
   // Web servers
   { name: 'NGINX', category: 'web-server', aliases: ['Nginx'] },
@@ -102,6 +106,7 @@ export const STARTER_TECHNOLOGIES = [
   { name: 'Fortinet FortiGate', category: 'security', aliases: ['FortiGate', 'Fortinet'] },
   { name: 'Palo Alto Networks', category: 'security', aliases: ['Palo Alto'] },
   { name: 'Cisco', category: 'network', aliases: [] },
+  { name: 'Cisco IOS', category: 'network', aliases: ['Cisco IOS XE', 'IOS XE'] },
   { name: 'Veeam Backup & Replication', category: 'security', aliases: ['Veeam'] },
 
   // Standards and protocols

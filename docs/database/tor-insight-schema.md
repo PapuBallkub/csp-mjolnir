@@ -271,6 +271,7 @@ Tracks post-publishing changes and revisions to the procurement document:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
+| `origin` | `String` (Indexed) | `'pipeline'` | `'pipeline'` for real extraction output, `'demo'` for made-up seed data used to build the UI. Demo data is always labelled where shown, is never "checked", and is replaced when the pipeline extracts that TOR ([0015](../decisions/0015-pilot-mode-and-demo-data.md)). |
 | `modelName` | `String` | `null` | The Gemini model that produced it (e.g. `"gemini-3.7-flash"`). |
 | `promptVersion` | `String` | `null` | The prompt version (e.g. `"extract-v1"`). An older version is re-processed only with `--outdated`. |
 | `processedAt` | `Date` | `Date.now` | Timestamp when the extraction and normalization pipeline completed. |

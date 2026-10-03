@@ -1,5 +1,6 @@
 import type { Lang, PriceVerdict, RiskLevel, ScopeSize, Status, Tor } from "../_data/tors";
 import { priceDeltaPct } from "../_data/tors";
+import type { TorStatus } from "../_lib/api";
 
 /**
  * The verdict layer — the one thing this product has that a plain listing site
@@ -177,10 +178,9 @@ export function LockSpecBadge({
   );
 }
 
-export function PriceBadge({ tor, lang }: { tor: Tor; lang: Lang }) {
-  const delta = priceDeltaPct(tor);
-  const tone = TONE[PRICE_TONE[tor.price.verdict]];
-  const abs = Math.abs(delta);
+function PriceVerdictBadge({ verdict, delta, lang }: { verdict: PriceVerdict; delta: number; lang: Lang }) {
+  const tone = TONE[PRICE_TONE[verdict]];
+  const abs = Math.abs(Math.round(delta));
   const label: Record<PriceVerdict, Bi> = {
     fair: { th: "ราคาอยู่ในเกณฑ์ปกติ", en: "Budget looks normal" },
     over: { th: `สูงกว่าค่ากลาง ${abs}%`, en: `${abs}% above median` },
@@ -188,10 +188,25 @@ export function PriceBadge({ tor, lang }: { tor: Tor; lang: Lang }) {
   };
   return (
     <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
-      <DirectionGlyph verdict={tor.price.verdict} />
-      <span className="transition-opacity duration-150">{say(label[tor.price.verdict], lang)}</span>
+      <DirectionGlyph verdict={verdict} />
+      <span className="transition-opacity duration-150">{say(label[verdict], lang)}</span>
     </span>
   );
+}
+
+export function PriceBadge({ tor, lang }: { tor: Tor; lang: Lang }) {
+  return <PriceVerdictBadge verdict={tor.price.verdict} delta={priceDeltaPct(tor)} lang={lang} />;
+}
+
+/** The API's price check: % from the historical median, read with the detail page's ±15% line. */
+export function PriceDeltaBadge({ delta, lang }: { delta: number; lang: Lang }) {
+  const verdict: PriceVerdict = delta > 15 ? "over" : delta < -15 ? "under" : "fair";
+  return <PriceVerdictBadge verdict={verdict} delta={delta} lang={lang} />;
+}
+
+/** The API's 0–100 lock-spec score, on the detail page's 35/70 lines. */
+export function riskLevel(score: number): RiskLevel {
+  return score >= 70 ? "high" : score >= 35 ? "medium" : "low";
 }
 
 /** Scope size and SME eligibility are categories, so they stay monochrome. */
@@ -231,6 +246,119 @@ export function SignalRail({ status, className = "" }: { status: Status; classNa
       className={`w-[3px] shrink-0 rounded-full ${TONE[STATUS_TONE[status]].fill} ${
         status === "closed" ? "opacity-50" : ""
       } ${className}`}
+    />
+  );
+}
+
+/* -------------------------- lifecycle (FR-15) -------------------------- */
+
+/**
+ * The five statuses the API returns, with Amended as a separate flag. The
+ * three dead ones share the grey hue but keep their own glyph, and Closed is
+ * also drawn dashed and drained: it is the platform's inference from the
+ * deadline, not something the agency announced.
+ */
+const LIFECYCLE: Record<TorStatus, { tone: Tone | null; label: Bi; hint?: Bi }> = {
+  Draft: {
+    tone: null,
+    label: { th: "ร่าง TOR", en: "Draft" },
+    hint: {
+      th: "ร่างเพื่อรับฟังความเห็น ยังไม่เปิดรับข้อเสนอ",
+      en: "Out for public hearing; bids are not open yet",
+    },
+  },
+  Open: { tone: "open", label: { th: "เปิดรับข้อเสนอ", en: "Open" } },
+  Awarded: { tone: "closed", label: { th: "ประกาศผู้ชนะแล้ว", en: "Awarded" } },
+  Closed: {
+    tone: "closed",
+    label: { th: "ปิดรับแล้ว", en: "Closed" },
+    hint: {
+      th: "ประเมินจากวันปิดรับ หน่วยงานยังไม่แจ้งผล",
+      en: "Inferred from the deadline; the agency hasn't reported an outcome",
+    },
+  },
+  Cancelled: { tone: "closed", label: { th: "ยกเลิก", en: "Cancelled" } },
+};
+
+export const lifecycleLabel = (status: TorStatus, lang: Lang) => say(LIFECYCLE[status].label, lang);
+
+const DEAD: TorStatus[] = ["Awarded", "Closed", "Cancelled"];
+export const isDead = (status: TorStatus) => DEAD.includes(status);
+
+function LifecycleGlyph({ status }: { status: TorStatus }) {
+  return (
+    <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 shrink-0" aria-hidden="true">
+      {status === "Draft" && <circle cx="5" cy="5" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.4" />}
+      {status === "Open" && <circle cx="5" cy="5" r="3.2" fill="currentColor" />}
+      {status === "Awarded" && (
+        <path d="M1.5 5.2 L4 7.6 L8.6 2.4" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      )}
+      {status === "Closed" && (
+        <path d="M1.5 1.5 L8.5 8.5 M8.5 1.5 L1.5 8.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      )}
+      {status === "Cancelled" && (
+        <>
+          <circle cx="5" cy="5" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
+          <path d="M2.5 7.5 L7.5 2.5" stroke="currentColor" strokeWidth="1.3" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+export function LifecycleBadge({ status, lang }: { status: TorStatus; lang: Lang }) {
+  const { tone, label, hint } = LIFECYCLE[status];
+  const colours =
+    status === "Closed"
+      ? "border-dashed border-closed-line bg-transparent text-ink-3"
+      : tone
+        ? `${TONE[tone].bg} ${TONE[tone].border} ${TONE[tone].text}`
+        : "border-line-2 bg-surface text-ink-2";
+  return (
+    <span className={`${badgeBase} min-w-[74px] justify-center ${colours}`} title={hint ? say(hint, lang) : undefined}>
+      <LifecycleGlyph status={status} />
+      <span>{say(label, lang)}</span>
+      {hint ? <span className="sr-only"> ({say(hint, lang)})</span> : null}
+    </span>
+  );
+}
+
+/** Overlaid on whichever status applies: a TOR can be amended while it stays Open. */
+export function AmendedFlag({ lang }: { lang: Lang }) {
+  const tone = TONE.amend;
+  return (
+    <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
+      <StatusGlyph status="amended" />
+      <span>{lang === "th" ? "แก้ไขแล้ว" : "Amended"}</span>
+    </span>
+  );
+}
+
+/** Who may bid is a category, not a verdict, so it stays monochrome. Decisive for freelancers. */
+export function CompaniesOnlyBadge({ lang }: { lang: Lang }) {
+  return (
+    <span
+      className={`${badgeBase} border-line bg-surface-2 text-ink-2`}
+      title={lang === "th" ? "TOR กำหนดให้ผู้ยื่นเป็นนิติบุคคล" : "The TOR requires bidders to be a registered company"}
+    >
+      {lang === "th" ? "เฉพาะนิติบุคคล" : "Companies only"}
+    </span>
+  );
+}
+
+/** The status column for API rows. An amended TOR still taking bids reads "look closer". */
+export function LifecycleRail({ status, amended = false }: { status: TorStatus; amended?: boolean }) {
+  const fill = isDead(status)
+    ? TONE.closed.fill
+    : amended
+      ? TONE.amend.fill
+      : status === "Open"
+        ? TONE.open.fill
+        : "bg-line-2";
+  return (
+    <span
+      aria-hidden="true"
+      className={`w-[3px] shrink-0 rounded-full ${fill} ${status === "Closed" ? "opacity-50" : ""}`}
     />
   );
 }

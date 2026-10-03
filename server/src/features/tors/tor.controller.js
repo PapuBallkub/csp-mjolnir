@@ -1,9 +1,17 @@
-import { listTors, getTorByProjectId } from './tor.service.js';
+import { listTors, getTorByProjectId, torFacets } from './tor.service.js';
 
 export async function getTorsHandler(req, res, next) {
   try {
     const result = await listTors(req.query);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getTorFacetsHandler(req, res, next) {
+  try {
+    res.json(await torFacets());
   } catch (err) {
     next(err);
   }
