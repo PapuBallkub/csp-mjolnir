@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { TorInsightDetail } from "../_lib/api";
 import type { Lang } from "../_data/tors";
-import { getFiscalYear } from "../_lib/format";
+import { getEgpAnnouncementUrl, getFiscalYear } from "../_lib/format";
 import { useLang, useProfile } from "./prefs";
 import { useAuth } from "./auth";
 import { StatusBadge } from "./verdict";
@@ -72,6 +72,10 @@ export function TorDetail({
 
   const scope = getScopeSize(facts.referencePriceTHB || facts.budgetTHB);
   const fiscalYear = getFiscalYear(facts.postedDate, insight.projectId);
+  const officialEgpUrl =
+    facts.webUrl && !facts.webUrl.includes("process3.gprocurement.go.th")
+      ? facts.webUrl
+      : getEgpAnnouncementUrl(projectId);
 
   // Match profile skills with required technologies only if signed in
   const requiredTechNames = tech.requiredTechnologies?.map((t) => t.name) || [];
@@ -298,10 +302,10 @@ export function TorDetail({
             </div>
 
             {/* Official e-GP Link */}
-            {facts.webUrl || facts.sourceUrl ? (
+            {officialEgpUrl ? (
               <div className="mt-4 border-t border-line pt-3 pb-1">
                 <a
-                  href={facts.webUrl || facts.sourceUrl || "#"}
+                  href={officialEgpUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`${btn.primary} flex w-full items-center justify-center gap-1.5 text-[12px]`}

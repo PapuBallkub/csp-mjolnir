@@ -71,3 +71,12 @@ export function formatDate(iso?: string | null, lang: Lang = "th"): string {
     ? `${day} ${THAI_MONTHS[month]} ${year + 543}`
     : `${day} ${EN_MONTHS[month]} ${year}`;
 }
+
+/**
+ * Builds the official public e-GP search URL for a project ID on process5.
+ * process5 is the public portal that resolves project announcements without session cookies or WAF rejection.
+ */
+export function getEgpAnnouncementUrl(projectId: string): string {
+  return `https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${encodeURIComponent(String(projectId).trim())}`;
+}
+
