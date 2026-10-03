@@ -1119,16 +1119,16 @@ export function TorDetail({
                   </div>
                 ) : null}
 
-                {facts.sourceUrl ? (
+                {officialEgpUrl ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-ink">{lang === "th" ? "ประกาศทางการ:" : "Official Notice:"}</span>
                     <a
-                      href={facts.sourceUrl}
+                      href={officialEgpUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-open underline hover:text-ink break-all"
                     >
-                      {facts.sourceUrl}
+                      {officialEgpUrl}
                     </a>
                   </div>
                 ) : null}
