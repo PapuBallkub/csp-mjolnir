@@ -1,27 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { formatTHB, formatTHBCompact, matchScore, pick, type Tor } from "../_data/tors";
+import { formatTHB, formatTHBCompact, getFiscalYear } from "../_lib/format";
+import { matchScore, pick, type Profile, type ScopeSize, type Tor } from "../_data/tors";
+
+import type { TorInsightSummary } from "../_lib/api";
 import { useLang, useProfile } from "./prefs";
+import { useAuth } from "./auth";
 import { Deadline } from "./deadline";
 import { MatchScore, ScopeBadge, SignalRail, SmeBadge, VerdictStrip } from "./verdict";
 import { Chip } from "./ui";
+
+function computeInsightScore(techStack: string[], budget: number, profile: Profile): number {
+  if (!techStack.length) return 50;
+  const matched = techStack.filter((t) =>
+    profile.skills.some((s) => s.toLowerCase() === t.toLowerCase() || t.toLowerCase().includes(s.toLowerCase())),
+  ).length;
+  const skillFit = matched / techStack.length;
+  const budgetFit = budget >= profile.budgetMin && budget <= profile.budgetMax ? 1 : 0.2;
+  const scopeCategory: ScopeSize =
+    budget < 5_000_000 ? "solo" : budget <= 30_000_000 ? "small-team" : "firm";
+  const scopeFit = profile.scopeSizes.includes(scopeCategory) ? 1 : 0.2;
+  return Math.min(100, Math.round(skillFit * 60 + budgetFit * 25 + scopeFit * 15));
+}
+
+function getScopeCategory(budget: number): ScopeSize {
+  if (budget < 5_000_000) return "solo";
+  if (budget <= 30_000_000) return "small-team";
+  return "firm";
+}
 
 /**
  * One browse row. Tuned for scan-speed rather than breathing room: users
  * arrive here to reject most of the list quickly, so status rail, verdicts,
  * budget and time-left all sit on fixed positions the eye can learn once.
- *
- * Spacing inside a row is deliberately uneven — the id, agency and title are
- * one thought and sit tight together; the verdicts and the tech list are
- * separate groups and get visibly more air.
  */
 export function TorRow({
   tor,
+  insight,
   showMatch = false,
   trailing,
 }: {
-  tor: Tor;
+  tor?: Tor;
+  insight?: TorInsightSummary;
   /** Matched mode: rank shown, and the tech the user already has is marked. */
   showMatch?: boolean;
   /** Extra control on the right — e.g. the watchlist's remove button. */
@@ -29,20 +50,62 @@ export function TorRow({
 }) {
   const { lang } = useLang();
   const { profile } = useProfile();
-  const visibleTech = tor.techStack.slice(0, 4);
-  const restTech = tor.techStack.length - visibleTech.length;
+  const { user, status: authStatus } = useAuth();
+  const isAuthenticated = authStatus === "authenticated" && !!user;
+
+  // Normalize data across API TorInsightSummary and fixture Tor
+  const id = insight ? insight.projectId : tor?.id || "";
+  const title = insight
+    ? (lang === "en" && insight.identification.titleEn) || insight.identification.titleTh
+    : tor ? pick(tor.title, lang) : "";
+  const agency = insight ? insight.identification.agency : tor ? pick(tor.agency, lang) : "";
+  const department = insight?.identification.department || null;
+  const status = insight ? insight.identification.status : tor?.status || "Open";
+  const budget = insight
+    ? insight.facts.referencePriceTHB || insight.facts.budgetTHB || 0
+    : tor?.budget || 0;
+  const deadline = insight ? insight.facts.submissionDeadline : tor?.deadline;
+  const postedDate = insight ? insight.facts.postedDate : tor?.postedAt;
+  const fiscalYear = getFiscalYear(postedDate, id);
+  const techStack = insight
+    ? insight.technicalRequirements?.requiredTechnologies.map((t) => t.name) || []
+    : tor?.techStack || [];
+  const scopeSize = insight ? getScopeCategory(budget) : tor?.scopeSize || "small-team";
+  const smeAdvantage = tor?.smeAdvantage || false;
+
+  const visibleTech = techStack.slice(0, 4);
+  const restTech = techStack.length - visibleTech.length;
+
+  const score = insight
+    ? computeInsightScore(techStack, budget, profile)
+    : tor ? matchScore(tor, profile) : 0;
 
   return (
     <div className="group relative flex gap-3 border-b border-line bg-surface px-3 py-3.5 transition-colors last:border-b-0 hover:bg-surface-2">
-      <SignalRail status={tor.status} />
+      <SignalRail status={status} />
 
       <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:gap-4">
         <div className="min-w-0 flex-1">
+          {/* Metadata Row: ID, Agency, Department, Fiscal Year */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-3">
-            <span className="font-mono tnum">{tor.id}</span>
+            <span className="font-mono tnum font-medium text-ink-2">{id}</span>
             <span className="h-3 w-px bg-line" />
-            <span className="truncate">{pick(tor.agency, lang)}</span>
-            {tor.smeAdvantage ? (
+            <span className="truncate font-medium text-ink-2">{agency}</span>
+            {department ? (
+              <>
+                <span className="h-3 w-px bg-line" />
+                <span className="truncate text-ink-3">{department}</span>
+              </>
+            ) : null}
+            {fiscalYear ? (
+              <>
+                <span className="h-3 w-px bg-line" />
+                <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[1px] font-mono text-[10.5px] font-medium text-ink-2">
+                  {lang === "th" ? `ปีงบฯ ${fiscalYear}` : `FY ${fiscalYear}`}
+                </span>
+              </>
+            ) : null}
+            {smeAdvantage ? (
               <>
                 <span className="h-3 w-px bg-line" />
                 <SmeBadge lang={lang} />
@@ -50,25 +113,25 @@ export function TorRow({
             ) : null}
           </div>
 
-          <h3 className="mt-1 text-[15px] leading-thai font-medium text-ink">
+          <h3 className="mt-1.5 text-[15px] leading-thai font-medium text-ink">
             <Link
-              href={`/tor/${tor.id}`}
+              href={`/tor/${id}`}
               className="after:absolute after:inset-0 group-hover:underline underline-offset-2"
             >
-              {pick(tor.title, lang)}
+              {title}
             </Link>
           </h3>
 
           <div className="mt-2.5">
-            <VerdictStrip tor={tor} lang={lang} />
+            <VerdictStrip tor={tor} insight={insight} lang={lang} />
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-1">
-            <ScopeBadge size={tor.scopeSize} lang={lang} />
+            <ScopeBadge size={scopeSize} lang={lang} />
             {visibleTech.map((term) => {
-              const known = showMatch && profile.skills.includes(term);
+              const known = showMatch && isAuthenticated && profile.skills.some((s) => s.toLowerCase() === term.toLowerCase());
               return (
-                <Chip key={term} className={known ? "border-open-line bg-open-bg text-open" : ""}>
+                <Chip key={term} className={known ? "border-open-line bg-open-bg text-open font-medium" : ""}>
                   {known ? <span className="mr-1">✓</span> : null}
                   {term}
                 </Chip>
@@ -81,19 +144,27 @@ export function TorRow({
         <div className="flex shrink-0 flex-row items-end justify-between gap-4 sm:w-[176px] sm:flex-col sm:items-end sm:justify-start sm:gap-2.5 sm:border-l sm:border-line sm:pl-4">
           <div className="flex flex-col items-start sm:items-end">
             <span
-              className="font-mono tnum text-[17px] leading-none font-medium text-ink"
-              title={formatTHB(tor.budget)}
+              className="font-mono tnum text-[17px] leading-none font-semibold text-ink"
+              title={formatTHB(budget)}
             >
-              {formatTHBCompact(tor.budget)}
+              {formatTHBCompact(budget)}
             </span>
             <span className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
               {lang === "th" ? "ราคากลาง" : "reference price"}
             </span>
           </div>
 
-          <Deadline deadline={tor.deadline} status={tor.status} lang={lang} />
+          <Deadline deadline={deadline} status={status} lang={lang} />
 
-          {showMatch ? <MatchScore score={matchScore(tor, profile)} lang={lang} /> : null}
+          {showMatch ? (
+            isAuthenticated ? (
+              <MatchScore score={score} lang={lang} />
+            ) : (
+              <span className="font-mono text-[11px] text-ink-3" title="ลงชื่อเข้าใช้เพื่อดูคะแนนความตรง">
+                {lang === "th" ? "คะแนนเฉพาะสมาชิก" : "Member match"}
+              </span>
+            )
+          ) : null}
           {trailing ? <div className="relative z-10">{trailing}</div> : null}
         </div>
       </div>

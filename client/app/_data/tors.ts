@@ -1333,13 +1333,22 @@ export function formatTHBCompact(amount: number): string {
   return `฿${Math.round(amount / 1000)}K`;
 }
 
+export { getFiscalYear } from "../_lib/format";
+
 function toUTC(iso: string): number {
-  const [y, m, d] = iso.split("-").map(Number);
-  return Date.UTC(y, m - 1, d);
+  const d = new Date(iso);
+  if (!Number.isNaN(d.getTime())) return d.getTime();
+  const [y, m, dNum] = iso.split("-").map(Number);
+  return Date.UTC(y, (m || 1) - 1, dNum || 1);
 }
 
-/** Days from the fixed TODAY to `iso`. Negative once the date has passed. */
+/** Days from today to `iso`. Negative once the date has passed. */
 export function daysUntil(iso: string): number {
+  if (!iso) return -1;
+  const d = new Date(iso);
+  if (!Number.isNaN(d.getTime())) {
+    return Math.ceil((d.getTime() - Date.now()) / 86_400_000);
+  }
   return Math.round((toUTC(iso) - toUTC(TODAY)) / 86_400_000);
 }
 
@@ -1354,10 +1363,20 @@ const EN_MONTHS = [
 
 /** Thai dates carry the Buddhist year (พ.ศ. = ค.ศ. + 543). */
 export function formatDate(iso: string, lang: Lang): string {
-  const [y, m, d] = iso.split("-").map(Number);
+  if (!iso) return lang === "th" ? "ไม่ระบุ" : "Not specified";
+  const d = new Date(iso);
+  if (!Number.isNaN(d.getTime())) {
+    const day = d.getDate();
+    const month = d.getMonth();
+    const year = d.getFullYear();
+    return lang === "th"
+      ? `${day} ${THAI_MONTHS[month]} ${year + 543}`
+      : `${day} ${EN_MONTHS[month]} ${year}`;
+  }
+  const [y, m, day] = iso.split("-").map(Number);
   return lang === "th"
-    ? `${d} ${THAI_MONTHS[m - 1]} ${y + 543}`
-    : `${d} ${EN_MONTHS[m - 1]} ${y}`;
+    ? `${day} ${THAI_MONTHS[m - 1]} ${y + 543}`
+    : `${day} ${EN_MONTHS[m - 1]} ${y}`;
 }
 
 /** Percentage difference from the historical median, rounded. */
