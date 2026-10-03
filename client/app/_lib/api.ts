@@ -42,7 +42,18 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError 
  * Inlined by Next at build time, so a wrong value ships inside the image and a
  * restart will not fix it — see §2 of the deployment checklist.
  */
-const API = process.env.NEXT_PUBLIC_API_URL ?? "";
+const PUBLIC_API = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+/**
+ * Where a request goes from here. A server component's fetch runs inside the
+ * client container, where "localhost" is that container and not the API, so
+ * there it uses API_INTERNAL_URL (http://server:8000 on the compose network)
+ * when one is set. Read at runtime, not inlined: a restart picks it up.
+ */
+const API =
+  typeof window === "undefined"
+    ? (process.env.API_INTERNAL_URL ?? PUBLIC_API)
+    : PUBLIC_API;
 
 /** Status 0 is ours, not the network's: no response ever arrived. */
 const NO_RESPONSE = 0;
@@ -140,8 +151,12 @@ export function me() {
   return request<UserResponse>("/api/auth/me", { cache: "no-store" });
 }
 
-/** Where the browser goes to start Google sign-in. A top-level navigation, never a fetch. */
-export const googleSignInUrl = `${API}/api/auth/google`;
+/**
+ * Where the browser goes to start Google sign-in. A top-level navigation, never
+ * a fetch, so always the public origin: a link rendered on the server still
+ * ends up in the browser.
+ */
+export const googleSignInUrl = `${PUBLIC_API}/api/auth/google`;
 
 /* ------------------------------------------------------------------ */
 /*  Admin (FR14, FR15)                                                */
