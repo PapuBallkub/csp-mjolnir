@@ -1,3 +1,15 @@
+/**
+ * server/scripts/generate-insights-seed.js
+ *
+ * Writes seed/torinsights.json: DEMO insights for building the UI, one per TOR
+ * in seed/tors.json. Everything here is made up, including the lock-spec
+ * findings and price comparisons, so every record is marked
+ * `metadata.origin: 'demo'` and shown with a demo label. Real insights come from
+ * `npm run extract`. Run after changing seed/tors.json:
+ *
+ *   node scripts/generate-insights-seed.js
+ */
+
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -239,11 +251,10 @@ function buildInsight(tor, index) {
       ],
     },
     eligibility: {
-      companyRequirements: [
-        'เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว',
-        'ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ',
-        'มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท',
-      ],
+      // The conditions every e-GP TOR repeats are keys (ADR 0014); only the
+      // ones specific to this TOR stay as text
+      standardConditions: ['juristic-person', 'not-blacklisted', 'egp-registered'],
+      companyRequirements: ['มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท'],
       requiredCertifications: [
         'ได้รับการรับรองมาตรฐาน ISO/IEC 29110 หรือ CMMI ระดับ 3 ขึ้นไป หรือ ISO/IEC 27001',
       ],
@@ -288,13 +299,17 @@ function buildInsight(tor, index) {
         : '',
       changedSections: isAmended ? ['ระยะเวลาการส่งมอบ', 'คุณสมบัติบุคลากร'] : [],
     },
+    // Demo data, made up for building the UI: no model wrote it, nobody
+    // reviewed it, and it has no score. `origin: 'demo'` keeps it labelled
+    // wherever it's shown, and lets the real pipeline replace it (ADR 0014).
     metadata: {
-      modelName: 'gemini-2.0-flash',
-      promptVersion: 'seed-extract-v1',
+      origin: 'demo',
+      modelName: null,
+      promptVersion: null,
       processedAt: new Date(),
-      sourceFingerprint: `hash-${pId}-v1`,
-      confidenceScore: 94 - (index % 8),
-      reviewStatus: 'approved',
+      sourceFingerprint: null,
+      confidenceScore: null,
+      reviewStatus: 'pending',
       checks: [],
       excluded: null,
     },

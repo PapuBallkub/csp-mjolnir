@@ -1,71 +1,76 @@
+/**
+ * server/scripts/seed.js
+ *
+ * Loads DEMO data for building the UI: 28 real e-GP notices (seed/tors.json)
+ * with made-up insights (seed/torinsights.json, all `origin: 'demo'`), and the
+ * starter technology vocabulary.
+ *
+ * It never deletes, and never replaces real data:
+ * - a TOR is added only if ingestion hasn't already saved that project
+ * - a demo insight is added, or refreshed, only where no pipeline result exists
+ * - technologies are merged into the vocabulary, never cleared
+ *
+ * So it's safe to run on a database that already holds real extractions, and
+ * `npm run extract` later replaces demo insights with real ones.
+ *
+ *   npm run seed
+ */
+
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { Tor, TorInsight, Technology } from '#models/index.js';
+import { Technology, Tor, TorInsight } from '#models/index.js';
+import { seedStarterTechnologies } from '#pipeline/extraction/vocabulary.js';
+
+const SEED_DIR = path.resolve(import.meta.dirname, '../seed');
+const readSeed = async (file) => JSON.parse(await fs.readFile(path.join(SEED_DIR, file), 'utf8'));
 
 async function seed() {
   if (process.env.NODE_ENV === 'production') {
-    console.error('Refusing to seed production database!');
-    process.exit(1);
+    throw new Error('Refusing to seed a production database.');
   }
-
-  console.log('='.repeat(60));
-  console.log(' SEEDING DATABASE (Real e-GP TORs & Normalized Insights)');
-  console.log('='.repeat(60));
-
   await connectDatabase();
+  try {
+    const tors = await readSeed('tors.json');
+    const insights = await readSeed('torinsights.json');
 
-  const seedDir = path.resolve(import.meta.dirname, '../seed');
+    const { added: technologiesAdded } = await seedStarterTechnologies();
 
-  // Load JSON files
-  const torsRaw = await fs.readFile(path.join(seedDir, 'tors.json'), 'utf8');
-  const insightsRaw = await fs.readFile(path.join(seedDir, 'torinsights.json'), 'utf8');
-  const techRaw = await fs.readFile(path.join(seedDir, 'technologies.json'), 'utf8');
+    // TORs: ingestion's own records win
+    const known = new Set(await Tor.distinct('projectId'));
+    const newTors = tors.filter((tor) => !known.has(tor.projectId));
+    if (newTors.length > 0) await Tor.insertMany(newTors);
 
-  const tors = JSON.parse(torsRaw);
-  const insights = JSON.parse(insightsRaw);
-  const technologies = JSON.parse(techRaw);
-
-  // Clear existing collections
-  console.log('Clearing existing collections (tors, torinsights, technologies)...');
-  await Tor.deleteMany({});
-  await TorInsight.deleteMany({});
-  await Technology.deleteMany({});
-
-  // Insert Technologies
-  console.log(`Inserting ${technologies.length} technologies...`);
-  await Technology.insertMany(technologies);
-
-  // Clean legacy pipelineStatus values if any
-  const cleanedTors = tors.map((t) => {
-    const copy = { ...t };
-    if (!['fetched', 'downloaded', 'ocr_done'].includes(copy.pipelineStatus)) {
-      copy.pipelineStatus = copy.ocr?.rawText ? 'ocr_done' : copy.document?.storagePath ? 'downloaded' : 'fetched';
+    // Insights: demo only where no pipeline result exists
+    const existing = new Map(
+      (await TorInsight.find({}, { projectId: 1, 'metadata.origin': 1 }).lean()).map((i) => [
+        i.projectId,
+        i.metadata?.origin ?? 'pipeline',
+      ]),
+    );
+    let demoWritten = 0;
+    let keptReal = 0;
+    for (const insight of insights) {
+      if (existing.has(insight.projectId) && existing.get(insight.projectId) !== 'demo') {
+        keptReal++;
+        continue;
+      }
+      const document = new TorInsight({ ...insight, metadata: { ...insight.metadata, origin: 'demo' } });
+      await document.validate(); // demo data must fit the current schema too
+      const { _id, createdAt, updatedAt, ...fields } = document.toObject({ flattenMaps: true });
+      await TorInsight.updateOne({ projectId: insight.projectId }, { $set: fields }, { upsert: true });
+      demoWritten++;
     }
-    return copy;
-  });
 
-  // Insert Tors
-  console.log(`Inserting ${cleanedTors.length} TOR notices...`);
-  await Tor.insertMany(cleanedTors);
-
-  // Insert TorInsights
-  console.log(`Inserting ${insights.length} normalized TOR insights...`);
-  await TorInsight.insertMany(insights);
-
-  console.log('='.repeat(60));
-  console.log(' SEED COMPLETED SUCCESSFULLY');
-  console.log('='.repeat(60));
-  console.log(`Technologies : ${await Technology.countDocuments()}`);
-  console.log(`Tors         : ${await Tor.countDocuments()}`);
-  console.log(`TorInsights  : ${await TorInsight.countDocuments()}`);
-  console.log('='.repeat(60));
-
-  await disconnectDatabase();
+    console.log(`Technologies: ${technologiesAdded} added (${await Technology.countDocuments()} in the vocabulary)`);
+    console.log(`TORs:         ${newTors.length} added, ${tors.length - newTors.length} already there and kept`);
+    console.log(`Insights:     ${demoWritten} demo written, ${keptReal} real pipeline results kept`);
+  } finally {
+    await disconnectDatabase();
+  }
 }
 
-seed().catch(async (err) => {
-  console.error('[FATAL] Seed error:', err);
-  await disconnectDatabase().catch(() => {});
+seed().catch((error) => {
+  console.error(`Seeding failed: ${error.message}`);
   process.exit(1);
 });

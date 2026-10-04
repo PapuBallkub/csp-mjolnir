@@ -13,13 +13,13 @@
     "facts": {
       "budgetTHB": 89845000,
       "referencePriceTHB": 89845000,
-      "submissionDeadline": "2026-10-14T22:29:48.282Z",
+      "submissionDeadline": "2026-10-15T02:54:13.515Z",
       "deliveryPeriodDays": 180,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 1,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-23T22:29:48.282Z",
+      "postedDate": "2026-09-24T02:54:13.515Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68039469567",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68039469567"
     },
@@ -140,9 +140,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -216,12 +219,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68039469567-v1",
-      "confidenceScore": 94,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -240,13 +244,13 @@
     "facts": {
       "budgetTHB": 36000000,
       "referencePriceTHB": 36000000,
-      "submissionDeadline": "2026-10-15T22:29:48.291Z",
+      "submissionDeadline": "2026-10-16T02:54:13.527Z",
       "deliveryPeriodDays": 210,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 2,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-22T22:29:48.291Z",
+      "postedDate": "2026-09-23T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68019273071",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68019273071"
     },
@@ -371,9 +375,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -430,7 +437,7 @@
     },
     "amendmentInfo": {
       "isAmended": true,
-      "lastAmendedDate": "2026-09-28T22:29:48.291Z",
+      "lastAmendedDate": "2026-09-29T02:54:13.527Z",
       "amendmentSummary": "ขยายเวลาส่งมอบงานงวดสุดท้ายเพิ่มขึ้น 30 วัน และปรับปรุงรายละเอียดคุณสมบัติของผู้จัดการโครงการ",
       "changedSections": [
         "ระยะเวลาการส่งมอบ",
@@ -438,12 +445,13 @@
       ]
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68019273071-v1",
-      "confidenceScore": 93,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -461,20 +469,20 @@
     },
     "facts": {
       "budgetTHB": 195551875.34,
-      "referencePriceTHB": 195551875.34,
-      "submissionDeadline": "2026-10-16T22:29:48.291Z",
+      "referencePriceTHB": 195507643.68,
+      "submissionDeadline": "2026-10-17T02:54:13.527Z",
       "deliveryPeriodDays": 240,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 3,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-21T22:29:48.291Z",
+      "postedDate": "2026-09-22T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=67069277177",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=67069277177"
     },
     "evidence": {
       "referencePriceTHB": {
-        "quote": "กำหนดราคากลางในการจัดจ้างครั้งนี้เป็นจำนวนเงินทั้งสิ้น 195,551,875.34 บาท (รวมภาษีมูลค่าเพิ่ม)",
+        "quote": "กำหนดราคากลางในการจัดจ้างครั้งนี้เป็นจำนวนเงินทั้งสิ้น 195,507,643.68 บาท (รวมภาษีมูลค่าเพิ่ม)",
         "page": 2
       },
       "penaltyClause": {
@@ -593,9 +601,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -621,20 +632,20 @@
         "findings": []
       },
       "priceAnalysis": {
-        "referencePriceTHB": 195551875.34,
-        "historicalMedianTHB": 191529751,
+        "referencePriceTHB": 195507643.68,
+        "historicalMedianTHB": 191486429,
         "diffPercentage": 2.1,
         "interpretation": "ราคากลางสอดคล้องกับค่าเฉลี่ยและมัธยฐานของโครงการในกลุ่มเทคโนโลยีเดียวกัน",
         "comparableProjects": [
           {
             "title": "โครงการจัดซื้อ/พัฒนาระบบด้านเทคโนโลยีสารสนเทศใกล้เคียง ปีงบประมาณ 2567",
             "year": 2567,
-            "referencePriceTHB": 179907725
+            "referencePriceTHB": 179867032
           },
           {
             "title": "โครงการจ้างพัฒนาระบบบริการดิจิทัลภาครัฐระดับกรม",
             "year": 2566,
-            "referencePriceTHB": 205329469
+            "referencePriceTHB": 205283026
           }
         ]
       }
@@ -646,12 +657,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-67069277177-v1",
-      "confidenceScore": 92,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -670,13 +682,13 @@
     "facts": {
       "budgetTHB": 18877000,
       "referencePriceTHB": 18877000,
-      "submissionDeadline": "2026-10-17T22:29:48.291Z",
+      "submissionDeadline": "2026-10-18T02:54:13.527Z",
       "deliveryPeriodDays": 270,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 1,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-20T22:29:48.291Z",
+      "postedDate": "2026-09-21T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=67059626749",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=67059626749"
     },
@@ -805,9 +817,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -881,12 +896,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-67059626749-v1",
-      "confidenceScore": 91,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -905,13 +921,13 @@
     "facts": {
       "budgetTHB": 17000000,
       "referencePriceTHB": 17000000,
-      "submissionDeadline": "2026-10-18T22:29:48.291Z",
+      "submissionDeadline": "2026-10-19T02:54:13.527Z",
       "deliveryPeriodDays": 300,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 2,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-19T22:29:48.291Z",
+      "postedDate": "2026-09-20T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=67109111284",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=67109111284"
     },
@@ -1036,9 +1052,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -1100,12 +1119,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-67109111284-v1",
-      "confidenceScore": 90,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -1124,13 +1144,13 @@
     "facts": {
       "budgetTHB": 40263244,
       "referencePriceTHB": 38233989,
-      "submissionDeadline": "2026-10-19T22:29:48.291Z",
+      "submissionDeadline": "2026-10-20T02:54:13.527Z",
       "deliveryPeriodDays": 180,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 3,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-18T22:29:48.291Z",
+      "postedDate": "2026-09-19T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68019139367",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68019139367"
     },
@@ -1255,9 +1275,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -1303,7 +1326,7 @@
     },
     "amendmentInfo": {
       "isAmended": true,
-      "lastAmendedDate": "2026-09-28T22:29:48.291Z",
+      "lastAmendedDate": "2026-09-29T02:54:13.527Z",
       "amendmentSummary": "ขยายเวลาส่งมอบงานงวดสุดท้ายเพิ่มขึ้น 30 วัน และปรับปรุงรายละเอียดคุณสมบัติของผู้จัดการโครงการ",
       "changedSections": [
         "ระยะเวลาการส่งมอบ",
@@ -1311,12 +1334,13 @@
       ]
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68019139367-v1",
-      "confidenceScore": 89,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -1335,13 +1359,13 @@
     "facts": {
       "budgetTHB": 33000000,
       "referencePriceTHB": 33830000,
-      "submissionDeadline": "2026-10-20T22:29:48.291Z",
+      "submissionDeadline": "2026-10-21T02:54:13.527Z",
       "deliveryPeriodDays": 210,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 1,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-17T22:29:48.291Z",
+      "postedDate": "2026-09-18T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=67079184063",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=67079184063"
     },
@@ -1470,9 +1494,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -1546,12 +1573,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-67079184063-v1",
-      "confidenceScore": 88,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -1570,13 +1598,13 @@
     "facts": {
       "budgetTHB": 23170000,
       "referencePriceTHB": 23170000,
-      "submissionDeadline": "2026-10-21T22:29:48.291Z",
+      "submissionDeadline": "2026-10-22T02:54:13.527Z",
       "deliveryPeriodDays": 240,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 2,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-16T22:29:48.291Z",
+      "postedDate": "2026-09-17T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68039587713",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68039587713"
     },
@@ -1705,9 +1733,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -1769,12 +1800,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68039587713-v1",
-      "confidenceScore": 87,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -1793,13 +1825,13 @@
     "facts": {
       "budgetTHB": 12500000,
       "referencePriceTHB": 12492771,
-      "submissionDeadline": "2026-10-22T22:29:48.291Z",
+      "submissionDeadline": "2026-10-23T02:54:13.527Z",
       "deliveryPeriodDays": 270,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 3,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-15T22:29:48.291Z",
+      "postedDate": "2026-09-16T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68049205582",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68049205582"
     },
@@ -1928,9 +1960,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -1981,12 +2016,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68049205582-v1",
-      "confidenceScore": 94,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -2005,13 +2041,13 @@
     "facts": {
       "budgetTHB": 11800000,
       "referencePriceTHB": 11798355,
-      "submissionDeadline": "2026-10-23T22:29:48.291Z",
+      "submissionDeadline": "2026-10-24T02:54:13.527Z",
       "deliveryPeriodDays": 300,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 1,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-14T22:29:48.291Z",
+      "postedDate": "2026-09-15T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68059369128",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68059369128"
     },
@@ -2136,9 +2172,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -2207,7 +2246,7 @@
     },
     "amendmentInfo": {
       "isAmended": true,
-      "lastAmendedDate": "2026-09-28T22:29:48.291Z",
+      "lastAmendedDate": "2026-09-29T02:54:13.527Z",
       "amendmentSummary": "ขยายเวลาส่งมอบงานงวดสุดท้ายเพิ่มขึ้น 30 วัน และปรับปรุงรายละเอียดคุณสมบัติของผู้จัดการโครงการ",
       "changedSections": [
         "ระยะเวลาการส่งมอบ",
@@ -2215,12 +2254,13 @@
       ]
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68059369128-v1",
-      "confidenceScore": 93,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -2239,13 +2279,13 @@
     "facts": {
       "budgetTHB": 30000000,
       "referencePriceTHB": 29750000,
-      "submissionDeadline": "2026-10-14T22:29:48.291Z",
+      "submissionDeadline": "2026-10-15T02:54:13.527Z",
       "deliveryPeriodDays": 180,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 2,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-13T22:29:48.291Z",
+      "postedDate": "2026-09-14T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68029499031",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68029499031"
     },
@@ -2370,9 +2410,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -2434,12 +2477,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68029499031-v1",
-      "confidenceScore": 92,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -2458,13 +2502,13 @@
     "facts": {
       "budgetTHB": 25000000,
       "referencePriceTHB": 39347500,
-      "submissionDeadline": "2026-10-15T22:29:48.291Z",
+      "submissionDeadline": "2026-10-16T02:54:13.527Z",
       "deliveryPeriodDays": 210,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 3,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-12T22:29:48.291Z",
+      "postedDate": "2026-09-13T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=67079653125",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=67079653125"
     },
@@ -2589,9 +2633,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -2642,12 +2689,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-67079653125-v1",
-      "confidenceScore": 91,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -2666,13 +2714,13 @@
     "facts": {
       "budgetTHB": 7791000,
       "referencePriceTHB": 7789792.6,
-      "submissionDeadline": "2026-10-16T22:29:48.291Z",
+      "submissionDeadline": "2026-10-17T02:54:13.527Z",
       "deliveryPeriodDays": 240,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 1,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-11T22:29:48.291Z",
+      "postedDate": "2026-09-12T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=67119149066",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=67119149066"
     },
@@ -2797,9 +2845,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -2873,12 +2924,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-67119149066-v1",
-      "confidenceScore": 90,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -2897,13 +2949,13 @@
     "facts": {
       "budgetTHB": 3992760,
       "referencePriceTHB": 3992760,
-      "submissionDeadline": "2026-10-17T22:29:48.291Z",
+      "submissionDeadline": "2026-10-18T02:54:13.527Z",
       "deliveryPeriodDays": 270,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 2,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-10T22:29:48.291Z",
+      "postedDate": "2026-09-11T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=67079232408",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=67079232408"
     },
@@ -3028,9 +3080,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -3087,7 +3142,7 @@
     },
     "amendmentInfo": {
       "isAmended": true,
-      "lastAmendedDate": "2026-09-28T22:29:48.291Z",
+      "lastAmendedDate": "2026-09-29T02:54:13.527Z",
       "amendmentSummary": "ขยายเวลาส่งมอบงานงวดสุดท้ายเพิ่มขึ้น 30 วัน และปรับปรุงรายละเอียดคุณสมบัติของผู้จัดการโครงการ",
       "changedSections": [
         "ระยะเวลาการส่งมอบ",
@@ -3095,12 +3150,13 @@
       ]
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-67079232408-v1",
-      "confidenceScore": 89,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -3119,13 +3175,13 @@
     "facts": {
       "budgetTHB": 1650000,
       "referencePriceTHB": 1650000,
-      "submissionDeadline": "2026-10-18T22:29:48.291Z",
+      "submissionDeadline": "2026-10-19T02:54:13.527Z",
       "deliveryPeriodDays": 300,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 3,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-23T22:29:48.291Z",
+      "postedDate": "2026-09-24T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=67089478824",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=67089478824"
     },
@@ -3250,9 +3306,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -3303,12 +3362,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-67089478824-v1",
-      "confidenceScore": 88,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -3327,13 +3387,13 @@
     "facts": {
       "budgetTHB": 1800000,
       "referencePriceTHB": 1796185,
-      "submissionDeadline": "2026-10-19T22:29:48.291Z",
+      "submissionDeadline": "2026-10-20T02:54:13.527Z",
       "deliveryPeriodDays": 180,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 1,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-22T22:29:48.291Z",
+      "postedDate": "2026-09-23T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68049322058",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68049322058"
     },
@@ -3458,9 +3518,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -3534,12 +3597,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68049322058-v1",
-      "confidenceScore": 87,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -3558,13 +3622,13 @@
     "facts": {
       "budgetTHB": 36000000,
       "referencePriceTHB": 39277632,
-      "submissionDeadline": "2026-10-20T22:29:48.291Z",
+      "submissionDeadline": "2026-10-21T02:54:13.527Z",
       "deliveryPeriodDays": 210,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 2,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-21T22:29:48.291Z",
+      "postedDate": "2026-09-22T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=67089659709",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=67089659709"
     },
@@ -3689,9 +3753,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -3753,12 +3820,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-67089659709-v1",
-      "confidenceScore": 94,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -3777,13 +3845,13 @@
     "facts": {
       "budgetTHB": 10700000,
       "referencePriceTHB": 9978036.66,
-      "submissionDeadline": "2026-10-21T22:29:48.291Z",
+      "submissionDeadline": "2026-10-22T02:54:13.527Z",
       "deliveryPeriodDays": 240,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 3,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-20T22:29:48.291Z",
+      "postedDate": "2026-09-21T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=67089592787",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=67089592787"
     },
@@ -3908,9 +3976,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -3956,7 +4027,7 @@
     },
     "amendmentInfo": {
       "isAmended": true,
-      "lastAmendedDate": "2026-09-28T22:29:48.291Z",
+      "lastAmendedDate": "2026-09-29T02:54:13.527Z",
       "amendmentSummary": "ขยายเวลาส่งมอบงานงวดสุดท้ายเพิ่มขึ้น 30 วัน และปรับปรุงรายละเอียดคุณสมบัติของผู้จัดการโครงการ",
       "changedSections": [
         "ระยะเวลาการส่งมอบ",
@@ -3964,12 +4035,13 @@
       ]
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-67089592787-v1",
-      "confidenceScore": 93,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -3988,13 +4060,13 @@
     "facts": {
       "budgetTHB": 5000000,
       "referencePriceTHB": 4815000,
-      "submissionDeadline": "2026-10-22T22:29:48.291Z",
+      "submissionDeadline": "2026-10-23T02:54:13.527Z",
       "deliveryPeriodDays": 270,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 1,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-19T22:29:48.291Z",
+      "postedDate": "2026-09-20T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68039334110",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68039334110"
     },
@@ -4119,9 +4191,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -4195,12 +4270,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68039334110-v1",
-      "confidenceScore": 92,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -4219,13 +4295,13 @@
     "facts": {
       "budgetTHB": 500000,
       "referencePriceTHB": 500000,
-      "submissionDeadline": "2026-10-23T22:29:48.291Z",
+      "submissionDeadline": "2026-10-24T02:54:13.527Z",
       "deliveryPeriodDays": 300,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 2,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-18T22:29:48.291Z",
+      "postedDate": "2026-09-19T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68079268515",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68079268515"
     },
@@ -4350,9 +4426,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -4414,12 +4493,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68079268515-v1",
-      "confidenceScore": 91,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -4438,13 +4518,13 @@
     "facts": {
       "budgetTHB": 428600,
       "referencePriceTHB": 428535,
-      "submissionDeadline": "2026-10-14T22:29:48.291Z",
+      "submissionDeadline": "2026-10-15T02:54:13.527Z",
       "deliveryPeriodDays": 180,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 3,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-17T22:29:48.291Z",
+      "postedDate": "2026-09-18T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68099389351",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68099389351"
     },
@@ -4569,9 +4649,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -4622,12 +4705,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68099389351-v1",
-      "confidenceScore": 90,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -4646,13 +4730,13 @@
     "facts": {
       "budgetTHB": 899500,
       "referencePriceTHB": 899500,
-      "submissionDeadline": "2026-10-15T22:29:48.291Z",
+      "submissionDeadline": "2026-10-16T02:54:13.527Z",
       "deliveryPeriodDays": 210,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 1,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-16T22:29:48.291Z",
+      "postedDate": "2026-09-17T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68039274567",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68039274567"
     },
@@ -4777,9 +4861,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -4848,7 +4935,7 @@
     },
     "amendmentInfo": {
       "isAmended": true,
-      "lastAmendedDate": "2026-09-28T22:29:48.291Z",
+      "lastAmendedDate": "2026-09-29T02:54:13.527Z",
       "amendmentSummary": "ขยายเวลาส่งมอบงานงวดสุดท้ายเพิ่มขึ้น 30 วัน และปรับปรุงรายละเอียดคุณสมบัติของผู้จัดการโครงการ",
       "changedSections": [
         "ระยะเวลาการส่งมอบ",
@@ -4856,12 +4943,13 @@
       ]
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68039274567-v1",
-      "confidenceScore": 89,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -4880,13 +4968,13 @@
     "facts": {
       "budgetTHB": 498000,
       "referencePriceTHB": 498000,
-      "submissionDeadline": "2026-10-16T22:29:48.291Z",
+      "submissionDeadline": "2026-10-17T02:54:13.527Z",
       "deliveryPeriodDays": 240,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 2,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-15T22:29:48.291Z",
+      "postedDate": "2026-09-16T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68099509916",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68099509916"
     },
@@ -5011,9 +5099,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -5075,12 +5166,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68099509916-v1",
-      "confidenceScore": 88,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -5099,13 +5191,13 @@
     "facts": {
       "budgetTHB": 299920,
       "referencePriceTHB": 299920,
-      "submissionDeadline": "2026-10-17T22:29:48.291Z",
+      "submissionDeadline": "2026-10-18T02:54:13.527Z",
       "deliveryPeriodDays": 270,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 3,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-14T22:29:48.291Z",
+      "postedDate": "2026-09-15T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68099644960",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68099644960"
     },
@@ -5230,9 +5322,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -5283,12 +5378,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68099644960-v1",
-      "confidenceScore": 87,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -5307,13 +5403,13 @@
     "facts": {
       "budgetTHB": 498999.85,
       "referencePriceTHB": 498999.85,
-      "submissionDeadline": "2026-10-18T22:29:48.291Z",
+      "submissionDeadline": "2026-10-19T02:54:13.527Z",
       "deliveryPeriodDays": 300,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 1,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-13T22:29:48.291Z",
+      "postedDate": "2026-09-14T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68089055481",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68089055481"
     },
@@ -5438,9 +5534,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -5514,12 +5613,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68089055481-v1",
-      "confidenceScore": 94,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -5538,13 +5638,13 @@
     "facts": {
       "budgetTHB": 975000,
       "referencePriceTHB": 979733.33,
-      "submissionDeadline": "2026-10-19T22:29:48.291Z",
+      "submissionDeadline": "2026-10-20T02:54:13.527Z",
       "deliveryPeriodDays": 180,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 2,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-12T22:29:48.291Z",
+      "postedDate": "2026-09-13T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68049309510",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68049309510"
     },
@@ -5669,9 +5769,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -5728,7 +5831,7 @@
     },
     "amendmentInfo": {
       "isAmended": true,
-      "lastAmendedDate": "2026-09-28T22:29:48.291Z",
+      "lastAmendedDate": "2026-09-29T02:54:13.527Z",
       "amendmentSummary": "ขยายเวลาส่งมอบงานงวดสุดท้ายเพิ่มขึ้น 30 วัน และปรับปรุงรายละเอียดคุณสมบัติของผู้จัดการโครงการ",
       "changedSections": [
         "ระยะเวลาการส่งมอบ",
@@ -5736,12 +5839,13 @@
       ]
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68049309510-v1",
-      "confidenceScore": 93,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -5760,13 +5864,13 @@
     "facts": {
       "budgetTHB": 453608,
       "referencePriceTHB": 453608,
-      "submissionDeadline": "2026-10-20T22:29:48.291Z",
+      "submissionDeadline": "2026-10-21T02:54:13.527Z",
       "deliveryPeriodDays": 210,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 3,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-11T22:29:48.291Z",
+      "postedDate": "2026-09-12T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=68069439775",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=68069439775"
     },
@@ -5891,9 +5995,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -5944,12 +6051,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-68069439775-v1",
-      "confidenceScore": 92,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }
@@ -5968,13 +6076,13 @@
     "facts": {
       "budgetTHB": 2802000,
       "referencePriceTHB": 2816454,
-      "submissionDeadline": "2026-10-21T22:29:48.291Z",
+      "submissionDeadline": "2026-10-22T02:54:13.527Z",
       "deliveryPeriodDays": 240,
       "procurementMethod": "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)",
       "warrantyYears": 1,
       "contractDurationDays": 365,
       "penaltyClause": "ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ",
-      "postedDate": "2026-09-10T22:29:48.291Z",
+      "postedDate": "2026-09-11T02:54:13.527Z",
       "sourceUrl": "https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=67129452363",
       "webUrl": "https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=67129452363"
     },
@@ -6099,9 +6207,12 @@
       ]
     },
     "eligibility": {
+      "standardConditions": [
+        "juristic-person",
+        "not-blacklisted",
+        "egp-registered"
+      ],
       "companyRequirements": [
-        "เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคาอิเล็กทรอนิกส์ดังกล่าว",
-        "ไม่เป็นผู้ถูกระบุชื่อไว้ในบัญชีรายชื่อผู้ทิ้งงานของทางราชการ",
         "มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท"
       ],
       "requiredCertifications": [
@@ -6175,12 +6286,13 @@
       "changedSections": []
     },
     "metadata": {
-      "modelName": "gemini-2.0-flash",
-      "promptVersion": "seed-extract-v1",
-      "processedAt": "2026-09-30T22:29:48.291Z",
-      "sourceFingerprint": "hash-67129452363-v1",
-      "confidenceScore": 91,
-      "reviewStatus": "approved",
+      "origin": "demo",
+      "modelName": null,
+      "promptVersion": null,
+      "processedAt": "2026-10-01T02:54:13.527Z",
+      "sourceFingerprint": null,
+      "confidenceScore": null,
+      "reviewStatus": "pending",
       "checks": [],
       "excluded": null
     }

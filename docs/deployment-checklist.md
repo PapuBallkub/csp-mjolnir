@@ -67,6 +67,7 @@ refuses to send back, and `/api/auth/me` answers `401` forever.
 | `PORT` | Leave unset on Cloud Run — it injects one | Container listens on the wrong port and fails its health check |
 | `GOOGLE_CLIENT_ID` / `_SECRET` | Production OAuth client | `/api/auth/google` answers 503 |
 | `GOOGLE_REDIRECT_URI` | `https://<api-domain>/api/auth/google/callback` | Google refuses the code exchange |
+| `SHOW_UNREVIEWED_INSIGHTS` | `true` only for a demo deploy, while no one reviews results yet ([0015](decisions/0015-pilot-mode-and-demo-data.md)). Leave it unset for a real launch. | Unset in production: the catalog shows only reviewed results, so before reviews start it is empty. `true` on a real launch: unchecked AI summaries reach the public, labelled but unreviewed |
 | `TRUST_PROXY_HOPS` | The number of proxies in front of the server — see §5 | Too low: every user on the internet shares one rate limit bucket. Set to `true`: the caller forges `X-Forwarded-For` and the limiter is decorative |
 
 - [ ] All of the above set in the host's secret manager, not baked into an image
@@ -74,14 +75,24 @@ refuses to send back, and `/api/auth/me` answers `401` forever.
 - [ ] Understood that rotating `JWT_SECRET` signs everyone out — fine, but do it
       knowingly
 
-### The client's one variable behaves differently
+### The client's two variables behave differently
 
 `NEXT_PUBLIC_API_URL` is **inlined by Next.js at build time**, not read at
 startup. Changing it means rebuilding and redeploying the client image — a
 restart does nothing. It is passed as a build `ARG` in `client/Dockerfile` and
 set in `docker-compose.yml`.
 
+`API_INTERNAL_URL` is the API's address **from the client's server**: the
+TOR detail page fetches on the server, not in the browser. It is read at
+runtime. Unset, the server uses `NEXT_PUBLIC_API_URL`, which is right whenever
+that address also works from the client's host. In `docker compose` it does
+not, because `localhost` inside the client container is the client itself, so
+compose sets it to `http://server:8000`.
+
 - [ ] Built with the production API origin, not `http://localhost:8000`
+- [ ] `API_INTERNAL_URL` unset, or set to an address the client's server can
+      reach. Wrong, every TOR detail page shows "couldn't load this posting"
+      while the catalog, which fetches from the browser, still works
 - [ ] Note that **no client code reads it yet** — it appears only in
       `client/Dockerfile`. The plumbing exists; nothing is connected to it. When
       the auth form is wired up, this becomes live and a wrong value at build

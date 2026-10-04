@@ -42,7 +42,18 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError 
  * Inlined by Next at build time, so a wrong value ships inside the image and a
  * restart will not fix it — see §2 of the deployment checklist.
  */
-const API = process.env.NEXT_PUBLIC_API_URL ?? "";
+const PUBLIC_API = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+/**
+ * Where a request goes from here. A server component's fetch runs inside the
+ * client container, where "localhost" is that container and not the API, so
+ * there it uses API_INTERNAL_URL (http://server:8000 on the compose network)
+ * when one is set. Read at runtime, not inlined: a restart picks it up.
+ */
+const API =
+  typeof window === "undefined"
+    ? (process.env.API_INTERNAL_URL ?? PUBLIC_API)
+    : PUBLIC_API;
 
 /** Status 0 is ours, not the network's: no response ever arrived. */
 const NO_RESPONSE = 0;
@@ -140,8 +151,12 @@ export function me() {
   return request<UserResponse>("/api/auth/me", { cache: "no-store" });
 }
 
-/** Where the browser goes to start Google sign-in. A top-level navigation, never a fetch. */
-export const googleSignInUrl = `${API}/api/auth/google`;
+/**
+ * Where the browser goes to start Google sign-in. A top-level navigation, never
+ * a fetch, so always the public origin: a link rendered on the server still
+ * ends up in the browser.
+ */
+export const googleSignInUrl = `${PUBLIC_API}/api/auth/google`;
 
 /* ------------------------------------------------------------------ */
 /*  Admin (FR14, FR15)                                                */
@@ -222,6 +237,43 @@ export type ComparableProject = {
   referencePriceTHB: number;
 };
 
+/**
+ * What the API says about where a TOR summary came from (ADR 0015). In pilot
+ * mode the API also returns summaries nobody has checked, and demo data: the
+ * page must label both.
+ */
+export type TorReview = {
+  /** "pipeline": real AI output; "demo": made-up seed data for the UI */
+  origin: "pipeline" | "demo";
+  status: "pending" | "approved" | "rejected";
+  /** A person approved this pipeline result. Demo data is never checked. */
+  checked: boolean;
+  /** 0–100, from the pipeline's checks; null for demo data */
+  score: number | null;
+  failedChecks: number;
+  processedAt: string | null;
+};
+
+export type LockSpecAnalysis = {
+  riskScore: number;
+  verdictText: string;
+  findings: LockSpecFinding[];
+};
+
+export type PriceAnalysis = {
+  referencePriceTHB: number;
+  historicalMedianTHB: number;
+  diffPercentage: number;
+  interpretation: string;
+  comparableProjects: ComparableProject[];
+};
+
+/**
+ * The lifecycle as the public sees it (FR-15). Closed is the platform's
+ * inference: past the deadline with no word from the agency (ADR 0013).
+ */
+export type TorStatus = "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";
+
 export type TorInsightSummary = {
   projectId: string;
   identification: {
@@ -230,7 +282,7 @@ export type TorInsightSummary = {
     agency: string;
     department: string | null;
     category: string | null;
-    status: "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";
+    status: TorStatus;
   };
   facts: {
     budgetTHB: number | null;
@@ -244,18 +296,17 @@ export type TorInsightSummary = {
   technicalRequirements?: {
     requiredTechnologies: { name: string; version: string | null }[];
   };
-  analytics?: {
-    lockSpec?: {
-      riskScore: number;
-      verdictText: string;
-    };
-    priceAnalysis?: {
-      diffPercentage: number;
-    };
+  /** null: the analysis hasn't been run, never a measured 0 */
+  analytics: {
+    lockSpec: { riskScore: number; verdictText: string } | null;
+    priceAnalysis: { diffPercentage: number } | null;
   };
   amendmentInfo?: {
     isAmended: boolean;
   };
+  /** Only companies may bid ("เฉพาะนิติบุคคล") */
+  companiesOnly: boolean;
+  review: TorReview;
   createdAt?: string;
 };
 
@@ -268,7 +319,7 @@ export type TorInsightDetail = {
     department: string | null;
     egpReference: string | null;
     category: string | null;
-    status: "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";
+    status: TorStatus;
   };
   facts: {
     budgetTHB: number | null;
@@ -314,6 +365,9 @@ export type TorInsightDetail = {
     maintenance: string[];
   };
   eligibility: {
+    /** Conditions every e-GP TOR repeats, as keys; matched later, not shown */
+    standardConditions?: string[];
+    /** Only the conditions specific to this TOR */
     companyRequirements: string[];
     requiredCertifications: string[];
     manufacturerAuthorizations: string[];
@@ -326,19 +380,10 @@ export type TorInsightDetail = {
     deliveryConditions: string | null;
     evaluationMethod: string | null;
   };
+  /** null: the analysis hasn't been run, never a measured 0 */
   analytics: {
-    lockSpec: {
-      riskScore: number;
-      verdictText: string;
-      findings: LockSpecFinding[];
-    };
-    priceAnalysis: {
-      referencePriceTHB: number;
-      historicalMedianTHB: number;
-      diffPercentage: number;
-      interpretation: string;
-      comparableProjects: ComparableProject[];
-    };
+    lockSpec: LockSpecAnalysis | null;
+    priceAnalysis: PriceAnalysis | null;
   };
   amendmentInfo: {
     isAmended: boolean;
@@ -346,6 +391,8 @@ export type TorInsightDetail = {
     amendmentSummary: string;
     changedSections: string[];
   };
+  companiesOnly: boolean;
+  review: TorReview;
   document?: {
     fileName: string | null;
     sizeBytes: number | null;
@@ -363,11 +410,53 @@ export type TorListResponse = {
   limit: number;
 };
 
-export function listTors(params?: Record<string, string | number>) {
-  const qs = params
-    ? "?" + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString()
-    : "";
-  return request<TorListResponse>(`/api/tors${qs}`, { cache: "no-store" });
+/**
+ * The catalog's filters (FR-11). A list matches any one of its values, and is
+ * sent as a repeated key, so a value may contain a comma.
+ */
+export type TorListParams = {
+  q?: string;
+  status?: TorStatus[];
+  /** Only TORs the agency has amended */
+  amended?: boolean;
+  minBudget?: number;
+  maxBudget?: number;
+  tech?: string[];
+  agency?: string[];
+  /** Still open, and closing within this many days */
+  closingWithin?: number;
+  excludeHighRisk?: boolean;
+  sort?: "newest" | "deadline" | "budget-desc" | "budget-asc";
+  page?: number;
+  limit?: number;
+};
+
+export function listTors(params: TorListParams = {}) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    // Unset filters are left out, never sent as "undefined" or "false"
+    if (value === undefined || value === "" || value === false) continue;
+    for (const item of Array.isArray(value) ? value : [value]) query.append(key, String(item));
+  }
+  const qs = query.toString();
+  return request<TorListResponse>(`/api/tors${qs ? `?${qs}` : ""}`, { cache: "no-store" });
+}
+
+export type FacetCount = { name: string; count: number };
+
+/** What the catalog's filters can offer, counted over everything public. */
+export type TorFacets = {
+  total: number;
+  lastUpdated: string | null;
+  statuses: Record<TorStatus, number>;
+  amended: number;
+  /** The most common, not every one */
+  agencies: FacetCount[];
+  technologies: FacetCount[];
+};
+
+export function torFacets() {
+  return request<TorFacets>("/api/tors/facets", { cache: "no-store" });
 }
 
 export function getTorInsight(projectId: string) {

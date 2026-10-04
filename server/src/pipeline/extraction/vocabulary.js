@@ -9,6 +9,30 @@
  */
 
 import { Technology } from '#models/index.js';
+import { STARTER_TECHNOLOGIES } from './references/technologies.js';
+
+/**
+ * Loads the starter list as `confirmed` entries, matched on their key. Safe to
+ * run any time: it never deletes, keeps aliases a reviewer added, and confirms
+ * a `new` entry only if it's in the list.
+ *
+ * @returns {Promise<{ added: number }>}
+ */
+export async function seedStarterTechnologies() {
+  let added = 0;
+  for (const { name, category, aliases } of STARTER_TECHNOLOGIES) {
+    const result = await Technology.updateOne(
+      { key: technologyKey(name) },
+      {
+        $set: { name, category, status: 'confirmed' },
+        $addToSet: { aliases: { $each: aliases.map(technologyKey) } },
+      },
+      { upsert: true },
+    );
+    added += result.upsertedCount;
+  }
+  return { added };
+}
 
 /** A name in the form it's matched on: NFKC, no ® or ™, one space, lower case. */
 export function technologyKey(name) {

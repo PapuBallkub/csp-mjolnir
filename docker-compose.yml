@@ -20,6 +20,9 @@ services:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      # Server components fetch from inside this container, where localhost is
+      # the client itself; on the compose network the API is "server"
+      - API_INTERNAL_URL=http://server:8000
     depends_on:
       - server
 

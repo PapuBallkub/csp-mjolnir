@@ -1,19 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { formatTHB, pick, type Bi, type Lang } from "../../_data/tors";
 import {
-  daysUntil,
-  formatTHB,
-  pick,
-  type Profile,
-  type ScopeSize,
-} from "../../_data/tors";
-import { listTors, type TorInsightSummary } from "../../_lib/api";
-import { useLang, useProfile } from "../../_components/prefs";
+  listTors,
+  torFacets,
+  type ApiError,
+  type ApiResult,
+  type TorFacets,
+  type TorInsightSummary,
+  type TorListParams,
+  type TorStatus,
+} from "../../_lib/api";
+import { matchFor } from "../../_lib/match";
 import { useAuth } from "../../_components/auth";
-import { TorRow } from "../../_components/tor-row";
-import { RiskMeter, ScopeBadge, SmeBadge, type Status } from "../../_components/verdict";
+import { useLang, useProfile } from "../../_components/prefs";
+import { CatalogRow, CatalogRowSkeleton } from "../../_components/catalog-row";
+import { formatThaiDate } from "../../_components/deadline";
+import { isDead, lifecycleLabel, RiskMeter } from "../../_components/verdict";
 import {
   btn,
   Chip,
@@ -24,43 +29,44 @@ import {
   SectionHeading,
 } from "../../_components/ui";
 
+/**
+ * Browse (FR-10, FR-11, FR-13). One list, two ways of narrowing it: filters
+ * the user drives by hand, or the ranking their profile implies. The catalog
+ * is public; ranking needs a signed-in profile, and says so rather than hiding.
+ *
+ * Filtering, sorting and paging happen in the API, so the page holds up when
+ * the catalog is thousands of TORs rather than a few dozen.
+ */
 type Mode = "filter" | "match";
+type Sort = NonNullable<TorListParams["sort"]>;
 
-const BUDGET_BANDS = [
-  { id: "any", label: { th: "ทุกช่วง", en: "Any" }, min: 0, max: Infinity },
-  { id: "u1", label: { th: "ต่ำกว่า 1 ล้าน", en: "Under ฿1M" }, min: 0, max: 1_000_000 },
+const PAGE_SIZE = 20;
+/** Matched mode ranks at most this many TORs that use one of the user's skills */
+const MATCH_LIMIT = 100;
+
+const BUDGET_BANDS: { id: string; label: Bi; min?: number; max?: number }[] = [
+  { id: "any", label: { th: "ทุกช่วง", en: "Any" } },
+  { id: "u1", label: { th: "ต่ำกว่า 1 ล้าน", en: "Under ฿1M" }, max: 1_000_000 },
   { id: "1-5", label: { th: "1–5 ล้าน", en: "฿1M–5M" }, min: 1_000_000, max: 5_000_000 },
   { id: "5-20", label: { th: "5–20 ล้าน", en: "฿5M–20M" }, min: 5_000_000, max: 20_000_000 },
-  { id: "20+", label: { th: "เกิน 20 ล้าน", en: "Over ฿20M" }, min: 20_000_000, max: Infinity },
-] as const;
-
-const DEADLINE_BANDS = [
-  { id: "any", label: { th: "ไม่จำกัด", en: "Any" }, days: Infinity },
-  { id: "7", label: { th: "ภายใน 7 วัน", en: "Within 7 days" }, days: 7 },
-  { id: "14", label: { th: "ภายใน 14 วัน", en: "Within 14 days" }, days: 14 },
-  { id: "30", label: { th: "ภายใน 30 วัน", en: "Within 30 days" }, days: 30 },
-] as const;
-
-const STATUS_OPTIONS: { id: Status; label: { th: string; en: string } }[] = [
-  { id: "Open", label: { th: "เปิดรับข้อเสนอ", en: "Open" } },
-  { id: "Draft", label: { th: "ร่างประกาศ / วิจารณ์", en: "Draft TOR" } },
-  { id: "Awarded", label: { th: "ประกาศผู้ชนะแล้ว", en: "Awarded" } },
-  { id: "Closed", label: { th: "ปิดรับข้อเสนอ", en: "Closed" } },
-  { id: "Cancelled", label: { th: "ยกเลิกประกาศ", en: "Cancelled" } },
+  { id: "20+", label: { th: "เกิน 20 ล้าน", en: "Over ฿20M" }, min: 20_000_000 },
 ];
 
-const SCOPE_OPTIONS: { id: ScopeSize; label: { th: string; en: string } }[] = [
-  { id: "solo", label: { th: "ทำคนเดียวไหว", en: "Solo-sized" } },
-  { id: "small-team", label: { th: "ทีมเล็ก 2–5 คน", en: "Small team" } },
-  { id: "firm", label: { th: "ต้องใช้บริษัท", en: "Firm-sized" } },
+const DEADLINE_BANDS: { id: string; label: Bi; days?: number }[] = [
+  { id: "any", label: { th: "ไม่จำกัด", en: "Any" } },
+  { id: "7", label: { th: "ปิดรับภายใน 7 วัน", en: "Closing within 7 days" }, days: 7 },
+  { id: "14", label: { th: "ปิดรับภายใน 14 วัน", en: "Closing within 14 days" }, days: 14 },
+  { id: "30", label: { th: "ปิดรับภายใน 30 วัน", en: "Closing within 30 days" }, days: 30 },
 ];
 
-const SORTS = [
-  { id: "deadline", label: { th: "ใกล้ปิดรับที่สุด", en: "Closing soonest" } },
+const STATUSES: TorStatus[] = ["Draft", "Open", "Awarded", "Closed", "Cancelled"];
+
+const SORTS: { id: Sort; label: Bi }[] = [
   { id: "newest", label: { th: "ประกาศล่าสุด", en: "Newest" } },
-  { id: "budget-desc", label: { th: "งบสูงสุด", en: "Highest budget" } },
-  { id: "budget-asc", label: { th: "งบต่ำสุด", en: "Lowest budget" } },
-] as const;
+  { id: "deadline", label: { th: "ใกล้ปิดรับที่สุด", en: "Closing soonest" } },
+  { id: "budget-desc", label: { th: "ราคากลางสูงสุด", en: "Highest price" } },
+  { id: "budget-asc", label: { th: "ราคากลางต่ำสุด", en: "Lowest price" } },
+];
 
 const SCORE_FLOORS = [
   { id: 0, label: { th: "ทุกคะแนน", en: "Any score" } },
@@ -69,26 +75,39 @@ const SCORE_FLOORS = [
   { id: 85, label: { th: "85 ขึ้นไป — ตรงมาก", en: "85+ — strong fits" } },
 ] as const;
 
+const HIGH_RISK = 70;
+const isHighRisk = (tor: TorInsightSummary) => (tor.analytics.lockSpec?.riskScore ?? 0) >= HIGH_RISK;
+
 function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }
 
-function getScopeCategory(budget: number): ScopeSize {
-  if (budget < 5_000_000) return "solo";
-  if (budget <= 30_000_000) return "small-team";
-  return "firm";
+/** Waits for typing to pause, so a search box doesn't send a request per keystroke. */
+function useDebounced<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return debounced;
 }
 
-function computeInsightScore(techStack: string[], budget: number, profile: Profile): number {
-  if (!techStack.length) return 50;
-  const matched = techStack.filter((t) =>
-    profile.skills.some((s) => s.toLowerCase() === t.toLowerCase() || t.toLowerCase().includes(s.toLowerCase())),
-  ).length;
-  const skillFit = matched / techStack.length;
-  const budgetFit = budget >= profile.budgetMin && budget <= profile.budgetMax ? 1 : 0.2;
-  const scopeCategory = getScopeCategory(budget);
-  const scopeFit = profile.scopeSizes.includes(scopeCategory) ? 1 : 0.2;
-  return Math.min(100, Math.round(skillFit * 60 + budgetFit * 25 + scopeFit * 15));
+/** "1 ต.ค. 2569 14:05", in Thai time */
+function formatUpdated(iso: string, lang: Lang): string {
+  const bangkok = new Date(new Date(iso).getTime() + 7 * 60 * 60 * 1000);
+  const time = bangkok.toISOString().slice(11, 16);
+  return `${formatThaiDate(iso, lang)} ${time}`;
+}
+
+function failureText(error: ApiError, lang: Lang): string {
+  if (error.status === 0) {
+    return lang === "th"
+      ? "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองอีกครั้งในอีกสักครู่"
+      : "We couldn't reach the server. Try again in a moment.";
+  }
+  return lang === "th"
+    ? `เซิร์ฟเวอร์ตอบกลับผิดพลาด (${error.status}) ลองอีกครั้งในอีกสักครู่`
+    : `The server returned an error (${error.status}). Try again in a moment.`;
 }
 
 function FilterGroup({ title, children }: { title: string; children: ReactNode }) {
@@ -106,15 +125,20 @@ function Check({
   label,
   count,
   trailing,
+  title,
 }: {
   checked: boolean;
   onChange: () => void;
   label: ReactNode;
   count?: number;
   trailing?: ReactNode;
+  title?: string;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 text-[13px] leading-thai text-ink-2 hover:text-ink">
+    <label
+      className="flex cursor-pointer items-center gap-2 text-[13px] leading-thai text-ink-2 hover:text-ink"
+      title={title}
+    >
       <input
         type="checkbox"
         checked={checked}
@@ -155,250 +179,201 @@ function Radio({
   );
 }
 
+/** A filter group whose options come from the API: loading and failure said in place. */
+function FacetList({
+  facets,
+  onRetry,
+  lang,
+  children,
+}: {
+  facets: ApiResult<TorFacets> | null;
+  onRetry: () => void;
+  lang: Lang;
+  children: (data: TorFacets) => ReactNode;
+}) {
+  if (!facets) {
+    return (
+      <div className="flex animate-pulse flex-col gap-2.5 py-0.5" aria-hidden="true">
+        <div className="h-3 w-4/5 rounded-[2px] bg-surface-3" />
+        <div className="h-3 w-3/5 rounded-[2px] bg-surface-3" />
+        <div className="h-3 w-2/3 rounded-[2px] bg-surface-3" />
+      </div>
+    );
+  }
+  if (!facets.ok) {
+    return (
+      <p className="text-[12px] leading-thai text-ink-3">
+        {lang === "th" ? "โหลดตัวเลือกไม่สำเร็จ " : "Couldn't load the options. "}
+        <button type="button" onClick={onRetry} className="underline underline-offset-2 hover:text-ink">
+          {lang === "th" ? "ลองอีกครั้ง" : "Try again"}
+        </button>
+      </p>
+    );
+  }
+  return <>{children(facets.data)}</>;
+}
+
+type Page = {
+  key: string;
+  page: number;
+  tors: TorInsightSummary[];
+  total: number;
+  pages: number;
+  /** When it arrived: the "now" the API used to decide what is Closed */
+  at: Date;
+};
+
 export default function BrowsePage() {
   const { lang } = useLang();
   const { profile } = useProfile();
-  const { user, status: authStatus } = useAuth();
-  const isAuthenticated = authStatus === "authenticated" && !!user;
+  const { status: authStatus } = useAuth();
 
-  // Real API state
-  const [torsList, setTorsList] = useState<TorInsightSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [apiError, setApiError] = useState<string | null>(null);
-
-  // Filters state
   const [mode, setMode] = useState<Mode>("filter");
   const [query, setQuery] = useState("");
-  const [statuses, setStatuses] = useState<Status[]>([]);
-  const [scopes, setScopes] = useState<ScopeSize[]>([]);
+  const [statuses, setStatuses] = useState<TorStatus[]>([]);
+  const [amendedOnly, setAmendedOnly] = useState(false);
   const [techFilter, setTechFilter] = useState<string[]>([]);
   const [agencyFilter, setAgencyFilter] = useState<string[]>([]);
-  const [budgetBand, setBudgetBand] = useState<string>("any");
-  const [deadlineBand, setDeadlineBand] = useState<string>("any");
+  const [budgetBand, setBudgetBand] = useState("any");
+  const [deadlineBand, setDeadlineBand] = useState("any");
   const [hideHighRisk, setHideHighRisk] = useState(false);
-  const [smeOnly, setSmeOnly] = useState(false);
-  const [sort, setSort] = useState<string>("deadline");
+  const [sort, setSort] = useState<Sort>("newest");
   const [scoreFloor, setScoreFloor] = useState<number>(0);
   const [hideClosed, setHideClosed] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Fetch real TORs from MongoDB via Express API
-  const fetchTors = useCallback(() => {
-    setLoading(true);
-    setApiError(null);
-    listTors({ limit: 100 })
-      .then((res) => {
-        if (res.ok) {
-          setTorsList(res.data.tors);
-        } else {
-          setApiError(res.error.message || "Cannot load TOR announcements");
-        }
-        setLoading(false);
-      })
-      .catch(() => {
-        setApiError("Cannot reach the server");
-        setLoading(false);
-      });
-  }, []);
-
-  useEffect(() => {
-    let ignore = false;
-    listTors({ limit: 100 })
-      .then((res) => {
-        if (ignore) return;
-        if (res.ok) {
-          setTorsList(res.data.tors);
-        } else {
-          setApiError(res.error.message || "Cannot load TOR announcements");
-        }
-        setLoading(false);
-      })
-      .catch(() => {
-        if (ignore) return;
-        setApiError("Cannot reach the server");
-        setLoading(false);
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
-
-  // Extract dynamic agencies from real database records
-  const availableAgencies = useMemo(() => {
-    const set = new Set<string>();
-
-    for (const t of torsList) {
-      if (t.identification.agency) set.add(t.identification.agency);
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "th"));
-  }, [torsList]);
-
-  // Dynamic agency counts
-  const agencyCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const t of torsList) {
-      const a = t.identification.agency;
-      if (a) counts[a] = (counts[a] || 0) + 1;
-    }
-    return counts;
-  }, [torsList]);
-
-  // Extract dynamic tech terms from real database records
-  const availableTechTerms = useMemo(() => {
-    const set = new Set<string>();
-    for (const t of torsList) {
-      for (const tech of t.technicalRequirements?.requiredTechnologies || []) {
-        if (tech.name) set.add(tech.name);
-      }
-    }
-    return Array.from(set).sort();
-  }, [torsList]);
+  const debouncedQuery = useDebounced(query, 300);
 
   const activeCount =
     statuses.length +
-    scopes.length +
+    (amendedOnly ? 1 : 0) +
     techFilter.length +
     agencyFilter.length +
     (budgetBand === "any" ? 0 : 1) +
     (deadlineBand === "any" ? 0 : 1) +
-    (hideHighRisk ? 1 : 0) +
-    (smeOnly ? 1 : 0);
+    (hideHighRisk ? 1 : 0);
 
   function clearAll() {
     setQuery("");
     setStatuses([]);
-    setScopes([]);
+    setAmendedOnly(false);
     setTechFilter([]);
     setAgencyFilter([]);
     setBudgetBand("any");
     setDeadlineBand("any");
     setHideHighRisk(false);
-    setSmeOnly(false);
   }
 
-  // Pre-calculate ranked items for match mode
-  const ranked = useMemo(() => {
-    return torsList
-      .map((tor) => {
-        const budget = tor.facts.referencePriceTHB || tor.facts.budgetTHB || 0;
-        const techStack =
-          tor.technicalRequirements?.requiredTechnologies.map((t) => t.name) || [];
-        const score = computeInsightScore(techStack, budget, profile);
-        return { tor, score };
-      })
-      .sort((a, b) => b.score - a.score);
-  }, [torsList, profile]);
+  /* ---------------------------- filter options ---------------------------- */
 
-  const strongCount = ranked.filter(
-    (row) => row.score >= 70 && row.tor.identification.status !== "Closed" && row.tor.identification.status !== "Cancelled",
-  ).length;
-
-  // Filtered and sorted results
-  const results = useMemo(() => {
-    if (mode === "match") {
-      return ranked
-        .filter((row) => row.score >= scoreFloor)
-        .filter((row) => (hideClosed ? row.tor.identification.status !== "Closed" && row.tor.identification.status !== "Cancelled" : true))
-        .filter((row) => (hideHighRisk ? (row.tor.analytics?.lockSpec?.riskScore || 0) < 70 : true))
-        .map((row) => row.tor);
-    }
-
-    const band = BUDGET_BANDS.find((b) => b.id === budgetBand)!;
-    const within = DEADLINE_BANDS.find((b) => b.id === deadlineBand)!.days;
-    const q = query.trim().toLowerCase();
-
-    const filtered = torsList.filter((tor) => {
-      const budget = tor.facts.referencePriceTHB || tor.facts.budgetTHB || 0;
-      const techNames =
-        tor.technicalRequirements?.requiredTechnologies.map((t) => t.name) || [];
-      const scope = getScopeCategory(budget);
-
-      if (q) {
-        const haystack = [
-          tor.projectId,
-          tor.identification.titleTh,
-          tor.identification.titleEn || "",
-          tor.identification.agency,
-          tor.identification.department || "",
-          ...techNames,
-        ]
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
-
-      if (statuses.length && !statuses.includes(tor.identification.status)) return false;
-      if (scopes.length && !scopes.includes(scope)) return false;
-      if (techFilter.length && !techFilter.some((t) => techNames.includes(t))) return false;
-      if (agencyFilter.length && !agencyFilter.includes(tor.identification.agency)) return false;
-      if (budget < band.min || budget > band.max) return false;
-      if (within !== Infinity && tor.facts.submissionDeadline) {
-        const left = daysUntil(tor.facts.submissionDeadline);
-        if (left < 0 || left > within) return false;
-      }
-      if (hideHighRisk && (tor.analytics?.lockSpec?.riskScore || 0) >= 70) return false;
-      return true;
+  const [facets, setFacets] = useState<ApiResult<TorFacets> | null>(null);
+  const [facetsTry, setFacetsTry] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    torFacets().then((result) => {
+      if (!cancelled) setFacets(result);
     });
-
-    const isClosedOrCancelled = (st: string) =>
-      st === "Closed" || st === "Cancelled" || st === "Awarded" ? 1 : 0;
-
-    return [...filtered].sort((a, b) => {
-      const budgetA = a.facts.referencePriceTHB || a.facts.budgetTHB || 0;
-      const budgetB = b.facts.referencePriceTHB || b.facts.budgetTHB || 0;
-
-      switch (sort) {
-        case "newest": {
-          const dateA = a.facts.postedDate || a.createdAt || "";
-          const dateB = b.facts.postedDate || b.createdAt || "";
-          return dateB.localeCompare(dateA);
-        }
-        case "budget-desc":
-          return budgetB - budgetA;
-        case "budget-asc":
-          return budgetA - budgetB;
-        default: {
-          // Closed/dead listings sink to the bottom
-          const rank = isClosedOrCancelled(a.identification.status) - isClosedOrCancelled(b.identification.status);
-          if (rank !== 0) return rank;
-          const leftA = a.facts.submissionDeadline ? daysUntil(a.facts.submissionDeadline) : 9999;
-          const leftB = b.facts.submissionDeadline ? daysUntil(b.facts.submissionDeadline) : 9999;
-          return leftA - leftB;
-        }
-      }
-    });
-  }, [
-    mode,
-    ranked,
-    scoreFloor,
-    hideClosed,
-    query,
-    statuses,
-    scopes,
-    techFilter,
-    agencyFilter,
-    budgetBand,
-    deadlineBand,
-    hideHighRisk,
-    sort,
-    torsList,
-  ]);
-
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = {
-      Open: 0,
-      Draft: 0,
-      Awarded: 0,
-      Closed: 0,
-      Cancelled: 0,
+    return () => {
+      cancelled = true;
     };
-    for (const t of torsList) {
-      const st = t.identification.status;
-      if (st && counts[st] !== undefined) counts[st]++;
-    }
-    return counts;
-  }, [torsList]);
+  }, [facetsTry]);
+
+  /* ------------------------------ search list ----------------------------- */
+
+  const params = useMemo<TorListParams>(() => {
+    const band = BUDGET_BANDS.find((b) => b.id === budgetBand);
+    return {
+      q: debouncedQuery.trim(),
+      status: statuses,
+      amended: amendedOnly,
+      tech: techFilter,
+      agency: agencyFilter,
+      minBudget: band?.min,
+      maxBudget: band?.max,
+      closingWithin: DEADLINE_BANDS.find((b) => b.id === deadlineBand)?.days,
+      excludeHighRisk: hideHighRisk,
+      sort,
+      limit: PAGE_SIZE,
+    };
+  }, [debouncedQuery, statuses, amendedOnly, techFilter, agencyFilter, budgetBand, deadlineBand, hideHighRisk, sort]);
+  const key = useMemo(() => JSON.stringify(params), [params]);
+
+  // Any change of filters starts again from page 1, without an effect to reset it
+  const [wanted, setWanted] = useState({ key: "", page: 1 });
+  const page = wanted.key === key ? wanted.page : 1;
+
+  const [list, setList] = useState<Page | null>(null);
+  const [listError, setListError] = useState<{ key: string; page: number; error: ApiError } | null>(null);
+  const [listTry, setListTry] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    listTors({ ...params, page }).then((result) => {
+      if (cancelled) return;
+      if (!result.ok) {
+        setListError({ key, page, error: result.error });
+        return;
+      }
+      setListError(null);
+      const { tors, total, pages } = result.data;
+      setList((prev) => ({
+        key,
+        page,
+        total,
+        pages,
+        at: new Date(),
+        tors: page > 1 && prev?.key === key ? [...prev.tors, ...tors] : tors,
+      }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [params, key, page, listTry]);
+
+  const current = list?.key === key ? list : null;
+  const failed = listError?.key === key && listError.page === page ? listError.error : null;
+  const loadingMore = current !== null && current.page < page && !failed;
+
+  /* ------------------------------- matching ------------------------------- */
+
+  const skillsKey = profile.skills.join("\n");
+  const canMatch = authStatus === "authenticated" && profile.skills.length > 0;
+  const [matchList, setMatchList] = useState<{ key: string; result: ApiResult<Page> } | null>(null);
+  const [matchTry, setMatchTry] = useState(0);
+
+  useEffect(() => {
+    if (!canMatch) return;
+    let cancelled = false;
+    // Only TORs that use at least one of the skills can rank anywhere useful
+    listTors({ tech: skillsKey.split("\n"), sort: "deadline", limit: MATCH_LIMIT }).then((result) => {
+      if (cancelled) return;
+      setMatchList({
+        key: skillsKey,
+        result: result.ok
+          ? { ok: true, data: { key: skillsKey, ...result.data, at: new Date() } }
+          : result,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [canMatch, skillsKey, matchTry]);
+
+  const matchResult = matchList?.key === skillsKey ? matchList.result : null;
+  const ranked = useMemo(() => {
+    if (!matchResult?.ok) return [];
+    return matchResult.data.tors
+      .map((tor) => ({ tor, match: matchFor(tor, profile) }))
+      .sort((a, b) => b.match.score - a.match.score);
+  }, [matchResult, profile]);
+
+  const strongCount = ranked.filter((row) => row.match.score >= 70 && !isDead(row.tor.identification.status)).length;
+  const matchResults = ranked
+    .filter((row) => row.match.score >= scoreFloor)
+    .filter((row) => (hideClosed ? !isDead(row.tor.identification.status) : true))
+    .filter((row) => (hideHighRisk ? !isHighRisk(row.tor) : true));
+
+  /* -------------------------------- rails --------------------------------- */
 
   const filterRail = (
     <Panel className="overflow-hidden">
@@ -417,27 +392,24 @@ export default function BrowsePage() {
         ) : null}
       </div>
 
-      <FilterGroup title={lang === "th" ? "สถานะประกาศ" : "Status"}>
-        {STATUS_OPTIONS.map((option) => (
+      <FilterGroup title={lang === "th" ? "สถานะ" : "Status"}>
+        {STATUSES.map((status) => (
           <Check
-            key={option.id}
-            checked={statuses.includes(option.id)}
-            onChange={() => setStatuses(toggle(statuses, option.id))}
-            label={pick(option.label, lang)}
-            count={statusCounts[option.id]}
+            key={status}
+            checked={statuses.includes(status)}
+            onChange={() => setStatuses(toggle(statuses, status))}
+            label={lifecycleLabel(status, lang)}
+            count={facets?.ok ? facets.data.statuses[status] : undefined}
           />
         ))}
-      </FilterGroup>
-
-      <FilterGroup title={lang === "th" ? "ขนาดงาน" : "Scope size"}>
-        {SCOPE_OPTIONS.map((option) => (
+        <div className="mt-0.5 border-t border-line pt-2.5">
           <Check
-            key={option.id}
-            checked={scopes.includes(option.id)}
-            onChange={() => setScopes(toggle(scopes, option.id))}
-            label={pick(option.label, lang)}
+            checked={amendedOnly}
+            onChange={() => setAmendedOnly(!amendedOnly)}
+            label={lang === "th" ? "เฉพาะที่มีเอกสารแก้ไข" : "Amended only"}
+            count={facets?.ok ? facets.data.amended : undefined}
           />
-        ))}
+        </div>
       </FilterGroup>
 
       <FilterGroup title={lang === "th" ? "คัดกรองความเสี่ยง" : "Risk"}>
@@ -449,7 +421,7 @@ export default function BrowsePage() {
         />
       </FilterGroup>
 
-      <FilterGroup title={lang === "th" ? "งบประมาณ / ราคากลาง" : "Budget"}>
+      <FilterGroup title={lang === "th" ? "ราคากลาง" : "Reference price"}>
         {BUDGET_BANDS.map((b) => (
           <Radio
             key={b.id}
@@ -473,43 +445,49 @@ export default function BrowsePage() {
         ))}
       </FilterGroup>
 
-      <FilterGroup title={lang === "th" ? "เทคโนโลยีที่กำหนด" : "Tech stack"}>
-        <div className="-mr-1 flex max-h-52 flex-col gap-2 overflow-y-auto pr-1">
-          {availableTechTerms.length === 0 ? (
-            <span className="text-[12px] text-ink-3">
-              {lang === "th" ? "กำลังโหลด..." : "Loading..."}
-            </span>
-          ) : (
-            availableTechTerms.map((term) => (
-              <Check
-                key={term}
-                checked={techFilter.includes(term)}
-                onChange={() => setTechFilter(toggle(techFilter, term))}
-                label={<span className="font-mono text-[12px]">{term}</span>}
-              />
-            ))
-          )}
-        </div>
+      <FilterGroup title={lang === "th" ? "เทคโนโลยี" : "Tech stack"}>
+        <FacetList facets={facets} onRetry={() => setFacetsTry((n) => n + 1)} lang={lang}>
+          {(data) =>
+            data.technologies.length === 0 ? (
+              <p className="text-[12px] text-ink-3">{lang === "th" ? "ยังไม่มีข้อมูล" : "None yet"}</p>
+            ) : (
+              <div className="-mr-1 flex max-h-52 flex-col gap-2 overflow-y-auto pr-1">
+                {data.technologies.map((term) => (
+                  <Check
+                    key={term.name}
+                    checked={techFilter.includes(term.name)}
+                    onChange={() => setTechFilter(toggle(techFilter, term.name))}
+                    label={<span className="font-mono text-[12px]">{term.name}</span>}
+                    count={term.count}
+                  />
+                ))}
+              </div>
+            )
+          }
+        </FacetList>
       </FilterGroup>
 
-      <FilterGroup title={lang === "th" ? "หน่วยงานผู้จัดซื้อ" : "Agency"}>
-        <div className="-mr-1 flex max-h-52 flex-col gap-2 overflow-y-auto pr-1">
-          {availableAgencies.length === 0 ? (
-            <span className="text-[12px] text-ink-3">
-              {lang === "th" ? "กำลังโหลด..." : "Loading..."}
-            </span>
-          ) : (
-            availableAgencies.map((agency) => (
-              <Check
-                key={agency}
-                checked={agencyFilter.includes(agency)}
-                onChange={() => setAgencyFilter(toggle(agencyFilter, agency))}
-                label={agency}
-                count={agencyCounts[agency]}
-              />
-            ))
-          )}
-        </div>
+      <FilterGroup title={lang === "th" ? "หน่วยงาน" : "Agency"}>
+        <FacetList facets={facets} onRetry={() => setFacetsTry((n) => n + 1)} lang={lang}>
+          {(data) =>
+            data.agencies.length === 0 ? (
+              <p className="text-[12px] text-ink-3">{lang === "th" ? "ยังไม่มีข้อมูล" : "None yet"}</p>
+            ) : (
+              <div className="-mr-1 flex max-h-52 flex-col gap-2 overflow-y-auto pr-1">
+                {data.agencies.map((agency) => (
+                  <Check
+                    key={agency.name}
+                    checked={agencyFilter.includes(agency.name)}
+                    onChange={() => setAgencyFilter(toggle(agencyFilter, agency.name))}
+                    label={agency.name}
+                    title={agency.name}
+                    count={agency.count}
+                  />
+                ))}
+              </div>
+            )
+          }
+        </FacetList>
       </FilterGroup>
     </Panel>
   );
@@ -525,7 +503,7 @@ export default function BrowsePage() {
 
         <div className="flex flex-col gap-3.5 px-3 py-3.5">
           <div>
-            <Label>{lang === "th" ? "ทักษะของคุณ" : "Your skills"}</Label>
+            <Label>{lang === "th" ? "ทักษะ" : "Skills"}</Label>
             <div className="mt-1.5 flex flex-wrap gap-1">
               {profile.skills.length === 0 ? (
                 <span className="text-[12px] text-ink-3">
@@ -538,23 +516,13 @@ export default function BrowsePage() {
           </div>
 
           <div className="border-t border-line pt-3">
-            <Label>{lang === "th" ? "ช่วงงบประมาณที่รับได้" : "Budget range"}</Label>
+            <Label>{lang === "th" ? "ช่วงงบที่รับได้" : "Budget range"}</Label>
             <p className="mt-1 font-mono tnum text-[12px] text-ink">
               {formatTHB(profile.budgetMin)} – {formatTHB(profile.budgetMax)}
             </p>
           </div>
 
-          <div className="border-t border-line pt-3">
-            <Label>{lang === "th" ? "ขนาดงานที่รับได้" : "Scope you can take"}</Label>
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {profile.scopeSizes.map((size) => (
-                <ScopeBadge key={size} size={size} lang={lang} />
-              ))}
-              {profile.smeRegistered ? <SmeBadge lang={lang} /> : null}
-            </div>
-          </div>
-
-          <Link href="/profile" className={`${btn.secondary} w-full text-center`}>
+          <Link href="/profile" className={`${btn.secondary} w-full`}>
             {lang === "th" ? "แก้ไขโปรไฟล์" : "Edit your profile"}
           </Link>
         </div>
@@ -581,7 +549,7 @@ export default function BrowsePage() {
           <Check
             checked={hideClosed}
             onChange={() => setHideClosed(!hideClosed)}
-            label={lang === "th" ? "งานที่ปิดรับ / สิ้นสุดแล้ว" : "Closed projects"}
+            label={lang === "th" ? "งานที่ปิดรับแล้ว" : "Projects already closed"}
           />
           <Check
             checked={hideHighRisk}
@@ -594,12 +562,227 @@ export default function BrowsePage() {
     </div>
   );
 
+  /* ------------------------------- results -------------------------------- */
+
+  const skeleton = (
+    <div aria-busy="true">
+      <span className="sr-only">{lang === "th" ? "กำลังโหลดประกาศ" : "Loading postings"}</span>
+      <Panel className="overflow-hidden">
+        {Array.from({ length: 5 }, (_, i) => (
+          <CatalogRowSkeleton key={i} />
+        ))}
+      </Panel>
+    </div>
+  );
+
+  function filterResults() {
+    if (failed && !current) {
+      return (
+        <EmptyState
+          headline={lang === "th" ? "โหลดรายการประกาศไม่สำเร็จ" : "Couldn't load the postings"}
+          body={failureText(failed, lang)}
+          action={
+            <button type="button" onClick={() => setListTry((n) => n + 1)} className={btn.secondary}>
+              {lang === "th" ? "ลองอีกครั้ง" : "Try again"}
+            </button>
+          }
+        />
+      );
+    }
+
+    // First load: shaped skeletons. A filter change keeps the old rows, dimmed.
+    const shown = current ?? list;
+    if (!shown) return skeleton;
+
+    if (current && current.total === 0) {
+      return activeCount === 0 && !debouncedQuery.trim() ? (
+        <EmptyState
+          headline={lang === "th" ? "ยังไม่มีประกาศในระบบ" : "No postings yet"}
+          body={
+            lang === "th"
+              ? "ยังไม่มีประกาศที่สรุปเสร็จและพร้อมเผยแพร่ ลองกลับมาใหม่ภายหลัง ระหว่างนี้ประกาศต้นฉบับทั้งหมดยังอยู่ที่ e-GP"
+              : "No posting has been summarised and cleared for publishing yet. Check back later; every original is still on e-GP."
+          }
+        />
+      ) : (
+        <EmptyState
+          headline={lang === "th" ? "ไม่มีประกาศที่ตรงกับเงื่อนไขนี้" : "Nothing matches these filters"}
+          body={
+            lang === "th"
+              ? "ลองค้นด้วยคำที่สั้นลง ขยายช่วงราคากลางหรือกำหนดยื่น หรือเอาตัวกรองบางข้อออก"
+              : "Try a shorter search, a wider price or deadline range, or drop a filter or two."
+          }
+          action={
+            <button type="button" onClick={clearAll} className={btn.secondary}>
+              {lang === "th" ? "ล้างตัวกรองทั้งหมด" : "Clear all filters"}
+            </button>
+          }
+        />
+      );
+    }
+
+    const remaining = shown.total - shown.tors.length;
+    return (
+      <>
+        <div aria-busy={!current}>
+          <Panel className={`overflow-hidden transition-opacity ${current ? "" : "opacity-60"}`}>
+            {shown.tors.map((tor) => (
+              <CatalogRow key={tor.projectId} tor={tor} now={shown.at} />
+            ))}
+          </Panel>
+        </div>
+
+        {current && failed ? (
+          <p className="mt-3 text-center text-[12.5px] leading-thai text-ink-2">
+            {failureText(failed, lang)}{" "}
+            <button
+              type="button"
+              onClick={() => setListTry((n) => n + 1)}
+              className="underline underline-offset-2 hover:text-ink"
+            >
+              {lang === "th" ? "ลองอีกครั้ง" : "Try again"}
+            </button>
+          </p>
+        ) : current && current.page < current.pages ? (
+          <div className="mt-3 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setWanted({ key, page: current.page + 1 })}
+              disabled={loadingMore}
+              className={btn.secondary}
+            >
+              {loadingMore
+                ? lang === "th" ? "กำลังโหลด…" : "Loading…"
+                : lang === "th"
+                  ? `แสดงเพิ่มอีก ${Math.min(PAGE_SIZE, remaining)} ประกาศ`
+                  : `Show ${Math.min(PAGE_SIZE, remaining)} more`}
+            </button>
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
+  function matchResultsView() {
+    if (authStatus === "loading") return skeleton;
+
+    if (profile.skills.length === 0) {
+      return (
+        <EmptyState
+          headline={
+            lang === "th"
+              ? "ยังจับคู่ไม่ได้ เพราะโปรไฟล์ยังไม่มีทักษะ"
+              : "We can't rank anything until your profile lists some skills"
+          }
+          body={
+            lang === "th"
+              ? "เลือกเทคโนโลยีที่คุณทำได้ในหน้าโปรไฟล์ แล้วรายการนี้จะเรียงใหม่ให้ทันที"
+              : "Pick the technologies you can build with on your profile and this list re-ranks immediately."
+          }
+          action={
+            <Link href="/profile" className={btn.secondary}>
+              {lang === "th" ? "ไปตั้งค่าโปรไฟล์" : "Set up your profile"}
+            </Link>
+          }
+        />
+      );
+    }
+
+    if (!matchResult) return skeleton;
+
+    if (!matchResult.ok) {
+      return (
+        <EmptyState
+          headline={lang === "th" ? "จัดอันดับไม่สำเร็จ" : "Couldn't rank the postings"}
+          body={failureText(matchResult.error, lang)}
+          action={
+            <button type="button" onClick={() => setMatchTry((n) => n + 1)} className={btn.secondary}>
+              {lang === "th" ? "ลองอีกครั้ง" : "Try again"}
+            </button>
+          }
+        />
+      );
+    }
+
+    if (matchResult.data.total === 0) {
+      return (
+        <EmptyState
+          headline={
+            lang === "th"
+              ? "ยังไม่มีประกาศที่ใช้ทักษะในโปรไฟล์ของคุณ"
+              : "No posting uses the skills on your profile yet"
+          }
+          body={
+            lang === "th"
+              ? "ประกาศที่มีอยู่ตอนนี้ไม่ได้ระบุเทคโนโลยีที่คุณเลือกไว้ ลองเพิ่มทักษะในโปรไฟล์ หรือค้นหาเองจากทุกประกาศ"
+              : "None of the current postings name a technology you picked. Add skills to your profile, or search every posting yourself."
+          }
+          action={
+            <button type="button" onClick={() => setMode("filter")} className={btn.secondary}>
+              {lang === "th" ? "ค้นหาเองจากทุกประกาศ" : "Search every posting"}
+            </button>
+          }
+        />
+      );
+    }
+
+    if (matchResults.length === 0) {
+      return (
+        <EmptyState
+          headline={lang === "th" ? "ไม่มีประกาศที่ผ่านเงื่อนไขนี้" : "Nothing passes these settings"}
+          body={
+            lang === "th"
+              ? "ลองลดคะแนนขั้นต่ำ แสดงงานที่ปิดรับแล้ว หรือเอาตัวกรองความเสี่ยงออก"
+              : "Try a lower score floor, showing closed projects, or dropping the risk filter."
+          }
+          action={
+            <button type="button" onClick={() => setScoreFloor(0)} className={btn.secondary}>
+              {lang === "th" ? "แสดงทุกคะแนน" : "Show every score"}
+            </button>
+          }
+        />
+      );
+    }
+
+    return (
+      <Panel className="overflow-hidden">
+        {matchResults.map(({ tor, match }) => (
+          <CatalogRow key={tor.projectId} tor={tor} now={matchResult.data.at} match={match} />
+        ))}
+      </Panel>
+    );
+  }
+
+  /* -------------------------------- layout -------------------------------- */
+
+  // Signed out, matching is explained instead of shown (AGENTS.md §3)
+  const signedOutMatch = mode === "match" && authStatus === "anonymous";
   const rail = mode === "filter" ? filterRail : matchRail;
 
-  const MODES: { id: Mode; label: { th: string; en: string }; badge?: number }[] = [
+  const MODES: { id: Mode; label: Bi; badge?: number }[] = [
     { id: "filter", label: { th: "ค้นหาและกรอง", en: "Search & filter" } },
-    { id: "match", label: { th: "ตรงกับโปรไฟล์ฉัน", en: "Matched to me" }, badge: strongCount },
+    {
+      id: "match",
+      label: { th: "ตรงกับโปรไฟล์ฉัน", en: "Matched to me" },
+      badge: matchResult?.ok ? strongCount : undefined,
+    },
   ];
+
+  let countLine: string | null = null;
+  if (mode === "filter" && current) {
+    countLine =
+      lang === "th"
+        ? `แสดง ${current.tors.length} จาก ${current.total} ประกาศ`
+        : `${current.tors.length} of ${current.total} postings`;
+  } else if (mode === "filter" && list) {
+    countLine = lang === "th" ? "กำลังค้นหา…" : "Searching…";
+  } else if (mode === "match" && matchResult?.ok && matchResults.length > 0) {
+    const { tors, total } = matchResult.data;
+    countLine =
+      lang === "th"
+        ? `แสดง ${matchResults.length} จาก ${tors.length} ประกาศที่ใช้ทักษะของคุณ${total > tors.length ? ` (จัดอันดับ ${tors.length} รายการที่ใกล้ปิดรับที่สุดจากทั้งหมด ${total})` : ""}`
+        : `${matchResults.length} of ${tors.length} postings that use your skills${total > tors.length ? ` (the ${tors.length} closing soonest, of ${total})` : ""}`;
+  }
 
   return (
     <div className="mx-auto max-w-[1240px] px-4 py-6">
@@ -607,21 +790,28 @@ export default function BrowsePage() {
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
           <div>
             <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-ink">
-              {lang === "th" ? "ประกาศจัดซื้อจัดจ้างภาครัฐ (e-GP)" : "Government IT Procurement"}
+              {lang === "th" ? "ประกาศจัดซื้อจัดจ้างไอทีภาครัฐ" : "Thai government IT procurement"}
             </h1>
             <p className="mt-1 max-w-2xl text-[14px] leading-thai text-ink-2">
               {lang === "th"
-                ? "สรุปสาระสำคัญจากเอกสาร TOR ที่ผ่านการวิเคราะห์แล้ว อ่านเข้าใจง่าย ตรวจสอบความเสี่ยงล็อกสเปกและราคาได้ทันที"
-                : "Normalized summaries of Thai government IT procurement notices — analyze lock-spec and price risks in seconds."}
+                ? "สรุปสาระสำคัญจากเอกสาร TOR ของหน่วยงานรัฐทั่วประเทศ อ่านจบได้โดยไม่ต้องเปิดไฟล์ PDF"
+                : "Plain-language summaries of TOR documents from government agencies across Thailand. Read them without opening the PDF."}
             </p>
           </div>
-          <p className="font-mono text-[11px] text-ink-3">
-            {torsList.length} {lang === "th" ? "ประกาศในฐานข้อมูล" : "live postings"} ·{" "}
-            {lang === "th" ? "ข้อมูลเชื่อมต่อสดจากระบบ" : "Connected to database"}
-          </p>
+          {facets?.ok ? (
+            <p className="font-mono text-[11px] text-ink-3">
+              {facets.data.total} {lang === "th" ? "ประกาศ" : "postings"}
+              {facets.data.lastUpdated ? (
+                <>
+                  {" · "}
+                  {lang === "th" ? "อัปเดตล่าสุด" : "updated"} {formatUpdated(facets.data.lastUpdated, lang)}
+                </>
+              ) : null}
+            </p>
+          ) : null}
         </div>
 
-        {/* Mode Selector */}
+        {/* The one decision this page asks for, made explicit. */}
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
           <div
             className="inline-flex rounded-[3px] border border-line bg-surface-2 p-[3px]"
@@ -642,13 +832,11 @@ export default function BrowsePage() {
                     : "text-ink-3 hover:text-ink"
                 }`}
               >
-                <span className="transition-opacity duration-150">{pick(option.label, lang)}</span>
-                {option.badge !== undefined && option.badge > 0 ? (
+                <span>{pick(option.label, lang)}</span>
+                {option.badge !== undefined ? (
                   <span
                     className={`rounded-[2px] px-1 font-mono tnum text-[11px] ${
-                      mode === option.id
-                        ? "bg-open-bg text-open"
-                        : "bg-surface-3 text-ink-3"
+                      mode === option.id ? "bg-open-bg text-open" : "bg-surface-3 text-ink-3"
                     }`}
                   >
                     {option.badge}
@@ -661,224 +849,131 @@ export default function BrowsePage() {
           <p className="text-[12px] leading-thai text-ink-3">
             {mode === "filter"
               ? lang === "th"
-                ? "กรองเองตามเทคโนโลยี งบประมาณ สถานะ และหน่วยงานจัดซื้อ"
-                : "Narrow down by technology, budget, status and agency."
+                ? "กรองเองตามเทคโนโลยี ราคากลาง กำหนดยื่น และหน่วยงาน"
+                : "Narrow it yourself by technology, price, deadline and agency."
               : lang === "th"
-                ? "เรียงลำดับความเหมาะสมจากทักษะและเงื่อนไขการรับงานของคุณ"
-                : "Ranked from skills and preferences saved in your profile."}
+                ? "เรียงจากทักษะและช่วงงบที่คุณบันทึกไว้ในโปรไฟล์"
+                : "Ranked from the skills and budget range saved on your profile."}
           </p>
         </div>
       </header>
 
-      <div className="grid gap-5 lg:grid-cols-[248px_minmax(0,1fr)]">
-        {/* Mobile Filters Toggle Button */}
-        <div className="lg:hidden">
-          <button
-            type="button"
-            onClick={() => setFiltersOpen(!filtersOpen)}
-            className={`${btn.secondary} w-full justify-between`}
-          >
-            <span>
-              {mode === "filter"
-                ? `${lang === "th" ? "ตัวกรอง" : "Filters"}${activeCount > 0 ? ` (${activeCount})` : ""}`
-                : lang === "th"
-                  ? "โปรไฟล์และการปรับผลลัพธ์"
-                  : "Profile and refinements"}
-            </span>
-            <span className="font-mono text-[11px] text-ink-3">{filtersOpen ? "−" : "+"}</span>
-          </button>
-          {filtersOpen ? <div className="mt-3">{rail}</div> : null}
-        </div>
+      {signedOutMatch ? (
+        <EmptyState
+          headline={
+            lang === "th"
+              ? "ลงชื่อเข้าใช้ แล้วระบบจะจัดอันดับประกาศตามทักษะของคุณ"
+              : "Sign in and we'll rank postings by your skills"
+          }
+          body={
+            lang === "th"
+              ? "บันทึกเทคโนโลยีที่คุณทำได้และช่วงงบที่รับไหวไว้ในโปรไฟล์ แล้วประกาศที่ตรงกับคุณที่สุดจะขึ้นมาก่อน ส่วนการค้นหาและอ่านประกาศทุกรายการไม่ต้องลงชื่อเข้าใช้"
+              : "Save the technologies you build with and the budget you can take on, and the postings that fit you best come first. Searching and reading every posting needs no account."
+          }
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link href="/auth" className={btn.primary}>
+                {lang === "th" ? "ลงชื่อเข้าใช้" : "Sign in"}
+              </Link>
+              <button type="button" onClick={() => setMode("filter")} className={btn.secondary}>
+                {lang === "th" ? "ค้นหาเองแทน" : "Search by hand instead"}
+              </button>
+            </div>
+          }
+        />
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-[248px_minmax(0,1fr)]">
+          <div className="lg:hidden">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              aria-expanded={filtersOpen}
+              className={`${btn.secondary} w-full justify-between`}
+            >
+              <span>
+                {mode === "filter"
+                  ? `${lang === "th" ? "ตัวกรอง" : "Filters"}${activeCount > 0 ? ` (${activeCount})` : ""}`
+                  : lang === "th"
+                    ? "โปรไฟล์และการปรับผลลัพธ์"
+                    : "Profile and refinements"}
+              </span>
+              <span className="font-mono text-[11px] text-ink-3">{filtersOpen ? "−" : "+"}</span>
+            </button>
+            {filtersOpen ? <div className="mt-3">{rail}</div> : null}
+          </div>
 
-        {/* Desktop Sidebar Rail */}
-        <aside className="hidden lg:block">
-          <div className="sticky top-[70px]">{rail}</div>
-        </aside>
+          <aside className="hidden lg:block">
+            <div className="sticky top-[70px]">{rail}</div>
+          </aside>
 
-        {/* Main Content Area */}
-        <div className="min-w-0">
-          {mode === "filter" ? (
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <div className="relative min-w-0 flex-1">
-                <svg
-                  viewBox="0 0 16 16"
-                  className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-3"
-                  aria-hidden="true"
-                >
-                  <circle
-                    cx="7"
-                    cy="7"
-                    r="4.5"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    fill="none"
+          <div className="min-w-0">
+            {mode === "filter" ? (
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <svg
+                    viewBox="0 0 16 16"
+                    className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-3"
+                    aria-hidden="true"
+                  >
+                    <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
+                    <path d="M10.5 10.5 14 14" stroke="currentColor" strokeWidth="1.4" />
+                  </svg>
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={
+                      lang === "th"
+                        ? "ค้นหาชื่อโครงการ หน่วยงาน หรือเทคโนโลยี เช่น Windows Server"
+                        : "Search a title, agency or technology, e.g. Windows Server"
+                    }
+                    className={`${input} pl-8`}
+                    aria-label={lang === "th" ? "ค้นหาประกาศ" : "Search postings"}
                   />
-                  <path d="M10.5 10.5 14 14" stroke="currentColor" strokeWidth="1.4" />
-                </svg>
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={
-                    lang === "th"
-                      ? "ค้นหาชื่อโครงการ, รหัสประกาศ, หน่วยงาน หรือเทคโนโลยี เช่น Linux, PostgreSQL"
-                      : "Search project title, ID, agency or technology (e.g. Linux, PostgreSQL)"
-                  }
-                  className={`${input} pl-8`}
-                  aria-label={lang === "th" ? "ค้นหาประกาศ" : "Search postings"}
-                />
-              </div>
-              <label className="flex items-center gap-2 whitespace-nowrap">
-                <Label>{lang === "th" ? "เรียงตาม" : "Sort"}</Label>
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value)}
-                  className={`${input} w-auto pr-6`}
-                >
-                  {SORTS.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {pick(option.label, lang)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          ) : (
-            <div className="mb-3">
-              <SectionHeading
-                sub={
-                  lang === "th"
-                    ? "คะแนนประเมินจากทักษะเทคโนโลยีที่ตรงกัน ช่วงงบประมาณ และขนาดของทีมงาน"
-                    : "Scored on matching skills, budget capacity and scope size."
-                }
-              >
-                {lang === "th"
-                  ? `พบ ${strongCount} โครงการที่ตรงกับทักษะคุณมาก (70%+ score)`
-                  : `${strongCount} high-fit matches for you`}
-              </SectionHeading>
-
-              {!isAuthenticated ? (
-                <div className="mt-2.5 flex items-center justify-between gap-3 rounded-[3px] border border-line bg-surface-2 p-3 text-[12.5px] leading-thai text-ink-2">
-                  <span>
-                    {lang === "th"
-                      ? "💡 คุณกำลังดูผลคะแนนตามตัวอย่างทักษะเริ่มต้น — ลงชื่อเข้าใช้เพื่อปรับแต่งทักษะและเงื่อนไขการรับงานของคุณ"
-                      : "💡 You are viewing match results based on default skills. Sign in to customize your profile."}
-                  </span>
-                  <Link href="/auth" className={`${btn.secondary} shrink-0 text-[12px]`}>
-                    {lang === "th" ? "ลงชื่อเข้าใช้" : "Sign in"}
-                  </Link>
                 </div>
-              ) : null}
-            </div>
-          )}
-
-          {/* Results Count Line */}
-          {!loading && !apiError ? (
-            <p className="mb-2 font-mono text-[11px] text-ink-3">
-              {lang === "th"
-                ? `แสดง ${results.length} จากทั้งหมด ${torsList.length} ประกาศ`
-                : `Showing ${results.length} of ${torsList.length} postings`}
-            </p>
-          ) : null}
-
-          {/* Loading State: Skeletons */}
-          {loading ? (
-            <div className="flex flex-col divide-y divide-line rounded-[3px] border border-line bg-surface overflow-hidden">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="flex animate-pulse gap-3 p-4">
-                  <div className="w-[3px] rounded-full bg-line" />
-                  <div className="flex-1 space-y-2.5">
-                    <div className="h-3 w-44 rounded bg-surface-3" />
-                    <div className="h-4.5 w-3/4 rounded bg-surface-3" />
-                    <div className="flex gap-2 pt-1">
-                      <div className="h-5 w-24 rounded bg-surface-3" />
-                      <div className="h-5 w-28 rounded bg-surface-3" />
-                      <div className="h-5 w-20 rounded bg-surface-3" />
-                    </div>
-                  </div>
-                  <div className="hidden sm:flex w-36 flex-col items-end space-y-2 border-l border-line pl-4">
-                    <div className="h-5 w-24 rounded bg-surface-3" />
-                    <div className="h-3 w-16 rounded bg-surface-3" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : apiError ? (
-            /* Error State */
-            <Panel className="p-8 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-risk-bg text-risk text-xl font-bold mb-3">
-                !
+                <label className="flex items-center gap-2 whitespace-nowrap">
+                  <Label>{lang === "th" ? "เรียงตาม" : "Sort"}</Label>
+                  <select
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value as Sort)}
+                    className={`${input} w-auto pr-6`}
+                  >
+                    {SORTS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {pick(option.label, lang)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
-              <h2 className="text-[17px] font-semibold text-ink">
-                {lang === "th" ? "ไม่สามารถโหลดข้อมูลประกาศได้" : "Cannot load announcements"}
-              </h2>
-              <p className="mt-1 text-[13px] text-ink-3 max-w-md mx-auto">
-                {apiError}
-              </p>
-              <div className="mt-4">
-                <button type="button" onClick={fetchTors} className={btn.primary}>
-                  {lang === "th" ? "ลองใหม่อีกครั้ง" : "Try again"}
-                </button>
-              </div>
-            </Panel>
-          ) : results.length === 0 ? (
-            /* Empty State */
-            mode === "match" && profile.skills.length === 0 ? (
-              <EmptyState
-                headline={
-                  lang === "th"
-                    ? "ยังไม่สามารถจับคู่ได้ เนื่องจากยังไม่ได้ระบุทักษะในโปรไฟล์"
-                    : "No skills specified in your profile to rank against"
-                }
-                body={
-                  lang === "th"
-                    ? "กำหนดทักษะที่คุณถนัดในหน้าโปรไฟล์ ระบบจะนำมาจับคู่กับ TOR ที่ตรงกับคุณโดยอัตโนมัติ"
-                    : "Add your tech skills on your profile and this list will automatically re-rank."
-                }
-                action={
-                  <Link href="/profile" className={btn.secondary}>
-                    {lang === "th" ? "ไปตั้งค่าโปรไฟล์" : "Set up your profile"}
-                  </Link>
-                }
-              />
             ) : (
-              <EmptyState
-                headline={
-                  lang === "th"
-                    ? "ไม่พบประกาศที่ตรงกับเงื่อนไขการค้นหา"
-                    : "No announcements match these filters"
-                }
-                body={
-                  lang === "th"
-                    ? "ลองลบคำค้นหา หรือปรับลดตัวกรอง เช่น ขยายช่วงงบประมาณ หรือเอาตัวกรองความเสี่ยงออก"
-                    : "Try broadening your filters, expanding budget range, or clearing the search query."
-                }
-                action={
-                  mode === "filter" ? (
-                    <button type="button" onClick={clearAll} className={btn.secondary}>
-                      {lang === "th" ? "ล้างตัวกรองทั้งหมด" : "Clear all filters"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setScoreFloor(0)}
-                      className={btn.secondary}
-                    >
-                      {lang === "th" ? "แสดงทุกคะแนน" : "Show every score"}
-                    </button>
-                  )
-                }
-              />
-            )
-          ) : (
-            /* Results List */
-            <Panel className="overflow-hidden">
-              {results.map((tor) => (
-                <TorRow key={tor.projectId} insight={tor} showMatch={mode === "match"} />
-              ))}
-            </Panel>
-          )}
+              <div className="mb-3">
+                <SectionHeading
+                  sub={
+                    lang === "th"
+                      ? "คะแนนคิดจากเทคโนโลยีที่ตรงกับทักษะของคุณ (70) และราคากลางที่อยู่ในช่วงงบที่คุณรับได้ (30) เครื่องหมาย ✓ คือเทคโนโลยีที่คุณมีแล้ว"
+                      : "Scored on technologies that match your skills (70) and a price inside your budget range (30). A ✓ marks a technology you already have."
+                  }
+                >
+                  {matchResult?.ok
+                    ? lang === "th"
+                      ? `ตรงกับคุณมาก ${strongCount} งาน`
+                      : `${strongCount} strong matches for you`
+                    : lang === "th"
+                      ? "งานที่ตรงกับคุณ"
+                      : "Postings that fit you"}
+                </SectionHeading>
+              </div>
+            )}
+
+            <p className="mb-2 min-h-[16px] font-mono text-[11px] text-ink-3" aria-live="polite">
+              {countLine}
+            </p>
+
+            {mode === "filter" ? filterResults() : matchResultsView()}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
