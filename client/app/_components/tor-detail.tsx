@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { TorInsightDetail } from "../_lib/api";
 import type { Lang } from "../_data/tors";
 import { getEgpAnnouncementUrl, getFiscalYear } from "../_lib/format";
@@ -112,12 +112,41 @@ export function TorDetail({
   insight: TorInsightDetail;
 }) {
   const { lang } = useLang();
-  const { profile } = useProfile();
+  const { profile, setProfile } = useProfile();
   const { user, status: authStatus } = useAuth();
   const isAuthenticated = authStatus === "authenticated" && !!user;
 
   const projectId = insight.projectId;
   const [saved, setSaved] = useState(profile.watchlist.includes(projectId));
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  useEffect(() => {
+    if (!showAuthModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowAuthModal(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showAuthModal]);
+
+  const handleWatchlistClick = () => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    const nextSaved = !saved;
+    setSaved(nextSaved);
+    if (nextSaved) {
+      if (!profile.watchlist.includes(projectId)) {
+        setProfile({ ...profile, watchlist: [...profile.watchlist, projectId] });
+      }
+    } else {
+      setProfile({
+        ...profile,
+        watchlist: profile.watchlist.filter((id) => id !== projectId),
+      });
+    }
+  };
 
   const iden = insight.identification;
   const facts = insight.facts;
@@ -402,7 +431,7 @@ export function TorDetail({
           <Panel className="p-4">
             <button
               type="button"
-              onClick={() => setSaved(!saved)}
+              onClick={handleWatchlistClick}
               className={saved ? `${btn.secondary} w-full text-[13px]` : `${btn.primary} w-full text-[13px]`}
               aria-pressed={saved}
             >
@@ -1243,6 +1272,63 @@ export function TorDetail({
           </div>
         </div>
       </div>
+
+      {/* Auth Modal for Watchlist */}
+      {showAuthModal ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="watchlist-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px] animate-in fade-in duration-150"
+          onClick={() => setShowAuthModal(false)}
+        >
+          <div
+            className="relative w-full max-w-md rounded-[4px] border border-line bg-surface p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowAuthModal(false)}
+              className="absolute right-3.5 top-3.5 flex h-7 w-7 items-center justify-center rounded-[3px] text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
+              aria-label={lang === "th" ? "ปิดหน้าต่าง" : "Close modal"}
+            >
+              ✕
+            </button>
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+              </svg>
+            </div>
+
+            <h3 id="watchlist-modal-title" className="mt-4 text-[17px] font-semibold text-ink">
+              {lang === "th" ? "ลงชื่อเข้าใช้เพื่อบันทึกรายการที่ติดตาม" : "Sign in to save to your watchlist"}
+            </h3>
+
+            <p className="mt-2 text-[13px] leading-thai text-ink-2">
+              {lang === "th"
+                ? "เมื่อลงชื่อเข้าใช้ คุณจะสามารถติดตามประกาศนี้และรับการแจ้งเตือนทันทีเมื่อมีการออกเอกสารแก้ไข TOR (Amendment) หรือประกาศผู้ชนะ"
+                : "Sign in to add this procurement to your watchlist and receive alerts whenever this TOR is amended or awarded."}
+            </p>
+
+            <div className="mt-6 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(false)}
+                className={btn.secondary}
+              >
+                {lang === "th" ? "ยกเลิก" : "Cancel"}
+              </button>
+              <Link
+                href={`/auth?next=${encodeURIComponent(`/tor/${projectId}`)}`}
+                className={btn.primary}
+              >
+                {lang === "th" ? "ลงชื่อเข้าใช้" : "Sign in"}
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }
