@@ -1,0 +1,196 @@
+import assert from 'node:assert/strict';
+import { after, before, beforeEach, mock, test } from 'node:test';
+import axios from 'axios';
+
+import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
+import { Tor } from '#models/index.js';
+import { fetchFromProcess3 } from '#pipeline/ingestion/sources/process3.js';
+
+const TEST_DB = 'mjolnir_test';
+const TEST_PROJECT_1 = '88888000001';
+const TEST_PROJECT_2 = '88888000002';
+const TEST_DOCS_DIR = './data/test_documents';
+
+function buildRssXml(items) {
+  const itemXml = items
+    .map(
+      (item) => `
+    <item>
+      <title>${item.title || ''}</title>
+      <link>${item.link || ''}</link>
+      <description>${item.description || ''}</description>
+      <pubDate>${item.pubDate || 'Mon, 05 Oct 2026 09:00:00 +0700'}</pubDate>
+      <project_id>${item.projectId || ''}</project_id>
+    </item>`,
+    )
+    .join('\n');
+
+  return Buffer.from(`<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+  <channel>
+    <title>e-GP Announcements</title>
+    ${itemXml}
+  </channel>
+</rss>`);
+}
+
+before(async () => {
+  await connectDatabase({ dbName: TEST_DB });
+  await Tor.deleteMany({ projectId: { $in: [TEST_PROJECT_1, TEST_PROJECT_2] } });
+});
+
+after(async () => {
+  await Tor.deleteMany({ projectId: { $in: [TEST_PROJECT_1, TEST_PROJECT_2] } });
+  await disconnectDatabase();
+});
+
+test('fetchFromProcess3: ingests B0, transitions to Open on D0, and sets isAmended on D1 (FR-02)', async () => {
+  // Step 1: Ingest B0 (Draft TOR)
+  mock.method(axios, 'get', async (url) => {
+    const parsed = new URL(url);
+    const code = parsed.searchParams.get('announceType');
+    if (code === 'B0') {
+      return {
+        data: buildRssXml([
+          {
+            title: 'จ้างพัฒนาระบบคอมพิวเตอร์และคลาวด์',
+            link: `https://process3.gprocurement.go.th/egp?project_id=${TEST_PROJECT_1}`,
+            description: 'รายละเอียดระบบคอมพิวเตอร์',
+            projectId: TEST_PROJECT_1,
+            pubDate: '2026-10-01T08:00:00.000Z',
+          },
+        ]),
+      };
+    }
+    return { data: buildRssXml([]) };
+  });
+
+  const resB0 = await fetchFromProcess3({
+    query: 'คอมพิวเตอร์',
+    limit: 1,
+    documentsDir: TEST_DOCS_DIR,
+    downloadAttachments: false,
+  });
+
+  assert.equal(resB0.fetched, 1);
+  const docB0 = await Tor.findOne({ projectId: TEST_PROJECT_1 }).lean();
+  assert.ok(docB0);
+  assert.equal(docB0.announceType, 'B0');
+  assert.equal(docB0.status, 'Draft');
+  assert.equal(docB0.isAmended, false);
+  assert.equal(docB0.announcementHistory.length, 1);
+  assert.equal(docB0.announcementHistory[0].code, 'B0');
+  assert.equal(docB0.announcementHistory[0].type, 'draft_tor');
+
+  // Step 2: Ingest D0 (Invitation to Bid) for the same project
+  mock.method(axios, 'get', async (url) => {
+    const parsed = new URL(url);
+    const code = parsed.searchParams.get('announceType');
+    if (code === 'D0') {
+      return {
+        data: buildRssXml([
+          {
+            title: 'จ้างพัฒนาระบบคอมพิวเตอร์และคลาวด์',
+            link: `https://process3.gprocurement.go.th/egp?project_id=${TEST_PROJECT_1}`,
+            description: 'รายละเอียดระบบคอมพิวเตอร์',
+            projectId: TEST_PROJECT_1,
+            pubDate: '2026-10-03T08:00:00.000Z',
+          },
+        ]),
+      };
+    }
+    return { data: buildRssXml([]) };
+  });
+
+  const resD0 = await fetchFromProcess3({
+    query: 'คอมพิวเตอร์',
+    limit: 1,
+    documentsDir: TEST_DOCS_DIR,
+    downloadAttachments: false,
+  });
+
+  assert.equal(resD0.fetched, 1);
+  const docD0 = await Tor.findOne({ projectId: TEST_PROJECT_1 }).lean();
+  assert.equal(docD0.announceType, 'D0');
+  assert.equal(docD0.status, 'Open'); // Derived forward transition from Draft -> Open!
+  assert.equal(docD0.isAmended, false);
+  assert.equal(docD0.announcementHistory.length, 2);
+  assert.equal(docD0.announcementHistory[0].code, 'B0');
+  assert.equal(docD0.announcementHistory[1].code, 'D0');
+  assert.equal(docD0.announcementHistory[1].type, 'invitation');
+
+  // Step 3: Ingest D1 (Amendment) for the same project with minimal title
+  mock.method(axios, 'get', async (url) => {
+    const parsed = new URL(url);
+    const code = parsed.searchParams.get('announceType');
+    if (code === 'D1') {
+      return {
+        data: buildRssXml([
+          {
+            title: '', // Sparse/empty title in amendment RSS
+            link: `https://process3.gprocurement.go.th/egp?project_id=${TEST_PROJECT_1}`,
+            description: 'แก้ไขเอกสารคอมพิวเตอร์',
+            projectId: TEST_PROJECT_1,
+            pubDate: '2026-10-05T08:00:00.000Z',
+          },
+        ]),
+      };
+    }
+    return { data: buildRssXml([]) };
+  });
+
+  const resD1 = await fetchFromProcess3({
+    query: 'คอมพิวเตอร์',
+    limit: 1,
+    documentsDir: TEST_DOCS_DIR,
+    downloadAttachments: false,
+  });
+
+  assert.equal(resD1.fetched, 1);
+  const docD1 = await Tor.findOne({ projectId: TEST_PROJECT_1 }).lean();
+  assert.equal(docD1.announceType, 'D1');
+  assert.equal(docD1.status, 'Open'); // Remains Open
+  assert.equal(docD1.isAmended, true); // Amended flag set!
+  assert.equal(docD1.title, 'จ้างพัฒนาระบบคอมพิวเตอร์และคลาวด์'); // Title preserved!
+  assert.equal(docD1.announcementHistory.length, 3);
+  assert.equal(docD1.announcementHistory[2].code, 'D1');
+  assert.equal(docD1.announcementHistory[2].type, 'amendment');
+});
+
+test('fetchFromProcess3: handles Reference Price (15) announcement correctly (FR-02)', async () => {
+  mock.method(axios, 'get', async (url) => {
+    const parsed = new URL(url);
+    const code = parsed.searchParams.get('announceType');
+    if (code === '15') {
+      return {
+        data: buildRssXml([
+          {
+            title: 'ประกาศราคากลางระบบจัดซื้อคอมพิวเตอร์',
+            link: `https://process3.gprocurement.go.th/egp?project_id=${TEST_PROJECT_2}`,
+            description: 'ราคากลางคอมพิวเตอร์',
+            projectId: TEST_PROJECT_2,
+            pubDate: '2026-10-02T08:00:00.000Z',
+          },
+        ]),
+      };
+    }
+    return { data: buildRssXml([]) };
+  });
+
+  const res15 = await fetchFromProcess3({
+    query: 'คอมพิวเตอร์',
+    limit: 1,
+    documentsDir: TEST_DOCS_DIR,
+    downloadAttachments: false,
+  });
+
+  assert.equal(res15.fetched, 1);
+  const doc15 = await Tor.findOne({ projectId: TEST_PROJECT_2 }).lean();
+  assert.ok(doc15);
+  assert.equal(doc15.announceType, '15');
+  assert.equal(doc15.status, 'Open');
+  assert.equal(doc15.isAmended, false);
+  assert.equal(doc15.announcementHistory.length, 1);
+  assert.equal(doc15.announcementHistory[0].code, '15');
+  assert.equal(doc15.announcementHistory[0].type, 'reference_price');
+});
