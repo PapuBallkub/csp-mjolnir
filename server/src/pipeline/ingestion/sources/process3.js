@@ -34,6 +34,7 @@ import {
   FETCHABLE_CODES,
   classifyAnnouncement,
 } from '../../shared/announcement-codes.js';
+import { deriveStatus } from '../../shared/status-engine.js';
 
 // Re-export for backward compatibility with test/pipeline/ingestion/utils.test.js
 export const ANNOUNCEMENT_TYPES = FETCHABLE_CODES.map((code) => ({
@@ -193,15 +194,14 @@ export async function fetchFromProcess3({
           announceType: annType.code,
         };
 
-        if (announcementInfo?.impliedStatus) {
-          updatePayload.status = announcementInfo.impliedStatus;
-        } else if (!existing) {
-          updatePayload.status = 'Open';
-        }
-
-        if (announcementInfo?.setsAmended) {
-          updatePayload.isAmended = true;
-        }
+        // Derive status and isAmended from announcement history (FR-02, FR-15)
+        const simulatedHistory = [
+          ...(existing?.announcementHistory || []),
+          { code: annType.code },
+        ];
+        const derived = deriveStatus(simulatedHistory, existing?.contract);
+        updatePayload.status = derived.status;
+        updatePayload.isAmended = derived.isAmended;
 
         if (!existing) {
           updatePayload.agency = '';
@@ -232,7 +232,7 @@ export async function fetchFromProcess3({
             ? 'downloaded'
             : 'fetched';
 
-        await Tor.findOneAndUpdate(
+        const updatedTor = await Tor.findOneAndUpdate(
           { projectId: String(torId) },
           {
             $set: updatePayload,
@@ -250,6 +250,21 @@ export async function fetchFromProcess3({
           },
           { upsert: true, returnDocument: 'after' },
         );
+
+        if (updatedTor) {
+          const { status: finalStatus, isAmended: finalAmended } = deriveStatus(
+            updatedTor.announcementHistory,
+            updatedTor.contract,
+          );
+          if (
+            updatedTor.status !== finalStatus ||
+            updatedTor.isAmended !== finalAmended
+          ) {
+            updatedTor.status = finalStatus;
+            updatedTor.isAmended = finalAmended;
+            await updatedTor.save();
+          }
+        }
 
         fetchedCount++;
       }
