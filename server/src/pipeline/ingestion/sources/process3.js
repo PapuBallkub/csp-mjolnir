@@ -29,11 +29,17 @@ const USER_AGENT =
 const REQUEST_TIMEOUT_MS = 20000;
 const RATE_LIMIT_DELAY_MS = 1000;
 
-export const ANNOUNCEMENT_TYPES = [
-  { code: 'B0', name: 'Draft TOR (ร่างประกาศและร่างเอกสารประกวดราคา)' },
-  { code: 'D0', name: 'Invitation to Bid (ประกาศเชิญชวน)' },
-  { code: '15', name: 'Reference Price (ราคากลาง)' },
-];
+import {
+  EGP_ANNOUNCEMENT_CODES,
+  FETCHABLE_CODES,
+  classifyAnnouncement,
+} from '../../shared/announcement-codes.js';
+
+// Re-export for backward compatibility with test/pipeline/ingestion/utils.test.js
+export const ANNOUNCEMENT_TYPES = FETCHABLE_CODES.map((code) => ({
+  code,
+  name: `${EGP_ANNOUNCEMENT_CODES[code].nameEn} (${EGP_ANNOUNCEMENT_CODES[code].nameTh})`,
+}));
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -185,8 +191,11 @@ export async function fetchFromProcess3({
               title,
               agency: '',
               subAgency: deptId || '',
-              status: annType.code === 'B0' ? 'Draft' : 'Open',
+              status: EGP_ANNOUNCEMENT_CODES[annType.code]?.impliedStatus || 'Open',
               announceType: annType.code,
+              ...(EGP_ANNOUNCEMENT_CODES[annType.code]?.setsAmended && {
+                isAmended: true,
+              }),
               // Missing stays null (ADR 0014): a fetch time would pass for a
               // publication date, and the RSS feed says nothing about the
               // procurement method (the announcement type is in announceType)
