@@ -236,6 +236,17 @@ export async function fetchFromProcess3({
           { projectId: String(torId) },
           {
             $set: updatePayload,
+            $push: {
+              announcementHistory: {
+                code: annType.code,
+                type: classifyAnnouncement(annType.code),
+                receivedAt: new Date(),
+                publishedAt: currentItem.pubDate
+                  ? new Date(currentItem.pubDate)
+                  : null,
+                sourceUrl: link,
+              },
+            },
           },
           { upsert: true, returnDocument: 'after' },
         );
