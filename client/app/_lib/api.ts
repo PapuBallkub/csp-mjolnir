@@ -216,6 +216,50 @@ export function adminOperations() {
   return request<AdminOperations>("/api/admin/operations", { cache: "no-store" });
 }
 
+export type UpdateReviewPayload = {
+  action: "approve" | "reclassify" | "confirm_classification";
+  reclassifyReason?: string;
+  fields?: {
+    referencePriceTHB?: number | null;
+    budgetTHB?: number | null;
+    submissionDeadline?: string | null;
+    penaltyClause?: string | null;
+    requiredTechnologies?: string;
+  };
+};
+
+export type UpdateReviewResult = {
+  ok: boolean;
+  projectId: string;
+  reviewStatus: string;
+  reviewedAt?: string;
+};
+
+export type ReExtractResult = {
+  ok: boolean;
+  projectId: string;
+  status: string;
+};
+
+/**
+ * Manually edit extracted data, approve, or reclassify a TOR in the review queue (FR-23).
+ */
+export function adminUpdateReview(projectId: string, payload: UpdateReviewPayload) {
+  return request<UpdateReviewResult>(`/api/admin/review/${encodeURIComponent(projectId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Re-queue a TOR for AI extraction (FR-23).
+ */
+export function adminReExtract(projectId: string) {
+  return request<ReExtractResult>(`/api/admin/review/${encodeURIComponent(projectId)}/re-extract`, {
+    method: "POST",
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /*  TOR & Insight (FR-10, FR-11, FR-13, FR-15, FR-16, FR-19, FR-20)   */
 /* ------------------------------------------------------------------ */

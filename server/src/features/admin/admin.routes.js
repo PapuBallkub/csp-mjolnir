@@ -2,7 +2,11 @@ import { Router } from 'express';
 
 import { requireAuth, requireRole } from '#features/auth/index.js';
 
-import { readOperations } from './admin.controller.js';
+import {
+  handleReExtract,
+  handleUpdateReview,
+  readOperations,
+} from './admin.controller.js';
 
 /**
  * Everything an administrator can see, and nothing anyone else can.
@@ -24,3 +28,9 @@ adminRoutes.use(requireAuth, requireRole('admin'));
 // No rate limit: an admin refreshing a dashboard is the intended use, and a
 // limiter here would eventually hide a pipeline failure behind a 429.
 adminRoutes.get('/operations', readOperations);
+
+// Review actions: manually edit extracted fields, approve, or reclassify (FR-23)
+adminRoutes.patch('/review/:projectId', handleUpdateReview);
+
+// Queue a document for re-extraction
+adminRoutes.post('/review/:projectId/re-extract', handleReExtract);

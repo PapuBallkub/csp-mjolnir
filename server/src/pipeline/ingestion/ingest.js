@@ -25,7 +25,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { Tor } from '#models/index.js';
+import { IngestionLog, Tor } from '#models/index.js';
 import { fetchFromProcess3 } from './sources/process3.js';
 import { fetchFromDataGo } from './sources/datago.js';
 import { extractText } from './lib/ocr.js';
@@ -87,32 +87,88 @@ export async function runFetchStep({ query, limit, source, documentsDir }) {
 
   if (source === 'all' || source === 'process3') {
     console.log('  -> Querying e-GP RSS Feed (process3.gprocurement.go.th)...');
-    const p3Result = await fetchFromProcess3({
-      query,
-      limit,
-      documentsDir,
-      downloadAttachments: false,
-    });
-    totalFetched += p3Result.fetched;
-    console.log(
-      `     Discovered: ${p3Result.fetched} project(s)` +
-        (p3Result.errors.length ? ` (${p3Result.errors.length} notices)` : ''),
-    );
+    const startedAt = new Date();
+    try {
+      const p3Result = await fetchFromProcess3({
+        query,
+        limit,
+        documentsDir,
+        downloadAttachments: false,
+      });
+      totalFetched += p3Result.fetched;
+      console.log(
+        `     Discovered: ${p3Result.fetched} project(s)` +
+          (p3Result.errors.length ? ` (${p3Result.errors.length} notices)` : ''),
+      );
+
+      const status =
+        p3Result.errors.length > 0 ? (p3Result.fetched > 0 ? 'degraded' : 'failed') : 'ok';
+      await IngestionLog.create({
+        source: 'process3',
+        status,
+        startedAt,
+        finishedAt: new Date(),
+        durationMs: Date.now() - startedAt.getTime(),
+        itemsDiscovered: p3Result.fetched + p3Result.errors.length,
+        itemsIngested: p3Result.fetched,
+        error: p3Result.errors.length ? p3Result.errors.join('; ') : null,
+        metadata: { query, limit },
+      }).catch((err) => console.warn('Could not record IngestionLog for process3:', err.message));
+    } catch (err) {
+      console.warn('Process3 fetch error:', err.message);
+      await IngestionLog.create({
+        source: 'process3',
+        status: 'failed',
+        startedAt,
+        finishedAt: new Date(),
+        durationMs: Date.now() - startedAt.getTime(),
+        error: err.message,
+        metadata: { query, limit },
+      }).catch(() => {});
+    }
   }
 
   if (source === 'all' || source === 'datago') {
     console.log('  -> Querying Open Gov Data (data.go.th CKAN)...');
-    const dgResult = await fetchFromDataGo({
-      query,
-      limit,
-      documentsDir,
-      downloadAttachments: false,
-    });
-    totalFetched += dgResult.fetched;
-    console.log(
-      `     Discovered: ${dgResult.fetched} project(s)` +
-        (dgResult.errors.length ? ` (${dgResult.errors.length} notices)` : ''),
-    );
+    const startedAt = new Date();
+    try {
+      const dgResult = await fetchFromDataGo({
+        query,
+        limit,
+        documentsDir,
+        downloadAttachments: false,
+      });
+      totalFetched += dgResult.fetched;
+      console.log(
+        `     Discovered: ${dgResult.fetched} project(s)` +
+          (dgResult.errors.length ? ` (${dgResult.errors.length} notices)` : ''),
+      );
+
+      const status =
+        dgResult.errors.length > 0 ? (dgResult.fetched > 0 ? 'degraded' : 'failed') : 'ok';
+      await IngestionLog.create({
+        source: 'datago',
+        status,
+        startedAt,
+        finishedAt: new Date(),
+        durationMs: Date.now() - startedAt.getTime(),
+        itemsDiscovered: dgResult.fetched + dgResult.errors.length,
+        itemsIngested: dgResult.fetched,
+        error: dgResult.errors.length ? dgResult.errors.join('; ') : null,
+        metadata: { query, limit },
+      }).catch((err) => console.warn('Could not record IngestionLog for datago:', err.message));
+    } catch (err) {
+      console.warn('DataGo fetch error:', err.message);
+      await IngestionLog.create({
+        source: 'datago',
+        status: 'failed',
+        startedAt,
+        finishedAt: new Date(),
+        durationMs: Date.now() - startedAt.getTime(),
+        error: err.message,
+        metadata: { query, limit },
+      }).catch(() => {});
+    }
   }
 
   return totalFetched;

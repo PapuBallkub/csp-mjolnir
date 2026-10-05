@@ -3,9 +3,13 @@
 import { useEffect, useState } from "react";
 import {
   adminOperations,
+  adminReExtract,
+  adminUpdateReview,
   type AdminOperations,
   type ApiError,
+  type ReviewItem,
   type SourceHealth,
+  type UpdateReviewPayload,
 } from "../../_lib/api";
 import { useLang } from "../../_components/prefs";
 import { SignInPrompt } from "../../_components/sign-in-prompt";
@@ -68,6 +72,19 @@ export default function AdminPage() {
   const { lang } = useLang();
   const [ops, setOps] = useState<AdminOperations | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadOperations = async () => {
+    setIsRefreshing(true);
+    const result = await adminOperations();
+    setIsRefreshing(false);
+    if (result.ok) {
+      setOps(result.data);
+      setError(null);
+    } else {
+      setError(result.error);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -129,10 +146,27 @@ export default function AdminPage() {
     return <div className="mx-auto min-h-[60vh] max-w-[1240px] px-4 py-10" aria-busy="true" />;
   }
 
-  return <AdminDashboard ops={ops} lang={lang} />;
+  return (
+    <AdminDashboard
+      ops={ops}
+      lang={lang}
+      onRefresh={loadOperations}
+      isRefreshing={isRefreshing}
+    />
+  );
 }
 
-function AdminDashboard({ ops, lang }: { ops: AdminOperations; lang: "th" | "en" }) {
+function AdminDashboard({
+  ops,
+  lang,
+  onRefresh,
+  isRefreshing,
+}: {
+  ops: AdminOperations;
+  lang: "th" | "en";
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}) {
   const { sources: scraperSources, reviewQueue, stats: pipelineStats } = ops;
   const [expanded, setExpanded] = useState<string | null>(reviewQueue[0]?.docId ?? null);
   const [handled, setHandled] = useState<Record<string, string>>({});
@@ -164,13 +198,29 @@ function AdminDashboard({ ops, lang }: { ops: AdminOperations; lang: "th" | "en"
 
   return (
     <div className="mx-auto max-w-[1240px] px-4 py-6">
-      <header className="mb-5">
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-3">
-          {lang === "th" ? "สำหรับผู้ดูแลระบบ" : "Platform admin"}
-        </p>
-        <h1 className="mt-1 text-[26px] leading-tight font-semibold tracking-tight text-ink">
-          {lang === "th" ? "สุขภาพระบบเก็บข้อมูล" : "Pipeline health"}
-        </h1>
+      <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-3">
+            {lang === "th" ? "สำหรับผู้ดูแลระบบ" : "Platform admin"}
+          </p>
+          <h1 className="mt-1 text-[26px] leading-tight font-semibold tracking-tight text-ink">
+            {lang === "th" ? "สุขภาพระบบเก็บข้อมูลและการตรวจสอบข้อมูล" : "Pipeline Health & Data Integrity"}
+          </h1>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className={btn.secondary}
+          aria-label={lang === "th" ? "รีเฟรชข้อมูล" : "Refresh data"}
+        >
+          {isRefreshing ? (
+            <span className="animate-spin inline-block">↻</span>
+          ) : (
+            "↻"
+          )}{" "}
+          {lang === "th" ? "รีเฟรชสถานะ" : "Refresh status"}
+        </button>
       </header>
 
       <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -188,11 +238,11 @@ function AdminDashboard({ ops, lang }: { ops: AdminOperations; lang: "th" | "en"
         <SectionHeading
           right={
             <span className="font-mono text-[11px]">
-              {lang === "th" ? "รอบล่าสุด 12 ส.ค. 06:33" : "Last run 12 Aug 06:33"}
+              {lang === "th" ? "รอบล่าสุดเมื่อสักครู่" : "Last polled recently"}
             </span>
           }
         >
-          {lang === "th" ? "ตัวเก็บข้อมูลรายแหล่ง" : "Scrapers by source"}
+          {lang === "th" ? "ตัวเก็บข้อมูลรายแหล่ง (FR-22)" : "Scrapers by source (FR-22)"}
         </SectionHeading>
 
         <Panel className="overflow-x-auto">
@@ -230,16 +280,18 @@ function AdminDashboard({ ops, lang }: { ops: AdminOperations; lang: "th" | "en"
                       {source.portal} · {source.format}
                     </span>
                     {source.error ? (
-                      <p className="mt-1.5 max-w-[420px] rounded-[3px] border border-line bg-surface-2 px-2 py-1.5 font-mono text-[11px] leading-relaxed text-ink-2">
+                      <p className="mt-1.5 max-w-[420px] rounded-[3px] border border-risk-line bg-risk-bg px-2 py-1.5 font-mono text-[11px] leading-relaxed text-risk">
                         {source.error}
                       </p>
                     ) : null}
                   </td>
                   <td className="px-3 py-2.5">
                     <span
-                      className={`inline-flex rounded-[2px] border px-1.5 py-[3px] text-[11px] font-medium ${HEALTH[source.health].chip}`}
+                      className={`inline-flex rounded-[2px] border px-1.5 py-[3px] text-[11px] font-medium ${
+                        HEALTH[source.health]?.chip ?? "border-line bg-surface-2 text-ink-2"
+                      }`}
                     >
-                      {HEALTH[source.health].label[lang]}
+                      {HEALTH[source.health]?.label[lang] ?? source.health}
                     </span>
                   </td>
                   <td className="px-3 py-2.5">
@@ -281,160 +333,278 @@ function AdminDashboard({ ops, lang }: { ops: AdminOperations; lang: "th" | "en"
             </span>
           }
         >
-          {lang === "th" ? "คิวตรวจทานผลการอ่านเอกสาร" : "Extraction review queue"}
+          {lang === "th" ? "คิวตรวจทานผลการอ่านเอกสาร (FR-23)" : "Extraction review queue (FR-23)"}
         </SectionHeading>
 
         <div className="flex flex-col gap-2">
-          {reviewQueue.map((item) => {
-            const open = expanded === item.docId;
-            const resolution = handled[item.docId];
-
-            return (
-              <Panel key={item.docId} className="overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setExpanded(open ? null : item.docId)}
-                  className="flex w-full flex-col gap-2 px-3.5 py-3 text-left transition-colors hover:bg-surface-2 sm:flex-row sm:items-center sm:gap-4"
-                  aria-expanded={open}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono tnum text-[10px] text-ink-3">{item.docId}</span>
-                      {item.misclassified ? (
-                        <span className="rounded-[2px] border border-risk-line bg-risk-bg px-1.5 py-[2px] text-[10px] font-medium text-risk">
-                          {lang === "th" ? "อาจจัดประเภทผิด" : "Likely misclassified"}
-                        </span>
-                      ) : null}
-                      {resolution ? (
-                        <span className="rounded-[2px] border border-open-line bg-open-bg px-1.5 py-[2px] text-[10px] font-medium text-open">
-                          {resolution}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="mt-1 block text-[13px] leading-thai text-ink">
-                      {item.title}
-                    </span>
-                    <span className="mt-0.5 block text-[11px] text-ink-3">
-                      {item.agency} · {item.ingestedAt}
-                    </span>
-                  </span>
-
-                  <span className="flex shrink-0 flex-col gap-1.5">
-                    <ConfidenceBar value={item.ocr} label="OCR" />
-                    <ConfidenceBar value={item.extraction} label="LLM" />
-                  </span>
-                </button>
-
-                {open ? (
-                  <div className="border-t border-line bg-surface-2 px-3.5 py-3">
-                    {item.misclassified ? (
-                      <div className="mb-3 flex flex-col gap-2 rounded-[3px] border border-line bg-surface p-3">
-                        <Label>{lang === "th" ? "การจัดประเภท" : "Classification"}</Label>
-                        <p className="text-[13px] leading-thai text-ink-2">
-                          {lang === "th"
-                            ? `ระบบจัดเป็น “${item.misclassified.predicted}” แต่เนื้อหาน่าจะเป็น “${item.misclassified.likely}”`
-                            : `Classified as “${item.misclassified.predicted}”, but the content reads as “${item.misclassified.likely}”.`}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setHandled({
-                                ...handled,
-                                [item.docId]:
-                                  lang === "th" ? "จัดประเภทใหม่แล้ว" : "Reclassified",
-                              })
-                            }
-                            className={btn.primary}
-                          >
-                            {lang === "th"
-                              ? "จัดประเภทใหม่เป็นงานนอกขอบเขต"
-                              : "Reclassify as out of scope"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setHandled({
-                                ...handled,
-                                [item.docId]: lang === "th" ? "ยืนยันแล้ว" : "Confirmed",
-                              })
-                            }
-                            className={btn.secondary}
-                          >
-                            {lang === "th" ? "ยืนยันว่าถูกต้องแล้ว" : "Classification is correct"}
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {item.lowFields.length > 0 ? (
-                      <div className="flex flex-col gap-3">
-                        <Label>
-                          {lang === "th"
-                            ? "ฟิลด์ที่ความมั่นใจต่ำ — แก้ไขได้ที่นี่"
-                            : "Low-confidence fields — correct them here"}
-                        </Label>
-                        {item.lowFields.map((field) => (
-                          <div
-                            key={field.field}
-                            className="flex flex-col gap-1.5 rounded-[3px] border border-line bg-surface p-3 sm:flex-row sm:items-center sm:gap-3"
-                          >
-                            <span className="min-w-[200px] text-[12px] leading-thai text-ink-2">
-                              {field.field}
-                            </span>
-                            <input
-                              defaultValue={field.value}
-                              className={`${input} font-mono flex-1`}
-                              aria-label={field.field}
-                            />
-                            <span className="font-mono tnum text-[11px] text-ink-3">
-                              {Math.round(field.confidence * 100)}%
-                            </span>
-                          </div>
-                        ))}
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setHandled({
-                                ...handled,
-                                [item.docId]: lang === "th" ? "ตรวจทานแล้ว" : "Reviewed",
-                              })
-                            }
-                            className={btn.primary}
-                          >
-                            {lang === "th" ? "บันทึกและปล่อยให้ผู้ใช้เห็น" : "Save and publish"}
-                          </button>
-                          <a
-                            href="https://process3.gprocurement.go.th/"
-                            target="_blank"
-                            rel="noreferrer"
-                            className={btn.secondary}
-                          >
-                            {lang === "th" ? "เปิดไฟล์ต้นฉบับเทียบ" : "Open the source file"}
-                          </a>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setHandled({
-                                ...handled,
-                                [item.docId]: lang === "th" ? "ส่งอ่านใหม่แล้ว" : "Re-queued",
-                              })
-                            }
-                            className={btn.ghost}
-                          >
-                            {lang === "th" ? "สั่งให้อ่านเอกสารใหม่" : "Re-run extraction"}
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </Panel>
-            );
-          })}
+          {reviewQueue.map((item) => (
+            <ReviewItemCard
+              key={item.docId}
+              item={item}
+              lang={lang}
+              isOpen={expanded === item.docId}
+              onToggle={() => setExpanded(expanded === item.docId ? null : item.docId)}
+              resolution={handled[item.docId] || null}
+              onResolution={(text) => setHandled((prev) => ({ ...prev, [item.docId]: text }))}
+            />
+          ))}
         </div>
       </section>
     </div>
+  );
+}
+
+function ReviewItemCard({
+  item,
+  lang,
+  isOpen,
+  onToggle,
+  resolution,
+  onResolution,
+}: {
+  item: ReviewItem;
+  lang: "th" | "en";
+  isOpen: boolean;
+  onToggle: () => void;
+  resolution: string | null;
+  onResolution: (text: string) => void;
+}) {
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const f of item.lowFields) {
+      initial[f.field] = f.value;
+    }
+    return initial;
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleSaveAndPublish = async () => {
+    setIsSubmitting(true);
+    setErrorMsg(null);
+
+    const fieldsPayload: UpdateReviewPayload["fields"] = {};
+    for (const [key, val] of Object.entries(fieldValues)) {
+      if (
+        key.includes("ราคากลาง") ||
+        key.includes("Reference Price") ||
+        key.includes("Maximum Budget")
+      ) {
+        const num = Number(val.replace(/,/g, "").trim());
+        fieldsPayload.referencePriceTHB = Number.isFinite(num) ? num : null;
+      } else if (key.includes("งบประมาณ") || key.includes("Budget")) {
+        const num = Number(val.replace(/,/g, "").trim());
+        fieldsPayload.budgetTHB = Number.isFinite(num) ? num : null;
+      } else if (key.includes("Deadline")) {
+        fieldsPayload.submissionDeadline = val.trim() || null;
+      } else if (key.includes("Penalty")) {
+        fieldsPayload.penaltyClause = val.trim() || null;
+      } else if (key.includes("Tech")) {
+        fieldsPayload.requiredTechnologies = val.trim() || "";
+      }
+    }
+
+    const res = await adminUpdateReview(item.docId, {
+      action: "approve",
+      fields: fieldsPayload,
+    });
+
+    setIsSubmitting(false);
+    if (res.ok) {
+      onResolution(lang === "th" ? "ตรวจทานและเผยแพร่แล้ว" : "Saved & Published");
+    } else {
+      setErrorMsg(res.error.message);
+    }
+  };
+
+  const handleReclassify = async () => {
+    setIsSubmitting(true);
+    setErrorMsg(null);
+
+    const res = await adminUpdateReview(item.docId, {
+      action: "reclassify",
+      reclassifyReason: item.misclassified?.likely || "Civil works — out of scope",
+    });
+
+    setIsSubmitting(false);
+    if (res.ok) {
+      onResolution(lang === "th" ? "จัดประเภทเป็นงานนอกขอบเขตแล้ว" : "Reclassified out of scope");
+    } else {
+      setErrorMsg(res.error.message);
+    }
+  };
+
+  const handleConfirmClassification = async () => {
+    setIsSubmitting(true);
+    setErrorMsg(null);
+
+    const res = await adminUpdateReview(item.docId, {
+      action: "confirm_classification",
+    });
+
+    setIsSubmitting(false);
+    if (res.ok) {
+      onResolution(lang === "th" ? "ยืนยันการจัดประเภทแล้ว" : "Classification confirmed");
+    } else {
+      setErrorMsg(res.error.message);
+    }
+  };
+
+  const handleReExtract = async () => {
+    setIsSubmitting(true);
+    setErrorMsg(null);
+
+    const res = await adminReExtract(item.docId);
+
+    setIsSubmitting(false);
+    if (res.ok) {
+      onResolution(lang === "th" ? "ส่งอ่านใหม่แล้ว" : "Re-queued");
+    } else {
+      setErrorMsg(res.error.message);
+    }
+  };
+
+  return (
+    <Panel className="overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full flex-col gap-2 px-3.5 py-3 text-left transition-colors hover:bg-surface-2 sm:flex-row sm:items-center sm:gap-4"
+        aria-expanded={isOpen}
+      >
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-mono tnum text-[10px] text-ink-3">{item.docId}</span>
+            {item.misclassified ? (
+              <span className="rounded-[2px] border border-risk-line bg-risk-bg px-1.5 py-[2px] text-[10px] font-medium text-risk">
+                {lang === "th" ? "อาจจัดประเภทผิด" : "Likely misclassified"}
+              </span>
+            ) : null}
+            {resolution ? (
+              <span className="rounded-[2px] border border-open-line bg-open-bg px-1.5 py-[2px] text-[10px] font-medium text-open">
+                {resolution}
+              </span>
+            ) : null}
+          </span>
+          <span className="mt-1 block text-[13px] leading-thai text-ink">{item.title}</span>
+          <span className="mt-0.5 block text-[11px] text-ink-3">
+            {item.agency} · {item.ingestedAt}
+          </span>
+        </span>
+
+        <span className="flex shrink-0 flex-col gap-1.5">
+          <ConfidenceBar value={item.ocr} label="OCR" />
+          <ConfidenceBar value={item.extraction} label="LLM" />
+        </span>
+      </button>
+
+      {isOpen ? (
+        <div className="border-t border-line bg-surface-2 px-3.5 py-3">
+          {errorMsg ? (
+            <div className="mb-3 rounded-[3px] border border-risk-line bg-risk-bg p-2.5 font-mono text-[12px] text-risk">
+              {errorMsg}
+            </div>
+          ) : null}
+
+          {item.misclassified ? (
+            <div className="mb-3 flex flex-col gap-2 rounded-[3px] border border-line bg-surface p-3">
+              <Label>{lang === "th" ? "การจัดประเภท" : "Classification"}</Label>
+              <p className="text-[13px] leading-thai text-ink-2">
+                {lang === "th"
+                  ? `ระบบจัดเป็น “${item.misclassified.predicted}” แต่เนื้อหาน่าจะเป็น “${item.misclassified.likely}”`
+                  : `Classified as “${item.misclassified.predicted}”, but the content reads as “${item.misclassified.likely}”.`}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleReclassify}
+                  className={btn.primary}
+                >
+                  {isSubmitting
+                    ? lang === "th"
+                      ? "กำลังบันทึก..."
+                      : "Saving..."
+                    : lang === "th"
+                      ? "จัดประเภทใหม่เป็นงานนอกขอบเขต"
+                      : "Reclassify as out of scope"}
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleConfirmClassification}
+                  className={btn.secondary}
+                >
+                  {lang === "th" ? "ยืนยันว่าถูกต้องแล้ว" : "Classification is correct"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {item.lowFields.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              <Label>
+                {lang === "th"
+                  ? "ฟิลด์ที่ความมั่นใจต่ำ — แก้ไขได้ที่นี่ (FR-23)"
+                  : "Low-confidence fields — correct them here (FR-23)"}
+              </Label>
+              {item.lowFields.map((field) => (
+                <div
+                  key={field.field}
+                  className="flex flex-col gap-1.5 rounded-[3px] border border-line bg-surface p-3 sm:flex-row sm:items-center sm:gap-3"
+                >
+                  <span className="min-w-[200px] text-[12px] leading-thai text-ink-2 font-medium">
+                    {field.field}
+                  </span>
+                  <input
+                    value={fieldValues[field.field] ?? field.value}
+                    onChange={(e) =>
+                      setFieldValues((prev) => ({ ...prev, [field.field]: e.target.value }))
+                    }
+                    className={`${input} font-mono flex-1`}
+                    aria-label={field.field}
+                  />
+                  <span className="font-mono tnum text-[11px] text-ink-3">
+                    {Math.round(field.confidence * 100)}%
+                  </span>
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleSaveAndPublish}
+                  className={btn.primary}
+                >
+                  {isSubmitting
+                    ? lang === "th"
+                      ? "กำลังบันทึก..."
+                      : "Saving..."
+                    : lang === "th"
+                      ? "บันทึกและปล่อยให้ผู้ใช้เห็น"
+                      : "Save and publish"}
+                </button>
+                <a
+                  href={`https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=${item.docId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={btn.secondary}
+                >
+                  {lang === "th" ? "เปิดไฟล์ต้นฉบับเทียบ" : "Open the source file"} ↗
+                </a>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleReExtract}
+                  className={btn.ghost}
+                >
+                  {lang === "th" ? "สั่งให้อ่านเอกสารใหม่" : "Re-run extraction"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </Panel>
   );
 }
