@@ -1,6 +1,10 @@
 import type { Lang, PriceVerdict, RiskLevel, ScopeSize, Status, Tor } from "../_data/tors";
 import { priceDeltaPct } from "../_data/tors";
-import type { TorStatus } from "../_lib/api";
+import type { TorInsightSummary, TorStatus } from "../_lib/api";
+
+// Re-export Status and keep backward-compat alias
+export type { Status };
+export type ApiStatus = Status;
 
 /**
  * The verdict layer — the one thing this product has that a plain listing site
@@ -19,7 +23,7 @@ import type { TorStatus } from "../_lib/api";
 export type Tone = "open" | "amend" | "risk" | "closed";
 
 /* Full class strings, never composed at runtime, so Tailwind can see them. */
-const TONE: Record<Tone, { text: string; bg: string; border: string; fill: string }> = {
+export const TONE: Record<Tone, { text: string; bg: string; border: string; fill: string }> = {
   open: { text: "text-open", bg: "bg-open-bg", border: "border-open-line", fill: "bg-open" },
   amend: { text: "text-amend", bg: "bg-amend-bg", border: "border-amend-line", fill: "bg-amend" },
   risk: { text: "text-risk", bg: "bg-risk-bg", border: "border-risk-line", fill: "bg-risk" },
@@ -31,11 +35,27 @@ const TONE: Record<Tone, { text: string; bg: string; border: string; fill: strin
   },
 };
 
+export function getStatusTone(status: Status): Tone {
+  switch (status) {
+    case "Open":
+      return "open";
+    case "Cancelled":
+      return "risk";
+    case "Draft":
+    case "Closed":
+    case "Awarded":
+    default:
+      return "closed";
+  }
+}
+
 /* Exported so a whole panel can wear the same hue as the badge inside it. */
 export const STATUS_TONE: Record<Status, Tone> = {
-  open: "open",
-  amended: "amend",
-  closed: "closed",
+  Draft: "closed",
+  Open: "open",
+  Awarded: "closed",
+  Closed: "closed",
+  Cancelled: "risk",
 };
 export const RISK_TONE: Record<RiskLevel, Tone> = { low: "open", medium: "amend", high: "risk" };
 /**
@@ -51,9 +71,11 @@ export const PRICE_TONE: Record<PriceVerdict, Tone> = {
 };
 
 const STATUS_LABEL: Record<Status, Bi> = {
-  open: { th: "เปิดรับข้อเสนอ", en: "Open" },
-  amended: { th: "แก้ไขแล้ว", en: "Amended" },
-  closed: { th: "ประกาศผู้ชนะแล้ว", en: "Closed — awarded" },
+  Draft: { th: "ร่างประกาศ / วิจารณ์", en: "Draft TOR" },
+  Open: { th: "เปิดรับข้อเสนอ", en: "Open" },
+  Awarded: { th: "ประกาศผู้ชนะแล้ว", en: "Awarded" },
+  Closed: { th: "ปิดรับข้อเสนอ", en: "Closed" },
+  Cancelled: { th: "ยกเลิกประกาศ", en: "Cancelled" },
 };
 
 const RISK_LABEL: Record<RiskLevel, Bi> = {
@@ -74,24 +96,44 @@ const say = (v: Bi, lang: Lang) => (lang === "th" ? v.th : v.en);
 /* --------------------------------- glyphs --------------------------------- */
 
 function StatusGlyph({ status, className = "" }: { status: Status; className?: string }) {
+  if (status === "Open") {
+    return (
+      <svg viewBox="0 0 10 10" className={`h-2.5 w-2.5 shrink-0 ${className}`} aria-hidden="true">
+        <circle cx="5" cy="5" r="3.2" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (status === "Draft") {
+    return (
+      <svg viewBox="0 0 10 10" className={`h-2.5 w-2.5 shrink-0 ${className}`} aria-hidden="true">
+        <circle cx="5" cy="5" r="3" stroke="currentColor" strokeWidth="1.4" fill="none" strokeDasharray="2 1.5" />
+      </svg>
+    );
+  }
+  if (status === "Awarded") {
+    return (
+      <svg viewBox="0 0 10 10" className={`h-2.5 w-2.5 shrink-0 ${className}`} aria-hidden="true">
+        <path d="M2 5 L4.2 7.2 L8 3" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (status === "Cancelled") {
+    return (
+      <svg viewBox="0 0 10 10" className={`h-2.5 w-2.5 shrink-0 ${className}`} aria-hidden="true">
+        <path d="M2 2 L8 8 M8 2 L2 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 10 10" className={`h-2.5 w-2.5 shrink-0 ${className}`} aria-hidden="true">
-      {status === "open" && <circle cx="5" cy="5" r="3.2" fill="currentColor" />}
-      {/* Two offset bars: the same mark the amendment diff uses. */}
-      {status === "amended" && (
-        <>
-          <rect x="0" y="2.2" width="7" height="1.8" fill="currentColor" />
-          <rect x="3" y="6" width="7" height="1.8" fill="currentColor" />
-        </>
-      )}
-      {status === "closed" && (
-        <path
-          d="M1.5 1.5 L8.5 8.5 M8.5 1.5 L1.5 8.5"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-      )}
+      <path
+        d="M2.5 5.2 L4.2 7 L7.8 3"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -141,18 +183,33 @@ export function StatusBadge({
   status,
   lang,
   round,
+  isAmended = false,
 }: {
   status: Status;
   lang: Lang;
   /** e.g. "ครั้งที่ 2" — shown next to an amended status. */
   round?: string;
+  isAmended?: boolean;
 }) {
-  const tone = TONE[STATUS_TONE[status]];
+  const toneKey = getStatusTone(status);
+  const tone = status === "Draft"
+    ? { bg: "bg-surface-2", border: "border-line", text: "text-ink-2", fill: "bg-ink-3" }
+    : TONE[toneKey];
+  const label = STATUS_LABEL[status] || { th: String(status), en: String(status) };
+
   return (
-    <span className={`${badgeBase} min-w-[74px] justify-center ${tone.bg} ${tone.border} ${tone.text}`}>
-      <StatusGlyph status={status} />
-      <span className="transition-opacity duration-150">{say(STATUS_LABEL[status], lang)}</span>
-      {round ? <span className="font-mono opacity-70">{round}</span> : null}
+    <span className="inline-flex items-center gap-1.5">
+      <span className={`${badgeBase} min-w-[74px] justify-center ${tone.bg} ${tone.border} ${tone.text}`}>
+        <StatusGlyph status={status} />
+        <span className="transition-opacity duration-150">{say(label, lang)}</span>
+        {round ? <span className="font-mono opacity-70">{round}</span> : null}
+      </span>
+      {isAmended ? (
+        <span className={`${badgeBase} border-amend-line bg-amend-bg text-amend`}>
+          <span>✎</span>
+          <span>{lang === "th" ? "แก้ไขแล้ว" : "Amended"}</span>
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -186,6 +243,41 @@ function PriceVerdictBadge({ verdict, delta, lang }: { verdict: PriceVerdict; de
     over: { th: `สูงกว่าค่ากลาง ${abs}%`, en: `${abs}% above median` },
     under: { th: `ต่ำกว่าค่ากลาง ${abs}%`, en: `${abs}% below median` },
   };
+
+  return (
+    <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
+      <DirectionGlyph verdict={verdict} />
+      <span className="transition-opacity duration-150">{say(label[verdict], lang)}</span>
+    </span>
+  );
+}
+
+export function InsightPriceBadge({
+  diffPercentage,
+  lang,
+}: {
+  diffPercentage?: number | null;
+  lang: Lang;
+}) {
+  if (diffPercentage == null || Number.isNaN(diffPercentage)) {
+    return (
+      <span className={`${badgeBase} border-line bg-surface-2 text-ink-3`}>
+        <span>—</span>
+        <span>{lang === "th" ? "ไม่มีราคาเปรียบเทียบ" : "No price comp"}</span>
+      </span>
+    );
+  }
+
+  const verdict: PriceVerdict =
+    diffPercentage > 15 ? "over" : diffPercentage < -15 ? "under" : "fair";
+  const tone = TONE[PRICE_TONE[verdict]];
+  const abs = Math.abs(Math.round(diffPercentage * 10) / 10);
+  const label: Record<PriceVerdict, Bi> = {
+    fair: { th: "ราคาอยู่ในเกณฑ์ปกติ", en: "Budget looks normal" },
+    over: { th: `สูงกว่าค่ากลาง ${abs}%`, en: `${abs}% above median` },
+    under: { th: `ต่ำกว่าค่ากลาง ${abs}%`, en: `${abs}% below median` },
+  };
+
   return (
     <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
       <DirectionGlyph verdict={verdict} />
@@ -240,12 +332,13 @@ export function SmeBadge({ lang }: { lang: Lang }) {
 
 /** Left-edge rail. In a dense list the rails form a scannable column of status. */
 export function SignalRail({ status, className = "" }: { status: Status; className?: string }) {
+  const toneKey = getStatusTone(status);
+  const fill = status === "Draft" ? "bg-ink-3" : TONE[toneKey].fill;
+  const isMuted = status === "Closed" || status === "Draft" || status === "Awarded";
   return (
     <span
       aria-hidden="true"
-      className={`w-[3px] shrink-0 rounded-full ${TONE[STATUS_TONE[status]].fill} ${
-        status === "closed" ? "opacity-50" : ""
-      } ${className}`}
+      className={`w-[3px] shrink-0 rounded-full ${fill} ${isMuted ? "opacity-50" : ""} ${className}`}
     />
   );
 }
@@ -328,7 +421,10 @@ export function AmendedFlag({ lang }: { lang: Lang }) {
   const tone = TONE.amend;
   return (
     <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
-      <StatusGlyph status="amended" />
+      <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 shrink-0" aria-hidden="true">
+        <rect x="0" y="2.2" width="7" height="1.8" fill="currentColor" />
+        <rect x="3" y="6" width="7" height="1.8" fill="currentColor" />
+      </svg>
       <span>{lang === "th" ? "แก้ไขแล้ว" : "Amended"}</span>
     </span>
   );
@@ -390,20 +486,72 @@ export function MatchScore({ score, lang }: { score: number; lang: Lang }) {
  */
 export function VerdictStrip({
   tor,
+  insight,
   lang,
   size = "compact",
 }: {
-  tor: Tor;
+  tor?: Tor;
+  insight?: TorInsightSummary;
   lang: Lang;
   size?: "compact" | "full";
 }) {
+  if (insight) {
+    const status = insight.identification.status;
+    const isAmended = insight.amendmentInfo?.isAmended || false;
+    const lockScore = insight.analytics?.lockSpec?.riskScore ?? 0;
+    const lockLevel: RiskLevel = lockScore >= 70 ? "high" : lockScore >= 35 ? "medium" : "low";
+    const diffPct = insight.analytics?.priceAnalysis?.diffPercentage;
+
+    if (size === "compact") {
+      return (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge status={status} lang={lang} isAmended={isAmended} />
+          <LockSpecBadge level={lockLevel} score={lockScore} lang={lang} />
+          <InsightPriceBadge diffPercentage={diffPct} lang={lang} />
+        </div>
+      );
+    }
+
+    const cells: { label: string; node: React.ReactNode }[] = [
+      {
+        label: lang === "th" ? "สถานะ" : "Status",
+        node: <StatusBadge status={status} lang={lang} isAmended={isAmended} />,
+      },
+      {
+        label: lang === "th" ? "ความเสี่ยงล็อกสเปก" : "Lock-spec risk",
+        node: <LockSpecBadge level={lockLevel} score={lockScore} lang={lang} />,
+      },
+      {
+        label: lang === "th" ? "ตรวจสอบราคา" : "Price reality check",
+        node: <InsightPriceBadge diffPercentage={diffPct} lang={lang} />,
+      },
+    ];
+
+    return (
+      <div className="grid grid-cols-1 divide-y divide-line rounded-[3px] border border-line bg-surface-2 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        {cells.map((cell) => (
+          <div key={cell.label} className="flex flex-col gap-2 px-3.5 py-3">
+            <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-3">
+              {cell.label}
+            </span>
+            {cell.node}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!tor) return null;
+
   const round =
-    tor.status === "amended" ? tor.amendments[0].round.th.replace("ประกาศร่าง TOR ", "") : undefined;
+    tor.isAmended && tor.amendments?.[0]
+      ? tor.amendments[0].round.th.replace("ประกาศร่าง TOR ", "")
+      : undefined;
 
   if (size === "compact") {
     return (
       <div className="flex flex-wrap items-center gap-1.5">
-        <StatusBadge status={tor.status} lang={lang} round={round} />
+        <StatusBadge status={tor.status} isAmended={tor.isAmended} lang={lang} round={round} />
         <LockSpecBadge level={tor.lockSpec.level} score={tor.lockSpec.score} lang={lang} />
         <PriceBadge tor={tor} lang={lang} />
       </div>
@@ -413,7 +561,7 @@ export function VerdictStrip({
   const cells: { label: string; node: React.ReactNode }[] = [
     {
       label: lang === "th" ? "สถานะ" : "Status",
-      node: <StatusBadge status={tor.status} lang={lang} round={round} />,
+      node: <StatusBadge status={tor.status} isAmended={tor.isAmended} lang={lang} round={round} />,
     },
     {
       label: lang === "th" ? "ความเสี่ยงล็อกสเปก" : "Lock-spec risk",
@@ -438,3 +586,4 @@ export function VerdictStrip({
     </div>
   );
 }
+

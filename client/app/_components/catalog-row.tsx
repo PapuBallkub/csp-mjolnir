@@ -6,6 +6,7 @@ import type { TorInsightSummary, TorReview } from "../_lib/api";
 import type { Match } from "../_lib/match";
 import { useLang } from "./prefs";
 import { TorDeadline } from "./deadline";
+import { getFiscalYear } from "../_lib/format";
 import {
   AmendedFlag,
   CompaniesOnlyBadge,
@@ -77,6 +78,7 @@ export function CatalogRow({
       : lang === "th" ? "งบประมาณ" : "budget";
 
   const title = lang === "en" && iden.titleEn ? iden.titleEn : iden.titleTh;
+  const fiscalYear = getFiscalYear(facts.postedDate, tor.projectId);
   const missing = notAnalysedText(!analytics.lockSpec, !analytics.priceAnalysis, lang);
 
   return (
@@ -89,6 +91,12 @@ export function CatalogRow({
             <span className="font-mono tnum">{tor.projectId}</span>
             <span className="h-3 w-px bg-line" />
             <span className="min-w-0 truncate">{iden.agency}</span>
+            {fiscalYear ? (
+              <>
+                <span className="h-3 w-px bg-line" />
+                <span className="font-mono text-ink-2">{lang === "th" ? `ปีงบฯ ${fiscalYear}` : `FY ${fiscalYear}`}</span>
+              </>
+            ) : null}
             <ReviewTag review={tor.review} lang={lang} />
           </div>
 

@@ -277,7 +277,7 @@ export function AuthForm({ next }: { next: string | null }) {
           <Panel className="flex flex-col gap-2 p-3.5">
             <Label>{lang === "th" ? "ตัวอย่างการแจ้งเตือน" : "A typical alert"}</Label>
             <div className="flex flex-wrap gap-1.5">
-              <StatusBadge status="amended" lang={lang} round="ครั้งที่ 2" />
+              <StatusBadge status="Open" isAmended lang={lang} round="ครั้งที่ 2" />
               <LockSpecBadge level="high" score={87} lang={lang} showScore={false} />
             </div>
             <p className="text-[13px] leading-thai text-ink-2">

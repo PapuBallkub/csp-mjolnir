@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { getTor } from "../../../_data/tors";
 import { getTorInsight } from "../../../_lib/api";
 import { TorDetail } from "../../../_components/tor-detail";
 
@@ -13,12 +12,6 @@ export default async function TorDetailPage({
   const result = await getTorInsight(id);
   if (result.ok) {
     return <TorDetail insight={result.data} />;
-  }
-
-  // Mockup TORs (BMA-…) are never in the API, but other screens still link them
-  const fixtureTor = getTor(id);
-  if (fixtureTor) {
-    return <TorDetail tor={fixtureTor} />;
   }
 
   // Only the API saying so means there is no such TOR. Anything else (the API

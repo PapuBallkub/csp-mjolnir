@@ -160,7 +160,7 @@ function buildInsight(tor, index) {
       penaltyClause: 'ปรับร้อยละ 0.20 ของมูลค่าสัญญางานจ้างต่อวัน นับถัดจากวันครบกำหนดส่งมอบ',
       postedDate: new Date(Date.now() - (7 + (index % 14)) * 24 * 60 * 60 * 1000),
       sourceUrl: `https://process3.gprocurement.go.th/egpext/servlet/SP0102?projectId=${pId}`,
-      webUrl: `https://process3.gprocurement.go.th/egp2procmain/bidDirect.do?projectId=${pId}`,
+      webUrl: `https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${pId}`,
     },
     evidence: {
       referencePriceTHB: {

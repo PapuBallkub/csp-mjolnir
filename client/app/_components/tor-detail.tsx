@@ -1,16 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { TorInsightDetail } from "../_lib/api";
-import type { Lang, Tor } from "../_data/tors";
+import type { Lang } from "../_data/tors";
+import { getEgpAnnouncementUrl, getFiscalYear } from "../_lib/format";
 import { useLang, useProfile } from "./prefs";
+import { useAuth } from "./auth";
+import { StatusBadge } from "./verdict";
 import { AccentPanel, btn, Chip, Eyebrow, Fact, Label, Panel, SectionHeading, Well } from "./ui";
-import { AmendedFlag, CompaniesOnlyBadge, LifecycleBadge } from "./verdict";
+import { CompaniesOnlyBadge } from "./verdict";
 
-function formatMoney(amount: number | null | undefined): string {
-  if (amount == null) return "ไม่ระบุใน TOR";
+function formatMoney(amount: number | null | undefined, lang: Lang = "th"): string {
+  if (amount == null) return lang === "th" ? "ไม่ระบุใน TOR" : "Not specified in TOR";
   return `฿${amount.toLocaleString("en-US")}`;
+}
+
+function getScopeSize(budget: number | null): { th: string; en: string } {
+  if (!budget) return { th: "ไม่ระบุขนาด", en: "Unspecified" };
+  if (budget < 5_000_000) return { th: "ทำคนเดียว / ทีมเล็ก", en: "Solo / Small team" };
+  if (budget <= 30_000_000) return { th: "ทีมขนาดกลาง (2–5 คน)", en: "Mid-size team" };
+  return { th: "องค์กร / บริษัทขนาดใหญ่", en: "Firm-sized" };
 }
 
 function formatDateString(val: string | Date | null | undefined, lang: Lang): string {
@@ -98,23 +108,45 @@ function NotAnalysed({ heading, lang }: { heading: string; lang: Lang }) {
 
 export function TorDetail({
   insight,
-  tor,
 }: {
-  insight?: TorInsightDetail;
-  tor?: Tor;
+  insight: TorInsightDetail;
 }) {
   const { lang } = useLang();
-  const { profile } = useProfile();
+  const { profile, setProfile } = useProfile();
+  const { user, status: authStatus } = useAuth();
+  const isAuthenticated = authStatus === "authenticated" && !!user;
 
-  const projectId = insight?.projectId || tor?.id || "";
+  const projectId = insight.projectId;
   const [saved, setSaved] = useState(profile.watchlist.includes(projectId));
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // If rendering from legacy fixture tor
-  if (!insight && tor) {
-    return <LegacyTorDetail tor={tor} lang={lang} />;
-  }
+  useEffect(() => {
+    if (!showAuthModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowAuthModal(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showAuthModal]);
 
-  if (!insight) return null;
+  const handleWatchlistClick = () => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    const nextSaved = !saved;
+    setSaved(nextSaved);
+    if (nextSaved) {
+      if (!profile.watchlist.includes(projectId)) {
+        setProfile({ ...profile, watchlist: [...profile.watchlist, projectId] });
+      }
+    } else {
+      setProfile({
+        ...profile,
+        watchlist: profile.watchlist.filter((id) => id !== projectId),
+      });
+    }
+  };
 
   const iden = insight.identification;
   const facts = insight.facts;
@@ -129,11 +161,20 @@ export function TorDetail({
   const price = insight.analytics.priceAnalysis;
   const amend = insight.amendmentInfo;
 
-  // Match profile skills with required technologies
-  const requiredTechNames = tech.requiredTechnologies.map((t) => t.name);
-  const matchedSkills = requiredTechNames.filter((t) =>
-    profile.skills.some((s) => s.toLowerCase() === t.toLowerCase() || t.toLowerCase().includes(s.toLowerCase()))
-  );
+  const scope = getScopeSize(facts.referencePriceTHB || facts.budgetTHB);
+  const fiscalYear = getFiscalYear(facts.postedDate, insight.projectId);
+  const officialEgpUrl =
+    facts.webUrl && !facts.webUrl.includes("process3.gprocurement.go.th")
+      ? facts.webUrl
+      : getEgpAnnouncementUrl(projectId);
+
+  // Match profile skills with required technologies only if signed in
+  const requiredTechNames = tech.requiredTechnologies?.map((t) => t.name) || [];
+  const matchedSkills = isAuthenticated
+    ? requiredTechNames.filter((t) =>
+        profile.skills.some((s) => s.toLowerCase() === t.toLowerCase() || t.toLowerCase().includes(s.toLowerCase()))
+      )
+    : [];
 
   // null: the analysis hasn't been run yet. Shown as such, never as a 0 that
   // reads like "measured, low risk" (ADR 0015)
@@ -194,14 +235,26 @@ export function TorDetail({
           ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {/* The same badges as the catalog rows, so a status reads the same everywhere */}
-            <LifecycleBadge status={iden.status} lang={lang} />
-            {amend.isAmended ? <AmendedFlag lang={lang} /> : null}
+            {/* Status Badge with prominent styling and amended tag */}
+            <StatusBadge status={iden.status} lang={lang} isAmended={amend.isAmended} />
+
+            {/* Fiscal Year Badge */}
+            {fiscalYear ? (
+              <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-2.5 py-[3px] text-[11px] font-medium text-ink-2 font-mono">
+                {lang === "th" ? `ปีงบประมาณ ${fiscalYear}` : `FY ${fiscalYear}`}
+              </span>
+            ) : null}
+
+            {/* Scope Badge */}
+            <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-2.5 py-[3px] text-[11px] font-medium text-ink-2">
+              {lang === "th" ? scope.th : scope.en}
+            </span>
+
             {/* Who may bid: decisive for freelancers, so it sits with the status */}
             {insight.companiesOnly ? <CompaniesOnlyBadge lang={lang} /> : null}
           </div>
 
-          <ReviewNotice review={insight.review} webUrl={facts.webUrl} lang={lang} />
+          <ReviewNotice review={insight.review} webUrl={officialEgpUrl} lang={lang} />
 
           {/* Verdict Strip */}
           <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[3px] border border-line bg-surface-2/60 p-2.5 sm:gap-6 sm:px-4">
@@ -257,17 +310,28 @@ export function TorDetail({
 
             <div className="hidden h-3 w-px bg-line sm:block" />
 
+            {/* Skill Match Section (Auth-aware) */}
             <div className="flex items-center gap-2">
               <span className="text-[12px] text-ink-3">
                 {lang === "th" ? "ตรงกับทักษะคุณ:" : "Skill match:"}
               </span>
-              <span className="font-mono text-[12px] font-medium text-ink">
-                {matchedSkills.length}/{requiredTechNames.length} {lang === "th" ? "รายการ" : "skills"}
-              </span>
+              {isAuthenticated ? (
+                <span className="font-mono text-[12px] font-semibold text-open">
+                  {matchedSkills.length}/{requiredTechNames.length} {lang === "th" ? "รายการ" : "skills"}
+                </span>
+              ) : (
+                <Link
+                  href="/auth"
+                  className="text-[12px] font-medium text-ink-2 hover:text-ink underline underline-offset-2"
+                >
+                  {lang === "th" ? "ลงชื่อเข้าใช้เพื่อดูความตรง" : "Sign in to view match"}
+                </Link>
+              )}
             </div>
           </div>
         </div>
       </header>
+
 
       {/* ------------------------------------------------------------------ */}
       {/* 2. BODY LAYOUT (Aside Facts + Main 13 Sections)                   */}
@@ -328,13 +392,25 @@ export function TorDetail({
                   {formatDateString(facts.postedDate, lang)}
                 </span>
               </Fact>
+
+              <Fact label={lang === "th" ? "ปีงบประมาณ" : "Fiscal year"} mono>
+                <span className="font-mono text-[12.5px] font-semibold text-ink">
+                  {fiscalYear
+                    ? lang === "th"
+                      ? `พ.ศ. ${fiscalYear}`
+                      : `FY ${fiscalYear}`
+                    : lang === "th"
+                    ? "ไม่ระบุใน TOR"
+                    : "Not specified"}
+                </span>
+              </Fact>
             </div>
 
             {/* Official e-GP Link */}
-            {facts.webUrl || facts.sourceUrl ? (
+            {officialEgpUrl ? (
               <div className="mt-4 border-t border-line pt-3 pb-1">
                 <a
-                  href={facts.webUrl || facts.sourceUrl || "#"}
+                  href={officialEgpUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`${btn.primary} flex w-full items-center justify-center gap-1.5 text-[12px]`}
@@ -355,7 +431,7 @@ export function TorDetail({
           <Panel className="p-4">
             <button
               type="button"
-              onClick={() => setSaved(!saved)}
+              onClick={handleWatchlistClick}
               className={saved ? `${btn.secondary} w-full text-[13px]` : `${btn.primary} w-full text-[13px]`}
               aria-pressed={saved}
             >
@@ -378,42 +454,63 @@ export function TorDetail({
             </p>
           </Panel>
 
-          {/* Capability Matchbox */}
+          {/* Capability Matchbox (Auth-aware) */}
           <Panel className="p-4">
             <div className="flex items-center justify-between gap-2">
               <Label>{lang === "th" ? "ความตรงกับทักษะของคุณ" : "Skills match"}</Label>
-              <span className="font-mono text-[13px] font-semibold text-open">
-                {Math.round((matchedSkills.length / Math.max(requiredTechNames.length, 1)) * 100)}%
-              </span>
+              {isAuthenticated ? (
+                <span className="font-mono text-[13px] font-semibold text-open">
+                  {Math.round((matchedSkills.length / Math.max(requiredTechNames.length, 1)) * 100)}%
+                </span>
+              ) : null}
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-3">
-              {requiredTechNames.map((tName) => {
-                const isMatch = matchedSkills.includes(tName);
-                return (
-                  <span
-                    key={tName}
-                    className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[11px] ${
-                      isMatch
-                        ? "border-open-line bg-open-bg text-open font-medium"
-                        : "border-line bg-surface-2 text-ink-3"
-                    }`}
-                  >
-                    <span>{isMatch ? "✓" : "○"}</span>
-                    <span>{tName}</span>
-                  </span>
-                );
-              })}
-            </div>
+            {isAuthenticated ? (
+              <>
+                <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-3">
+                  {requiredTechNames.map((tName) => {
+                    const isMatch = matchedSkills.includes(tName);
+                    return (
+                      <span
+                        key={tName}
+                        className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[11px] ${
+                          isMatch
+                            ? "border-open-line bg-open-bg text-open font-medium"
+                            : "border-line bg-surface-2 text-ink-3"
+                        }`}
+                      >
+                        <span>{isMatch ? "✓" : "○"}</span>
+                        <span>{tName}</span>
+                      </span>
+                    );
+                  })}
+                </div>
 
-            <Link
-              href="/profile"
-              className="mt-3 inline-block text-[11px] text-ink-2 underline underline-offset-2 hover:text-ink"
-            >
-              {lang === "th" ? "แก้ไขทักษะในโปรไฟล์ของคุณ →" : "Edit your skills profile →"}
-            </Link>
+                <Link
+                  href="/profile"
+                  className="mt-3 inline-block text-[11px] text-ink-2 underline underline-offset-2 hover:text-ink"
+                >
+                  {lang === "th" ? "แก้ไขทักษะในโปรไฟล์ของคุณ →" : "Edit your skills profile →"}
+                </Link>
+              </>
+            ) : (
+              <div className="mt-2 border-t border-line pt-2.5">
+                <p className="text-[12px] leading-thai text-ink-2">
+                  {lang === "th"
+                    ? "ลงชื่อเข้าใช้เพื่อดูว่าโครงการนี้ต้องใช้ทักษะที่คุณถนัดหรือไม่ และวิเคราะห์ความเหมาะสมกับทีมของคุณ"
+                    : "Sign in to see how well this project matches your technical capabilities."}
+                </p>
+                <Link
+                  href="/auth"
+                  className={`${btn.secondary} mt-3 flex w-full items-center justify-center text-[12px]`}
+                >
+                  {lang === "th" ? "ลงชื่อเข้าใช้เพื่อดูผลจับคู่" : "Sign in to view match"}
+                </Link>
+              </div>
+            )}
           </Panel>
         </aside>
+
 
         {/* MAIN COLUMN: 13 Modular Sections */}
         <div className="order-2 flex min-w-0 flex-col gap-6 lg:order-1">
@@ -475,6 +572,14 @@ export function TorDetail({
               {lang === "th" ? "3. วัตถุประสงค์และขอบเขตโครงการ" : "3. Project Overview"}
             </SectionHeading>
 
+            {!overview.objective && !overview.highLevelScope && (!overview.majorComponents || overview.majorComponents.length === 0) ? (
+              <p className="mt-3 text-[14px] leading-thai text-ink-3">
+                {lang === "th"
+                  ? "ไม่มีรายละเอียดวัตถุประสงค์หรือขอบเขตระบุไว้ในเอกสาร TOR ฉบับนี้"
+                  : "No objective or scope explicitly specified in this TOR document."}
+              </p>
+            ) : null}
+
             {overview.objective ? (
               <div className="mt-3">
                 <Label>{lang === "th" ? "วัตถุประสงค์ (Objective)" : "Objective"}</Label>
@@ -522,71 +627,82 @@ export function TorDetail({
               {lang === "th" ? "4. สิ่งที่ต้องส่งมอบ (Deliverables)" : "4. Deliverables"}
             </SectionHeading>
 
-            <div className="mt-4 grid gap-5 sm:grid-cols-2">
-              {deliverables.system && deliverables.system.length > 0 ? (
-                <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
-                  <h3 className="text-[13px] font-semibold text-ink">
-                    {lang === "th" ? "📦 ระบบซอฟต์แวร์และเอกสารระบบ" : "System & Documentation"}
-                  </h3>
-                  <ul className="mt-2 flex flex-col gap-1.5">
-                    {deliverables.system.map((item, idx) => (
-                      <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
-                        <span className="text-ink-3">•</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+            {(!deliverables.system || deliverables.system.length === 0) &&
+            (!deliverables.implementation || deliverables.implementation.length === 0) &&
+            (!deliverables.validation || deliverables.validation.length === 0) &&
+            (!deliverables.supportingWork || deliverables.supportingWork.length === 0) ? (
+              <div className="mt-3 rounded-[3px] border border-line bg-surface-2/40 p-4 text-[13px] leading-thai text-ink-3">
+                {lang === "th"
+                  ? "ไม่มีการแจกแจงรายการสิ่งส่งมอบเฉพาะในเอกสาร TOR ฉบับนี้"
+                  : "No specific itemized deliverables enumerated in this TOR document."}
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                {deliverables.system && deliverables.system.length > 0 ? (
+                  <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+                    <h3 className="text-[13px] font-semibold text-ink">
+                      {lang === "th" ? "📦 ระบบซอฟต์แวร์และเอกสารระบบ" : "System & Documentation"}
+                    </h3>
+                    <ul className="mt-2 flex flex-col gap-1.5">
+                      {deliverables.system.map((item, idx) => (
+                        <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
+                          <span className="text-ink-3">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
 
-              {deliverables.implementation && deliverables.implementation.length > 0 ? (
-                <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
-                  <h3 className="text-[13px] font-semibold text-ink">
-                    {lang === "th" ? "⚙️ การติดตั้งและย้ายข้อมูล" : "Implementation & Migration"}
-                  </h3>
-                  <ul className="mt-2 flex flex-col gap-1.5">
-                    {deliverables.implementation.map((item, idx) => (
-                      <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
-                        <span className="text-ink-3">•</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+                {deliverables.implementation && deliverables.implementation.length > 0 ? (
+                  <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+                    <h3 className="text-[13px] font-semibold text-ink">
+                      {lang === "th" ? "⚙️ การติดตั้งและย้ายข้อมูล" : "Implementation & Migration"}
+                    </h3>
+                    <ul className="mt-2 flex flex-col gap-1.5">
+                      {deliverables.implementation.map((item, idx) => (
+                        <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
+                          <span className="text-ink-3">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
 
-              {deliverables.validation && deliverables.validation.length > 0 ? (
-                <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
-                  <h3 className="text-[13px] font-semibold text-ink">
-                    {lang === "th" ? "🔍 การทดสอบระบบและการตรวจรับ" : "Testing & Acceptance"}
-                  </h3>
-                  <ul className="mt-2 flex flex-col gap-1.5">
-                    {deliverables.validation.map((item, idx) => (
-                      <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
-                        <span className="text-ink-3">•</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+                {deliverables.validation && deliverables.validation.length > 0 ? (
+                  <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+                    <h3 className="text-[13px] font-semibold text-ink">
+                      {lang === "th" ? "🔍 การทดสอบระบบและการตรวจรับ" : "Testing & Acceptance"}
+                    </h3>
+                    <ul className="mt-2 flex flex-col gap-1.5">
+                      {deliverables.validation.map((item, idx) => (
+                        <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
+                          <span className="text-ink-3">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
 
-              {deliverables.supportingWork && deliverables.supportingWork.length > 0 ? (
-                <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
-                  <h3 className="text-[13px] font-semibold text-ink">
-                    {lang === "th" ? "🎓 การฝึกอบรมและการสนับสนุน" : "Training & Support"}
-                  </h3>
-                  <ul className="mt-2 flex flex-col gap-1.5">
-                    {deliverables.supportingWork.map((item, idx) => (
-                      <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
-                        <span className="text-ink-3">•</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
+                {deliverables.supportingWork && deliverables.supportingWork.length > 0 ? (
+                  <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+                    <h3 className="text-[13px] font-semibold text-ink">
+                      {lang === "th" ? "🎓 การฝึกอบรมและการสนับสนุน" : "Training & Support"}
+                    </h3>
+                    <ul className="mt-2 flex flex-col gap-1.5">
+                      {deliverables.supportingWork.map((item, idx) => (
+                        <li key={idx} className="flex gap-2 text-[13px] leading-thai text-ink-2">
+                          <span className="text-ink-3">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            )}
           </Panel>
 
           {/* ---------------------------------------------------------------- */}
@@ -603,27 +719,37 @@ export function TorDetail({
               {lang === "th" ? "5. ข้อกำหนดด้านเทคนิค (Technical Requirements)" : "5. Technical Requirements"}
             </SectionHeading>
 
+
             {/* Technologies */}
             <div className="mt-3">
               <Label>{lang === "th" ? "เทคโนโลยีที่กำหนดระบุไว้" : "Required Technologies"}</Label>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {tech.requiredTechnologies.map((t) => {
-                  const isMatch = matchedSkills.includes(t.name);
-                  return (
-                    <Chip
-                      key={t.name}
-                      className={isMatch ? "border-open-line bg-open-bg text-open" : ""}
-                    >
-                      {isMatch ? <span className="mr-1">✓</span> : null}
-                      <span className="font-medium">{t.name}</span>
-                      {t.version ? (
-                        <span className="ml-1 opacity-70 font-mono text-[10px]">v{t.version}</span>
-                      ) : null}
-                    </Chip>
-                  );
-                })}
-              </div>
+              {!tech.requiredTechnologies || tech.requiredTechnologies.length === 0 ? (
+                <p className="mt-2 text-[13px] text-ink-3">
+                  {lang === "th"
+                    ? "TOR นี้ไม่ได้ระบุเทคโนโลยีเฉพาะเจาะจง (เทคโนโลยีเปิด / ขึ้นกับข้อเสนอของผู้ยื่นข้อเสนอ)"
+                    : "No specific technologies mandated (vendor's choice)."}
+                </p>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {tech.requiredTechnologies.map((t) => {
+                    const isMatch = matchedSkills.includes(t.name);
+                    return (
+                      <Chip
+                        key={t.name}
+                        className={isMatch ? "border-open-line bg-open-bg text-open" : ""}
+                      >
+                        {isMatch ? <span className="mr-1">✓</span> : null}
+                        <span className="font-medium">{t.name}</span>
+                        {t.version ? (
+                          <span className="ml-1 opacity-70 font-mono text-[10px]">v{t.version}</span>
+                        ) : null}
+                      </Chip>
+                    );
+                  })}
+                </div>
+              )}
             </div>
+
 
             {/* Required Capabilities */}
             {tech.requiredCapabilities && tech.requiredCapabilities.length > 0 ? (
@@ -1040,7 +1166,13 @@ export function TorDetail({
                   </table>
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <div className="mt-4 rounded-[3px] border border-line bg-surface/50 p-3 text-[12.5px] leading-thai text-ink-3">
+                {lang === "th"
+                  ? "ยังไม่มีข้อมูลโครงการจัดซื้อที่เทียบเคียงได้โดยตรงในฐานข้อมูลเพื่อแสดงตารางเปรียบเทียบ"
+                  : "No direct historical comparable projects currently registered in database."}
+              </div>
+            )}
           </AccentPanel>
           ) : (
             <NotAnalysed
@@ -1106,16 +1238,16 @@ export function TorDetail({
                   </div>
                 ) : null}
 
-                {facts.sourceUrl ? (
+                {officialEgpUrl ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-ink">{lang === "th" ? "ประกาศทางการ:" : "Official Notice:"}</span>
                     <a
-                      href={facts.sourceUrl}
+                      href={officialEgpUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-open underline hover:text-ink break-all"
                     >
-                      {facts.sourceUrl}
+                      {officialEgpUrl}
                     </a>
                   </div>
                 ) : null}
@@ -1140,42 +1272,65 @@ export function TorDetail({
           </div>
         </div>
       </div>
-    </article>
-  );
-}
 
-/** Fallback renderer for legacy fixture Tor objects */
-function LegacyTorDetail({
-  tor,
-  lang,
-}: {
-  tor: Tor;
-  lang: Lang;
-}) {
-  return (
-    <article className="pb-16">
-      <header className="relative border-b border-line bg-surface">
-        <div className="relative mx-auto max-w-[1240px] px-4 py-6">
-          <nav className="flex items-center gap-2 font-mono text-[11px] text-ink-3">
-            <Link href="/search" className="hover:underline">{lang === "th" ? "ค้นหา" : "Search"}</Link>
-            <span>/</span>
-            <span>{tor.id}</span>
-          </nav>
-          <h1 className="mt-2 text-[26px] font-semibold text-ink">{tor.title.th}</h1>
-          <p className="mt-1 text-[13px] text-ink-2">{tor.agency.th}</p>
+      {/* Auth Modal for Watchlist */}
+      {showAuthModal ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="watchlist-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px] animate-in fade-in duration-150"
+          onClick={() => setShowAuthModal(false)}
+        >
+          <div
+            className="relative w-full max-w-md rounded-[4px] border border-line bg-surface p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowAuthModal(false)}
+              className="absolute right-3.5 top-3.5 flex h-7 w-7 items-center justify-center rounded-[3px] text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
+              aria-label={lang === "th" ? "ปิดหน้าต่าง" : "Close modal"}
+            >
+              ✕
+            </button>
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+              </svg>
+            </div>
+
+            <h3 id="watchlist-modal-title" className="mt-4 text-[17px] font-semibold text-ink">
+              {lang === "th" ? "ลงชื่อเข้าใช้เพื่อบันทึกรายการที่ติดตาม" : "Sign in to save to your watchlist"}
+            </h3>
+
+            <p className="mt-2 text-[13px] leading-thai text-ink-2">
+              {lang === "th"
+                ? "เมื่อลงชื่อเข้าใช้ คุณจะสามารถติดตามประกาศนี้และรับการแจ้งเตือนทันทีเมื่อมีการออกเอกสารแก้ไข TOR (Amendment) หรือประกาศผู้ชนะ"
+                : "Sign in to add this procurement to your watchlist and receive alerts whenever this TOR is amended or awarded."}
+            </p>
+
+            <div className="mt-6 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(false)}
+                className={btn.secondary}
+              >
+                {lang === "th" ? "ยกเลิก" : "Cancel"}
+              </button>
+              <Link
+                href={`/auth?next=${encodeURIComponent(`/tor/${projectId}`)}`}
+                className={btn.primary}
+              >
+                {lang === "th" ? "ลงชื่อเข้าใช้" : "Sign in"}
+              </Link>
+            </div>
+          </div>
         </div>
-      </header>
-
-      <div className="mx-auto max-w-[1240px] px-4 py-6">
-        <Panel className="p-6">
-          <h2 className="text-[18px] font-semibold text-ink mb-4">{lang === "th" ? "สาระสำคัญ" : "Summary"}</h2>
-          <ul className="flex flex-col gap-2">
-            {tor.summary.map((s, idx) => (
-              <li key={idx} className="text-[14px] text-ink-2">• {s.th}</li>
-            ))}
-          </ul>
-        </Panel>
-      </div>
+      ) : null}
     </article>
   );
 }
+
+

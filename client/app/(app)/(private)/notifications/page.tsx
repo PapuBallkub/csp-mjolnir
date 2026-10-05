@@ -260,7 +260,7 @@ export default function NotificationsPage() {
                 {pick(sample.title, lang)}
               </p>
               <div className="flex flex-wrap gap-1.5">
-                <StatusBadge status={sample.status} lang={lang} />
+                <StatusBadge status={sample.status} isAmended={sample.isAmended} lang={lang} />
                 <LockSpecBadge
                   level={sample.lockSpec.level}
                   score={sample.lockSpec.score}

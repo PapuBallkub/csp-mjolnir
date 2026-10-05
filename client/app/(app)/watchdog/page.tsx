@@ -181,7 +181,7 @@ export default function WatchdogPage() {
                 >
                   <span className="font-mono tnum text-[10px] text-ink-3">{tor.id}</span>
                   <span className="text-[13px] leading-thai text-ink">{pick(tor.title, lang)}</span>
-                  <StatusBadge status={tor.status} lang={lang} />
+                  <StatusBadge status={tor.status} isAmended={tor.isAmended} lang={lang} />
                 </button>
               );
             })}

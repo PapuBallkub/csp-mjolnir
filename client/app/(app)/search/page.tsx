@@ -903,7 +903,9 @@ export default function BrowsePage() {
           </div>
 
           <aside className="hidden lg:block">
-            <div className="sticky top-[70px]">{rail}</div>
+            <div className="sticky top-[76px] max-h-[calc(100vh-90px)] overflow-y-auto overscroll-contain pr-1.5 [scrollbar-width:thin] [scrollbar-color:var(--line)_transparent]">
+              {rail}
+            </div>
           </aside>
 
           <div className="min-w-0">
