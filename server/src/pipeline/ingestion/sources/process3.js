@@ -29,11 +29,18 @@ const USER_AGENT =
 const REQUEST_TIMEOUT_MS = 20000;
 const RATE_LIMIT_DELAY_MS = 1000;
 
-export const ANNOUNCEMENT_TYPES = [
-  { code: 'B0', name: 'Draft TOR (ร่างประกาศและร่างเอกสารประกวดราคา)' },
-  { code: 'D0', name: 'Invitation to Bid (ประกาศเชิญชวน)' },
-  { code: '15', name: 'Reference Price (ราคากลาง)' },
-];
+import {
+  EGP_ANNOUNCEMENT_CODES,
+  FETCHABLE_CODES,
+  classifyAnnouncement,
+} from '../../shared/announcement-codes.js';
+import { deriveStatus } from '../../shared/status-engine.js';
+
+// Re-export for backward compatibility with test/pipeline/ingestion/utils.test.js
+export const ANNOUNCEMENT_TYPES = FETCHABLE_CODES.map((code) => ({
+  code,
+  name: `${EGP_ANNOUNCEMENT_CODES[code].nameEn} (${EGP_ANNOUNCEMENT_CODES[code].nameTh})`,
+}));
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -177,40 +184,87 @@ export async function fetchFromProcess3({
         const isDownloaded =
           alreadyDownloaded || (downloadRes && downloadRes.success);
 
-        await Tor.findOneAndUpdate(
+        // --- FR-02: Check existing record to decide if this announcement updates it ---
+        const existing = await Tor.findOne({ projectId: String(torId) }).lean();
+        const announcementInfo = EGP_ANNOUNCEMENT_CODES[annType.code];
+
+        const updatePayload = {
+          source: 'process3',
+          title: (currentItem.title ? String(currentItem.title).trim() : '') || existing?.title || 'No Title',
+          announceType: annType.code,
+        };
+
+        // Derive status and isAmended from announcement history (FR-02, FR-15)
+        const simulatedHistory = [
+          ...(existing?.announcementHistory || []),
+          { code: annType.code },
+        ];
+        const derived = deriveStatus(simulatedHistory, existing?.contract);
+        updatePayload.status = derived.status;
+        updatePayload.isAmended = derived.isAmended;
+
+        if (!existing) {
+          updatePayload.agency = '';
+          updatePayload.subAgency = deptId || '';
+          updatePayload.announceDate = currentItem.pubDate || null;
+          updatePayload.procurementMethod = null;
+          updatePayload.egpUrl = link;
+        } else {
+          if (link) updatePayload.egpUrl = link;
+          if (currentItem.pubDate) updatePayload.announceDate = currentItem.pubDate;
+        }
+
+        updatePayload.document = {
+          fileName: expectedPdfName,
+          storagePath: isDownloaded ? targetPdfPath : (existing?.document?.storagePath || null),
+          sizeBytes:
+            downloadRes?.sizeBytes ||
+            (alreadyDownloaded
+              ? fsSync.statSync(targetPdfPath).size
+              : (existing?.document?.sizeBytes || null)),
+          pages: documentInfo?.totalPages || existing?.document?.pages || null,
+          documentType: documentInfo?.documentType || existing?.document?.documentType || 'UNKNOWN',
+          contentHash: documentInfo?.contentHash || existing?.document?.contentHash || null,
+          version: 1,
+        };
+        updatePayload.pipelineStatus =
+          isDownloaded || existing?.pipelineStatus === 'downloaded'
+            ? 'downloaded'
+            : 'fetched';
+
+        const updatedTor = await Tor.findOneAndUpdate(
           { projectId: String(torId) },
           {
-            $set: {
-              source: 'process3',
-              title,
-              agency: '',
-              subAgency: deptId || '',
-              status: annType.code === 'B0' ? 'Draft' : 'Open',
-              announceType: annType.code,
-              // Missing stays null (ADR 0014): a fetch time would pass for a
-              // publication date, and the RSS feed says nothing about the
-              // procurement method (the announcement type is in announceType)
-              announceDate: currentItem.pubDate || null,
-              procurementMethod: null,
-              egpUrl: link,
-              document: {
-                fileName: expectedPdfName,
-                storagePath: isDownloaded ? targetPdfPath : null,
-                sizeBytes:
-                  downloadRes?.sizeBytes ||
-                  (alreadyDownloaded
-                    ? fsSync.statSync(targetPdfPath).size
-                    : null),
-                pages: documentInfo?.totalPages || null,
-                documentType: documentInfo?.documentType || 'UNKNOWN',
-                contentHash: documentInfo?.contentHash || null,
-                version: 1,
+            $set: updatePayload,
+            $push: {
+              announcementHistory: {
+                code: annType.code,
+                type: classifyAnnouncement(annType.code),
+                receivedAt: new Date(),
+                publishedAt: currentItem.pubDate
+                  ? new Date(currentItem.pubDate)
+                  : null,
+                sourceUrl: link,
               },
-              pipelineStatus: isDownloaded ? 'downloaded' : 'fetched',
             },
           },
           { upsert: true, returnDocument: 'after' },
         );
+
+        if (updatedTor) {
+          const { status: finalStatus, isAmended: finalAmended } = deriveStatus(
+            updatedTor.announcementHistory,
+            updatedTor.contract,
+          );
+          if (
+            updatedTor.status !== finalStatus ||
+            updatedTor.isAmended !== finalAmended
+          ) {
+            updatedTor.status = finalStatus;
+            updatedTor.isAmended = finalAmended;
+            await updatedTor.save();
+          }
+        }
 
         fetchedCount++;
       }

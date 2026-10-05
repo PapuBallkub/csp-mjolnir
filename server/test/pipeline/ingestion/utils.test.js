@@ -48,3 +48,11 @@ test('decodeThaiXml handles Windows-874 byte sequences cleanly', () => {
 
   assert.ok(result.xmlText.length > 0);
 });
+
+test('ANNOUNCEMENT_TYPES now includes D1 and D2 amendment codes', async () => {
+  const { ANNOUNCEMENT_TYPES } = await import('#pipeline/ingestion/sources/process3.js');
+  const codes = ANNOUNCEMENT_TYPES.map((a) => a.code);
+  assert.ok(codes.includes('D1'), 'D1 should be in ANNOUNCEMENT_TYPES');
+  assert.ok(codes.includes('D2'), 'D2 should be in ANNOUNCEMENT_TYPES');
+  assert.equal(codes.length, 5);
+});

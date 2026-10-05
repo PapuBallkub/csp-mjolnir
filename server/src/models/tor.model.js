@@ -151,6 +151,18 @@ const torSchema = new mongoose.Schema(
       },
     ],
 
+    // Chronological record of every e-GP announcement received for this project (FR-02).
+    // Each entry is one RSS item. The ingestion pipeline appends; nothing deletes.
+    announcementHistory: [
+      {
+        code: { type: String, required: true }, // e.g. 'B0', 'D0', 'D1'
+        type: { type: String, required: true }, // e.g. 'draft_tor', 'invitation', 'amendment'
+        receivedAt: { type: Date, default: Date.now }, // when the pipeline ingested it
+        publishedAt: { type: Date, default: null }, // pubDate from the RSS item
+        sourceUrl: { type: String, default: '' }, // the RSS item's link
+      },
+    ],
+
     // Pipeline status: 'fetched' -> 'downloaded' -> 'ocr_done'
     pipelineStatus: {
       type: String,
