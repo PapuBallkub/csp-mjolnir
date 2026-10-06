@@ -847,7 +847,7 @@ function ReviewItemCard({
                   {lang === "th" ? "ดูหน้าประกาศบนเว็บ" : "View on GIPDP"} ↗
                 </a>
                 <a
-                  href={`https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=${item.docId}`}
+                  href={`https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${item.docId}`}
                   target="_blank"
                   rel="noreferrer"
                   className={btn.secondary}
