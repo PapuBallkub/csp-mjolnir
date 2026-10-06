@@ -200,6 +200,11 @@ function AdminDashboard({
     return true;
   });
 
+  const inMaintenance = (() => {
+    const bangkokHour = (new Date().getUTCHours() + 7) % 24;
+    return bangkokHour >= 0 && bangkokHour < 4;
+  })();
+
   const handleTriggerPoll = async (sourceId: string = "all") => {
     setIsPolling(true);
     setPollingSource(sourceId);
@@ -208,10 +213,16 @@ function AdminDashboard({
     setIsPolling(false);
     setPollingSource(null);
     if (res.ok) {
+      const maintenanceNote = inMaintenance
+        ? lang === "th"
+          ? " (หมายเหตุ: ขณะนี้อยู่ในช่วงปิดปรับปรุง e-GP 00:00–04:00 น. อาจไม่พบประกาศใหม่)"
+          : " (Note: e-GP is currently in nightly maintenance 00:00–04:00)"
+        : "";
       setPollMessage(
-        lang === "th"
+        (lang === "th"
           ? `ดึงข้อมูลสำเร็จ: ค้นพบ/อัปเดต ${res.data.fetched} ประกาศใหม่ (${sourceId === "all" ? "ทุกแหล่ง" : sourceId})`
-          : `Ingestion poll complete: discovered ${res.data.fetched} notice(s) for ${sourceId}`,
+          : `Ingestion poll complete: discovered ${res.data.fetched} notice(s) for ${sourceId}`) +
+          maintenanceNote,
       );
       onRefresh();
     } else {
@@ -288,6 +299,11 @@ function AdminDashboard({
         <SectionHeading
           right={
             <div className="flex items-center gap-3">
+              {inMaintenance ? (
+                <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-1 font-mono text-[11px] font-medium text-amend">
+                  {lang === "th" ? "⚠️ ปิดปรับปรุง 00:00–04:00" : "⚠️ Maintenance 00:00–04:00"}
+                </span>
+              ) : null}
               <button
                 type="button"
                 onClick={() => handleTriggerPoll("all")}
@@ -306,6 +322,23 @@ function AdminDashboard({
         >
           {lang === "th" ? "ตัวเก็บข้อมูลรายแหล่ง" : "Scrapers by source"}
         </SectionHeading>
+
+        {/* Maintenance Window Information Notice (Option A) */}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[3px] border border-line bg-surface-2 px-3 py-2 text-[12px] leading-thai text-ink-2">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-ink-3">ℹ️</span>
+            <span>
+              {lang === "th"
+                ? "ระบบ e-GP ของกรมบัญชีกลางปิดปรับปรุงประจำวันช่วง 00:00 – 04:00 น. การดึงข้อมูลอัตโนมัติหรือการเชื่อมต่อในช่วงเวลานี้จะหยุดพักและทำงานต่อหลัง 04:00 น."
+                : "e-GP portals undergo scheduled maintenance daily between 00:00 – 04:00. Automated scraping and external document queries pause during this window."}
+            </span>
+          </div>
+          {inMaintenance ? (
+            <span className="shrink-0 font-mono text-[11px] font-medium text-amend">
+              {lang === "th" ? "[ กำลังอยู่ในช่วงปิดปรับปรุง ]" : "[ Active Maintenance Window ]"}
+            </span>
+          ) : null}
+        </div>
 
         {pollMessage ? (
           <div className="mb-3 rounded-[3px] border border-open-line bg-open-bg px-3 py-2 font-mono text-[12px] text-open">

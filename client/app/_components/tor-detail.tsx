@@ -420,8 +420,8 @@ export function TorDetail({
                 </a>
                 <p className="mt-1.5 text-center text-[11px] text-ink-3">
                   {lang === "th"
-                    ? "การยื่นข้อเสนอและการประมูลทางการทำผ่าน e-GP เท่านั้น"
-                    : "All official bids are submitted on e-GP."}
+                    ? "การยื่นข้อเสนอและการประมูลทางการทำผ่าน e-GP เท่านั้น (ระบบ e-GP ปิดปรับปรุงประจำวัน 00:00–04:00 น.)"
+                    : "All official bids are submitted on e-GP (portal maintenance 00:00–04:00 daily)."}
                 </p>
               </div>
             ) : null}
