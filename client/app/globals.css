@@ -206,3 +206,17 @@ body {
   transition: background-color 0.22s ease, border-color 0.22s ease, color 0.22s ease, fill 0.22s ease !important;
   transition-delay: 0s !important;
 }
+
+/* Ensure all interactive buttons and actionable controls display pointer/clicker cursor */
+button,
+[role="button"],
+a {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"],
+button:disabled * {
+  cursor: not-allowed;
+}
+

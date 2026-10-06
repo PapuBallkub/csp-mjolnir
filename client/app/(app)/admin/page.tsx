@@ -549,7 +549,7 @@ function AdminDashboard({
                 key={tab.id}
                 type="button"
                 onClick={() => setFilterTab(tab.id as typeof filterTab)}
-                className={`rounded-[3px] px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                className={`rounded-[3px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
                   filterTab === tab.id
                     ? "bg-ink text-surface"
                     : "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
@@ -710,7 +710,7 @@ function ReviewItemCard({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full flex-col gap-2 px-3.5 py-3 text-left transition-colors hover:bg-surface-2 sm:flex-row sm:items-center sm:gap-4"
+        className="flex w-full flex-col gap-2 px-3.5 py-3 text-left transition-colors hover:bg-surface-2 sm:flex-row sm:items-center sm:gap-4 cursor-pointer"
         aria-expanded={isOpen}
       >
         <span className="min-w-0 flex-1">

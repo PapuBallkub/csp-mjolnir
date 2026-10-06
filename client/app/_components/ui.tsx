@@ -158,11 +158,11 @@ export function Chip({
 
 export const btn = {
   primary:
-    "inline-flex items-center justify-center gap-2 rounded-[3px] bg-ink px-3.5 h-9 text-[13px] font-medium text-surface transition-opacity hover:opacity-85 disabled:opacity-40",
+    "inline-flex items-center justify-center gap-2 rounded-[3px] bg-ink px-3.5 h-9 text-[13px] font-medium text-surface transition-opacity hover:opacity-85 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed",
   secondary:
-    "inline-flex items-center justify-center gap-2 rounded-[3px] border border-line-2 bg-surface px-3.5 h-9 text-[13px] font-medium text-ink transition-colors hover:bg-surface-2",
+    "inline-flex items-center justify-center gap-2 rounded-[3px] border border-line-2 bg-surface px-3.5 h-9 text-[13px] font-medium text-ink transition-colors hover:bg-surface-2 cursor-pointer disabled:cursor-not-allowed",
   ghost:
-    "inline-flex items-center justify-center gap-2 rounded-[3px] px-2.5 h-9 text-[13px] font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink",
+    "inline-flex items-center justify-center gap-2 rounded-[3px] px-2.5 h-9 text-[13px] font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink cursor-pointer disabled:cursor-not-allowed",
 };
 
 export const input =
