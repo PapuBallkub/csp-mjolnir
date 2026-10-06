@@ -311,10 +311,8 @@ function AdminDashboard({
                 className={btn.primary}
               >
                 {isPolling && pollingSource === "all" ? (
-                  <span className="animate-spin inline-block">↻</span>
-                ) : (
-                  "⚡"
-                )}{" "}
+                  <span className="animate-spin inline-block mr-1">↻</span>
+                ) : null}
                 {lang === "th" ? "สั่งดึงข้อมูลทุกแหล่งเดี๋ยวนี้" : "Poll All Sources Now"}
               </button>
             </div>
@@ -430,10 +428,8 @@ function AdminDashboard({
                       className={`${btn.secondary} font-mono text-[11px] py-1 px-2.5`}
                     >
                       {isPolling && pollingSource === source.id ? (
-                        <span className="animate-spin inline-block">↻</span>
-                      ) : (
-                        "⚡"
-                      )}{" "}
+                        <span className="animate-spin inline-block mr-1">↻</span>
+                      ) : null}
                       {lang === "th" ? "ดึงแหล่งนี้" : "Poll"}
                     </button>
                   </td>
