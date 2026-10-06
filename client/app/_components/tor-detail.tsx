@@ -418,10 +418,17 @@ export function TorDetail({
                   <span>{lang === "th" ? "เปิดดูบนระบบ e-GP ทางการ" : "Open on official e-GP"}</span>
                   <span>↗</span>
                 </a>
-                <p className="mt-1.5 text-center text-[11px] text-ink-3">
-                  {lang === "th"
-                    ? "การยื่นข้อเสนอและการประมูลทางการทำผ่าน e-GP เท่านั้น (ระบบ e-GP ปิดปรับปรุงประจำวัน 00:00–04:00 น.)"
-                    : "All official bids are submitted on e-GP (portal maintenance 00:00–04:00 daily)."}
+                <p className="mt-1.5 text-center text-[11px] leading-relaxed text-ink-3">
+                  <span className="block">
+                    {lang === "th"
+                      ? "การยื่นข้อเสนอและการประมูลทางการทำผ่าน e-GP เท่านั้น"
+                      : "All official bids are submitted on e-GP."}
+                  </span>
+                  <span className="block text-[10.5px] text-ink-3/80">
+                    {lang === "th"
+                      ? "(ระบบ e-GP ปิดปรับปรุงประจำวัน 00:00–04:00 น.)"
+                      : "(Official portal maintenance 00:00–04:00 daily)"}
+                  </span>
                 </p>
               </div>
             ) : null}
