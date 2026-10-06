@@ -43,7 +43,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const signInHref = `/auth?next=${encodeURIComponent(pathname)}`;
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
           <Link href="/" className="shrink-0 transition-opacity hover:opacity-80" title="Mjölnir Home">
@@ -161,7 +161,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t border-line bg-surface">
+      <footer className="mt-auto border-t border-line bg-surface">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 text-[11px] text-ink-3">
           <Wordmark className="opacity-60" />
           <span className="leading-thai">
