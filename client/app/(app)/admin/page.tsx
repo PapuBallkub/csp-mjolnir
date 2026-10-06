@@ -321,23 +321,6 @@ function AdminDashboard({
           {lang === "th" ? "ตัวเก็บข้อมูลรายแหล่ง" : "Scrapers by source"}
         </SectionHeading>
 
-        {/* Maintenance Window Information Notice (Option A) */}
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[3px] border border-line bg-surface-2 px-3 py-2 text-[12px] leading-thai text-ink-2">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-ink-3">ℹ️</span>
-            <span>
-              {lang === "th"
-                ? "ระบบ e-GP ของกรมบัญชีกลางปิดปรับปรุงประจำวันช่วง 00:00 – 04:00 น. การดึงข้อมูลอัตโนมัติหรือการเชื่อมต่อในช่วงเวลานี้จะหยุดพักและทำงานต่อหลัง 04:00 น."
-                : "e-GP portals undergo scheduled maintenance daily between 00:00 – 04:00. Automated scraping and external document queries pause during this window."}
-            </span>
-          </div>
-          {inMaintenance ? (
-            <span className="shrink-0 font-mono text-[11px] font-medium text-amend">
-              {lang === "th" ? "[ กำลังอยู่ในช่วงปิดปรับปรุง ]" : "[ Active Maintenance Window ]"}
-            </span>
-          ) : null}
-        </div>
-
         {pollMessage ? (
           <div className="mb-3 rounded-[3px] border border-open-line bg-open-bg px-3 py-2 font-mono text-[12px] text-open">
             {pollMessage}
@@ -375,9 +358,16 @@ function AdminDashboard({
                   className="border-b border-line align-top last:border-b-0"
                 >
                   <td className="px-3 py-2.5">
-                    <span className="block text-[13px] leading-thai text-ink font-medium">
-                      {source.name}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="block text-[13px] leading-thai text-ink font-medium">
+                        {source.name}
+                      </span>
+                      {inMaintenance && source.id === "process3" ? (
+                        <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-[1px] font-mono text-[10px] text-amend">
+                          {lang === "th" ? "ปิดปรับปรุง 00:00–04:00" : "Maintenance 00:00–04:00"}
+                        </span>
+                      ) : null}
+                    </div>
                     <span className="mt-0.5 block font-mono text-[10px] text-ink-3">
                       {source.portal} · {source.format}
                     </span>
