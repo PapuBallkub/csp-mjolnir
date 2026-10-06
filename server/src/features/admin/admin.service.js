@@ -1,6 +1,7 @@
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { IngestionLog, Tor, TorInsight } from '#models/index.js';
+import { runFetchStep } from '#pipeline/ingestion/ingest.js';
 import {
   pipelineStats,
   reviewQueue as defaultReviewQueue,
@@ -8,8 +9,8 @@ import {
 } from './ops.fixtures.js';
 
 /**
- * Aggregates live source telemetry from IngestionLog, falling back to
- * default sources when logs are not yet populated (FR-22).
+ * Aggregates live source telemetry from IngestionLog and Tor collection (FR-22).
+ * Strictly monitors the 2 authentic platform sources: process3 and datago.
  */
 export async function getDynamicSources() {
   const sources = [];
@@ -22,14 +23,19 @@ export async function getDynamicSources() {
     loggedSourceIds = [];
   }
 
-  const allSourceIds = Array.from(new Set([...defaultSourceMap.keys(), ...loggedSourceIds]));
+  const allSourceIds = Array.from(
+    new Set([...defaultSources.map((s) => s.id), ...loggedSourceIds]),
+  );
 
   for (const sourceId of allSourceIds) {
     const fallback = defaultSourceMap.get(sourceId) || {
       id: sourceId,
-      name: sourceId,
-      portal: `${sourceId}.gprocurement.go.th`,
-      format: 'json',
+      name:
+        sourceId === 'process3'
+          ? 'e-GP กรมบัญชีกลาง (RSS Feed)'
+          : 'Open Government Data (data.go.th)',
+      portal: sourceId === 'process3' ? 'process3.gprocurement.go.th' : 'data.go.th',
+      format: sourceId === 'process3' ? 'xml' : 'json',
       health: 'ok',
       uptime: 100,
       lastRun: new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -42,8 +48,13 @@ export async function getDynamicSources() {
         .sort({ startedAt: -1 })
         .limit(14);
 
+      const torCount = await Tor.countDocuments({ source: sourceId });
+
       if (recentLogs.length === 0) {
-        sources.push(fallback);
+        sources.push({
+          ...fallback,
+          docsLast7Days: torCount || fallback.docsLast7Days,
+        });
         continue;
       }
 
@@ -62,7 +73,10 @@ export async function getDynamicSources() {
         { $match: { source: sourceId, startedAt: { $gte: sevenDaysAgo } } },
         { $group: { _id: null, total: { $sum: '$itemsIngested' } } },
       ]);
-      const docsLast7Days = docsAgg[0]?.total ?? latest.itemsIngested ?? fallback.docsLast7Days;
+      const docsLast7Days =
+        torCount > 0
+          ? torCount
+          : (docsAgg[0]?.total ?? latest.itemsIngested ?? fallback.docsLast7Days);
 
       sources.push({
         ...fallback,
@@ -83,15 +97,7 @@ export async function getDynamicSources() {
     }
   }
 
-  // Preserve at least one failed scraper example if none in DB (for visual failure state validation)
-  if (!sources.some((s) => s.health === 'failed') && defaultSources.some((s) => s.health === 'failed')) {
-    const failedSample = defaultSources.find((s) => s.health === 'failed');
-    if (failedSample && !sources.some((s) => s.id === failedSample.id)) {
-      sources.push(failedSample);
-    }
-  }
-
-  return sources.length > 0 ? sources : defaultSources;
+  return sources;
 }
 
 /**
@@ -102,21 +108,23 @@ export async function getDynamicStats() {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
-    const [todayCount, awaitingReviewCount, sevenDaysAmendedCount] = await Promise.all([
-      Tor.countDocuments({ createdAt: { $gte: startOfToday } }),
-      TorInsight.countDocuments({ 'metadata.reviewStatus': 'pending' }),
-      Tor.countDocuments({
-        isAmended: true,
-        updatedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-      }),
-    ]);
+    const [todayCount, totalTorCount, awaitingReviewCount, sevenDaysAmendedCount] =
+      await Promise.all([
+        Tor.countDocuments({ createdAt: { $gte: startOfToday } }),
+        Tor.countDocuments(),
+        TorInsight.countDocuments({ 'metadata.reviewStatus': 'pending' }),
+        Tor.countDocuments({
+          isAmended: true,
+          updatedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        }),
+      ]);
 
     const ocrAgg = await Tor.aggregate([
       { $match: { 'ocr.confidence': { $gt: 0 } } },
       { $group: { _id: null, avg: { $avg: '$ocr.confidence' } } },
     ]);
     const avgOcr =
-      ocrAgg[0]?.avg != null ? Number(ocrAgg[0].avg.toFixed(2)) : pipelineStats.avgOcrConfidence;
+      ocrAgg[0]?.avg != null ? Number(ocrAgg[0].avg.toFixed(2)) : 0.95;
 
     const extAgg = await TorInsight.aggregate([
       { $match: { 'metadata.confidenceScore': { $gt: 0 } } },
@@ -125,14 +133,15 @@ export async function getDynamicStats() {
     const avgExt =
       extAgg[0]?.avg != null
         ? Number((extAgg[0].avg / 100).toFixed(2))
-        : pipelineStats.avgExtractionConfidence;
+        : 0.91;
 
     return {
-      docsIngestedToday: todayCount || pipelineStats.docsIngestedToday,
-      docsAwaitingReview: awaitingReviewCount || pipelineStats.docsAwaitingReview,
+      docsIngestedToday: todayCount,
+      totalIndexedTors: totalTorCount,
+      docsAwaitingReview: awaitingReviewCount,
       avgOcrConfidence: avgOcr,
       avgExtractionConfidence: avgExt,
-      amendmentsDetected7d: sevenDaysAmendedCount || pipelineStats.amendmentsDetected7d,
+      amendmentsDetected7d: sevenDaysAmendedCount,
     };
   } catch {
     return pipelineStats;
@@ -231,6 +240,7 @@ export async function getDynamicReviewQueue() {
           : new Date().toISOString().slice(0, 16).replace('T', ' '),
         ocr: tor?.ocr?.confidence || 0.85,
         extraction: score,
+        reviewStatus: insight.metadata?.reviewStatus || 'pending',
         lowFields,
         ...(misclassified ? { misclassified } : {}),
       });
@@ -256,16 +266,36 @@ export async function getDynamicReviewQueue() {
  * Returns complete operational payload for the admin dashboard (FR-22, FR-23).
  */
 export async function getOperations() {
-  const [sources, stats, reviewQueue] = await Promise.all([
+  const [sources, stats, reviewQueue, recentLogs] = await Promise.all([
     getDynamicSources(),
     getDynamicStats(),
     getDynamicReviewQueue(),
+    IngestionLog.find()
+      .sort({ startedAt: -1 })
+      .limit(10)
+      .lean()
+      .then((logs) =>
+        logs.map((l) => ({
+          id: String(l._id),
+          source: l.source,
+          status: l.status,
+          startedAt: l.startedAt
+            ? new Date(l.startedAt).toISOString().slice(0, 19).replace('T', ' ')
+            : '-',
+          durationMs: l.durationMs || 0,
+          itemsDiscovered: l.itemsDiscovered || 0,
+          itemsIngested: l.itemsIngested || 0,
+          error: l.error || null,
+        }))
+      )
+      .catch(() => []),
   ]);
 
   return {
     sources,
     stats,
     reviewQueue,
+    recentLogs,
   };
 }
 
@@ -432,5 +462,23 @@ export async function reExtractTor(projectId) {
     message: reextracted
       ? `Re-extracted facts from official document for project ${projectId}`
       : `Project ${projectId} re-queued for extraction`,
+  };
+}
+
+/**
+ * Triggers an on-demand polling execution of data ingestion sources.
+ */
+export async function triggerIngestion({ source = 'all', limit = 2 } = {}) {
+  const documentsDir = process.env.DOCUMENTS_DIR || './data/documents';
+  const total = await runFetchStep({
+    query: 'คอมพิวเตอร์',
+    limit,
+    source,
+    documentsDir,
+  });
+  return {
+    ok: true,
+    fetched: total,
+    message: `Ingestion poll completed: discovered/updated ${total} record(s)`,
   };
 }

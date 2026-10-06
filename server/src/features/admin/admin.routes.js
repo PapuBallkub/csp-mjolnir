@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from '#features/auth/index.js';
 
 import {
   handleReExtract,
+  handleTriggerIngest,
   handleUpdateReview,
   readOperations,
 } from './admin.controller.js';
@@ -34,3 +35,6 @@ adminRoutes.patch('/review/:projectId', handleUpdateReview);
 
 // Queue a document for re-extraction
 adminRoutes.post('/review/:projectId/re-extract', handleReExtract);
+
+// Trigger on-demand ingestion poll across procurement feeds
+adminRoutes.post('/ingest', handleTriggerIngest);

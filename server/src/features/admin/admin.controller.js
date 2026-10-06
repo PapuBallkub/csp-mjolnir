@@ -1,4 +1,9 @@
-import { getOperations, reExtractTor, updateTorReview } from './admin.service.js';
+import {
+  getOperations,
+  reExtractTor,
+  triggerIngestion,
+  updateTorReview,
+} from './admin.service.js';
 
 export async function readOperations(req, res, next) {
   try {
@@ -38,6 +43,16 @@ export async function handleReExtract(req, res, next) {
   try {
     const { projectId } = req.params;
     const result = await reExtractTor(projectId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function handleTriggerIngest(req, res, next) {
+  try {
+    const { source, limit } = req.body || {};
+    const result = await triggerIngestion({ source, limit });
     res.json(result);
   } catch (err) {
     next(err);

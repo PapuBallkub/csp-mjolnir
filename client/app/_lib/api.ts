@@ -179,6 +179,17 @@ export type ScraperSource = {
   error?: string;
 };
 
+export type IngestionExecutionLog = {
+  id: string;
+  source: string;
+  status: "ok" | "degraded" | "failed";
+  startedAt: string;
+  durationMs: number;
+  itemsDiscovered: number;
+  itemsIngested: number;
+  error?: string | null;
+};
+
 export type ReviewItem = {
   docId: string;
   title: string;
@@ -186,6 +197,7 @@ export type ReviewItem = {
   ingestedAt: string;
   ocr: number;
   extraction: number;
+  reviewStatus?: "pending" | "approved" | "rejected";
   /** Fields the model itself was unsure about. */
   lowFields: { field: string; value: string; confidence: number }[];
   /** Set when the classifier's IT/non-IT call looks wrong. */
@@ -195,8 +207,10 @@ export type ReviewItem = {
 export type AdminOperations = {
   sources: ScraperSource[];
   reviewQueue: ReviewItem[];
+  recentLogs?: IngestionExecutionLog[];
   stats: {
     docsIngestedToday: number;
+    totalIndexedTors?: number;
     docsAwaitingReview: number;
     avgOcrConfidence: number;
     avgExtractionConfidence: number;
@@ -257,6 +271,22 @@ export function adminUpdateReview(projectId: string, payload: UpdateReviewPayloa
 export function adminReExtract(projectId: string) {
   return request<ReExtractResult>(`/api/admin/review/${encodeURIComponent(projectId)}/re-extract`, {
     method: "POST",
+  });
+}
+
+export type TriggerIngestResult = {
+  ok: boolean;
+  fetched: number;
+  message: string;
+};
+
+/**
+ * Triggers an on-demand polling run across procurement sources.
+ */
+export function adminTriggerIngest(source: string = "all") {
+  return request<TriggerIngestResult>("/api/admin/ingest", {
+    method: "POST",
+    body: JSON.stringify({ source, limit: 2 }),
   });
 }
 
