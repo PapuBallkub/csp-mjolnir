@@ -22,11 +22,13 @@ watching. Five things broke under that:
    meanwhile picks the same TOR: OCR twice, and Gemini paid twice.
 5. **A failing TOR was retried on every run, for ever.** For extraction that
    costs money each time the failure comes after Gemini has answered.
-6. **A dead feed looked like a working one.** When the e-GP RSS returned
+6. **A failing feed looked like a working one.** When the e-GP RSS returned
    nothing, fetch filled the gap with data.go.th's FY2568 contracts, saved as
-   new `B0` draft TORs, and reported the RSS errors only as a count. In
-   October 2026 the feed had stopped answering, and every TOR in the
-   database was a 2024–25 contract.
+   new `B0` draft TORs, and reported the RSS errors only as a count. Every
+   TOR in the database was a 2024–25 contract. (We first read the RSS
+   timeouts as a dead feed. [0017](0017-read-the-egp-feed-as-egp-defines-it.md)
+   found the real causes: the feed closes during office hours, and outside
+   them our requests and parser read nothing.)
 
 ## Decision
 
@@ -88,6 +90,7 @@ about TOR data, and it still holds. Both pipelines write `pipelinelocks` and
 - `pipelinefailures` is the per-TOR failure data the admin dashboard needs
   (FR-22). Nothing shows it yet.
 - While the RSS feed doesn't answer, fetch finds no open projects at all.
-  Finding them needs another source; that's open.
+  When it's closed for office hours, fetch now says so instead
+  ([0017](0017-read-the-egp-feed-as-egp-defines-it.md)).
 - **Not covered:** data.go.th fetch still overwrites `status` with whatever
   the contract data says. That belongs to status tracking (FR-15).

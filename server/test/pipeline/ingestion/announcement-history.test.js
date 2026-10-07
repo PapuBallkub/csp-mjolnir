@@ -18,7 +18,7 @@ after(async () => {
   await disconnectDatabase();
 });
 
-test('announcement history: records B0, appends D0, sets isAmended on D1 (FR-02)', async () => {
+test('announcement history: records B0, appends D0, sets isAmended on D2 (FR-02)', async () => {
   // 1. Initial upsert with B0 (Draft TOR)
   const doc1 = await Tor.findOneAndUpdate(
     { projectId: TEST_PROJECT_ID },
@@ -76,18 +76,18 @@ test('announcement history: records B0, appends D0, sets isAmended on D1 (FR-02)
   assert.equal(doc2.announcementHistory[1].code, 'D0');
   assert.equal(doc2.announcementHistory[1].type, 'invitation');
 
-  // 3. Amendment D1 sets isAmended: true and appends 3rd history entry
+  // 3. A changed invitation (D2) sets isAmended: true and appends 3rd history entry
   const doc3 = await Tor.findOneAndUpdate(
     { projectId: TEST_PROJECT_ID },
     {
       $set: {
-        announceType: 'D1',
+        announceType: 'D2',
         isAmended: true,
       },
       $push: {
         announcementHistory: {
-          code: 'D1',
-          type: classifyAnnouncement('D1'),
+          code: 'D2',
+          type: classifyAnnouncement('D2'),
           receivedAt: new Date('2026-01-10T10:00:00Z'),
           publishedAt: new Date('2026-01-10T08:00:00Z'),
           sourceUrl: 'https://example.com/d1',
@@ -99,7 +99,7 @@ test('announcement history: records B0, appends D0, sets isAmended on D1 (FR-02)
 
   assert.equal(doc3.isAmended, true);
   assert.equal(doc3.announcementHistory.length, 3);
-  assert.equal(doc3.announcementHistory[2].code, 'D1');
+  assert.equal(doc3.announcementHistory[2].code, 'D2');
   assert.equal(doc3.announcementHistory[2].type, 'amendment');
 
   // 4. Verify chronological order of receivedAt
