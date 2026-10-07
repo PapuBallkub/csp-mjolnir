@@ -6,7 +6,12 @@ import axios, { AxiosError } from 'axios';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Tor } from '#models/index.js';
-import { fetchFromProcess3, isFeedClosed, parseItemDescription } from '#pipeline/ingestion/sources/process3.js';
+import {
+  fetchFromProcess3,
+  isFeedClosed,
+  parseItemDescription,
+  procurementKindOf,
+} from '#pipeline/ingestion/sources/process3.js';
 
 const TEST_DB = 'mjolnir_test';
 const TEST_PROJECT_1 = '88888000001';
@@ -18,6 +23,8 @@ const TEST_PROJECT_FOLLOWED = '88888000006';
 const TEST_PROJECT_NEVER_SEEN = '88888000007';
 const TEST_PROJECT_NEW_A = '88888000008';
 const TEST_PROJECT_NEW_B = '88888000009';
+const TEST_PROJECT_NO_KEYWORD = '88888000010';
+const TEST_PROJECT_HIRE = '88888000011';
 // The one IT invitation in the recorded feed (fixtures/egp-rss-D0-2026-10-07.xml)
 const REAL_IT_PROJECT = '69109062251';
 const TEST_PROJECTS = [
@@ -30,6 +37,8 @@ const TEST_PROJECTS = [
   TEST_PROJECT_NEVER_SEEN,
   TEST_PROJECT_NEW_A,
   TEST_PROJECT_NEW_B,
+  TEST_PROJECT_NO_KEYWORD,
+  TEST_PROJECT_HIRE,
   REAL_IT_PROJECT,
 ];
 const TEST_DOCS_DIR = './data/test_documents';
@@ -352,4 +361,29 @@ test('fetchFromProcess3: the limit caps new projects, and never stops the later 
   assert.equal(await Tor.findOne({ projectId: TEST_PROJECT_NEW_B }), null);
   // Every type was still asked for, so cancellations and winners can't be missed
   assert.equal(get.mock.callCount(), 8);
+});
+
+test('procurementKindOf: จ้าง is a job, ซื้อ is supplying goods, เช่า is renting', () => {
+  assert.equal(procurementKindOf('ประกวดราคาจ้างบำรุงรักษาเครื่องคอมพิวเตอร์แม่ข่าย (Server)'), 'hire');
+  assert.equal(procurementKindOf('ประกวดราคาซื้อสิทธิการใช้งานระบบบัญชีผู้ใช้งาน Active Directory'), 'buy');
+  assert.equal(procurementKindOf('ประกวดราคาเช่ารถยนต์ส่วนกลาง 3 ประเภท'), 'rent');
+  assert.equal(procurementKindOf('จ้างโครงการวางท่อระบบประปาหมู่บ้าน'), 'hire');
+  assert.equal(procurementKindOf('โครงการจัดหาโปรแกรมบริหารจัดการ'), null);
+  assert.equal(procurementKindOf(undefined), null);
+});
+
+test('fetchFromProcess3: with no keyword, every opening item is a candidate, and keeps its kind', async () => {
+  // Neither title says คอมพิวเตอร์: classify decides from the document (ADR 0018)
+  feedAnswers({
+    D0: [
+      { projectId: TEST_PROJECT_NO_KEYWORD, title: 'ประกวดราคาซื้อสิทธิการใช้งานระบบบัญชีผู้ใช้งาน Active Directory', pubDate: '2026-10-07' },
+      { projectId: TEST_PROJECT_HIRE, title: 'ประกวดราคาจ้างพัฒนาแอปพลิเคชันบริการประชาชน', pubDate: '2026-10-07' },
+    ],
+  });
+
+  const result = await fetchP3({ query: null, limit: Infinity });
+
+  assert.equal(result.discovered, 2);
+  assert.equal((await Tor.findOne({ projectId: TEST_PROJECT_NO_KEYWORD }).lean()).procurementKind, 'buy');
+  assert.equal((await Tor.findOne({ projectId: TEST_PROJECT_HIRE }).lean()).procurementKind, 'hire');
 });

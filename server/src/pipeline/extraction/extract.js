@@ -30,7 +30,7 @@ import { Technology, Tor, TorInsight } from '#models/index.js';
 import { MAX_ATTEMPTS, clearFailure, loadGivenUp, recordFailure } from '../shared/failures.js';
 import { withRunLock } from '../shared/run-lock.js';
 import { createGeminiClient, readGeminiConfig } from './gemini.js';
-import { buildFromAnswers, processTor, saveInsight } from './process-tor.js';
+import { buildFromAnswers, classifyPreview, processTor, saveInsight } from './process-tor.js';
 import { PROMPT_VERSION } from './prompts.js';
 import { decide, sourceFingerprint } from './select.js';
 
@@ -142,8 +142,8 @@ async function run(args, { client, config }) {
 
   const tors = args.id
     ? await Tor.find({ projectId: args.id }).lean()
-    : await Tor.find({ pipelineStatus: 'ocr_done' }).sort({ updatedAt: 1 }).lean();
-  if (args.id && tors[0]?.pipelineStatus !== 'ocr_done') {
+    : await Tor.find({ pipelineStatus: { $in: ['ocr_preview', 'ocr_done'] } }).sort({ updatedAt: 1 }).lean();
+  if (args.id && !['ocr_preview', 'ocr_done'].includes(tors[0]?.pipelineStatus)) {
     throw new Error(`TOR ${args.id} has no OCR text yet; run \`npm run ingest:ocr -- --id ${args.id}\` first.`);
   }
 
@@ -151,7 +151,8 @@ async function run(args, { client, config }) {
     (await TorInsight.find({ projectId: { $in: tors.map((t) => t.projectId) } }, { projectId: 1, metadata: 1 }).lean())
       .map((insight) => [insight.projectId, insight]),
   );
-  if (args.recheck) return await recheck(tors, existing, args);
+  // Saved answers from a preview hold no extraction to rebuild from
+  if (args.recheck) return await recheck(tors.filter((tor) => tor.pipelineStatus === 'ocr_done'), existing, args);
 
   // A TOR that keeps failing after Gemini answered would be paid for on every run
   const gaveUp = args.id || args.retryFailed ? () => false : await loadGivenUp('extract');
@@ -174,7 +175,7 @@ async function run(args, { client, config }) {
   }
 
   await fs.mkdir(REVIEW_DIR, { recursive: true });
-  const counts = { saved: 0, excluded: 0, failed: 0 };
+  const counts = { saved: 0, excluded: 0, awaiting: 0, failed: 0 };
   const usages = [];
 
   for (const [index, { tor, decision, inputKey }] of queue.slice(0, args.limit).entries()) {
@@ -182,7 +183,11 @@ async function run(args, { client, config }) {
     if (decision.warn) console.warn(`${label}: a person had reviewed this result; it goes back to pending.`);
     try {
       const started = Date.now();
-      const { insight, review, usage } = await processTor(tor, { client, config, dryRun: args.dryRun });
+      // A preview is only classified; its full text is read next, then extracted (ADR 0018)
+      const { insight, review, usage } =
+        tor.pipelineStatus === 'ocr_preview'
+          ? await classifyPreview(tor, { client, config })
+          : await processTor(tor, { client, config, dryRun: args.dryRun });
       usages.push(...usage);
 
       await fs.writeFile(reviewPath(tor.projectId), JSON.stringify({ insight, ...review }, null, 2));
@@ -195,6 +200,9 @@ async function run(args, { client, config }) {
       if (insight.metadata.excluded) {
         counts.excluded++;
         console.log(`${label}: not IT, kept as excluded · ${insight.metadata.excluded.reason} · ${seconds} s`);
+      } else if (insight.metadata.awaitingFullText) {
+        counts.awaiting++;
+        console.log(`${label}: IT from its preview; waiting for the full text · ${review.classification.reason} · ${seconds} s`);
       } else {
         counts.saved++;
         const { confidenceScore, checks } = insight.metadata;
@@ -226,7 +234,8 @@ async function run(args, { client, config }) {
 
   const leftOver = Math.max(0, queue.length - args.limit);
   console.log(
-    `\nDone: ${counts.saved} extracted, ${counts.excluded} excluded, ${counts.failed} failed` +
+    `\nDone: ${counts.saved} extracted, ${counts.excluded} excluded, ` +
+      `${counts.awaiting} IT preview(s) waiting for their full text, ${counts.failed} failed` +
       (leftOver ? `, ${leftOver} left for the next run (--limit)` : ''),
   );
   console.log(

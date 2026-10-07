@@ -6,7 +6,9 @@
  * seeing a project twice must leave alone what the later steps own.
  */
 
-const STAGES = ['fetched', 'downloaded', 'ocr_done'];
+// In order. Every stage a TOR can reach must be here, or fetch takes it for
+// new and sends it back (ocr_preview was missing at first: ADR 0018)
+const STAGES = ['fetched', 'downloaded', 'ocr_preview', 'ocr_done'];
 
 /**
  * True once download has handled the TOR. From then on its document and its
