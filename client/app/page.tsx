@@ -259,7 +259,7 @@ export default function LandingPage() {
       {/* Features */}
       <section className="bg-surface">
         <div className="mx-auto max-w-[1240px] px-4 py-16 sm:py-20">
-          <h2 className="text-[13px] font-medium uppercase tracking-[0.12em] text-ink-3">
+          <h2 className="text-[12px] font-medium uppercase tracking-[0.05em] text-ink-3">
             {lang === "th" ? "ความสามารถหลัก" : "Core capabilities"}
           </h2>
           <div className="mt-8 grid gap-6 sm:grid-cols-2">

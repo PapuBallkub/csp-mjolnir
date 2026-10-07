@@ -125,7 +125,7 @@ export default function WatchdogPage() {
   return (
     <div className="mx-auto max-w-[1240px] px-4 py-6">
       <header className="mb-6">
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-3">
+        <p className="text-[11px] font-medium uppercase tracking-[0.05em] text-ink-3">
           {lang === "th" ? "มุมมองสำหรับผู้ตรวจสอบ" : "Watchdog view"}
         </p>
         <h1 className="mt-1 text-[26px] leading-tight font-semibold tracking-tight text-ink">
@@ -225,7 +225,7 @@ export default function WatchdogPage() {
                 ].map((heading, index) => (
                   <th
                     key={heading}
-                    className={`px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
+                    className={`px-3 py-2 text-[11px] font-medium text-ink-3 ${
                       index >= 2 ? "text-right" : ""
                     }`}
                   >

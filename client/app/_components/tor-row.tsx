@@ -149,7 +149,7 @@ export function TorRow({
             >
               {formatTHBCompact(budget)}
             </span>
-            <span className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+            <span className="mt-1 text-[11px] font-medium text-ink-3">
               {lang === "th" ? "ราคากลาง" : "reference price"}
             </span>
           </div>

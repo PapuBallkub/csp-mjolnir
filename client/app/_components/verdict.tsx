@@ -5,6 +5,7 @@ import type { TorInsightSummary, TorStatus } from "../_lib/api";
 // Re-export Status and keep backward-compat alias
 export type { Status };
 export type ApiStatus = Status;
+import { Label } from "./ui";
 
 /**
  * The verdict layer — the one thing this product has that a plain listing site
@@ -531,9 +532,7 @@ export function VerdictStrip({
       <div className="grid grid-cols-1 divide-y divide-line rounded-[3px] border border-line bg-surface-2 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         {cells.map((cell) => (
           <div key={cell.label} className="flex flex-col gap-2 px-3.5 py-3">
-            <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-3">
-              {cell.label}
-            </span>
+            <Label>{cell.label}</Label>
             {cell.node}
           </div>
         ))}
@@ -577,9 +576,7 @@ export function VerdictStrip({
     <div className="grid grid-cols-1 divide-y divide-line rounded-[3px] border border-line bg-surface-2 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
       {cells.map((cell) => (
         <div key={cell.label} className="flex flex-col gap-2 px-3.5 py-3">
-          <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-3">
-            {cell.label}
-          </span>
+          <Label>{cell.label}</Label>
           {cell.node}
         </div>
       ))}

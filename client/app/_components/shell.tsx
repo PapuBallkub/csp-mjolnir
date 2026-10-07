@@ -94,9 +94,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 <span className="mx-1 h-4 w-px shrink-0 bg-line" />
                 <Link
                   href="/admin"
-                  className={`rounded-[3px] px-2.5 py-1.5 font-mono text-[11px] whitespace-nowrap uppercase tracking-[0.1em] transition-colors ${
+                  className={`rounded-[3px] px-2.5 py-1.5 text-[13px] whitespace-nowrap transition-colors ${
                     pathname.startsWith("/admin")
-                      ? "bg-surface-3 text-ink"
+                      ? "bg-surface-3 font-medium text-ink"
                       : "text-ink-3 hover:bg-surface-2 hover:text-ink"
                   }`}
                 >

@@ -159,7 +159,7 @@ export function CatalogRow({
                 {lang === "th" ? "ไม่ระบุใน TOR" : "Not in the TOR"}
               </span>
             )}
-            <span className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+            <span className="mt-1 text-[11px] font-medium text-ink-3">
               {priceLabel}
             </span>
           </div>

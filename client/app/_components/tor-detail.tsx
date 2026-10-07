@@ -354,7 +354,7 @@ export function TorDetail({
 
             <div className="mt-4 flex flex-col border-t border-line/60 pt-2">
               <Fact label={lang === "th" ? "กำหนดยื่นข้อเสนอ" : "Submission deadline"}>
-                <span className="font-mono text-[13px] font-medium text-ink">
+                <span className="tnum text-[13px] font-medium text-ink">
                   {formatDateString(facts.submissionDeadline, lang)}
                 </span>
               </Fact>
@@ -366,7 +366,7 @@ export function TorDetail({
               </Fact>
 
               <Fact label={lang === "th" ? "ระยะเวลาส่งมอบ" : "Delivery period"}>
-                <span className="font-mono text-[12px] text-ink">
+                <span className="tnum text-[12px] text-ink">
                   {facts.deliveryPeriodDays
                     ? `${facts.deliveryPeriodDays} ${lang === "th" ? "วัน" : "days"}`
                     : (lang === "th" ? "ไม่ระบุใน TOR" : "Not specified")}
@@ -374,7 +374,7 @@ export function TorDetail({
               </Fact>
 
               <Fact label={lang === "th" ? "ระยะเวลารับประกัน" : "Warranty"}>
-                <span className="font-mono text-[12px] text-ink">
+                <span className="tnum text-[12px] text-ink">
                   {facts.warrantyYears
                     ? `${facts.warrantyYears} ${lang === "th" ? "ปี" : "years"}`
                     : (lang === "th" ? "ไม่ระบุใน TOR" : "Not specified")}
@@ -387,14 +387,14 @@ export function TorDetail({
                 </span>
               </Fact>
 
-              <Fact label={lang === "th" ? "วันที่เผยแพร่" : "Posted date"} mono>
-                <span className="font-mono text-[12px]">
+              <Fact label={lang === "th" ? "วันที่เผยแพร่" : "Posted date"}>
+                <span className="tnum text-[12px]">
                   {formatDateString(facts.postedDate, lang)}
                 </span>
               </Fact>
 
-              <Fact label={lang === "th" ? "ปีงบประมาณ" : "Fiscal year"} mono>
-                <span className="font-mono text-[12.5px] font-semibold text-ink">
+              <Fact label={lang === "th" ? "ปีงบประมาณ" : "Fiscal year"}>
+                <span className="tnum text-[12.5px] font-semibold text-ink">
                   {fiscalYear
                     ? lang === "th"
                       ? `พ.ศ. ${fiscalYear}`
@@ -418,10 +418,16 @@ export function TorDetail({
                   <span>{lang === "th" ? "เปิดดูบนระบบ e-GP ทางการ" : "Open on official e-GP"}</span>
                   <span>↗</span>
                 </a>
-                <p className="mt-1.5 text-center text-[11px] text-ink-3">
-                  {lang === "th"
-                    ? "การยื่นข้อเสนอและการประมูลทางการทำผ่าน e-GP เท่านั้น"
-                    : "All official bids are submitted on e-GP."}
+                <p className="mt-1.5 text-center text-[11px] leading-thai text-ink-3">
+                  {lang === "th" ? (
+                    <>
+                      การยื่นข้อเสนอและการประมูลทางการทำผ่าน e-GP เท่านั้น
+                      <br />
+                      (ระบบ e-GP ปิดปรับปรุงประจำวัน 00:00–04:00 น.)
+                    </>
+                  ) : (
+                    "All official bids are submitted on e-GP."
+                  )}
                 </p>
               </div>
             ) : null}
