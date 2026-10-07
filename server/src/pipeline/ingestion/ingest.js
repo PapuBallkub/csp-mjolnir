@@ -18,6 +18,12 @@
  *   node src/pipeline/ingestion/ingest.js --step download --id 68039469567
  *   node src/pipeline/ingestion/ingest.js --step ocr
  *   node src/pipeline/ingestion/ingest.js --step ocr --id 67109111284
+ *
+ *   # Try again the TORs that gave up after repeated failures
+ *   node src/pipeline/ingestion/ingest.js --retry-failed
+ *
+ * One ingestion run at a time: a second one exits without doing anything
+ * (ADR 0016).
  */
 
 import fs from 'node:fs/promises';
@@ -26,6 +32,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Tor } from '#models/index.js';
+import { MAX_ATTEMPTS, clearFailure, loadGivenUp, recordFailure } from '../shared/failures.js';
+import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
 import { fetchFromProcess3 } from './sources/process3.js';
 import { fetchFromDataGo } from './sources/datago.js';
 import { extractText } from './lib/ocr.js';
@@ -46,6 +54,7 @@ function parseCliArgs() {
   let limit = 5;
   let source = 'all'; // 'all' | 'process3' | 'datago'
   let skipOcr = false;
+  let retryFailed = false;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -72,11 +81,41 @@ function parseCliArgs() {
       source = arg.split('=')[1].toLowerCase();
     } else if (arg === '--skip-ocr') {
       skipOcr = true;
+    } else if (arg === '--retry-failed') {
+      retryFailed = true;
     }
   }
 
-  return { step, id, query, limit, source, skipOcr };
+  return { step, id, query, limit, source, skipOcr, retryFailed };
 }
+
+/**
+ * Leaves out the TORs a step gave up on, unless asked for by id or with
+ * --retry-failed, and says how many it left out.
+ */
+async function withoutGivenUp(candidates, { step, id, retryFailed, inputKeyOf = () => null }) {
+  if (id || retryFailed) return candidates;
+  const gaveUp = await loadGivenUp(step);
+  const kept = candidates.filter((tor) => !gaveUp(tor.projectId, inputKeyOf(tor)));
+  const left = candidates.length - kept.length;
+  if (left > 0) {
+    console.log(
+      `  -> ${left} project(s) skipped after ${MAX_ATTEMPTS} failed attempts ` +
+        '(run with --retry-failed to try them again).',
+    );
+  }
+  return kept;
+}
+
+/** Records a failed step, and says whether it counted and whether the TOR gave up. */
+async function noteFailure({ projectId, step, error, transient = false, inputKey = null }) {
+  const { attempts, counted, gaveUp } = await recordFailure({ projectId, step, error, transient, inputKey });
+  if (!counted) return ' (the source did not answer; not counted as an attempt)';
+  return ` (attempt ${attempts} of ${MAX_ATTEMPTS}${gaveUp ? '; skipped from now on until --retry-failed' : ''})`;
+}
+
+// OCR works from the PDF: a new PDF gets new tries
+const pdfHashOf = (tor) => tor.document?.contentHash ?? null;
 
 /**
  * Service 1: Fetch metadata from procurement sources and pre-filter IT relevance.
@@ -94,10 +133,11 @@ export async function runFetchStep({ query, limit, source, documentsDir }) {
       downloadAttachments: false,
     });
     totalFetched += p3Result.fetched;
-    console.log(
-      `     Discovered: ${p3Result.fetched} project(s)` +
-        (p3Result.errors.length ? ` (${p3Result.errors.length} notices)` : ''),
-    );
+    console.log(`     Discovered: ${p3Result.fetched} project(s)`);
+    reportSourceErrors(p3Result.errors);
+    if (p3Result.unreachable) {
+      console.warn('     e-GP RSS DID NOT ANSWER: no new announcements were fetched from it this run.');
+    }
   }
 
   if (source === 'all' || source === 'datago') {
@@ -109,19 +149,22 @@ export async function runFetchStep({ query, limit, source, documentsDir }) {
       downloadAttachments: false,
     });
     totalFetched += dgResult.fetched;
-    console.log(
-      `     Discovered: ${dgResult.fetched} project(s)` +
-        (dgResult.errors.length ? ` (${dgResult.errors.length} notices)` : ''),
-    );
+    console.log(`     Discovered: ${dgResult.fetched} project(s)`);
+    reportSourceErrors(dgResult.errors);
   }
 
   return totalFetched;
 }
 
+/** Prints every error a source reported. A count alone once hid a dead feed. */
+function reportSourceErrors(errors) {
+  for (const error of errors) console.warn(`     ! ${error}`);
+}
+
 /**
  * Service 2: Download attached TOR packages/PDFs from e-GP backend.
  */
-export async function runDownloadStep({ id, documentsDir, source = 'manual' }) {
+export async function runDownloadStep({ id, documentsDir, source = 'manual', retryFailed = false }) {
   console.log('\n[Service 2: DOWNLOAD] Resolving and downloading TOR PDFs...');
   await fs.mkdir(documentsDir, { recursive: true });
 
@@ -147,6 +190,8 @@ export async function runDownloadStep({ id, documentsDir, source = 'manual' }) {
     });
     candidates = [placeholder];
   }
+
+  candidates = await withoutGivenUp(candidates, { step: 'download', id, retryFailed });
 
   if (candidates.length === 0) {
     console.log('  -> No documents queued for download.');
@@ -182,7 +227,13 @@ export async function runDownloadStep({ id, documentsDir, source = 'manual' }) {
         documentInfo = await parseTorDocument(dlRes.filePath, dlRes.companionText || '');
         isDownloaded = true;
       } else {
-        console.warn(`        Download failed: ${dlRes.error}`);
+        const note = await noteFailure({
+          projectId: tor.projectId,
+          step: 'download',
+          error: dlRes.error,
+          transient: Boolean(dlRes.transient),
+        });
+        console.warn(`        Download failed: ${dlRes.error}${note}`);
       }
     }
 
@@ -198,6 +249,7 @@ export async function runDownloadStep({ id, documentsDir, source = 'manual' }) {
       };
       tor.pipelineStatus = 'downloaded';
       await tor.save();
+      await clearFailure({ projectId: tor.projectId, step: 'download' });
       successCount++;
     }
   }
@@ -208,7 +260,7 @@ export async function runDownloadStep({ id, documentsDir, source = 'manual' }) {
 /**
  * Service 3: OCR and Text Extraction on downloaded PDF documents.
  */
-export async function runOcrStep({ id, documentsDir, source = 'manual' }) {
+export async function runOcrStep({ id, documentsDir, source = 'manual', retryFailed = false }) {
   console.log('\n[Service 3: OCR] Extracting text & running OCR on PDF documents...');
 
   let queryFilter = {
@@ -244,6 +296,8 @@ export async function runOcrStep({ id, documentsDir, source = 'manual' }) {
     }
   }
 
+  candidates = await withoutGivenUp(candidates, { step: 'ocr', id, retryFailed, inputKeyOf: pdfHashOf });
+
   if (candidates.length === 0) {
     console.log('  -> No documents queued for OCR.');
     return 0;
@@ -257,7 +311,9 @@ export async function runOcrStep({ id, documentsDir, source = 'manual' }) {
     const pdfPath = tor.document?.storagePath || path.join(documentsDir, `${tor.projectId}_TOR.pdf`);
 
     if (!fsSync.existsSync(pdfPath)) {
-      console.warn(`     [${i + 1}/${candidates.length}] Skipping ${tor.projectId}: File not found at ${pdfPath}`);
+      const error = `File not found at ${pdfPath}`;
+      const note = await noteFailure({ projectId: tor.projectId, step: 'ocr', error, inputKey: pdfHashOf(tor) });
+      console.warn(`     [${i + 1}/${candidates.length}] Skipping ${tor.projectId}: ${error}${note}`);
       continue;
     }
 
@@ -278,6 +334,7 @@ export async function runOcrStep({ id, documentsDir, source = 'manual' }) {
         : 'DIGITAL_TEXT_PDF';
       tor.pipelineStatus = 'ocr_done';
       await tor.save();
+      await clearFailure({ projectId: tor.projectId, step: 'ocr' });
 
       console.log(
         `        Type: ${ocrResult.usedOcr ? 'Scanned Paper (OCR)' : 'Digital Text PDF'} | ` +
@@ -287,7 +344,9 @@ export async function runOcrStep({ id, documentsDir, source = 'manual' }) {
       );
       successCount++;
     } catch (err) {
-      console.error(`        Failed to extract text for ${tor.projectId}: ${err.message}`);
+      // OCR runs here, not at a source, so every failure is this TOR's own
+      const note = await noteFailure({ projectId: tor.projectId, step: 'ocr', error: err, inputKey: pdfHashOf(tor) });
+      console.error(`        Failed to extract text for ${tor.projectId}: ${err.message}${note}`);
     }
   }
 
@@ -309,10 +368,18 @@ async function main() {
   console.log(`Source Target   : ${args.source}`);
   console.log(`Document Dir    : ${DOCUMENTS_DIR}`);
   console.log(`Skip OCR        : ${args.skipOcr}`);
+  console.log(`Retry failed    : ${args.retryFailed}`);
   console.log('='.repeat(70));
 
   await connectDatabase();
+  try {
+    await withRunLock('ingestion', () => runSteps(args));
+  } finally {
+    await disconnectDatabase();
+  }
+}
 
+async function runSteps(args) {
   const isAll = args.step === 'all';
 
   if (isAll || args.step === 'fetch') {
@@ -329,6 +396,7 @@ async function main() {
       id: args.id,
       source: args.source,
       documentsDir: DOCUMENTS_DIR,
+      retryFailed: args.retryFailed,
     });
   }
 
@@ -337,6 +405,7 @@ async function main() {
       id: args.id,
       source: args.source,
       documentsDir: DOCUMENTS_DIR,
+      retryFailed: args.retryFailed,
     });
   }
 
@@ -366,8 +435,6 @@ async function main() {
   console.log(`Scanned Paper PDFs (OCR): ${stats.scannedPdfs}`);
   console.log(`Pipeline Status States  :`, stats.statusBreakdown);
   console.log('='.repeat(70));
-
-  await disconnectDatabase();
 }
 
 // Only execute main when invoked as direct CLI script. import.meta.url is a
@@ -375,7 +442,8 @@ async function main() {
 // them as URLs: a string template matches on Linux and silently never on Windows.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((err) => {
-    console.error('[FATAL] Pipeline failure:', err);
+    if (err instanceof RunLockHeldError) console.error(`\n${err.message}`);
+    else console.error('[FATAL] Pipeline failure:', err);
     process.exit(1);
   });
 }
