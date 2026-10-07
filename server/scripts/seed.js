@@ -1,19 +1,21 @@
 /**
  * server/scripts/seed.js
  *
- * Loads DEMO data for building the UI: 28 real e-GP notices (seed/tors.json)
- * with made-up insights (seed/torinsights.json, all `origin: 'demo'`), and the
- * starter technology vocabulary.
+ * Loads the starter technology vocabulary. Demo data is opt-in (ADR 0015):
+ * 28 real e-GP notices (seed/tors.json) with made-up insights
+ * (seed/torinsights.json, all `origin: 'demo'`), for building UI only.
  *
- * It never deletes, and never replaces real data:
+ *   npm run seed                      the technology vocabulary only
+ *   npm run seed -- --demo            also the demo TORs and insights
+ *   npm run seed -- --remove-demo     delete every demo insight, nothing else
+ *
+ * Loading never deletes, and never replaces real data:
  * - a TOR is added only if ingestion hasn't already saved that project
  * - a demo insight is added, or refreshed, only where no pipeline result exists
  * - technologies are merged into the vocabulary, never cleared
  *
- * So it's safe to run on a database that already holds real extractions, and
- * `npm run extract` later replaces demo insights with real ones.
- *
- *   npm run seed
+ * Removing deletes demo insights only: pipeline results and every Tor record
+ * stay, so the catalog then shows real results alone.
  */
 
 import fs from 'node:fs/promises';
@@ -25,16 +27,29 @@ import { seedStarterTechnologies } from '#pipeline/extraction/vocabulary.js';
 const SEED_DIR = path.resolve(import.meta.dirname, '../seed');
 const readSeed = async (file) => JSON.parse(await fs.readFile(path.join(SEED_DIR, file), 'utf8'));
 
-async function seed() {
+async function seed({ withDemo, removeDemo }) {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Refusing to seed a production database.');
   }
+  if (withDemo && removeDemo) throw new Error('Choose one of --demo and --remove-demo.');
+
   await connectDatabase();
   try {
-    const tors = await readSeed('tors.json');
-    const insights = await readSeed('torinsights.json');
+    if (removeDemo) {
+      const { deletedCount } = await TorInsight.deleteMany({ 'metadata.origin': 'demo' });
+      console.log(`Insights:     ${deletedCount} demo removed; real pipeline results and all TORs kept`);
+      return;
+    }
 
     const { added: technologiesAdded } = await seedStarterTechnologies();
+    console.log(`Technologies: ${technologiesAdded} added (${await Technology.countDocuments()} in the vocabulary)`);
+    if (!withDemo) {
+      console.log('Demo data:    not loaded (add --demo to load it, for building UI only)');
+      return;
+    }
+
+    const tors = await readSeed('tors.json');
+    const insights = await readSeed('torinsights.json');
 
     // TORs: ingestion's own records win
     const known = new Set(await Tor.distinct('projectId'));
@@ -62,7 +77,6 @@ async function seed() {
       demoWritten++;
     }
 
-    console.log(`Technologies: ${technologiesAdded} added (${await Technology.countDocuments()} in the vocabulary)`);
     console.log(`TORs:         ${newTors.length} added, ${tors.length - newTors.length} already there and kept`);
     console.log(`Insights:     ${demoWritten} demo written, ${keptReal} real pipeline results kept`);
   } finally {
@@ -70,7 +84,8 @@ async function seed() {
   }
 }
 
-seed().catch((error) => {
+const args = process.argv.slice(2);
+seed({ withDemo: args.includes('--demo'), removeDemo: args.includes('--remove-demo') }).catch((error) => {
   console.error(`Seeding failed: ${error.message}`);
   process.exit(1);
 });
