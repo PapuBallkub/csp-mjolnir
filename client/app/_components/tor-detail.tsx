@@ -196,14 +196,20 @@ export function TorDetail({
         <div className="scanlines pointer-events-none absolute inset-0 opacity-50" aria-hidden />
 
         <div className="relative mx-auto max-w-[1240px] px-4 py-6">
-          <nav className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-ink-3">
+          <nav className="flex flex-wrap items-center gap-2 text-[11.5px] text-ink-3">
             <Link href="/search" className="hover:text-ink hover:underline">
               {lang === "th" ? "ค้นหาประกาศ" : "Search"}
             </Link>
             <span>/</span>
-            <span className="tnum text-ink-2">{insight.projectId}</span>
+            <span className="font-mono tnum text-ink-2">{insight.projectId}</span>
             <span className="h-3 w-px bg-line" />
-            <span>e-GP {iden.egpReference || insight.projectId}</span>
+            <span className="font-mono">
+              {iden.egpReference
+                ? iden.egpReference.toLowerCase().startsWith("e-gp")
+                  ? iden.egpReference
+                  : `e-GP ${iden.egpReference}`
+                : `e-GP ${insight.projectId}`}
+            </span>
           </nav>
 
           <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink-2">
@@ -575,7 +581,7 @@ export function TorDetail({
                   : "Objective and high-level scope from the source TOR document"
               }
             >
-              {lang === "th" ? "3. วัตถุประสงค์และขอบเขตโครงการ" : "3. Project Overview"}
+              {lang === "th" ? "วัตถุประสงค์และขอบเขตโครงการ" : "Project Overview"}
             </SectionHeading>
 
             {!overview.objective && !overview.highLevelScope && (!overview.majorComponents || overview.majorComponents.length === 0) ? (
@@ -630,7 +636,7 @@ export function TorDetail({
                   : "Everything required to deliver and pass official acceptance inspection"
               }
             >
-              {lang === "th" ? "4. สิ่งที่ต้องส่งมอบ (Deliverables)" : "4. Deliverables"}
+              {lang === "th" ? "สิ่งที่ต้องส่งมอบ (Deliverables)" : "Deliverables"}
             </SectionHeading>
 
             {(!deliverables.system || deliverables.system.length === 0) &&
@@ -722,7 +728,7 @@ export function TorDetail({
                   : "Required technology stack, system architecture and performance metrics"
               }
             >
-              {lang === "th" ? "5. ข้อกำหนดด้านเทคนิค (Technical Requirements)" : "5. Technical Requirements"}
+              {lang === "th" ? "ข้อกำหนดด้านเทคนิค (Technical Requirements)" : "Technical Requirements"}
             </SectionHeading>
 
 
@@ -799,7 +805,7 @@ export function TorDetail({
                   : "Legacy systems, interfaces, and host deployment environment"
               }
             >
-              {lang === "th" ? "6. สภาพแวดล้อมและการเชื่อมต่อระบบเดิม" : "6. Integration & Environment"}
+              {lang === "th" ? "สภาพแวดล้อมและการเชื่อมต่อระบบเดิม" : "Integration & Environment"}
             </SectionHeading>
 
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -859,7 +865,7 @@ export function TorDetail({
                   : "Training, SLA response times, and ongoing maintenance expectations"
               }
             >
-              {lang === "th" ? "7. การดำเนินงานและการบำรุงรักษา" : "7. Operations & Maintenance"}
+              {lang === "th" ? "การดำเนินงานและการบำรุงรักษา" : "Operations & Maintenance"}
             </SectionHeading>
 
             <div className="mt-3 flex flex-col gap-4">
@@ -899,7 +905,7 @@ export function TorDetail({
                   : "Qualifications, minimal prior contract value, and mandatory certifications"
               }
             >
-              {lang === "th" ? "8. คุณสมบัติผู้ยื่นข้อเสนอ (Eligibility)" : "8. Bidder Eligibility"}
+              {lang === "th" ? "คุณสมบัติผู้ยื่นข้อเสนอ (Eligibility)" : "Bidder Eligibility"}
             </SectionHeading>
 
             <div className="mt-3 flex flex-col gap-4">
@@ -974,7 +980,7 @@ export function TorDetail({
                   : "Payment milestones, delivery conditions, and bid evaluation methodology"
               }
             >
-              {lang === "th" ? "9. เงื่อนไขสัญญาและการส่งมอบ" : "9. Contract Conditions"}
+              {lang === "th" ? "เงื่อนไขสัญญาและการส่งมอบ" : "Contract Conditions"}
             </SectionHeading>
 
             <div className="mt-3 flex flex-col gap-3 text-[13.5px]">
@@ -1014,7 +1020,7 @@ export function TorDetail({
                 </span>
               }
             >
-              {lang === "th" ? "10. วิเคราะห์ความเสี่ยงล็อกสเปก (Lock-Spec Risk)" : "10. Lock-Spec Risk Analysis"}
+              {lang === "th" ? "วิเคราะห์ความเสี่ยงล็อกสเปก (Lock-Spec Risk)" : "Lock-Spec Risk Analysis"}
             </SectionHeading>
 
             <div className="mt-2">
@@ -1091,7 +1097,7 @@ export function TorDetail({
           </AccentPanel>
           ) : (
             <NotAnalysed
-              heading={lang === "th" ? "10. วิเคราะห์ความเสี่ยงล็อกสเปก (Lock-Spec Risk)" : "10. Lock-Spec Risk Analysis"}
+              heading={lang === "th" ? "วิเคราะห์ความเสี่ยงล็อกสเปก (Lock-Spec Risk)" : "Lock-Spec Risk Analysis"}
               lang={lang}
             />
           )}
@@ -1113,7 +1119,7 @@ export function TorDetail({
                 </span>
               }
             >
-              {lang === "th" ? "11. ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "11. Price Reality Check"}
+              {lang === "th" ? "ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "Price Reality Check"}
             </SectionHeading>
 
             <p className="mt-2 text-[14.5px] leading-thai text-ink">
@@ -1182,7 +1188,7 @@ export function TorDetail({
           </AccentPanel>
           ) : (
             <NotAnalysed
-              heading={lang === "th" ? "11. ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "11. Price Reality Check"}
+              heading={lang === "th" ? "ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "Price Reality Check"}
               lang={lang}
             />
           )}
@@ -1199,7 +1205,7 @@ export function TorDetail({
                     : "Summary of changes made since original announcement"
                 }
               >
-                {lang === "th" ? "12. ประวัติการแก้ไขเอกสาร TOR" : "12. Amendment History"}
+                {lang === "th" ? "ประวัติการแก้ไขเอกสาร TOR" : "Amendment History"}
               </SectionHeading>
 
               <div className="mt-2">
@@ -1213,63 +1219,6 @@ export function TorDetail({
               </div>
             </AccentPanel>
           ) : null}
-
-          {/* ---------------------------------------------------------------- */}
-          {/* 13. SOURCE & TRACEABILITY                                        */}
-          {/* ---------------------------------------------------------------- */}
-          <div className="mt-2 border-t border-line pt-6">
-            <Eyebrow>{lang === "th" ? "13. การตรวจสอบย้อนกลับและเอกสารต้นทาง" : "13. Source & Traceability"}</Eyebrow>
-
-            <div className="mt-3 rounded-[3px] border border-line bg-surface-2/40 p-4">
-              <div className="flex flex-col gap-2 text-[12.5px] leading-thai text-ink-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-ink">{lang === "th" ? "รหัสโครงการ e-GP:" : "Project ID:"}</span>
-                  <span className="font-mono text-ink">{insight.projectId}</span>
-                </div>
-
-                {insight.document?.fileName ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-ink">{lang === "th" ? "เอกสารต้นฉบับ:" : "Source document:"}</span>
-                    <span className="font-mono text-ink-2">{insight.document.fileName}</span>
-                    {insight.document.pages ? (
-                      <span className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-mono border border-line">
-                        {insight.document.pages} {lang === "th" ? "หน้า" : "pages"}
-                      </span>
-                    ) : null}
-                    {insight.document.documentType ? (
-                      <span className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-mono border border-line">
-                        {insight.document.documentType === "DIGITAL_TEXT_PDF" ? "Digital PDF" : "Scanned Paper (OCR)"}
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {officialEgpUrl ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-ink">{lang === "th" ? "ประกาศทางการ:" : "Official Notice:"}</span>
-                    <a
-                      href={officialEgpUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-open underline hover:text-ink break-all"
-                    >
-                      {officialEgpUrl}
-                    </a>
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Mandatory Third-Party Disclaimer per AGENTS.md §6 */}
-              <div className="mt-4 border-t border-line/60 pt-3 text-[11.5px] leading-thai text-ink-3">
-                <p>
-                  <strong>{lang === "th" ? "ข้อความปฏิเสธความรับผิดชอบ:" : "Disclaimer:"}</strong>{" "}
-                  {lang === "th"
-                    ? "แพลตฟอร์มนี้เป็นเครื่องมือสนับสนุนการค้นหาและสรุปข้อมูลประกาศจัดซื้อจัดจ้างเท่านั้น (Third-party Discovery Tool) ไม่ใช่ระบบยื่นข้อเสนอทางการ การดำเนินการจัดซื้อจัดจ้างและยื่นซองข้อเสนอทั้งหมดต้องกระทำผ่านระบบ e-GP ของกรมบัญชีกลางเท่านั้น เอกสาร TOR ฉบับทางการเป็นเอกสารที่มีผลผูกพันทางกฎหมายสูงสุด"
-                    : "This platform is an independent third-party discovery and summarization tool. Official submissions and contract awards occur strictly via the Comptroller General's Department e-GP portal. The original TOR PDF remains the authoritative legal document."}
-                </p>
-              </div>
-            </div>
-          </div>
 
           <div className="flex items-center justify-between border-t border-line pt-4">
             <Link href="/search" className={btn.ghost}>
