@@ -10,6 +10,7 @@ import { getFiscalYear } from "../_lib/format";
 import {
   AmendedFlag,
   CompaniesOnlyBadge,
+  isDead,
   LifecycleBadge,
   LifecycleRail,
   LockSpecBadge,
@@ -80,9 +81,14 @@ export function CatalogRow({
   const title = lang === "en" && iden.titleEn ? iden.titleEn : iden.titleTh;
   const fiscalYear = getFiscalYear(facts.postedDate, tor.projectId);
   const missing = notAnalysedText(!analytics.lockSpec, !analytics.priceAnalysis, lang);
+  const isClosed = isDead(iden.status);
 
   return (
-    <article className="group relative flex gap-3.5 sm:gap-4 rounded-lg border border-line bg-surface px-4 py-3.5 sm:px-5 sm:py-4 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm">
+    <article
+      className={`group relative flex gap-3.5 sm:gap-4 rounded-lg border border-line bg-surface px-4 py-3.5 sm:px-5 sm:py-4 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm ${
+        isClosed ? "grayscale opacity-80 hover:opacity-100 bg-surface-2/30" : ""
+      }`}
+    >
       <LifecycleRail status={iden.status} amended={tor.amendmentInfo?.isAmended} />
 
       <div className="flex min-w-0 flex-1 flex-col gap-3.5 sm:flex-row sm:gap-5">

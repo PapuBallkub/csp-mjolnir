@@ -8,7 +8,7 @@ import type { TorInsightSummary } from "../_lib/api";
 import { useLang, useProfile } from "./prefs";
 import { useAuth } from "./auth";
 import { Deadline } from "./deadline";
-import { MatchScore, ScopeBadge, SignalRail, SmeBadge, VerdictStrip } from "./verdict";
+import { isDead, MatchScore, ScopeBadge, SignalRail, SmeBadge, VerdictStrip } from "./verdict";
 import { Chip } from "./ui";
 
 function computeInsightScore(techStack: string[], budget: number, profile: Profile): number {
@@ -79,9 +79,14 @@ export function TorRow({
   const score = insight
     ? computeInsightScore(techStack, budget, profile)
     : tor ? matchScore(tor, profile) : 0;
+  const isClosed = isDead(status);
 
   return (
-    <article className="group relative flex gap-3.5 sm:gap-4 rounded-lg border border-line bg-surface px-4 py-3.5 sm:px-5 sm:py-4 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm">
+    <article
+      className={`group relative flex gap-3.5 sm:gap-4 rounded-lg border border-line bg-surface px-4 py-3.5 sm:px-5 sm:py-4 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm ${
+        isClosed ? "grayscale opacity-80 hover:opacity-100 bg-surface-2/30" : ""
+      }`}
+    >
       <SignalRail status={status} />
 
       <div className="flex min-w-0 flex-1 flex-col gap-3.5 sm:flex-row sm:gap-5">
