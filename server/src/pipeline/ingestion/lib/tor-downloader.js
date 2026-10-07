@@ -14,6 +14,8 @@ import AdmZip from 'adm-zip';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { PDFParse } from 'pdf-parse';
+import { isOutage } from '../../shared/failures.js';
+import { paceRequest } from '../../shared/request-pacer.js';
 import { convertThaiDigitsToArabic } from '../../shared/thai-text.js';
 
 const DEFAULT_USER_AGENT =
@@ -49,7 +51,8 @@ export function computeContentHash(input) {
  * @param {string} params.destDir - Destination directory
  * @param {string} params.fileName - Destination filename (e.g. 68039469567_TOR.pdf)
  * @param {number} [params.maxSizeBytes=15728640] - Maximum allowed size
- * @returns {Promise<{ success: boolean, filePath?: string, sizeBytes?: number, error?: string }>}
+ * @returns {Promise<{ success: boolean, filePath?: string, sizeBytes?: number, error?: string, transient?: boolean }>}
+ *   `transient` is true when the site didn't answer, so trying again later may work
  */
 export async function downloadTorPdf({
   url,
@@ -61,6 +64,7 @@ export async function downloadTorPdf({
   const targetFilePath = path.join(destDir, fileName);
 
   try {
+    await paceRequest(url);
     const response = await axios({
       method: 'GET',
       url,
@@ -104,6 +108,7 @@ export async function downloadTorPdf({
     return {
       success: false,
       error: err.message,
+      transient: isOutage(err),
     };
   }
 }
@@ -119,7 +124,9 @@ export async function downloadTorPdf({
  * @param {string} params.destDir - Directory to store extracted PDF
  * @param {string} params.fileName - Target filename (e.g. <projectId>_TOR.pdf)
  * @param {number} [params.maxSizeBytes=15728640]
- * @returns {Promise<{ success: boolean, filePath?: string, sizeBytes?: number, originalFileName?: string, packageName?: string, error?: string, companionText?: string, totalArchiveFiles?: number }>}
+ * @returns {Promise<{ success: boolean, filePath?: string, sizeBytes?: number, originalFileName?: string, packageName?: string, error?: string, transient?: boolean, companionText?: string, totalArchiveFiles?: number }>}
+ *   `transient` is true when e-GP didn't answer. Then "no archive" isn't
+ *   known yet: the TOR may have one, and trying again later may work.
  */
 export async function resolveAndDownloadEgpTorDocument({
   projectId,
@@ -148,38 +155,48 @@ export async function resolveAndDownloadEgpTorDocument({
   let downloadUrl = isDirectBinaryUrl ? directUrl : null;
 
   if (!downloadUrl) {
+    // A probe e-GP didn't answer, kept to tell an outage from a TOR without files
+    let outage = null;
+
     // 1. Check official announcement & TOR document package
     try {
-      const announRes = await axios.get(
-        `https://process5.gprocurement.go.th/egp-approval-service/apv-common/infoProcureDocAnnounZip?projectId=${projectId}`,
-        { headers: EGP_SERVICE_HEADERS, timeout: 10000 },
-      );
+      const announUrl = `https://process5.gprocurement.go.th/egp-approval-service/apv-common/infoProcureDocAnnounZip?projectId=${projectId}`;
+      await paceRequest(announUrl);
+      const announRes = await axios.get(announUrl, { headers: EGP_SERVICE_HEADERS, timeout: 10000 });
       if (announRes.data?.data?.zipId) {
         zipId = announRes.data.data.zipId;
         packageName =
           announRes.data.data.buildName1 || `${projectId}_announ_pkg.zip`;
       }
-    } catch {
+    } catch (err) {
       // Continue to next probe
+      if (isOutage(err)) outage = err;
     }
 
     // 2. Check price estimate / TOR package
     if (!zipId) {
       try {
-        const priceRes = await axios.get(
-          `https://process5.gprocurement.go.th/egp-doc-price-estimate-service/dpe-common/infoDocPriceestZipHis?projectId=${projectId}`,
-          { headers: EGP_SERVICE_HEADERS, timeout: 10000 },
-        );
+        const priceUrl = `https://process5.gprocurement.go.th/egp-doc-price-estimate-service/dpe-common/infoDocPriceestZipHis?projectId=${projectId}`;
+        await paceRequest(priceUrl);
+        const priceRes = await axios.get(priceUrl, { headers: EGP_SERVICE_HEADERS, timeout: 10000 });
         if (priceRes.data?.data?.zipFileId) {
           zipId = priceRes.data.data.zipFileId;
           packageName =
             priceRes.data.data.zipFileName || `${projectId}_pricebuild.zip`;
         }
-      } catch {
+      } catch (err) {
         // Continue
+        if (isOutage(err)) outage = err;
       }
     }
 
+    if (!zipId && outage) {
+      return {
+        success: false,
+        transient: true,
+        error: `e-GP did not answer for project ${projectId}: ${outage.message}`,
+      };
+    }
     if (!zipId) {
       return {
         success: false,
@@ -192,6 +209,7 @@ export async function resolveAndDownloadEgpTorDocument({
 
   // 3. Download the actual binary archive from e-GP upload service
   try {
+    await paceRequest(downloadUrl);
     const dlResponse = await axios.get(downloadUrl, {
       headers: EGP_SERVICE_HEADERS,
       responseType: 'arraybuffer',
@@ -288,6 +306,7 @@ export async function resolveAndDownloadEgpTorDocument({
     return {
       success: false,
       error: `Failed to download or extract e-GP attachment for ${projectId}: ${err.message}`,
+      transient: isOutage(err),
     };
   }
 }

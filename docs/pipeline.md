@@ -4,6 +4,9 @@ How TORs get into the database, and the commands that move them along. The
 reasoning behind the design is in [0008](decisions/0008-tor-ingestion-pipeline.md)
 and [0013](decisions/0013-split-ingestion-and-ai-extraction.md).
 
+Every command is safe to run again, by hand or on a schedule. See
+[Running a command again](#running-a-command-again).
+
 There are two pipelines, and they meet only in the database:
 
 ```
@@ -44,6 +47,12 @@ npm run ingest -- --skip-ocr          # fetch and download only; OCR later
 **Finds new TORs** in e-GP RSS (`process3`) and data.go.th (`datago`), and saves
 them as `fetched`. Nothing is downloaded.
 
+- e-GP RSS is the only source of **open** projects; data.go.th has past
+  contracts only.
+- If a source fails, fetch prints its errors and fetches nothing from it.
+  `e-GP RSS DID NOT ANSWER` means every request to the feed failed. There is
+  no fallback to another source.
+
 ```
 npm run ingest:fetch -- --limit 3
 npm run ingest:fetch -- --source process3 --query "ซอฟต์แวร์" --limit 2
@@ -82,6 +91,7 @@ npm run ingest:ocr -- --id 67059626749
 | `--source` | fetch | `all` | `process3`, `datago` or `all` |
 | `--skip-ocr` | `ingest` | off | Stop after download |
 | `--step`, `-s` | `ingest` | `all` | `fetch`, `download`, `ocr` or `all`. The `ingest:*` scripts set this for you. |
+| `--retry-failed` | download, ocr | off | Also try the TORs that gave up after repeated failures |
 
 ## Settings
 
@@ -92,10 +102,35 @@ These are optional, in `server/.env`:
 | `DOCUMENTS_DIR` | `server/data/documents` | Where PDFs are saved |
 | `OCR_MAX_PAGES` | `150` | Scanned pages to OCR per document |
 | `OCR_SECONDS_PER_PAGE` | `10` | OCR time budget per page. A document gets pages × this. |
+| `PIPELINE_MAX_ATTEMPTS` | `3` | Failures before a step leaves a TOR out. Ingestion and extraction both use it. |
 
 When OCR stops before the end of a document (page limit, time budget, or pages
 that failed), the log line says `TRUNCATED` and `Tor.ocr.truncated` is `true`.
 On a slow machine, raise the two limits and run `ingest:ocr -- --id` again.
+
+## Running a command again
+
+Every command can run again, by hand or on a schedule, without undoing work or
+paying for it twice ([0016](decisions/0016-pipeline-runs-are-safe-to-repeat.md)):
+
+- **One run at a time.** Start `npm run ingest` (or `npm run extract`) while
+  another is going, and it prints who holds the lock and exits without doing
+  anything. A run that crashed frees its lock by itself within five minutes.
+- **Fetching again never undoes work.** A TOR that is already downloaded or
+  OCR'd keeps its PDF, its text and its stage. A feed item seen again isn't
+  recorded twice.
+- **At most one request a second** to e-GP, and one to data.go.th, across
+  fetch and download (NFR-03).
+- **A TOR that keeps failing is left out.** After 3 failures of its own, a step
+  skips the TOR and says so at the end of the run. A source that doesn't
+  answer doesn't count. The failures are in the `pipelinefailures` collection.
+  To try again:
+
+  ```
+  npm run ingest -- --retry-failed
+  npm run extract -- --retry-failed
+  npm run extract -- --id 68049205582    # one TOR
+  ```
 
 ## AI extraction
 
@@ -170,6 +205,7 @@ npm run extract -- --dry-run           # save nothing; review files only
 npm run extract -- --outdated          # also redo results from an older prompt
 npm run extract -- --force             # redo everything, reviewed results too
 npm run extract -- --recheck           # rebuild from saved answers: no Gemini call
+npm run extract -- --retry-failed      # also try TORs that gave up after failing
 ```
 
 | Option | When to use it |
@@ -177,9 +213,11 @@ npm run extract -- --recheck           # rebuild from saved answers: no Gemini c
 | `--outdated` | After changing the prompt or schema. Old results are only redone when you ask, because it costs money. |
 | `--recheck` | After changing the checks or the assembly code. It's free: it reuses Gemini's saved answers. |
 | `--force` | Redoes results a person has already reviewed. It warns, because their review is lost. |
+| `--retry-failed` | After fixing what made TORs fail. They're skipped after 3 failures on the same source, prompt and model, because each try can cost money. |
 
 Each run prints a score and the failed checks for every TOR, plus the tokens
-used. A TOR that fails saves nothing, and is picked up again by the next run.
+used. A TOR that fails saves nothing, and is picked up again by the next run,
+up to 3 times (see [Running a command again](#running-a-command-again)).
 
 **Review files:** every TOR also gets
 `server/data/extractions/<projectId>.json`. It holds Gemini's own answers,

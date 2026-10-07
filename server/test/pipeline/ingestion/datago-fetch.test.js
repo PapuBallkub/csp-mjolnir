@@ -10,7 +10,8 @@ const TEST_DB = 'mjolnir_test';
 const TEST_PROJECT_NORMAL = '77777000001';
 const TEST_PROJECT_SHIFTED = '77777000002';
 const TEST_PROJECT_OPEN = '77777000003';
-const TEST_PROJECTS = [TEST_PROJECT_NORMAL, TEST_PROJECT_SHIFTED, TEST_PROJECT_OPEN];
+const TEST_PROJECT_PAST_DOWNLOAD = '77777000004';
+const TEST_PROJECTS = [TEST_PROJECT_NORMAL, TEST_PROJECT_SHIFTED, TEST_PROJECT_OPEN, TEST_PROJECT_PAST_DOWNLOAD];
 const TEST_DOCS_DIR = './data/test_documents';
 
 before(async () => {
@@ -181,4 +182,46 @@ test('fetchFromDataGo: gracefully handles API failures', async () => {
   assert.equal(res.fetched, 0);
   assert.equal(res.errors.length, 1);
   assert.match(res.errors[0], /data\.go\.th API request error/);
+});
+
+test('fetchFromDataGo: fetching a TOR again never undoes download or OCR', async () => {
+  await Tor.create({
+    projectId: TEST_PROJECT_PAST_DOWNLOAD,
+    source: 'datago',
+    title: 'โครงการจัดซื้อระบบสำรองข้อมูล',
+    pipelineStatus: 'ocr_done',
+    document: {
+      fileName: `${TEST_PROJECT_PAST_DOWNLOAD}_TOR.pdf`,
+      storagePath: `/data/documents/${TEST_PROJECT_PAST_DOWNLOAD}_TOR.pdf`,
+      documentType: 'DIGITAL_TEXT_PDF',
+      contentHash: 'b'.repeat(64),
+      version: 2,
+    },
+    ocr: { rawText: 'ข้อความจากเอกสาร', processedAt: new Date() },
+  });
+  mock.method(axios, 'get', async () => ({
+    data: {
+      success: true,
+      result: {
+        records: [
+          {
+            รหัสโครงการ: TEST_PROJECT_PAST_DOWNLOAD,
+            ชื่อโครงการ: 'โครงการจัดซื้อระบบสำรองข้อมูล',
+            ชื่อหน่วยงาน: 'กรมทดสอบระบบ',
+            'งบประมาณ(บาท)': '2,500,000',
+          },
+        ],
+      },
+    },
+  }));
+
+  await fetchFromDataGo({ query: 'คอมพิวเตอร์', limit: 1, documentsDir: TEST_DOCS_DIR });
+
+  const doc = await Tor.findOne({ projectId: TEST_PROJECT_PAST_DOWNLOAD }).lean();
+  assert.equal(doc.pipelineStatus, 'ocr_done');
+  assert.equal(doc.document.contentHash, 'b'.repeat(64));
+  assert.equal(doc.document.version, 2);
+  assert.equal(doc.document.storagePath, `/data/documents/${TEST_PROJECT_PAST_DOWNLOAD}_TOR.pdf`);
+  assert.equal(doc.ocr.rawText, 'ข้อความจากเอกสาร');
+  assert.equal(doc.budgetTHB, 2_500_000); // fetch still updates what it owns
 });

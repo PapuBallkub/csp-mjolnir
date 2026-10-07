@@ -12,9 +12,14 @@
  *   npm run extract -- --force            redo everything, reviewed results too
  *   npm run extract -- --recheck          rebuild from the saved answers: no Gemini
  *                                         call, for when the checks or assembly change
+ *   npm run extract -- --retry-failed     also try the TORs that gave up after
+ *                                         repeated failures
  *
  * Every TOR also gets a review file, server/data/extractions/<projectId>.json,
  * holding the model's own answers with their quotes and pages (D11).
+ *
+ * One extraction run at a time: a second one exits without doing anything
+ * (ADR 0016).
  */
 
 import fs from 'node:fs/promises';
@@ -22,6 +27,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Technology, Tor, TorInsight } from '#models/index.js';
+import { MAX_ATTEMPTS, clearFailure, loadGivenUp, recordFailure } from '../shared/failures.js';
+import { withRunLock } from '../shared/run-lock.js';
 import { createGeminiClient, readGeminiConfig } from './gemini.js';
 import { buildFromAnswers, processTor, saveInsight } from './process-tor.js';
 import { PROMPT_VERSION } from './prompts.js';
@@ -43,10 +50,15 @@ function parseArgs(argv) {
     force: argv.includes('--force'),
     outdated: argv.includes('--outdated'),
     recheck: argv.includes('--recheck'),
+    retryFailed: argv.includes('--retry-failed'),
   };
 }
 
 const reviewPath = (projectId) => path.join(REVIEW_DIR, `${projectId}.json`);
+
+// What an extraction works from. A failure counts only against the same
+// source, prompt and model: change any of them and the TOR gets new tries.
+const inputKeyOf = (fingerprint, model) => `${fingerprint}|${PROMPT_VERSION}|${model}`;
 
 /**
  * Rebuilds records from the answers saved in the review files: the checks and
@@ -117,91 +129,116 @@ async function main() {
 
   await connectDatabase();
   try {
-    if ((await Technology.countDocuments({ status: 'confirmed' })) === 0) {
-      console.warn('The technology vocabulary is empty: run `npm run technologies:seed` first.\n');
-    }
-
-    const tors = args.id
-      ? await Tor.find({ projectId: args.id }).lean()
-      : await Tor.find({ pipelineStatus: 'ocr_done' }).sort({ updatedAt: 1 }).lean();
-    if (args.id && tors[0]?.pipelineStatus !== 'ocr_done') {
-      throw new Error(`TOR ${args.id} has no OCR text yet; run \`npm run ingest:ocr -- --id ${args.id}\` first.`);
-    }
-
-    const existing = new Map(
-      (await TorInsight.find({ projectId: { $in: tors.map((t) => t.projectId) } }, { projectId: 1, metadata: 1 }).lean())
-        .map((insight) => [insight.projectId, insight]),
-    );
-    if (args.recheck) return await recheck(tors, existing, args);
-
-    const skipped = { current: 0, outdated: 0, reviewed: 0 };
-    const queue = [];
-    for (const tor of tors) {
-      const decision = decide({
-        insight: existing.get(tor.projectId) ?? null,
-        fingerprint: sourceFingerprint(tor),
-        promptVersion: PROMPT_VERSION,
-        model: config.model,
-        flags: { force: args.force, outdated: args.outdated, id: Boolean(args.id) },
-      });
-      if (decision.action === 'skip') skipped[decision.reason]++;
-      else queue.push({ tor, decision });
-    }
-
-    await fs.mkdir(REVIEW_DIR, { recursive: true });
-    const counts = { saved: 0, excluded: 0, failed: 0 };
-    const usages = [];
-
-    for (const [index, { tor, decision }] of queue.slice(0, args.limit).entries()) {
-      const label = `[${index + 1}/${Math.min(queue.length, args.limit)}] ${tor.projectId} (${decision.reason})`;
-      if (decision.warn) console.warn(`${label}: a person had reviewed this result; it goes back to pending.`);
-      try {
-        const started = Date.now();
-        const { insight, review, usage } = await processTor(tor, { client, config, dryRun: args.dryRun });
-        usages.push(...usage);
-
-        await fs.writeFile(reviewPath(tor.projectId), JSON.stringify({ insight, ...review }, null, 2));
-        if (!args.dryRun) await saveInsight(insight);
-
-        const seconds = ((Date.now() - started) / 1000).toFixed(1);
-        if (insight.metadata.excluded) {
-          counts.excluded++;
-          console.log(`${label}: not IT, kept as excluded · ${insight.metadata.excluded.reason} · ${seconds} s`);
-        } else {
-          counts.saved++;
-          const { confidenceScore, checks } = insight.metadata;
-          const failed = checks.map((c) => `${c.check}${c.field ? ` ${c.field}` : ''}`).join(', ');
-          console.log(
-            `${label}: score ${confidenceScore}` +
-              (checks.length ? ` · ${checks.length} failed check(s): ${failed}` : ' · all checks passed') +
-              ` · ${seconds} s`,
-          );
-          if (review.unknownTechnologies.length) {
-            console.log(`    new technologies for review: ${review.unknownTechnologies.join(', ')}`);
-          }
-        }
-      } catch (error) {
-        // Nothing was saved for this TOR; the next run picks it up again (NFR-06)
-        counts.failed++;
-        console.error(`${label}: FAILED, nothing saved · ${error.message}`);
-      }
-    }
-
-    const leftOver = Math.max(0, queue.length - args.limit);
-    console.log(
-      `\nDone: ${counts.saved} extracted, ${counts.excluded} excluded, ${counts.failed} failed` +
-        (leftOver ? `, ${leftOver} left for the next run (--limit)` : ''),
-    );
-    console.log(
-      `Skipped: ${skipped.current} up to date, ${skipped.outdated} on an older prompt (run with --outdated), ` +
-        `${skipped.reviewed} reviewed by a person`,
-    );
-    console.log(`Tokens: ${sum(usages, 'promptTokenCount')} in, ${sum(usages, 'candidatesTokenCount')} out, ` +
-      `${sum(usages, 'thoughtsTokenCount')} thinking`);
-    console.log(`Review files: ${REVIEW_DIR}`);
+    await withRunLock('extraction', () => run(args, { client, config }));
   } finally {
     await disconnectDatabase();
   }
+}
+
+async function run(args, { client, config }) {
+  if ((await Technology.countDocuments({ status: 'confirmed' })) === 0) {
+    console.warn('The technology vocabulary is empty: run `npm run technologies:seed` first.\n');
+  }
+
+  const tors = args.id
+    ? await Tor.find({ projectId: args.id }).lean()
+    : await Tor.find({ pipelineStatus: 'ocr_done' }).sort({ updatedAt: 1 }).lean();
+  if (args.id && tors[0]?.pipelineStatus !== 'ocr_done') {
+    throw new Error(`TOR ${args.id} has no OCR text yet; run \`npm run ingest:ocr -- --id ${args.id}\` first.`);
+  }
+
+  const existing = new Map(
+    (await TorInsight.find({ projectId: { $in: tors.map((t) => t.projectId) } }, { projectId: 1, metadata: 1 }).lean())
+      .map((insight) => [insight.projectId, insight]),
+  );
+  if (args.recheck) return await recheck(tors, existing, args);
+
+  // A TOR that keeps failing after Gemini answered would be paid for on every run
+  const gaveUp = args.id || args.retryFailed ? () => false : await loadGivenUp('extract');
+
+  const skipped = { current: 0, outdated: 0, reviewed: 0, gaveUp: 0 };
+  const queue = [];
+  for (const tor of tors) {
+    const fingerprint = sourceFingerprint(tor);
+    const decision = decide({
+      insight: existing.get(tor.projectId) ?? null,
+      fingerprint,
+      promptVersion: PROMPT_VERSION,
+      model: config.model,
+      flags: { force: args.force, outdated: args.outdated, id: Boolean(args.id) },
+    });
+    const inputKey = inputKeyOf(fingerprint, config.model);
+    if (decision.action === 'skip') skipped[decision.reason]++;
+    else if (gaveUp(tor.projectId, inputKey)) skipped.gaveUp++;
+    else queue.push({ tor, decision, inputKey });
+  }
+
+  await fs.mkdir(REVIEW_DIR, { recursive: true });
+  const counts = { saved: 0, excluded: 0, failed: 0 };
+  const usages = [];
+
+  for (const [index, { tor, decision, inputKey }] of queue.slice(0, args.limit).entries()) {
+    const label = `[${index + 1}/${Math.min(queue.length, args.limit)}] ${tor.projectId} (${decision.reason})`;
+    if (decision.warn) console.warn(`${label}: a person had reviewed this result; it goes back to pending.`);
+    try {
+      const started = Date.now();
+      const { insight, review, usage } = await processTor(tor, { client, config, dryRun: args.dryRun });
+      usages.push(...usage);
+
+      await fs.writeFile(reviewPath(tor.projectId), JSON.stringify({ insight, ...review }, null, 2));
+      if (!args.dryRun) {
+        await saveInsight(insight);
+        await clearFailure({ projectId: tor.projectId, step: 'extract' });
+      }
+
+      const seconds = ((Date.now() - started) / 1000).toFixed(1);
+      if (insight.metadata.excluded) {
+        counts.excluded++;
+        console.log(`${label}: not IT, kept as excluded · ${insight.metadata.excluded.reason} · ${seconds} s`);
+      } else {
+        counts.saved++;
+        const { confidenceScore, checks } = insight.metadata;
+        const failed = checks.map((c) => `${c.check}${c.field ? ` ${c.field}` : ''}`).join(', ');
+        console.log(
+          `${label}: score ${confidenceScore}` +
+            (checks.length ? ` · ${checks.length} failed check(s): ${failed}` : ' · all checks passed') +
+            ` · ${seconds} s`,
+        );
+        if (review.unknownTechnologies.length) {
+          console.log(`    new technologies for review: ${review.unknownTechnologies.join(', ')}`);
+        }
+      }
+    } catch (error) {
+      // Nothing was saved for this TOR; the next run picks it up again (NFR-06),
+      // until it has failed MAX_ATTEMPTS times on the same input
+      counts.failed++;
+      let note = '';
+      if (!args.dryRun) {
+        const failure = await recordFailure({ projectId: tor.projectId, step: 'extract', error, inputKey });
+        note = !failure.counted
+          ? ' · Gemini did not answer; not counted as an attempt'
+          : ` · attempt ${failure.attempts} of ${MAX_ATTEMPTS}` +
+            (failure.gaveUp ? '; skipped from now on until --retry-failed' : '');
+      }
+      console.error(`${label}: FAILED, nothing saved · ${error.message}${note}`);
+    }
+  }
+
+  const leftOver = Math.max(0, queue.length - args.limit);
+  console.log(
+    `\nDone: ${counts.saved} extracted, ${counts.excluded} excluded, ${counts.failed} failed` +
+      (leftOver ? `, ${leftOver} left for the next run (--limit)` : ''),
+  );
+  console.log(
+    `Skipped: ${skipped.current} up to date, ${skipped.outdated} on an older prompt (run with --outdated), ` +
+      `${skipped.reviewed} reviewed by a person` +
+      (skipped.gaveUp
+        ? `, ${skipped.gaveUp} after ${MAX_ATTEMPTS} failed attempts (run with --retry-failed)`
+        : ''),
+  );
+  console.log(`Tokens: ${sum(usages, 'promptTokenCount')} in, ${sum(usages, 'candidatesTokenCount')} out, ` +
+    `${sum(usages, 'thoughtsTokenCount')} thinking`);
+  console.log(`Review files: ${REVIEW_DIR}`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

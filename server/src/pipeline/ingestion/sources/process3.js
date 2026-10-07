@@ -6,8 +6,10 @@
  * 1. Live RSS XML feed querying (Draft TOR B0, Invitation D0, Reference Price 15)
  * 2. Thai encoding decoding (UTF-8 / Windows-874)
  * 3. Automatic PDF attachment downloading
- * 4. Offline/weekend fallback to live active catalog
- * 5. MongoDB upsert via Tor model
+ * 4. MongoDB upsert via Tor model
+ *
+ * When the feed doesn't answer, nothing is fetched and the errors say why
+ * (`unreachable` is true when every request failed). There is no fallback.
  */
 
 import axios from 'axios';
@@ -16,7 +18,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { Tor } from '#models/index.js';
-import { convertThaiDigitsToArabic, parseThaiAmount } from '../../shared/thai-text.js';
+import { convertThaiDigitsToArabic } from '../../shared/thai-text.js';
 import {
   resolveAndDownloadEgpTorDocument,
   parseTorDocument,
@@ -27,24 +29,21 @@ const BASE_URL =
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const REQUEST_TIMEOUT_MS = 20000;
-const RATE_LIMIT_DELAY_MS = 1000;
 
 import {
   EGP_ANNOUNCEMENT_CODES,
   FETCHABLE_CODES,
   classifyAnnouncement,
 } from '../../shared/announcement-codes.js';
+import { paceRequest } from '../../shared/request-pacer.js';
 import { deriveStatus } from '../../shared/status-engine.js';
+import { fetchStageFields, hasAnnouncement, isPastFetch } from '../lib/fetch-rules.js';
 
 // Re-export for backward compatibility with test/pipeline/ingestion/utils.test.js
 export const ANNOUNCEMENT_TYPES = FETCHABLE_CODES.map((code) => ({
   code,
   name: `${EGP_ANNOUNCEMENT_CODES[code].nameEn} (${EGP_ANNOUNCEMENT_CODES[code].nameTh})`,
 }));
-
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /**
  * Decodes Thai XML buffer checking UTF-8 first, falling back to Windows-874.
@@ -82,7 +81,7 @@ export function decodeThaiXml(buffer) {
  * @param {string} [options.deptId='']
  * @param {string} options.documentsDir
  * @param {boolean} [options.downloadAttachments=false]
- * @returns {Promise<{ fetched: number, errors: string[] }>}
+ * @returns {Promise<{ fetched: number, errors: string[], unreachable: boolean }>}
  */
 export async function fetchFromProcess3({
   query = 'คอมพิวเตอร์',
@@ -101,12 +100,14 @@ export async function fetchFromProcess3({
   });
 
   let fetchedCount = 0;
+  let requested = 0;
   const errors = [];
 
   for (let i = 0; i < ANNOUNCEMENT_TYPES.length; i++) {
     if (fetchedCount >= limit) break;
 
     const annType = ANNOUNCEMENT_TYPES[i];
+    requested++;
     const requestUrl = new URL(BASE_URL);
     requestUrl.searchParams.set('announceType', annType.code);
     if (deptId) {
@@ -114,6 +115,7 @@ export async function fetchFromProcess3({
     }
 
     try {
+      await paceRequest(requestUrl.toString());
       const response = await axios.get(requestUrl.toString(), {
         headers: {
           'User-Agent': USER_AGENT,
@@ -160,13 +162,18 @@ export async function fetchFromProcess3({
         const expectedPdfName = `${torId}_TOR.pdf`;
         const targetPdfPath = path.join(documentsDir, expectedPdfName);
 
+        // --- FR-02: Check existing record to decide if this announcement updates it ---
+        const existing = await Tor.findOne({ projectId: String(torId) }).lean();
+        // Seen again after download: its document is done, so don't parse it again
+        const needsDocument = !isPastFetch(existing);
+
         let documentInfo = null;
         let downloadRes = null;
-        const alreadyDownloaded = fsSync.existsSync(targetPdfPath);
+        const alreadyDownloaded = needsDocument && fsSync.existsSync(targetPdfPath);
 
         if (alreadyDownloaded) {
           documentInfo = await parseTorDocument(targetPdfPath);
-        } else if (downloadAttachments) {
+        } else if (needsDocument && downloadAttachments) {
           downloadRes = await resolveAndDownloadEgpTorDocument({
             projectId: String(torId),
             destDir: documentsDir,
@@ -184,9 +191,15 @@ export async function fetchFromProcess3({
         const isDownloaded =
           alreadyDownloaded || (downloadRes && downloadRes.success);
 
-        // --- FR-02: Check existing record to decide if this announcement updates it ---
-        const existing = await Tor.findOne({ projectId: String(torId) }).lean();
-        const announcementInfo = EGP_ANNOUNCEMENT_CODES[annType.code];
+        const announcement = {
+          code: annType.code,
+          type: classifyAnnouncement(annType.code),
+          receivedAt: new Date(),
+          publishedAt: currentItem.pubDate ? new Date(currentItem.pubDate) : null,
+          sourceUrl: link,
+        };
+        // The feed lists an item for days; each poll must record it only once
+        const isNewAnnouncement = !hasAnnouncement(existing?.announcementHistory, announcement);
 
         const updatePayload = {
           source: 'process3',
@@ -197,7 +210,7 @@ export async function fetchFromProcess3({
         // Derive status and isAmended from announcement history (FR-02, FR-15)
         const simulatedHistory = [
           ...(existing?.announcementHistory || []),
-          { code: annType.code },
+          ...(isNewAnnouncement ? [{ code: annType.code }] : []),
         ];
         const derived = deriveStatus(simulatedHistory, existing?.contract);
         updatePayload.status = derived.status;
@@ -214,40 +227,32 @@ export async function fetchFromProcess3({
           if (currentItem.pubDate) updatePayload.announceDate = currentItem.pubDate;
         }
 
-        updatePayload.document = {
-          fileName: expectedPdfName,
-          storagePath: isDownloaded ? targetPdfPath : (existing?.document?.storagePath || null),
-          sizeBytes:
-            downloadRes?.sizeBytes ||
-            (alreadyDownloaded
-              ? fsSync.statSync(targetPdfPath).size
-              : (existing?.document?.sizeBytes || null)),
-          pages: documentInfo?.totalPages || existing?.document?.pages || null,
-          documentType: documentInfo?.documentType || existing?.document?.documentType || 'UNKNOWN',
-          contentHash: documentInfo?.contentHash || existing?.document?.contentHash || null,
-          version: 1,
-        };
-        updatePayload.pipelineStatus =
-          isDownloaded || existing?.pipelineStatus === 'downloaded'
-            ? 'downloaded'
-            : 'fetched';
+        Object.assign(
+          updatePayload,
+          fetchStageFields(existing, {
+            isDownloaded,
+            document: {
+              fileName: expectedPdfName,
+              storagePath: isDownloaded ? targetPdfPath : (existing?.document?.storagePath || null),
+              sizeBytes:
+                downloadRes?.sizeBytes ||
+                (alreadyDownloaded
+                  ? fsSync.statSync(targetPdfPath).size
+                  : (existing?.document?.sizeBytes || null)),
+              pages: documentInfo?.totalPages || existing?.document?.pages || null,
+              documentType: documentInfo?.documentType || existing?.document?.documentType || 'UNKNOWN',
+              contentHash: documentInfo?.contentHash || existing?.document?.contentHash || null,
+              version: existing?.document?.version || 1,
+            },
+          }),
+        );
+
+        const update = { $set: updatePayload };
+        if (isNewAnnouncement) update.$push = { announcementHistory: announcement };
 
         const updatedTor = await Tor.findOneAndUpdate(
           { projectId: String(torId) },
-          {
-            $set: updatePayload,
-            $push: {
-              announcementHistory: {
-                code: annType.code,
-                type: classifyAnnouncement(annType.code),
-                receivedAt: new Date(),
-                publishedAt: currentItem.pubDate
-                  ? new Date(currentItem.pubDate)
-                  : null,
-                sourceUrl: link,
-              },
-            },
-          },
+          update,
           { upsert: true, returnDocument: 'after' },
         );
 
@@ -271,101 +276,10 @@ export async function fetchFromProcess3({
     } catch (err) {
       errors.push(`RSS ${annType.code} error: ${err.message}`);
     }
-
-    if (i < ANNOUNCEMENT_TYPES.length - 1) {
-      await delay(RATE_LIMIT_DELAY_MS);
-    }
   }
 
-  // Fallback: If RSS was empty (weekends/after-hours), discover active e-GP projects via catalog
-  if (fetchedCount === 0) {
-    try {
-      const catalogUrl = `https://data.go.th/api/3/action/datastore_search?resource_id=e4eaa1b4-eb1a-4534-b227-988ee25b898d&limit=15&q=${encodeURIComponent(query)}`;
-      const catRes = await axios.get(catalogUrl, {
-        headers: { 'User-Agent': USER_AGENT },
-        timeout: REQUEST_TIMEOUT_MS,
-      });
-
-      const candidates = catRes.data?.result?.records || [];
-      for (const cand of candidates) {
-        if (fetchedCount >= limit) break;
-
-        const projectId = String(cand['รหัสโครงการ'] || '').trim();
-        if (!projectId) continue;
-
-        const expectedPdfName = `${projectId}_TOR.pdf`;
-        const targetPdfPath = path.join(documentsDir, expectedPdfName);
-
-        let documentInfo = null;
-        let downloadRes = null;
-        const alreadyDownloaded = fsSync.existsSync(targetPdfPath);
-
-        if (alreadyDownloaded) {
-          documentInfo = await parseTorDocument(targetPdfPath);
-        } else if (downloadAttachments) {
-          downloadRes = await resolveAndDownloadEgpTorDocument({
-            projectId,
-            destDir: documentsDir,
-            fileName: expectedPdfName,
-          });
-
-          if (downloadRes.success) {
-            documentInfo = await parseTorDocument(
-              downloadRes.filePath,
-              downloadRes.companionText || '',
-            );
-          } else {
-            continue; // Move to next candidate if no attachment
-          }
-        }
-
-        const isDownloaded =
-          alreadyDownloaded || (downloadRes && downloadRes.success);
-        // null when a figure is missing or unreadable, never 0 (ADR 0014)
-        const budget = parseThaiAmount(cand['งบประมาณ(บาท)']);
-        const referencePrice = parseThaiAmount(cand['ราคากลาง(บาท)']);
-
-        await Tor.findOneAndUpdate(
-          { projectId },
-          {
-            $set: {
-              source: 'process3',
-              title: String(cand['ชื่อโครงการ'] || '').trim(),
-              agency: String(cand['ชื่อหน่วยงาน'] || '').trim(),
-              subAgency: String(cand['ชื่อหน่วยงานย่อย'] || deptId || '').trim(),
-              province: String(cand['จังหวัด'] || '').trim(),
-              district: String(cand['เขต/อำเภอ'] || '').trim(),
-              budgetTHB: budget,
-              referencePriceTHB: referencePrice,
-              announceType: 'B0',
-              announceDate: cand['วันที่ประกาศ'] || null,
-              procurementMethod: String(
-                cand['กลุ่มวิธีจัดซื้อฯ'] || cand['วิธีจัดซื้อฯ'] || '',
-              ).trim(),
-              egpUrl: `https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=${projectId}`,
-              document: {
-                fileName: expectedPdfName,
-                storagePath: isDownloaded ? targetPdfPath : null,
-                sizeBytes:
-                  downloadRes?.sizeBytes ||
-                  (alreadyDownloaded
-                    ? fsSync.statSync(targetPdfPath).size
-                    : null),
-                pages: documentInfo?.totalPages || null,
-                documentType: documentInfo?.documentType || 'UNKNOWN',
-              },
-              pipelineStatus: isDownloaded ? 'downloaded' : 'fetched',
-            },
-          },
-          { upsert: true, returnDocument: 'after' },
-        );
-
-        fetchedCount++;
-      }
-    } catch (err) {
-      errors.push(`Discovery fallback error: ${err.message}`);
-    }
-  }
-
-  return { fetched: fetchedCount, errors };
+  // No fallback when the feed fails. One used to fill the gap with data.go.th
+  // contracts saved as new draft TORs, which hid a dead feed behind months-old
+  // projects. A feed that doesn't answer is reported, never papered over.
+  return { fetched: fetchedCount, errors, unreachable: requested > 0 && errors.length === requested };
 }
