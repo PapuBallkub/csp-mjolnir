@@ -11,7 +11,9 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { Tor } from '#models/index.js';
+import { paceRequest } from '../../shared/request-pacer.js';
 import { parseThaiAmount } from '../../shared/thai-text.js';
+import { fetchStageFields, isPastFetch } from '../lib/fetch-rules.js';
 import {
   resolveAndDownloadEgpTorDocument,
   parseTorDocument,
@@ -57,6 +59,7 @@ export async function fetchFromDataGo({
   let rawRecords = [];
 
   try {
+    await paceRequest(requestUrl.toString());
     const response = await axios.get(requestUrl.toString(), {
       headers: {
         'User-Agent': USER_AGENT,
@@ -116,13 +119,17 @@ export async function fetchFromDataGo({
     const expectedPdfFileName = `${projectId}_TOR.pdf`;
     const targetPdfPath = path.join(documentsDir, expectedPdfFileName);
 
+    // Seen again after download: its document is done, so don't parse it again
+    const existing = await Tor.findOne({ projectId }, { pipelineStatus: 1 }).lean();
+    const needsDocument = !isPastFetch(existing);
+
     let documentInfo = null;
     let downloadResult = null;
-    const alreadyDownloaded = fsSync.existsSync(targetPdfPath);
+    const alreadyDownloaded = needsDocument && fsSync.existsSync(targetPdfPath);
 
     if (alreadyDownloaded) {
       documentInfo = await parseTorDocument(targetPdfPath);
-    } else if (downloadAttachments) {
+    } else if (needsDocument && downloadAttachments) {
       downloadResult = await resolveAndDownloadEgpTorDocument({
         projectId,
         destDir: documentsDir,
@@ -171,18 +178,20 @@ export async function fetchFromDataGo({
               projectStatus: projectStatus || '',
             },
             egpUrl: `https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=${projectId}`,
-            document: {
-              fileName: expectedPdfFileName,
-              storagePath: isDownloaded ? targetPdfPath : null,
-              sizeBytes:
-                downloadResult?.sizeBytes ||
-                (alreadyDownloaded ? fsSync.statSync(targetPdfPath).size : null),
-              pages: documentInfo?.totalPages || null,
-              documentType: documentInfo?.documentType || 'UNKNOWN',
-              contentHash: documentInfo?.contentHash || null,
-              version: 1,
-            },
-            pipelineStatus: isDownloaded ? 'downloaded' : 'fetched',
+            ...fetchStageFields(existing, {
+              isDownloaded,
+              document: {
+                fileName: expectedPdfFileName,
+                storagePath: isDownloaded ? targetPdfPath : null,
+                sizeBytes:
+                  downloadResult?.sizeBytes ||
+                  (alreadyDownloaded ? fsSync.statSync(targetPdfPath).size : null),
+                pages: documentInfo?.totalPages || null,
+                documentType: documentInfo?.documentType || 'UNKNOWN',
+                contentHash: documentInfo?.contentHash || null,
+                version: 1,
+              },
+            }),
           },
         },
         { upsert: true, returnDocument: 'after' },

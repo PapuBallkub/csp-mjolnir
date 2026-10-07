@@ -152,7 +152,8 @@ const torSchema = new mongoose.Schema(
     ],
 
     // Chronological record of every e-GP announcement received for this project (FR-02).
-    // Each entry is one RSS item. The ingestion pipeline appends; nothing deletes.
+    // Each entry is one RSS item, recorded once however many polls see it
+    // (ADR 0016). The ingestion pipeline appends; nothing deletes.
     announcementHistory: [
       {
         code: { type: String, required: true }, // e.g. 'B0', 'D0', 'D1'
