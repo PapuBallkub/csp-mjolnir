@@ -46,6 +46,7 @@ const EVIDENCED_FIELDS = {
   'facts.budget': toAmount,
   'facts.referencePrice': toAmount,
   'facts.submissionDeadline': toDate,
+  'facts.commentDeadline': toDate,
   'facts.postedDate': toDate,
   'facts.deliveryPeriodDays': toNumber,
   'facts.contractDurationDays': toNumber,
@@ -283,6 +284,15 @@ export function runChecks({ tor, classification, extracted }) {
       deadline: deadline.toISOString(),
       posted: aiPosted.toISOString(),
     });
+  }
+  const commentBy = values['facts.commentDeadline'];
+  if (commentBy && aiPosted && commentBy < aiPosted) {
+    // A wrong comment date doesn't hide the TOR; a wrong bid date does
+    fail('sanity', 'facts.commentDeadline', {
+      reason: 'before the posted date',
+      deadline: commentBy.toISOString(),
+      posted: aiPosted.toISOString(),
+    }, 'minor');
   }
   const budget = feedAmount(tor.budgetTHB) ?? values['facts.budget'];
   const referencePrice = feedAmount(tor.referencePriceTHB) ?? values['facts.referencePrice'];

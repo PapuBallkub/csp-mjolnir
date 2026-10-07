@@ -31,12 +31,12 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { Tor } from '#models/index.js';
+import { Tor, TorInsight } from '#models/index.js';
 import { MAX_ATTEMPTS, clearFailure, loadGivenUp, recordFailure } from '../shared/failures.js';
 import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
 import { FEED_HOURS, fetchFromProcess3 } from './sources/process3.js';
 import { fetchFromDataGo } from './sources/datago.js';
-import { extractText } from './lib/ocr.js';
+import { PREVIEW_PAGES, extractText, isPreviewRead } from './lib/ocr.js';
 import {
   resolveAndDownloadEgpTorDocument,
   parseTorDocument,
@@ -50,8 +50,8 @@ function parseCliArgs() {
   const argv = process.argv.slice(2);
   let step = 'all'; // 'all' | 'fetch' | 'download' | 'ocr'
   let id = null; // optional single projectId
-  let query = 'คอมพิวเตอร์';
-  let limit = 5;
+  let query = null; // e-GP: none, classify decides; data.go.th: คอมพิวเตอร์
+  let limit = null; // e-GP: no cap on new projects; data.go.th: 5
   let source = 'all'; // 'all' | 'process3' | 'datago'
   let skipOcr = false;
   let retryFailed = false;
@@ -72,9 +72,9 @@ function parseCliArgs() {
     } else if (arg.startsWith('--query=') || arg.startsWith('--q=')) {
       query = arg.split('=')[1];
     } else if ((arg === '--limit' || arg === '-l' || arg === '--l') && i + 1 < argv.length) {
-      limit = parseInt(argv[++i], 10) || 5;
+      limit = parseInt(argv[++i], 10) || null;
     } else if (arg.startsWith('--limit=') || arg.startsWith('--l=')) {
-      limit = parseInt(arg.split('=')[1], 10) || 5;
+      limit = parseInt(arg.split('=')[1], 10) || null;
     } else if (arg === '--source' && i + 1 < argv.length) {
       source = argv[++i].toLowerCase();
     } else if (arg.startsWith('--source=')) {
@@ -114,6 +114,16 @@ async function noteFailure({ projectId, step, error, transient = false, inputKey
   return ` (attempt ${attempts} of ${MAX_ATTEMPTS}${gaveUp ? '; skipped from now on until --retry-failed' : ''})`;
 }
 
+// Download and OCR only TORs still to come or open (ADR 0018):
+// - announced by the e-GP feed, the only source of open projects (ADR 0017).
+//   With no announcement, "Open" is only the status engine's default.
+// - not past: a TOR with a contract winner is past, whatever its status says.
+const WORKABLE = {
+  status: { $in: ['Draft', 'Open'] },
+  'announcementHistory.0': { $exists: true },
+  'contract.winnerName': { $in: [null, ''] },
+};
+
 // OCR works from the PDF: a new PDF gets new tries
 const pdfHashOf = (tor) => tor.document?.contentHash ?? null;
 
@@ -128,7 +138,7 @@ export async function runFetchStep({ query, limit, source, documentsDir }) {
     console.log('  -> Querying e-GP RSS Feed (process3.gprocurement.go.th)...');
     const p3Result = await fetchFromProcess3({
       query,
-      limit,
+      limit: limit ?? Infinity,
       documentsDir,
       downloadAttachments: false,
     });
@@ -147,8 +157,8 @@ export async function runFetchStep({ query, limit, source, documentsDir }) {
   if (source === 'all' || source === 'datago') {
     console.log('  -> Querying Open Gov Data (data.go.th CKAN)...');
     const dgResult = await fetchFromDataGo({
-      query,
-      limit,
+      query: query ?? 'คอมพิวเตอร์',
+      limit: limit ?? 5,
       documentsDir,
       downloadAttachments: false,
     });
@@ -172,7 +182,9 @@ export async function runDownloadStep({ id, documentsDir, source = 'manual', ret
   console.log('\n[Service 2: DOWNLOAD] Resolving and downloading TOR PDFs...');
   await fs.mkdir(documentsDir, { recursive: true });
 
-  let queryFilter = { pipelineStatus: 'fetched' };
+  // Only TORs still to come or open: a cancelled or awarded one isn't a job,
+  // so its documents aren't worth fetching (ADR 0018)
+  let queryFilter = { pipelineStatus: 'fetched', ...WORKABLE };
   if (id) {
     queryFilter = { projectId: id };
   }
@@ -262,89 +274,122 @@ export async function runDownloadStep({ id, documentsDir, source = 'manual', ret
 }
 
 /**
- * Service 3: OCR and Text Extraction on downloaded PDF documents.
+ * Service 3: OCR, in two passes over the TORs still to come or open (ADR 0018).
+ * 1. Preview: a downloaded scan is read for its first PREVIEW_PAGES pages,
+ *    enough for classify to decide whether it's IT. A digital PDF, or a scan
+ *    no longer than that, is read whole.
+ * 2. Full: a preview that classify found to be IT is read whole, so
+ *    extraction can follow.
+ * With --id, one TOR is read whole, whatever its state.
+ *
+ * @param {Function} [options.ocr] - extractText; replaced in tests
  */
-export async function runOcrStep({ id, documentsDir, source = 'manual', retryFailed = false }) {
+export async function runOcrStep({ id, documentsDir, source = 'manual', retryFailed = false, ocr = extractText }) {
   console.log('\n[Service 3: OCR] Extracting text & running OCR on PDF documents...');
 
-  let queryFilter = {
-    pipelineStatus: 'downloaded',
-    'document.storagePath': { $ne: null },
-  };
+  let previews = [];
+  let fullReads = [];
 
   if (id) {
-    queryFilter = { projectId: id };
-  }
+    fullReads = await Tor.find({ projectId: id });
 
-  let candidates = await Tor.find(queryFilter);
-
-  // If targeting a specific ID not in DB or without storagePath, check disk
-  if (id && candidates.length === 0) {
-    const expectedPdfPath = path.join(documentsDir, `${id}_TOR.pdf`);
-    if (fsSync.existsSync(expectedPdfPath)) {
-      const created = await Tor.findOneAndUpdate(
-        { projectId: id },
-        {
-          $set: {
-            title: `Project ${id}`,
-            source: ['process3', 'datago'].includes(source) ? source : 'manual',
-            pipelineStatus: 'downloaded',
-            'document.fileName': `${id}_TOR.pdf`,
-            'document.storagePath': expectedPdfPath,
-            'document.sizeBytes': fsSync.statSync(expectedPdfPath).size,
+    // If targeting a specific ID not in DB or without storagePath, check disk
+    if (fullReads.length === 0) {
+      const expectedPdfPath = path.join(documentsDir, `${id}_TOR.pdf`);
+      if (fsSync.existsSync(expectedPdfPath)) {
+        const created = await Tor.findOneAndUpdate(
+          { projectId: id },
+          {
+            $set: {
+              title: `Project ${id}`,
+              source: ['process3', 'datago'].includes(source) ? source : 'manual',
+              pipelineStatus: 'downloaded',
+              'document.fileName': `${id}_TOR.pdf`,
+              'document.storagePath': expectedPdfPath,
+              'document.sizeBytes': fsSync.statSync(expectedPdfPath).size,
+            },
           },
-        },
-        { upsert: true, returnDocument: 'after' },
-      );
-      candidates = [created];
+          { upsert: true, returnDocument: 'after' },
+        );
+        fullReads = [created];
+      }
     }
+  } else {
+    previews = await Tor.find({
+      pipelineStatus: 'downloaded',
+      'document.storagePath': { $ne: null },
+      ...WORKABLE,
+    });
+
+    // Extraction says which previews are IT; ingestion only reads that (ADR 0013)
+    const waiting = await TorInsight.distinct('projectId', { 'metadata.awaitingFullText': true });
+    fullReads = await Tor.find({
+      pipelineStatus: 'ocr_preview',
+      projectId: { $in: waiting },
+      ...WORKABLE,
+    });
   }
 
-  candidates = await withoutGivenUp(candidates, { step: 'ocr', id, retryFailed, inputKeyOf: pdfHashOf });
+  previews = await withoutGivenUp(previews, { step: 'ocr', id, retryFailed, inputKeyOf: pdfHashOf });
+  fullReads = await withoutGivenUp(fullReads, { step: 'ocr', id, retryFailed, inputKeyOf: pdfHashOf });
+  const queue = [
+    ...previews.map((tor) => ({ tor, preview: true })),
+    ...fullReads.map((tor) => ({ tor, preview: false })),
+  ];
 
-  if (candidates.length === 0) {
+  if (queue.length === 0) {
     console.log('  -> No documents queued for OCR.');
     return 0;
   }
 
-  console.log(`  -> ${candidates.length} document(s) queued for text extraction.`);
+  console.log(
+    `  -> ${previews.length} document(s) to preview (first ${PREVIEW_PAGES} pages), ` +
+      `${fullReads.length} to read whole.`,
+  );
   let successCount = 0;
 
-  for (let i = 0; i < candidates.length; i++) {
-    const tor = candidates[i];
+  for (const [i, { tor, preview }] of queue.entries()) {
+    const label = `     [${i + 1}/${queue.length}]`;
     const pdfPath = tor.document?.storagePath || path.join(documentsDir, `${tor.projectId}_TOR.pdf`);
 
     if (!fsSync.existsSync(pdfPath)) {
       const error = `File not found at ${pdfPath}`;
       const note = await noteFailure({ projectId: tor.projectId, step: 'ocr', error, inputKey: pdfHashOf(tor) });
-      console.warn(`     [${i + 1}/${candidates.length}] Skipping ${tor.projectId}: ${error}${note}`);
+      console.warn(`${label} Skipping ${tor.projectId}: ${error}${note}`);
       continue;
     }
 
-    console.log(`     [${i + 1}/${candidates.length}] Extracting: ${tor.projectId} (${path.basename(pdfPath)})`);
+    console.log(`${label} ${preview ? 'Previewing' : 'Reading whole'}: ${tor.projectId} (${path.basename(pdfPath)})`);
 
     try {
-      const ocrResult = await extractText(pdfPath);
+      const ocrResult = await ocr(pdfPath, preview ? { maxPages: PREVIEW_PAGES } : {});
+      // A short scan or a digital PDF was read whole even on the preview pass
+      const isPreview = preview && isPreviewRead(ocrResult);
       tor.ocr = {
         rawText: ocrResult.text,
         confidence: ocrResult.confidence,
         usedOcr: ocrResult.usedOcr,
         truncated: ocrResult.truncated,
+        preview: isPreview,
+        pagesRead: ocrResult.pagesRead ?? null,
         processedAt: new Date(),
       };
       tor.document.pages = ocrResult.pages;
       tor.document.documentType = ocrResult.usedOcr
         ? 'SCANNED_PAPER_PDF'
         : 'DIGITAL_TEXT_PDF';
-      tor.pipelineStatus = 'ocr_done';
+      tor.pipelineStatus = isPreview ? 'ocr_preview' : 'ocr_done';
       await tor.save();
       await clearFailure({ projectId: tor.projectId, step: 'ocr' });
 
       console.log(
         `        Type: ${ocrResult.usedOcr ? 'Scanned Paper (OCR)' : 'Digital Text PDF'} | ` +
-          `Pages: ${ocrResult.pages} | Confidence: ${Math.round(ocrResult.confidence * 100)}% | ` +
+          (isPreview
+            ? `PREVIEW: ${ocrResult.pagesRead} of ${ocrResult.pages} pages`
+            : `Pages: ${ocrResult.pages}`) +
+          ` | Confidence: ${Math.round(ocrResult.confidence * 100)}% | ` +
           `Chars: ${ocrResult.text.length.toLocaleString()}` +
-          (ocrResult.truncated ? ' | TRUNCATED: some pages were not read' : ''),
+          (!isPreview && ocrResult.truncated ? ' | TRUNCATED: some pages were not read' : ''),
       );
       successCount++;
     } catch (err) {
@@ -367,8 +412,8 @@ async function main() {
   if (args.id) {
     console.log(`Target Project  : ${args.id}`);
   }
-  console.log(`Query Filter    : "${args.query}"`);
-  console.log(`Limit per source: ${args.limit}`);
+  console.log(`Query Filter    : ${args.query ? `"${args.query}"` : "none for e-GP (classify decides); คอมพิวเตอร์ for data.go.th"}`);
+  console.log(`Limit per source: ${args.limit ?? "none for e-GP; 5 for data.go.th"}`);
   console.log(`Source Target   : ${args.source}`);
   console.log(`Document Dir    : ${DOCUMENTS_DIR}`);
   console.log(`Skip OCR        : ${args.skipOcr}`);

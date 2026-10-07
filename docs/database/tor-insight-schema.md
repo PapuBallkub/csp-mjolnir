@@ -106,7 +106,7 @@ Used in `metadata.excluded`, when the classify step finds the document isn't IT.
 | `department` | `String` | No | `null` | Division/office responsible for the project | `"สำนักยุทธศาสตร์และประเมินผล"` |
 | `egpReference` | `String` | No | `null` | Official e-GP announcement reference code | `"e-GP 67011234567"` |
 | `category` | `String` | Indexed | `null` | Set by the classify step | `'Software / IT'`, `'Network / Security'` |
-| `status` | `String` | Required, Indexed | — | Copied from `Tor.status`; never extracted, never defaulted | `'Draft'`, `'Open'`, `'Awarded'`, `'Closed'`, `'Cancelled'` |
+| `status` | `String` | Required, Indexed | — | Copied from `Tor.status` at extraction; never extracted, never defaulted. **The API doesn't read this copy:** the feed keeps changing the status (a cancellation, a winner), so the API reads it live from `Tor` and uses this only when no `Tor` exists. | `'Draft'`, `'Open'`, `'Awarded'`, `'Closed'`, `'Cancelled'` |
 
 > **Status Semantics:**
 > - `Draft`: Pre-announcement or public hearing stage.
@@ -124,7 +124,8 @@ Used in `metadata.excluded`, when the classify step finds the document isn't IT.
 |---|---|---|---|---|
 | `budgetTHB` | `Number` | `null` | No | Budget (งบประมาณ): what the agency has set aside, in Thai Baht (THB). From the feed first; the AI fills gaps. |
 | `referencePriceTHB` | `Number` | `null` | Yes | Reference price (ราคากลาง): the official price bids are judged against, in Thai Baht (THB). From the feed first; the AI fills gaps. |
-| `submissionDeadline` | `Date` | `null` | No | Deadline date & time for bids submission. |
+| `submissionDeadline` | `Date` | `null` | No | Deadline date & time for bids submission, set by an invitation (ประกาศเชิญชวน). Null in a draft out for public hearing. |
+| `commentDeadline` | `Date` | `null` | No | A draft out for public hearing (ร่าง TOR): the last date to send comments. Never a bid date; the two are never swapped (extract-v4, [0019](../decisions/0019-stage-badges-and-deadlines-that-say-what-for.md)). |
 | `deliveryPeriodDays` | `Number` | `null` | No | Project implementation & delivery period (calendar days). |
 | `procurementMethod` | `String` | `null` | No | Bidding method (e.g. `"e-Bidding"`, `"Specific Method (เฉพาะเจาะจง)"`, `"Selection (คัดเลือก)"`). |
 | `warrantyYears` | `Number` | `null` | No | Warranty / maintenance obligation duration (in years). |
@@ -259,7 +260,7 @@ Tracks post-publishing changes and revisions to the procurement document:
 
 | Field | Type | Default | Indexed | Description |
 |---|---|---|---|---|
-| `isAmended` | `Boolean` | `false` | Yes | `true` if the TOR has been amended or revised after initial announcement. |
+| `isAmended` | `Boolean` | `false` | Yes | `true` if the TOR has been amended or revised after initial announcement. Copied from `Tor.isAmended` at extraction; like `identification.status`, the API reads it live from `Tor`. |
 | `lastAmendedDate` | `Date` | `null` | No | Date of the latest amendment. |
 | `amendmentSummary` | `String` | `""` | No | Plain-language summary of what was revised. |
 | `changedSections` | `[String]` | `[]` | No | Array of paths/sections modified (e.g. `["facts.submissionDeadline", "eligibility.companyRequirements"]`). |
@@ -282,6 +283,7 @@ Tracks post-publishing changes and revisions to the procurement document:
 | `reviewedBy` | `ObjectId` → `User` | `null` | The admin who reviewed it. |
 | `reviewedAt` | `Date` | `null` | When it was reviewed. |
 | `excluded` | `exclusionSchema` | `null` | Set when the document isn't IT (§2.6). Extraction stops there, so the other sections stay empty (NFR-16). |
+| `awaitingFullText` | `Boolean` | `false` | Classify read a preview and found IT: the full text is being read, and extraction follows. The other sections stay empty, and the public doesn't see the record until then [0018](../decisions/0018-preview-ocr-before-classify.md). |
 
 ---
 

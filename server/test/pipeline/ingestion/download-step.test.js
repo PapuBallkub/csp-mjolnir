@@ -26,7 +26,13 @@ before(async () => {
 beforeEach(async () => {
   await Tor.deleteMany({});
   await PipelineFailure.deleteMany({});
-  await Tor.create({ projectId: PROJECT, source: 'process3', title: 'จ้างพัฒนาระบบคอมพิวเตอร์', pipelineStatus: 'fetched' });
+  await Tor.create({
+    projectId: PROJECT,
+    source: 'process3',
+    title: 'จ้างพัฒนาระบบคอมพิวเตอร์',
+    pipelineStatus: 'fetched',
+    announcementHistory: [{ code: 'D0', type: 'invitation', publishedAt: new Date('2026-10-07') }],
+  });
 });
 
 after(async () => {
@@ -96,4 +102,35 @@ test('download step: a download that works forgets the earlier failures', async 
 
   assert.equal((await Tor.findOne({ projectId: PROJECT }).lean()).pipelineStatus, 'downloaded');
   assert.equal(await failureOf(), null);
+});
+
+test('download step: a TOR that is past (cancelled, or with a winner) is never downloaded', async () => {
+  await Tor.deleteMany({});
+  await Tor.create([
+    { projectId: '55555000002', source: 'process3', title: 'ยกเลิกแล้ว', status: 'Cancelled', pipelineStatus: 'fetched' },
+    {
+      projectId: '55555000003',
+      source: 'datago',
+      title: 'มีผู้ชนะแล้ว',
+      status: 'Open', // stored as Open, but a contract has a winner
+      contract: { winnerName: 'บริษัท ผู้ชนะ จำกัด' },
+      pipelineStatus: 'fetched',
+    },
+  ]);
+  const get = egpHasNoFile();
+
+  await runDownloadStep({ documentsDir });
+
+  assert.equal(get.mock.callCount(), 0, 'no request to e-GP for either');
+});
+
+test('download step: a TOR the e-GP feed never announced is never downloaded', async () => {
+  await Tor.deleteMany({});
+  // What the removed data.go.th fallback left behind: "Open" only by default
+  await Tor.create({ projectId: '55555000004', source: 'process3', title: 'จ้างพัฒนาระบบ ปี 2568', pipelineStatus: 'fetched' });
+  const get = egpHasNoFile();
+
+  await runDownloadStep({ documentsDir });
+
+  assert.equal(get.mock.callCount(), 0);
 });

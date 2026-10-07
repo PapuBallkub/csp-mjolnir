@@ -10,6 +10,15 @@ test('isPastFetch: only a TOR that download has handled', () => {
   assert.equal(isPastFetch({ pipelineStatus: 'fetched' }), false);
   assert.equal(isPastFetch({ pipelineStatus: 'downloaded' }), true);
   assert.equal(isPastFetch({ pipelineStatus: 'ocr_done' }), true);
+  assert.equal(isPastFetch({ pipelineStatus: 'ocr_preview' }), true, 'a preview is past fetch too');
+});
+
+test('isPastFetch knows every stage the Tor model allows, so none is sent back', async () => {
+  const { Tor } = await import('#models/index.js');
+  const stages = Tor.schema.path('pipelineStatus').enumValues;
+  for (const stage of stages.filter((value) => value !== 'fetched')) {
+    assert.equal(isPastFetch({ pipelineStatus: stage }), true, stage);
+  }
 });
 
 test('fetchStageFields: a new or fetched TOR gets its document and stage', () => {

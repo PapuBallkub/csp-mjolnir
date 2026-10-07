@@ -274,6 +274,16 @@ export type PriceAnalysis = {
  */
 export type TorStatus = "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";
 
+/**
+ * e-GP's announcement codes (ADR 0017): 15 reference price, B0 draft TOR,
+ * D0 invitation, D2 invitation changed, D1 invitation cancelled, W0 winner,
+ * W2 winner changed, W1 winner cancelled.
+ */
+export type AnnouncementCode = "15" | "B0" | "D0" | "D2" | "D1" | "W0" | "W2" | "W1";
+
+/** The stage e-GP announced last, when the feed announced the TOR at all. */
+export type LatestAnnouncement = { code: AnnouncementCode; publishedAt: string | null } | null;
+
 export type TorInsightSummary = {
   projectId: string;
   identification: {
@@ -288,6 +298,8 @@ export type TorInsightSummary = {
     budgetTHB: number | null;
     referencePriceTHB: number | null;
     submissionDeadline: string | null;
+    /** A draft out for public hearing: comments due by this date (extract-v4) */
+    commentDeadline?: string | null;
     procurementMethod: string | null;
     penaltyClause: string | null;
     postedDate: string | null;
@@ -306,6 +318,9 @@ export type TorInsightSummary = {
   };
   /** Only companies may bid ("เฉพาะนิติบุคคล") */
   companiesOnly: boolean;
+  latestAnnouncement: LatestAnnouncement;
+  /** data.go.th has the signed contract */
+  contractSigned: boolean;
   review: TorReview;
   createdAt?: string;
 };
@@ -325,6 +340,8 @@ export type TorInsightDetail = {
     budgetTHB: number | null;
     referencePriceTHB: number | null;
     submissionDeadline: string | null;
+    /** A draft out for public hearing: comments due by this date (extract-v4) */
+    commentDeadline?: string | null;
     deliveryPeriodDays: number | null;
     procurementMethod: string | null;
     warrantyYears: number | null;
@@ -392,6 +409,9 @@ export type TorInsightDetail = {
     changedSections: string[];
   };
   companiesOnly: boolean;
+  latestAnnouncement: LatestAnnouncement;
+  /** data.go.th has the signed contract */
+  contractSigned: boolean;
   review: TorReview;
   document?: {
     fileName: string | null;
