@@ -233,3 +233,14 @@ test('confidenceScore: minor failures cost points, any critical one caps the sco
   assert.equal(confidenceScore([critical]), 79);
   assert.equal(confidenceScore(Array(30).fill(critical)), 0);
 });
+
+test('grounding: a comment deadline is checked too, but a wrong one is minor, not hidden', () => {
+  const input = clean();
+  input.extracted.facts.commentDeadline = {
+    quote: 'เสนอแนะ วิจารณ์ ภายในวันที่ ๓๑ ตุลาคม ๒๕๖๙', // not in the document
+    page: 1,
+    value: { day: 31, month: 10, year: 2569, era: 'BE', hour: null, minute: null },
+  };
+
+  assert.equal(failed(runChecks(input), 'grounding', 'facts.commentDeadline').severity, 'minor');
+});

@@ -111,7 +111,10 @@ const torInsightSchema = new mongoose.Schema(
     facts: {
       budgetTHB: { type: Number, default: null }, // งบประมาณ: feed first, AI fills gaps
       referencePriceTHB: { type: Number, default: null, index: true }, // ราคากลาง: feed first, AI fills gaps
-      submissionDeadline: { type: Date, default: null },
+      submissionDeadline: { type: Date, default: null }, // to submit a bid, set by an invitation
+      // To send comments on a draft out for public hearing (ร่าง TOR). A draft has
+      // no submission deadline yet; the two are never swapped (extract-v4).
+      commentDeadline: { type: Date, default: null },
       deliveryPeriodDays: { type: Number, default: null },
       procurementMethod: { type: String, default: null, trim: true },
       warrantyYears: { type: Number, default: null },

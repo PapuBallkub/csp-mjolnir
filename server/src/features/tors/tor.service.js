@@ -42,7 +42,25 @@ const LIVE_STATUS = [
       from: Tor.collection.collectionName,
       localField: 'projectId',
       foreignField: 'projectId',
-      pipeline: [{ $project: { _id: 0, isAmended: 1, status: { $cond: [HAS_WINNER, 'Awarded', '$status'] } } }],
+      pipeline: [
+        {
+          $project: {
+            _id: 0,
+            isAmended: 1,
+            status: { $cond: [HAS_WINNER, 'Awarded', '$status'] },
+            contractSigned: HAS_WINNER,
+            // The stage e-GP announced last (ADR 0017), only for TORs the feed
+            // actually announced: an older record's announceType is a guess
+            latestAnnouncement: {
+              $cond: [
+                { $gt: [{ $size: { $ifNull: ['$announcementHistory', []] } }, 0] },
+                { code: '$announceType', publishedAt: { $max: '$announcementHistory.publishedAt' } },
+                null,
+              ],
+            },
+          },
+        },
+      ],
       as: '_tor',
     },
   },
@@ -50,6 +68,8 @@ const LIVE_STATUS = [
     $set: {
       'identification.status': { $ifNull: [{ $first: '$_tor.status' }, '$identification.status'] },
       'amendmentInfo.isAmended': { $ifNull: [{ $first: '$_tor.isAmended' }, '$amendmentInfo.isAmended'] },
+      contractSigned: { $ifNull: [{ $first: '$_tor.contractSigned' }, false] },
+      latestAnnouncement: { $ifNull: [{ $first: '$_tor.latestAnnouncement' }, null] },
     },
   },
   { $unset: '_tor' },
@@ -57,9 +77,15 @@ const LIVE_STATUS = [
 
 /** LIVE_STATUS for one insight already in hand, with its Tor. */
 function withLiveStatus(insight, tor) {
-  if (!tor) return insight;
+  if (!tor) return { ...insight, contractSigned: false, latestAnnouncement: null };
+  const history = tor.announcementHistory ?? [];
+  const times = history.map((entry) => entry.publishedAt).filter(Boolean).map((date) => new Date(date).getTime());
   return {
     ...insight,
+    contractSigned: Boolean(tor.contract?.winnerName),
+    latestAnnouncement: history.length
+      ? { code: tor.announceType, publishedAt: times.length ? new Date(Math.max(...times)) : null }
+      : null,
     identification: {
       ...insight.identification,
       status: tor.contract?.winnerName ? 'Awarded' : (tor.status ?? insight.identification?.status),
@@ -253,6 +279,7 @@ export async function listTors(
     'facts.budgetTHB': 1,
     'facts.referencePriceTHB': 1,
     'facts.submissionDeadline': 1,
+    'facts.commentDeadline': 1,
     'facts.procurementMethod': 1,
     'facts.penaltyClause': 1,
     'facts.postedDate': 1,
@@ -264,6 +291,8 @@ export async function listTors(
     'analytics.priceAnalysis.diffPercentage': 1,
     'analytics.priceAnalysis.historicalMedianTHB': 1,
     'amendmentInfo.isAmended': 1,
+    contractSigned: 1,
+    latestAnnouncement: 1,
     'metadata.origin': 1,
     'metadata.reviewStatus': 1,
     'metadata.confidenceScore': 1,
@@ -360,7 +389,18 @@ export async function getTorByProjectId(projectId, { showUnreviewed, now = new D
     TorInsight.findOne({ projectId: id, ...visibilityFilter({ showUnreviewed }) }).lean(),
     Tor.findOne(
       { projectId: id },
-      { document: 1, pipelineStatus: 1, source: 1, status: 1, isAmended: 1, 'contract.winnerName': 1, 'ocr.truncated': 1, 'ocr.usedOcr': 1 },
+      {
+        document: 1,
+        pipelineStatus: 1,
+        source: 1,
+        status: 1,
+        isAmended: 1,
+        announceType: 1,
+        'announcementHistory.publishedAt': 1,
+        'contract.winnerName': 1,
+        'ocr.truncated': 1,
+        'ocr.usedOcr': 1,
+      },
     ).lean(),
   ]);
   if (!insight) return null;

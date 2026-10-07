@@ -7,6 +7,7 @@ import type { Match } from "../_lib/match";
 import { useLang } from "./prefs";
 import { TorDeadline } from "./deadline";
 import { getFiscalYear } from "../_lib/format";
+import { stageOf } from "../_lib/stage";
 import {
   AmendedFlag,
   CompaniesOnlyBadge,
@@ -82,6 +83,11 @@ export function CatalogRow({
   const fiscalYear = getFiscalYear(facts.postedDate, tor.projectId);
   const missing = notAnalysedText(!analytics.lockSpec, !analytics.priceAnalysis, lang);
   const isClosed = isDead(iden.status);
+  const stage = stageOf({
+    status: iden.status,
+    latestAnnouncement: tor.latestAnnouncement,
+    contractSigned: tor.contractSigned,
+  });
 
   return (
     <article
@@ -128,8 +134,8 @@ export function CatalogRow({
 
           {/* 3. Decision Signals & Status Badges */}
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            <LifecycleBadge status={iden.status} lang={lang} />
-            {tor.amendmentInfo?.isAmended ? <AmendedFlag lang={lang} /> : null}
+            <LifecycleBadge status={iden.status} stage={stage} lang={lang} />
+            {tor.amendmentInfo?.isAmended && !stage.saysChanged ? <AmendedFlag lang={lang} /> : null}
             {analytics.lockSpec ? (
               <LockSpecBadge
                 level={riskLevel(analytics.lockSpec.riskScore)}
@@ -184,7 +190,7 @@ export function CatalogRow({
             </span>
           </div>
 
-          <TorDeadline deadline={facts.submissionDeadline} status={iden.status} now={now} lang={lang} />
+          <TorDeadline status={iden.status} facts={facts} now={now} lang={lang} />
 
           {match ? <MatchScore score={match.score} lang={lang} /> : null}
         </div>
