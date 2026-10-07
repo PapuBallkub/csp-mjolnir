@@ -86,8 +86,8 @@ export function TorRow({
 
       <div className="flex min-w-0 flex-1 flex-col gap-3.5 sm:flex-row sm:gap-5">
         <div className="min-w-0 flex-1">
-          {/* 1. Project Title — First */}
-          <h3 className="text-[16px] leading-[1.55] font-semibold text-ink">
+          {/* 1. Project Title — First (matches price size) */}
+          <h3 className="text-[19px] sm:text-[20px] leading-[1.45] font-semibold text-ink">
             <Link
               href={`/tor/${id}`}
               className="after:absolute after:inset-0 group-hover:underline underline-offset-2"

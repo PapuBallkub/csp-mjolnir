@@ -88,8 +88,8 @@ export function CatalogRow({
       <div className="flex min-w-0 flex-1 flex-col gap-3.5 sm:flex-row sm:gap-5">
         {/* Main Content Column: JobsDB hierarchy (Title -> Agency -> Badges -> Tech) */}
         <div className="min-w-0 flex-1">
-          {/* 1. Job / Project Title — Prominent, First */}
-          <h3 className="text-[16px] leading-[1.55] font-semibold text-ink">
+          {/* 1. Job / Project Title — Prominent, First (matches price size) */}
+          <h3 className="text-[19px] sm:text-[20px] leading-[1.45] font-semibold text-ink">
             <Link
               href={`/tor/${tor.projectId}`}
               className="underline-offset-2 after:absolute after:inset-0 group-hover:underline"
@@ -195,7 +195,7 @@ export function CatalogRowSkeleton() {
       <span className="w-[5px] shrink-0 rounded-full bg-line" />
       <div className="flex min-w-0 flex-1 animate-pulse flex-col gap-3.5 sm:flex-row sm:gap-5">
         <div className="min-w-0 flex-1">
-          <div className={`h-5 w-4/5 ${bar}`} />
+          <div className={`h-6 sm:h-7 w-4/5 ${bar}`} />
           <div className={`mt-2 h-3.5 w-60 ${bar}`} />
           <div className="mt-3 flex gap-1.5">
             <div className={`h-5 w-24 ${bar}`} />
