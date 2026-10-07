@@ -49,22 +49,22 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
           <Link
             href="/"
-            className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:border-line-2 hover:bg-surface-3 hover:text-ink"
+            className="flex items-center text-ink transition-opacity hover:opacity-70"
             title={lang === "th" ? "หน้าแรก" : "Home"}
             aria-label={lang === "th" ? "หน้าแรก" : "Home"}
           >
             <svg
-              viewBox="0 0 16 16"
-              className="h-3.5 w-3.5"
+              viewBox="0 0 20 20"
+              className="h-[19px] w-[19px]"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.35"
+              strokeWidth="1.65"
               strokeLinecap="round"
               strokeLinejoin="round"
               aria-hidden="true"
             >
-              <path d="M2.5 6.75 L8 2.25 L13.5 6.75 V13.25 A1 1 0 0 1 12.5 14.25 H3.5 A1 1 0 0 1 2.5 13.25 Z" />
-              <path d="M6 14.25 V9.5 H10 V14.25" />
+              <path d="M3.25 8.75 L10 3.25 L16.75 8.75 V16.5 A1 1 0 0 1 15.75 17.5 H4.25 A1 1 0 0 1 3.25 16.5 Z" />
+              <path d="M7.5 17.5 V11.25 H12.5 V17.5" />
             </svg>
           </Link>
 
