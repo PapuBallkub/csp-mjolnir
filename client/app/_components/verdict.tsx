@@ -1,6 +1,7 @@
 import type { Lang, PriceVerdict, RiskLevel, ScopeSize, Status, Tor } from "../_data/tors";
 import { priceDeltaPct } from "../_data/tors";
 import type { TorInsightSummary, TorStatus } from "../_lib/api";
+import { stageOf, type Stage } from "../_lib/stage";
 
 // Re-export Status and keep backward-compat alias
 export type { Status };
@@ -179,6 +180,9 @@ function DirectionGlyph({ verdict }: { verdict: PriceVerdict }) {
 
 const badgeBase =
   "inline-flex items-center gap-1.5 rounded-[2px] border px-2 py-[3px] text-[11px] font-medium leading-none whitespace-nowrap transition-all duration-150";
+
+const largeStatusBadgeBase =
+  "inline-flex items-center gap-2 rounded-[3px] border px-3 py-1.5 text-[13px] font-semibold leading-none whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-150";
 
 const statusBadgeBase =
   "inline-flex items-center gap-1.5 rounded-[3px] border px-2.5 py-1 text-[12.5px] font-semibold leading-none whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-all duration-150";
@@ -361,29 +365,17 @@ export function SignalRail({ status, className = "" }: { status: Status; classNa
  * also drawn dashed and drained: it is the platform's inference from the
  * deadline, not something the agency announced.
  */
-const LIFECYCLE: Record<TorStatus, { tone: Tone | null; label: Bi; hint?: Bi }> = {
-  Draft: {
-    tone: null,
-    label: { th: "ร่าง TOR", en: "Draft" },
-    hint: {
-      th: "ร่างเพื่อรับฟังความเห็น ยังไม่เปิดรับข้อเสนอ",
-      en: "Out for public hearing; bids are not open yet",
-    },
-  },
-  Open: { tone: "open", label: { th: "เปิดรับข้อเสนอ", en: "Open" } },
-  Awarded: { tone: "closed", label: { th: "ประกาศผู้ชนะแล้ว", en: "Awarded" } },
-  Closed: {
-    tone: "closed",
-    label: { th: "ปิดรับแล้ว", en: "Closed" },
-    hint: {
-      th: "ประเมินจากวันปิดรับ หน่วยงานยังไม่แจ้งผล",
-      en: "Inferred from the deadline; the agency hasn't reported an outcome",
-    },
-  },
-  Cancelled: { tone: "closed", label: { th: "ยกเลิก", en: "Cancelled" } },
+// The colour of each status. Its words (the stage, or the status when there
+// is no stage) come from stage.ts, the one vocabulary the badges and the
+// search filters share.
+const LIFECYCLE_TONE: Record<TorStatus, Tone | null> = {
+  Draft: null,
+  Open: "open",
+  Awarded: "closed",
+  Closed: "closed",
+  Cancelled: "closed",
 };
 
-export const lifecycleLabel = (status: TorStatus, lang: Lang) => say(LIFECYCLE[status].label, lang);
 
 const DEAD: TorStatus[] = ["Awarded", "Closed", "Cancelled"];
 export const isDead = (status: TorStatus) => DEAD.includes(status);
@@ -409,8 +401,24 @@ function LifecycleGlyph({ status, className = "h-3 w-3 shrink-0" }: { status: To
   );
 }
 
-export function LifecycleBadge({ status, lang }: { status: TorStatus; lang: Lang }) {
-  const { tone, label, hint } = LIFECYCLE[status];
+/**
+ * The status badge. The status sets the colour and the glyph, so a dense list
+ * scans by colour; `stage` (from stageOf) names what e-GP announced, e.g.
+ * "ยกเลิกประกาศเชิญชวน" rather than just "ยกเลิก".
+ */
+export function LifecycleBadge({
+  status,
+  lang,
+  stage,
+  size = "regular",
+}: {
+  status: TorStatus;
+  lang: Lang;
+  stage?: Stage;
+  size?: "regular" | "large";
+}) {
+  const tone = LIFECYCLE_TONE[status];
+  const { label, hint } = stage ?? stageOf({ status });
   const colours =
     status === "Closed"
       ? "border-dashed border-closed-line bg-surface text-ink-2"
@@ -418,8 +426,11 @@ export function LifecycleBadge({ status, lang }: { status: TorStatus; lang: Lang
         ? `${TONE[tone].bg} ${TONE[tone].border} ${TONE[tone].text}`
         : "border-line-2 bg-surface text-ink-2";
   return (
-    <span className={`${statusBadgeBase} min-w-[82px] justify-center ${colours}`} title={hint ? say(hint, lang) : undefined}>
-      <LifecycleGlyph status={status} />
+    <span
+      className={`${size === "large" ? largeStatusBadgeBase : statusBadgeBase} min-w-[82px] justify-center ${colours}`}
+      title={hint ? say(hint, lang) : undefined}
+    >
+      <LifecycleGlyph status={status} className={size === "large" ? "h-3.5 w-3.5 shrink-0" : undefined} />
       <span>{say(label, lang)}</span>
       {hint ? <span className="sr-only"> ({say(hint, lang)})</span> : null}
     </span>

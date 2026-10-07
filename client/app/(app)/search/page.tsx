@@ -18,7 +18,8 @@ import { useAuth } from "../../_components/auth";
 import { useLang, useProfile } from "../../_components/prefs";
 import { CatalogRow, CatalogRowSkeleton } from "../../_components/catalog-row";
 import { formatThaiDate } from "../../_components/deadline";
-import { isDead, lifecycleLabel, RiskMeter } from "../../_components/verdict";
+import { isDead, RiskMeter } from "../../_components/verdict";
+import { STATUS_GROUPS, announcementLabel } from "../../_lib/stage";
 import {
   btn,
   Chip,
@@ -54,16 +55,16 @@ const BUDGET_BANDS: { id: string; label: Bi; min?: number; max?: number }[] = [
 
 const DEADLINE_BANDS: { id: string; label: Bi; days?: number }[] = [
   { id: "any", label: { th: "ไม่จำกัด", en: "Any" } },
-  { id: "7", label: { th: "ปิดรับภายใน 7 วัน", en: "Closing within 7 days" }, days: 7 },
-  { id: "14", label: { th: "ปิดรับภายใน 14 วัน", en: "Closing within 14 days" }, days: 14 },
-  { id: "30", label: { th: "ปิดรับภายใน 30 วัน", en: "Closing within 30 days" }, days: 30 },
+  { id: "7", label: { th: "ยื่นข้อเสนอภายใน 7 วัน", en: "Bids due within 7 days" }, days: 7 },
+  { id: "14", label: { th: "ยื่นข้อเสนอภายใน 14 วัน", en: "Bids due within 14 days" }, days: 14 },
+  { id: "30", label: { th: "ยื่นข้อเสนอภายใน 30 วัน", en: "Bids due within 30 days" }, days: 30 },
 ];
 
 const STATUSES: TorStatus[] = ["Draft", "Open", "Awarded", "Closed", "Cancelled"];
 
 const SORTS: { id: Sort; label: Bi }[] = [
   { id: "newest", label: { th: "ประกาศล่าสุด", en: "Newest" } },
-  { id: "deadline", label: { th: "ใกล้ปิดรับที่สุด", en: "Closing soonest" } },
+  { id: "deadline", label: { th: "ใกล้ครบกำหนดยื่นข้อเสนอ", en: "Bids due soonest" } },
   { id: "budget-desc", label: { th: "ราคากลางสูงสุด", en: "Highest price" } },
   { id: "budget-asc", label: { th: "ราคากลางต่ำสุด", en: "Lowest price" } },
 ];
@@ -119,6 +120,31 @@ function FilterGroup({ title, children }: { title: string; children: ReactNode }
   );
 }
 
+/**
+ * A filter's name, then a line for each note and a bullet for each badge it
+ * holds, in the badges' own words (ADR 0019). Nothing is cut short.
+ */
+function GroupLabel({ label, members, notes, lang }: { label: Bi; members?: Bi[]; notes?: Bi[]; lang: Lang }) {
+  const say = (words: Bi) => (lang === "th" ? words.th : words.en);
+  return (
+    <span className="flex flex-col">
+      <span>{say(label)}</span>
+      {notes?.map((note) => (
+        <span key={note.en} className="text-[11px] leading-thai text-ink-3">
+          {say(note)}
+        </span>
+      ))}
+      {members?.length ? <span className="sr-only">{lang === "th" ? "รวม" : "includes"}</span> : null}
+      {members?.map((member) => (
+        <span key={member.en} className="flex gap-1.5 text-[11px] leading-thai text-ink-3">
+          <span aria-hidden="true">•</span>
+          <span>{say(member)}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function Check({
   checked,
   onChange,
@@ -126,6 +152,7 @@ function Check({
   count,
   trailing,
   title,
+  wrap = false,
 }: {
   checked: boolean;
   onChange: () => void;
@@ -133,22 +160,24 @@ function Check({
   count?: number;
   trailing?: ReactNode;
   title?: string;
+  /** Let a label with an explanation wrap, instead of cutting it short */
+  wrap?: boolean;
 }) {
   return (
     <label
-      className="flex cursor-pointer items-center gap-2 text-[13px] leading-thai text-ink-2 hover:text-ink"
+      className={`flex cursor-pointer gap-2 text-[13px] leading-thai text-ink-2 hover:text-ink ${wrap ? "items-start" : "items-center"}`}
       title={title}
     >
       <input
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="h-3.5 w-3.5 shrink-0 accent-ink"
+        className={`h-3.5 w-3.5 shrink-0 accent-ink ${wrap ? "mt-[4px]" : ""}`}
       />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className={`min-w-0 flex-1 ${wrap ? "" : "truncate"}`}>{label}</span>
       {trailing}
       {count !== undefined ? (
-        <span className="font-mono tnum text-[11px] text-ink-3">{count}</span>
+        <span className={`font-mono tnum text-[11px] text-ink-3 ${wrap ? "mt-[3px]" : ""}`}>{count}</span>
       ) : null}
     </label>
   );
@@ -398,7 +427,8 @@ export default function BrowsePage() {
             key={status}
             checked={statuses.includes(status)}
             onChange={() => setStatuses(toggle(statuses, status))}
-            label={lifecycleLabel(status, lang)}
+            wrap
+            label={<GroupLabel lang={lang} {...STATUS_GROUPS[status]} />}
             count={facets?.ok ? facets.data.statuses[status] : undefined}
           />
         ))}
@@ -406,7 +436,14 @@ export default function BrowsePage() {
           <Check
             checked={amendedOnly}
             onChange={() => setAmendedOnly(!amendedOnly)}
-            label={lang === "th" ? "เฉพาะที่มีเอกสารแก้ไข" : "Amended only"}
+            wrap
+            label={
+              <GroupLabel
+                lang={lang}
+                label={{ th: "เฉพาะที่แก้ไขแล้ว", en: "Amended only" }}
+                members={[announcementLabel("D2")]}
+              />
+            }
             count={facets?.ok ? facets.data.amended : undefined}
           />
         </div>
@@ -549,7 +586,7 @@ export default function BrowsePage() {
           <Check
             checked={hideClosed}
             onChange={() => setHideClosed(!hideClosed)}
-            label={lang === "th" ? "งานที่ปิดรับแล้ว" : "Projects already closed"}
+            label={lang === "th" ? "งานที่ไม่รับข้อเสนอแล้ว" : "Projects no longer taking bids"}
           />
           <Check
             checked={hideHighRisk}
@@ -732,8 +769,8 @@ export default function BrowsePage() {
           headline={lang === "th" ? "ไม่มีประกาศที่ผ่านเงื่อนไขนี้" : "Nothing passes these settings"}
           body={
             lang === "th"
-              ? "ลองลดคะแนนขั้นต่ำ แสดงงานที่ปิดรับแล้ว หรือเอาตัวกรองความเสี่ยงออก"
-              : "Try a lower score floor, showing closed projects, or dropping the risk filter."
+              ? "ลองลดคะแนนขั้นต่ำ แสดงงานที่ไม่รับข้อเสนอแล้ว หรือเอาตัวกรองความเสี่ยงออก"
+              : "Try a lower score floor, showing projects no longer taking bids, or dropping the risk filter."
           }
           action={
             <button type="button" onClick={() => setScoreFloor(0)} className={btn.secondary}>
@@ -780,8 +817,8 @@ export default function BrowsePage() {
     const { tors, total } = matchResult.data;
     countLine =
       lang === "th"
-        ? `แสดง ${matchResults.length} จาก ${tors.length} ประกาศที่ใช้ทักษะของคุณ${total > tors.length ? ` (จัดอันดับ ${tors.length} รายการที่ใกล้ปิดรับที่สุดจากทั้งหมด ${total})` : ""}`
-        : `${matchResults.length} of ${tors.length} postings that use your skills${total > tors.length ? ` (the ${tors.length} closing soonest, of ${total})` : ""}`;
+        ? `แสดง ${matchResults.length} จาก ${tors.length} ประกาศที่ใช้ทักษะของคุณ${total > tors.length ? ` (จัดอันดับ ${tors.length} รายการที่ใกล้ครบกำหนดยื่นข้อเสนอที่สุดจากทั้งหมด ${total})` : ""}`
+        : `${matchResults.length} of ${tors.length} postings that use your skills${total > tors.length ? ` (the ${tors.length} with bids due soonest, of ${total})` : ""}`;
   }
 
   return (
