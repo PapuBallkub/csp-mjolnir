@@ -74,7 +74,8 @@ const torSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // Announcement type from RSS (B0=Draft TOR, D0=Invitation, 15=Reference Price)
+    // The latest e-GP announcement code seen; the codes are in
+    // pipeline/shared/announcement-codes.js (ADR 0017)
     announceType: {
       type: String,
       default: '',

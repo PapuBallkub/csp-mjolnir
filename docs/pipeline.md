@@ -49,6 +49,14 @@ them as `fetched`. Nothing is downloaded.
 
 - e-GP RSS is the only source of **open** projects; data.go.th has past
   contracts only.
+- **The e-GP feed is closed 09:00–12:00 and 13:00–17:00, Bangkok time.**
+  Fetch then sends no request and says so. Run it at 12:01–12:59 or after
+  17:01.
+- Each request returns only the 20 latest items of one announcement type
+  ([0017](decisions/0017-read-the-egp-feed-as-egp-defines-it.md)).
+- `--query` and `--limit` choose **new** projects. A project already in the
+  database always gets its updates (changed, cancelled, winner announced),
+  whatever its title says.
 - If a source fails, fetch prints its errors and fetches nothing from it.
   `e-GP RSS DID NOT ANSWER` means every request to the feed failed. There is
   no fallback to another source.
@@ -87,7 +95,7 @@ npm run ingest:ocr -- --id 67059626749
 |---|---|---|---|
 | `--id <projectId>` | download, ocr | all waiting records | Work on one TOR only |
 | `--query`, `-q` | fetch | `คอมพิวเตอร์` | Search keyword sent to the sources |
-| `--limit`, `-l` | fetch | `5` | How many TORs to fetch **per source** |
+| `--limit`, `-l` | fetch | `5` | At most this many **new** projects per source; updates to projects already in the database are never limited |
 | `--source` | fetch | `all` | `process3`, `datago` or `all` |
 | `--skip-ocr` | `ingest` | off | Stop after download |
 | `--step`, `-s` | `ingest` | `all` | `fetch`, `download`, `ocr` or `all`. The `ingest:*` scripts set this for you. |

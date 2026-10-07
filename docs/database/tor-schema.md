@@ -99,7 +99,7 @@ Tracks watchdog audit trail when government revisions occur (FR09, FR10, FR11).
 | `announceDate` | `String` | No | `null` | Date of announcement as string from source | `"13 พ.ค. 68"` |
 | `procurementMethod` | `String` | No | `""` | Procurement method name from upstream source | `"ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)"` |
 | `egpUrl` | `String` | No | `""` | Direct link to e-GP search page for this project | `"https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=68049205582"` |
-| `announceType` | `String` | No | `""` | e-GP Announcement code (`B0` = Draft TOR, `D0` = Invitation, `15` = Reference Price, `W0` = Award) | `"B0"` |
+| `announceType` | `String` | No | `""` | The latest e-GP announcement code seen: `15` reference price, `B0` draft TOR, `D0` invitation, `D2` invitation changed, `D1` invitation cancelled, `W0`/`W2` winner announced/changed, `W1` winner cancelled ([0017](../decisions/0017-read-the-egp-feed-as-egp-defines-it.md)) | `"D0"` |
 | `status` | `String` | Indexed | `'Open'` | Current procurement status (`'Draft'`, `'Open'`, `'Awarded'`, `'Closed'`, `'Cancelled'`) | `"Awarded"` |
 | `isAmended` | `Boolean` | Indexed | `false` | Whether this TOR has been amended/revised | `false` |
 | `pipelineStatus` | `String` | Indexed | `'fetched'` | Current processing state in backend ingestion pipeline (`'fetched'`, `'downloaded'`, `'ocr_done'`) | `"downloaded"` |

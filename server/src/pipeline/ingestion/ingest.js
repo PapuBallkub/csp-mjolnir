@@ -34,7 +34,7 @@ import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Tor } from '#models/index.js';
 import { MAX_ATTEMPTS, clearFailure, loadGivenUp, recordFailure } from '../shared/failures.js';
 import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
-import { fetchFromProcess3 } from './sources/process3.js';
+import { FEED_HOURS, fetchFromProcess3 } from './sources/process3.js';
 import { fetchFromDataGo } from './sources/datago.js';
 import { extractText } from './lib/ocr.js';
 import {
@@ -133,10 +133,14 @@ export async function runFetchStep({ query, limit, source, documentsDir }) {
       downloadAttachments: false,
     });
     totalFetched += p3Result.fetched;
-    console.log(`     Discovered: ${p3Result.fetched} project(s)`);
-    reportSourceErrors(p3Result.errors);
-    if (p3Result.unreachable) {
-      console.warn('     e-GP RSS DID NOT ANSWER: no new announcements were fetched from it this run.');
+    console.log(`     Discovered: ${p3Result.discovered} new project(s); ${p3Result.updated} followed project(s) updated`);
+    if (p3Result.closed) {
+      console.warn(`     ${FEED_HOURS}, so nothing was requested. Run again after 12:01 or 17:01.`);
+    } else {
+      reportSourceErrors(p3Result.errors);
+      if (p3Result.unreachable) {
+        console.warn('     e-GP RSS DID NOT ANSWER: no new announcements were fetched from it this run.');
+      }
     }
   }
 
