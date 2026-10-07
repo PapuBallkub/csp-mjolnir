@@ -242,7 +242,7 @@ export function TorDetail({
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {/* Status Badge with prominent styling and amended tag */}
-            <StatusBadge status={iden.status} lang={lang} isAmended={amend.isAmended} />
+            <StatusBadge status={iden.status} lang={lang} isAmended={amend.isAmended} size="large" />
 
             {/* Fiscal Year Badge */}
             {fiscalYear ? (

@@ -192,7 +192,7 @@ export function CatalogRowSkeleton() {
   const bar = "rounded-[2px] bg-surface-3";
   return (
     <div className="flex gap-3.5 sm:gap-4 rounded-lg border border-line bg-surface px-4 py-3.5 sm:px-5 sm:py-4" aria-hidden="true">
-      <span className="w-[3px] shrink-0 rounded-full bg-line" />
+      <span className="w-[5px] shrink-0 rounded-full bg-line" />
       <div className="flex min-w-0 flex-1 animate-pulse flex-col gap-3.5 sm:flex-row sm:gap-5">
         <div className="min-w-0 flex-1">
           <div className={`h-5 w-4/5 ${bar}`} />

@@ -180,34 +180,44 @@ function DirectionGlyph({ verdict }: { verdict: PriceVerdict }) {
 const badgeBase =
   "inline-flex items-center gap-1.5 rounded-[2px] border px-2 py-[3px] text-[11px] font-medium leading-none whitespace-nowrap transition-all duration-150";
 
+const statusBadgeBase =
+  "inline-flex items-center gap-1.5 rounded-[3px] border px-2.5 py-1 text-[12.5px] font-semibold leading-none whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-all duration-150";
+
 export function StatusBadge({
   status,
   lang,
   round,
   isAmended = false,
+  size = "regular",
 }: {
   status: Status;
   lang: Lang;
   /** e.g. "ครั้งที่ 2" — shown next to an amended status. */
   round?: string;
   isAmended?: boolean;
+  size?: "regular" | "large";
 }) {
   const toneKey = getStatusTone(status);
   const tone = status === "Draft"
     ? { bg: "bg-surface-2", border: "border-line", text: "text-ink-2", fill: "bg-ink-3" }
     : TONE[toneKey];
   const label = STATUS_LABEL[status] || { th: String(status), en: String(status) };
+  const base =
+    size === "large"
+      ? "inline-flex items-center gap-2 rounded-[3px] border px-3 py-1.5 text-[13px] font-semibold leading-none whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-150"
+      : statusBadgeBase;
+  const iconClass = size === "large" ? "h-3.5 w-3.5" : "h-3 w-3";
 
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={`${badgeBase} min-w-[74px] justify-center ${tone.bg} ${tone.border} ${tone.text}`}>
-        <StatusGlyph status={status} />
+      <span className={`${base} min-w-[82px] justify-center ${tone.bg} ${tone.border} ${tone.text}`}>
+        <StatusGlyph status={status} className={iconClass} />
         <span className="transition-opacity duration-150">{say(label, lang)}</span>
         {round ? <span className="font-mono opacity-70">{round}</span> : null}
       </span>
       {isAmended ? (
-        <span className={`${badgeBase} border-amend-line bg-amend-bg text-amend`}>
-          <span>✎</span>
+        <span className={`${base} border-amend-line bg-amend-bg text-amend`}>
+          <span className="text-[11px]">✎</span>
           <span>{lang === "th" ? "แก้ไขแล้ว" : "Amended"}</span>
         </span>
       ) : null}
@@ -339,7 +349,7 @@ export function SignalRail({ status, className = "" }: { status: Status; classNa
   return (
     <span
       aria-hidden="true"
-      className={`w-[3px] shrink-0 rounded-full ${fill} ${isMuted ? "opacity-50" : ""} ${className}`}
+      className={`w-[5px] shrink-0 rounded-full ${fill} ${isMuted ? "opacity-60" : ""} ${className}`}
     />
   );
 }
@@ -379,9 +389,9 @@ export const lifecycleLabel = (status: TorStatus, lang: Lang) => say(LIFECYCLE[s
 const DEAD: TorStatus[] = ["Awarded", "Closed", "Cancelled"];
 export const isDead = (status: TorStatus) => DEAD.includes(status);
 
-function LifecycleGlyph({ status }: { status: TorStatus }) {
+function LifecycleGlyph({ status, className = "h-3 w-3 shrink-0" }: { status: TorStatus; className?: string }) {
   return (
-    <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 shrink-0" aria-hidden="true">
+    <svg viewBox="0 0 10 10" className={className} aria-hidden="true">
       {status === "Draft" && <circle cx="5" cy="5" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.4" />}
       {status === "Open" && <circle cx="5" cy="5" r="3.2" fill="currentColor" />}
       {status === "Awarded" && (
@@ -409,7 +419,7 @@ export function LifecycleBadge({ status, lang }: { status: TorStatus; lang: Lang
         ? `${TONE[tone].bg} ${TONE[tone].border} ${TONE[tone].text}`
         : "border-line-2 bg-surface text-ink-2";
   return (
-    <span className={`${badgeBase} min-w-[74px] justify-center ${colours}`} title={hint ? say(hint, lang) : undefined}>
+    <span className={`${statusBadgeBase} min-w-[82px] justify-center ${colours}`} title={hint ? say(hint, lang) : undefined}>
       <LifecycleGlyph status={status} />
       <span>{say(label, lang)}</span>
       {hint ? <span className="sr-only"> ({say(hint, lang)})</span> : null}
@@ -421,8 +431,8 @@ export function LifecycleBadge({ status, lang }: { status: TorStatus; lang: Lang
 export function AmendedFlag({ lang }: { lang: Lang }) {
   const tone = TONE.amend;
   return (
-    <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
-      <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 shrink-0" aria-hidden="true">
+    <span className={`${statusBadgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
+      <svg viewBox="0 0 10 10" className="h-3 w-3 shrink-0" aria-hidden="true">
         <rect x="0" y="2.2" width="7" height="1.8" fill="currentColor" />
         <rect x="3" y="6" width="7" height="1.8" fill="currentColor" />
       </svg>
@@ -455,7 +465,7 @@ export function LifecycleRail({ status, amended = false }: { status: TorStatus; 
   return (
     <span
       aria-hidden="true"
-      className={`w-[3px] shrink-0 rounded-full ${fill} ${status === "Closed" ? "opacity-50" : ""}`}
+      className={`w-[5px] shrink-0 rounded-full ${fill} ${status === "Closed" ? "opacity-60" : ""}`}
     />
   );
 }
