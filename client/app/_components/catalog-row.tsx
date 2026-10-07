@@ -85,8 +85,8 @@ export function CatalogRow({
 
   return (
     <article
-      className={`group relative flex gap-3.5 sm:gap-4 rounded-lg border border-line bg-surface px-4 py-3.5 sm:px-5 sm:py-4 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm ${
-        isClosed ? "grayscale opacity-80 hover:opacity-100 bg-surface-2/30" : ""
+      className={`group relative flex gap-3.5 sm:gap-4 rounded-lg border border-line px-4 py-3.5 sm:px-5 sm:py-4 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm ${
+        isClosed ? "bg-surface-closed grayscale" : "bg-surface"
       }`}
     >
       <LifecycleRail status={iden.status} amended={tor.amendmentInfo?.isAmended} />

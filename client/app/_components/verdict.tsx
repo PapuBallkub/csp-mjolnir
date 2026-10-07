@@ -345,11 +345,10 @@ export function SmeBadge({ lang }: { lang: Lang }) {
 export function SignalRail({ status, className = "" }: { status: Status; className?: string }) {
   const toneKey = getStatusTone(status);
   const fill = status === "Draft" ? "bg-ink-3" : TONE[toneKey].fill;
-  const isMuted = status === "Closed" || status === "Draft" || status === "Awarded";
   return (
     <span
       aria-hidden="true"
-      className={`w-[5px] shrink-0 rounded-full ${fill} ${isMuted ? "opacity-60" : ""} ${className}`}
+      className={`w-[5px] shrink-0 rounded-full ${fill} ${className}`}
     />
   );
 }
@@ -414,7 +413,7 @@ export function LifecycleBadge({ status, lang }: { status: TorStatus; lang: Lang
   const { tone, label, hint } = LIFECYCLE[status];
   const colours =
     status === "Closed"
-      ? "border-dashed border-closed-line bg-transparent text-ink-3"
+      ? "border-dashed border-closed-line bg-surface text-ink-2"
       : tone
         ? `${TONE[tone].bg} ${TONE[tone].border} ${TONE[tone].text}`
         : "border-line-2 bg-surface text-ink-2";
@@ -465,7 +464,7 @@ export function LifecycleRail({ status, amended = false }: { status: TorStatus; 
   return (
     <span
       aria-hidden="true"
-      className={`w-[5px] shrink-0 rounded-full ${fill} ${status === "Closed" ? "opacity-60" : ""}`}
+      className={`w-[5px] shrink-0 rounded-full ${fill}`}
     />
   );
 }
