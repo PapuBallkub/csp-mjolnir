@@ -176,7 +176,14 @@ export const extractSchema = {
         referencePrice: amount(
           'Reference price, ราคากลาง: the official price bids are judged against. Not the budget.',
         ),
-        submissionDeadline: date('The last date (and time) to submit a bid, วันยื่นข้อเสนอ.'),
+        submissionDeadline: date(
+          'The last date (and time) to submit a bid, วันยื่นข้อเสนอ or วันเสนอราคา, set by an invitation. ' +
+            'Null in a draft out for public hearing, which has none yet. Never the comment deadline.',
+        ),
+        commentDeadline: date(
+          'For a draft out for public hearing (ร่าง TOR): the last date to send comments on it, ' +
+            'รับฟังความคิดเห็น or เสนอแนะ วิจารณ์. Null otherwise. Never a bid date.',
+        ),
         postedDate: date('The date the announcement or TOR was published.'),
         deliveryPeriodDays: number('calendar days', 'How long the contractor has to deliver, กำหนดส่งมอบ.'),
         contractDurationDays: number(
@@ -198,6 +205,7 @@ export const extractSchema = {
         'budget',
         'referencePrice',
         'submissionDeadline',
+        'commentDeadline',
         'postedDate',
         'deliveryPeriodDays',
         'contractDurationDays',

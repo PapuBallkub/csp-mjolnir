@@ -51,6 +51,7 @@ export function fixture() {
         submissionDeadline: evidence('ยื่นข้อเสนอภายในวันที่ ๑๘ สิงหาคม ๒๕๖๙ เวลา ๑๖.๓๐ น.', 3, {
           day: 18, month: 8, year: 2569, era: 'BE', hour: 16, minute: 30,
         }),
+        commentDeadline: null, // an invitation: no comment period
         postedDate: null,
         deliveryPeriodDays: evidence('ให้แล้วเสร็จภายใน ๑๕๐ วัน', 9, 150),
         contractDurationDays: null,

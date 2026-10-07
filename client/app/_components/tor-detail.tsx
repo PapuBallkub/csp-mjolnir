@@ -7,7 +7,8 @@ import type { Lang } from "../_data/tors";
 import { getEgpAnnouncementUrl, getFiscalYear } from "../_lib/format";
 import { useLang, useProfile } from "./prefs";
 import { useAuth } from "./auth";
-import { StatusBadge } from "./verdict";
+import { AmendedFlag, LifecycleBadge } from "./verdict";
+import { announcementLabel, deadlineOf, stageOf } from "../_lib/stage";
 import { AccentPanel, btn, Chip, Fact, Label, Panel, SectionHeading, Well } from "./ui";
 import { CompaniesOnlyBadge } from "./verdict";
 
@@ -160,6 +161,12 @@ export function TorDetail({
   const lockSpec = insight.analytics.lockSpec;
   const price = insight.analytics.priceAnalysis;
   const amend = insight.amendmentInfo;
+  const stage = stageOf({
+    status: iden.status,
+    latestAnnouncement: insight.latestAnnouncement,
+    contractSigned: insight.contractSigned,
+  });
+  const deadline = deadlineOf(iden.status, facts);
 
   const scope = getScopeSize(facts.referencePriceTHB || facts.budgetTHB);
   const fiscalYear = getFiscalYear(facts.postedDate, insight.projectId);
@@ -241,8 +248,9 @@ export function TorDetail({
           ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {/* Status Badge with prominent styling and amended tag */}
-            <StatusBadge status={iden.status} lang={lang} isAmended={amend.isAmended} size="large" />
+            {/* e-GP's stage, coloured by status; Amended unless the stage already says so */}
+            <LifecycleBadge status={iden.status} stage={stage} lang={lang} size="large" />
+            {amend?.isAmended && !stage.saysChanged ? <AmendedFlag lang={lang} /> : null}
 
             {/* Fiscal Year Badge */}
             {fiscalYear ? (
@@ -359,11 +367,36 @@ export function TorDetail({
             ) : null}
 
             <div className="mt-4 flex flex-col border-t border-line/60 pt-2">
-              <Fact label={lang === "th" ? "กำหนดยื่นข้อเสนอ" : "Submission deadline"}>
+              {/* Each deadline says what it is for: comments on a draft, or bids */}
+              {deadline.kind === "comment" ? (
+                <Fact label={lang === "th" ? deadline.label.th : deadline.label.en}>
+                  <span className="tnum text-[13px] font-medium text-ink">
+                    {deadline.date ? formatDateString(deadline.date, lang) : lang === "th" ? deadline.missing.th : deadline.missing.en}
+                  </span>
+                </Fact>
+              ) : null}
+              <Fact label={lang === "th" ? "ยื่นข้อเสนอภายใน" : "Bids due"}>
                 <span className="tnum text-[13px] font-medium text-ink">
-                  {formatDateString(facts.submissionDeadline, lang)}
+                  {facts.submissionDeadline
+                    ? formatDateString(facts.submissionDeadline, lang)
+                    : deadline.kind === "comment"
+                      ? (lang === "th" ? "ยังไม่เปิด: ร่าง TOR ยังไม่ประกาศเชิญชวน" : "Not yet: no invitation to bid so far")
+                      : (lang === "th" ? "ไม่ระบุใน TOR" : "Not specified")}
                 </span>
               </Fact>
+
+              {insight.latestAnnouncement ? (
+                <Fact label={lang === "th" ? "ประกาศล่าสุดใน e-GP" : "Latest e-GP announcement"}>
+                  <span className="text-[12px] text-ink-2">
+                    {lang === "th"
+                      ? announcementLabel(insight.latestAnnouncement.code).th
+                      : announcementLabel(insight.latestAnnouncement.code).en}
+                    {insight.latestAnnouncement.publishedAt ? (
+                      <span className="tnum text-ink-3"> · {formatDateString(insight.latestAnnouncement.publishedAt, lang)}</span>
+                    ) : null}
+                  </span>
+                </Fact>
+              ) : null}
 
               <Fact label={lang === "th" ? "วิธีการจัดซื้อจัดจ้าง" : "Procurement method"}>
                 <span className="text-[12px] text-ink-2">

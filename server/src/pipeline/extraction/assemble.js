@@ -32,6 +32,8 @@ function identity(tor, agency, extra = {}) {
     department: extra.department ?? null,
     egpReference: tor.projectId,
     category: extra.category ?? null,
+    // A copy as of now; the API reads the live status from the Tor, since the
+    // feed keeps changing it after extraction
     status: tor.status,
   };
 }
@@ -108,6 +110,7 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
         toAmount(facts.referencePrice),
       ),
       submissionDeadline: fromAi('submissionDeadline', facts.submissionDeadline, toDate(facts.submissionDeadline)),
+      commentDeadline: fromAi('commentDeadline', facts.commentDeadline, toDate(facts.commentDeadline)),
       postedDate: feedFirst(feedDate(tor.announceDate), 'postedDate', facts.postedDate, toDate(facts.postedDate)),
       deliveryPeriodDays: fromAi('deliveryPeriodDays', facts.deliveryPeriodDays, toNumber(facts.deliveryPeriodDays)),
       contractDurationDays: fromAi('contractDurationDays', facts.contractDurationDays, toNumber(facts.contractDurationDays)),
