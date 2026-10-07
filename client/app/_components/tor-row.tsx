@@ -81,7 +81,7 @@ export function TorRow({
     : tor ? matchScore(tor, profile) : 0;
 
   return (
-    <article className="group relative flex gap-3.5 sm:gap-4 rounded-lg border border-line bg-surface p-4 sm:p-5 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm">
+    <article className="group relative flex gap-3.5 sm:gap-4 rounded-lg border border-line bg-surface px-4 py-3.5 sm:px-5 sm:py-4 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm">
       <SignalRail status={status} />
 
       <div className="flex min-w-0 flex-1 flex-col gap-3.5 sm:flex-row sm:gap-5">

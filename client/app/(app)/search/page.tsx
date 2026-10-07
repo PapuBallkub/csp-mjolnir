@@ -567,7 +567,7 @@ export default function BrowsePage() {
   const skeleton = (
     <div aria-busy="true">
       <span className="sr-only">{lang === "th" ? "กำลังโหลดประกาศ" : "Loading postings"}</span>
-      <div className="flex flex-col gap-3.5">
+      <div className="flex flex-col gap-2.5">
         {Array.from({ length: 5 }, (_, i) => (
           <CatalogRowSkeleton key={i} />
         ))}
@@ -625,7 +625,7 @@ export default function BrowsePage() {
     return (
       <>
         <div aria-busy={!current}>
-          <div className={`flex flex-col gap-3.5 transition-opacity ${current ? "" : "opacity-60"}`}>
+          <div className={`flex flex-col gap-2.5 transition-opacity ${current ? "" : "opacity-60"}`}>
             {shown.tors.map((tor) => (
               <CatalogRow key={tor.projectId} tor={tor} now={shown.at} />
             ))}
@@ -745,7 +745,7 @@ export default function BrowsePage() {
     }
 
     return (
-      <div className="flex flex-col gap-3.5">
+      <div className="flex flex-col gap-2.5">
         {matchResults.map(({ tor, match }) => (
           <CatalogRow key={tor.projectId} tor={tor} now={matchResult.data.at} match={match} />
         ))}
@@ -799,7 +799,7 @@ export default function BrowsePage() {
             </p>
           </div>
           {facets?.ok ? (
-            <p className="font-mono text-[11px] text-ink-3">
+            <p className="tnum text-[12px] text-ink-3">
               {facets.data.total} {lang === "th" ? "ประกาศ" : "postings"}
               {facets.data.lastUpdated ? (
                 <>
@@ -968,7 +968,7 @@ export default function BrowsePage() {
               </div>
             )}
 
-            <p className="mb-2 min-h-[16px] font-mono text-[11px] text-ink-3" aria-live="polite">
+            <p className="mb-2 min-h-[16px] tnum text-[12.5px] text-ink-3" aria-live="polite">
               {countLine}
             </p>
 
