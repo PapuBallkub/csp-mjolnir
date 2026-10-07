@@ -168,7 +168,11 @@ export default function LandingPage() {
 
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
-          <Link href="/" className="shrink-0 transition-opacity hover:opacity-80" title="Mjölnir Home">
+          <Link
+            href="/"
+            className="flex h-[26px] items-center shrink-0 transition-opacity hover:opacity-80"
+            title="Mjölnir Home"
+          >
             <Wordmark />
           </Link>
           <div className="ml-auto flex items-center gap-2">

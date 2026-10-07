@@ -49,7 +49,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
           <Link
             href="/"
-            className="flex items-center text-ink transition-opacity hover:opacity-70"
+            className="flex h-[26px] items-center text-ink transition-opacity hover:opacity-70"
             title={lang === "th" ? "หน้าแรก" : "Home"}
             aria-label={lang === "th" ? "หน้าแรก" : "Home"}
           >
