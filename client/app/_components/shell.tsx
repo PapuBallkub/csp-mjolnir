@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { displayName, useAuth } from "./auth";
-import { LangToggle, ThemeToggle } from "./prefs";
+import { useLang, LangToggle, ThemeToggle } from "./prefs";
 
 /**
  * The hammer, drawn flat and geometric rather than mythic — this is an
@@ -27,13 +27,14 @@ export function Wordmark({ className = "" }: { className?: string }) {
 }
 
 const NAV = [
-  { href: "/search", label: "Search" },
-  { href: "/watchlist", label: "Watchlist" },
-  { href: "/watchdog", label: "Watchdog" },
+  { href: "/search", label: { th: "ค้นหาประกาศ", en: "Search" } },
+  { href: "/watchlist", label: { th: "รายการติดตาม", en: "Watchlist" } },
+  { href: "/watchdog", label: { th: "ตรวจสอบราคา/การแก้ไข", en: "Watchdog" } },
 ] as const;
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { lang } = useLang();
   const { status, user, signOut } = useAuth();
 
   // Only the cluster on the right reacts to auth. The nav is deliberately
@@ -46,8 +47,25 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
-          <Link href="/" className="shrink-0 transition-opacity hover:opacity-80" title="Mjölnir Home">
-            <Wordmark />
+          <Link
+            href="/"
+            className="flex h-[26px] items-center text-ink transition-opacity hover:opacity-70"
+            title={lang === "th" ? "หน้าแรก" : "Home"}
+            aria-label={lang === "th" ? "หน้าแรก" : "Home"}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              className="h-[19px] w-[19px]"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.65"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3.25 8.75 L10 3.25 L16.75 8.75 V16.5 A1 1 0 0 1 15.75 17.5 H4.25 A1 1 0 0 1 3.25 16.5 Z" />
+              <path d="M7.5 17.5 V11.25 H12.5 V17.5" />
+            </svg>
           </Link>
 
           <nav className="-mx-1 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-1">
@@ -63,7 +81,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                       : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                   }`}
                 >
-                  {item.label}
+                  {item.label[lang]}
                 </Link>
               );
             })}
@@ -76,13 +94,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 <span className="mx-1 h-4 w-px shrink-0 bg-line" />
                 <Link
                   href="/admin"
-                  className={`rounded-[3px] px-2.5 py-1.5 font-mono text-[11px] whitespace-nowrap uppercase tracking-[0.1em] transition-colors ${
+                  className={`rounded-[3px] px-2.5 py-1.5 text-[13px] whitespace-nowrap transition-colors ${
                     pathname.startsWith("/admin")
-                      ? "bg-surface-3 text-ink"
+                      ? "bg-surface-3 font-medium text-ink"
                       : "text-ink-3 hover:bg-surface-2 hover:text-ink"
                   }`}
                 >
-                  Admin
+                  {lang === "th" ? "ผู้ดูแลระบบ" : "Admin"}
                 </Link>
               </>
             ) : null}
@@ -93,7 +111,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <ThemeToggle />
             <Link
               href="/notifications"
-              aria-label="Notification preferences"
+              aria-label={lang === "th" ? "ตั้งค่าการแจ้งเตือน" : "Notification preferences"}
+              title={lang === "th" ? "การแจ้งเตือน" : "Notifications"}
               className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
             >
               <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
@@ -131,8 +150,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 <button
                   type="button"
                   onClick={() => signOut()}
-                  aria-label="Sign out"
-                  title="Sign out"
+                  aria-label={lang === "th" ? "ออกจากระบบ" : "Sign out"}
+                  title={lang === "th" ? "ออกจากระบบ" : "Sign out"}
                   className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-3 transition-colors hover:text-ink"
                 >
                   <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
@@ -152,7 +171,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 href={signInHref}
                 className="flex h-[26px] items-center rounded-[3px] border border-line-2 bg-surface px-2.5 text-[12px] font-medium text-ink transition-colors hover:bg-surface-2"
               >
-                Sign in
+                {lang === "th" ? "เข้าสู่ระบบ" : "Sign in"}
               </Link>
             )}
           </div>

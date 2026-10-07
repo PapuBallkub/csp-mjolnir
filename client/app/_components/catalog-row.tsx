@@ -10,6 +10,7 @@ import { getFiscalYear } from "../_lib/format";
 import {
   AmendedFlag,
   CompaniesOnlyBadge,
+  isDead,
   LifecycleBadge,
   LifecycleRail,
   LockSpecBadge,
@@ -80,27 +81,21 @@ export function CatalogRow({
   const title = lang === "en" && iden.titleEn ? iden.titleEn : iden.titleTh;
   const fiscalYear = getFiscalYear(facts.postedDate, tor.projectId);
   const missing = notAnalysedText(!analytics.lockSpec, !analytics.priceAnalysis, lang);
+  const isClosed = isDead(iden.status);
 
   return (
-    <div className="group relative flex gap-3 border-b border-line bg-surface px-3 py-3.5 transition-colors last:border-b-0 hover:bg-surface-2">
+    <article
+      className={`group relative flex gap-3.5 sm:gap-4 rounded-lg border border-line px-4 py-3.5 sm:px-5 sm:py-4 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm ${
+        isClosed ? "bg-surface-closed grayscale" : "bg-surface"
+      }`}
+    >
       <LifecycleRail status={iden.status} amended={tor.amendmentInfo?.isAmended} />
 
-      <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:gap-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-3.5 sm:flex-row sm:gap-5">
+        {/* Main Content Column: JobsDB hierarchy (Title -> Agency -> Badges -> Tech) */}
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-3">
-            <span className="font-mono tnum">{tor.projectId}</span>
-            <span className="h-3 w-px bg-line" />
-            <span className="min-w-0 truncate">{iden.agency}</span>
-            {fiscalYear ? (
-              <>
-                <span className="h-3 w-px bg-line" />
-                <span className="font-mono text-ink-2">{lang === "th" ? `ปีงบฯ ${fiscalYear}` : `FY ${fiscalYear}`}</span>
-              </>
-            ) : null}
-            <ReviewTag review={tor.review} lang={lang} />
-          </div>
-
-          <h3 className="mt-1 text-[15px] leading-thai font-medium text-ink">
+          {/* 1. Job / Project Title — Prominent, First (matches price size) */}
+          <h3 className="text-[19px] sm:text-[20px] leading-[1.45] font-semibold text-ink">
             <Link
               href={`/tor/${tor.projectId}`}
               className="underline-offset-2 after:absolute after:inset-0 group-hover:underline"
@@ -109,7 +104,30 @@ export function CatalogRow({
             </Link>
           </h3>
 
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          {/* 2. Agency & Key Metadata — Directly below title */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-ink-2">
+            <span className="font-medium text-ink-2">{iden.agency}</span>
+            {iden.department ? (
+              <>
+                <span className="h-3 w-px bg-line" />
+                <span className="text-ink-3 text-[12px]">{iden.department}</span>
+              </>
+            ) : null}
+            {fiscalYear ? (
+              <>
+                <span className="h-3 w-px bg-line" />
+                <span className="tnum text-ink-3 text-[12px]">
+                  {lang === "th" ? `ปีงบฯ ${fiscalYear}` : `FY ${fiscalYear}`}
+                </span>
+              </>
+            ) : null}
+            <span className="h-3 w-px bg-line" />
+            <span className="font-mono tnum text-[11px] text-ink-3">#{tor.projectId}</span>
+            <ReviewTag review={tor.review} lang={lang} />
+          </div>
+
+          {/* 3. Decision Signals & Status Badges */}
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
             <LifecycleBadge status={iden.status} lang={lang} />
             {tor.amendmentInfo?.isAmended ? <AmendedFlag lang={lang} /> : null}
             {analytics.lockSpec ? (
@@ -125,7 +143,8 @@ export function CatalogRow({
             {missing ? <span className="px-1 text-[11px] leading-thai text-ink-3">{missing}</span> : null}
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-1">
+          {/* 4. Tech Stack Tags / Capabilities */}
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             {tor.companiesOnly ? <CompaniesOnlyBadge lang={lang} /> : null}
             {visibleTech.map((term) => {
               const known = match?.matched.includes(term);
@@ -138,18 +157,19 @@ export function CatalogRow({
             })}
             {restTech > 0 ? <Chip className="text-ink-3">+{restTech}</Chip> : null}
             {tech.length === 0 ? (
-              <span className="text-[11px] text-ink-3">
+              <span className="text-[11.5px] text-ink-3">
                 {lang === "th" ? "TOR ไม่ระบุเทคโนโลยี" : "No technologies named in the TOR"}
               </span>
             ) : null}
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-row items-end justify-between gap-4 sm:w-[176px] sm:flex-col sm:items-end sm:justify-start sm:gap-2.5 sm:border-l sm:border-line sm:pl-4">
+        {/* Right Column: Price & Urgency */}
+        <div className="flex shrink-0 flex-row items-end justify-between gap-4 border-t border-line/60 pt-3 sm:w-[184px] sm:flex-col sm:items-end sm:justify-start sm:gap-3 sm:border-t-0 sm:border-l sm:border-line sm:pt-0 sm:pl-5">
           <div className="flex flex-col items-start sm:items-end">
             {price !== null ? (
               <span
-                className="font-mono tnum text-[17px] leading-none font-medium text-ink"
+                className="font-mono tnum text-[19px] sm:text-[20px] leading-none font-semibold text-ink"
                 title={formatTHB(price)}
               >
                 {formatTHBCompact(price)}
@@ -159,7 +179,7 @@ export function CatalogRow({
                 {lang === "th" ? "ไม่ระบุใน TOR" : "Not in the TOR"}
               </span>
             )}
-            <span className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+            <span className="mt-1 text-[11px] font-medium text-ink-3">
               {priceLabel}
             </span>
           </div>
@@ -169,7 +189,7 @@ export function CatalogRow({
           {match ? <MatchScore score={match.score} lang={lang} /> : null}
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -177,25 +197,26 @@ export function CatalogRow({
 export function CatalogRowSkeleton() {
   const bar = "rounded-[2px] bg-surface-3";
   return (
-    <div className="flex gap-3 border-b border-line bg-surface px-3 py-3.5 last:border-b-0" aria-hidden="true">
-      <span className="w-[3px] shrink-0 rounded-full bg-line" />
-      <div className="flex min-w-0 flex-1 animate-pulse flex-col gap-3 sm:flex-row sm:gap-4">
+    <div className="flex gap-3.5 sm:gap-4 rounded-lg border border-line bg-surface px-4 py-3.5 sm:px-5 sm:py-4" aria-hidden="true">
+      <span className="w-[5px] shrink-0 rounded-full bg-line" />
+      <div className="flex min-w-0 flex-1 animate-pulse flex-col gap-3.5 sm:flex-row sm:gap-5">
         <div className="min-w-0 flex-1">
-          <div className={`h-3 w-48 ${bar}`} />
-          <div className={`mt-2 h-4 w-11/12 ${bar}`} />
+          <div className={`h-6 sm:h-7 w-4/5 ${bar}`} />
+          <div className={`mt-2 h-3.5 w-60 ${bar}`} />
           <div className="mt-3 flex gap-1.5">
-            <div className={`h-5 w-20 ${bar}`} />
-            <div className={`h-5 w-40 ${bar}`} />
+            <div className={`h-5 w-24 ${bar}`} />
+            <div className={`h-5 w-36 ${bar}`} />
+            <div className={`h-5 w-28 ${bar}`} />
           </div>
-          <div className="mt-2 flex gap-1">
+          <div className="mt-2.5 flex gap-1">
             <div className={`h-4 w-14 ${bar}`} />
             <div className={`h-4 w-16 ${bar}`} />
             <div className={`h-4 w-12 ${bar}`} />
           </div>
         </div>
-        <div className="flex shrink-0 flex-row justify-between gap-4 sm:w-[176px] sm:flex-col sm:items-end sm:border-l sm:border-line sm:pl-4">
-          <div className={`h-5 w-16 ${bar}`} />
-          <div className={`h-4 w-20 ${bar}`} />
+        <div className="flex shrink-0 flex-row justify-between gap-4 sm:w-[184px] sm:flex-col sm:items-end sm:border-l sm:border-line sm:pl-5">
+          <div className={`h-6 w-20 ${bar}`} />
+          <div className={`h-4 w-24 ${bar}`} />
         </div>
       </div>
     </div>

@@ -165,7 +165,7 @@ function AdminDashboard({ ops, lang }: { ops: AdminOperations; lang: "th" | "en"
   return (
     <div className="mx-auto max-w-[1240px] px-4 py-6">
       <header className="mb-5">
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-3">
+        <p className="text-[11px] font-medium uppercase tracking-[0.05em] text-ink-3">
           {lang === "th" ? "สำหรับผู้ดูแลระบบ" : "Platform admin"}
         </p>
         <h1 className="mt-1 text-[26px] leading-tight font-semibold tracking-tight text-ink">
@@ -187,7 +187,7 @@ function AdminDashboard({ ops, lang }: { ops: AdminOperations; lang: "th" | "en"
       <section className="mb-8">
         <SectionHeading
           right={
-            <span className="font-mono text-[11px]">
+            <span className="tnum text-[11.5px] text-ink-3">
               {lang === "th" ? "รอบล่าสุด 12 ส.ค. 06:33" : "Last run 12 Aug 06:33"}
             </span>
           }
@@ -209,7 +209,7 @@ function AdminDashboard({ ops, lang }: { ops: AdminOperations; lang: "th" | "en"
                 ].map((column) => (
                   <th
                     key={column.text}
-                    className={`px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
+                    className={`px-3 py-2 text-[11px] font-medium text-ink-3 ${
                       column.right ? "text-right" : ""
                     }`}
                   >

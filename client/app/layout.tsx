@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
-import { Noto_Sans_Thai, Inter, IBM_Plex_Mono } from "next/font/google";
+import { IBM_Plex_Sans_Thai, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { AuthProvider } from "./_components/auth";
 import { PrefsProvider } from "./_components/prefs";
 import "./globals.css";
 
-// Noto Sans Thai provides optimal screen legibility with clear letter loops
-// for dense text, while Inter pairs cleanly for Latin technical terms.
-const notoSansThai = Noto_Sans_Thai({
-  variable: "--font-noto-thai",
+// Unified IBM Plex typography family:
+// IBM Plex Sans Thai (designed by Cadson Demak) pairs with IBM Plex Sans (Latin)
+// and IBM Plex Mono (tabular metrics and project IDs) for cohesive proportions.
+const ibmPlexSansThai = IBM_Plex_Sans_Thai({
+  variable: "--font-plex-thai",
   subsets: ["thai"],
   weight: ["300", "400", "500", "600", "700"],
 });
 
-const inter = Inter({
-  variable: "--font-inter",
+const ibmPlexSans = IBM_Plex_Sans({
+  variable: "--font-plex-sans",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
 });
@@ -42,7 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="th"
-      className={`${notoSansThai.variable} ${inter.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${ibmPlexSansThai.variable} ${ibmPlexSans.variable} ${plexMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

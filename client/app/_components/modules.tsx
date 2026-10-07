@@ -97,7 +97,7 @@ export function LockSpecModule({ tor, lang }: { tor: Tor; lang: Lang }) {
                 evidence, not copy, so it is never translated away. */}
             <Well className="mt-3 border-l-2 border-l-line-2 px-3 py-2.5">
               <p className="text-[13px] leading-thai text-ink-2">“{reason.clauseTh}”</p>
-              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+              <p className="mt-2 text-[11px] font-medium text-ink-3">
                 {reason.source}
               </p>
             </Well>
@@ -154,7 +154,7 @@ export function PriceModule({ tor, lang }: { tor: Tor; lang: Lang }) {
                 ].map((heading, index) => (
                   <th
                     key={heading}
-                    className={`py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
+                    className={`py-1.5 text-[11px] font-medium text-ink-3 ${
                       index > 0 ? "text-right" : ""
                     }`}
                   >
@@ -284,7 +284,7 @@ export function AmendmentModule({ tor, lang }: { tor: Tor; lang: Lang }) {
                         className="rounded-[3px] border border-line bg-surface-2 px-3 py-2.5"
                       >
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1 py-[1px] font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-amend">
+                          <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-[2px] text-[11px] font-medium text-amend">
                             {pick(KIND_LABEL[change.kind], lang)}
                           </span>
                           <span className="text-[13px] font-medium text-ink">

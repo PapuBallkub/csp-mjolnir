@@ -168,7 +168,11 @@ export default function LandingPage() {
 
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
-          <Link href="/" className="shrink-0 transition-opacity hover:opacity-80" title="Mjölnir Home">
+          <Link
+            href="/"
+            className="flex h-[26px] items-center shrink-0 transition-opacity hover:opacity-80"
+            title="Mjölnir Home"
+          >
             <Wordmark />
           </Link>
           <div className="ml-auto flex items-center gap-2">
@@ -255,7 +259,7 @@ export default function LandingPage() {
       {/* Features */}
       <section className="bg-surface">
         <div className="mx-auto max-w-[1240px] px-4 py-16 sm:py-20">
-          <h2 className="text-[13px] font-medium uppercase tracking-[0.12em] text-ink-3">
+          <h2 className="text-[12px] font-medium uppercase tracking-[0.05em] text-ink-3">
             {lang === "th" ? "ความสามารถหลัก" : "Core capabilities"}
           </h2>
           <div className="mt-8 grid gap-6 sm:grid-cols-2">

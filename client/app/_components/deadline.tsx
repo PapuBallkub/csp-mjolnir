@@ -53,9 +53,9 @@ export function TorDeadline({
 
   return (
     <span className="flex flex-col items-end gap-0.5 whitespace-nowrap">
-      <span className={`font-mono tnum text-[12px] font-medium ${tone}`}>{text}</span>
+      <span className={`tnum text-[12.5px] font-medium ${tone}`}>{text}</span>
       {deadline ? (
-        <span className="font-mono tnum text-[11px] text-ink-3">{formatThaiDate(deadline, lang)}</span>
+        <span className="tnum text-[11.5px] text-ink-3">{formatThaiDate(deadline, lang)}</span>
       ) : null}
     </span>
   );
