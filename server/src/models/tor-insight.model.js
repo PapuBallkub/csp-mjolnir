@@ -251,6 +251,10 @@ const torInsightSchema = new mongoose.Schema(
       // Set when the classify step finds the document is not IT. Extraction
       // stops there, so every section above stays empty (NFR-16).
       excluded: { type: exclusionSchema, default: null },
+      // Classify read a preview and found IT: the full text is being read,
+      // and extraction follows. Every section above stays empty until then,
+      // and the public doesn't see the record (ADR 0018).
+      awaitingFullText: { type: Boolean, default: false, index: true },
     },
   },
   { timestamps: true },

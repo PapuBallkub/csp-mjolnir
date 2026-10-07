@@ -149,6 +149,20 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
  * The minimal record for a TOR the classify step found not to be IT. The full
  * extraction never runs for it (D8); the reason stays for a reviewer to check.
  */
+/**
+ * The record for a preview the classify step found to be IT (ADR 0018): the
+ * full text is being read, and extraction follows. Like an excluded record,
+ * every section stays empty; unlike one, the public doesn't see it.
+ */
+export function buildAwaitingFullText({ tor, classification, run }) {
+  return {
+    projectId: tor.projectId,
+    identification: identity(tor, tor.agency || classification.agency, { category: classification.category ?? null }),
+    facts: links(tor),
+    metadata: runMetadata(run, { confidenceScore: null, checks: [], awaitingFullText: true }),
+  };
+}
+
 export function buildExcluded({ tor, classification, run }) {
   return {
     projectId: tor.projectId,

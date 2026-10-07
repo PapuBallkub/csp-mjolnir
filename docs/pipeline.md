@@ -29,8 +29,34 @@ previous step left behind:
 | `pipelineStatus` | Meaning | Picked up by |
 |---|---|---|
 | `fetched` | Found in a source; no PDF yet | `ingest:download` |
-| `downloaded` | PDF saved to `server/data/documents/` | `ingest:ocr` |
-| `ocr_done` | Text extracted into `ocr.rawText` | AI extraction |
+| `downloaded` | PDF saved to `server/data/documents/` | `ingest:ocr` (preview) |
+| `ocr_preview` | The first 6 pages of a scan, read so classify can decide whether it's IT | AI extraction (classify only); then `ingest:ocr` reads the rest if it's IT |
+| `ocr_done` | The whole text in `ocr.rawText` | AI extraction |
+
+Only **workable** TORs are downloaded and OCR'd: Draft or Open, announced by the
+e-GP feed at least once, and with no contract winner
+([0018](decisions/0018-preview-ocr-before-classify.md)).
+
+## Getting open IT projects: `npm run pipeline`
+
+One command takes new projects from the e-GP feed all the way to the catalog:
+
+```
+npm run pipeline
+```
+
+It runs four steps in order:
+1. `ingest -- --source process3`: fetch every opening item (no keyword), download,
+   and read a 6-page preview.
+2. `extract`: classify each preview. Not IT stops there; IT waits for its full
+   text.
+3. `ingest:ocr`: read the IT previews whole.
+4. `extract`: extract them. They then appear in `/search`.
+
+Run it during the feed's open hours (12:01–12:59 or 17:01–08:59, Bangkok time);
+outside them it still processes what's waiting. Each run costs one classify
+call per new project and one extraction per IT one. Add `-- --limit N` to the
+first step by hand to cap new projects.
 
 ## Commands
 
@@ -67,8 +93,8 @@ npm run ingest:fetch -- --source process3 --query "ซอฟต์แวร์" 
 ```
 
 ### `npm run ingest:download`
-**Downloads the PDF** for every `fetched` TOR, or for one TOR with `--id`. A
-file that is already on disk is reused, not downloaded again.
+**Downloads the PDF** for every workable `fetched` TOR, or for one TOR with
+`--id`. A file that is already on disk is reused, not downloaded again.
 
 ```
 npm run ingest:download
@@ -76,12 +102,17 @@ npm run ingest:download -- --id 68039469567
 ```
 
 ### `npm run ingest:ocr`
-**Extracts the text** of every `downloaded` TOR, or of one TOR with `--id`.
-- A digital PDF is read directly, in seconds.
-- A scanned PDF goes through Tesseract OCR, which takes minutes for a long
-  document.
+**Extracts the text**, in two passes over workable TORs:
+1. **Preview:** each `downloaded` scan is read for its first 6 pages
+   (`ocr_preview`). A digital PDF, or a scan of 6 pages or fewer, is read whole
+   (`ocr_done`).
+2. **Full:** each preview that classify found to be IT is read whole
+   (`ocr_done`).
 
-With `--id`, it re-runs on that TOR whatever its status. Use that after
+A digital PDF is read in seconds; a scan goes through Tesseract OCR at about
+4 s a page.
+
+With `--id`, it reads that TOR whole, whatever its status. Use that after
 changing an OCR setting.
 
 ```
@@ -94,8 +125,8 @@ npm run ingest:ocr -- --id 67059626749
 | Option | Used by | Default | Meaning |
 |---|---|---|---|
 | `--id <projectId>` | download, ocr | all waiting records | Work on one TOR only |
-| `--query`, `-q` | fetch | `คอมพิวเตอร์` | Search keyword sent to the sources |
-| `--limit`, `-l` | fetch | `5` | At most this many **new** projects per source; updates to projects already in the database are never limited |
+| `--query`, `-q` | fetch | none for e-GP; `คอมพิวเตอร์` for data.go.th | Keep only new projects whose title has this text. e-GP has none by default: classify decides what is IT |
+| `--limit`, `-l` | fetch | none for e-GP; `5` for data.go.th | At most this many **new** projects per source; updates to projects already in the database are never limited |
 | `--source` | fetch | `all` | `process3`, `datago` or `all` |
 | `--skip-ocr` | `ingest` | off | Stop after download |
 | `--step`, `-s` | `ingest` | `all` | `fetch`, `download`, `ocr` or `all`. The `ingest:*` scripts set this for you. |

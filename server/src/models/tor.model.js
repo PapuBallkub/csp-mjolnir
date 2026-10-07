@@ -68,6 +68,13 @@ const torSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    // What the title says the contract is (ADR 0018): จ้าง (hire: a job),
+    // ซื้อ (buy: supplying goods) or เช่า (rent). Null when the title says none.
+    procurementKind: {
+      type: String,
+      enum: ['hire', 'buy', 'rent'], // validators skip null
+      default: null,
+    },
     egpUrl: {
       type: String,
       default: '',
@@ -114,6 +121,11 @@ const torSchema = new mongoose.Schema(
       // Part of the document never reached rawText (page limit, timeout, or
       // failed pages). Extraction treats it as a failed check (ADR 0013).
       truncated: { type: Boolean, default: false },
+      // rawText holds only the first pages of a scan, read so classify can
+      // decide whether the TOR is IT before paying for the rest (ADR 0018).
+      // Extraction never extracts from a preview.
+      preview: { type: Boolean, default: false },
+      pagesRead: { type: Number, default: null },
       processedAt: { type: Date, default: null },
     },
 
@@ -165,10 +177,12 @@ const torSchema = new mongoose.Schema(
       },
     ],
 
-    // Pipeline status: 'fetched' -> 'downloaded' -> 'ocr_done'
+    // Pipeline status: 'fetched' -> 'downloaded' -> 'ocr_preview' -> 'ocr_done'.
+    // A digital PDF, or a scan short enough to read whole, skips ocr_preview;
+    // a preview classified as not IT stays there (ADR 0018).
     pipelineStatus: {
       type: String,
-      enum: ['fetched', 'downloaded', 'ocr_done'],
+      enum: ['fetched', 'downloaded', 'ocr_preview', 'ocr_done'],
       default: 'fetched',
       index: true,
     },

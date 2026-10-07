@@ -60,6 +60,8 @@ Stores extraction output, pipeline flags, and confidence scores from OCR process
 | `confidence` | `Number` | `0` | Confidence score of the extraction (0.0 to 1.0 or percentage) | `0.92` |
 | `usedOcr` | `Boolean` | `false` | `true` if Tesseract / Vision OCR was invoked (for scanned PDFs) | `true` |
 | `truncated` | `Boolean` | `false` | `true` if part of the document never reached `rawText` (page limit, timeout, or failed pages). Extraction treats it as a failed check ([0013](../decisions/0013-split-ingestion-and-ai-extraction.md)). | `false` |
+| `preview` | `Boolean` | `false` | `true` while `rawText` holds only the first pages of a scan, read so classify can decide whether the TOR is IT. Extraction refuses to extract from a preview [0018](../decisions/0018-preview-ocr-before-classify.md). | `true` |
+| `pagesRead` | `Number` | `null` | Pages actually read into `rawText` | `6` |
 | `processedAt` | `Date` | `null` | Timestamp when OCR extraction completed | `"2026-09-29T17:17:08.000Z"` |
 
 ---
@@ -98,11 +100,12 @@ Tracks watchdog audit trail when government revisions occur (FR09, FR10, FR11).
 | `referencePriceTHB` | `Number` | No | `null` | Reference price (ราคากลาง): the official price bids are judged against, in Thai Baht (THB). Not a statistical median. Was `medianPriceTHB` before [0014](../decisions/0014-price-names-and-insight-data-rules.md). | `12492771` |
 | `announceDate` | `String` | No | `null` | Date of announcement as string from source | `"13 พ.ค. 68"` |
 | `procurementMethod` | `String` | No | `""` | Procurement method name from upstream source | `"ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)"` |
+| `procurementKind` | `String` | No | `null` | The contract's kind, read from the title: `hire` (จ้าง, a job), `buy` (ซื้อ, supplying goods), `rent` (เช่า) [0018](../decisions/0018-preview-ocr-before-classify.md) | `"hire"` |
 | `egpUrl` | `String` | No | `""` | Direct link to e-GP search page for this project | `"https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=68049205582"` |
 | `announceType` | `String` | No | `""` | The latest e-GP announcement code seen: `15` reference price, `B0` draft TOR, `D0` invitation, `D2` invitation changed, `D1` invitation cancelled, `W0`/`W2` winner announced/changed, `W1` winner cancelled ([0017](../decisions/0017-read-the-egp-feed-as-egp-defines-it.md)) | `"D0"` |
 | `status` | `String` | Indexed | `'Open'` | Current procurement status (`'Draft'`, `'Open'`, `'Awarded'`, `'Closed'`, `'Cancelled'`) | `"Awarded"` |
 | `isAmended` | `Boolean` | Indexed | `false` | Whether this TOR has been amended/revised | `false` |
-| `pipelineStatus` | `String` | Indexed | `'fetched'` | Current processing state in backend ingestion pipeline (`'fetched'`, `'downloaded'`, `'ocr_done'`) | `"downloaded"` |
+| `pipelineStatus` | `String` | Indexed | `'fetched'` | Current processing state in backend ingestion pipeline (`'fetched'`, `'downloaded'`, `'ocr_preview'`, `'ocr_done'`; see [0018](../decisions/0018-preview-ocr-before-classify.md)) | `"downloaded"` |
 | `createdAt` | `Date` | Auto | — | Timestamp of initial ingestion into database | `"2026-09-29T17:17:08.378Z"` |
 | `updatedAt` | `Date` | Auto | — | Timestamp of last database modification | `"2026-09-29T17:17:08.861Z"` |
 
@@ -115,6 +118,10 @@ Tracks watchdog audit trail when government revisions occur (FR09, FR10, FR11).
      │
      ▼
 [ downloaded ]   --> PDF document successfully saved to local / volume storage
+     │
+     ▼
+[ ocr_preview ]  --> First 6 pages of a scan read; classify decides IT or not (a digital
+                     PDF or a short scan skips this). Not IT stays here.
      │
      ▼
 [ ocr_done ]     --> Text extracted; ready for LLM summarization and TorInsight creation

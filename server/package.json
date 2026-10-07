@@ -24,6 +24,7 @@
     "gemini:check": "node scripts/check-gemini.js",
     "technologies:seed": "node scripts/seed-technologies.js",
     "extract": "node src/pipeline/extraction/extract.js",
+    "pipeline": "npm run ingest -- --source process3 && npm run extract && npm run ingest:ocr && npm run extract",
     "seed": "node scripts/seed.js"
   },
   "dependencies": {

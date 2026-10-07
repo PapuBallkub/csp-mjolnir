@@ -91,6 +91,20 @@ export function parseItemDescription(description) {
   };
 }
 
+const KINDS = { จ้าง: 'hire', ซื้อ: 'buy', เช่า: 'rent' };
+
+/**
+ * What kind of contract a title announces (ADR 0018): จ้าง (hire: a job),
+ * ซื้อ (buy: supplying goods) or เช่า (rent). Titles start with the method,
+ * then the kind: "ประกวดราคาจ้างบำรุงรักษา…", "ประกวดราคาซื้อชุด…".
+ *
+ * @returns {'hire' | 'buy' | 'rent' | null}
+ */
+export function procurementKindOf(title) {
+  const match = String(title ?? '').match(/^\s*(?:ประกวดราคา|สอบราคา|ประกวดแบบ)?\s*(จ้าง|ซื้อ|เช่า)/);
+  return match ? KINDS[match[1]] : null;
+}
+
 // e-GP closes the RSS link 09:00–12:00 and 13:00–17:00, Bangkok time
 // (กรมบัญชีกลาง's RSS manual, 4.5). A request then hangs until it times out.
 const CLOSED_MINUTES = [
@@ -109,7 +123,8 @@ export function isFeedClosed(now = new Date()) {
  * Fetches procurement announcements from e-GP process3 RSS feed.
  *
  * @param {Object} options
- * @param {string} [options.query='คอมพิวเตอร์']
+ * @param {string|null} [options.query] - Keep only new projects whose title or description has this text.
+ *   None by default: classify decides what is IT, from the document (ADR 0018)
  * @param {string} [options.deptId='']
  * @param {string} options.documentsDir
  * @param {boolean} [options.downloadAttachments=false]
@@ -120,7 +135,7 @@ export function isFeedClosed(now = new Date()) {
  *   unreachable: boolean, closed: boolean }>}
  */
 export async function fetchFromProcess3({
-  query = 'คอมพิวเตอร์',
+  query = null,
   limit = 5,
   deptId = '',
   documentsDir,
@@ -156,7 +171,7 @@ export async function fetchFromProcess3({
   let updated = 0;
   let requested = 0;
   const errors = [];
-  const queryLower = query.toLowerCase();
+  const queryLower = (query ?? '').toLowerCase();
   const matchesQuery = (item) =>
     String(item.title || '').toLowerCase().includes(queryLower) ||
     String(item.description || '').toLowerCase().includes(queryLower);
@@ -297,6 +312,7 @@ export async function fetchFromProcess3({
           // e.g. "ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)" or "เฉพาะเจาะจง": decides
           // whether anyone can bid at all
           updatePayload.procurementMethod = described.method;
+          updatePayload.procurementKind = procurementKindOf(currentItem.title);
           updatePayload.egpUrl = link;
         } else {
           if (link) updatePayload.egpUrl = link;

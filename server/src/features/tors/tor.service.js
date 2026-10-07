@@ -8,7 +8,12 @@ import { Tor, TorInsight } from '#models/index.js';
  * results a person approved with a score of 80 or more.
  */
 export function visibilityFilter({ showUnreviewed = env.showUnreviewedInsights } = {}) {
-  const always = { 'metadata.excluded': null, 'metadata.reviewStatus': { $ne: 'rejected' } };
+  const always = {
+    'metadata.excluded': null,
+    'metadata.reviewStatus': { $ne: 'rejected' },
+    // Classified from a preview, not extracted yet: nothing to show (ADR 0018)
+    'metadata.awaitingFullText': { $ne: true },
+  };
   if (showUnreviewed) return always;
   return {
     ...always,
