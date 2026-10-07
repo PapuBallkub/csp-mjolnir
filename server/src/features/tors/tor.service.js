@@ -30,14 +30,19 @@ export function displayStatus(status, deadline, now = new Date()) {
  * insight. These stages replace the copies with the Tor's values before
  * anything filters, sorts or counts on them. An insight without a Tor keeps
  * its copy.
+ *
+ * A contract with a winner means Awarded, whatever the stored status says:
+ * the same rule as the status engine (deriveStatus), so old records whose
+ * status was never brought up to date can't show a signed contract as open.
  */
+const HAS_WINNER = { $gt: [{ $strLenCP: { $ifNull: ['$contract.winnerName', ''] } }, 0] };
 const LIVE_STATUS = [
   {
     $lookup: {
       from: Tor.collection.collectionName,
       localField: 'projectId',
       foreignField: 'projectId',
-      pipeline: [{ $project: { _id: 0, status: 1, isAmended: 1 } }],
+      pipeline: [{ $project: { _id: 0, isAmended: 1, status: { $cond: [HAS_WINNER, 'Awarded', '$status'] } } }],
       as: '_tor',
     },
   },
@@ -55,7 +60,10 @@ function withLiveStatus(insight, tor) {
   if (!tor) return insight;
   return {
     ...insight,
-    identification: { ...insight.identification, status: tor.status ?? insight.identification?.status },
+    identification: {
+      ...insight.identification,
+      status: tor.contract?.winnerName ? 'Awarded' : (tor.status ?? insight.identification?.status),
+    },
     amendmentInfo: { ...insight.amendmentInfo, isAmended: tor.isAmended ?? insight.amendmentInfo?.isAmended },
   };
 }
@@ -352,7 +360,7 @@ export async function getTorByProjectId(projectId, { showUnreviewed, now = new D
     TorInsight.findOne({ projectId: id, ...visibilityFilter({ showUnreviewed }) }).lean(),
     Tor.findOne(
       { projectId: id },
-      { document: 1, pipelineStatus: 1, source: 1, status: 1, isAmended: 1, 'ocr.truncated': 1, 'ocr.usedOcr': 1 },
+      { document: 1, pipelineStatus: 1, source: 1, status: 1, isAmended: 1, 'contract.winnerName': 1, 'ocr.truncated': 1, 'ocr.usedOcr': 1 },
     ).lean(),
   ]);
   if (!insight) return null;

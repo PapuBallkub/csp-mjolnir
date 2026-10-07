@@ -42,6 +42,7 @@ const EXTRA_IDS = EXTRA.map((record) => record.projectId);
 const LIVE = {
   cancelled: '99999000008', // amended (D2), then cancelled (D1)
   awarded: '99999000009', // winner announced (W0) after its deadline passed
+  contracted: '99999000010', // stored as Open, but data.go.th has its signed contract
 };
 const LIVE_IDS = Object.values(LIVE);
 const liveInsight = (projectId, deadline) => ({
@@ -67,10 +68,18 @@ before(async () => {
   await TorInsight.insertMany([
     liveInsight(LIVE.cancelled, new Date(Date.now() + 7 * DAY)),
     liveInsight(LIVE.awarded, new Date(Date.now() - 3 * DAY)),
+    liveInsight(LIVE.contracted, new Date(Date.now() + 7 * DAY)),
   ]);
   await Tor.insertMany([
     { projectId: LIVE.cancelled, source: 'process3', title: 'ทดสอบสถานะสด', status: 'Cancelled', isAmended: true },
     { projectId: LIVE.awarded, source: 'process3', title: 'ทดสอบสถานะสด', status: 'Awarded' },
+    {
+      projectId: LIVE.contracted,
+      source: 'datago',
+      title: 'ทดสอบสถานะสด',
+      status: 'Open',
+      contract: { winnerName: 'บริษัท ผู้ชนะ จำกัด' },
+    },
   ]);
 
   // Insert a test Tor and TorInsight record
@@ -330,7 +339,7 @@ test('a TOR the feed cancelled after extraction reads as Cancelled: list, filter
 
 test('an awarded TOR past its deadline reads as Awarded, not as Closed', async () => {
   assert.equal((await getTorByProjectId(LIVE.awarded, PILOT)).identification.status, 'Awarded');
-  assert.deepEqual(await liveIds({ status: 'Awarded' }), [LIVE.awarded]);
+  assert.ok((await liveIds({ status: 'Awarded' })).includes(LIVE.awarded));
   assert.ok(!(await liveIds({ status: 'Closed' })).includes(LIVE.awarded));
 });
 
@@ -338,4 +347,10 @@ test('the total counts what a status filter shows', async () => {
   const { tors, total } = await listTors({ q: 'ทดสอบสถานะสด', status: 'Cancelled' }, PILOT);
   assert.equal(total, tors.length);
   assert.equal(total, 1);
+});
+
+test('a TOR with a signed contract reads as Awarded, even when its stored status says Open', async () => {
+  assert.equal((await getTorByProjectId(LIVE.contracted, PILOT)).identification.status, 'Awarded');
+  assert.ok((await liveIds({ status: 'Awarded' })).includes(LIVE.contracted));
+  assert.ok(!(await liveIds({ status: 'Open' })).includes(LIVE.contracted), 'never offered as open');
 });
