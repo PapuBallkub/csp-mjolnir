@@ -56,10 +56,12 @@ fetch → download → preview OCR (6 pages) → classify ─┬─ not IT: excl
 - **A non-IT TOR costs one download, about 6 pages of OCR (~23 s for a scan)
   and one classify call.** In the first live run, a 30-page scan of a public
   toilet was dropped after 6 pages.
-- **"IT" means software and IT services.** The classify prompt excludes pure
-  hardware purchases: it dropped 261 UPS units and a radiology computer as "no
-  system development or IT service". If resellers of hardware or licences are
-  an audience, the prompt has to change.
+- **"IT" means software and IT services, on purpose.** The classify prompt
+  excludes pure hardware purchases: it dropped 261 UPS units and a radiology
+  computer as "no system development or IT service". That's what we want: the
+  course asks us to build for software engineering graduates looking for
+  work, and supplying hardware isn't that work. Hardware and licence resellers
+  aren't an audience for now.
 - **Few results per run.** Each request to the feed returns 20 items, and
   about 1 in 20 opening items is IT. 10–20 IT TORs need a few hundred
   previews, over days of runs in the feed's open hours.
