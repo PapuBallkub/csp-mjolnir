@@ -106,7 +106,7 @@ Used in `metadata.excluded`, when the classify step finds the document isn't IT.
 | `department` | `String` | No | `null` | Division/office responsible for the project | `"สำนักยุทธศาสตร์และประเมินผล"` |
 | `egpReference` | `String` | No | `null` | Official e-GP announcement reference code | `"e-GP 67011234567"` |
 | `category` | `String` | Indexed | `null` | Set by the classify step | `'Software / IT'`, `'Network / Security'` |
-| `status` | `String` | Required, Indexed | — | Copied from `Tor.status`; never extracted, never defaulted | `'Draft'`, `'Open'`, `'Awarded'`, `'Closed'`, `'Cancelled'` |
+| `status` | `String` | Required, Indexed | — | Copied from `Tor.status` at extraction; never extracted, never defaulted. **The API doesn't read this copy:** the feed keeps changing the status (a cancellation, a winner), so the API reads it live from `Tor` and uses this only when no `Tor` exists. | `'Draft'`, `'Open'`, `'Awarded'`, `'Closed'`, `'Cancelled'` |
 
 > **Status Semantics:**
 > - `Draft`: Pre-announcement or public hearing stage.
@@ -259,7 +259,7 @@ Tracks post-publishing changes and revisions to the procurement document:
 
 | Field | Type | Default | Indexed | Description |
 |---|---|---|---|---|
-| `isAmended` | `Boolean` | `false` | Yes | `true` if the TOR has been amended or revised after initial announcement. |
+| `isAmended` | `Boolean` | `false` | Yes | `true` if the TOR has been amended or revised after initial announcement. Copied from `Tor.isAmended` at extraction; like `identification.status`, the API reads it live from `Tor`. |
 | `lastAmendedDate` | `Date` | `null` | No | Date of the latest amendment. |
 | `amendmentSummary` | `String` | `""` | No | Plain-language summary of what was revised. |
 | `changedSections` | `[String]` | `[]` | No | Array of paths/sections modified (e.g. `["facts.submissionDeadline", "eligibility.companyRequirements"]`). |

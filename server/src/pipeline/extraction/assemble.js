@@ -32,6 +32,8 @@ function identity(tor, agency, extra = {}) {
     department: extra.department ?? null,
     egpReference: tor.projectId,
     category: extra.category ?? null,
+    // A copy as of now; the API reads the live status from the Tor, since the
+    // feed keeps changing it after extraction
     status: tor.status,
   };
 }
