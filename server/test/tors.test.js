@@ -71,7 +71,19 @@ before(async () => {
     liveInsight(LIVE.contracted, new Date(Date.now() + 7 * DAY)),
   ]);
   await Tor.insertMany([
-    { projectId: LIVE.cancelled, source: 'process3', title: 'ทดสอบสถานะสด', status: 'Cancelled', isAmended: true },
+    {
+      projectId: LIVE.cancelled,
+      source: 'process3',
+      title: 'ทดสอบสถานะสด',
+      status: 'Cancelled',
+      isAmended: true,
+      announceType: 'D1',
+      announcementHistory: [
+        { code: 'D0', type: 'invitation', publishedAt: new Date('2026-10-01') },
+        { code: 'D2', type: 'amendment', publishedAt: new Date('2026-10-03') },
+        { code: 'D1', type: 'invitation_cancelled', publishedAt: new Date('2026-10-05') },
+      ],
+    },
     { projectId: LIVE.awarded, source: 'process3', title: 'ทดสอบสถานะสด', status: 'Awarded' },
     {
       projectId: LIVE.contracted,
@@ -353,4 +365,23 @@ test('a TOR with a signed contract reads as Awarded, even when its stored status
   assert.equal((await getTorByProjectId(LIVE.contracted, PILOT)).identification.status, 'Awarded');
   assert.ok((await liveIds({ status: 'Awarded' })).includes(LIVE.contracted));
   assert.ok(!(await liveIds({ status: 'Open' })).includes(LIVE.contracted), 'never offered as open');
+});
+
+test('each TOR says which e-GP stage it reached last, and whether a contract is signed', async () => {
+  const listed = (await listTors({ q: 'ทดสอบสถานะสด', limit: 50 }, PILOT)).tors;
+  const byId = Object.fromEntries(listed.map((tor) => [tor.projectId, tor]));
+
+  assert.equal(byId[LIVE.cancelled].latestAnnouncement.code, 'D1');
+  assert.equal(new Date(byId[LIVE.cancelled].latestAnnouncement.publishedAt).toISOString().slice(0, 10), '2026-10-05');
+  assert.equal(byId[LIVE.cancelled].contractSigned, false);
+  assert.equal(byId[LIVE.contracted].contractSigned, true);
+  assert.equal(byId[LIVE.contracted].latestAnnouncement, null, 'never announced by the feed');
+
+  const detail = await getTorByProjectId(LIVE.cancelled, PILOT);
+  assert.equal(detail.latestAnnouncement.code, 'D1');
+  assert.equal(new Date(detail.latestAnnouncement.publishedAt).toISOString().slice(0, 10), '2026-10-05');
+
+  // An insight without a Tor has neither
+  const orphan = await getTorByProjectId('99999000002', PILOT);
+  assert.deepEqual([orphan.latestAnnouncement, orphan.contractSigned], [null, false]);
 });
