@@ -111,3 +111,20 @@ test('a TOR with no agency anywhere is refused, rather than saved without one', 
     /No agency/,
   );
 });
+
+test('a draft out for hearing keeps its comment deadline apart from the bid deadline (extract-v4)', () => {
+  const insight = build({
+    change: (input) => {
+      input.extracted.facts.submissionDeadline = null; // a draft has no bid date yet
+      input.extracted.facts.commentDeadline = {
+        quote: 'เสนอแนะ วิจารณ์ ภายในวันที่ ๒๐ ตุลาคม ๒๕๖๙',
+        page: 1,
+        value: { day: 20, month: 10, year: 2569, era: 'BE', hour: null, minute: null },
+      };
+    },
+  });
+
+  assert.ok(insight.facts.commentDeadline instanceof Date);
+  assert.equal(insight.facts.commentDeadline.getUTCFullYear(), 2026);
+  assert.equal(insight.facts.submissionDeadline, null);
+});

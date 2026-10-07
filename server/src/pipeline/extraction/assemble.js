@@ -110,6 +110,7 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
         toAmount(facts.referencePrice),
       ),
       submissionDeadline: fromAi('submissionDeadline', facts.submissionDeadline, toDate(facts.submissionDeadline)),
+      commentDeadline: fromAi('commentDeadline', facts.commentDeadline, toDate(facts.commentDeadline)),
       postedDate: feedFirst(feedDate(tor.announceDate), 'postedDate', facts.postedDate, toDate(facts.postedDate)),
       deliveryPeriodDays: fromAi('deliveryPeriodDays', facts.deliveryPeriodDays, toNumber(facts.deliveryPeriodDays)),
       contractDurationDays: fromAi('contractDurationDays', facts.contractDurationDays, toNumber(facts.contractDurationDays)),

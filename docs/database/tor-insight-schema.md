@@ -124,7 +124,8 @@ Used in `metadata.excluded`, when the classify step finds the document isn't IT.
 |---|---|---|---|---|
 | `budgetTHB` | `Number` | `null` | No | Budget (งบประมาณ): what the agency has set aside, in Thai Baht (THB). From the feed first; the AI fills gaps. |
 | `referencePriceTHB` | `Number` | `null` | Yes | Reference price (ราคากลาง): the official price bids are judged against, in Thai Baht (THB). From the feed first; the AI fills gaps. |
-| `submissionDeadline` | `Date` | `null` | No | Deadline date & time for bids submission. |
+| `submissionDeadline` | `Date` | `null` | No | Deadline date & time for bids submission, set by an invitation (ประกาศเชิญชวน). Null in a draft out for public hearing. |
+| `commentDeadline` | `Date` | `null` | No | A draft out for public hearing (ร่าง TOR): the last date to send comments. Never a bid date; the two are never swapped (extract-v4, [0019](../decisions/0019-stage-badges-and-deadlines-that-say-what-for.md)). |
 | `deliveryPeriodDays` | `Number` | `null` | No | Project implementation & delivery period (calendar days). |
 | `procurementMethod` | `String` | `null` | No | Bidding method (e.g. `"e-Bidding"`, `"Specific Method (เฉพาะเจาะจง)"`, `"Selection (คัดเลือก)"`). |
 | `warrantyYears` | `Number` | `null` | No | Warranty / maintenance obligation duration (in years). |
