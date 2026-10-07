@@ -82,7 +82,7 @@ export function CatalogRow({
   const missing = notAnalysedText(!analytics.lockSpec, !analytics.priceAnalysis, lang);
 
   return (
-    <div className="group relative flex gap-3.5 border-b border-line bg-surface px-4 py-4 sm:px-5 sm:py-4.5 transition-colors last:border-b-0 hover:bg-surface-2/70">
+    <article className="group relative flex gap-3.5 sm:gap-4 rounded-lg border border-line bg-surface p-4 sm:p-5 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm">
       <LifecycleRail status={iden.status} amended={tor.amendmentInfo?.isAmended} />
 
       <div className="flex min-w-0 flex-1 flex-col gap-3.5 sm:flex-row sm:gap-5">
@@ -183,7 +183,7 @@ export function CatalogRow({
           {match ? <MatchScore score={match.score} lang={lang} /> : null}
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -191,7 +191,7 @@ export function CatalogRow({
 export function CatalogRowSkeleton() {
   const bar = "rounded-[2px] bg-surface-3";
   return (
-    <div className="flex gap-3.5 border-b border-line bg-surface px-4 py-4 sm:px-5 sm:py-4.5 last:border-b-0" aria-hidden="true">
+    <div className="flex gap-3.5 sm:gap-4 rounded-lg border border-line bg-surface p-4 sm:p-5" aria-hidden="true">
       <span className="w-[3px] shrink-0 rounded-full bg-line" />
       <div className="flex min-w-0 flex-1 animate-pulse flex-col gap-3.5 sm:flex-row sm:gap-5">
         <div className="min-w-0 flex-1">

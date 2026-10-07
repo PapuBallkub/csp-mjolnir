@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { daysUntil, formatDate, pick, tors, type Tor } from "../../../_data/tors";
 import { useLang, useProfile } from "../../../_components/prefs";
 import { TorRow } from "../../../_components/tor-row";
-import { btn, EmptyState, Panel, SectionHeading } from "../../../_components/ui";
+import { btn, EmptyState, SectionHeading } from "../../../_components/ui";
 
 type Alert = {
   tor: Tor;
@@ -162,7 +162,7 @@ export default function WatchlistPage() {
             }
           />
         ) : (
-          <Panel className="overflow-hidden">
+          <div className="flex flex-col gap-3.5">
             {savedTors.map((tor) => (
               <TorRow
                 key={tor.id}
@@ -178,7 +178,7 @@ export default function WatchlistPage() {
                 }
               />
             ))}
-          </Panel>
+          </div>
         )}
       </div>
     </div>

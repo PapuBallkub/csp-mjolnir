@@ -567,11 +567,11 @@ export default function BrowsePage() {
   const skeleton = (
     <div aria-busy="true">
       <span className="sr-only">{lang === "th" ? "กำลังโหลดประกาศ" : "Loading postings"}</span>
-      <Panel className="overflow-hidden">
+      <div className="flex flex-col gap-3.5">
         {Array.from({ length: 5 }, (_, i) => (
           <CatalogRowSkeleton key={i} />
         ))}
-      </Panel>
+      </div>
     </div>
   );
 
@@ -625,11 +625,11 @@ export default function BrowsePage() {
     return (
       <>
         <div aria-busy={!current}>
-          <Panel className={`overflow-hidden transition-opacity ${current ? "" : "opacity-60"}`}>
+          <div className={`flex flex-col gap-3.5 transition-opacity ${current ? "" : "opacity-60"}`}>
             {shown.tors.map((tor) => (
               <CatalogRow key={tor.projectId} tor={tor} now={shown.at} />
             ))}
-          </Panel>
+          </div>
         </div>
 
         {current && failed ? (
@@ -745,11 +745,11 @@ export default function BrowsePage() {
     }
 
     return (
-      <Panel className="overflow-hidden">
+      <div className="flex flex-col gap-3.5">
         {matchResults.map(({ tor, match }) => (
           <CatalogRow key={tor.projectId} tor={tor} now={matchResult.data.at} match={match} />
         ))}
-      </Panel>
+      </div>
     );
   }
 
