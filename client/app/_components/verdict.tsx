@@ -118,7 +118,7 @@ function StatusGlyph({ status, className = "" }: { status: Status; className?: s
       </svg>
     );
   }
-  if (status === "Cancelled") {
+  if (status === "Cancelled" || status === "Closed") {
     return (
       <svg viewBox="0 0 10 10" className={`h-2.5 w-2.5 shrink-0 ${className}`} aria-hidden="true">
         <path d="M2 2 L8 8 M8 2 L2 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
