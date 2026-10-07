@@ -81,39 +81,13 @@ export function TorRow({
     : tor ? matchScore(tor, profile) : 0;
 
   return (
-    <div className="group relative flex gap-3 border-b border-line bg-surface px-3 py-3.5 transition-colors last:border-b-0 hover:bg-surface-2">
+    <div className="group relative flex gap-3.5 border-b border-line bg-surface px-4 py-4 sm:px-5 sm:py-4.5 transition-colors last:border-b-0 hover:bg-surface-2/70">
       <SignalRail status={status} />
 
-      <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:gap-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-3.5 sm:flex-row sm:gap-5">
         <div className="min-w-0 flex-1">
-          {/* Metadata Row: ID, Agency, Department, Fiscal Year */}
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-3">
-            <span className="font-mono tnum font-medium text-ink-2">{id}</span>
-            <span className="h-3 w-px bg-line" />
-            <span className="truncate font-medium text-ink-2">{agency}</span>
-            {department ? (
-              <>
-                <span className="h-3 w-px bg-line" />
-                <span className="truncate text-ink-3">{department}</span>
-              </>
-            ) : null}
-            {fiscalYear ? (
-              <>
-                <span className="h-3 w-px bg-line" />
-                <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[1px] font-mono text-[10.5px] font-medium text-ink-2">
-                  {lang === "th" ? `ปีงบฯ ${fiscalYear}` : `FY ${fiscalYear}`}
-                </span>
-              </>
-            ) : null}
-            {smeAdvantage ? (
-              <>
-                <span className="h-3 w-px bg-line" />
-                <SmeBadge lang={lang} />
-              </>
-            ) : null}
-          </div>
-
-          <h3 className="mt-1.5 text-[15px] leading-thai font-medium text-ink">
+          {/* 1. Project Title — First */}
+          <h3 className="text-[16px] leading-[1.55] font-semibold text-ink">
             <Link
               href={`/tor/${id}`}
               className="after:absolute after:inset-0 group-hover:underline underline-offset-2"
@@ -122,11 +96,40 @@ export function TorRow({
             </Link>
           </h3>
 
-          <div className="mt-2.5">
+          {/* 2. Agency & Key Metadata — Directly below title */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-ink-2">
+            <span className="font-medium text-ink-2">{agency}</span>
+            {department ? (
+              <>
+                <span className="h-3 w-px bg-line" />
+                <span className="text-ink-3 text-[12px]">{department}</span>
+              </>
+            ) : null}
+            {fiscalYear ? (
+              <>
+                <span className="h-3 w-px bg-line" />
+                <span className="tnum text-ink-3 text-[12px]">
+                  {lang === "th" ? `ปีงบฯ ${fiscalYear}` : `FY ${fiscalYear}`}
+                </span>
+              </>
+            ) : null}
+            <span className="h-3 w-px bg-line" />
+            <span className="font-mono tnum text-[11px] text-ink-3">#{id}</span>
+            {smeAdvantage ? (
+              <>
+                <span className="h-3 w-px bg-line" />
+                <SmeBadge lang={lang} />
+              </>
+            ) : null}
+          </div>
+
+          {/* 3. Verdict Strip */}
+          <div className="mt-3">
             <VerdictStrip tor={tor} insight={insight} lang={lang} />
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-1">
+          {/* 4. Tech Chips & Scope */}
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             <ScopeBadge size={scopeSize} lang={lang} />
             {visibleTech.map((term) => {
               const known = showMatch && isAuthenticated && profile.skills.some((s) => s.toLowerCase() === term.toLowerCase());
@@ -141,10 +144,11 @@ export function TorRow({
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-row items-end justify-between gap-4 sm:w-[176px] sm:flex-col sm:items-end sm:justify-start sm:gap-2.5 sm:border-l sm:border-line sm:pl-4">
+        {/* Right Column: Budget & Deadline */}
+        <div className="flex shrink-0 flex-row items-end justify-between gap-4 border-t border-line/60 pt-3 sm:w-[184px] sm:flex-col sm:items-end sm:justify-start sm:gap-3 sm:border-t-0 sm:border-l sm:border-line sm:pt-0 sm:pl-5">
           <div className="flex flex-col items-start sm:items-end">
             <span
-              className="font-mono tnum text-[17px] leading-none font-semibold text-ink"
+              className="font-mono tnum text-[19px] sm:text-[20px] leading-none font-semibold text-ink"
               title={formatTHB(budget)}
             >
               {formatTHBCompact(budget)}
@@ -160,7 +164,7 @@ export function TorRow({
             isAuthenticated ? (
               <MatchScore score={score} lang={lang} />
             ) : (
-              <span className="font-mono text-[11px] text-ink-3" title="ลงชื่อเข้าใช้เพื่อดูคะแนนความตรง">
+              <span className="text-[11px] text-ink-3" title="ลงชื่อเข้าใช้เพื่อดูคะแนนความตรง">
                 {lang === "th" ? "คะแนนเฉพาะสมาชิก" : "Member match"}
               </span>
             )

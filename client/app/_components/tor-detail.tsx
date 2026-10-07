@@ -8,7 +8,7 @@ import { getEgpAnnouncementUrl, getFiscalYear } from "../_lib/format";
 import { useLang, useProfile } from "./prefs";
 import { useAuth } from "./auth";
 import { StatusBadge } from "./verdict";
-import { AccentPanel, btn, Chip, Eyebrow, Fact, Label, Panel, SectionHeading, Well } from "./ui";
+import { AccentPanel, btn, Chip, Fact, Label, Panel, SectionHeading, Well } from "./ui";
 import { CompaniesOnlyBadge } from "./verdict";
 
 function formatMoney(amount: number | null | undefined, lang: Lang = "th"): string {
