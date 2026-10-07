@@ -36,6 +36,23 @@ const EXTRA = [
 ];
 const EXTRA_IDS = EXTRA.map((record) => record.projectId);
 
+// Extracted while Open; the feed changed the Tor afterwards. The insights
+// still hold the copy made at extraction (the EXTRA ones have no Tor at all,
+// so they also show an insight without a Tor keeps its copy).
+const LIVE = {
+  cancelled: '99999000008', // amended (D2), then cancelled (D1)
+  awarded: '99999000009', // winner announced (W0) after its deadline passed
+  contracted: '99999000010', // stored as Open, but data.go.th has its signed contract
+};
+const LIVE_IDS = Object.values(LIVE);
+const liveInsight = (projectId, deadline) => ({
+  projectId,
+  identification: { titleTh: `ทดสอบสถานะสด ${projectId}`, agency: 'หน่วยงานทดสอบสถานะ', status: 'Open' },
+  facts: { referencePriceTHB: 3_000_000, submissionDeadline: deadline },
+  amendmentInfo: { isAmended: false },
+  metadata: { reviewStatus: 'pending', confidenceScore: 75 },
+});
+
 let server;
 let baseUrl;
 
@@ -44,8 +61,26 @@ before(async () => {
 
   // Clean up any test records
   await Tor.deleteOne({ projectId: testProjectId });
-  await TorInsight.deleteMany({ projectId: { $in: [testProjectId, ...EXTRA_IDS] } });
+  await TorInsight.deleteMany({ projectId: { $in: [testProjectId, ...EXTRA_IDS, ...LIVE_IDS] } });
+  await Tor.deleteMany({ projectId: { $in: LIVE_IDS } });
   await TorInsight.insertMany(EXTRA);
+
+  await TorInsight.insertMany([
+    liveInsight(LIVE.cancelled, new Date(Date.now() + 7 * DAY)),
+    liveInsight(LIVE.awarded, new Date(Date.now() - 3 * DAY)),
+    liveInsight(LIVE.contracted, new Date(Date.now() + 7 * DAY)),
+  ]);
+  await Tor.insertMany([
+    { projectId: LIVE.cancelled, source: 'process3', title: 'ทดสอบสถานะสด', status: 'Cancelled', isAmended: true },
+    { projectId: LIVE.awarded, source: 'process3', title: 'ทดสอบสถานะสด', status: 'Awarded' },
+    {
+      projectId: LIVE.contracted,
+      source: 'datago',
+      title: 'ทดสอบสถานะสด',
+      status: 'Open',
+      contract: { winnerName: 'บริษัท ผู้ชนะ จำกัด' },
+    },
+  ]);
 
   // Insert a test Tor and TorInsight record
   await Tor.create({
@@ -110,8 +145,8 @@ before(async () => {
 });
 
 after(async () => {
-  await Tor.deleteOne({ projectId: testProjectId });
-  await TorInsight.deleteMany({ projectId: { $in: [testProjectId, ...EXTRA_IDS] } });
+  await Tor.deleteMany({ projectId: { $in: [testProjectId, ...LIVE_IDS] } });
+  await TorInsight.deleteMany({ projectId: { $in: [testProjectId, ...EXTRA_IDS, ...LIVE_IDS] } });
 
   await new Promise((resolve) => server.close(resolve));
   await disconnectDatabase();
@@ -281,4 +316,41 @@ test('facets count what the public sees, with Closed worked out from the deadlin
 
   const res = await fetch(`${baseUrl}/api/tors/facets`);
   assert.equal(res.status, 200, 'not read as a project ID');
+});
+
+const liveIds = async (query) =>
+  (await listTors({ q: 'ทดสอบสถานะสด', limit: 50, ...query }, PILOT)).tors.map((tor) => tor.projectId).sort();
+
+test('a TOR the feed cancelled after extraction reads as Cancelled: list, filters, detail, counts', async () => {
+  assert.ok(!(await liveIds({ status: 'Open' })).includes(LIVE.cancelled), 'not offered as open');
+  assert.ok(!(await liveIds({ closingWithin: '10' })).includes(LIVE.cancelled), 'not "closing soon" either');
+  assert.deepEqual(await liveIds({ status: 'Cancelled' }), [LIVE.cancelled]);
+
+  const listed = (await listTors({ q: 'ทดสอบสถานะสด', limit: 50 }, PILOT)).tors.find((tor) => tor.projectId === LIVE.cancelled);
+  assert.equal(listed.identification.status, 'Cancelled');
+
+  const detail = await getTorByProjectId(LIVE.cancelled, PILOT);
+  assert.equal(detail.identification.status, 'Cancelled');
+  assert.equal(detail.amendmentInfo.isAmended, true, 'the amended flag comes from the Tor too');
+  assert.ok((await liveIds({ amended: 'true' })).includes(LIVE.cancelled));
+
+  assert.ok((await torFacets(PILOT)).statuses.Cancelled >= 1);
+});
+
+test('an awarded TOR past its deadline reads as Awarded, not as Closed', async () => {
+  assert.equal((await getTorByProjectId(LIVE.awarded, PILOT)).identification.status, 'Awarded');
+  assert.ok((await liveIds({ status: 'Awarded' })).includes(LIVE.awarded));
+  assert.ok(!(await liveIds({ status: 'Closed' })).includes(LIVE.awarded));
+});
+
+test('the total counts what a status filter shows', async () => {
+  const { tors, total } = await listTors({ q: 'ทดสอบสถานะสด', status: 'Cancelled' }, PILOT);
+  assert.equal(total, tors.length);
+  assert.equal(total, 1);
+});
+
+test('a TOR with a signed contract reads as Awarded, even when its stored status says Open', async () => {
+  assert.equal((await getTorByProjectId(LIVE.contracted, PILOT)).identification.status, 'Awarded');
+  assert.ok((await liveIds({ status: 'Awarded' })).includes(LIVE.contracted));
+  assert.ok(!(await liveIds({ status: 'Open' })).includes(LIVE.contracted), 'never offered as open');
 });

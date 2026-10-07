@@ -23,6 +23,51 @@ export function displayStatus(status, deadline, now = new Date()) {
   return status === 'Open' && deadline && new Date(deadline) < now ? 'Closed' : status;
 }
 
+/**
+ * The status and amended flag as the feed says they are now (ADR 0013).
+ * Extraction copies both into the insight once, but the feed keeps changing
+ * them: a cancellation (D1) or a winner (W0) reaches the Tor, never the
+ * insight. These stages replace the copies with the Tor's values before
+ * anything filters, sorts or counts on them. An insight without a Tor keeps
+ * its copy.
+ *
+ * A contract with a winner means Awarded, whatever the stored status says:
+ * the same rule as the status engine (deriveStatus), so old records whose
+ * status was never brought up to date can't show a signed contract as open.
+ */
+const HAS_WINNER = { $gt: [{ $strLenCP: { $ifNull: ['$contract.winnerName', ''] } }, 0] };
+const LIVE_STATUS = [
+  {
+    $lookup: {
+      from: Tor.collection.collectionName,
+      localField: 'projectId',
+      foreignField: 'projectId',
+      pipeline: [{ $project: { _id: 0, isAmended: 1, status: { $cond: [HAS_WINNER, 'Awarded', '$status'] } } }],
+      as: '_tor',
+    },
+  },
+  {
+    $set: {
+      'identification.status': { $ifNull: [{ $first: '$_tor.status' }, '$identification.status'] },
+      'amendmentInfo.isAmended': { $ifNull: [{ $first: '$_tor.isAmended' }, '$amendmentInfo.isAmended'] },
+    },
+  },
+  { $unset: '_tor' },
+];
+
+/** LIVE_STATUS for one insight already in hand, with its Tor. */
+function withLiveStatus(insight, tor) {
+  if (!tor) return insight;
+  return {
+    ...insight,
+    identification: {
+      ...insight.identification,
+      status: tor.contract?.winnerName ? 'Awarded' : (tor.status ?? insight.identification?.status),
+    },
+    amendmentInfo: { ...insight.amendmentInfo, isAmended: tor.isAmended ?? insight.amendmentInfo?.isAmended },
+  };
+}
+
 // The pipeline doesn't fill analytics yet, and its defaults are 0: shown as
 // they are, a real TOR would read "lock-spec risk 0" as if measured (ADR 0014)
 const lockSpecDone = (lockSpec) => Boolean(lockSpec?.verdictText || lockSpec?.findings?.length);
@@ -136,7 +181,10 @@ export async function listTors(
   } = {},
   { showUnreviewed, now = new Date() } = {},
 ) {
+  // On the insight's own fields: matched first, so fewer Tors are looked up
   const conditions = [visibilityFilter({ showUnreviewed })];
+  // On the status and the amended flag: matched once the live values are in
+  const liveConditions = [];
 
   // Text search on title, agency, department and technology names
   if (typeof q === 'string' && q.trim()) {
@@ -154,11 +202,11 @@ export async function listTors(
 
   const statuses = toList(status);
   if (statuses.length) {
-    conditions.push({ $or: statuses.map((value) => statusCondition(value, now)) });
+    liveConditions.push({ $or: statuses.map((value) => statusCondition(value, now)) });
   }
 
   // Amended is a flag over the status, not a status of its own (FR-15)
-  if (amended === 'true') conditions.push({ 'amendmentInfo.isAmended': true });
+  if (amended === 'true') liveConditions.push({ 'amendmentInfo.isAmended': true });
 
   // Budget range on the reference price (ราคากลาง)
   const range = {};
@@ -184,7 +232,7 @@ export async function listTors(
   // Still open, and closing within this many days
   const days = parseInt(closingWithin, 10);
   if (Number.isFinite(days) && days > 0) {
-    conditions.push({
+    liveConditions.push({
       'identification.status': 'Open',
       'facts.submissionDeadline': { $gte: now, $lte: new Date(now.getTime() + days * DAY) },
     });
@@ -195,7 +243,6 @@ export async function listTors(
     conditions.push({ 'analytics.lockSpec.riskScore': { $not: { $gte: HIGH_RISK } } });
   }
 
-  const query = { $and: conditions };
   const safePage = Math.max(1, parseInt(page, 10) || 1);
   const safeLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
 
@@ -225,18 +272,26 @@ export async function listTors(
     createdAt: 1,
   };
 
-  const [total, insights] = await Promise.all([
-    TorInsight.countDocuments(query),
-    TorInsight.aggregate([
-      { $match: query },
-      // Sort keys a plain find can't express; the projection drops them again
-      { $addFields: { _open: stillOpen(now), _priced: { $isNumber: '$facts.referencePriceTHB' } } },
-      { $sort: SORTS[sort] ?? SORTS.newest },
-      { $skip: (safePage - 1) * safeLimit },
-      { $limit: safeLimit },
-      { $project: projection },
-    ]),
+  // Counted after the live status, so a status filter counts what it shows
+  const [{ total: counted, page: insights }] = await TorInsight.aggregate([
+    { $match: { $and: conditions } },
+    ...LIVE_STATUS,
+    ...(liveConditions.length ? [{ $match: { $and: liveConditions } }] : []),
+    {
+      $facet: {
+        total: [{ $count: 'count' }],
+        page: [
+          // Sort keys a plain find can't express; the projection drops them again
+          { $addFields: { _open: stillOpen(now), _priced: { $isNumber: '$facts.referencePriceTHB' } } },
+          { $sort: SORTS[sort] ?? SORTS.newest },
+          { $skip: (safePage - 1) * safeLimit },
+          { $limit: safeLimit },
+          { $project: projection },
+        ],
+      },
+    },
   ]);
+  const total = counted[0]?.count ?? 0;
 
   return {
     tors: insights.map((insight) => toPublic(insight, now)),
@@ -262,6 +317,7 @@ export async function torFacets({ showUnreviewed, now = new Date() } = {}) {
 
   const [facets] = await TorInsight.aggregate([
     { $match: visibilityFilter({ showUnreviewed }) },
+    ...LIVE_STATUS,
     {
       $facet: {
         statuses: [
@@ -302,12 +358,15 @@ export async function getTorByProjectId(projectId, { showUnreviewed, now = new D
 
   const [insight, rawTor] = await Promise.all([
     TorInsight.findOne({ projectId: id, ...visibilityFilter({ showUnreviewed }) }).lean(),
-    Tor.findOne({ projectId: id }, { document: 1, pipelineStatus: 1, source: 1, 'ocr.truncated': 1, 'ocr.usedOcr': 1 }).lean(),
+    Tor.findOne(
+      { projectId: id },
+      { document: 1, pipelineStatus: 1, source: 1, status: 1, isAmended: 1, 'contract.winnerName': 1, 'ocr.truncated': 1, 'ocr.usedOcr': 1 },
+    ).lean(),
   ]);
   if (!insight) return null;
 
   return {
-    ...toPublic(insight, now),
+    ...toPublic(withLiveStatus(insight, rawTor), now),
     document: rawTor?.document || null,
     ocr: rawTor?.ocr || null,
     source: rawTor?.source || null,
