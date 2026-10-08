@@ -150,7 +150,7 @@ export function TorRow({
         </div>
 
         {/* Right Column: Budget & Deadline */}
-        <div className="flex shrink-0 flex-row items-end justify-between gap-4 border-t border-line/60 pt-3 sm:w-[184px] sm:flex-col sm:items-end sm:justify-start sm:gap-3 sm:border-t-0 sm:border-l sm:border-line sm:pt-0 sm:pl-5">
+        <div className="flex shrink-0 flex-row items-end justify-between gap-4 border-t border-line/60 pt-3 sm:w-[196px] sm:flex-col sm:items-end sm:justify-start sm:gap-3 sm:border-t-0 sm:border-l sm:border-line sm:pt-0 sm:pl-5">
           <div className="flex flex-col items-start sm:items-end">
             <span
               className="font-mono tnum text-[19px] sm:text-[20px] leading-none font-semibold text-ink"
