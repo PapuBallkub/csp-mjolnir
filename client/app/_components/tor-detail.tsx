@@ -7,10 +7,10 @@ import type { Lang } from "../_data/tors";
 import { getEgpAnnouncementUrl, getFiscalYear } from "../_lib/format";
 import { useLang, useProfile } from "./prefs";
 import { useAuth } from "./auth";
-import { AmendedFlag, LifecycleBadge } from "./verdict";
+import { AmendedFlag, CompaniesOnlyBadge, isDead, LifecycleBadge } from "./verdict";
+import { countdownText, daysLeft } from "./deadline";
 import { announcementLabel, deadlineOf, stageOf } from "../_lib/stage";
 import { AccentPanel, btn, Chip, Fact, Label, Panel, SectionHeading, Well } from "./ui";
-import { CompaniesOnlyBadge } from "./verdict";
 
 function formatMoney(amount: number | null | undefined, lang: Lang = "th"): string {
   if (amount == null) return lang === "th" ? "ไม่ระบุใน TOR" : "Not specified in TOR";
@@ -252,6 +252,35 @@ export function TorDetail({
             <LifecycleBadge status={iden.status} stage={stage} lang={lang} size="large" />
             {amend?.isAmended && !stage.saysChanged ? <AmendedFlag lang={lang} /> : null}
 
+            {/* Deadline Countdown Pill in Header */}
+            {deadline.date ? (() => {
+              if (isDead(iden.status)) {
+                return (
+                  <span className="inline-flex items-center gap-1.5 rounded-[2px] border border-line bg-surface-2 px-2.5 py-[3px] text-[11px] font-medium text-ink-3">
+                    <span>
+                      {iden.status === "Closed"
+                        ? (lang === "th" ? "ปิดรับข้อเสนอแล้ว" : "Bidding closed")
+                        : (lang === "th" ? "สิ้นสุดแล้ว" : "Concluded")}
+                    </span>
+                  </span>
+                );
+              }
+              const days = daysLeft(deadline.date, new Date());
+              const cd = countdownText(days, lang);
+              const pillStyle =
+                days <= 2
+                  ? "border-risk-line bg-risk-bg text-risk"
+                  : days <= 7
+                  ? "border-amend-line bg-amend-bg text-amend"
+                  : "border-line bg-surface-2 text-ink";
+              return (
+                <span className={`inline-flex items-center gap-1.5 rounded-[2px] border px-2.5 py-[3px] text-[11.5px] font-semibold tnum ${pillStyle}`}>
+                  <span>{cd.text}</span>
+                  <span className="font-normal opacity-75">· {formatDateString(deadline.date, lang)}</span>
+                </span>
+              );
+            })() : null}
+
             {/* Fiscal Year Badge */}
             {fiscalYear ? (
               <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-2.5 py-[3px] text-[11px] font-medium text-ink-2 font-mono">
@@ -370,19 +399,73 @@ export function TorDetail({
               {/* Each deadline says what it is for: comments on a draft, or bids */}
               {deadline.kind === "comment" ? (
                 <Fact label={lang === "th" ? deadline.label.th : deadline.label.en}>
-                  <span className="tnum text-[13px] font-medium text-ink">
-                    {deadline.date ? formatDateString(deadline.date, lang) : lang === "th" ? deadline.missing.th : deadline.missing.en}
-                  </span>
+                  {deadline.date ? (() => {
+                    if (isDead(iden.status)) {
+                      return (
+                        <div className="flex flex-col sm:items-end gap-0.5">
+                          <span className="tnum text-[14px] font-semibold text-ink">
+                            {formatDateString(deadline.date, lang)}
+                          </span>
+                          <span className="tnum text-[12px] font-medium text-ink-3">
+                            {lang === "th" ? "ปิดรับความเห็นแล้ว" : "Period ended"}
+                          </span>
+                        </div>
+                      );
+                    }
+                    const days = daysLeft(deadline.date, new Date());
+                    const cd = countdownText(days, lang);
+                    return (
+                      <div className="flex flex-col sm:items-end gap-0.5">
+                        <span className="tnum text-[14px] font-semibold text-ink">
+                          {formatDateString(deadline.date, lang)}
+                        </span>
+                        <span className={`tnum text-[12.5px] ${cd.tone}`}>
+                          {cd.text}
+                        </span>
+                      </div>
+                    );
+                  })() : (
+                    <span className="text-[13px] text-ink-3">
+                      {lang === "th" ? deadline.missing.th : deadline.missing.en}
+                    </span>
+                  )}
                 </Fact>
               ) : null}
               <Fact label={lang === "th" ? "ยื่นข้อเสนอภายใน" : "Bids due"}>
-                <span className="tnum text-[13px] font-medium text-ink">
-                  {facts.submissionDeadline
-                    ? formatDateString(facts.submissionDeadline, lang)
-                    : deadline.kind === "comment"
+                {facts.submissionDeadline ? (() => {
+                  if (isDead(iden.status)) {
+                    return (
+                      <div className="flex flex-col sm:items-end gap-0.5">
+                        <span className="tnum text-[14px] font-semibold text-ink">
+                          {formatDateString(facts.submissionDeadline, lang)}
+                        </span>
+                        <span className="tnum text-[12px] font-medium text-ink-3">
+                          {iden.status === "Closed"
+                            ? (lang === "th" ? "ปิดรับข้อเสนอแล้ว" : "Bidding closed")
+                            : (lang === "th" ? "สิ้นสุดการรับข้อเสนอ" : "Ended")}
+                        </span>
+                      </div>
+                    );
+                  }
+                  const days = daysLeft(facts.submissionDeadline, new Date());
+                  const cd = countdownText(days, lang);
+                  return (
+                    <div className="flex flex-col sm:items-end gap-0.5">
+                      <span className="tnum text-[14px] font-semibold text-ink">
+                        {formatDateString(facts.submissionDeadline, lang)}
+                      </span>
+                      <span className={`tnum text-[13px] ${cd.tone}`}>
+                        {cd.text}
+                      </span>
+                    </div>
+                  );
+                })() : (
+                  <span className="tnum text-[13px] font-medium text-ink">
+                    {deadline.kind === "comment"
                       ? (lang === "th" ? "ยังไม่เปิด: ร่าง TOR ยังไม่ประกาศเชิญชวน" : "Not yet: no invitation to bid so far")
                       : (lang === "th" ? "ไม่ระบุใน TOR" : "Not specified")}
-                </span>
+                  </span>
+                )}
               </Fact>
 
               {insight.latestAnnouncement ? (
