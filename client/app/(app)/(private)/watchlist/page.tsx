@@ -6,12 +6,13 @@ import { useAuth } from "../../../_components/auth";
 import { CatalogRow, CatalogRowSkeleton } from "../../../_components/catalog-row";
 import { useLang } from "../../../_components/prefs";
 import { btn, EmptyState, SectionHeading } from "../../../_components/ui";
+import { isDead } from "../../../_components/verdict";
 import * as api from "../../../_lib/api";
 import type { TorInsightSummary } from "../../../_lib/api";
 
 type AlertItem = {
   projectId: string;
-  kind: "amended" | "closing" | "closed";
+  kind: "amended" | "closing";
   title: string;
   message: { th: string; en: string };
   date?: string;
@@ -20,7 +21,6 @@ type AlertItem = {
 const ALERT_TONE = {
   amended: "border-amend-line bg-amend-bg text-amend",
   closing: "border-amend-line bg-amend-bg text-amend",
-  closed: "border-closed-line bg-closed-bg text-ink-2",
 };
 
 export default function WatchlistPage() {
@@ -61,17 +61,66 @@ export default function WatchlistPage() {
     setRemovingId(null);
   };
 
-  // Lightweight preview for FR-18: in-memory derived notices from live TOR status & amendments
+  const now = useMemo(() => new Date(), []);
+
+  // Sort: Active nearest-deadline first (ascending), followed by undated open, followed by closed/awarded at the bottom
+  const sortedTors = useMemo(() => {
+    return [...tors].sort((a, b) => {
+      const isDeadA = isDead(a.identification.status);
+      const isDeadB = isDead(b.identification.status);
+
+      const deadlineA = a.facts.submissionDeadline ? new Date(a.facts.submissionDeadline).getTime() : null;
+      const deadlineB = b.facts.submissionDeadline ? new Date(b.facts.submissionDeadline).getTime() : null;
+
+      const isExpiredA = isDeadA || (deadlineA !== null && deadlineA < now.getTime());
+      const isExpiredB = isDeadB || (deadlineB !== null && deadlineB < now.getTime());
+
+      // If one is expired/closed and one is active, active always comes first
+      if (!isExpiredA && isExpiredB) return -1;
+      if (isExpiredA && !isExpiredB) return 1;
+
+      // Both are active:
+      if (!isExpiredA && !isExpiredB) {
+        // If both have deadlines, sort nearest deadline first (ascending)
+        if (deadlineA !== null && deadlineB !== null) {
+          return deadlineA - deadlineB;
+        }
+        // If only one has deadline, the one with deadline comes first
+        if (deadlineA !== null && deadlineB === null) return -1;
+        if (deadlineA === null && deadlineB !== null) return 1;
+        return 0;
+      }
+
+      // Both are expired/closed:
+      // Sort most recently closed or deadline first (descending)
+      if (deadlineA !== null && deadlineB !== null) {
+        return deadlineB - deadlineA;
+      }
+      return 0;
+    });
+  }, [tors, now]);
+
+  // Active vs closed split
+  const activeTors = useMemo(
+    () => sortedTors.filter((t) => !isDead(t.identification.status)),
+    [sortedTors],
+  );
+  const closedTors = useMemo(
+    () => sortedTors.filter((t) => isDead(t.identification.status)),
+    [sortedTors],
+  );
+
+  // Actionable alerts: Only approaching deadlines (<= 7 days) and official amendments on active projects
   const alerts = useMemo(() => {
     const list: AlertItem[] = [];
-    const now = new Date();
 
-    for (const tor of tors) {
+    for (const tor of activeTors) {
       const iden = tor.identification;
       const facts = tor.facts;
       const isAmended = tor.amendmentInfo?.isAmended ?? false;
       const title = (lang === "en" && iden.titleEn) || iden.titleTh;
 
+      // 1. Official Amendment alert
       if (isAmended) {
         list.push({
           projectId: tor.projectId,
@@ -84,23 +133,8 @@ export default function WatchlistPage() {
         });
       }
 
-      if (iden.status === "Closed" || iden.status === "Awarded") {
-        list.push({
-          projectId: tor.projectId,
-          kind: "closed",
-          title,
-          message: {
-            th:
-              iden.status === "Awarded"
-                ? "โครงการประกาศผู้ชนะแล้ว"
-                : "สิ้นสุดการยื่นข้อเสนอแล้ว",
-            en:
-              iden.status === "Awarded"
-                ? "Winning contractor has been announced."
-                : "Submissions are now closed.",
-          },
-        });
-      } else if (facts.submissionDeadline) {
+      // 2. Approaching Deadline alert (<= 7 days on active items)
+      if (facts.submissionDeadline) {
         const diffMs = new Date(facts.submissionDeadline).getTime() - now.getTime();
         const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
         if (daysLeft >= 0 && daysLeft <= 7) {
@@ -109,8 +143,14 @@ export default function WatchlistPage() {
             kind: "closing",
             title,
             message: {
-              th: `เหลือเวลาอีก ${daysLeft} วันก่อนปิดรับข้อเสนอ`,
-              en: `${daysLeft} days left before submission closes.`,
+              th:
+                daysLeft === 0
+                  ? "สิ้นสุดการยื่นข้อเสนอวันนี้"
+                  : `เหลือเวลาอีก ${daysLeft} วันก่อนปิดรับข้อเสนอ`,
+              en:
+                daysLeft === 0
+                  ? "Submissions close today."
+                  : `${daysLeft} days left before submission closes.`,
             },
             date: facts.submissionDeadline,
           });
@@ -119,9 +159,7 @@ export default function WatchlistPage() {
     }
 
     return list.filter((a) => !dismissed.includes(`${a.projectId}-${a.kind}`));
-  }, [tors, lang, dismissed]);
-
-  const now = useMemo(() => new Date(), []);
+  }, [activeTors, lang, dismissed, now]);
 
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-6 sm:py-8 pb-16">
@@ -156,8 +194,8 @@ export default function WatchlistPage() {
           <SectionHeading
             sub={
               lang === "th"
-                ? "รวมทั้งการแก้ไขเอกสาร การปิดรับ และกำหนดยื่นที่ใกล้เข้ามา"
-                : "Amendments, closures, and approaching deadlines."
+                ? "การแก้ไขเอกสาร และกำหนดยื่นข้อเสนอที่ใกล้เข้ามา"
+                : "Official amendments and approaching submission deadlines."
             }
             right={
               <span className="font-mono text-[11px] text-ink-3">
@@ -232,7 +270,59 @@ export default function WatchlistPage() {
         />
       ) : (
         <div className="flex flex-col gap-2.5">
-          {tors.map((tor) => (
+          {activeTors.map((tor) => (
+            <CatalogRow
+              key={tor.projectId}
+              tor={tor}
+              now={now}
+              trailing={
+                <button
+                  type="button"
+                  disabled={removingId === tor.projectId}
+                  onClick={() => handleRemove(tor.projectId)}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-transparent px-2 py-1 text-[11.5px] font-medium text-ink-3 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-900/40 dark:hover:bg-red-950/30 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  title={lang === "th" ? "เอาออกจากรายการเฝ้าดู" : "Remove from watchlist"}
+                >
+                  <svg
+                    className="h-3.5 w-3.5 shrink-0 opacity-70"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                  <span>
+                    {removingId === tor.projectId
+                      ? lang === "th"
+                        ? "กำลังเอาออก…"
+                        : "Removing…"
+                      : lang === "th"
+                        ? "เอาออก"
+                        : "Remove"}
+                  </span>
+                </button>
+              }
+            />
+          ))}
+
+          {activeTors.length > 0 && closedTors.length > 0 ? (
+            <div className="pt-4 pb-1 flex items-center gap-3">
+              <span className="text-[12px] font-medium text-ink-3">
+                {lang === "th"
+                  ? `สิ้นสุดการรับข้อเสนอ / ประกาศผลแล้ว (${closedTors.length})`
+                  : `Closed or awarded projects (${closedTors.length})`}
+              </span>
+              <div className="flex-1 h-px bg-line/60" />
+            </div>
+          ) : null}
+
+          {closedTors.map((tor) => (
             <CatalogRow
               key={tor.projectId}
               tor={tor}
