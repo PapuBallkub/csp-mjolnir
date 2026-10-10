@@ -51,8 +51,29 @@ const userSchema = new mongoose.Schema(
       default: 'user',
       index: true,
     },
+    // FR-17. Personal watchlist of saved TOR projects.
+    // Contains the e-GP project ID and the timestamp when it was saved.
+    watchlist: {
+      type: [
+        {
+          _id: false,
+          projectId: {
+            type: String,
+            required: true,
+            trim: true,
+          },
+          savedAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true },
 );
+
+userSchema.index({ 'watchlist.projectId': 1 });
 
 export const User = mongoose.model('User', userSchema);
