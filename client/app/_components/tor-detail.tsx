@@ -113,7 +113,7 @@ export function TorDetail({
   insight: TorInsightDetail;
 }) {
   const { lang } = useLang();
-  const { profile, setProfile } = useProfile();
+  const { profile } = useProfile();
   const { user, status: authStatus, addToWatchlist, removeFromWatchlist } = useAuth();
   const isAuthenticated = authStatus === "authenticated" && !!user;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../../_components/auth";
 import { CatalogRow, CatalogRowSkeleton } from "../../../_components/catalog-row";
 import { useLang } from "../../../_components/prefs";
@@ -25,32 +25,41 @@ const ALERT_TONE = {
 
 export default function WatchlistPage() {
   const { lang } = useLang();
-  const { user, removeFromWatchlist } = useAuth();
+  const { removeFromWatchlist } = useAuth();
 
   const [tors, setTors] = useState<TorInsightSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [removingId, setRemovingId] = useState<string | null>(null);
-
-  const fetchWatchlist = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    const res = await api.getWatchlist();
-    if (res.ok) {
-      setTors(res.data.tors);
-    } else {
-      setError(
-        res.error.message ||
-          (lang === "th" ? "ไม่สามารถโหลดข้อมูลรายการที่ติดตามได้" : "Failed to load watchlist"),
-      );
-    }
-    setLoading(false);
-  }, [lang]);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    fetchWatchlist();
-  }, [fetchWatchlist]);
+    let cancelled = false;
+
+    api.getWatchlist().then((res) => {
+      if (cancelled) return;
+      if (res.ok) {
+        setTors(res.data.tors);
+      } else {
+        setError(
+          res.error.message ||
+            (lang === "th" ? "ไม่สามารถโหลดข้อมูลรายการที่ติดตามได้" : "Failed to load watchlist"),
+        );
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lang, retryCount]);
+
+  const handleRetry = () => {
+    setLoading(true);
+    setError(null);
+    setRetryCount((c) => c + 1);
+  };
 
   const handleRemove = async (projectId: string) => {
     setRemovingId(projectId);
@@ -180,7 +189,7 @@ export default function WatchlistPage() {
           <p>{error}</p>
           <button
             type="button"
-            onClick={fetchWatchlist}
+            onClick={handleRetry}
             className="mt-2 font-medium underline hover:text-red-900"
           >
             {lang === "th" ? "ลองใหม่อีกครั้ง" : "Try again"}
