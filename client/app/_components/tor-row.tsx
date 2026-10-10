@@ -136,10 +136,10 @@ export function TorRow({
           {/* 4. Tech Chips & Scope */}
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             <ScopeBadge size={scopeSize} lang={lang} />
-            {visibleTech.map((term) => {
+            {visibleTech.map((term, idx) => {
               const known = showMatch && isAuthenticated && profile.skills.some((s) => s.toLowerCase() === term.toLowerCase());
               return (
-                <Chip key={term} className={known ? "border-open-line bg-open-bg text-open font-medium" : ""}>
+                <Chip key={`${term}-${idx}`} className={known ? "border-open-line bg-open-bg text-open font-medium" : ""}>
                   {known ? <span className="mr-1">✓</span> : null}
                   {term}
                 </Chip>

@@ -113,12 +113,13 @@ export function TorDetail({
   insight: TorInsightDetail;
 }) {
   const { lang } = useLang();
-  const { profile, setProfile } = useProfile();
-  const { user, status: authStatus } = useAuth();
+  const { profile } = useProfile();
+  const { user, status: authStatus, addToWatchlist, removeFromWatchlist } = useAuth();
   const isAuthenticated = authStatus === "authenticated" && !!user;
 
   const projectId = insight.projectId;
-  const [saved, setSaved] = useState(profile.watchlist.includes(projectId));
+  const isSaved = user?.watchlist?.includes(projectId) ?? false;
+  const [toggleLoading, setToggleLoading] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
@@ -130,23 +131,18 @@ export function TorDetail({
     return () => window.removeEventListener("keydown", onKey);
   }, [showAuthModal]);
 
-  const handleWatchlistClick = () => {
+  const handleWatchlistClick = async () => {
     if (!isAuthenticated) {
       setShowAuthModal(true);
       return;
     }
-    const nextSaved = !saved;
-    setSaved(nextSaved);
-    if (nextSaved) {
-      if (!profile.watchlist.includes(projectId)) {
-        setProfile({ ...profile, watchlist: [...profile.watchlist, projectId] });
-      }
+    setToggleLoading(true);
+    if (isSaved) {
+      await removeFromWatchlist(projectId);
     } else {
-      setProfile({
-        ...profile,
-        watchlist: profile.watchlist.filter((id) => id !== projectId),
-      });
+      await addToWatchlist(projectId);
     }
+    setToggleLoading(false);
   };
 
   const iden = insight.identification;
@@ -176,7 +172,9 @@ export function TorDetail({
       : getEgpAnnouncementUrl(projectId);
 
   // Match profile skills with required technologies only if signed in
-  const requiredTechNames = tech.requiredTechnologies?.map((t) => t.name) || [];
+  const requiredTechNames = Array.from(
+    new Set(tech.requiredTechnologies?.map((t) => t.name).filter(Boolean) || []),
+  );
   const matchedSkills = isAuthenticated
     ? requiredTechNames.filter((t) =>
         profile.skills.some((s) => s.toLowerCase() === t.toLowerCase() || t.toLowerCase().includes(s.toLowerCase()))
@@ -560,19 +558,24 @@ export function TorDetail({
             <button
               type="button"
               onClick={handleWatchlistClick}
-              className={saved ? `${btn.secondary} w-full text-[13px]` : `${btn.primary} w-full text-[13px]`}
-              aria-pressed={saved}
+              disabled={toggleLoading}
+              className={isSaved ? `${btn.secondary} w-full text-[13px]` : `${btn.primary} w-full text-[13px]`}
+              aria-pressed={isSaved}
             >
-              {saved
+              {toggleLoading
                 ? lang === "th"
-                  ? "✓ ติดตามประกาศนี้แล้ว"
-                  : "✓ On your watchlist"
-                : lang === "th"
-                  ? "★ บันทึกไว้ติดตามการเปลี่ยนแปลง"
-                  : "★ Save to watchlist"}
+                  ? "กำลังอัปเดต…"
+                  : "Updating…"
+                : isSaved
+                  ? lang === "th"
+                    ? "✓ ติดตามประกาศนี้แล้ว"
+                    : "✓ On your watchlist"
+                  : lang === "th"
+                    ? "★ บันทึกไว้ติดตามการเปลี่ยนแปลง"
+                    : "★ Save to watchlist"}
             </button>
             <p className="mt-2 text-[11px] leading-thai text-ink-3">
-              {saved
+              {isSaved
                 ? lang === "th"
                   ? "ระบบจะแจ้งเตือนเมื่อมีการออกเอกสารแก้ไข (Amendment) หรือประกาศผู้ชนะ"
                   : "You will be alerted if amended or awarded."
@@ -596,11 +599,11 @@ export function TorDetail({
             {isAuthenticated ? (
               <>
                 <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-3">
-                  {requiredTechNames.map((tName) => {
+                  {requiredTechNames.map((tName, idx) => {
                     const isMatch = matchedSkills.includes(tName);
                     return (
                       <span
-                        key={tName}
+                        key={`${tName}-${idx}`}
                         className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[11px] ${
                           isMatch
                             ? "border-open-line bg-open-bg text-open font-medium"
@@ -676,8 +679,8 @@ export function TorDetail({
                   <span className="text-[11px] text-ink-3">
                     {lang === "th" ? "ส่วนที่มีการแก้ไข:" : "Changed sections:"}
                   </span>
-                  {amend.changedSections.map((sec) => (
-                    <span key={sec} className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-amend border border-amend-line">
+                  {amend.changedSections.map((sec, idx) => (
+                    <span key={`${sec}-${idx}`} className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-amend border border-amend-line">
                       {sec}
                     </span>
                   ))}
@@ -859,11 +862,11 @@ export function TorDetail({
                 </p>
               ) : (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {tech.requiredTechnologies.map((t) => {
+                  {tech.requiredTechnologies.map((t, idx) => {
                     const isMatch = matchedSkills.includes(t.name);
                     return (
                       <Chip
-                        key={t.name}
+                        key={`${t.name}-${t.version ?? ""}-${idx}`}
                         className={isMatch ? "border-open-line bg-open-bg text-open" : ""}
                       >
                         {isMatch ? <span className="mr-1">✓</span> : null}

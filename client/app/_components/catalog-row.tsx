@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { formatTHB, formatTHBCompact, type Lang } from "../_data/tors";
 import type { TorInsightSummary, TorReview } from "../_lib/api";
 import type { Match } from "../_lib/match";
@@ -58,12 +59,15 @@ export function CatalogRow({
   tor,
   now,
   match,
+  trailing,
 }: {
   tor: TorInsightSummary;
   /** When the list arrived: the moment the API decided what is Closed */
   now: Date;
   /** Matched mode: the score, and the technologies the user already has */
   match?: Match;
+  /** Optional trailing action slot (e.g. remove button on watchlist) */
+  trailing?: ReactNode;
 }) {
   const { lang } = useLang();
   const { identification: iden, facts, analytics } = tor;
@@ -152,10 +156,10 @@ export function CatalogRow({
           {/* 4. Tech Stack Tags / Capabilities */}
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             {tor.companiesOnly ? <CompaniesOnlyBadge lang={lang} /> : null}
-            {visibleTech.map((term) => {
+            {visibleTech.map((term, idx) => {
               const known = match?.matched.includes(term);
               return (
-                <Chip key={term} className={known ? "border-open-line bg-open-bg text-open" : ""}>
+                <Chip key={`${term}-${idx}`} className={known ? "border-open-line bg-open-bg text-open" : ""}>
                   {known ? <span className="mr-1" aria-label={lang === "th" ? "คุณมีทักษะนี้" : "you have this skill"}>✓</span> : null}
                   {term}
                 </Chip>
@@ -170,29 +174,37 @@ export function CatalogRow({
           </div>
         </div>
 
-        {/* Right Column: Price & Urgency */}
-        <div className="flex shrink-0 flex-row items-end justify-between gap-4 border-t border-line/60 pt-3 sm:w-[196px] sm:flex-col sm:items-end sm:justify-start sm:gap-3 sm:border-t-0 sm:border-l sm:border-line sm:pt-0 sm:pl-5">
-          <div className="flex flex-col items-start sm:items-end">
-            {price !== null ? (
-              <span
-                className="font-mono tnum text-[19px] sm:text-[20px] leading-none font-semibold text-ink"
-                title={formatTHB(price)}
-              >
-                {formatTHBCompact(price)}
+        {/* Right Column: Price, Urgency & Trailing Action */}
+        <div className="flex shrink-0 flex-col gap-2 border-t border-line/60 pt-3 sm:w-[196px] sm:items-end sm:justify-start sm:gap-3 sm:border-t-0 sm:border-l sm:border-line sm:pt-0 sm:pl-5">
+          <div className="flex w-full items-end justify-between gap-4 sm:w-auto sm:flex-col sm:items-end sm:justify-start sm:gap-3">
+            <div className="flex flex-col items-start sm:items-end">
+              {price !== null ? (
+                <span
+                  className="font-mono tnum text-[19px] sm:text-[20px] leading-none font-semibold text-ink"
+                  title={formatTHB(price)}
+                >
+                  {formatTHBCompact(price)}
+                </span>
+              ) : (
+                <span className="text-[13px] leading-none text-ink-3">
+                  {lang === "th" ? "ไม่ระบุใน TOR" : "Not in the TOR"}
+                </span>
+              )}
+              <span className="mt-1 text-[11px] font-medium text-ink-3">
+                {priceLabel}
               </span>
-            ) : (
-              <span className="text-[13px] leading-none text-ink-3">
-                {lang === "th" ? "ไม่ระบุใน TOR" : "Not in the TOR"}
-              </span>
-            )}
-            <span className="mt-1 text-[11px] font-medium text-ink-3">
-              {priceLabel}
-            </span>
+            </div>
+
+            <TorDeadline status={iden.status} facts={facts} now={now} lang={lang} />
           </div>
 
-          <TorDeadline status={iden.status} facts={facts} now={now} lang={lang} />
-
           {match ? <MatchScore score={match.score} lang={lang} /> : null}
+
+          {trailing ? (
+            <div className="relative z-10 flex w-full justify-end sm:mt-auto sm:pt-2">
+              {trailing}
+            </div>
+          ) : null}
         </div>
       </div>
     </article>

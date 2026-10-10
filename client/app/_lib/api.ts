@@ -18,6 +18,7 @@ export type AuthUser = {
   name: string;
   role: "user" | "admin";
   notificationConsent: boolean;
+  watchlist: string[];
   createdAt: string;
 };
 
@@ -484,3 +485,35 @@ export function getTorInsight(projectId: string) {
     cache: "no-store",
   });
 }
+
+/* ------------------------------------------------------------------ */
+/*  Watchlist (FR-17)                                                 */
+/* ------------------------------------------------------------------ */
+
+export type WatchlistResponse = {
+  tors: TorInsightSummary[];
+  savedIds: string[];
+};
+
+export type WatchlistToggleResult = {
+  saved: boolean;
+  projectId: string;
+  count: number;
+};
+
+export function getWatchlist() {
+  return request<WatchlistResponse>("/api/watchlist", { cache: "no-store" });
+}
+
+export function addToWatchlist(projectId: string) {
+  return request<WatchlistToggleResult>(`/api/watchlist/${encodeURIComponent(projectId)}`, {
+    method: "PUT",
+  });
+}
+
+export function removeFromWatchlist(projectId: string) {
+  return request<WatchlistToggleResult>(`/api/watchlist/${encodeURIComponent(projectId)}`, {
+    method: "DELETE",
+  });
+}
+
