@@ -172,7 +172,9 @@ export function TorDetail({
       : getEgpAnnouncementUrl(projectId);
 
   // Match profile skills with required technologies only if signed in
-  const requiredTechNames = tech.requiredTechnologies?.map((t) => t.name) || [];
+  const requiredTechNames = Array.from(
+    new Set(tech.requiredTechnologies?.map((t) => t.name).filter(Boolean) || []),
+  );
   const matchedSkills = isAuthenticated
     ? requiredTechNames.filter((t) =>
         profile.skills.some((s) => s.toLowerCase() === t.toLowerCase() || t.toLowerCase().includes(s.toLowerCase()))
@@ -597,11 +599,11 @@ export function TorDetail({
             {isAuthenticated ? (
               <>
                 <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-3">
-                  {requiredTechNames.map((tName) => {
+                  {requiredTechNames.map((tName, idx) => {
                     const isMatch = matchedSkills.includes(tName);
                     return (
                       <span
-                        key={tName}
+                        key={`${tName}-${idx}`}
                         className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[11px] ${
                           isMatch
                             ? "border-open-line bg-open-bg text-open font-medium"
@@ -677,8 +679,8 @@ export function TorDetail({
                   <span className="text-[11px] text-ink-3">
                     {lang === "th" ? "ส่วนที่มีการแก้ไข:" : "Changed sections:"}
                   </span>
-                  {amend.changedSections.map((sec) => (
-                    <span key={sec} className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-amend border border-amend-line">
+                  {amend.changedSections.map((sec, idx) => (
+                    <span key={`${sec}-${idx}`} className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-amend border border-amend-line">
                       {sec}
                     </span>
                   ))}
@@ -860,11 +862,11 @@ export function TorDetail({
                 </p>
               ) : (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {tech.requiredTechnologies.map((t) => {
+                  {tech.requiredTechnologies.map((t, idx) => {
                     const isMatch = matchedSkills.includes(t.name);
                     return (
                       <Chip
-                        key={t.name}
+                        key={`${t.name}-${t.version ?? ""}-${idx}`}
                         className={isMatch ? "border-open-line bg-open-bg text-open" : ""}
                       >
                         {isMatch ? <span className="mr-1">✓</span> : null}

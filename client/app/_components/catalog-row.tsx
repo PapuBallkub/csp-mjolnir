@@ -156,10 +156,10 @@ export function CatalogRow({
           {/* 4. Tech Stack Tags / Capabilities */}
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             {tor.companiesOnly ? <CompaniesOnlyBadge lang={lang} /> : null}
-            {visibleTech.map((term) => {
+            {visibleTech.map((term, idx) => {
               const known = match?.matched.includes(term);
               return (
-                <Chip key={term} className={known ? "border-open-line bg-open-bg text-open" : ""}>
+                <Chip key={`${term}-${idx}`} className={known ? "border-open-line bg-open-bg text-open" : ""}>
                   {known ? <span className="mr-1" aria-label={lang === "th" ? "คุณมีทักษะนี้" : "you have this skill"}>✓</span> : null}
                   {term}
                 </Chip>
