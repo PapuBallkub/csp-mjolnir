@@ -51,6 +51,26 @@ const userSchema = new mongoose.Schema(
       default: 'user',
       index: true,
     },
+    // FR-12. What the user can build: skills, budget range, and team size.
+    // Read by the match scorer (FR-13) and used to rank the catalog.
+    // Stored as a subdocument, not a separate collection, because every
+    // read of the user (requireAuth on every request) should carry it.
+    profile: {
+      skills: {
+        type: [String],
+        default: [],
+        validate: {
+          validator: (v) => v.length <= 50,
+          message: 'You can save at most 50 skills.',
+        },
+      },
+      budgetMin: { type: Number, default: 0, min: 0, max: 1_000_000_000 },
+      budgetMax: { type: Number, default: 0, min: 0, max: 1_000_000_000 },
+      scopeSizes: {
+        type: [{ type: String, enum: ['solo', 'small-team', 'firm'] }],
+        default: [],
+      },
+    },
   },
   { timestamps: true },
 );
