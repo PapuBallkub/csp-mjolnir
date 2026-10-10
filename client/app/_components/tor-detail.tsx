@@ -114,11 +114,12 @@ export function TorDetail({
 }) {
   const { lang } = useLang();
   const { profile, setProfile } = useProfile();
-  const { user, status: authStatus } = useAuth();
+  const { user, status: authStatus, addToWatchlist, removeFromWatchlist } = useAuth();
   const isAuthenticated = authStatus === "authenticated" && !!user;
 
   const projectId = insight.projectId;
-  const [saved, setSaved] = useState(profile.watchlist.includes(projectId));
+  const isSaved = user?.watchlist?.includes(projectId) ?? false;
+  const [toggleLoading, setToggleLoading] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
@@ -130,23 +131,18 @@ export function TorDetail({
     return () => window.removeEventListener("keydown", onKey);
   }, [showAuthModal]);
 
-  const handleWatchlistClick = () => {
+  const handleWatchlistClick = async () => {
     if (!isAuthenticated) {
       setShowAuthModal(true);
       return;
     }
-    const nextSaved = !saved;
-    setSaved(nextSaved);
-    if (nextSaved) {
-      if (!profile.watchlist.includes(projectId)) {
-        setProfile({ ...profile, watchlist: [...profile.watchlist, projectId] });
-      }
+    setToggleLoading(true);
+    if (isSaved) {
+      await removeFromWatchlist(projectId);
     } else {
-      setProfile({
-        ...profile,
-        watchlist: profile.watchlist.filter((id) => id !== projectId),
-      });
+      await addToWatchlist(projectId);
     }
+    setToggleLoading(false);
   };
 
   const iden = insight.identification;
@@ -560,19 +556,24 @@ export function TorDetail({
             <button
               type="button"
               onClick={handleWatchlistClick}
-              className={saved ? `${btn.secondary} w-full text-[13px]` : `${btn.primary} w-full text-[13px]`}
-              aria-pressed={saved}
+              disabled={toggleLoading}
+              className={isSaved ? `${btn.secondary} w-full text-[13px]` : `${btn.primary} w-full text-[13px]`}
+              aria-pressed={isSaved}
             >
-              {saved
+              {toggleLoading
                 ? lang === "th"
-                  ? "✓ ติดตามประกาศนี้แล้ว"
-                  : "✓ On your watchlist"
-                : lang === "th"
-                  ? "★ บันทึกไว้ติดตามการเปลี่ยนแปลง"
-                  : "★ Save to watchlist"}
+                  ? "กำลังอัปเดต…"
+                  : "Updating…"
+                : isSaved
+                  ? lang === "th"
+                    ? "✓ ติดตามประกาศนี้แล้ว"
+                    : "✓ On your watchlist"
+                  : lang === "th"
+                    ? "★ บันทึกไว้ติดตามการเปลี่ยนแปลง"
+                    : "★ Save to watchlist"}
             </button>
             <p className="mt-2 text-[11px] leading-thai text-ink-3">
-              {saved
+              {isSaved
                 ? lang === "th"
                   ? "ระบบจะแจ้งเตือนเมื่อมีการออกเอกสารแก้ไข (Amendment) หรือประกาศผู้ชนะ"
                   : "You will be alerted if amended or awarded."
