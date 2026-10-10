@@ -124,7 +124,7 @@ export default function WatchlistPage() {
   const now = useMemo(() => new Date(), []);
 
   return (
-    <div className="mx-auto max-w-[1000px] px-4 py-6">
+    <div className="mx-auto max-w-[1000px] px-4 py-6 sm:py-8 pb-16">
       <header className="mb-5">
         <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-ink">
           {lang === "th" ? "รายการที่ติดตาม" : "Your watchlist"}
