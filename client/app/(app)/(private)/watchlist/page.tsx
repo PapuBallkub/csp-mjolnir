@@ -241,7 +241,13 @@ export default function WatchlistPage() {
       <SectionHeading
         right={
           <span className="font-mono text-[11px] text-ink-3">
-            {tors.length} {lang === "th" ? "โครงการ" : "saved"}
+            {closedTors.length > 0
+              ? lang === "th"
+                ? `เปิดรับ ${activeTors.length} · สิ้นสุดแล้ว ${closedTors.length}`
+                : `${activeTors.length} active · ${closedTors.length} closed`
+              : lang === "th"
+                ? `${tors.length} โครงการ`
+                : `${tors.length} saved`}
           </span>
         }
       >
