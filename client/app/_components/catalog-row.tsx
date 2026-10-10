@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { formatTHB, formatTHBCompact, type Lang } from "../_data/tors";
 import type { TorInsightSummary, TorReview } from "../_lib/api";
 import type { Match } from "../_lib/match";
@@ -58,12 +59,15 @@ export function CatalogRow({
   tor,
   now,
   match,
+  trailing,
 }: {
   tor: TorInsightSummary;
   /** When the list arrived: the moment the API decided what is Closed */
   now: Date;
   /** Matched mode: the score, and the technologies the user already has */
   match?: Match;
+  /** Optional trailing action slot (e.g. remove button on watchlist) */
+  trailing?: ReactNode;
 }) {
   const { lang } = useLang();
   const { identification: iden, facts, analytics } = tor;
@@ -193,6 +197,8 @@ export function CatalogRow({
           <TorDeadline status={iden.status} facts={facts} now={now} lang={lang} />
 
           {match ? <MatchScore score={match.score} lang={lang} /> : null}
+
+          {trailing ? <div className="relative z-10 mt-1">{trailing}</div> : null}
         </div>
       </div>
     </article>
