@@ -30,6 +30,8 @@ type AuthValue = AuthState & {
     notificationConsent: boolean;
   }) => Promise<ApiError | null>;
   signOut: () => Promise<ApiError | null>;
+  /** FR-12: saves profile fields and updates the in-memory user. */
+  updateProfile: (fields: Partial<api.UserProfile>) => Promise<ApiError | null>;
 };
 
 const AuthContext = createContext<AuthValue>({
@@ -38,6 +40,7 @@ const AuthContext = createContext<AuthValue>({
   signIn: async () => null,
   signUp: async () => null,
   signOut: async () => null,
+  updateProfile: async () => null,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -93,8 +96,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   }, []);
 
+  const updateProfile: AuthValue["updateProfile"] = useCallback(async (fields) => {
+    const result = await api.updateProfile(fields);
+    if (!result.ok) return result.error;
+    setState({ status: "authenticated", user: result.data.user });
+    return null;
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ ...state, signIn, signUp, signOut, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

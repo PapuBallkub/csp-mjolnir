@@ -1,19 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import {
-  formatTHB,
-  matchScore,
-  pick,
-  techTerms,
-  tors,
-  type ScopeSize,
-} from "../../../_data/tors";
-import { useAuthedUser } from "../../../_components/auth";
-import { useLang, useProfile } from "../../../_components/prefs";
-import { MatchScore, SmeBadge } from "../../../_components/verdict";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth, useAuthedUser } from "../../../_components/auth";
+import { useLang } from "../../../_components/prefs";
 import { btn, Eyebrow, input, Label, Panel, SectionHeading } from "../../../_components/ui";
+import { formatTHB, type ScopeSize } from "../../../_data/tors";
+import * as api from "../../../_lib/api";
+import type { ApiError, UserProfile } from "../../../_lib/api";
 
 const SCOPE_OPTIONS: {
   id: ScopeSize;
@@ -37,31 +31,118 @@ const SCOPE_OPTIONS: {
   },
 ];
 
+function pick(value: { th: string; en: string }, lang: "th" | "en"): string {
+  return lang === "th" ? value.th : value.en;
+}
+
 function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }
 
 /**
- * Where the user describes themselves once. Everything the matcher knows comes
- * from this screen, so it also shows what that description currently buys —
- * the live count and the top three fits — rather than making the user go and
- * find out.
+ * FR-12: Users save technical skills, budget capacity, and preferred job size
+ * to their account profile. Feeds the match scoring engine (FR-13).
  */
 export default function ProfilePage() {
   const { lang } = useLang();
   const user = useAuthedUser();
-  const { profile, setProfile } = useProfile();
+  const { updateProfile } = useAuth();
 
-  const ranked = useMemo(
-    () =>
-      tors
-        .filter((tor) => tor.status !== "Closed" && tor.status !== "Awarded" && tor.status !== "Cancelled")
-        .map((tor) => ({ tor, score: matchScore(tor, profile) }))
-        .sort((a, b) => b.score - a.score),
-    [profile],
-  );
-  const strong = ranked.filter((row) => row.score >= 70);
-  const smeEligible = ranked.filter((row) => profile.smeRegistered && row.tor.smeAdvantage).length;
+  // Technologies loaded from real catalog facets
+  const [availableTechs, setAvailableTechs] = useState<string[]>([]);
+  const [techsLoading, setTechsLoading] = useState(true);
+
+  // Custom skill input
+  const [customSkill, setCustomSkill] = useState("");
+
+  // Local editable draft initialized from user.profile
+  const [draft, setDraft] = useState<UserProfile>(() => ({
+    skills: user.profile?.skills ?? [],
+    budgetMin: user.profile?.budgetMin ?? 0,
+    budgetMax: user.profile?.budgetMax ?? 0,
+    scopeSizes: user.profile?.scopeSizes ?? [],
+  }));
+
+  // Save operation state
+  const [saving, setSaving] = useState(false);
+  const [saveResult, setSaveResult] = useState<"idle" | "success" | ApiError>("idle");
+
+  // Fetch available technologies from catalog facets on mount
+  useEffect(() => {
+    let cancelled = false;
+    api.torFacets().then((result) => {
+      if (cancelled) return;
+      if (result.ok) {
+        setAvailableTechs(result.data.technologies.map((t) => t.name));
+      }
+      setTechsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const isDirty = useMemo(() => {
+    const saved = user.profile ?? { skills: [], budgetMin: 0, budgetMax: 0, scopeSizes: [] };
+    const savedSkills = [...saved.skills].sort().join(",");
+    const draftSkills = [...draft.skills].sort().join(",");
+    const savedScopes = [...saved.scopeSizes].sort().join(",");
+    const draftScopes = [...draft.scopeSizes].sort().join(",");
+
+    return (
+      savedSkills !== draftSkills ||
+      saved.budgetMin !== draft.budgetMin ||
+      saved.budgetMax !== draft.budgetMax ||
+      savedScopes !== draftScopes
+    );
+  }, [draft, user.profile]);
+
+  const budgetError =
+    draft.budgetMin > 0 && draft.budgetMax > 0 && draft.budgetMin > draft.budgetMax
+      ? lang === "th"
+        ? "งบต่ำสุดต้องไม่เกินงบสูงสุด"
+        : "Minimum budget cannot exceed maximum budget"
+      : null;
+
+  const handleAddCustomSkill = useCallback(() => {
+    const trimmed = customSkill.trim();
+    if (!trimmed) return;
+    if (draft.skills.includes(trimmed)) {
+      setCustomSkill("");
+      return;
+    }
+    if (draft.skills.length >= 50) return;
+
+    setDraft((prev) => ({
+      ...prev,
+      skills: [...prev.skills, trimmed],
+    }));
+    setCustomSkill("");
+  }, [customSkill, draft.skills]);
+
+  const handleSave = useCallback(async () => {
+    if (budgetError) return;
+    setSaving(true);
+    setSaveResult("idle");
+
+    const error = await updateProfile(draft);
+    setSaving(false);
+
+    if (error) {
+      setSaveResult(error);
+    } else {
+      setSaveResult("success");
+      const timer = setTimeout(() => {
+        setSaveResult("idle");
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [budgetError, draft, updateProfile]);
+
+  // Combined list of tech options (facets + user's saved custom skills)
+  const displaySkills = useMemo(() => {
+    return Array.from(new Set([...availableTechs, ...draft.skills]));
+  }, [availableTechs, draft.skills]);
 
   return (
     <div className="mx-auto max-w-[1240px] px-4 py-6">
@@ -72,14 +153,15 @@ export default function ProfilePage() {
         </h1>
         <p className="mt-1 max-w-2xl text-[14px] leading-thai text-ink-2">
           {lang === "th"
-            ? "ข้อมูลนี้ใช้จัดอันดับงานในหน้าค้นหา และใช้ตัดสินใจว่าจะส่งอีเมลแจ้งเตือนงานไหนถึงคุณ แก้ได้ทุกเมื่อ ผลจะเปลี่ยนทันที"
-            : "This is what ranks the browse list and decides which projects are worth emailing you about. Change it whenever — the results update immediately."}
+            ? "ข้อมูลนี้ใช้จับคู่งานที่เหมาะสมในหน้าค้นหา และจัดอันดับประกาศที่ตรงกับความสามารถของคุณ บันทึกแล้วแก้ไขได้ตลอดเวลา"
+            : "This information is used to match and rank relevant government IT procurement opportunities for you. You can update it anytime."}
         </p>
       </header>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex flex-col gap-5">
           <Panel className="px-4 py-5 sm:px-6 sm:py-6">
+            {/* Account Info (Read-only) */}
             <section>
               <SectionHeading
                 sub={
@@ -90,13 +172,6 @@ export default function ProfilePage() {
               >
                 {lang === "th" ? "บัญชีผู้ใช้" : "Account"}
               </SectionHeading>
-              {/*
-                These two are the account, not the profile — they come from the
-                session and are the only fields on this page that are real. They
-                are read-only because there is no endpoint to change them yet;
-                an input that accepts a new name and silently discards it is
-                worse than one that admits it cannot.
-              */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5">
                   <Label>{lang === "th" ? "ชื่อที่แสดง" : "Display name"}</Label>
@@ -122,18 +197,19 @@ export default function ProfilePage() {
               </p>
             </section>
 
+            {/* Technical Skills & Technologies */}
             <section className="mt-9">
               <SectionHeading
                 sub={
                   lang === "th"
-                    ? `เลือกไว้ ${profile.skills.length} รายการ — แตะเพื่อเปิดหรือปิด ยิ่งตรงกับที่ TOR ระบุ คะแนนยิ่งสูง`
-                    : `${profile.skills.length} selected — tap to toggle. The more a TOR's stack overlaps this, the higher it ranks.`
+                    ? `เลือกไว้ ${draft.skills.length}/50 รายการ — แตะเพื่อเลือกทักษะที่คุณถนัด หรือพิมพ์เพิ่มด้านล่าง`
+                    : `${draft.skills.length}/50 selected — tap to toggle, or type custom skills below.`
                 }
                 right={
-                  profile.skills.length > 0 ? (
+                  draft.skills.length > 0 ? (
                     <button
                       type="button"
-                      onClick={() => setProfile({ ...profile, skills: [] })}
+                      onClick={() => setDraft((prev) => ({ ...prev, skills: [] }))}
                       className="text-[11px] text-ink-3 underline underline-offset-2 hover:text-ink"
                     >
                       {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
@@ -143,70 +219,144 @@ export default function ProfilePage() {
               >
                 {lang === "th" ? "ทักษะและเทคโนโลยี" : "Skills and technologies"}
               </SectionHeading>
-              <div className="flex flex-wrap gap-1.5">
-                {techTerms.map((term) => {
-                  const on = profile.skills.includes(term);
-                  return (
-                    <button
-                      key={term}
-                      type="button"
-                      onClick={() => setProfile({ ...profile, skills: toggle(profile.skills, term) })}
-                      aria-pressed={on}
-                      className={`rounded-[2px] border px-2 py-1 font-mono text-[11px] transition-colors ${
-                        on
-                          ? "border-ink bg-ink text-surface"
-                          : "border-line bg-surface-2 text-ink-3 hover:text-ink"
-                      }`}
-                    >
-                      {term}
-                    </button>
-                  );
-                })}
+
+              {/* Technologies chip cloud */}
+              {techsLoading ? (
+                <div className="flex flex-wrap gap-1.5 animate-pulse">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-6 w-16 rounded-[2px] bg-surface-2 border border-line"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {displaySkills.map((term) => {
+                    const on = draft.skills.includes(term);
+                    return (
+                      <button
+                        key={term}
+                        type="button"
+                        onClick={() =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            skills: toggle(prev.skills, term),
+                          }))
+                        }
+                        aria-pressed={on}
+                        className={`rounded-[2px] border px-2 py-1 font-mono text-[11px] transition-colors ${
+                          on
+                            ? "border-ink bg-ink text-surface"
+                            : "border-line bg-surface-2 text-ink-3 hover:text-ink"
+                        }`}
+                      >
+                        {term}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Add custom skill input */}
+              <div className="mt-3.5 flex max-w-sm items-center gap-2">
+                <input
+                  type="text"
+                  value={customSkill}
+                  onChange={(e) => setCustomSkill(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddCustomSkill();
+                    }
+                  }}
+                  placeholder={
+                    lang === "th" ? "เพิ่มทักษะอื่น เช่น Rust, Tailwind..." : "Add other skill, e.g. Rust, Tailwind..."
+                  }
+                  className={`${input} text-[12px]`}
+                  maxLength={100}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCustomSkill}
+                  disabled={!customSkill.trim() || draft.skills.length >= 50}
+                  className={`${btn.secondary} shrink-0 text-[12px]`}
+                >
+                  {lang === "th" ? "เพิ่ม" : "Add"}
+                </button>
               </div>
+              {typeof saveResult === "object" && saveResult.details?.skills && (
+                <p className="mt-1.5 text-[11px] text-red-600">{saveResult.details.skills}</p>
+              )}
             </section>
 
+            {/* Budget Capacity */}
             <section className="mt-9">
               <SectionHeading
                 sub={
                   lang === "th"
-                    ? "งานที่ราคากลางอยู่นอกช่วงนี้จะถูกลดคะแนนลง ไม่ได้ซ่อนทิ้ง"
-                    : "Projects outside this range are scored down, not hidden."
+                    ? "กำหนดช่วงงบประมาณโครงการที่คุณสามารถรับงานได้ (บาท)"
+                    : "Set the project budget range you can take on (THB)."
                 }
               >
                 {lang === "th" ? "ช่วงงบที่คุณรับงาน" : "Budget range you take on"}
               </SectionHeading>
               <div className="flex max-w-md items-center gap-2">
-                <input
-                  type="number"
-                  value={profile.budgetMin}
-                  step={100_000}
-                  min={0}
-                  onChange={(e) => setProfile({ ...profile, budgetMin: Number(e.target.value) })}
-                  className={`${input} font-mono tnum`}
-                  aria-label={lang === "th" ? "งบต่ำสุด" : "Minimum budget"}
-                />
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    value={draft.budgetMin}
+                    step={100_000}
+                    min={0}
+                    max={1_000_000_000}
+                    onChange={(e) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        budgetMin: Math.max(0, Number(e.target.value)),
+                      }))
+                    }
+                    className={`${input} font-mono tnum`}
+                    aria-label={lang === "th" ? "งบต่ำสุด" : "Minimum budget"}
+                  />
+                </div>
                 <span className="text-ink-3">–</span>
-                <input
-                  type="number"
-                  value={profile.budgetMax}
-                  step={100_000}
-                  min={0}
-                  onChange={(e) => setProfile({ ...profile, budgetMax: Number(e.target.value) })}
-                  className={`${input} font-mono tnum`}
-                  aria-label={lang === "th" ? "งบสูงสุด" : "Maximum budget"}
-                />
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    value={draft.budgetMax}
+                    step={100_000}
+                    min={0}
+                    max={1_000_000_000}
+                    onChange={(e) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        budgetMax: Math.max(0, Number(e.target.value)),
+                      }))
+                    }
+                    className={`${input} font-mono tnum`}
+                    aria-label={lang === "th" ? "งบสูงสุด" : "Maximum budget"}
+                  />
+                </div>
               </div>
               <p className="mt-2 font-mono tnum text-[12px] text-ink-3">
-                {formatTHB(profile.budgetMin)} – {formatTHB(profile.budgetMax)}
+                {formatTHB(draft.budgetMin)} – {formatTHB(draft.budgetMax)}
               </p>
+              {budgetError && <p className="mt-1.5 text-[11px] text-red-600">{budgetError}</p>}
+              {typeof saveResult === "object" && saveResult.details?.budgetMin && (
+                <p className="mt-1.5 text-[11px] text-red-600">{saveResult.details.budgetMin}</p>
+              )}
+              {typeof saveResult === "object" && saveResult.details?.budgetMax && (
+                <p className="mt-1.5 text-[11px] text-red-600">{saveResult.details.budgetMax}</p>
+              )}
             </section>
 
+            {/* Preferred Job Size (Scope) */}
             <section className="mt-9">
               <SectionHeading
                 sub={
                   lang === "th"
-                    ? "ใช้ตัดงานที่ขอบเขตใหญ่เกินกำลังออกจากอันดับต้น ๆ"
-                    : "Keeps work that needs a bigger outfit than yours out of the top of the list."
+                    ? "เลือกขนาดทีมหรือกำลังคนที่คุณมีสำหรับรับโครงการ"
+                    : "Select the team sizes your outfit can comfortably handle."
                 }
               >
                 {lang === "th" ? "ขนาดงานที่ไหว" : "Size of job you can take"}
@@ -215,16 +365,16 @@ export default function ProfilePage() {
                 {SCOPE_OPTIONS.map((option) => (
                   <label
                     key={option.id}
-                    className="flex cursor-pointer items-start gap-2.5 rounded-[3px] border border-line bg-surface-2 px-3 py-2.5 hover:border-line-2"
+                    className="flex cursor-pointer items-start gap-2.5 rounded-[3px] border border-line bg-surface-2 px-3 py-2.5 hover:border-line-2 transition-colors"
                   >
                     <input
                       type="checkbox"
-                      checked={profile.scopeSizes.includes(option.id)}
+                      checked={draft.scopeSizes.includes(option.id)}
                       onChange={() =>
-                        setProfile({
-                          ...profile,
-                          scopeSizes: toggle(profile.scopeSizes, option.id),
-                        })
+                        setDraft((prev) => ({
+                          ...prev,
+                          scopeSizes: toggle(prev.scopeSizes, option.id),
+                        }))
                       }
                       className="mt-[3px] h-3.5 w-3.5 shrink-0 accent-ink"
                     />
@@ -239,101 +389,130 @@ export default function ProfilePage() {
                   </label>
                 ))}
               </div>
-            </section>
-
-            <section className="mt-9">
-              <SectionHeading>
-                {lang === "th" ? "สถานะผู้ประกอบการ" : "Business status"}
-              </SectionHeading>
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-[3px] border border-line bg-surface-2 px-3 py-2.5 hover:border-line-2">
-                <input
-                  type="checkbox"
-                  checked={profile.smeRegistered}
-                  onChange={() => setProfile({ ...profile, smeRegistered: !profile.smeRegistered })}
-                  className="mt-[3px] h-3.5 w-3.5 shrink-0 accent-ink"
-                />
-                <span className="min-w-0">
-                  <span className="block text-[13px] font-medium text-ink">
-                    {lang === "th"
-                      ? "ขึ้นทะเบียน SME กับ สสว. แล้ว"
-                      : "Registered as an SME with OSMEP"}
-                  </span>
-                  <span className="mt-0.5 block text-[12px] leading-thai text-ink-3">
-                    {lang === "th"
-                      ? "ใช้ตรวจสิทธิ์แต้มต่อด้านราคาในงานที่เข้าเกณฑ์ และเพิ่มคะแนนให้งานเหล่านั้น"
-                      : "Checks price-advantage eligibility on qualifying projects and scores them higher."}
-                  </span>
-                </span>
-              </label>
+              {typeof saveResult === "object" && saveResult.details?.scopeSizes && (
+                <p className="mt-1.5 text-[11px] text-red-600">{saveResult.details.scopeSizes}</p>
+              )}
             </section>
           </Panel>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className={btn.primary}>
-              {lang === "th" ? "บันทึกโปรไฟล์" : "Save profile"}
+          {/* Action Footer */}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!isDirty || saving || Boolean(budgetError)}
+              className={btn.primary}
+            >
+              {saving
+                ? lang === "th"
+                  ? "กำลังบันทึก…"
+                  : "Saving…"
+                : lang === "th"
+                  ? "บันทึกโปรไฟล์"
+                  : "Save profile"}
             </button>
             <Link href="/notifications" className={btn.secondary}>
               {lang === "th" ? "ตั้งค่าการแจ้งเตือน" : "Notification settings"}
             </Link>
+
+            {saveResult === "success" && (
+              <span className="text-[13px] font-medium text-green-600">
+                {lang === "th" ? "บันทึกโปรไฟล์แล้ว ✓" : "Profile saved ✓"}
+              </span>
+            )}
+            {typeof saveResult === "object" && !saveResult.details && (
+              <span className="text-[13px] text-red-600">{saveResult.message}</span>
+            )}
           </div>
         </div>
 
+        {/* Sidebar Summary */}
         <aside className="lg:sticky lg:top-[70px] lg:self-start">
           <Panel className="overflow-hidden">
             <div className="border-b border-line bg-surface-2 px-4 py-3">
               <h2 className="text-[13px] font-semibold text-ink">
-                {lang === "th" ? "โปรไฟล์นี้ให้ผลอย่างไร" : "What this profile finds you"}
+                {lang === "th" ? "สรุปโปรไฟล์ของคุณ" : "Profile summary"}
               </h2>
               <p className="mt-0.5 text-[12px] leading-thai text-ink-3">
                 {lang === "th"
-                  ? "คำนวณสดจากประกาศที่ยังเปิดรับอยู่"
-                  : "Computed live against everything still open."}
+                  ? "ใช้สำหรับจัดอันดับและค้นหาโอกาสที่ตรงกับคุณ"
+                  : "Used for opportunity matching and catalog ranking."}
               </p>
             </div>
 
-            <div className="grid grid-cols-2 divide-x divide-line border-b border-line">
+            <div className="divide-y divide-line">
               <div className="px-4 py-3">
-                <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
-                  {strong.length}
+                <span className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
+                  {lang === "th" ? "ทักษะที่บันทึก" : "Saved skills"}
+                </span>
+                <p className="mt-1 text-[14px] font-medium text-ink">
+                  {draft.skills.length > 0
+                    ? lang === "th"
+                      ? `${draft.skills.length} รายการ`
+                      : `${draft.skills.length} technologies`
+                    : lang === "th"
+                      ? "ยังไม่ได้เลือก"
+                      : "None selected"}
                 </p>
-                <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
-                  {lang === "th" ? "งานที่ตรงมาก (70+)" : "Strong matches (70+)"}
-                </p>
-              </div>
-              <div className="px-4 py-3">
-                <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
-                  {smeEligible}
-                </p>
-                <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
-                  {lang === "th" ? "งานที่ได้แต้มต่อ SME" : "With SME advantage"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col">
-              {ranked.slice(0, 3).map(({ tor, score }) => (
-                <Link
-                  key={tor.id}
-                  href={`/tor/${tor.id}`}
-                  className="border-b border-line px-4 py-3 transition-colors hover:bg-surface-2"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-mono tnum text-[10px] text-ink-3">{tor.id}</span>
-                    <MatchScore score={score} lang={lang} />
+                {draft.skills.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {draft.skills.slice(0, 6).map((skill) => (
+                      <span
+                        key={skill}
+                        className="rounded-[2px] bg-surface-2 border border-line px-1.5 py-0.5 font-mono text-[10px] text-ink-2"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                    {draft.skills.length > 6 && (
+                      <span className="text-[10px] text-ink-3 self-center">
+                        +{draft.skills.length - 6}
+                      </span>
+                    )}
                   </div>
-                  <p className="mt-1 text-[13px] leading-thai text-ink">{pick(tor.title, lang)}</p>
-                </Link>
-              ))}
+                )}
+              </div>
+
+              <div className="px-4 py-3">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
+                  {lang === "th" ? "ช่วงงบประมาณ" : "Budget capacity"}
+                </span>
+                <p className="mt-1 font-mono tnum text-[13px] text-ink">
+                  {draft.budgetMin > 0 || draft.budgetMax > 0
+                    ? `${formatTHB(draft.budgetMin)} – ${formatTHB(draft.budgetMax)}`
+                    : lang === "th"
+                      ? "ไม่จำกัด"
+                      : "Unrestricted"}
+                </p>
+              </div>
+
+              <div className="px-4 py-3">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
+                  {lang === "th" ? "ขนาดทีมที่รองรับ" : "Team scope"}
+                </span>
+                <p className="mt-1 text-[13px] text-ink">
+                  {draft.scopeSizes.length > 0
+                    ? draft.scopeSizes
+                        .map((s) => {
+                          const opt = SCOPE_OPTIONS.find((o) => o.id === s);
+                          return opt ? pick(opt.label, lang) : s;
+                        })
+                        .join(", ")
+                    : lang === "th"
+                      ? "ยังไม่ได้ระบุ"
+                      : "Not specified"}
+                </p>
+              </div>
             </div>
 
-            <div className="px-4 py-3">
-              {profile.smeRegistered ? (
-                <div className="mb-3">
-                  <SmeBadge lang={lang} />
-                </div>
-              ) : null}
-              <Link href="/search" className={`${btn.secondary} w-full`}>
-                {lang === "th" ? "ดูรายการที่ตรงทั้งหมด" : "See every match"}
+            <div className="border-t border-line bg-surface-1 px-4 py-3.5">
+              <p className="text-[11px] leading-thai text-ink-3 mb-3">
+                {lang === "th"
+                  ? "เมื่อตั้งค่าเสร็จสิ้น ระบบจะนำเกณฑ์เหล่านี้ไปคำนวณความเหมาะสมในหน้าค้นหาโครงการ"
+                  : "These parameters are used to calculate fit scores across all procurement notices in the catalog."}
+              </p>
+              <Link href="/search" className={`${btn.secondary} w-full justify-center`}>
+                {lang === "th" ? "ดูรายการประกาศจัดซื้อ" : "Browse procurement catalog"}
               </Link>
             </div>
           </Panel>

@@ -11,6 +11,14 @@
  * what to do next, rather than a screen that silently renders nothing.
  */
 
+/** FR-12. Stored server-side and returned inside every AuthUser. */
+export type UserProfile = {
+  skills: string[];
+  budgetMin: number;
+  budgetMax: number;
+  scopeSizes: ("solo" | "small-team" | "firm")[];
+};
+
 /** Mirrors `toPublicUser` on the server. Adding a field there means adding it here. */
 export type AuthUser = {
   id: string;
@@ -18,6 +26,7 @@ export type AuthUser = {
   name: string;
   role: "user" | "admin";
   notificationConsent: boolean;
+  profile: UserProfile;
   createdAt: string;
 };
 
@@ -149,6 +158,17 @@ export function logout() {
  */
 export function me() {
   return request<UserResponse>("/api/auth/me", { cache: "no-store" });
+}
+
+/**
+ * FR-12. Saves profile preferences. PATCH, so only the fields sent are updated.
+ * Returns the full updated user — the caller replaces its AuthUser with this.
+ */
+export function updateProfile(body: Partial<UserProfile>) {
+  return request<UserResponse>("/api/profile", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 /**
