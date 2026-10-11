@@ -8,7 +8,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { demoProfile, type Lang, type Profile, type ScopeSize } from "../_data/tors";
+import { demoProfile, type Lang, type Profile } from "../_data/tors";
 import type { ApiError, UserProfile } from "../_lib/api";
 import { useAuth } from "./auth";
 
@@ -61,7 +61,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
           skills: user.profile?.skills ?? [],
           budgetMin: user.profile?.budgetMin ?? 0,
           budgetMax: user.profile?.budgetMax ?? 0,
-          scopeSizes: (user.profile?.scopeSizes ?? []) as ScopeSize[],
+          scopeSizes: [],
           smeRegistered: false,
           watchlist: guestProfile.watchlist,
         }

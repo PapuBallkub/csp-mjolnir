@@ -22,7 +22,7 @@ export function toPublicUser(user) {
       skills: user.profile?.skills ?? [],
       budgetMin: user.profile?.budgetMin ?? 0,
       budgetMax: user.profile?.budgetMax ?? 0,
-      scopeSizes: user.profile?.scopeSizes ?? [],
+      certifications: user.profile?.certifications ?? [],
     },
     watchlist: (user.watchlist ?? []).map((w) => (typeof w === 'string' ? w : w.projectId)),
     createdAt: user.createdAt,

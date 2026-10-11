@@ -16,7 +16,7 @@ export type UserProfile = {
   skills: string[];
   budgetMin: number;
   budgetMax: number;
-  scopeSizes: ("solo" | "small-team" | "firm")[];
+  certifications: string[];
 };
 
 /** Mirrors `toPublicUser` on the server. Adding a field there means adding it here. */

@@ -127,26 +127,38 @@ test('profile: rejects negative budget', async () => {
   assert.equal(res.status, 400);
 });
 
-test('profile: saves scope sizes', async () => {
-  const cookie = await registerAndGetCookie('profile-scope');
+test('profile: saves certifications', async () => {
+  const cookie = await registerAndGetCookie('profile-certs');
   const res = await send('PATCH', '/api/profile', {
-    body: { scopeSizes: ['solo', 'small-team'] },
+    body: { certifications: ['ISO/IEC 29110', 'CMMI Level 3', 'ISO/IEC 27001'] },
     cookie,
   });
   assert.equal(res.status, 200);
   const { user } = await res.json();
-  assert.deepEqual(user.profile.scopeSizes, ['solo', 'small-team']);
+  assert.deepEqual(user.profile.certifications, ['ISO/IEC 29110', 'CMMI Level 3', 'ISO/IEC 27001']);
 });
 
-test('profile: rejects invalid scope size', async () => {
-  const cookie = await registerAndGetCookie('profile-scope-invalid');
+test('profile: deduplicates certifications and trims whitespace', async () => {
+  const cookie = await registerAndGetCookie('profile-certs-dedup');
   const res = await send('PATCH', '/api/profile', {
-    body: { scopeSizes: ['solo', 'mega-corp'] },
+    body: { certifications: ['ISO 29110', ' ISO 29110 ', 'CMMI Level 3'] },
+    cookie,
+  });
+  assert.equal(res.status, 200);
+  const { user } = await res.json();
+  assert.deepEqual(user.profile.certifications, ['ISO 29110', 'CMMI Level 3']);
+});
+
+test('profile: rejects more than 20 certifications', async () => {
+  const cookie = await registerAndGetCookie('profile-max-certs');
+  const certs = Array.from({ length: 21 }, (_, i) => `Cert-${i}`);
+  const res = await send('PATCH', '/api/profile', {
+    body: { certifications: certs },
     cookie,
   });
   assert.equal(res.status, 400);
   const { error } = await res.json();
-  assert.ok(error.details.scopeSizes);
+  assert.ok(error.details.certifications);
 });
 
 test('profile: partial update does not clear other fields', async () => {
@@ -225,7 +237,7 @@ test('profile: new user has default empty profile', async () => {
     skills: [],
     budgetMin: 0,
     budgetMax: 0,
-    scopeSizes: [],
+    certifications: [],
   });
 });
 

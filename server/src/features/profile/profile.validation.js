@@ -2,8 +2,9 @@ import { badRequest } from '#common/errors/http-error.js';
 
 const MAX_SKILLS = 50;
 const MAX_SKILL_LENGTH = 100;
+const MAX_CERTIFICATIONS = 20;
+const MAX_CERTIFICATION_LENGTH = 100;
 const MAX_BUDGET = 1_000_000_000;
-const VALID_SCOPE_SIZES = ['solo', 'small-team', 'firm'];
 
 /**
  * Validates and returns sanitized profile fields. Throws badRequest with
@@ -66,19 +67,23 @@ export function parseProfileUpdate(body) {
     }
   }
 
-  // --- scopeSizes ---
-  if (body.scopeSizes !== undefined) {
-    if (!Array.isArray(body.scopeSizes)) {
-      errors.scopeSizes = 'Scope sizes must be an array.';
+  // --- certifications ---
+  if (body.certifications !== undefined) {
+    if (!Array.isArray(body.certifications)) {
+      errors.certifications = 'Certifications must be an array.';
     } else {
-      const cleaned = [...new Set(body.scopeSizes.filter((s) => VALID_SCOPE_SIZES.includes(s)))];
-      const invalid = body.scopeSizes.filter(
-        (s) => typeof s === 'string' && !VALID_SCOPE_SIZES.includes(s),
-      );
-      if (invalid.length > 0) {
-        errors.scopeSizes = `Invalid scope sizes: ${invalid.join(', ')}. Accepted: ${VALID_SCOPE_SIZES.join(', ')}.`;
+      const cleaned = [
+        ...new Set(
+          body.certifications
+            .filter((c) => typeof c === 'string')
+            .map((c) => c.trim())
+            .filter((c) => c.length > 0 && c.length <= MAX_CERTIFICATION_LENGTH),
+        ),
+      ];
+      if (cleaned.length > MAX_CERTIFICATIONS) {
+        errors.certifications = `You can save at most ${MAX_CERTIFICATIONS} certifications.`;
       } else {
-        update.scopeSizes = cleaned;
+        update.certifications = cleaned;
       }
     }
   }

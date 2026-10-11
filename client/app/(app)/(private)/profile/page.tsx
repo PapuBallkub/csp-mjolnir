@@ -5,42 +5,24 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth, useAuthedUser } from "../../../_components/auth";
 import { useLang } from "../../../_components/prefs";
 import { btn, Eyebrow, input, Label, Panel, SectionHeading } from "../../../_components/ui";
-import { formatTHB, type ScopeSize } from "../../../_data/tors";
+import { formatTHB } from "../../../_data/tors";
 import * as api from "../../../_lib/api";
 import type { ApiError, UserProfile } from "../../../_lib/api";
 
-const SCOPE_OPTIONS: {
-  id: ScopeSize;
-  label: { th: string; en: string };
-  note: { th: string; en: string };
-}[] = [
-  {
-    id: "solo",
-    label: { th: "ทำคนเดียว", en: "Just me" },
-    note: { th: "งานเล็ก ราว 1 ล้านบาทลงมา", en: "Small jobs, roughly ฿1M and under" },
-  },
-  {
-    id: "small-team",
-    label: { th: "ทีมเล็ก 2–5 คน", en: "Small team, 2–5" },
-    note: { th: "งานกลาง 1–5 ล้านบาท", en: "Mid-size work, ฿1M–5M" },
-  },
-  {
-    id: "firm",
-    label: { th: "บริษัทเต็มรูปแบบ", en: "A full firm" },
-    note: { th: "งานใหญ่ ต้องมีทีมประจำและทุนหมุนเวียน", en: "Large work needing staff and capital" },
-  },
+const STANDARD_CERTIFICATIONS = [
+  "ISO/IEC 29110",
+  "CMMI Level 3+",
+  "ISO/IEC 27001",
+  "ISO 9001",
+  "ISO/IEC 20000-1",
 ];
-
-function pick(value: { th: string; en: string }, lang: "th" | "en"): string {
-  return lang === "th" ? value.th : value.en;
-}
 
 function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }
 
 /**
- * FR-12: Users save technical skills, budget capacity, and preferred job size
+ * FR-12: Users save technical skills, budget capacity, and certifications
  * to their account profile. Feeds the match scoring engine (FR-13).
  */
 export default function ProfilePage() {
@@ -52,15 +34,16 @@ export default function ProfilePage() {
   const [availableTechs, setAvailableTechs] = useState<string[]>([]);
   const [techsLoading, setTechsLoading] = useState(true);
 
-  // Custom skill input
+  // Custom inputs
   const [customSkill, setCustomSkill] = useState("");
+  const [customCert, setCustomCert] = useState("");
 
   // Local editable draft initialized from user.profile
   const [draft, setDraft] = useState<UserProfile>(() => ({
     skills: user.profile?.skills ?? [],
     budgetMin: user.profile?.budgetMin ?? 0,
     budgetMax: user.profile?.budgetMax ?? 0,
-    scopeSizes: user.profile?.scopeSizes ?? [],
+    certifications: user.profile?.certifications ?? [],
   }));
 
   // Save operation state
@@ -83,17 +66,17 @@ export default function ProfilePage() {
   }, []);
 
   const isDirty = useMemo(() => {
-    const saved = user.profile ?? { skills: [], budgetMin: 0, budgetMax: 0, scopeSizes: [] };
+    const saved = user.profile ?? { skills: [], budgetMin: 0, budgetMax: 0, certifications: [] };
     const savedSkills = [...saved.skills].sort().join(",");
     const draftSkills = [...draft.skills].sort().join(",");
-    const savedScopes = [...saved.scopeSizes].sort().join(",");
-    const draftScopes = [...draft.scopeSizes].sort().join(",");
+    const savedCerts = [...(saved.certifications ?? [])].sort().join(",");
+    const draftCerts = [...draft.certifications].sort().join(",");
 
     return (
       savedSkills !== draftSkills ||
       saved.budgetMin !== draft.budgetMin ||
       saved.budgetMax !== draft.budgetMax ||
-      savedScopes !== draftScopes
+      savedCerts !== draftCerts
     );
   }, [draft, user.profile]);
 
@@ -120,6 +103,22 @@ export default function ProfilePage() {
     setCustomSkill("");
   }, [customSkill, draft.skills]);
 
+  const handleAddCustomCert = useCallback(() => {
+    const trimmed = customCert.trim();
+    if (!trimmed) return;
+    if (draft.certifications.includes(trimmed)) {
+      setCustomCert("");
+      return;
+    }
+    if (draft.certifications.length >= 20) return;
+
+    setDraft((prev) => ({
+      ...prev,
+      certifications: [...prev.certifications, trimmed],
+    }));
+    setCustomCert("");
+  }, [customCert, draft.certifications]);
+
   const handleSave = useCallback(async () => {
     if (budgetError) return;
     setSaving(true);
@@ -143,6 +142,11 @@ export default function ProfilePage() {
   const displaySkills = useMemo(() => {
     return Array.from(new Set([...availableTechs, ...draft.skills]));
   }, [availableTechs, draft.skills]);
+
+  // Combined list of certification options (standards + user's custom certs)
+  const displayCertifications = useMemo(() => {
+    return Array.from(new Set([...STANDARD_CERTIFICATIONS, ...draft.certifications]));
+  }, [draft.certifications]);
 
   return (
     <div className="mx-auto max-w-[1240px] px-4 py-6">
@@ -350,47 +354,84 @@ export default function ProfilePage() {
               )}
             </section>
 
-            {/* Preferred Job Size (Scope) */}
+            {/* International & Software Standards (Certifications) */}
             <section className="mt-9">
               <SectionHeading
                 sub={
                   lang === "th"
-                    ? "เลือกขนาดทีมหรือกำลังคนที่คุณมีสำหรับรับโครงการ"
-                    : "Select the team sizes your outfit can comfortably handle."
+                    ? `เลือกมาตรฐานที่องค์กรหรือทีมของคุณได้รับการรับรอง (${draft.certifications.length}/20 รายการ) เพื่อตรวจเกณฑ์คุณสมบัติใน TOR`
+                    : `Select international certifications held by your team (${draft.certifications.length}/20 selected) to match qualification requirements in TORs.`
+                }
+                right={
+                  draft.certifications.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setDraft((prev) => ({ ...prev, certifications: [] }))}
+                      className="text-[11px] text-ink-3 underline underline-offset-2 hover:text-ink"
+                    >
+                      {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                    </button>
+                  ) : null
                 }
               >
-                {lang === "th" ? "ขนาดงานที่ไหว" : "Size of job you can take"}
+                {lang === "th" ? "ใบรับรองมาตรฐานสากล (ISO / CMMI)" : "Certifications & Standards (ISO / CMMI)"}
               </SectionHeading>
-              <div className="flex flex-col gap-2">
-                {SCOPE_OPTIONS.map((option) => (
-                  <label
-                    key={option.id}
-                    className="flex cursor-pointer items-start gap-2.5 rounded-[3px] border border-line bg-surface-2 px-3 py-2.5 hover:border-line-2 transition-colors"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={draft.scopeSizes.includes(option.id)}
-                      onChange={() =>
+
+              <div className="flex flex-wrap gap-1.5">
+                {displayCertifications.map((cert) => {
+                  const on = draft.certifications.includes(cert);
+                  return (
+                    <button
+                      key={cert}
+                      type="button"
+                      onClick={() =>
                         setDraft((prev) => ({
                           ...prev,
-                          scopeSizes: toggle(prev.scopeSizes, option.id),
+                          certifications: toggle(prev.certifications, cert),
                         }))
                       }
-                      className="mt-[3px] h-3.5 w-3.5 shrink-0 accent-ink"
-                    />
-                    <span className="min-w-0">
-                      <span className="block text-[13px] font-medium text-ink">
-                        {pick(option.label, lang)}
-                      </span>
-                      <span className="mt-0.5 block text-[12px] leading-thai text-ink-3">
-                        {pick(option.note, lang)}
-                      </span>
-                    </span>
-                  </label>
-                ))}
+                      aria-pressed={on}
+                      className={`rounded-[2px] border px-2.5 py-1 font-mono text-[11px] transition-colors ${
+                        on
+                          ? "border-ink bg-ink text-surface"
+                          : "border-line bg-surface-2 text-ink-3 hover:text-ink"
+                      }`}
+                    >
+                      {cert}
+                    </button>
+                  );
+                })}
               </div>
-              {typeof saveResult === "object" && saveResult.details?.scopeSizes && (
-                <p className="mt-1.5 text-[11px] text-red-600">{saveResult.details.scopeSizes}</p>
+
+              {/* Add custom certification input */}
+              <div className="mt-3.5 flex max-w-sm items-center gap-2">
+                <input
+                  type="text"
+                  value={customCert}
+                  onChange={(e) => setCustomCert(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddCustomCert();
+                    }
+                  }}
+                  placeholder={
+                    lang === "th" ? "เพิ่มมาตรฐานอื่น เช่น PCI DSS, CSA STAR..." : "Add other standard, e.g. PCI DSS..."
+                  }
+                  className={`${input} text-[12px]`}
+                  maxLength={100}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCustomCert}
+                  disabled={!customCert.trim() || draft.certifications.length >= 20}
+                  className={`${btn.secondary} shrink-0 text-[12px]`}
+                >
+                  {lang === "th" ? "เพิ่ม" : "Add"}
+                </button>
+              </div>
+              {typeof saveResult === "object" && saveResult.details?.certifications && (
+                <p className="mt-1.5 text-[11px] text-red-600">{saveResult.details.certifications}</p>
               )}
             </section>
           </Panel>
@@ -488,20 +529,29 @@ export default function ProfilePage() {
 
               <div className="px-4 py-3">
                 <span className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
-                  {lang === "th" ? "ขนาดทีมที่รองรับ" : "Team scope"}
+                  {lang === "th" ? "มาตรฐานสากลที่ได้รับ" : "Certifications"}
                 </span>
-                <p className="mt-1 text-[13px] text-ink">
-                  {draft.scopeSizes.length > 0
-                    ? draft.scopeSizes
-                        .map((s) => {
-                          const opt = SCOPE_OPTIONS.find((o) => o.id === s);
-                          return opt ? pick(opt.label, lang) : s;
-                        })
-                        .join(", ")
+                <p className="mt-1 text-[14px] font-medium text-ink">
+                  {draft.certifications.length > 0
+                    ? lang === "th"
+                      ? `${draft.certifications.length} มาตรฐาน`
+                      : `${draft.certifications.length} standards`
                     : lang === "th"
                       ? "ยังไม่ได้ระบุ"
-                      : "Not specified"}
+                      : "None specified"}
                 </p>
+                {draft.certifications.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {draft.certifications.map((cert) => (
+                      <span
+                        key={cert}
+                        className="rounded-[2px] bg-surface-2 border border-line px-1.5 py-0.5 font-mono text-[10px] text-ink-2"
+                      >
+                        {cert}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

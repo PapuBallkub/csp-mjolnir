@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { formatTHB, formatTHBCompact, getFiscalYear } from "../_lib/format";
-import { matchScore, pick, type Profile, type ScopeSize, type Tor } from "../_data/tors";
+import { matchScore, pick, type Profile, type Tor } from "../_data/tors";
 
 import type { TorInsightSummary } from "../_lib/api";
 import { useLang, useProfile } from "./prefs";
 import { useAuth } from "./auth";
 import { Deadline } from "./deadline";
-import { isDead, MatchScore, ScopeBadge, SignalRail, SmeBadge, VerdictStrip } from "./verdict";
+import { isDead, MatchScore, SignalRail, SmeBadge, VerdictStrip } from "./verdict";
 import { Chip } from "./ui";
 
 function computeInsightScore(techStack: string[], budget: number, profile: Profile): number {
@@ -18,16 +18,7 @@ function computeInsightScore(techStack: string[], budget: number, profile: Profi
   ).length;
   const skillFit = matched / techStack.length;
   const budgetFit = budget >= profile.budgetMin && budget <= profile.budgetMax ? 1 : 0.2;
-  const scopeCategory: ScopeSize =
-    budget < 5_000_000 ? "solo" : budget <= 30_000_000 ? "small-team" : "firm";
-  const scopeFit = profile.scopeSizes.includes(scopeCategory) ? 1 : 0.2;
-  return Math.min(100, Math.round(skillFit * 60 + budgetFit * 25 + scopeFit * 15));
-}
-
-function getScopeCategory(budget: number): ScopeSize {
-  if (budget < 5_000_000) return "solo";
-  if (budget <= 30_000_000) return "small-team";
-  return "firm";
+  return Math.min(100, Math.round(skillFit * 70 + budgetFit * 30));
 }
 
 /**
@@ -70,7 +61,6 @@ export function TorRow({
   const techStack = insight
     ? insight.technicalRequirements?.requiredTechnologies.map((t) => t.name) || []
     : tor?.techStack || [];
-  const scopeSize = insight ? getScopeCategory(budget) : tor?.scopeSize || "small-team";
   const smeAdvantage = tor?.smeAdvantage || false;
 
   const visibleTech = techStack.slice(0, 4);
@@ -133,9 +123,8 @@ export function TorRow({
             <VerdictStrip tor={tor} insight={insight} lang={lang} />
           </div>
 
-          {/* 4. Tech Chips & Scope */}
+          {/* 4. Tech Chips */}
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            <ScopeBadge size={scopeSize} lang={lang} />
             {visibleTech.map((term, idx) => {
               const known = showMatch && isAuthenticated && profile.skills.some((s) => s.toLowerCase() === term.toLowerCase());
               return (

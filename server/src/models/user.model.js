@@ -66,9 +66,13 @@ const userSchema = new mongoose.Schema(
       },
       budgetMin: { type: Number, default: 0, min: 0, max: 1_000_000_000 },
       budgetMax: { type: Number, default: 0, min: 0, max: 1_000_000_000 },
-      scopeSizes: {
-        type: [{ type: String, enum: ['solo', 'small-team', 'firm'] }],
+      certifications: {
+        type: [String],
         default: [],
+        validate: {
+          validator: (v) => v.length <= 20,
+          message: 'You can save at most 20 certifications.',
+        },
       },
     },
     // FR-17. Personal watchlist of saved TOR projects.
