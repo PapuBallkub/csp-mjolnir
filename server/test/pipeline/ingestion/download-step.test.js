@@ -10,9 +10,9 @@ import mongoose from 'mongoose';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { PipelineFailure, Tor } from '#models/index.js';
-import { applyPackage, readTorParts, runDownloadStep } from '#pipeline/ingestion/ingest.js';
+import { applyPackage, applyPricePackage, readTorParts, runDownloadStep } from '#pipeline/ingestion/ingest.js';
 import { isPreviewRead } from '#pipeline/ingestion/lib/ocr.js';
-import { downloadEgpPackage } from '#pipeline/ingestion/lib/tor-downloader.js';
+import { downloadEgpPackage, downloadEgpPricePackage } from '#pipeline/ingestion/lib/tor-downloader.js';
 import { MAX_ATTEMPTS } from '#pipeline/shared/failures.js';
 
 // A database of its own: the download step takes every `fetched` TOR, and the
@@ -146,6 +146,13 @@ test('download step: a TOR the e-GP feed never announced is never downloaded', a
 const ANNOUNCEMENT_PDF = path.join(import.meta.dirname, 'fixtures', 'egp-package', 'annoudoc_1300400000_69109062251.pdf');
 const noWait = async () => {};
 const download = (args) => downloadEgpPackage({ ...args, pace: noWait });
+// What OCR reads off the price form: real Tesseract output, set per test
+let priceFormOcr = '';
+const downloadPrice = (args) =>
+  downloadEgpPricePackage({ ...args, pace: noWait, ocr: async () => ({ text: priceFormOcr }) });
+const run = (options = {}) => runDownloadStep({ documentsDir, download, downloadPrice, ...options });
+const priceFormFixture = (id) =>
+  fs.readFile(path.join(import.meta.dirname, 'fixtures', 'egp-package', `${id}-price-form-ocr.txt`), 'utf8');
 
 function zipOf(files) {
   const zip = new AdmZip();
@@ -153,11 +160,17 @@ function zipOf(files) {
   return zip.toBuffer();
 }
 
-/** e-GP's current package for the project, and every package's bytes by zipId. */
-function egpServes({ current, zips }) {
+/**
+ * e-GP's current packages for the project, and every package's bytes by
+ * zipId. `price` is the price package's zipId; none by default.
+ */
+function egpServes({ current, zips, price = null }) {
   return mock.method(axios, 'get', async (url) => {
     if (url.includes('infoProcureDocAnnounZip')) {
       return { data: { data: { zipId: current, buildName1: `${PROJECT}_${current}.zip` } } };
+    }
+    if (url.includes('infoDocPriceestZipHis')) {
+      return { data: { data: price ? { zipFileId: price, zipFileName: `pricebuild_0000000000_${PROJECT}.zip` } : {} } };
     }
     const fileId = new URL(url).searchParams.get('fileId');
     if (url.includes('downloadFileTest') && zips[fileId]) return { data: zips[fileId] };
@@ -177,7 +190,7 @@ const torOf = () => Tor.findOne({ projectId: PROJECT }).lean();
 test("download step: a package keeps its project files, not e-GP's forms, and its announcement is read", async () => {
   egpServes({ current: 'zip-d0', zips: { 'zip-d0': await invitation() } });
 
-  await runDownloadStep({ documentsDir, download });
+  await run();
 
   const tor = await torOf();
   assert.equal(tor.pipelineStatus, 'downloaded');
@@ -207,21 +220,21 @@ test('download step: the TOR is found by elimination, whatever its name', async 
   });
   egpServes({ current: 'zip-draft', zips: { 'zip-draft': zip } });
 
-  await runDownloadStep({ documentsDir, download });
+  await run();
 
   assert.equal((await torOf()).document.fileName, 'PPC.29092569.pdf');
 });
 
 test('download step: a package already downloaded is not downloaded again', async () => {
   const get = egpServes({ current: 'zip-d0', zips: { 'zip-d0': await invitation() } });
-  await runDownloadStep({ documentsDir, download });
-  assert.equal(get.mock.callCount(), 2);
+  await run();
+  assert.equal(get.mock.callCount(), 3, 'the package, its download, and a look for a price package');
 
   // Read since, and the feed announced something new: download checks
   await Tor.updateOne({ projectId: PROJECT }, { pipelineStatus: 'ocr_done', packageCheckNeeded: true });
-  await runDownloadStep({ documentsDir, download });
+  await run();
 
-  assert.equal(get.mock.callCount(), 3, 'one look at e-GP, no download');
+  assert.equal(get.mock.callCount(), 5, 'a look at each package, no download');
   const tor = await torOf();
   assert.equal(tor.packages.length, 1);
   assert.equal(tor.packageCheckNeeded, false);
@@ -230,11 +243,11 @@ test('download step: a package already downloaded is not downloaded again', asyn
 
 test("download step: a new package whose TOR didn't change updates the facts, and isn't read again", async () => {
   egpServes({ current: 'zip-d0', zips: { 'zip-d0': await invitation() } });
-  await runDownloadStep({ documentsDir, download });
+  await run();
   await Tor.updateOne({ projectId: PROJECT }, { pipelineStatus: 'ocr_done', packageCheckNeeded: true });
 
   egpServes({ current: 'zip-d2', zips: { 'zip-d2': await invitation() } });
-  await runDownloadStep({ documentsDir, download });
+  await run();
 
   const tor = await torOf();
   assert.equal(tor.packages.length, 2, 'the earlier package stays');
@@ -245,11 +258,11 @@ test("download step: a new package whose TOR didn't change updates the facts, an
 
 test('download step: a new package with a changed TOR sends it back to OCR, as a new version', async () => {
   egpServes({ current: 'zip-d0', zips: { 'zip-d0': await invitation('%PDF-1.4 the TOR, first') } });
-  await runDownloadStep({ documentsDir, download });
+  await run();
   await Tor.updateOne({ projectId: PROJECT }, { pipelineStatus: 'ocr_done', packageCheckNeeded: true });
 
   egpServes({ current: 'zip-d2', zips: { 'zip-d2': await invitation('%PDF-1.4 the TOR, changed') } });
-  await runDownloadStep({ documentsDir, download });
+  await run();
 
   const tor = await torOf();
   assert.equal(tor.pipelineStatus, 'downloaded');
@@ -301,7 +314,7 @@ test('download step: a TOR split over files is kept as all its parts, in order',
   });
   egpServes({ current: 'zip-parts', zips: { 'zip-parts': zip } });
 
-  await runDownloadStep({ documentsDir, download });
+  await run();
 
   const { document, packages } = await torOf();
   assert.deepEqual(document.parts.map((part) => part.fileName), ['Attach_TOR_1.pdf', 'Attach_TOR_2.pdf']);
@@ -338,4 +351,67 @@ test('readTorParts: a TOR in several files reads as one document, a preview spen
   assert.deepEqual([whole.pages, whole.pagesRead, whole.truncated], [12, 12, false]);
   assert.equal(isPreviewRead(whole), false);
   assert.equal(whole.confidence, 0.8);
+});
+
+/* --------------------------- the price form (ADR 0023) --------------------------- */
+
+const pricePackage = () => zipOf({ 'pB0.pdf': '%PDF-1.4 a scanned price form' });
+
+test("download step: the price form's budget is read from its words, its ราคากลาง checked", async () => {
+  priceFormOcr = await priceFormFixture('69109062251'); // digits garbled, words right
+  egpServes({ current: 'zip-d0', price: 'zip-price', zips: { 'zip-d0': await invitation(), 'zip-price': pricePackage() } });
+
+  await run();
+
+  const tor = await torOf();
+  assert.equal(tor.budgetTHB, 1_194_600, 'from the words: OCR read the digits as ๑,๑๕๕,๒๐๐');
+  assert.equal(tor.referencePriceTHB, 1_290_420);
+  assert.ok(tor.priceCheckedAt);
+  const price = tor.packages.find((pkg) => pkg.kind === 'price');
+  assert.equal(price.files[0].role, 'price-form');
+  assert.equal(price.facts.budgetTHB.document, 'price-form');
+  assert.match(price.facts.budgetTHB.quote, /^วงเงินงบประมาณที่ได้รับจัดสรร .*บาทถ้วน \)$/);
+  assert.deepEqual(price.problems, [], 'the form and the announcement agree on ราคากลาง');
+});
+
+test("download step: a price form's ราคากลาง that differs from the announcement's is noted, not used", async () => {
+  priceFormOcr = await priceFormFixture('69099683466'); // ราคากลาง 4,916,650; the announcement says 1,290,420
+  egpServes({ current: 'zip-d0', price: 'zip-price', zips: { 'zip-d0': await invitation(), 'zip-price': pricePackage() } });
+
+  await run();
+
+  const tor = await torOf();
+  assert.equal(tor.referencePriceTHB, 1_290_420, "the announcement's real text stands");
+  assert.equal(tor.budgetTHB, 4_917_700);
+  const price = tor.packages.find((pkg) => pkg.kind === 'price');
+  assert.match(price.problems[0], /^ราคากลาง: the price form says 4,916,650, the announcement 1,290,420/);
+});
+
+test('download step: a project with no price package is asked once, and again at a new stage', async () => {
+  const get = egpServes({ current: 'zip-d0', zips: { 'zip-d0': await invitation() } });
+  await run();
+  const asked = () => get.mock.calls.filter((call) => call.arguments[0].includes('infoDocPriceestZipHis')).length;
+  assert.equal(asked(), 1);
+  assert.ok((await torOf()).priceCheckedAt, 'asked, and found none');
+
+  await run();
+  assert.equal(asked(), 1, 'not asked again for nothing');
+
+  await Tor.updateOne({ projectId: PROJECT }, { packageCheckNeeded: true });
+  await run();
+  assert.equal(asked(), 2, 'a new stage may bring a price package');
+});
+
+test('applyPricePackage: the form fills in ราคากลาง only where the announcement gave none', () => {
+  const tor = new Tor({ projectId: PROJECT, source: 'process3', title: 'จ้างพัฒนาระบบ' });
+  const quoted = (value) => ({ value, quote: `(${value})`, document: 'price-form' });
+  applyPricePackage(tor, {
+    kind: 'price',
+    zipId: 'zip-price',
+    files: [],
+    facts: { budgetTHB: quoted(4_917_700), referencePriceTHB: quoted(4_916_650) },
+    problems: [],
+  });
+  assert.equal(tor.budgetTHB, 4_917_700);
+  assert.equal(tor.referencePriceTHB, 4_916_650, 'the announcement left it blank');
 });

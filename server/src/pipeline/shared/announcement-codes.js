@@ -18,8 +18,8 @@
  * it is past data.
  *
  * `buildsPackage`: whether e-GP builds a new document package for this stage
- * (ADR 0020): a draft, an invitation, a changed invitation. A project already
- * downloaded is then checked for new files.
+ * (ADR 0020): a draft, an invitation, a changed invitation, or a price (ADR
+ * 0023). A project already downloaded is then checked for new files.
  */
 
 /**
@@ -46,7 +46,7 @@ export const EGP_ANNOUNCEMENT_CODES = {
     impliedStatus: null, // information only: the project's stage doesn't change
     setsAmended: false,
     discovers: true,
-    buildsPackage: false,
+    buildsPackage: true, // a new or revised price package (ADR 0023)
   },
   B0: {
     type: 'draft_tor',

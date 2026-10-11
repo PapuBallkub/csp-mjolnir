@@ -128,6 +128,14 @@ hiring software development, and splits the price into hardware, software,
 development and other costs. Amounts are written in digits and words; OCR
 misreads Thai digits, but the words survive.
 
+**What 28 price packages added (2026-10-11):**
+- **Most forms are scans;** a few have a real text layer.
+- **Many give amounts in digits only,** with no words.
+- **Wording varies:** "ที่ได้รับ(การ)จัดสรร".
+- **Some text layers use Private Use Area tone marks** ("ไดรับ").
+- **Construction forms differ.** บก.01 lays its values out of order in its text
+  layer, and some construction packages hold `pB0` to `pB3`.
+
 ### Winner and cancellation pages
 
 These are HTML pages on `process.gprocurement.go.th`, linked from `W0`, `W1`,
@@ -169,7 +177,7 @@ Code, since [0020](../decisions/0020-read-the-whole-egp-package.md)
 (`lib/tor-downloader.js`, `lib/egp-package.js`):
 1. **Ask for the announcement package.** If e-GP has none, the download fails;
    the price package is no stand-in. A `zipId` already downloaded isn't
-   downloaded again.
+   downloaded again. The price package is asked for too (see below).
 2. **Keep the project files** in `server/data/documents/<projectId>/<package>/`
    and leave out the blank forms. Files over 50 MB are refused.
 3. **Pick the TOR's files** by elimination among the rest:
@@ -188,9 +196,16 @@ On 2026-10-11 this read 28 packages:
   drafts.
 - **Multi-part TORs:** 4.
 
+**The price package** ([0023](../decisions/0023-read-the-budget-from-the-price-form.md)):
+asked for once per project and at each new stage. Its form is OCR'd, and the
+budget and ราคากลาง are read from their amounts in words. OCR'd digits alone
+count only when the form's ราคากลาง matches the announcement's. On 2026-10-11
+the budget was read for 12 of 28 projects, including both open IT ones. The
+16 it missed: 14 construction (บก.01), and 2 a safeguard declined.
+
 **Known gaps:**
-- **The budget isn't read yet.** It's on the price form, in the separate price
-  package.
+- **Construction's price form (บก.01) isn't read,** so construction projects
+  have no budget.
 - **The bidding document isn't given to the AI yet,** though its text is stored.
 - **A TOR with no recognisable name is a guess** (the largest file). Of four
   such packages, the guess found the TOR or its specification in three; the

@@ -71,8 +71,8 @@ away. It never downloaded again. That cost us:
   agency is only filled in where the feed gave none.
 - **Nothing from the price package yet.** The pipeline used to fall back to
   it when there was no announcement package, and then OCR a one-page price
-  form as if it were the TOR. That fallback is gone; reading the price form is
-  the next step.
+  form as if it were the TOR. That fallback is gone; the price form is read
+  for the budget instead ([0023](0023-read-the-budget-from-the-price-form.md)).
 
 **A text layer has to be Thai to count as text.** A PDF whose text is under
 20% Thai letters is treated as a scan and OCR'd. On our files, a garbled layer
