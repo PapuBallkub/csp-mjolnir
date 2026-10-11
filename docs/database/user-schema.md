@@ -30,6 +30,7 @@ The `User` model represents an authenticated account on the platform. It support
 | `notificationConsent` | `Boolean` | — | `false` | Explicit opt-in consent for automated email alerts for watched TORs / amendments (FR08). | `true` |
 | `role` | `String` | Enum: `['user', 'admin']`, Indexed | `'user'` | Access control role. Admin rights (`admin`) can view scraper health, OCR confidence, and administrative overrides. | `'user'` or `'admin'` |
 | `profile` | `Object` | Subdocument (see §5) | `{ skills: [], budgetMin: 0, budgetMax: 0, scopeSizes: [] }` | User technical capabilities and preferences for match scoring (FR-12). | `{ skills: ["React"], ... }` |
+| `watchlist` | `Array` | Max 200 items, indexed on `projectId` (see §6) | `[]` | List of saved TOR items with timestamps (FR-17). | `[{"projectId": "67069277177", "savedAt": "..."}]` |
 | `createdAt` | `Date` | Auto managed | — | Timestamp of account registration. | `"2026-09-29T10:00:00.000Z"` |
 | `updatedAt` | `Date` | Auto managed | — | Timestamp of last profile/account update. | `"2026-09-29T12:30:00.000Z"` |
 
@@ -120,3 +121,16 @@ Stores the user's technical capabilities (FR-12) for match scoring (FR-13).
 | `profile.budgetMin` | `Number` | ≥ 0, ≤ 1,000,000,000 | `0` | Minimum budget (THB) the user takes on. | `300000` |
 | `profile.budgetMax` | `Number` | ≥ 0, ≤ 1,000,000,000, ≥ `budgetMin` | `0` | Maximum budget (THB). `0` = not set. | `5000000` |
 | `profile.scopeSizes` | `[String]` | Enum: `solo`, `small-team`, `firm`; max 3 | `[]` | Team sizes the user can field. | `["solo", "small-team"]` |
+
+---
+
+## 6. Watchlist Subdocument Array (`watchlist`)
+
+Stores the procurement opportunities the authenticated user is actively tracking (FR-17).
+
+| Field | Type | Constraints | Default | Description | Example |
+|---|---|---|---|---|---|
+| `watchlist` | `Array` | Max 200 items, indexed on `projectId` | `[]` | List of saved TOR items. | `[ { "projectId": "67069277177", "savedAt": "..." } ]` |
+| `watchlist[].projectId` | `String` | Required, trimmed | — | e-GP project identifier matching `TorInsight.projectId`. | `"67069277177"` |
+| `watchlist[].savedAt` | `Date` | Required | `Date.now` | ISO timestamp when the user saved the TOR. | `"2026-10-11T02:00:00.000Z"` |
+

@@ -24,6 +24,7 @@ export function toPublicUser(user) {
       budgetMax: user.profile?.budgetMax ?? 0,
       scopeSizes: user.profile?.scopeSizes ?? [],
     },
+    watchlist: (user.watchlist ?? []).map((w) => (typeof w === 'string' ? w : w.projectId)),
     createdAt: user.createdAt,
   };
 }
