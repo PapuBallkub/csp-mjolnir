@@ -25,7 +25,9 @@
     "technologies:seed": "node scripts/seed-technologies.js",
     "extract": "node src/pipeline/extraction/extract.js",
     "pipeline": "npm run ingest -- --source process3 && npm run extract && npm run ingest:ocr && npm run extract",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "seed:comparable": "node scripts/seed-comparable-test.js",
+    "comparable": "node scripts/find-comparable.js"
   },
   "dependencies": {
     "@google/genai": "^2.25.0",
