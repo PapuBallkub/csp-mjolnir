@@ -4,7 +4,7 @@
  * Implements FR-19: Grouping and identifying comparable historical IT
  * procurement projects for a given TOR without calling an external LLM.
  *
- * Conforms to ADR 0020 & docs/features/reality-check-and-benchmarking.md
+ * Conforms to ADR 0021 & docs/features/reality-check-and-benchmarking.md
  */
 
 import { TorInsight } from '#models/index.js';

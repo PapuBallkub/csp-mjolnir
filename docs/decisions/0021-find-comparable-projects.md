@@ -1,4 +1,4 @@
-# 0020 · Match comparable projects in code, not with an LLM
+# 0021 · Match comparable projects in code, not with an LLM
 
 Status: accepted · 2026-10-11
 

@@ -1,10 +1,10 @@
-# 0021 · Pre-compute benchmarks in the pipeline, refresh by batch
+# 0022 · Pre-compute benchmarks in the pipeline, refresh by batch
 
 Status: accepted · 2026-10-11
 
 ## Context
 
-Once comparable projects can be identified (ADR 0020), the system must compute price
+Once comparable projects can be identified (ADR 0021), the system must compute price
 benchmarks (FR-20) and lock-spec risk indicators (FR-21).
 
 Two architectural questions arise:

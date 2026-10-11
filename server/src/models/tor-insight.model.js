@@ -263,7 +263,7 @@ const torInsightSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Compound index for comparable projects & price benchmarking lookup (ADR 0020 & 0021)
+// Compound index for comparable projects & price benchmarking lookup (ADR 0021 & 0022)
 torInsightSchema.index({
   'identification.category': 1,
   'facts.referencePriceTHB': 1,

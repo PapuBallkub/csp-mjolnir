@@ -6,8 +6,8 @@
 - `FR-20`: Analyze TOR against similar historical projects (price benchmarks & requirement deviations)  
 - `FR-21`: Assess requirement deviations against lock-spec risk criteria & display visual warning  
 **Related Decisions:**  
-- [`0020 · Match comparable projects in code, not with an LLM`](../decisions/0020-find-comparable-projects.md)  
-- [`0021 · Pre-compute benchmarks in the pipeline, refresh by batch`](../decisions/0021-precompute-benchmarks-in-the-pipeline.md)  
+- [`0021 · Match comparable projects in code, not with an LLM`](../decisions/0021-find-comparable-projects.md)  
+- [`0022 · Pre-compute benchmarks in the pipeline, refresh by batch`](../decisions/0022-precompute-benchmarks-in-the-pipeline.md)  
 **Status:** Proposed  
 **Last Updated:** 2026-10-11  
 
