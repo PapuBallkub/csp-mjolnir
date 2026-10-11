@@ -30,6 +30,10 @@ type AuthValue = AuthState & {
     notificationConsent: boolean;
   }) => Promise<ApiError | null>;
   signOut: () => Promise<ApiError | null>;
+  /** FR-17: Saves a TOR project to personal watchlist. */
+  addToWatchlist: (projectId: string) => Promise<ApiError | null>;
+  /** FR-17: Removes a TOR project from personal watchlist. */
+  removeFromWatchlist: (projectId: string) => Promise<ApiError | null>;
 };
 
 const AuthContext = createContext<AuthValue>({
@@ -38,6 +42,8 @@ const AuthContext = createContext<AuthValue>({
   signIn: async () => null,
   signUp: async () => null,
   signOut: async () => null,
+  addToWatchlist: async () => null,
+  removeFromWatchlist: async () => null,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -93,8 +99,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   }, []);
 
+  const addToWatchlist: AuthValue["addToWatchlist"] = useCallback(async (projectId: string) => {
+    const result = await api.addToWatchlist(projectId);
+    if (!result.ok) return result.error;
+
+    setState((prev) => {
+      if (prev.status !== "authenticated" || !prev.user) return prev;
+      const current = prev.user.watchlist ?? [];
+      if (current.includes(projectId)) return prev;
+      return {
+        ...prev,
+        user: { ...prev.user, watchlist: [...current, projectId] },
+      };
+    });
+    return null;
+  }, []);
+
+  const removeFromWatchlist: AuthValue["removeFromWatchlist"] = useCallback(async (projectId: string) => {
+    const result = await api.removeFromWatchlist(projectId);
+    if (!result.ok) return result.error;
+
+    setState((prev) => {
+      if (prev.status !== "authenticated" || !prev.user) return prev;
+      return {
+        ...prev,
+        user: {
+          ...prev.user,
+          watchlist: (prev.user.watchlist ?? []).filter((id) => id !== projectId),
+        },
+      };
+    });
+    return null;
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signUp, signOut }}>
+    <AuthContext.Provider
+      value={{ ...state, signIn, signUp, signOut, addToWatchlist, removeFromWatchlist }}
+    >
       {children}
     </AuthContext.Provider>
   );

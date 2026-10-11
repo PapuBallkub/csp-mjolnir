@@ -29,6 +29,7 @@ The `User` model represents an authenticated account on the platform. It support
 | `googleId` | `String` | Unique, Sparse index | `undefined` | Subject identifier (`sub`) from Google OAuth ID token. Sparse index ensures password-only users don't collide on `null`. | `"109823481239841234981"` |
 | `notificationConsent` | `Boolean` | — | `false` | Explicit opt-in consent for automated email alerts for watched TORs / amendments (FR08). | `true` |
 | `role` | `String` | Enum: `['user', 'admin']`, Indexed | `'user'` | Access control role. Admin rights (`admin`) can view scraper health, OCR confidence, and administrative overrides. | `'user'` or `'admin'` |
+| `watchlist` | `Array` | Max 200 items, indexed on `projectId` | `[]` | List of saved TOR items with timestamps (FR-17). | `[{"projectId": "67069277177", "savedAt": "..."}]` |
 | `createdAt` | `Date` | Auto managed | — | Timestamp of account registration. | `"2026-09-29T10:00:00.000Z"` |
 | `updatedAt` | `Date` | Auto managed | — | Timestamp of last profile/account update. | `"2026-09-29T12:30:00.000Z"` |
 
@@ -106,3 +107,16 @@ The `User` model represents an authenticated account on the platform. It support
   "__v": 0
 }
 ```
+
+---
+
+## 5. Watchlist Subdocument Array (`watchlist`)
+
+Stores the procurement opportunities the authenticated user is actively tracking (FR-17).
+
+| Field | Type | Constraints | Default | Description | Example |
+|---|---|---|---|---|---|
+| `watchlist` | `Array` | Max 200 items, indexed on `projectId` | `[]` | List of saved TOR items. | `[ { "projectId": "67069277177", "savedAt": "..." } ]` |
+| `watchlist[].projectId` | `String` | Required, trimmed | — | e-GP project identifier matching `TorInsight.projectId`. | `"67069277177"` |
+| `watchlist[].savedAt` | `Date` | Required | `Date.now` | ISO timestamp when the user saved the TOR. | `"2026-10-11T02:00:00.000Z"` |
+

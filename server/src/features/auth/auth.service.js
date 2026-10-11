@@ -16,6 +16,7 @@ export function toPublicUser(user) {
     // this returned. Drop it here and every admin is silently forbidden.
     role: user.role,
     notificationConsent: user.notificationConsent,
+    watchlist: (user.watchlist ?? []).map((w) => (typeof w === 'string' ? w : w.projectId)),
     createdAt: user.createdAt,
   };
 }
