@@ -642,48 +642,19 @@ export default function ProfilePage() {
             </section>
           </Panel>
 
-          {/* Action Footer */}
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!isDirty || saving || Boolean(budgetError)}
-              className={`${btn.primary} cursor-pointer disabled:cursor-not-allowed`}
-            >
-              {saving
-                ? lang === "th"
-                  ? "กำลังบันทึก…"
-                  : "Saving…"
-                : lang === "th"
-                  ? "บันทึกโปรไฟล์"
-                  : "Save profile"}
-            </button>
-            {isDirty && (
-              <button
-                type="button"
-                onClick={handleReset}
-                disabled={saving}
-                className="cursor-pointer text-[12.5px] text-ink-3 underline underline-offset-2 hover:text-ink transition-colors disabled:opacity-50"
-              >
-                {lang === "th" ? "ยกเลิกการแก้ไข" : "Discard changes"}
-              </button>
-            )}
-            <Link
-              href="/notifications"
-              className={`${btn.secondary} cursor-pointer`}
-            >
-              {lang === "th" ? "ตั้งค่าการแจ้งเตือน" : "Notification settings"}
-            </Link>
-
-            {saveResult === "success" && (
-              <span className="text-[13px] font-medium text-green-600">
-                {lang === "th" ? "บันทึกโปรไฟล์แล้ว ✓" : "Profile saved ✓"}
-              </span>
-            )}
-            {typeof saveResult === "object" && !saveResult.details && (
-              <span className="text-[13px] text-red-600">{saveResult.message}</span>
-            )}
-          </div>
+          {/* Save Status Banner */}
+          {saveResult === "success" && (
+            <div className="flex items-center gap-2 rounded-[3px] border border-green-200 bg-green-50/80 px-3 py-2 text-[13px] font-medium text-green-700 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300 animate-in fade-in duration-150">
+              <span>✓</span>
+              <span>{lang === "th" ? "บันทึกโปรไฟล์เรียบร้อยแล้ว" : "Profile saved successfully"}</span>
+            </div>
+          )}
+          {typeof saveResult === "object" && !saveResult.details && (
+            <div className="flex items-center gap-2 rounded-[3px] border border-red-200 bg-red-50/80 px-3 py-2 text-[13px] text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+              <span>✕</span>
+              <span>{saveResult.message}</span>
+            </div>
+          )}
         </div>
 
         {/* Sidebar Summary */}
