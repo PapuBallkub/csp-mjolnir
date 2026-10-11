@@ -57,6 +57,86 @@ const CERTIFICATION_CATEGORIES = [
 
 const ALL_STANDARD_CERTS: string[] = CERTIFICATION_CATEGORIES.flatMap((c) => c.items);
 
+// Quick budget presets mapped to Thai procurement tiers
+const BUDGET_PRESETS = [
+  {
+    id: "sme-small",
+    label: { th: "< 1 ล้าน", en: "< ฿1M" },
+    min: 0,
+    max: 1_000_000,
+    hint: { th: "ฟรีแลนซ์ / เริ่มต้นงานภาครัฐ", en: "Freelance / Entry level" },
+  },
+  {
+    id: "sme-mid",
+    label: { th: "1 – 5 ล้าน", en: "฿1M – 5M" },
+    min: 1_000_000,
+    max: 5_000_000,
+    hint: { th: "ทีมพัฒนา / สตาร์ทอัพ", en: "Dev team / Startup" },
+  },
+  {
+    id: "growth",
+    label: { th: "5 – 20 ล้าน", en: "฿5M – 20M" },
+    min: 5_000_000,
+    max: 20_000_000,
+    hint: { th: "SME ขนาดกลาง / งานระดับกอง", en: "Mid SME / Department scale" },
+  },
+  {
+    id: "enterprise",
+    label: { th: "20 ล้าน+", en: "฿20M+" },
+    min: 20_000_000,
+    max: 130_000_000,
+    hint: { th: "องค์กรขนาดใหญ่ / ระดับกรม", en: "Enterprise / Ministry scale" },
+  },
+  {
+    id: "any",
+    label: { th: "รับทุกขนาด", en: "Any budget" },
+    min: 0,
+    max: 130_000_000,
+    hint: { th: "ไม่จำกัดช่วงงบประมาณ", en: "No budget constraints" },
+  },
+] as const;
+
+type TechCategoryGroup = {
+  id: string;
+  label: { th: string; en: string };
+  matches: (category?: string) => boolean;
+};
+
+const TECH_CATEGORY_GROUPS: TechCategoryGroup[] = [
+  {
+    id: "all",
+    label: { th: "ทั้งหมด", en: "All" },
+    matches: () => true,
+  },
+  {
+    id: "dev",
+    label: { th: "ภาษา & เฟรมเวิร์ก", en: "Languages & Frameworks" },
+    matches: (cat) => ["language", "framework", "mobile"].includes(cat ?? ""),
+  },
+  {
+    id: "data",
+    label: { th: "ฐานข้อมูล & ข้อมูล", en: "Databases & Data" },
+    matches: (cat) => ["database", "bi-analytics"].includes(cat ?? ""),
+  },
+  {
+    id: "infra",
+    label: { th: "คลาวด์ & ระบบ", en: "Cloud & Infrastructure" },
+    matches: (cat) =>
+      ["cloud", "container", "virtualization", "os", "web-server", "monitoring"].includes(cat ?? ""),
+  },
+  {
+    id: "security",
+    label: { th: "ความปลอดภัย & เครือข่าย", en: "Security & Networks" },
+    matches: (cat) => ["security", "network"].includes(cat ?? ""),
+  },
+  {
+    id: "enterprise",
+    label: { th: "ระบบองค์กร & มาตรฐาน", en: "Enterprise & Standards" },
+    matches: (cat) =>
+      ["erp", "collaboration", "messaging", "standard", "gis"].includes(cat ?? ""),
+  },
+];
+
 function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }
@@ -75,6 +155,7 @@ export default function ProfilePage() {
   const [techsLoading, setTechsLoading] = useState(true);
 
   // Search and filter states
+  const [selectedTechCategory, setSelectedTechCategory] = useState<string>("all");
   const [searchSkill, setSearchSkill] = useState("");
   const [isSkillSearchFocused, setIsSkillSearchFocused] = useState(false);
   const [isSkillsSelectedExpanded, setIsSkillsSelectedExpanded] = useState(false);
@@ -159,11 +240,59 @@ export default function ProfilePage() {
     return Array.from(new Set([...techList.map((t) => t.name), ...draft.skills]));
   }, [techList, draft.skills]);
 
+  // Lookup map for technology categories
+  const techCategoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of techList) {
+      if (t.category) {
+        map.set(t.name.toLowerCase(), t.category);
+      }
+    }
+    return map;
+  }, [techList]);
+
+  // Filter skills based on selected category tab
+  const categoryFilteredSkills = useMemo(() => {
+    if (selectedTechCategory === "all") return displaySkills;
+    const group = TECH_CATEGORY_GROUPS.find((g) => g.id === selectedTechCategory);
+    if (!group) return displaySkills;
+    return displaySkills.filter((skill) => {
+      const cat = techCategoryMap.get(skill.toLowerCase());
+      return group.matches(cat);
+    });
+  }, [displaySkills, selectedTechCategory, techCategoryMap]);
+
+  // Dynamic counts for each category tab
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: displaySkills.length,
+      dev: 0,
+      data: 0,
+      infra: 0,
+      security: 0,
+      enterprise: 0,
+    };
+    for (const skill of displaySkills) {
+      const cat = techCategoryMap.get(skill.toLowerCase());
+      for (const group of TECH_CATEGORY_GROUPS) {
+        if (group.id !== "all" && group.matches(cat)) {
+          counts[group.id] = (counts[group.id] || 0) + 1;
+        }
+      }
+    }
+    return counts;
+  }, [displaySkills, techCategoryMap]);
+
   // Clean slicing for available technologies (prevents partial cut chips)
   const COLLAPSED_SKILLS_LIMIT = 24;
   const visibleSkills = useMemo(() => {
-    return isSkillsBankExpanded ? displaySkills : displaySkills.slice(0, COLLAPSED_SKILLS_LIMIT);
-  }, [displaySkills, isSkillsBankExpanded]);
+    if (selectedTechCategory !== "all" && categoryFilteredSkills.length <= 30) {
+      return categoryFilteredSkills;
+    }
+    return isSkillsBankExpanded
+      ? categoryFilteredSkills
+      : categoryFilteredSkills.slice(0, COLLAPSED_SKILLS_LIMIT);
+  }, [categoryFilteredSkills, isSkillsBankExpanded, selectedTechCategory]);
 
   // Clean slicing for selected chips
   const visibleSelectedSkills = useMemo(() => {
@@ -539,6 +668,40 @@ export default function ProfilePage() {
               <p className="mt-2 font-mono tnum text-[12px] text-ink-3">
                 {formatTHB(draft.budgetMin)} – {formatTHB(draft.budgetMax)}
               </p>
+
+              {/* Quick Budget Preset Pills */}
+              <div className="mt-3 space-y-1.5">
+                <span className="text-[11px] font-medium text-ink-3">
+                  {lang === "th" ? "เลือกช่วงงบด่วน (ปุ่มลัด):" : "Quick budget presets:"}
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {BUDGET_PRESETS.map((preset) => {
+                    const active =
+                      draft.budgetMin === preset.min && draft.budgetMax === preset.max;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            budgetMin: preset.min,
+                            budgetMax: preset.max,
+                          }))
+                        }
+                        title={lang === "th" ? preset.hint.th : preset.hint.en}
+                        className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          active
+                            ? "border-ink bg-ink text-surface shadow-xs"
+                            : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
+                        }`}
+                      >
+                        {lang === "th" ? preset.label.th : preset.label.en}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               {budgetError && <p className="mt-1.5 text-[11px] text-red-600">{budgetError}</p>}
               {typeof saveResult === "object" && saveResult.details?.budgetMin && (
                 <p className="mt-1.5 text-[11px] text-red-600">{saveResult.details.budgetMin}</p>
@@ -753,13 +916,13 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              {/* Available technologies bank (Clean slicing with whole chips, no cloudy cuts) */}
-              <div className="mt-4 space-y-2">
+              {/* Available technologies bank with Category Filter Tabs */}
+              <div className="mt-4 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-ink-3">
                     {lang === "th"
-                      ? `เทคโนโลยีในระบบ (${displaySkills.length} รายการ - คลิกเพื่อเลือก):`
-                      : `Available technologies (${displaySkills.length} total - click to add):`}
+                      ? `เทคโนโลยีในระบบ (${categoryFilteredSkills.length} รายการ - คลิกเพื่อเลือก):`
+                      : `Available technologies (${categoryFilteredSkills.length} total - click to add):`}
                   </span>
                   <button
                     type="button"
@@ -768,6 +931,34 @@ export default function ProfilePage() {
                   >
                     {lang === "th" ? "+ ขอเพิ่มเทคโนโลยี" : "+ Request technology"}
                   </button>
+                </div>
+
+                {/* Category Filter Tabs */}
+                <div className="flex flex-wrap gap-1 border-b border-line/60 pb-2">
+                  {TECH_CATEGORY_GROUPS.map((group) => {
+                    const active = selectedTechCategory === group.id;
+                    const count = categoryCounts[group.id] ?? 0;
+                    return (
+                      <button
+                        key={group.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedTechCategory(group.id);
+                          setIsSkillsBankExpanded(false);
+                        }}
+                        className={`cursor-pointer rounded-[3px] px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          active
+                            ? "bg-ink text-surface font-semibold shadow-xs"
+                            : "bg-surface-2 text-ink-2 hover:bg-surface-3 hover:text-ink"
+                        }`}
+                      >
+                        <span>{lang === "th" ? group.label.th : group.label.en}</span>
+                        <span className={`ml-1 text-[10px] ${active ? "opacity-90" : "text-ink-3"}`}>
+                          ({count})
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {techsLoading ? (
@@ -799,7 +990,7 @@ export default function ProfilePage() {
                       })}
                     </div>
 
-                    {displaySkills.length > COLLAPSED_SKILLS_LIMIT && (
+                    {categoryFilteredSkills.length > COLLAPSED_SKILLS_LIMIT && (
                       <div className="pt-2 flex justify-center">
                         <button
                           type="button"
@@ -809,8 +1000,8 @@ export default function ProfilePage() {
                           {isSkillsBankExpanded
                             ? (lang === "th" ? "ย่อลงเหลือรายการแนะนำ ▴" : "Show less ▴")
                             : (lang === "th"
-                                ? `แสดงเทคโนโลยีทั้งหมด (${displaySkills.length} รายการ) ▾`
-                                : `Show all technologies (${displaySkills.length}) ▾`)}
+                                ? `ดูทั้งหมด (${categoryFilteredSkills.length} รายการ) ▾`
+                                : `Show all (${categoryFilteredSkills.length}) ▾`)}
                         </button>
                       </div>
                     )}
@@ -1229,10 +1420,10 @@ export default function ProfilePage() {
                   : "These parameters are used to calculate fit scores across all procurement notices in the catalog."}
               </p>
               <Link
-                href="/search"
+                href="/search?mode=match"
                 className={`${btn.secondary} cursor-pointer w-full justify-center`}
               >
-                {lang === "th" ? "ดูรายการประกาศจัดซื้อ" : "Browse procurement catalog"}
+                {lang === "th" ? "ดูรายการประกาศจัดซื้อที่ตรงกับคุณ ↗" : "Browse matched procurement notices ↗"}
               </Link>
             </div>
           </Panel>

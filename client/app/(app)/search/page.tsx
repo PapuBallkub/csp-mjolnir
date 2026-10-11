@@ -257,7 +257,13 @@ export default function BrowsePage() {
   const { profile } = useProfile();
   const { status: authStatus } = useAuth();
 
-  const [mode, setMode] = useState<Mode>("filter");
+  const [mode, setMode] = useState<Mode>(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search).get("mode");
+      if (p === "match") return "match";
+    }
+    return "filter";
+  });
   const [query, setQuery] = useState("");
   const [statuses, setStatuses] = useState<TorStatus[]>([]);
   const [amendedOnly, setAmendedOnly] = useState(false);
