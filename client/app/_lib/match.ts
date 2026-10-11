@@ -23,8 +23,11 @@ export function matchFor(tor: TorInsightSummary, profile: Profile): Match {
   const matched = required.filter((name) => skills.has(name.toLowerCase()));
 
   const price = tor.facts.referencePriceTHB ?? tor.facts.budgetTHB;
-  const budgetFit =
-    price === null ? 0.5 : price >= profile.budgetMin && price <= profile.budgetMax ? 1 : 0.15;
+  const budgetFits =
+    price !== null &&
+    price >= profile.budgetMin &&
+    (profile.budgetMax === 0 || price <= profile.budgetMax);
+  const budgetFit = price === null ? 0.5 : budgetFits ? 1 : 0.15;
   const skillFit = required.length ? matched.length / required.length : 0;
 
   return { score: Math.round(skillFit * 70 + budgetFit * 30), matched };

@@ -57,6 +57,8 @@ const CERTIFICATION_CATEGORIES = [
 
 const ALL_STANDARD_CERTS: string[] = CERTIFICATION_CATEGORIES.flatMap((c) => c.items);
 
+const PLATFORM_MAX_BUDGET = 10_000_000_000;
+
 // Quick budget presets mapped to Thai procurement tiers
 const BUDGET_PRESETS = [
   {
@@ -84,14 +86,14 @@ const BUDGET_PRESETS = [
     id: "enterprise",
     label: { th: "20 ล้าน+", en: "฿20M+" },
     min: 20_000_000,
-    max: 130_000_000,
+    max: PLATFORM_MAX_BUDGET,
     hint: { th: "องค์กรขนาดใหญ่ / ระดับกรม", en: "Enterprise / Ministry scale" },
   },
   {
     id: "any",
     label: { th: "รับทุกขนาด", en: "Any budget" },
     min: 0,
-    max: 130_000_000,
+    max: PLATFORM_MAX_BUDGET,
     hint: { th: "ไม่จำกัดช่วงงบประมาณ", en: "No budget constraints" },
   },
 ] as const;
@@ -286,7 +288,7 @@ export default function ProfilePage() {
   // Clean slicing for available technologies (prevents partial cut chips)
   const COLLAPSED_SKILLS_LIMIT = 24;
   const visibleSkills = useMemo(() => {
-    if (selectedTechCategory !== "all" && categoryFilteredSkills.length <= 30) {
+    if (selectedTechCategory !== "all") {
       return categoryFilteredSkills;
     }
     return isSkillsBankExpanded
@@ -654,6 +656,7 @@ export default function ProfilePage() {
                     step={100_000}
                     min={0}
                     max={10_000_000_000}
+                    placeholder="0"
                     onChange={(e) =>
                       setDraft((prev) => ({
                         ...prev,
@@ -666,7 +669,16 @@ export default function ProfilePage() {
                 </div>
               </div>
               <p className="mt-2 font-mono tnum text-[12px] text-ink-3">
-                {formatTHB(draft.budgetMin)} – {formatTHB(draft.budgetMax)}
+                {draft.budgetMin === 0 &&
+                (draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET)
+                  ? lang === "th"
+                    ? "ไม่จำกัดช่วงงบประมาณ (รับทุกขนาดงาน)"
+                    : "Any budget (no limit)"
+                  : draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET
+                    ? lang === "th"
+                      ? `${formatTHB(draft.budgetMin)} ขึ้นไป (ไม่จำกัดเพดาน)`
+                      : `${formatTHB(draft.budgetMin)}+ (no upper limit)`
+                    : `${formatTHB(draft.budgetMin)} – ${formatTHB(draft.budgetMax)}`}
               </p>
 
               {/* Quick Budget Preset Pills */}
@@ -677,7 +689,9 @@ export default function ProfilePage() {
                 <div className="flex flex-wrap gap-1.5">
                   {BUDGET_PRESETS.map((preset) => {
                     const active =
-                      draft.budgetMin === preset.min && draft.budgetMax === preset.max;
+                      draft.budgetMin === preset.min &&
+                      (draft.budgetMax === preset.max ||
+                        (preset.max === PLATFORM_MAX_BUDGET && draft.budgetMax === 0));
                     return (
                       <button
                         key={preset.id}
@@ -990,7 +1004,7 @@ export default function ProfilePage() {
                       })}
                     </div>
 
-                    {categoryFilteredSkills.length > COLLAPSED_SKILLS_LIMIT && (
+                    {selectedTechCategory === "all" && categoryFilteredSkills.length > COLLAPSED_SKILLS_LIMIT && (
                       <div className="pt-2 flex justify-center">
                         <button
                           type="button"
@@ -1338,11 +1352,16 @@ export default function ProfilePage() {
                   {lang === "th" ? "ช่วงงบประมาณ" : "Budget capacity"}
                 </span>
                 <p className="mt-1 font-mono tnum text-[13px] text-ink">
-                  {draft.budgetMin > 0 || draft.budgetMax > 0
-                    ? `${formatTHB(draft.budgetMin)} – ${formatTHB(draft.budgetMax)}`
-                    : lang === "th"
+                  {draft.budgetMin === 0 &&
+                  (draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET)
+                    ? lang === "th"
                       ? "ไม่จำกัด"
-                      : "Unrestricted"}
+                      : "Unrestricted"
+                    : draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET
+                      ? lang === "th"
+                        ? `${formatTHB(draft.budgetMin)} ขึ้นไป`
+                        : `${formatTHB(draft.budgetMin)}+`
+                      : `${formatTHB(draft.budgetMin)} – ${formatTHB(draft.budgetMax)}`}
                 </p>
               </div>
 

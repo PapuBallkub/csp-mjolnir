@@ -60,9 +60,9 @@ export function parseProfileUpdate(body) {
     }
   }
 
-  // Cross-field: min <= max when both are sent in body
+  // Cross-field: min <= max when both are sent in body (0 means no upper limit)
   if (update.budgetMin !== undefined && update.budgetMax !== undefined) {
-    if (update.budgetMin > update.budgetMax) {
+    if (update.budgetMax !== 0 && update.budgetMin > update.budgetMax) {
       errors.budgetMin = 'Minimum budget cannot be greater than maximum budget.';
     }
   }

@@ -118,6 +118,18 @@ test('profile: rejects budgetMin > budgetMax in same request', async () => {
   assert.ok(error.details.budgetMin);
 });
 
+test('profile: accepts budgetMin with budgetMax = 0 (unconstrained upper bound)', async () => {
+  const cookie = await registerAndGetCookie('profile-budget-unconstrained');
+  const res = await send('PATCH', '/api/profile', {
+    body: { budgetMin: 20000000, budgetMax: 0 },
+    cookie,
+  });
+  assert.equal(res.status, 200);
+  const { user } = await res.json();
+  assert.equal(user.profile.budgetMin, 20000000);
+  assert.equal(user.profile.budgetMax, 0);
+});
+
 test('profile: rejects negative budget', async () => {
   const cookie = await registerAndGetCookie('profile-budget-neg');
   const res = await send('PATCH', '/api/profile', {

@@ -17,7 +17,10 @@ function computeInsightScore(techStack: string[], budget: number, profile: Profi
     profile.skills.some((s) => s.toLowerCase() === t.toLowerCase() || t.toLowerCase().includes(s.toLowerCase())),
   ).length;
   const skillFit = matched / techStack.length;
-  const budgetFit = budget >= profile.budgetMin && budget <= profile.budgetMax ? 1 : 0.2;
+  const budgetFits =
+    budget >= profile.budgetMin &&
+    (profile.budgetMax === 0 || budget <= profile.budgetMax);
+  const budgetFit = budgetFits ? 1 : 0.2;
   return Math.min(100, Math.round(skillFit * 70 + budgetFit * 30));
 }
 
