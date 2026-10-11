@@ -119,7 +119,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
+        <div className="mx-auto flex min-h-[52px] max-w-[1240px] items-center gap-4 px-4 py-2.5">
           <Link
             href="/"
             className="flex h-[26px] items-center text-ink transition-opacity hover:opacity-70"
