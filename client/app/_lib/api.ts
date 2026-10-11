@@ -500,6 +500,38 @@ export function torFacets() {
   return request<TorFacets>("/api/tors/facets", { cache: "no-store" });
 }
 
+export type TechnologyItem = {
+  name: string;
+  category?: string;
+};
+
+export type TechnologiesResponse = {
+  technologies: TechnologyItem[];
+};
+
+export function getTechnologies() {
+  return request<TechnologiesResponse>("/api/technologies", { cache: "no-store" });
+}
+
+export type RequestTechnologyPayload = {
+  name: string;
+  category?: string;
+  reason?: string;
+};
+
+export type RequestTechnologyResponse = {
+  technology: TechnologyItem & { status?: string };
+  alreadyExists: boolean;
+};
+
+export function requestTechnology(payload: RequestTechnologyPayload) {
+  return request<RequestTechnologyResponse>("/api/technologies/request", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+
 export function getTorInsight(projectId: string) {
   return request<TorInsightDetail>(`/api/tors/${encodeURIComponent(projectId)}`, {
     cache: "no-store",

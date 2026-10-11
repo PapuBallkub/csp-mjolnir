@@ -83,9 +83,9 @@ test('profile: deduplicates skills and trims whitespace', async () => {
   assert.deepEqual(user.profile.skills, ['React', 'Node.js']);
 });
 
-test('profile: rejects more than 50 skills', async () => {
+test('profile: rejects more than 150 skills', async () => {
   const cookie = await registerAndGetCookie('profile-max-skills');
-  const skills = Array.from({ length: 51 }, (_, i) => `Skill-${i}`);
+  const skills = Array.from({ length: 151 }, (_, i) => `Skill-${i}`);
   const res = await send('PATCH', '/api/profile', {
     body: { skills },
     cookie,
@@ -172,9 +172,9 @@ test('profile: deduplicates certifications and trims whitespace', async () => {
   assert.deepEqual(user.profile.certifications, ['ISO 29110', 'CMMI Level 3']);
 });
 
-test('profile: rejects more than 30 certifications', async () => {
+test('profile: rejects more than 50 certifications', async () => {
   const cookie = await registerAndGetCookie('profile-max-certs');
-  const certs = Array.from({ length: 31 }, (_, i) => `Cert-${i}`);
+  const certs = Array.from({ length: 51 }, (_, i) => `Cert-${i}`);
   const res = await send('PATCH', '/api/profile', {
     body: { certifications: certs },
     cookie,
@@ -271,4 +271,13 @@ test('profile: empty body returns current user without error', async () => {
     cookie,
   });
   assert.equal(res.status, 200);
+});
+
+test('technologies: GET /api/technologies returns available vocabulary', async () => {
+  const res = await send('GET', '/api/technologies');
+  assert.equal(res.status, 200);
+  const { technologies } = await res.json();
+  assert.ok(Array.isArray(technologies));
+  assert.ok(technologies.length > 0);
+  assert.ok(technologies.some((t) => t.name === 'PostgreSQL'));
 });

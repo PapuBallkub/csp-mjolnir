@@ -1,8 +1,8 @@
 import { badRequest } from '#common/errors/http-error.js';
 
-const MAX_SKILLS = 50;
+const MAX_SKILLS = 150;
 const MAX_SKILL_LENGTH = 100;
-const MAX_CERTIFICATIONS = 30;
+const MAX_CERTIFICATIONS = 50;
 const MAX_CERTIFICATION_LENGTH = 100;
 const MAX_BUDGET = 10_000_000_000;
 
