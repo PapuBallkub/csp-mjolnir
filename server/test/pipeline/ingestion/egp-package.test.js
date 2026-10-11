@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { pickTorFiles, readAgency, readPackageFacts, roleOfEntry } from '#pipeline/ingestion/lib/egp-package.js';
+import { pickTorFiles, readAgency, readPackageFacts, readPriceForm, roleOfEntry } from '#pipeline/ingestion/lib/egp-package.js';
 
 // What pdf-parse gives for real e-GP documents (fetched 2026-10-08 to 10-11)
 const fixture = (name) =>
@@ -198,4 +198,80 @@ test('an announcement that leaves ราคากลาง blank gives none, and
   const facts = readPackageFacts({ announcementText });
   assert.equal(facts.referencePriceTHB, null);
   assert.deepEqual(facts.problems, []);
+});
+
+/* --------------------------- the price form (ADR 0023) --------------------------- */
+
+// What Tesseract read off three real price forms: digits garbled, words mostly right
+test('readPriceForm reads the budget and ราคากลาง from their words, not their garbled digits', () => {
+  const read = (id) => readPriceForm(fixture(`${id}-price-form-ocr.txt`));
+  const values = (facts) => [facts.budgetTHB?.value, facts.referencePriceTHB?.value, facts.problems];
+
+  // บก.06: OCR read the budget's digits as ๑,๑๕๕,๒๐๐
+  assert.deepEqual(values(read('69109062251')), [1_194_600, 1_290_420, []]);
+  // บก.05: "สี่ด้าน" (ล read as ด) is repaired to สี่ล้าน
+  assert.deepEqual(values(read('69099683466')), [4_917_700, 4_916_650, []]);
+  // A draft's form: "สีพัน" lost its tone mark, and OCR put a letter inside the digits
+  assert.deepEqual(values(read('69109028093-draft')), [3_274_200, 3_274_200, []]);
+
+  const { budgetTHB } = read('69109062251');
+  assert.equal(budgetTHB.document, 'price-form');
+  assert.equal(budgetTHB.quote, 'วงเงินงบประมาณที่ได้รับจัดสรร ๑,๑๕๕,๒๐๐.๐๐ บาท ( หนึ่งล้านหนึ่งแสนเก้าหมื่นสี่พันหกร้อยบาทถ้วน )');
+});
+
+test('readPriceForm keeps nothing it cannot vouch for, and says why', () => {
+  // The digits are a whole number of a different size: a word misread, maybe
+  const sizeOff = readPriceForm('๒. วงเงินงบประมาณที่ได้รับจัดสรร ๑๑๙,๔๖๐.๐๐ บาท (หนึ่งล้านหนึ่งแสนเก้าหมื่นสี่พันหกร้อยบาทถ้วน)');
+  assert.equal(sizeOff.budgetTHB, null);
+  assert.match(sizeOff.problems[0], /^Budget: the words say 1,194,600, the digits "๑๑๙,๔๖๐\.๐๐" a different size/);
+
+  // The words don't read as an amount, and there are no digits to fall back on
+  const unreadable = readPriceForm('๒. วงเงินงบประมาณที่ได้รับจัดสรร บาท (หนึ่งลxนบาทถ้วน)');
+  assert.equal(unreadable.budgetTHB, null);
+  assert.match(unreadable.problems[0], /^Budget: the amount in words can't be read/);
+
+  // A tail of the words isn't an amount: "เก้าแสนเจ็ดหมืนห้าพัน" once read as 5,000
+  assert.equal(readPriceForm('วงเงินงบประมาณที่ได้รับจัดสรร ๑๓๕,๐๐๐.-บาท (-เก้าแสนเจ็ดหมืนห้าพันบาทถ้วน>)').budgetTHB.value, 975_000);
+});
+
+test('readPriceForm finds the budget however the form words it, and however OCR read it', () => {
+  const budget = (text, options) => readPriceForm(text, options).budgetTHB?.value ?? null;
+  // "ที่ได้รับการจัดสรร" (69089044846)
+  assert.equal(budget('3. วงเงินงบประมาณที่ได้รับการจัดสรร 900,000.- บาท (-เก้าแสนบาทถ้วน-)'), 900_000);
+  // A text layer with a Private Use Area tone mark: "ได\\uF70Bรับ" (69109019227)
+  assert.equal(budget('3. วงเงินงบประมาณที่ไดรับจัดสรร \t3,131,165.61 บาท\n4. วันที่', { ocr: false }), 3_131_165.61);
+  // OCR read วงเงิน as จงเงิน, ถ้วน as ถ้าว, and lost the digits' commas (69109092342)
+  assert.equal(
+    budget('ตารางแสดงวงเงินงบประมาณที่ได้รับจัดสรร (๐0อ0 ,,,/ ๓. จงเงินงบประมาณที่ได้รับจัดสรร ๕๓๕๐๐๐๐๐๐ บาท (สี่ล้านสามแสนห้าหมื่นบาทถ้าว) /, ๕. วันที่'),
+    4_350_000,
+  );
+});
+
+test('readPriceForm trusts digits alone on a real text layer, or when the form vouches for its OCR', () => {
+  // Many forms state the amounts in digits only
+  const form = [
+    '3. วงเงินงบประมาณที่ได้รับจัดสรร 676,100.00 um',
+    '4. วันที่กําหนดราคากลาง (ราคาอ้างอิง) ณ วันที่ 3 กันยายน 2569',
+    'เป็นเงิน 695,500.00 บาท',
+    '5. แหล่งที่มาของราคากลาง (ราคาอ้างอิง)',
+  ].join('\n');
+
+  // OCR'd, with nothing to vouch for its digits: kept out
+  const unvouched = readPriceForm(form);
+  assert.deepEqual([unvouched.budgetTHB, unvouched.referencePriceTHB], [null, null]);
+  assert.match(unvouched.problems[0], /^Budget: OCR read 676,100 in digits alone/);
+
+  // The form's ราคากลาง matches the announcement's real text: OCR read this form right
+  const vouched = readPriceForm(form, { announcedReferencePrice: 695_500 });
+  assert.deepEqual([vouched.budgetTHB.value, vouched.referencePriceTHB.value, vouched.problems], [676_100, 695_500, []]);
+
+  // A form with a real text layer needs no proof
+  assert.equal(readPriceForm(form, { ocr: false }).budgetTHB.value, 676_100);
+
+  // The title names both, with no amount: nothing to read
+  assert.deepEqual(readPriceForm('ตารางแสดงวงเงินงบประมาณที่ได้รับจัดสรรและราคากลาง (ราคาอ้างอิง)'), {
+    budgetTHB: null,
+    referencePriceTHB: null,
+    problems: [],
+  });
 });

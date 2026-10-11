@@ -59,16 +59,20 @@ const links = (tor) => ({ sourceUrl: tor.egpUrl || null, webUrl: egpAnnouncement
  * leaves the earlier one standing, as it does on the Tor.
  */
 function statedIn(tor) {
-  const latest = (read) => {
+  // ราคากลาง is quoted from the announcement (real text), the budget from the
+  // price form (ADR 0023), the only document that states it
+  const latest = (kind, read) => {
     for (const pkg of [...(tor.packages ?? [])].reverse()) {
+      if ((pkg.kind ?? 'announcement') !== kind) continue;
       const fact = read(pkg.facts ?? {});
       if (fact) return fact;
     }
     return null;
   };
-  const window = latest((facts) => facts.submissionWindow);
+  const window = latest('announcement', (facts) => facts.submissionWindow);
   return {
-    referencePriceTHB: latest((facts) => facts.referencePriceTHB),
+    budgetTHB: latest('price', (facts) => facts.budgetTHB),
+    referencePriceTHB: latest('announcement', (facts) => facts.referencePriceTHB),
     submissionDeadline: window && { value: window.closesAt, quote: window.quote, document: window.document },
   };
 }
@@ -128,7 +132,7 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
       category: classification.category ?? null,
     }),
     facts: {
-      budgetTHB: feedFirst(feedAmount(tor.budgetTHB), 'budgetTHB', facts.budget, toAmount(facts.budget)),
+      budgetTHB: feedFirst(feedAmount(tor.budgetTHB), 'budgetTHB', facts.budget, toAmount(facts.budget), stated.budgetTHB),
       referencePriceTHB: feedFirst(
         feedAmount(tor.referencePriceTHB),
         'referencePriceTHB',

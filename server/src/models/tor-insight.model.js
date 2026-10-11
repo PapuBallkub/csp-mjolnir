@@ -42,7 +42,7 @@ const evidenceSchema = new mongoose.Schema(
     page: { type: Number, default: null },
     // null: the TOR, and `page` is its page. Otherwise the package document
     // the value was read from, in code (ADR 0020)
-    document: { type: String, enum: ['announcement', 'bidding'], default: null }, // validators skip null
+    document: { type: String, enum: ['announcement', 'bidding', 'price-form'], default: null }, // validators skip null
   },
   { _id: false },
 );

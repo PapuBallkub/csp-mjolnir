@@ -56,7 +56,7 @@ Used as the values of the `evidence` map (§3.2b): where an extracted value came
 |---|---|---|---|---|---|
 | `quote` | `String` | Yes | — | The exact text that states the value | `"ราคากลาง ๑,๘๕๐,๐๐๐ บาท"` |
 | `page` | `Number` | No | `null` | The TOR page it's on; null for a quote from another document | `3` |
-| `document` | `String` | No | `null` | Where the quote is: null for the TOR; `announcement` or `bidding` for a value read in code from the package's announcement or bidding document ([0020](../decisions/0020-read-the-whole-egp-package.md)) | `"announcement"` |
+| `document` | `String` | No | `null` | Where the quote is: null for the TOR; `announcement`, `bidding` or `price-form` for a value read in code from that document ([0020](../decisions/0020-read-the-whole-egp-package.md), [0023](../decisions/0023-read-the-budget-from-the-price-form.md)) | `"announcement"` |
 
 ### 2.4 `technologySchema`
 Used in `technicalRequirements.requiredTechnologies`.

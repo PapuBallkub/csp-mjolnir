@@ -51,18 +51,21 @@ The TOR that OCR reads: the latest package's ([0020](../decisions/0020-read-the-
 | `parts` | `Array` | `[]` | No | A TOR split over files (`Attach_TOR_1` … `_3`), in reading order: `{ fileName, storagePath, pages, contentHash }`. Empty for one file. OCR reads them as one document. | `[]` |
 
 ### 2.2a `packages` (Array, oldest first)
-Each e-GP document package downloaded: each stage (draft, invitation, change) builds one. Older ones stay, for amendment diffs (FR-16). See [0020](../decisions/0020-read-the-whole-egp-package.md).
+Each e-GP document package downloaded. Each stage (draft, invitation, change) builds an announcement package; the price package holds the price form. Older ones stay, for amendment diffs (FR-16). See [0020](../decisions/0020-read-the-whole-egp-package.md) and [0023](../decisions/0023-read-the-budget-from-the-price-form.md).
 
 | Field | Type | Description | Real Example |
 |---|---|---|---|
+| `kind` | `String` | `announcement` (default, and every record before 0023) or `price` | `"price"` |
 | `zipId` | `String` | e-GP's id for the package; the same id is never downloaded twice | `"91440371862845cc9281dc637dd73296"` |
 | `name` | `String` | e-GP's name, which ends in the date it was built | `"69109028093_07102569.zip"` |
 | `downloadedAt` | `Date` | When it was downloaded | |
-| `files` | `Array` | The files kept: `{ role, fileName, storagePath, sizeBytes, pages, contentHash, textLayer }`. `role` is `announcement`, `bidding`, `tor` or `other`; `textLayer` is `text`, `scan`, `garbled`, or null for a non-PDF. e-GP's blank forms aren't kept. | |
+| `files` | `Array` | The files kept: `{ role, fileName, storagePath, sizeBytes, pages, contentHash, textLayer }`. `role` is `announcement`, `bidding`, `tor`, `price-form` or `other`; `textLayer` is `text`, `scan`, `garbled`, or null for a non-PDF. e-GP's blank forms aren't kept. | |
 | `announcementText` | `String` | The announcement's text layer | `"(สำเนา)\nประกาศกรมการค้าภายใน\n…"` |
 | `biddingText` | `String` | The bidding document's text layer; extraction will read it later | |
+| `priceFormText` | `String` | A price package's form, as OCR read it (or its text layer) | |
 | `facts.agency` | `{ value, quote, document }` | From the announcement's heading | `{ "value": "กรมการค้าภายใน", "quote": "ประกาศกรมการค้าภายใน", "document": "announcement" }` |
-| `facts.referencePriceTHB` | `{ value, quote, document }` | ราคากลาง, kept only when its digits and words agree | `{ "value": 1290420, … }` |
+| `facts.referencePriceTHB` | `{ value, quote, document }` | ราคากลาง, kept only when its digits and words agree. A price package's is a check on the announcement's. | `{ "value": 1290420, … }` |
+| `facts.budgetTHB` | `{ value, quote, document }` | A price package's budget, from the amount in words, or from digits the form can vouch for | `{ "value": 1194600, "document": "price-form", … }` |
 | `facts.submissionWindow` | `{ opensAt, closesAt, quote, document }` | The day and times e-bidding takes bids; null in a draft | `{ "opensAt": "2026-10-19T02:00:00Z", "closesAt": "2026-10-19T05:00:00Z", … }` |
 | `problems` | `[String]` | Why a value the documents seem to state wasn't kept | `[]` |
 
@@ -113,7 +116,7 @@ Tracks watchdog audit trail when government revisions occur (FR09, FR10, FR11).
 | `subAgency` | `String` | No | `""` | Sub-department, bureau, or division | `"สำนักสุขภาพดิจิทัล"` |
 | `province` | `String` | No | `""` | Province location of the procuring entity | `"นนทบุรี"` |
 | `district` | `String` | No | `""` | District / Subdistrict location | `"ตลาดขวัญ"` |
-| `budgetTHB` | `Number` | No | `null` | Budget (งบประมาณ): what the agency has set aside, in Thai Baht (THB). `null` when the feed doesn't give one. | `12500000` |
+| `budgetTHB` | `Number` | No | `null` | Budget (งบประมาณ): what the agency has set aside, in Thai Baht (THB). From the feed, or for e-GP from the price form ([0023](../decisions/0023-read-the-budget-from-the-price-form.md)). `null` when neither gives one. | `12500000` |
 | `referencePriceTHB` | `Number` | No | `null` | Reference price (ราคากลาง): the official price bids are judged against, in Thai Baht (THB). Not a statistical median. Was `medianPriceTHB` before [0014](../decisions/0014-price-names-and-insight-data-rules.md). | `12492771` |
 | `submissionDeadline` | `Date` | No | `null` | When bids close, from the latest package that states it ([0020](../decisions/0020-read-the-whole-egp-package.md)). Extraction lets it win over the AI's, and the API shows it live. | `"2026-10-19T05:00:00.000Z"` |
 | `announceDate` | `String` | No | `null` | Date of announcement as string from source | `"13 พ.ค. 68"` |
@@ -123,7 +126,8 @@ Tracks watchdog audit trail when government revisions occur (FR09, FR10, FR11).
 | `announceType` | `String` | No | `""` | The latest e-GP announcement code seen: `15` reference price, `B0` draft TOR, `D0` invitation, `D2` invitation changed, `D1` invitation cancelled, `W0`/`W2` winner announced/changed, `W1` winner cancelled ([0017](../decisions/0017-read-the-egp-feed-as-egp-defines-it.md)) | `"D0"` |
 | `status` | `String` | Indexed | `'Open'` | Current procurement status (`'Draft'`, `'Open'`, `'Awarded'`, `'Closed'`, `'Cancelled'`) | `"Awarded"` |
 | `isAmended` | `Boolean` | Indexed | `false` | Whether this TOR has been amended/revised | `false` |
-| `packageCheckNeeded` | `Boolean` | Indexed | `false` | Set by fetch when the feed announces a new draft, invitation or change (`B0`, `D0`, `D2`) for a project already downloaded; download then asks e-GP for its current package ([0020](../decisions/0020-read-the-whole-egp-package.md)) | `false` |
+| `packageCheckNeeded` | `Boolean` | Indexed | `false` | Set by fetch when the feed announces a new draft, invitation, change or price (`B0`, `D0`, `D2`, `15`) for a project already downloaded; download then asks e-GP for its current packages ([0020](../decisions/0020-read-the-whole-egp-package.md)) | `false` |
+| `priceCheckedAt` | `Date` | No | `null` | When e-GP was last asked for the price package, found or not. Null: download asks once ([0023](../decisions/0023-read-the-budget-from-the-price-form.md)) | `"2026-10-11T12:05:00.000Z"` |
 | `pipelineStatus` | `String` | Indexed | `'fetched'` | Current processing state in backend ingestion pipeline (`'fetched'`, `'downloaded'`, `'ocr_preview'`, `'ocr_done'`; see [0018](../decisions/0018-preview-ocr-before-classify.md)) | `"downloaded"` |
 | `createdAt` | `Date` | Auto | — | Timestamp of initial ingestion into database | `"2026-09-29T17:17:08.378Z"` |
 | `updatedAt` | `Date` | Auto | — | Timestamp of last database modification | `"2026-09-29T17:17:08.861Z"` |

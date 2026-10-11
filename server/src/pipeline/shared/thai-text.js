@@ -19,6 +19,24 @@ export function convertThaiDigitsToArabic(str) {
   });
 }
 
+// Thai fonts draw some marks in several positions, and some keep each
+// position as its own glyph in the Private Use Area, U+F700–U+F71A. A PDF set
+// in such a font carries those codes in its text layer: "ไดรับ" for
+// ได้รับ, which matches nothing. Each maps back to the mark it draws.
+const THAI_PUA = {
+  '': 'ฐ', '': 'ิ', '': 'ี', '': 'ึ', '': 'ื',
+  '': '่', '': '้', '': '๊', '': '๋', '': '์',
+  '': '่', '': '้', '': '๊', '': '๋', '': '์',
+  '': 'ญ', '': 'ั', '': 'ํ', '': '็', '': '่',
+  '': '้', '': '๊', '': '๋', '': '์', '': 'ุ',
+  '': 'ู', '': 'ฺ',
+};
+
+/** Thai text with each Private Use Area glyph put back as the mark it draws. */
+export function normalizeThaiPua(str) {
+  return String(str ?? '').replace(/[-]/g, (glyph) => THAI_PUA[glyph]);
+}
+
 /**
  * Reads a baht amount from a feed value or TOR text, such as "1,850,000.00",
  * "๑,๘๕๐,๐๐๐" or 1850000. Returns null when there is no usable amount, never

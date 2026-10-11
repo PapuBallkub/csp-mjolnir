@@ -105,6 +105,10 @@ What it does with a package:
   and any extra file. e-GP's blank forms are left out.
 - **Reads the agency, ราคากลาง and bid window** from the announcement and the
   bidding document, in code, and keeps them on the `Tor`. The run prints them.
+- **Reads the budget from the price form,** in the separate price package:
+  one OCR'd page, its amount taken from the words
+  ([0023](decisions/0023-read-the-budget-from-the-price-form.md)). It's asked
+  for once per project, and again at each new stage.
 - **Never downloads a package twice.** e-GP's `zipId` tells; one look at e-GP
   and nothing else.
 - **Sends the TOR back to OCR only if it changed.** A new package whose TOR is

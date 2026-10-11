@@ -3,14 +3,14 @@ import mongoose from 'mongoose';
 // Shape only. Pipeline writes live in pipeline/ (ADR 0003).
 // Schema specification: docs/database/tor-schema.md
 
-// A value read from a package's documents in code (ADR 0020), with the
-// sentence it came from and the document that said it
+// A value read from a package's documents in code (ADR 0020, 0023), with
+// the sentence it came from and the document that said it
 const quoted = (valueType) =>
   new mongoose.Schema(
     {
       value: { type: valueType, required: true },
       quote: { type: String, required: true },
-      document: { type: String, enum: ['announcement', 'bidding'], required: true },
+      document: { type: String, enum: ['announcement', 'bidding', 'price-form'], required: true },
     },
     { _id: false },
   );
@@ -29,7 +29,7 @@ const submissionWindowSchema = new mongoose.Schema(
 // One file kept from a package; e-GP's blank forms aren't kept
 const packageFileSchema = new mongoose.Schema(
   {
-    role: { type: String, enum: ['announcement', 'bidding', 'tor', 'other'], required: true },
+    role: { type: String, enum: ['announcement', 'bidding', 'tor', 'price-form', 'other'], required: true },
     fileName: { type: String, required: true },
     storagePath: { type: String, required: true },
     sizeBytes: { type: Number, default: null },
@@ -52,9 +52,13 @@ const torPartSchema = new mongoose.Schema(
   { _id: false },
 );
 
-// One e-GP document package: each stage (draft, invitation, change) builds one
+// One e-GP document package. Each stage (draft, invitation, change) builds
+// an announcement package; the price package (pricebuild_*.zip) holds the
+// price form (ADR 0023).
 const packageSchema = new mongoose.Schema(
   {
+    // Records from before ADR 0023 have none: they are announcement packages
+    kind: { type: String, enum: ['announcement', 'price'], default: 'announcement' },
     zipId: { type: String, required: true },
     name: { type: String, default: null }, // e.g. "69109028093_07102569.zip": the date it was built
     downloadedAt: { type: Date, default: null },
@@ -62,8 +66,11 @@ const packageSchema = new mongoose.Schema(
     // The real text layers, read in code now and by extraction later
     announcementText: { type: String, default: '' },
     biddingText: { type: String, default: '' },
+    // The price form's text, from OCR: the form is scanned
+    priceFormText: { type: String, default: '' },
     facts: {
       agency: { type: quoted(String), default: null },
+      budgetTHB: { type: quoted(Number), default: null }, // from the price form
       referencePriceTHB: { type: quoted(Number), default: null },
       submissionWindow: { type: submissionWindowSchema, default: null },
     },
@@ -189,6 +196,12 @@ const torSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
       index: true,
+    },
+    // When e-GP was last asked for the price package, found or not (ADR
+    // 0023). Null: never asked, so download asks once; a new stage asks again.
+    priceCheckedAt: {
+      type: Date,
+      default: null,
     },
 
     // The TOR: the latest package's, which OCR reads
