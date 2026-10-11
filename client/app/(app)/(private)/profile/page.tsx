@@ -732,7 +732,7 @@ export default function ProfilePage() {
                 </p>
                 {draft.certifications.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
-                    {draft.certifications.map((cert) => (
+                    {draft.certifications.slice(0, 6).map((cert) => (
                       <span
                         key={cert}
                         className="rounded-[2px] bg-surface-2 border border-line px-1.5 py-0.5 font-mono text-[10px] text-ink-2"
@@ -740,6 +740,11 @@ export default function ProfilePage() {
                         {cert}
                       </span>
                     ))}
+                    {draft.certifications.length > 6 && (
+                      <span className="text-[10px] text-ink-3 self-center">
+                        +{draft.certifications.length - 6}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
