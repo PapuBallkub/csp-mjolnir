@@ -1,174 +1,158 @@
-# process3.gprocurement.go.th — e-GP Phase 3 Real-time RSS Feed Reference
+# process3: the e-GP RSS feed
 
-This document provides a comprehensive technical guide to **`process3.gprocurement.go.th`**, the official real-time RSS XML announcement feed of Thailand's Electronic Government Procurement (e-GP) system operated by the Comptroller General's Department (CGD).
+The feed is the only source of **open** projects: drafts out for comment and
+invitations to bid ([0017](../decisions/0017-read-the-egp-feed-as-egp-defines-it.md)).
+This page says what the feed does and how we know it. How the pipeline runs is
+in [pipeline.md](../pipeline.md). The documents behind each item are in
+[process5_gprocurement.md](process5_gprocurement.md).
 
----
+**Last checked 2026-10-11.** Each fact names its source:
 
-## 1. System Overview
+- **Manual:** CGD's RSS manual, *คู่มือการเชื่อมโยงประกาศจัดซื้อจัดจ้างจากระบบ e-GP
+  ไปยังเว็บไซต์หน่วยงานของรัฐในรูปแบบ RSS* (กลุ่มงานพัฒนาระบบจัดซื้อจัดจ้างภาครัฐ,
+  กรมบัญชีกลาง, 9 pages). We read a copy at
+  `http://www.stock.rbru.ac.th/doc-download/manualRSS.pdf`. The manual says the
+  official copy is on www.gprocurement.go.th under ดาวน์โหลดแนะนำ/คู่มือ/รหัสต่าง ๆ.
+- **Seen:** observed in feed responses or in our pipeline's logs, with the date.
+- **Code:** what our code does, in `server/src/pipeline/ingestion/sources/process3.js`.
 
-- **Host**: `https://process3.gprocurement.go.th`
-- **Owner**: Comptroller General's Department (CGD), Ministry of Finance / กรมบัญชีกลาง กระทรวงการคลัง
-- **Underlying Technology**: Java EE Application Server behind F5 BIG-IP Load Balancers
-- **Data Access Format**: RSS 2.0 XML
-- **Character Encoding**: Thai Windows-874 / TIS-620 (often served with UTF-8 XML declaration headers)
-- **Primary Endpoint**: `https://process3.gprocurement.go.th/EPROCRssFeedWeb/egpannouncerss.xml`
-- **Role in Pipeline**: **Real-Time Announcement Stream** — Captures ongoing government procurement announcements as they are posted on business days.
+## The request
 
----
-
-## 2. Complete Taxonomy of Announcement Codes (`anounceType`)
-
-The e-GP system categorizes procurement notices using distinct 2-character codes representing each stage of the government procurement lifecycle:
-
-| Stage | Code | Official Thai Designation | English Description | Attachment Available |
-| :--- | :---: | :--- | :--- | :---: |
-| **1. Planning** | **`P0`** | แผนการจัดซื้อจัดจ้าง | Annual Procurement Plan announcement | Summary Only |
-| | **`P1`** | เปลี่ยนแปลงแผนการจัดซื้อจัดจ้าง | Revised Annual Procurement Plan | Summary Only |
-| **2. Draft TOR** | **`B0`** | เผยแพร่ร่างประกาศและร่างเอกสารประกวดราคา | **Draft TOR & Draft Tender** (Public comments & hearing) | **Yes** (TOR PDF) |
-| | **`B1`** | ปรับปรุงร่างประกาศ | Revised Draft TOR (Hearing period extended) | **Yes** (TOR PDF) |
-| **3. Bidding / Tender**| **`D0`** | ประกาศเชิญชวน | **Official Invitation to Bid** (Open for tender) | **Yes** (Full Spec) |
-| | **`D1`** | เปลี่ยนแปลงประกาศเชิญชวน | **Amendment to Invitation** (Extension of submission) | **Yes** (Revised Spec) |
-| | **`D3`** | ประกาศรายชื่อผู้ผ่านการพิจารณาคุณสมบัติ | Shortlist of Qualified / Eligible Bidders | Summary Notice |
-| **4. Awarding** | **`D2`** | ประกาศผู้ชนะการเสนอราคา | **Winning Bidder / Award Notice** | Summary Notice |
-| **5. Reference Price** | **`15`** | ตารางแสดงวงเงินงบประมาณและราคากลาง | **Reference Price Sheet** (Median price calculation) | **Yes** (`pB0.pdf`) |
-| **6. Cancellation** | **`W0`** | ยกเลิกประกาศเชิญชวน | Cancellation of procurement tender | Notice Only |
-| | **`W1`** | เปลี่ยนแปลงประกาศยกเลิก | Revised cancellation notice | Notice Only |
-| **7. Contract** | **`C0`** | สาระสำคัญในสัญญา | Contract execution summary notice | Summary Only |
-| | **`A0`** | สรุปข้อมูลการจัดซื้อจัดจ้าง | Periodic procurement summary | Summary Only |
-
----
-
-## 3. Feed Query Parameters
-
-The RSS XML feed is customized using URL search parameters:
-
-```text
-https://process3.gprocurement.go.th/EPROCRssFeedWeb/egpannouncerss.xml?anounceType={CODE}&deptId={DEPT_ID}
+```
+https://process3.gprocurement.go.th/EPROCRssFeedWeb/egpannouncerss.xml?anounceType=D0
 ```
 
-| Parameter | Type | Required | Description | Example |
-| :--- | :---: | :---: | :--- | :--- |
-| `anounceType` | `string` | No | Announcement stage code (defaults to B0/D0 if omitted) | `B0`, `D0`, `D1`, `15`, `P0`, `W0` |
-| `deptId` | `string` | No | 5-digit department code (Ministry / Department) | `02000` (Office of the Permanent Secretary), `30501` (BMA) |
+| Fact | Source |
+|---|---|
+| The manual gives the URL with `http://`. We use `https://`. | Manual, code |
+| `process3` answers `302` and redirects to the same path on `https://process.gprocurement.go.th`. Our HTTP client follows it. | Seen 2026-10-11 |
+| No account, key or captcha is needed. | Seen |
 
----
+### Parameters
 
-## 4. Thai Character Encoding Protocol
+| Parameter | Value | Source |
+|---|---|---|
+| `anounceType` | Announcement code, see below. **Spelled with one "n".** `announceType` is ignored and the feed returns 0 items with no error. | Manual; seen 2026-10-07 |
+| `deptId` | Agency code, **4 digits**: `0304` กรมบัญชีกลาง, `0307` กรมสรรพากร | Manual |
+| `deptsubId` | Purchasing unit, **10 digits**: `0300400070` สำนักงานคลังจังหวัดเชียงใหม่ | Manual |
+| `methodId` | Procurement method, 2 digits: `02` สอบราคา, `15` e-market, `16` e-bidding, `18` คัดเลือก, `19` เฉพาะเจาะจง, `20`–`22` จ้างที่ปรึกษา, `23`–`26` จ้างออกแบบหรือควบคุมงานก่อสร้าง | Manual |
 
-One of the most frequent points of failure when interacting with `process3` is character encoding corruption.
+- Combine parameters with `&`.
+- With no `anounceType`, the feed returns invitations (`D0`).
+- We have not yet tested `deptId`, `deptsubId` or `methodId` live. The only
+  attempt, an agency sweep on 2026-10-08 at 08:36, ran into closed hours.
+- The manual points to a CGD guide for the full list of agency codes; we
+  haven't found it yet.
 
-### The Problem
-The XML declaration header specifies `<?xml version="1.0" encoding="utf-8" ?>`, but the HTTP response body is frequently transmitted in **Windows-874 / TIS-620** byte streams. A naive UTF-8 decoder produces:
-- Unicode replacement characters: `\uFFFD` (``)
-- Mojibake corruption: `เธ[ก-ฮ]` (e.g. `เธเธฃเธฐเธเธฒเธจ`)
+### Announcement codes
 
-### Robust Decoding Implementation (Node.js)
-```javascript
-export function decodeThaiXml(buffer) {
-  const rawBytes = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-  let xmlText = '';
-  let usedEncoding = 'utf-8';
+These are the manual's codes. Our status engine reads them as in
+[0017](../decisions/0017-read-the-egp-feed-as-egp-defines-it.md).
 
-  // 1. Attempt strict UTF-8 decoding
-  try {
-    const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
-    xmlText = utf8Decoder.decode(rawBytes);
-    usedEncoding = 'utf-8';
-  } catch {
-    // 2. Fallback to Thai Windows-874 on decoding failure
-    const win874Decoder = new TextDecoder('windows-874');
-    xmlText = win874Decoder.decode(rawBytes);
-    usedEncoding = 'windows-874';
-  }
+| Code | e-GP's name | Status we derive | What the item links to (seen 2026-10-07) |
+|---|---|---|---|
+| `P0` | แผนการจัดซื้อจัดจ้าง | not fetched | An HTML page; the ID is a plan ID such as `P69100030274`, not a project ID |
+| `15` | ประกาศราคากลาง | none (information) | Never seen: every request for `15` has timed out |
+| `B0` | ร่างเอกสารประกวดราคา (e-Bidding) และร่างเอกสารซื้อหรือจ้างด้วยวิธีสอบราคา | Draft | **The draft's document zip** (`process5/egp-upload-service/v1/downloadFileTest`). Sometimes empty. |
+| `D0` | ประกาศเชิญชวน | Open | **The invitation announcement as a PDF** (`process5/egp-template-service/dwnt/view-pdf-file?templateId=`) |
+| `D1` | ยกเลิกประกาศเชิญชวน | Cancelled | An HTML page |
+| `D2` | เปลี่ยนแปลงประกาศเชิญชวน | Open + Amended | Not seen: `D2` returned 0 items |
+| `W0` | ประกาศรายชื่อผู้ชนะการเสนอราคา / ประกาศผู้ได้รับการคัดเลือก | Awarded | An HTML page with the winner and the price |
+| `W1` | ยกเลิกประกาศรายชื่อผู้ชนะการเสนอราคา / ประกาศผู้ได้รับการคัดเลือก | Cancelled | An HTML page |
+| `W2` | เปลี่ยนแปลงประกาศรายชื่อผู้ชนะการเสนอราคา | Awarded | An HTML page |
 
-  // 3. Verify integrity against Mojibake patterns
-  const hasReplacementChar = xmlText.includes('\uFFFD');
-  const hasMojibakePattern = /เธ[ก-ฮ]/.test(xmlText);
-  const isCorrupted = hasReplacementChar || hasMojibakePattern;
+**Watch the letters.**
+- `D1` is a **cancellation** and `D2` a **change**.
+- `W0` is the **winner**, not a cancellation.
 
-  // 4. Force Windows-874 if UTF-8 resulted in Mojibake
-  if (isCorrupted && usedEncoding === 'utf-8') {
-    const win874Decoder = new TextDecoder('windows-874');
-    xmlText = win874Decoder.decode(rawBytes);
-    usedEncoding = 'windows-874 (recovered)';
-  }
+The HTML pages live at
+`https://process.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?servlet=gojsp&proc_id=ShowHTMLFile&…`.
+They are encoded in TIS-620 and answer even when the feed doesn't (seen
+2026-10-11). The feed gives them with `http://`, which redirects to `https://`.
 
-  return { xmlText, encoding: usedEncoding, isCorrupted };
-}
-```
+## The response
 
----
-
-## 5. XML Schema & Item Structure
-
-The RSS feed produces standard RSS 2.0 XML:
+RSS 2.0. Each `<item>` looks like this (seen 2026-10-07):
 
 ```xml
-<?xml version="1.0" encoding="windows-874" ?>
-<rss version="2.0">
-  <channel>
-    <title>ประกาศจัดซื้อจัดจ้างภาครัฐ</title>
-    <link>http://process.gprocurement.go.th</link>
-    <description>ประกาศจัดซื้อจัดจ้างภาครัฐล่าสุด</description>
-    <language>th-TH</language>
-    <item>
-      <title>ประกวดราคาซื้อครุภัณฑ์คอมพิวเตอร์ สำหรับหน่วยงานส่วนกลาง</title>
-      <link>http://process.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=68099123456</link>
-      <description>ประกาศประกวดราคาซื้อครุภัณฑ์คอมพิวเตอร์ รหัสโครงการ 68099123456 งบประมาณ 12,500,000 บาท</description>
-      <pubDate>Fri, 09 Oct 2026 09:30:00 +0700</pubDate>
-    </item>
-  </channel>
-</rss>
+<item>
+  <title>ประกวดราคาซื้อสิทธิการใช้งานระบบบัญชีผู้ใช้งาน Active Directory (Cal AD) ด้วยวิธีประกวดราคาอิเล็กทรอนิกส์ (e-bidding)</title>
+  <link>https://process5.gprocurement.go.th/egp-upload-service/v1/downloadFileTest?fileId=91440371862845cc9281dc637dd73296</link>
+  <description>69109028093, ประกวดราคาอิเล็กทรอนิกส์ (e-bidding), ร่างเอกสารประกวดราคา (e-Bidding) และร่างเอกสารซื้อหรือจ้างด้วยวิธีสอบราคา</description>
+  <pubDate>2026-10-07</pubDate>
+  <guid></guid>
+</item>
 ```
 
-### Extracting the 11-Digit Project ID
-The project ID is the vital join key to resolve documents from `process5`. It can be extracted using regular expressions:
-```javascript
-// Check description for 11-digit project ID
-const idFromDesc = item.description?.match(/\b(\d{11})\b/)?.[1];
+- **`description`** is `projectId, method, announcement name`. The project ID
+  is 11 digits. Code: `parseItemDescription`.
+- **`pubDate`** is a date with no time, not the RFC 822 format RSS usually uses.
+- **`guid`** is empty.
+- **Encoding:** the XML declares `encoding="Windows-874"`, and the bytes are
+  Windows-874. Code: `decodeThaiXml` tries strict UTF-8 first and falls back to
+  Windows-874.
+- **No budget or price.** The item carries neither; they are in the documents
+  ([process5_gprocurement.md](process5_gprocurement.md)).
 
-// Or check URL parameter
-const idFromLink = item.link?.match(/project_id=(\d{11})/i)?.[1];
+### How many items
 
-const projectId = idFromDesc || idFromLink;
-```
+- **Manual:** the latest 20 items of the latest day with announcements. If that
+  day has fewer than 20, the feed adds up to 7 days back until it has 20. To
+  keep history, a site has to store what it receives.
+- **Seen 2026-10-07:** `P0`, `B0`, `D0`, `D1`, `W0` and `W1` each returned 20
+  items, all dated that day. `W2` returned 3 and `D2` 0, also all from that
+  day.
+- **The 7-day backfill wasn't seen.** In practice the national feed shows about
+  a day's latest 20 per type. On a busy day we miss items unless we fetch more
+  often, or per agency with `deptId`.
 
----
+## When it answers
 
-## 6. Infrastructure Quirks & Operational Behavior
+**Manual:** the feed is closed during office hours.
 
-### A. BIG-IP Load Balancer Redirects
-Calls to `https://process3.gprocurement.go.th/EPROCRssFeedWeb/egpannouncerss.xml` frequently return an **HTTP 302 Found** redirecting to `https://process.gprocurement.go.th/EPROCRssFeedWeb/egpannouncerss.xml`. Clients must configure `maxRedirects: 5` and handle HTTP 302 gracefully.
+| Closed | Open |
+|---|---|
+| 09:00–12:00 | 12:01–12:59 |
+| 13:00–17:00 | 17:01–08:59 |
 
-### B. Peak Hour Latency & High-Load Timeouts
-Between **09:00 and 11:30 AM ICT** (Thai government business hours), government officers actively submit tenders. The RSS server experiences severe connection backlogs:
-- Request timeouts must be set to at least **`10,000ms`**.
-- Automatic retry with exponential backoff (`delay(1000)`) is essential.
+A closed feed doesn't return an empty list. **The connection hangs until the
+client times out.** Code: `isFeedClosed()` sends nothing during closed hours,
+and `pipeline.md` tells you when to run.
 
-### C. The Daily Sliding Window
-`process3` acts as a real-time notification stream:
-- It maintains a **sliding window of current daily announcements** (typically 20 to 50 active items per announcement code).
-- On weekends, national holidays, or after 18:00 ICT, the feed may return 0 items.
-- **Architectural Solution**: When the RSS feed is empty, our pipeline automatically engages the **`data.go.th` catalog fallback** to discover active project IDs without interruption.
+What we've seen:
 
----
+| When (Bangkok) | Result |
+|---|---|
+| Wed 2026-10-07, 13:43 | No answer (closed hours, as documented) |
+| Wed 2026-10-07, 19:07–19:09 | Answered: `P0`, `B0`, `D0`, `D1`, `D2`, `W0`, `W1`, `W2` |
+| Thu 2026-10-08, 03:13–07:25 (7 runs) | Answered every time |
+| Thu 2026-10-08, 08:36 | **No answer** (five 20 s timeouts), before the 09:00 closing |
+| Sun 2026-10-11, about 12:20 and 14:33 | **No answer**, including at 12:20, inside a documented open window |
+| Every run so far | `anounceType=15` timed out |
 
-## 7. Operating Hours, Peak Windows & Off-Hours Schedule
+So far, weekday nights from 17:01 to about 08:30 are reliable. We don't know
+yet whether weekends follow the manual.
 
-| Time Period | System State | Feed Output | Expected Performance |
-| :--- | :--- | :--- | :--- |
-| **Mon – Fri: 08:30 – 16:30 ICT** | **Active Publishing Hours** | Active XML feed (20–50 new items per code) | Operational, but subject to peak-hour congestion |
-| **09:00 – 11:30 ICT (Morning Peak)** | **Heavy Submission Rush** | Rapidly updating items | **High Timeout Risk**: Latencies spike >10s; frequent BigIP drops |
-| **13:30 – 15:30 ICT (Afternoon Peak)** | **Afternoon Publishing Wave** | Active updates | Moderate to high latency (3–8s response time) |
-| **Evening Off-Hours: 18:00 – 23:59 ICT** | **Government Off-Hours** | 0 new announcements; older items roll off | Fast responses (~200ms), but feed contains 0 items |
-| **Daily Batch Maintenance: 00:00 – 04:00 ICT**| **⚠️ Core Batch Processing** | 0 items; connections may reset or 502/503 | Server performs internal daily consolidation & backups |
-| **Early Morning Off-Hours: 04:00 – 08:30 ICT**| **Pre-Office Hours** | Feed resets for the new day | Fast response (~150ms), ready for morning announcements |
-| **Weekends (Saturday & Sunday)** | **Closed / Weekend** | **0 items** (`<channel>` without `<item>` tags) | 200 OK returned, but empty payload |
-| **National Holidays** | **Closed** | **0 items** | 200 OK returned, but empty payload |
-| **Weekend Nights (Sat 22:00 – Sun 06:00)** | **Scheduled Maintenance** | Possible 502/503 Service Unavailable | Maintenance window for e-GP database updates |
+## Corrections to the previous version of this page
 
-### Recommended Fetch Strategy for process3:
-- For **live real-time scraping**, query during business hours (**09:00 – 16:30 ICT**) with timeouts configured to at least `10,000ms`.
-- Outside business hours, on weekends, or during the **00:00 – 04:00 ICT maintenance window**, use the **`data.go.th` catalog fallback** to avoid returning empty results.
+The version merged in #204 said several things that turned out to be wrong:
+- **Codes:** `D1` is not an amendment, `D2` is not a winner, and `W0` is not a
+  cancellation (see the table above). `B1`, `D3`, `C0` and `A0` are not in the
+  manual and haven't been tested.
+- **`deptId`** has 4 digits, not 5.
+- **Hours:** office hours are when the feed is *closed*, not the time to query
+  it. When closed, it hangs instead of returning an empty feed.
+- **Encoding:** the XML declares Windows-874, not UTF-8.
+- **Item format:** the description holds no budget, and `pubDate` has no time.
+- **No fallback:** the pipeline doesn't switch to data.go.th when the feed is
+  empty. `--source all` queries both, and `--source process3` queries only the
+  feed ([pipeline.md](../pipeline.md)).
 
+## Not verified yet
 
+- `deptId`, `deptsubId` and `methodId` filtering, live.
+- The full list of 4-digit agency codes.
+- The feed's hours at weekends.
+- Whether the 7-day backfill exists.
+- What a `D2` item links to.
+- Whether `15` ever answers.

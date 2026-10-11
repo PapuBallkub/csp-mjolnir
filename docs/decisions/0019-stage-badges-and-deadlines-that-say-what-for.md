@@ -67,5 +67,9 @@ left. A date the TOR doesn't state is said to be missing.
   in general terms. The date is in the invitation announcement the feed links
   to. Reading that announcement is the next step for bid deadlines; until
   then the page says the TOR gives none.
+- **A draft's documents don't hold the comment deadline either** (checked
+  2026-10-11: 6 drafts, 31 files). Only e-GP's website shows it, so
+  `facts.commentDeadline` will almost always be empty for an e-GP draft, and
+  the page says so. See [process5_gprocurement.md](../data-sources/process5_gprocurement.md#a-drafts-zip).
 - The stage and deadline rules live in `client/app/_lib/stage.ts`, tested
   without rendering.
