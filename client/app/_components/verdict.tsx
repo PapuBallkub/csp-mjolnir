@@ -452,10 +452,10 @@ export function AmendedFlag({ lang }: { lang: Lang }) {
 }
 
 /** Who may bid is a category, not a verdict, so it stays monochrome. Decisive for freelancers. */
-export function CompaniesOnlyBadge({ lang }: { lang: Lang }) {
+export function CompaniesOnlyBadge({ lang, className = "" }: { lang: Lang; className?: string }) {
   return (
     <span
-      className={`${badgeBase} border-line bg-surface-2 text-ink-2`}
+      className={`inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 whitespace-nowrap leading-normal ${className}`}
       title={lang === "th" ? "TOR กำหนดให้ผู้ยื่นเป็นนิติบุคคล" : "The TOR requires bidders to be a registered company"}
     >
       {lang === "th" ? "เฉพาะนิติบุคคล" : "Companies only"}

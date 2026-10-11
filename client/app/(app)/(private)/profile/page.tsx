@@ -155,6 +155,44 @@ export default function ProfilePage() {
     }
   }, [budgetError, draft, updateProfile]);
 
+  // Browser warning before closing tab or navigating to external URL
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
+  const handleReset = useCallback(() => {
+    setDraft({
+      skills: user.profile?.skills ?? [],
+      budgetMin: user.profile?.budgetMin ?? 0,
+      budgetMax: user.profile?.budgetMax ?? 0,
+      certifications: user.profile?.certifications ?? [],
+    });
+    setSaveResult("idle");
+  }, [user.profile]);
+
+  const confirmLeave = useCallback(
+    (e: React.MouseEvent) => {
+      if (isDirty) {
+        const ok = window.confirm(
+          lang === "th"
+            ? "คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก หากออกจากหน้านี้ ข้อมูลที่แก้ไขจะสูญหาย ต้องการออกหรือไม่?"
+            : "You have unsaved changes. Leaving this page will discard them. Are you sure you want to leave?",
+        );
+        if (!ok) {
+          e.preventDefault();
+        }
+      }
+    },
+    [isDirty, lang],
+  );
+
   // Combined list of tech options (facets + user's saved custom skills)
   const displaySkills = useMemo(() => {
     return Array.from(new Set([...availableTechs, ...draft.skills]));
@@ -552,7 +590,21 @@ export default function ProfilePage() {
                   ? "บันทึกโปรไฟล์"
                   : "Save profile"}
             </button>
-            <Link href="/notifications" className={`${btn.secondary} cursor-pointer`}>
+            {isDirty && (
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={saving}
+                className="cursor-pointer text-[12.5px] text-ink-3 underline underline-offset-2 hover:text-ink transition-colors disabled:opacity-50"
+              >
+                {lang === "th" ? "ยกเลิกการแก้ไข" : "Discard changes"}
+              </button>
+            )}
+            <Link
+              href="/notifications"
+              onClick={confirmLeave}
+              className={`${btn.secondary} cursor-pointer`}
+            >
               {lang === "th" ? "ตั้งค่าการแจ้งเตือน" : "Notification settings"}
             </Link>
 
@@ -661,13 +713,59 @@ export default function ProfilePage() {
                   ? "เมื่อตั้งค่าเสร็จสิ้น ระบบจะนำเกณฑ์เหล่านี้ไปคำนวณความเหมาะสมในหน้าค้นหาโครงการ"
                   : "These parameters are used to calculate fit scores across all procurement notices in the catalog."}
               </p>
-              <Link href="/search" className={`${btn.secondary} cursor-pointer w-full justify-center`}>
+              <Link
+                href="/search"
+                onClick={confirmLeave}
+                className={`${btn.secondary} cursor-pointer w-full justify-center`}
+              >
                 {lang === "th" ? "ดูรายการประกาศจัดซื้อ" : "Browse procurement catalog"}
               </Link>
             </div>
           </Panel>
         </aside>
       </div>
+
+      {/* Floating Unsaved Changes Notification Bar */}
+      {isDirty && (
+        <aside
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 w-[92%] max-w-xl rounded-[4px] border border-amber-300/80 bg-amber-50/95 dark:border-amber-500/30 dark:bg-stone-900/95 p-3 sm:px-4 shadow-lg backdrop-blur-sm transition-all"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse shrink-0" aria-hidden="true" />
+              <span className="text-[12.5px] font-medium text-amber-950 dark:text-amber-200">
+                {lang === "th" ? "คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก" : "You have unsaved changes"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={saving}
+                className="cursor-pointer text-[12px] font-medium text-amber-800 underline underline-offset-2 hover:text-amber-950 dark:text-amber-300 dark:hover:text-amber-100 disabled:opacity-50"
+              >
+                {lang === "th" ? "ยกเลิก" : "Discard"}
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving || Boolean(budgetError)}
+                className={`${btn.primary} cursor-pointer !h-8 !px-3 text-[12px] !bg-amber-600 hover:!bg-amber-700 !text-white`}
+              >
+                {saving
+                  ? lang === "th"
+                    ? "กำลังบันทึก…"
+                    : "Saving…"
+                  : lang === "th"
+                    ? "บันทึกตอนนี้"
+                    : "Save now"}
+              </button>
+            </div>
+          </div>
+        </aside>
+      )}
     </div>
   );
 }
