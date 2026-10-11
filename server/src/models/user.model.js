@@ -51,7 +51,7 @@ const userSchema = new mongoose.Schema(
       default: 'user',
       index: true,
     },
-    // FR-12. What the user can build: skills, budget range, and team size.
+    // FR-12. What the user can build: skills, budget range, and certifications.
     // Read by the match scorer (FR-13) and used to rank the catalog.
     // Stored as a subdocument, not a separate collection, because every
     // read of the user (requireAuth on every request) should carry it.
