@@ -118,9 +118,9 @@ Stores the user's technical capabilities (FR-12) for match scoring (FR-13).
 | Field | Type | Constraints | Default | Description | Example |
 |---|---|---|---|---|---|
 | `profile.skills` | `[String]` | Max 50 items; each trimmed, max 100 chars | `[]` | Technology names the user knows (matched against TOR tech stacks). | `["React", "Node.js", "PostgreSQL"]` |
-| `profile.budgetMin` | `Number` | ≥ 0, ≤ 1,000,000,000 | `0` | Minimum budget (THB) the user takes on. | `300000` |
-| `profile.budgetMax` | `Number` | ≥ 0, ≤ 1,000,000,000, ≥ `budgetMin` | `0` | Maximum budget (THB). `0` = not set. | `5000000` |
-| `profile.certifications` | `[String]` | Max 20 items; each trimmed, max 100 chars | `[]` | International & software standards held by user (e.g. ISO 29110, CMMI, ISO 27001). | `["ISO/IEC 29110", "ISO/IEC 27001"]` |
+| `profile.budgetMin` | `Number` | ≥ 0, ≤ 10,000,000,000 | `0` | Minimum budget (THB) the user takes on. | `300000` |
+| `profile.budgetMax` | `Number` | ≥ 0, ≤ 10,000,000,000, ≥ `budgetMin` | `0` | Maximum budget (THB). `0` = not set. | `5000000` |
+| `profile.certifications` | `[String]` | Max 30 items; each trimmed, max 100 chars | `[]` | International & software standards held by user (e.g. ISO 29110, CMMI, ISO 27001). | `["ISO/IEC 29110", "ISO/IEC 27001"]` |
 
 ---
 

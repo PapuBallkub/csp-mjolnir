@@ -127,6 +127,29 @@ test('profile: rejects negative budget', async () => {
   assert.equal(res.status, 400);
 });
 
+test('profile: saves budget up to 10 billion THB', async () => {
+  const cookie = await registerAndGetCookie('profile-budget-10b');
+  const res = await send('PATCH', '/api/profile', {
+    body: { budgetMin: 10000000, budgetMax: 10000000000 },
+    cookie,
+  });
+  assert.equal(res.status, 200);
+  const { user } = await res.json();
+  assert.equal(user.profile.budgetMin, 10000000);
+  assert.equal(user.profile.budgetMax, 10000000000);
+});
+
+test('profile: rejects budget exceeding 10 billion THB', async () => {
+  const cookie = await registerAndGetCookie('profile-budget-over');
+  const res = await send('PATCH', '/api/profile', {
+    body: { budgetMax: 10000000001 },
+    cookie,
+  });
+  assert.equal(res.status, 400);
+  const { error } = await res.json();
+  assert.ok(error.details.budgetMax);
+});
+
 test('profile: saves certifications', async () => {
   const cookie = await registerAndGetCookie('profile-certs');
   const res = await send('PATCH', '/api/profile', {
@@ -149,9 +172,9 @@ test('profile: deduplicates certifications and trims whitespace', async () => {
   assert.deepEqual(user.profile.certifications, ['ISO 29110', 'CMMI Level 3']);
 });
 
-test('profile: rejects more than 20 certifications', async () => {
+test('profile: rejects more than 30 certifications', async () => {
   const cookie = await registerAndGetCookie('profile-max-certs');
-  const certs = Array.from({ length: 21 }, (_, i) => `Cert-${i}`);
+  const certs = Array.from({ length: 31 }, (_, i) => `Cert-${i}`);
   const res = await send('PATCH', '/api/profile', {
     body: { certifications: certs },
     cookie,

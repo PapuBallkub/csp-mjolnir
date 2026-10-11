@@ -10,11 +10,28 @@ import * as api from "../../../_lib/api";
 import type { ApiError, UserProfile } from "../../../_lib/api";
 
 const STANDARD_CERTIFICATIONS = [
+  // Software engineering & capability maturity
   "ISO/IEC 29110",
-  "CMMI Level 3+",
+  "CMMI Level 3",
+  "CMMI Level 5",
+  "ISO/IEC 12207",
+  "ISO/IEC 25010",
+  // Security, privacy, cloud & payment
   "ISO/IEC 27001",
-  "ISO 9001",
+  "ISO/IEC 27701",
+  "ISO/IEC 27017",
+  "ISO/IEC 27018",
+  "PCI DSS",
+  "CSA STAR",
+  "ISO/IEC 15408",
+  // IT service management & business continuity
   "ISO/IEC 20000-1",
+  "ISO 22301",
+  "TIA-942",
+  // Quality & emerging standards
+  "ISO 9001",
+  "ISO 14001",
+  "ISO/IEC 42001",
 ];
 
 function toggle<T>(list: T[], value: T): T[] {
@@ -110,7 +127,7 @@ export default function ProfilePage() {
       setCustomCert("");
       return;
     }
-    if (draft.certifications.length >= 20) return;
+    if (draft.certifications.length >= 30) return;
 
     setDraft((prev) => ({
       ...prev,
@@ -312,7 +329,7 @@ export default function ProfilePage() {
                     value={draft.budgetMin}
                     step={100_000}
                     min={0}
-                    max={1_000_000_000}
+                    max={10_000_000_000}
                     onChange={(e) =>
                       setDraft((prev) => ({
                         ...prev,
@@ -330,7 +347,7 @@ export default function ProfilePage() {
                     value={draft.budgetMax}
                     step={100_000}
                     min={0}
-                    max={1_000_000_000}
+                    max={10_000_000_000}
                     onChange={(e) =>
                       setDraft((prev) => ({
                         ...prev,
@@ -359,8 +376,8 @@ export default function ProfilePage() {
               <SectionHeading
                 sub={
                   lang === "th"
-                    ? `เลือกมาตรฐานที่องค์กรหรือทีมของคุณได้รับการรับรอง (${draft.certifications.length}/20 รายการ) เพื่อตรวจเกณฑ์คุณสมบัติใน TOR`
-                    : `Select international certifications held by your team (${draft.certifications.length}/20 selected) to match qualification requirements in TORs.`
+                    ? `เลือกมาตรฐานที่องค์กรหรือทีมของคุณได้รับการรับรอง (${draft.certifications.length}/30 รายการ) เพื่อตรวจเกณฑ์คุณสมบัติใน TOR`
+                    : `Select international certifications held by your team (${draft.certifications.length}/30 selected) to match qualification requirements in TORs.`
                 }
                 right={
                   draft.certifications.length > 0 ? (
@@ -424,7 +441,7 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={handleAddCustomCert}
-                  disabled={!customCert.trim() || draft.certifications.length >= 20}
+                  disabled={!customCert.trim() || draft.certifications.length >= 30}
                   className={`${btn.secondary} shrink-0 text-[12px]`}
                 >
                   {lang === "th" ? "เพิ่ม" : "Add"}

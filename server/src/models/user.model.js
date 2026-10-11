@@ -64,14 +64,14 @@ const userSchema = new mongoose.Schema(
           message: 'You can save at most 50 skills.',
         },
       },
-      budgetMin: { type: Number, default: 0, min: 0, max: 1_000_000_000 },
-      budgetMax: { type: Number, default: 0, min: 0, max: 1_000_000_000 },
+      budgetMin: { type: Number, default: 0, min: 0, max: 10_000_000_000 },
+      budgetMax: { type: Number, default: 0, min: 0, max: 10_000_000_000 },
       certifications: {
         type: [String],
         default: [],
         validate: {
-          validator: (v) => v.length <= 20,
-          message: 'You can save at most 20 certifications.',
+          validator: (v) => v.length <= 30,
+          message: 'You can save at most 30 certifications.',
         },
       },
     },
