@@ -223,15 +223,15 @@ export default function ProfilePage() {
               <SectionHeading
                 sub={
                   lang === "th"
-                    ? `เลือกไว้ ${draft.skills.length}/50 รายการ — แตะเพื่อเลือกทักษะที่คุณถนัด หรือพิมพ์เพิ่มด้านล่าง`
-                    : `${draft.skills.length}/50 selected — tap to toggle, or type custom skills below.`
+                    ? "เลือกทักษะที่คุณถนัดเพื่อใช้จับคู่งานในระบบ (เลือกได้สูงสุด 50 รายการ)"
+                    : "Select technologies you specialize in to match with procurement requirements (up to 50 skills)."
                 }
                 right={
                   draft.skills.length > 0 ? (
                     <button
                       type="button"
                       onClick={() => setDraft((prev) => ({ ...prev, skills: [] }))}
-                      className="text-[11px] text-ink-3 underline underline-offset-2 hover:text-ink"
+                      className="cursor-pointer text-[11px] text-ink-3 underline underline-offset-2 transition-colors hover:text-red-600"
                     >
                       {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
                     </button>
@@ -241,43 +241,84 @@ export default function ProfilePage() {
                 {lang === "th" ? "ทักษะและเทคโนโลยี" : "Skills and technologies"}
               </SectionHeading>
 
-              {/* Technologies chip cloud */}
-              {techsLoading ? (
-                <div className="flex flex-wrap gap-1.5 animate-pulse">
-                  {Array.from({ length: 12 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-6 w-16 rounded-[2px] bg-surface-2 border border-line"
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {displaySkills.map((term) => {
-                    const on = draft.skills.includes(term);
-                    return (
+              {/* Zone 1: Selected skills (Option A) */}
+              {draft.skills.length > 0 && (
+                <div className="mb-4 rounded-[3px] border border-line bg-surface-2/60 p-3">
+                  <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-ink-2">
+                    <span className="flex items-center gap-1.5">
+                      <span>{lang === "th" ? "ทักษะที่คุณเลือกแล้ว" : "Your selected skills"}</span>
+                      <span className="inline-flex items-center rounded-full bg-ink px-1.5 py-0.2 font-mono text-[10px] text-surface">
+                        {draft.skills.length}
+                      </span>
+                    </span>
+                    <span className="font-mono text-[10px] text-ink-3">{draft.skills.length}/50</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {draft.skills.map((skill) => (
                       <button
-                        key={term}
+                        key={skill}
                         type="button"
                         onClick={() =>
                           setDraft((prev) => ({
                             ...prev,
-                            skills: toggle(prev.skills, term),
+                            skills: prev.skills.filter((s) => s !== skill),
                           }))
                         }
-                        aria-pressed={on}
-                        className={`rounded-[2px] border px-2 py-1 font-mono text-[11px] transition-colors ${
-                          on
-                            ? "border-ink bg-ink text-surface"
-                            : "border-line bg-surface-2 text-ink-3 hover:text-ink"
-                        }`}
+                        title={lang === "th" ? `คลิกเพื่อลบ ${skill}` : `Click to remove ${skill}`}
+                        className="group inline-flex cursor-pointer items-center gap-1.5 rounded-[2px] border border-ink bg-ink px-2 py-1 font-mono text-[11px] text-surface transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white"
                       >
-                        {term}
+                        <span>{skill}</span>
+                        <span aria-hidden="true" className="text-[10px] opacity-70 group-hover:opacity-100">
+                          ✕
+                        </span>
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {/* Zone 2: Suggestion cloud */}
+              <div className="space-y-1.5">
+                <span className="block text-[11px] font-medium text-ink-3">
+                  {lang === "th" ? "รายการแนะนำ (คลิกเพื่อเลือกเพิ่ม):" : "Suggested skills (click to add):"}
+                </span>
+                {techsLoading ? (
+                  <div className="flex flex-wrap gap-1.5 animate-pulse">
+                    {Array.from({ length: 12 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="h-6 w-16 rounded-[2px] bg-surface-2 border border-line"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {displaySkills.map((term) => {
+                      const on = draft.skills.includes(term);
+                      return (
+                        <button
+                          key={term}
+                          type="button"
+                          onClick={() =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              skills: toggle(prev.skills, term),
+                            }))
+                          }
+                          aria-pressed={on}
+                          className={`cursor-pointer rounded-[2px] border px-2 py-1 font-mono text-[11px] transition-colors ${
+                            on
+                              ? "border-ink bg-ink/10 font-semibold text-ink"
+                              : "border-line bg-surface-2 text-ink-3 hover:border-ink hover:text-ink"
+                          }`}
+                        >
+                          {on ? `✓ ${term}` : `+ ${term}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {/* Add custom skill input */}
               <div className="mt-3.5 flex max-w-sm items-center gap-2">
@@ -301,7 +342,7 @@ export default function ProfilePage() {
                   type="button"
                   onClick={handleAddCustomSkill}
                   disabled={!customSkill.trim() || draft.skills.length >= 50}
-                  className={`${btn.secondary} shrink-0 text-[12px]`}
+                  className={`${btn.secondary} cursor-pointer shrink-0 text-[12px] disabled:cursor-not-allowed`}
                 >
                   {lang === "th" ? "เพิ่ม" : "Add"}
                 </button>
@@ -376,15 +417,15 @@ export default function ProfilePage() {
               <SectionHeading
                 sub={
                   lang === "th"
-                    ? `เลือกมาตรฐานที่องค์กรหรือทีมของคุณได้รับการรับรอง (${draft.certifications.length}/30 รายการ) เพื่อตรวจเกณฑ์คุณสมบัติใน TOR`
-                    : `Select international certifications held by your team (${draft.certifications.length}/30 selected) to match qualification requirements in TORs.`
+                    ? "เลือกมาตรฐานที่องค์กรหรือทีมของคุณได้รับการรับรอง เพื่อตรวจเกณฑ์คุณสมบัติใน TOR (สูงสุด 30 รายการ)"
+                    : "Select international certifications held by your team to match qualification requirements in TORs (up to 30 standards)."
                 }
                 right={
                   draft.certifications.length > 0 ? (
                     <button
                       type="button"
                       onClick={() => setDraft((prev) => ({ ...prev, certifications: [] }))}
-                      className="text-[11px] text-ink-3 underline underline-offset-2 hover:text-ink"
+                      className="cursor-pointer text-[11px] text-ink-3 underline underline-offset-2 transition-colors hover:text-red-600"
                     >
                       {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
                     </button>
@@ -394,30 +435,72 @@ export default function ProfilePage() {
                 {lang === "th" ? "ใบรับรองมาตรฐานสากล (ISO / CMMI)" : "Certifications & Standards (ISO / CMMI)"}
               </SectionHeading>
 
-              <div className="flex flex-wrap gap-1.5">
-                {displayCertifications.map((cert) => {
-                  const on = draft.certifications.includes(cert);
-                  return (
-                    <button
-                      key={cert}
-                      type="button"
-                      onClick={() =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          certifications: toggle(prev.certifications, cert),
-                        }))
-                      }
-                      aria-pressed={on}
-                      className={`rounded-[2px] border px-2.5 py-1 font-mono text-[11px] transition-colors ${
-                        on
-                          ? "border-ink bg-ink text-surface"
-                          : "border-line bg-surface-2 text-ink-3 hover:text-ink"
-                      }`}
-                    >
-                      {cert}
-                    </button>
-                  );
-                })}
+              {/* Zone 1: Selected certifications (Option A) */}
+              {draft.certifications.length > 0 && (
+                <div className="mb-4 rounded-[3px] border border-line bg-surface-2/60 p-3">
+                  <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-ink-2">
+                    <span className="flex items-center gap-1.5">
+                      <span>{lang === "th" ? "มาตรฐานที่คุณเลือกแล้ว" : "Your selected standards"}</span>
+                      <span className="inline-flex items-center rounded-full bg-ink px-1.5 py-0.2 font-mono text-[10px] text-surface">
+                        {draft.certifications.length}
+                      </span>
+                    </span>
+                    <span className="font-mono text-[10px] text-ink-3">{draft.certifications.length}/30</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {draft.certifications.map((cert) => (
+                      <button
+                        key={cert}
+                        type="button"
+                        onClick={() =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            certifications: prev.certifications.filter((c) => c !== cert),
+                          }))
+                        }
+                        title={lang === "th" ? `คลิกเพื่อลบ ${cert}` : `Click to remove ${cert}`}
+                        className="group inline-flex cursor-pointer items-center gap-1.5 rounded-[2px] border border-ink bg-ink px-2.5 py-1 font-mono text-[11px] text-surface transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white"
+                      >
+                        <span>{cert}</span>
+                        <span aria-hidden="true" className="text-[10px] opacity-70 group-hover:opacity-100">
+                          ✕
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Zone 2: Available certifications bank */}
+              <div className="space-y-1.5">
+                <span className="block text-[11px] font-medium text-ink-3">
+                  {lang === "th" ? "มาตรฐานสากลทั่วไป (คลิกเพื่อเลือกเพิ่ม):" : "Common standards (click to add):"}
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {displayCertifications.map((cert) => {
+                    const on = draft.certifications.includes(cert);
+                    return (
+                      <button
+                        key={cert}
+                        type="button"
+                        onClick={() =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            certifications: toggle(prev.certifications, cert),
+                          }))
+                        }
+                        aria-pressed={on}
+                        className={`cursor-pointer rounded-[2px] border px-2.5 py-1 font-mono text-[11px] transition-colors ${
+                          on
+                            ? "border-ink bg-ink/10 font-semibold text-ink"
+                            : "border-line bg-surface-2 text-ink-3 hover:border-ink hover:text-ink"
+                        }`}
+                      >
+                        {on ? `✓ ${cert}` : `+ ${cert}`}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Add custom certification input */}
@@ -442,7 +525,7 @@ export default function ProfilePage() {
                   type="button"
                   onClick={handleAddCustomCert}
                   disabled={!customCert.trim() || draft.certifications.length >= 30}
-                  className={`${btn.secondary} shrink-0 text-[12px]`}
+                  className={`${btn.secondary} cursor-pointer shrink-0 text-[12px] disabled:cursor-not-allowed`}
                 >
                   {lang === "th" ? "เพิ่ม" : "Add"}
                 </button>
@@ -459,7 +542,7 @@ export default function ProfilePage() {
               type="button"
               onClick={handleSave}
               disabled={!isDirty || saving || Boolean(budgetError)}
-              className={btn.primary}
+              className={`${btn.primary} cursor-pointer disabled:cursor-not-allowed`}
             >
               {saving
                 ? lang === "th"
@@ -469,7 +552,7 @@ export default function ProfilePage() {
                   ? "บันทึกโปรไฟล์"
                   : "Save profile"}
             </button>
-            <Link href="/notifications" className={btn.secondary}>
+            <Link href="/notifications" className={`${btn.secondary} cursor-pointer`}>
               {lang === "th" ? "ตั้งค่าการแจ้งเตือน" : "Notification settings"}
             </Link>
 
@@ -578,7 +661,7 @@ export default function ProfilePage() {
                   ? "เมื่อตั้งค่าเสร็จสิ้น ระบบจะนำเกณฑ์เหล่านี้ไปคำนวณความเหมาะสมในหน้าค้นหาโครงการ"
                   : "These parameters are used to calculate fit scores across all procurement notices in the catalog."}
               </p>
-              <Link href="/search" className={`${btn.secondary} w-full justify-center`}>
+              <Link href="/search" className={`${btn.secondary} cursor-pointer w-full justify-center`}>
                 {lang === "th" ? "ดูรายการประกาศจัดซื้อ" : "Browse procurement catalog"}
               </Link>
             </div>
