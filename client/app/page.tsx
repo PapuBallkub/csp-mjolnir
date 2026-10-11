@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { useAuth } from "./_components/auth";
-import { useLang, LangToggle, ThemeToggle } from "./_components/prefs";
-import { Wordmark } from "./_components/shell";
+import { useLang } from "./_components/prefs";
+import { HeaderControls, Wordmark } from "./_components/shell";
 
 /**
  * Google sends a failed sign-in back here with ?auth=failed and nothing else —
@@ -156,7 +155,6 @@ const PROBLEMS = [
 
 export default function LandingPage() {
   const { lang } = useLang();
-  const { status } = useAuth();
   const t = HERO[lang];
 
   return (
@@ -175,25 +173,7 @@ export default function LandingPage() {
           >
             <Wordmark />
           </Link>
-          <div className="ml-auto flex items-center gap-2">
-            <LangToggle />
-            <ThemeToggle />
-            {/* A signed-in visitor on the marketing page should not be
-                invited to sign in again. Fixed width either way, so the label
-                resolving does not shift the header. */}
-            <Link
-              href={status === "authenticated" ? "/search" : "/auth"}
-              className="inline-flex w-[74px] justify-center rounded-[3px] py-1.5 text-[13px] text-ink-2 transition-colors hover:text-ink"
-            >
-              {status === "authenticated"
-                ? lang === "th"
-                  ? "ค้นหา"
-                  : "Browse"
-                : lang === "th"
-                  ? "เข้าสู่ระบบ"
-                  : "Sign in"}
-            </Link>
-          </div>
+          <HeaderControls className="ml-auto" />
         </div>
       </header>
 
