@@ -247,6 +247,31 @@ test('fetchFromProcess3: fetching a TOR again never undoes download or OCR', asy
   // The new announcement itself is still recorded
   assert.equal(doc.announcementHistory.length, 1);
   assert.equal(doc.status, 'Open');
+  // An invitation comes with a new package, perhaps: download checks (ADR 0020)
+  assert.equal(doc.packageCheckNeeded, true);
+});
+
+test('fetch flags a package check only for a stage that builds a package, once', async () => {
+  await Tor.deleteMany({ projectId: TEST_PROJECT_PAST_DOWNLOAD });
+  await createOcrDoneTor(TEST_PROJECT_PAST_DOWNLOAD);
+  const flag = async () => (await Tor.findOne({ projectId: TEST_PROJECT_PAST_DOWNLOAD }).lean()).packageCheckNeeded;
+
+  // A winner builds no package
+  feedAnswers({ W0: [{ projectId: TEST_PROJECT_PAST_DOWNLOAD, pubDate: '2026-10-04' }] });
+  await fetchP3();
+  assert.equal(await flag(), false);
+  mock.restoreAll();
+
+  // A changed invitation does
+  feedAnswers({ D2: [{ projectId: TEST_PROJECT_PAST_DOWNLOAD, pubDate: '2026-10-05' }] });
+  await fetchP3();
+  assert.equal(await flag(), true);
+
+  // Once download has checked, the same item seen again doesn't flag it anew
+  await Tor.updateOne({ projectId: TEST_PROJECT_PAST_DOWNLOAD }, { packageCheckNeeded: false });
+  await fetchP3();
+  assert.equal(await flag(), false);
+  mock.restoreAll();
 });
 
 test('fetchFromProcess3: an item of a different type than asked for is reported, not saved', async () => {

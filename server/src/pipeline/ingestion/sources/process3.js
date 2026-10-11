@@ -267,10 +267,7 @@ export async function fetchFromProcess3({
           });
 
           if (downloadRes.success) {
-            documentInfo = await parseTorDocument(
-              downloadRes.filePath,
-              downloadRes.companionText || '',
-            );
+            documentInfo = await parseTorDocument(downloadRes.filePath);
           }
         }
 
@@ -291,6 +288,12 @@ export async function fetchFromProcess3({
           source: 'process3',
           title: (currentItem.title ? String(currentItem.title).trim() : '') || existing?.title || 'No Title',
         };
+
+        // A new stage of a project already downloaded comes with a new package,
+        // perhaps: download checks e-GP for it (ADR 0020)
+        if (isNewAnnouncement && !needsDocument && EGP_ANNOUNCEMENT_CODES[annType.code].buildsPackage) {
+          updatePayload.packageCheckNeeded = true;
+        }
 
         // Derive status and isAmended from announcement history (FR-02, FR-15),
         // dates included: the status engine orders it by publish date
@@ -326,7 +329,9 @@ export async function fetchFromProcess3({
             isDownloaded,
             document: {
               fileName: expectedPdfName,
-              storagePath: isDownloaded ? targetPdfPath : (existing?.document?.storagePath || null),
+              storagePath: isDownloaded
+                ? (downloadRes?.filePath ?? targetPdfPath)
+                : (existing?.document?.storagePath || null),
               sizeBytes:
                 downloadRes?.sizeBytes ||
                 (alreadyDownloaded

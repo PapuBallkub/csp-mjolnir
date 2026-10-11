@@ -33,8 +33,10 @@ flowchart LR
   ([0013](../decisions/0013-split-ingestion-and-ai-extraction.md)).
 - **Only workable TORs are downloaded:** Draft or Open, announced by the feed,
   with no winner ([0018](../decisions/0018-preview-ocr-before-classify.md)).
-- **One PDF is kept from each zip.** The rest, including the announcement and
-  the bidding document, is discarded. That's the main gap; see
+- **Each package's project files are kept, and its announcement is read in
+  code** for the agency, ราคากลาง and bid window. A new stage's package is
+  downloaded when the feed announces it ([0020](../decisions/0020-read-the-whole-egp-package.md)).
+  The budget, on the price form, isn't read yet; see
   [process5_gprocurement.md](process5_gprocurement.md#how-the-pipeline-uses-it-now).
 
 ## Where each fact is
