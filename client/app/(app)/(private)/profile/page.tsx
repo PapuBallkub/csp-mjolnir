@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth, useAuthedUser } from "../../../_components/auth";
 import { useLang } from "../../../_components/prefs";
@@ -155,17 +156,9 @@ export default function ProfilePage() {
     }
   }, [budgetError, draft, updateProfile]);
 
-  // Browser warning before closing tab or navigating to external URL
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isDirty]);
+  const router = useRouter();
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null);
 
   const handleReset = useCallback(() => {
     setDraft({
@@ -177,21 +170,96 @@ export default function ProfilePage() {
     setSaveResult("idle");
   }, [user.profile]);
 
-  const confirmLeave = useCallback(
-    (e: React.MouseEvent) => {
-      if (isDirty) {
-        const ok = window.confirm(
-          lang === "th"
-            ? "คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก หากออกจากหน้านี้ ข้อมูลที่แก้ไขจะสูญหาย ต้องการออกหรือไม่?"
-            : "You have unsaved changes. Leaving this page will discard them. Are you sure you want to leave?",
-        );
-        if (!ok) {
-          e.preventDefault();
-        }
+  const handleDiscardAndLeave = useCallback(() => {
+    handleReset();
+    setShowUnsavedModal(false);
+    if (pendingUrl) {
+      if (pendingUrl.startsWith("http://") || pendingUrl.startsWith("https://")) {
+        window.location.href = pendingUrl;
+      } else {
+        router.push(pendingUrl);
       }
-    },
-    [isDirty, lang],
-  );
+      setPendingUrl(null);
+    }
+  }, [handleReset, pendingUrl, router]);
+
+  const handleSaveAndLeave = useCallback(async () => {
+    if (budgetError) return;
+    setSaving(true);
+    const error = await updateProfile(draft);
+    setSaving(false);
+    if (!error) {
+      setShowUnsavedModal(false);
+      if (pendingUrl) {
+        if (pendingUrl.startsWith("http://") || pendingUrl.startsWith("https://")) {
+          window.location.href = pendingUrl;
+        } else {
+          router.push(pendingUrl);
+        }
+        setPendingUrl(null);
+      }
+    } else {
+      setSaveResult(error);
+    }
+  }, [budgetError, draft, pendingUrl, router, updateProfile]);
+
+  // Intercept all link clicks across the document when user has unsaved changes
+  useEffect(() => {
+    if (!isDirty) return;
+
+    const handleDocumentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      // Do not intercept clicks inside the unsaved changes modal itself
+      if (target.closest("[data-unsaved-modal]")) return;
+
+      const anchor = target.closest("a");
+      if (!anchor) return;
+
+      const href = anchor.getAttribute("href");
+      if (!href) return;
+
+      // Ignore in-page anchors (#), javascript: links, empty links, or open in new tab
+      if (
+        href.startsWith("#") ||
+        href.startsWith("javascript:") ||
+        href === "" ||
+        anchor.target === "_blank" ||
+        e.metaKey ||
+        e.ctrlKey
+      ) {
+        return;
+      }
+
+      // If the link points to the current page itself, ignore
+      try {
+        const targetUrl = new URL(anchor.href, window.location.href);
+        if (
+          targetUrl.origin === window.location.origin &&
+          targetUrl.pathname === window.location.pathname &&
+          targetUrl.search === window.location.search
+        ) {
+          return;
+        }
+      } catch {
+        // Malformed URL, skip
+      }
+
+      // Intercept navigation
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      setPendingUrl(href);
+      setShowUnsavedModal(true);
+    };
+
+    document.addEventListener("click", handleDocumentClick, true);
+    return () => {
+      document.removeEventListener("click", handleDocumentClick, true);
+    };
+  }, [isDirty]);
 
   // Combined list of tech options (facets + user's saved custom skills)
   const displaySkills = useMemo(() => {
@@ -602,7 +670,6 @@ export default function ProfilePage() {
             )}
             <Link
               href="/notifications"
-              onClick={confirmLeave}
               className={`${btn.secondary} cursor-pointer`}
             >
               {lang === "th" ? "ตั้งค่าการแจ้งเตือน" : "Notification settings"}
@@ -715,7 +782,6 @@ export default function ProfilePage() {
               </p>
               <Link
                 href="/search"
-                onClick={confirmLeave}
                 className={`${btn.secondary} cursor-pointer w-full justify-center`}
               >
                 {lang === "th" ? "ดูรายการประกาศจัดซื้อ" : "Browse procurement catalog"}
@@ -730,21 +796,21 @@ export default function ProfilePage() {
         <aside
           role="status"
           aria-live="polite"
-          className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 w-[92%] max-w-xl rounded-[4px] border border-amber-300/80 bg-amber-50/95 dark:border-amber-500/30 dark:bg-stone-900/95 p-3 sm:px-4 shadow-lg backdrop-blur-sm transition-all"
+          className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 w-[92%] max-w-xl rounded-[4px] border border-line bg-surface/95 dark:bg-surface/95 p-3 sm:px-4 shadow-xl backdrop-blur-md transition-all animate-in fade-in slide-in-from-bottom-2 duration-200"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse shrink-0" aria-hidden="true" />
-              <span className="text-[12.5px] font-medium text-amber-950 dark:text-amber-200">
+              <span className="text-[13px] font-medium text-ink">
                 {lang === "th" ? "คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก" : "You have unsaved changes"}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={handleReset}
                 disabled={saving}
-                className="cursor-pointer text-[12px] font-medium text-amber-800 underline underline-offset-2 hover:text-amber-950 dark:text-amber-300 dark:hover:text-amber-100 disabled:opacity-50"
+                className="cursor-pointer text-[12.5px] font-medium text-ink-3 underline underline-offset-2 hover:text-ink disabled:opacity-50 transition-colors"
               >
                 {lang === "th" ? "ยกเลิก" : "Discard"}
               </button>
@@ -752,7 +818,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={handleSave}
                 disabled={saving || Boolean(budgetError)}
-                className={`${btn.primary} cursor-pointer !h-8 !px-3 text-[12px] !bg-amber-600 hover:!bg-amber-700 !text-white`}
+                className={`${btn.primary} cursor-pointer !h-8 !px-3.5 text-[12.5px]`}
               >
                 {saving
                   ? lang === "th"
@@ -765,6 +831,97 @@ export default function ProfilePage() {
             </div>
           </div>
         </aside>
+      )}
+
+      {/* In-app Unsaved Changes Popup Modal */}
+      {showUnsavedModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="unsaved-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px] animate-in fade-in duration-150"
+          onClick={() => {
+            setShowUnsavedModal(false);
+            setPendingUrl(null);
+          }}
+        >
+          <div
+            data-unsaved-modal="true"
+            className="relative w-full max-w-md rounded-[4px] border border-line bg-surface p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setShowUnsavedModal(false);
+                setPendingUrl(null);
+              }}
+              className="cursor-pointer absolute right-3.5 top-3.5 flex h-7 w-7 items-center justify-center rounded-[3px] text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
+              aria-label={lang === "th" ? "ปิดหน้าต่าง" : "Close modal"}
+            >
+              ✕
+            </button>
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 9v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
+              </svg>
+            </div>
+
+            <h3 id="unsaved-modal-title" className="mt-4 text-[17px] font-semibold text-ink">
+              {lang === "th" ? "คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก" : "You have unsaved changes"}
+            </h3>
+
+            <p className="mt-2 text-[13px] leading-thai text-ink-2">
+              {lang === "th"
+                ? "หากคุณออกจากหน้านี้ ข้อมูลความสามารถ งบประมาณ หรือมาตรฐานสากลที่คุณแก้ไขไว้จะสูญหาย ต้องการบันทึกข้อมูลก่อนหรือไม่?"
+                : "If you leave this page, your unsaved changes to skills, budget capacity, or certifications will be lost. Would you like to save your changes first?"}
+            </p>
+
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUnsavedModal(false);
+                  setPendingUrl(null);
+                }}
+                className={`${btn.secondary} cursor-pointer`}
+              >
+                {lang === "th" ? "แก้ไขต่อ" : "Keep editing"}
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardAndLeave}
+                className="cursor-pointer inline-flex items-center justify-center rounded-[3px] border border-line bg-surface px-3.5 h-9 text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-200 dark:hover:border-red-900 transition-colors"
+              >
+                {lang === "th" ? "ละทิ้งข้อมูลและออก" : "Discard & leave"}
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAndLeave}
+                disabled={saving || Boolean(budgetError)}
+                className={`${btn.primary} cursor-pointer`}
+              >
+                {saving
+                  ? lang === "th"
+                    ? "กำลังบันทึก…"
+                    : "Saving…"
+                  : lang === "th"
+                    ? "บันทึกและไปต่อ"
+                    : "Save & continue"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
