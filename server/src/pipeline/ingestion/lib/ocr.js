@@ -13,6 +13,7 @@ import path from 'node:path';
 import { PDFParse } from 'pdf-parse';
 import { pdf } from 'pdf-to-img';
 import { createWorker } from 'tesseract.js';
+import { textLayerOf } from './text-layer.js';
 
 const require = createRequire(import.meta.resolve('pdf-to-img'));
 const pdfjsDistPkg = require.resolve('pdfjs-dist/package.json');
@@ -171,7 +172,8 @@ async function tryEmbeddedDigitalText(buffer) {
       .filter(Boolean);
 
     const combinedText = formattedPages.join('\n\n').trim();
-    const isDigital = combinedText.length >= 50;
+    // A garbled layer (an old non-Unicode Thai font) is OCR'd like a scan
+    const isDigital = textLayerOf(combinedText) === 'text';
 
     return {
       isDigital,

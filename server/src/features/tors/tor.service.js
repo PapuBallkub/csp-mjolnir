@@ -41,6 +41,20 @@ export function displayStatus(status, deadline, now = new Date()) {
  * status was never brought up to date can't show a signed contract as open.
  */
 const HAS_WINNER = { $gt: [{ $strLenCP: { $ifNull: ['$contract.winnerName', ''] } }, 0] };
+
+/*
+ * The same goes for the facts the Tor holds, read from the feed or from the
+ * e-GP package's documents (ADR 0020): the agency, budget, ราคากลาง and when
+ * bids close. A changed invitation updates them on the Tor, and the page
+ * shows them without another extraction. Where the Tor has none, the
+ * insight's own value stands. A price of 0 is "none" (ADR 0014).
+ */
+const torValue = (field) => ({ $first: `$_tor.${field}` });
+const torPrice = (field, fallback) => ({ $cond: [{ $gt: [torValue(field), 0] }, torValue(field), fallback] });
+const torText = (field, fallback) => ({
+  $cond: [{ $gt: [{ $strLenCP: { $ifNull: [torValue(field), ''] } }, 0] }, torValue(field), fallback],
+});
+
 const LIVE_STATUS = [
   {
     $lookup: {
@@ -52,6 +66,10 @@ const LIVE_STATUS = [
           $project: {
             _id: 0,
             isAmended: 1,
+            agency: 1,
+            budgetTHB: 1,
+            referencePriceTHB: 1,
+            submissionDeadline: 1,
             status: { $cond: [HAS_WINNER, 'Awarded', '$status'] },
             contractSigned: HAS_WINNER,
             // The stage e-GP announced last (ADR 0017), only for TORs the feed
@@ -75,6 +93,10 @@ const LIVE_STATUS = [
       'amendmentInfo.isAmended': { $ifNull: [{ $first: '$_tor.isAmended' }, '$amendmentInfo.isAmended'] },
       contractSigned: { $ifNull: [{ $first: '$_tor.contractSigned' }, false] },
       latestAnnouncement: { $ifNull: [{ $first: '$_tor.latestAnnouncement' }, null] },
+      'identification.agency': torText('agency', '$identification.agency'),
+      'facts.budgetTHB': torPrice('budgetTHB', '$facts.budgetTHB'),
+      'facts.referencePriceTHB': torPrice('referencePriceTHB', '$facts.referencePriceTHB'),
+      'facts.submissionDeadline': { $ifNull: [torValue('submissionDeadline'), '$facts.submissionDeadline'] },
     },
   },
   { $unset: '_tor' },
@@ -94,6 +116,13 @@ function withLiveStatus(insight, tor) {
     identification: {
       ...insight.identification,
       status: tor.contract?.winnerName ? 'Awarded' : (tor.status ?? insight.identification?.status),
+      agency: tor.agency || insight.identification?.agency,
+    },
+    facts: {
+      ...insight.facts,
+      budgetTHB: tor.budgetTHB > 0 ? tor.budgetTHB : (insight.facts?.budgetTHB ?? null),
+      referencePriceTHB: tor.referencePriceTHB > 0 ? tor.referencePriceTHB : (insight.facts?.referencePriceTHB ?? null),
+      submissionDeadline: tor.submissionDeadline ?? insight.facts?.submissionDeadline ?? null,
     },
     amendmentInfo: { ...insight.amendmentInfo, isAmended: tor.isAmended ?? insight.amendmentInfo?.isAmended },
   };
@@ -400,6 +429,10 @@ export async function getTorByProjectId(projectId, { showUnreviewed, now = new D
         source: 1,
         status: 1,
         isAmended: 1,
+        agency: 1,
+        budgetTHB: 1,
+        referencePriceTHB: 1,
+        submissionDeadline: 1,
         announceType: 1,
         'announcementHistory.publishedAt': 1,
         'contract.winnerName': 1,

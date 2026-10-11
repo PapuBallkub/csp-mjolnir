@@ -43,6 +43,9 @@ const LIVE = {
   cancelled: '99999000008', // amended (D2), then cancelled (D1)
   awarded: '99999000009', // winner announced (W0) after its deadline passed
   contracted: '99999000010', // stored as Open, but data.go.th has its signed contract
+  // A changed invitation gave the Tor a new ราคากลาง and bid date, read from
+  // its documents after extraction (ADR 0020)
+  changed: '99999000011',
 };
 const LIVE_IDS = Object.values(LIVE);
 const liveInsight = (projectId, deadline) => ({
@@ -69,6 +72,9 @@ before(async () => {
     liveInsight(LIVE.cancelled, new Date(Date.now() + 7 * DAY)),
     liveInsight(LIVE.awarded, new Date(Date.now() - 3 * DAY)),
     liveInsight(LIVE.contracted, new Date(Date.now() + 7 * DAY)),
+    { ...liveInsight(LIVE.changed, new Date(Date.now() + 7 * DAY)), facts: {
+      budgetTHB: 2_900_000, referencePriceTHB: 3_000_000, submissionDeadline: new Date(Date.now() + 7 * DAY),
+    } },
   ]);
   await Tor.insertMany([
     {
@@ -91,6 +97,22 @@ before(async () => {
       title: 'ทดสอบสถานะสด',
       status: 'Open',
       contract: { winnerName: 'บริษัท ผู้ชนะ จำกัด' },
+    },
+    {
+      projectId: LIVE.changed,
+      source: 'process3',
+      title: 'ทดสอบสถานะสด',
+      status: 'Open',
+      isAmended: true,
+      agency: 'กรมจากเอกสาร',
+      budgetTHB: 0, // an old record's 0 is no budget (ADR 0014): the insight's stands
+      referencePriceTHB: 3_100_000,
+      submissionDeadline: new Date(Date.now() + 20 * DAY),
+      announceType: 'D2',
+      announcementHistory: [
+        { code: 'D0', type: 'invitation', publishedAt: new Date('2026-10-01') },
+        { code: 'D2', type: 'amendment', publishedAt: new Date('2026-10-06') },
+      ],
     },
   ]);
 
@@ -384,4 +406,26 @@ test('each TOR says which e-GP stage it reached last, and whether a contract is 
   // An insight without a Tor has neither
   const orphan = await getTorByProjectId('99999000002', PILOT);
   assert.deepEqual([orphan.latestAnnouncement, orphan.contractSigned], [null, false]);
+});
+
+test("the Tor's facts from the documents show without another extraction: list, filters, detail (ADR 0020)", async () => {
+  const listed = (await listTors({ q: 'ทดสอบสถานะสด', limit: 50 }, PILOT)).tors.find((tor) => tor.projectId === LIVE.changed);
+  assert.equal(listed.facts.referencePriceTHB, 3_100_000);
+  assert.equal(listed.facts.budgetTHB, 2_900_000, 'a Tor budget of 0 is none: the insight keeps its own');
+  assert.equal(listed.identification.agency, 'กรมจากเอกสาร');
+
+  // The bid date moved 20 days out: no longer "closing within 10 days"
+  assert.ok(!(await liveIds({ closingWithin: '10' })).includes(LIVE.changed));
+  assert.ok((await liveIds({ closingWithin: '30' })).includes(LIVE.changed));
+
+  const detail = await getTorByProjectId(LIVE.changed, PILOT);
+  assert.equal(detail.facts.referencePriceTHB, 3_100_000);
+  assert.equal(detail.facts.budgetTHB, 2_900_000);
+  assert.equal(detail.identification.agency, 'กรมจากเอกสาร');
+  assert.ok(new Date(detail.facts.submissionDeadline) > new Date(Date.now() + 19 * DAY));
+
+  // A Tor with none of these keeps the insight's copy
+  const cancelled = await getTorByProjectId(LIVE.cancelled, PILOT);
+  assert.equal(cancelled.facts.referencePriceTHB, 3_000_000);
+  assert.equal(cancelled.identification.agency, 'หน่วยงานทดสอบสถานะ');
 });

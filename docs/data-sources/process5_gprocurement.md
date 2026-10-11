@@ -78,6 +78,23 @@ One zip also held a `Retention Bond` form.
 | The TOR, under any name: `Attach_TOR_1.pdf`, `TOR Smart Touchpoint.pdf`, `PPC.29092569.pdf` | **Often a scan** (6 of 8) | Scope, deliverables, technical requirements; sometimes the budget |
 | `Attach_PUB_1.pdf` and similar (sometimes) | Real text | Agency extras; one was a bid-bond payment form |
 
+**What 28 more packages added (2026-10-11):**
+- **e-GP's typed TOR:** `tor_<projectId>_<uuid>.pdf`, "ร่างรายละเอียด
+  ขอบเขตของงานทั้งโครงการ (TOR)" in real text, 3–5 pages. Seen in 3 packages,
+  sometimes beside a scanned `Attach_TOR_1`.
+- **A TOR in parts:** `Attach_TOR_1` to `_3`. The main part was part 1 in one
+  package and part 2 in another, and the largest was a cover page and
+  drawings. So all parts are the TOR.
+- **More blank forms:** `price adjustment.pdf` (the construction price-adjustment
+  form, 14 scanned pages, byte-identical in 13 packages) and `bill_payment.pdf`.
+- **Construction price build-ups:** `<number>_02.pdf` ("แบบแสดงรายการ ปริมาณงาน
+  และราคา" or "แบบฟอร์มรายงานหรือสรุปราคากลางงานก่อสร้าง…"), always next to
+  `<number>.xls`; and `Attach_BOQ_n` bills of quantities.
+- **Agency uploads under any name:** `Image220926024742.pdf` (drawings),
+  `20261002142815.pdf`, `Scan_20260917 (6).pdf`, `BP-51M55_….pdf`.
+- **An announcement that splits the word ราคากลาง** across lines ("ราคา … /
+  กลางของงาน"), and one published with the amount blank.
+
 **Reading the files:**
 - **Filled-in values come out of order.** The announcement and bidding document
   are filled-in forms, so their text lists the values after the template
@@ -148,26 +165,36 @@ an error page.
 
 ## How the pipeline uses it now
 
-Code, as of 2026-10-11:
-1. Ask for the announcement package. If there isn't one, take the price
-   package.
-2. Download the zip and keep **one** PDF, chosen by file name: `tor` scores
-   100, `annou` 80, `bidding` 70, `doc_` 60, `pb0` 50, anything else 10.
-   Save it as `server/data/documents/<projectId>_TOR.pdf`. Files over 50 MB
-   are refused.
-3. Read the announcement's text as "companion text". It feeds only the rough
-   hints in `parseTorDocument` (such as "Server / Data Center") and is not
-   stored.
+Code, since [0020](../decisions/0020-read-the-whole-egp-package.md)
+(`lib/tor-downloader.js`, `lib/egp-package.js`):
+1. **Ask for the announcement package.** If e-GP has none, the download fails;
+   the price package is no stand-in. A `zipId` already downloaded isn't
+   downloaded again.
+2. **Keep the project files** in `server/data/documents/<projectId>/<package>/`
+   and leave out the blank forms. Files over 50 MB are refused.
+3. **Pick the TOR's files** by elimination among the rest:
+   - e-GP's typed TOR (`tor_<projectId>_<uuid>.pdf`) when it has a text layer;
+   - else every file named as a TOR, in order;
+   - else the largest PDF.
+   Price build-ups and payment forms are never the TOR.
+4. **Read the announcement and the bidding document in code:** the agency,
+   ราคากลาง and bid window, each with the sentence it came from. A text layer
+   under 20% Thai counts as no text layer.
 
-**Known gaps** follow from the map above:
-- **The wrong file can win.** A TOR named `PPC.29092569.pdf` scores below the
-  announcement, so the 2-page announcement would be kept as "the TOR".
-- **Garbage text skips OCR.** `ocr.js` treats any PDF with 50 characters of
-  text as digital, so a garbled text layer goes straight to the AI.
-- **The announcement and the bidding document are thrown away,** although they
-  hold the bid date, ราคากลาง and eligibility in clean text.
-- **The price form is fetched only as a fallback,** so the budget comes from
-  OCR of the TOR when it's there at all.
+On 2026-10-11 this read 28 packages:
+- **Agency:** found in all 28.
+- **ราคากลาง:** found in 27; one agency had published it blank.
+- **Bid window:** found for every invitation, and correctly none for the 6
+  drafts.
+- **Multi-part TORs:** 4.
+
+**Known gaps:**
+- **The budget isn't read yet.** It's on the price form, in the separate price
+  package.
+- **The bidding document isn't given to the AI yet,** though its text is stored.
+- **A TOR with no recognisable name is a guess** (the largest file). Of four
+  such packages, the guess found the TOR or its specification in three; the
+  fourth held only drawings.
 
 ## Corrections to the previous version of this page
 

@@ -37,10 +37,7 @@ import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
 import { FEED_HOURS, fetchFromProcess3 } from './sources/process3.js';
 import { fetchFromDataGo } from './sources/datago.js';
 import { PREVIEW_PAGES, extractText, isPreviewRead } from './lib/ocr.js';
-import {
-  resolveAndDownloadEgpTorDocument,
-  parseTorDocument,
-} from './lib/tor-downloader.js';
+import { downloadEgpPackage } from './lib/tor-downloader.js';
 
 const DOCUMENTS_DIR =
   process.env.DOCUMENTS_DIR ||
@@ -176,15 +173,117 @@ function reportSourceErrors(errors) {
 }
 
 /**
- * Service 2: Download attached TOR packages/PDFs from e-GP backend.
+ * Records a new package on a TOR (ADR 0020): its files and facts, and its TOR
+ * as the document. The facts are the documents' own, like the feed's:
+ * - the agency, only where the feed gave none;
+ * - ราคากลาง and when bids close, wherever this package states them. One that
+ *   doesn't, a draft's empty bid date say, leaves the last value standing.
+ *
+ * @returns {{ torChanged: boolean }} Whether the TOR's bytes changed, which
+ *   means it must be read again
  */
-export async function runDownloadStep({ id, documentsDir, source = 'manual', retryFailed = false }) {
-  console.log('\n[Service 2: DOWNLOAD] Resolving and downloading TOR PDFs...');
+export function applyPackage(tor, { package: pkg, tor: file }) {
+  tor.packages.push(pkg);
+  tor.packageCheckNeeded = false;
+
+  const { agency, referencePriceTHB, submissionWindow } = pkg.facts;
+  if (agency && !tor.agency) tor.agency = agency.value;
+  if (referencePriceTHB) tor.referencePriceTHB = referencePriceTHB.value;
+  if (submissionWindow) tor.submissionDeadline = submissionWindow.closesAt;
+
+  const before = tor.document?.contentHash ?? null;
+  const torChanged = file.contentHash !== before;
+  tor.document = {
+    fileName: file.fileName,
+    storagePath: file.storagePath,
+    sizeBytes: file.sizeBytes,
+    pages: file.pages,
+    documentType: file.documentType,
+    contentHash: file.contentHash,
+    // A new version only when there was an earlier one and it differs
+    version: (tor.document?.version ?? 1) + (before && torChanged ? 1 : 0),
+    parts: file.parts ?? [],
+  };
+  return { torChanged };
+}
+
+/**
+ * OCRs a TOR as one document (ADR 0020), whether it's one file or several. A
+ * preview spends its page budget across the parts in order; a part left
+ * unread makes the result a preview. Each part's text is headed by its name.
+ *
+ * @param {{ storagePath: string, fileName?: string, pages?: number }[]} parts
+ * @param {{ maxPages?: number }} options
+ * @param {Function} ocr - extractText
+ */
+export async function readTorParts(parts, options, ocr) {
+  if (parts.length === 1) return ocr(parts[0].storagePath, options);
+
+  let budget = options.maxPages ?? Infinity;
+  const reads = [];
+  for (const part of parts) {
+    if (budget <= 0) {
+      reads.push({ part, read: null });
+      continue;
+    }
+    const read = await ocr(part.storagePath, Number.isFinite(budget) ? { maxPages: budget } : {});
+    reads.push({ part, read });
+    if (read.usedOcr) budget -= read.pagesRead ?? 0; // a text layer costs no OCR
+  }
+
+  const done = reads.filter(({ read }) => read);
+  const pagesRead = done.reduce((sum, { read }) => sum + (read.pagesRead ?? 0), 0);
+  const ocrPages = done.filter(({ read }) => read.usedOcr).reduce((sum, { read }) => sum + read.pagesRead, 0);
+  return {
+    text: done.map(({ part, read }) => `=== ${part.fileName ?? path.basename(part.storagePath)} ===\n${read.text}`).join('\n\n'),
+    pages: reads.reduce((sum, { part, read }) => sum + (read?.pages ?? part.pages ?? 0), 0),
+    pagesRead,
+    usedOcr: done.some(({ read }) => read.usedOcr),
+    // OCR's own confidence, by how many pages each part had read that way,
+    // to two decimals like extractText's
+    confidence: ocrPages
+      ? Math.round(
+          (done.filter(({ read }) => read.usedOcr).reduce((sum, { read }) => sum + read.confidence * read.pagesRead, 0) /
+            ocrPages) *
+            100,
+        ) / 100
+      : 1,
+    truncated: reads.some(({ read }) => !read || read.truncated),
+  };
+}
+
+const describeFacts = ({ agency, referencePriceTHB, submissionWindow }) =>
+  [
+    agency && `agency ${agency.value}`,
+    referencePriceTHB && `ราคากลาง ${referencePriceTHB.value.toLocaleString()}`,
+    submissionWindow && `bids close ${submissionWindow.closesAt.toISOString()}`,
+  ]
+    .filter(Boolean)
+    .join(' · ') || 'no facts stated';
+
+/**
+ * Service 2: Download each workable TOR's e-GP package (ADR 0020): a new
+ * project's, one whose project moved to a new stage, and one downloaded
+ * before packages were kept. A package already downloaded isn't again.
+ *
+ * @param {Function} [options.download] - downloadEgpPackage; replaced in tests
+ */
+export async function runDownloadStep({
+  id,
+  documentsDir,
+  source = 'manual',
+  retryFailed = false,
+  download = downloadEgpPackage,
+}) {
+  console.log('\n[Service 2: DOWNLOAD] Downloading e-GP document packages...');
   await fs.mkdir(documentsDir, { recursive: true });
 
   // Only TORs still to come or open: a cancelled or awarded one isn't a job,
   // so its documents aren't worth fetching (ADR 0018)
-  let queryFilter = { pipelineStatus: 'fetched', ...WORKABLE };
+  let queryFilter = {
+    ...WORKABLE,
+    $or: [{ pipelineStatus: 'fetched' }, { packageCheckNeeded: true }, { 'packages.0': { $exists: false } }],
+  };
   if (id) {
     queryFilter = { projectId: id };
   }
@@ -193,16 +292,11 @@ export async function runDownloadStep({ id, documentsDir, source = 'manual', ret
 
   // If targeting a specific ID not yet in the DB, create placeholder so we can download it
   if (id && candidates.length === 0) {
-    const expectedPdfPath = path.join(documentsDir, `${id}_TOR.pdf`);
     const placeholder = new Tor({
       projectId: id,
       title: `Project ${id}`,
       source: ['process3', 'datago'].includes(source) ? source : 'manual',
       pipelineStatus: 'fetched',
-      document: {
-        fileName: `${id}_TOR.pdf`,
-        storagePath: fsSync.existsSync(expectedPdfPath) ? expectedPdfPath : null,
-      },
     });
     candidates = [placeholder];
   }
@@ -219,55 +313,42 @@ export async function runDownloadStep({ id, documentsDir, source = 'manual', ret
 
   for (let i = 0; i < candidates.length; i++) {
     const tor = candidates[i];
-    const expectedPdfName = `${tor.projectId}_TOR.pdf`;
-    const targetPdfPath = path.join(documentsDir, expectedPdfName);
-
     console.log(`     [${i + 1}/${candidates.length}] Project ${tor.projectId}...`);
 
-    let documentInfo = null;
-    let isDownloaded = false;
+    const result = await download({
+      projectId: tor.projectId,
+      documentsDir,
+      knownZipIds: (tor.packages ?? []).map((pkg) => pkg.zipId),
+    });
 
-    if (fsSync.existsSync(targetPdfPath)) {
-      console.log(`        Already exists on disk: ${expectedPdfName}`);
-      documentInfo = await parseTorDocument(targetPdfPath);
-      isDownloaded = true;
-    } else {
-      const dlRes = await resolveAndDownloadEgpTorDocument({
+    if (!result.success) {
+      const note = await noteFailure({
         projectId: tor.projectId,
-        destDir: documentsDir,
-        fileName: expectedPdfName,
+        step: 'download',
+        error: result.error,
+        transient: Boolean(result.transient),
       });
-
-      if (dlRes.success) {
-        console.log(`        Downloaded: ${expectedPdfName} (${(dlRes.sizeBytes / 1024).toFixed(1)} KB)`);
-        documentInfo = await parseTorDocument(dlRes.filePath, dlRes.companionText || '');
-        isDownloaded = true;
-      } else {
-        const note = await noteFailure({
-          projectId: tor.projectId,
-          step: 'download',
-          error: dlRes.error,
-          transient: Boolean(dlRes.transient),
-        });
-        console.warn(`        Download failed: ${dlRes.error}${note}`);
-      }
+      console.warn(`        Download failed: ${result.error}${note}`);
+      continue;
     }
 
-    if (isDownloaded) {
-      tor.document = {
-        fileName: expectedPdfName,
-        storagePath: targetPdfPath,
-        sizeBytes: fsSync.statSync(targetPdfPath).size,
-        pages: documentInfo?.totalPages || null,
-        documentType: documentInfo?.documentType || 'UNKNOWN',
-        contentHash: documentInfo?.contentHash || null,
-        version: tor.document?.version || 1,
-      };
-      tor.pipelineStatus = 'downloaded';
-      await tor.save();
-      await clearFailure({ projectId: tor.projectId, step: 'download' });
-      successCount++;
+    if (result.unchanged) {
+      tor.packageCheckNeeded = false;
+      console.log(`        Package unchanged (${result.zipId})`);
+    } else {
+      const { torChanged } = applyPackage(tor, result);
+      // A new TOR is read again; one whose bytes didn't change keeps its text
+      if (torChanged || tor.pipelineStatus === 'fetched') tor.pipelineStatus = 'downloaded';
+      const kept = result.package.files.map((file) => `${file.fileName} (${file.role})`).join(', ');
+      console.log(`        Package ${result.package.name}: ${kept}`);
+      console.log(`        Read: ${describeFacts(result.package.facts)}`);
+      for (const problem of result.package.problems) console.warn(`        ! ${problem}`);
+      const more = result.tor.parts.length > 1 ? ` + ${result.tor.parts.length - 1} more part(s)` : '';
+      console.log(`        TOR: ${result.tor.fileName}${more}${torChanged ? '' : ' (unchanged, not read again)'}`);
     }
+    await tor.save();
+    await clearFailure({ projectId: tor.projectId, step: 'download' });
+    successCount++;
   }
 
   return successCount;
@@ -315,18 +396,23 @@ export async function runOcrStep({ id, documentsDir, source = 'manual', retryFai
       }
     }
   } else {
-    previews = await Tor.find({
-      pipelineStatus: 'downloaded',
-      'document.storagePath': { $ne: null },
-      ...WORKABLE,
+    // A TOR already extracted as IT whose file changed is read whole: a
+    // preview would be classified again, and hide its page meanwhile (ADR 0020)
+    const extracted = await TorInsight.distinct('projectId', {
+      'metadata.excluded': null,
+      'metadata.awaitingFullText': { $ne: true },
     });
+    const downloaded = { pipelineStatus: 'downloaded', 'document.storagePath': { $ne: null }, ...WORKABLE };
+    previews = await Tor.find({ ...downloaded, projectId: { $nin: extracted } });
 
     // Extraction says which previews are IT; ingestion only reads that (ADR 0013)
     const waiting = await TorInsight.distinct('projectId', { 'metadata.awaitingFullText': true });
     fullReads = await Tor.find({
-      pipelineStatus: 'ocr_preview',
-      projectId: { $in: waiting },
       ...WORKABLE,
+      $or: [
+        { pipelineStatus: 'ocr_preview', projectId: { $in: waiting } },
+        { ...downloaded, projectId: { $in: extracted } },
+      ],
     });
   }
 
@@ -351,18 +437,22 @@ export async function runOcrStep({ id, documentsDir, source = 'manual', retryFai
   for (const [i, { tor, preview }] of queue.entries()) {
     const label = `     [${i + 1}/${queue.length}]`;
     const pdfPath = tor.document?.storagePath || path.join(documentsDir, `${tor.projectId}_TOR.pdf`);
+    // A TOR in several files is read as one document (ADR 0020)
+    const parts = tor.document?.parts?.length ? tor.document.parts : [{ storagePath: pdfPath }];
 
-    if (!fsSync.existsSync(pdfPath)) {
-      const error = `File not found at ${pdfPath}`;
+    const missing = parts.find((part) => !fsSync.existsSync(part.storagePath));
+    if (missing) {
+      const error = `File not found at ${missing.storagePath}`;
       const note = await noteFailure({ projectId: tor.projectId, step: 'ocr', error, inputKey: pdfHashOf(tor) });
       console.warn(`${label} Skipping ${tor.projectId}: ${error}${note}`);
       continue;
     }
 
-    console.log(`${label} ${preview ? 'Previewing' : 'Reading whole'}: ${tor.projectId} (${path.basename(pdfPath)})`);
+    const files = parts.length > 1 ? `${parts.length} files` : path.basename(pdfPath);
+    console.log(`${label} ${preview ? 'Previewing' : 'Reading whole'}: ${tor.projectId} (${files})`);
 
     try {
-      const ocrResult = await ocr(pdfPath, preview ? { maxPages: PREVIEW_PAGES } : {});
+      const ocrResult = await readTorParts(parts, preview ? { maxPages: PREVIEW_PAGES } : {}, ocr);
       // A short scan or a digital PDF was read whole even on the preview pass
       const isPreview = preview && isPreviewRead(ocrResult);
       tor.ocr = {
