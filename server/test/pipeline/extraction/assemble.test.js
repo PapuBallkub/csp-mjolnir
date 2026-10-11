@@ -27,6 +27,43 @@ test('the assembled record passes the TorInsight model\'s own validation', () =>
   assert.equal(new TorInsight(build()).validateSync(), undefined);
 });
 
+test("the package's bid date and ราคากลาง win, quoting the document that states them (ADR 0020)", () => {
+  const closes = new Date('2026-08-19T05:00:00Z'); // 19 Aug 2569, 12:00 Bangkok
+  const statedPrice = { value: 12_400_000, quote: '๑๒,๔๐๐,๐๐๐.๐๐ บาท (สิบสองล้านสี่แสนบาทถ้วน)', document: 'announcement' };
+  const record = build({
+    change: (input) => {
+      input.tor.referencePriceTHB = 12_400_000;
+      input.tor.submissionDeadline = closes;
+      input.tor.packages = [
+        {
+          facts: {
+            referencePriceTHB: statedPrice,
+            submissionWindow: {
+              opensAt: new Date('2026-08-19T02:00:00Z'),
+              closesAt: closes,
+              quote: '๑๙ สิงหาคม ๒๕๖๙ ระหว่างเวลา ๐๙.๐๐ น. ถึง ๑๒.๐๐ น.',
+              document: 'bidding',
+            },
+          },
+        },
+        // A later package that doesn't state them leaves the earlier sentences standing
+        { facts: { referencePriceTHB: null, submissionWindow: null } },
+      ];
+    },
+  });
+
+  // The TOR said 18 Aug 16:30; the documents' value is the one kept, with their quote
+  assert.equal(record.facts.submissionDeadline.toISOString(), closes.toISOString());
+  assert.deepEqual(record.evidence.submissionDeadline, {
+    quote: '๑๙ สิงหาคม ๒๕๖๙ ระหว่างเวลา ๐๙.๐๐ น. ถึง ๑๒.๐๐ น.',
+    page: null,
+    document: 'bidding',
+  });
+  assert.equal(record.facts.referencePriceTHB, 12_400_000);
+  assert.deepEqual(record.evidence.referencePriceTHB, { quote: statedPrice.quote, page: null, document: 'announcement' });
+  assert.equal(new TorInsight(record).validateSync(), undefined);
+});
+
 test('the feed wins on prices, and the document fills what the feed lacks', () => {
   const { facts, evidence } = build();
 

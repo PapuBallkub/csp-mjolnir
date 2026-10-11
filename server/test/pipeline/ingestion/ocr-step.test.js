@@ -21,6 +21,7 @@ const ID = {
   cancelled: '55555100005',
   itPreview: '55555100006', // classify said IT: read whole now
   notItPreview: '55555100007', // classify said not IT: left as it is
+  itChanged: '55555100008', // extracted as IT, then a new package changed its TOR: read whole
 };
 
 // What the fake OCR reads for each document, by whether it was limited
@@ -29,6 +30,7 @@ const READS = {
   [ID.shortScan]: () => ({ usedOcr: true, pages: 4, pagesRead: 4, truncated: false }),
   [ID.digital]: () => ({ usedOcr: false, pages: 40, pagesRead: 40, truncated: false }),
   [ID.itPreview]: (limited) => ({ usedOcr: true, pages: 30, pagesRead: limited ? 6 : 30, truncated: limited }),
+  [ID.itChanged]: (limited) => ({ usedOcr: true, pages: 30, pagesRead: limited ? 6 : 30, truncated: limited }),
 };
 
 let documentsDir;
@@ -66,11 +68,13 @@ before(async () => {
     tor(ID.cancelled, { status: 'Cancelled' }),
     tor(ID.itPreview, { pipelineStatus: 'ocr_preview', ocr: { rawText: 'บางหน้า', preview: true, pagesRead: 6 } }),
     tor(ID.notItPreview, { pipelineStatus: 'ocr_preview', ocr: { rawText: 'บางหน้า', preview: true, pagesRead: 6 } }),
+    tor(ID.itChanged),
   ]);
   // What extraction decided about the two previews (the model's fields aren't needed here)
   await TorInsight.collection.insertMany([
     { projectId: ID.itPreview, metadata: { awaitingFullText: true } },
     { projectId: ID.notItPreview, metadata: { excluded: { reason: 'ซื้อเตียงผ่าตัด' } } },
+    { projectId: ID.itChanged, metadata: { excluded: null } }, // a full IT result, public
   ]);
 
   await runOcrStep({ documentsDir, ocr: fakeOcr });
@@ -116,4 +120,11 @@ test('OCR step: a TOR that is past (a winner, or cancelled) is never read', asyn
     assert.equal((await stored(id)).pipelineStatus, 'downloaded', id);
     assert.ok(!calls.some((call) => call.id === id), id);
   }
+});
+
+test('OCR step: a TOR already extracted as IT whose file changed is read whole, not previewed (ADR 0020)', async () => {
+  const doc = await stored(ID.itChanged);
+  assert.equal(doc.pipelineStatus, 'ocr_done');
+  assert.deepEqual([doc.ocr.preview, doc.ocr.pagesRead], [false, 30]);
+  assert.deepEqual(calls.find((call) => call.id === ID.itChanged).options, {});
 });

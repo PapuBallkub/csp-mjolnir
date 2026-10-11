@@ -16,6 +16,10 @@
  * yet. Only the types of a project still to come or open do. A cancellation
  * or a winner only updates a project we already follow; for one we never saw,
  * it is past data.
+ *
+ * `buildsPackage`: whether e-GP builds a new document package for this stage
+ * (ADR 0020): a draft, an invitation, a changed invitation. A project already
+ * downloaded is then checked for new files.
  */
 
 /**
@@ -31,6 +35,7 @@
  *   impliedStatus: 'Draft' | 'Open' | 'Awarded' | 'Cancelled' | null,
  *   setsAmended: boolean,
  *   discovers: boolean,
+ *   buildsPackage: boolean,
  * }>}
  */
 export const EGP_ANNOUNCEMENT_CODES = {
@@ -41,6 +46,7 @@ export const EGP_ANNOUNCEMENT_CODES = {
     impliedStatus: null, // information only: the project's stage doesn't change
     setsAmended: false,
     discovers: true,
+    buildsPackage: false,
   },
   B0: {
     type: 'draft_tor',
@@ -49,6 +55,7 @@ export const EGP_ANNOUNCEMENT_CODES = {
     impliedStatus: 'Draft', // out for public comment; bids aren't open yet
     setsAmended: false,
     discovers: true,
+    buildsPackage: true,
   },
   D0: {
     type: 'invitation',
@@ -57,6 +64,7 @@ export const EGP_ANNOUNCEMENT_CODES = {
     impliedStatus: 'Open',
     setsAmended: false,
     discovers: true,
+    buildsPackage: true,
   },
   D2: {
     type: 'amendment',
@@ -65,6 +73,7 @@ export const EGP_ANNOUNCEMENT_CODES = {
     impliedStatus: 'Open', // still taking bids, on changed terms
     setsAmended: true,
     discovers: true,
+    buildsPackage: true,
   },
   D1: {
     type: 'invitation_cancelled',
@@ -73,6 +82,7 @@ export const EGP_ANNOUNCEMENT_CODES = {
     impliedStatus: 'Cancelled',
     setsAmended: false,
     discovers: false,
+    buildsPackage: false,
   },
   W0: {
     type: 'winner',
@@ -81,6 +91,7 @@ export const EGP_ANNOUNCEMENT_CODES = {
     impliedStatus: 'Awarded',
     setsAmended: false,
     discovers: false,
+    buildsPackage: false,
   },
   W2: {
     type: 'winner_changed',
@@ -89,6 +100,7 @@ export const EGP_ANNOUNCEMENT_CODES = {
     impliedStatus: 'Awarded',
     setsAmended: false,
     discovers: false,
+    buildsPackage: false,
   },
   W1: {
     type: 'winner_cancelled',
@@ -98,6 +110,7 @@ export const EGP_ANNOUNCEMENT_CODES = {
     impliedStatus: 'Cancelled',
     setsAmended: false,
     discovers: false,
+    buildsPackage: false,
   },
 };
 

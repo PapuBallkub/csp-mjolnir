@@ -54,8 +54,9 @@ Used as the values of the `evidence` map (§3.2b): where an extracted value came
 
 | Field | Type | Required | Default | Description | Example |
 |---|---|---|---|---|---|
-| `quote` | `String` | Yes | — | The exact text in the TOR that states the value | `"ราคากลาง ๑,๘๕๐,๐๐๐ บาท"` |
-| `page` | `Number` | No | `null` | The page it's on | `3` |
+| `quote` | `String` | Yes | — | The exact text that states the value | `"ราคากลาง ๑,๘๕๐,๐๐๐ บาท"` |
+| `page` | `Number` | No | `null` | The TOR page it's on; null for a quote from another document | `3` |
+| `document` | `String` | No | `null` | Where the quote is: null for the TOR; `announcement` or `bidding` for a value read in code from the package's announcement or bidding document ([0020](../decisions/0020-read-the-whole-egp-package.md)) | `"announcement"` |
 
 ### 2.4 `technologySchema`
 Used in `technicalRequirements.requiredTechnologies`.
@@ -138,12 +139,13 @@ Used in `metadata.excluded`, when the classify step finds the document isn't IT.
 Our own numbers, such as the historical median and average, are **not** facts. They live in `analytics.priceAnalysis`.
 
 ### 3.2b `evidence` (Where each fact came from)
-A map from a field name inside `facts` to an `evidenceSchema` (§2.3). Every value the AI extracts carries its quote and page, so a reviewer can check it against the TOR and the grounding check can find it in `rawText`. Values copied from the feed have no entry.
+A map from a field name inside `facts` to an `evidenceSchema` (§2.3). Every value the AI extracts carries its quote and page, so a reviewer can check it against the TOR and the grounding check can find it in `rawText`. A value the package's documents state (ราคากลาง, the bid deadline) carries their sentence and the document's name instead. Values copied from the feed have no entry.
 
 ```json
 "evidence": {
-  "referencePriceTHB": { "quote": "ราคากลาง ๑,๘๕๐,๐๐๐ บาท", "page": 3 },
-  "submissionDeadline": { "quote": "ยื่นข้อเสนอภายในวันที่ ๑๘ สิงหาคม ๒๕๖๙", "page": 1 }
+  "referencePriceTHB": { "quote": "๑,๒๙๐,๔๒๐.๐๐ บาท (หนึ่งล้านสองแสนเก้าหมื่นสี่ร้อยยี่สิบบาทถ้วน)", "page": null, "document": "announcement" },
+  "submissionDeadline": { "quote": "๑๙ ตุลาคม ๒๕๖๙ ระหว่างเวลา ๐๙.๐๐ น. ถึง ๑๒.๐๐ น.", "page": null, "document": "bidding" },
+  "deliveryPeriodDays": { "quote": "ให้แล้วเสร็จภายใน ๑๕๐ วัน", "page": 9 }
 }
 ```
 

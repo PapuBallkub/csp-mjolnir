@@ -93,8 +93,22 @@ npm run ingest:fetch -- --source process3 --query "ซอฟต์แวร์" 
 ```
 
 ### `npm run ingest:download`
-**Downloads the PDF** for every workable `fetched` TOR, or for one TOR with
-`--id`. A file that is already on disk is reused, not downloaded again.
+**Downloads each workable TOR's e-GP package** ([0020](decisions/0020-read-the-whole-egp-package.md)),
+or one TOR's with `--id`. It takes:
+- a new project (`fetched`);
+- a project the feed has announced at a new stage (`packageCheckNeeded`);
+- a project downloaded before packages were kept.
+
+What it does with a package:
+- **Keeps the project files** in `server/data/documents/<projectId>/<package>/`:
+  the announcement, the bidding document, the TOR (in one file or several),
+  and any extra file. e-GP's blank forms are left out.
+- **Reads the agency, ราคากลาง and bid window** from the announcement and the
+  bidding document, in code, and keeps them on the `Tor`. The run prints them.
+- **Never downloads a package twice.** e-GP's `zipId` tells; one look at e-GP
+  and nothing else.
+- **Sends the TOR back to OCR only if it changed.** A new package whose TOR is
+  the same updates the facts and nothing else.
 
 ```
 npm run ingest:download
@@ -107,10 +121,13 @@ npm run ingest:download -- --id 68039469567
    (`ocr_preview`). A digital PDF, or a scan of 6 pages or fewer, is read whole
    (`ocr_done`).
 2. **Full:** each preview that classify found to be IT is read whole
-   (`ocr_done`).
+   (`ocr_done`). So is a TOR already extracted as IT whose file changed: a
+   preview would hide its page until extraction caught up.
 
 A digital PDF is read in seconds; a scan goes through Tesseract OCR at about
-4 s a page.
+4 s a page. A text layer that isn't Thai (an old non-Unicode font) is OCR'd
+like a scan. A TOR in several files is read as one document, in order; a
+preview's 6 pages are spent across them.
 
 With `--id`, it reads that TOR whole, whatever its status. Use that after
 changing an OCR setting.

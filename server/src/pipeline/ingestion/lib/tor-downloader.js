@@ -1,11 +1,11 @@
 /**
  * server/src/pipeline/ingestion/lib/tor-downloader.js
  *
- * Shared helper module for automated TOR downloader & parser.
- * Handles:
- * 1. Safe streaming download of TOR PDFs with size caps (default max 15MB) and timeouts.
- * 2. Automated resolution and downloading of real live e-GP procurement TOR packages & PDFs.
- * 3. PDF parsing, scanned vs. digital detection, and Thai procurement spec extraction.
+ * Downloads from e-GP:
+ * 1. A project's announcement package, keeping its project files and reading
+ *    its announcement in code (downloadEgpPackage, ADR 0020).
+ * 2. A single PDF from a direct URL (downloadTorPdf).
+ * Every download is capped at 50 MB and paced (ADR 0016).
  */
 
 import crypto from 'node:crypto';
@@ -17,6 +17,8 @@ import { PDFParse } from 'pdf-parse';
 import { isOutage } from '../../shared/failures.js';
 import { paceRequest } from '../../shared/request-pacer.js';
 import { convertThaiDigitsToArabic } from '../../shared/thai-text.js';
+import { baseName, pickTorFiles, readPackageFacts, roleOfEntry } from './egp-package.js';
+import { textLayerOf } from './text-layer.js';
 
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -113,214 +115,225 @@ export async function downloadTorPdf({
   }
 }
 
-/**
- * Resolves and downloads real live TOR documents directly from Thailand e-GP procurement backend.
- * Checks official approval packages and price estimate packages, downloads the archive,
- * extracts the primary TOR / announcement PDF, and stores it in the target directory.
- *
- * @param {Object} params
- * @param {string} [params.projectId] - 11-digit e-GP project ID
- * @param {string} [params.directUrl] - Direct download link if available
- * @param {string} params.destDir - Directory to store extracted PDF
- * @param {string} params.fileName - Target filename (e.g. <projectId>_TOR.pdf)
- * @param {number} [params.maxSizeBytes=15728640]
- * @returns {Promise<{ success: boolean, filePath?: string, sizeBytes?: number, originalFileName?: string, packageName?: string, error?: string, transient?: boolean, companionText?: string, totalArchiveFiles?: number }>}
- *   `transient` is true when e-GP didn't answer. Then "no archive" isn't
- *   known yet: the TOR may have one, and trying again later may work.
- */
-export async function resolveAndDownloadEgpTorDocument({
-  projectId,
-  directUrl,
-  destDir,
-  fileName,
-  maxSizeBytes = MAX_PDF_SIZE_BYTES,
-}) {
-  if (!projectId && !directUrl) {
-    return { success: false, error: 'Project ID or Direct URL is required' };
-  }
+const PROCESS5 = 'https://process5.gprocurement.go.th';
 
-  await fs.mkdir(destDir, { recursive: true });
-  const targetPath = path.join(destDir, fileName);
-
-  let zipId = null;
-  let packageName = null;
-
-  // Only treat directUrl as downloadUrl if it is an actual binary package/file,
-  // rather than a web portal search/announcement page (e.g. procsearch.sch)
-  const isDirectBinaryUrl =
-    Boolean(directUrl) &&
-    (/\.(pdf|zip)$/i.test(directUrl) ||
-      directUrl.includes('downloadFile') ||
-      directUrl.includes('v1/download'));
-  let downloadUrl = isDirectBinaryUrl ? directUrl : null;
-
-  if (!downloadUrl) {
-    // A probe e-GP didn't answer, kept to tell an outage from a TOR without files
-    let outage = null;
-
-    // 1. Check official announcement & TOR document package
-    try {
-      const announUrl = `https://process5.gprocurement.go.th/egp-approval-service/apv-common/infoProcureDocAnnounZip?projectId=${projectId}`;
-      await paceRequest(announUrl);
-      const announRes = await axios.get(announUrl, { headers: EGP_SERVICE_HEADERS, timeout: 10000 });
-      if (announRes.data?.data?.zipId) {
-        zipId = announRes.data.data.zipId;
-        packageName =
-          announRes.data.data.buildName1 || `${projectId}_announ_pkg.zip`;
-      }
-    } catch (err) {
-      // Continue to next probe
-      if (isOutage(err)) outage = err;
-    }
-
-    // 2. Check price estimate / TOR package
-    if (!zipId) {
-      try {
-        const priceUrl = `https://process5.gprocurement.go.th/egp-doc-price-estimate-service/dpe-common/infoDocPriceestZipHis?projectId=${projectId}`;
-        await paceRequest(priceUrl);
-        const priceRes = await axios.get(priceUrl, { headers: EGP_SERVICE_HEADERS, timeout: 10000 });
-        if (priceRes.data?.data?.zipFileId) {
-          zipId = priceRes.data.data.zipFileId;
-          packageName =
-            priceRes.data.data.zipFileName || `${projectId}_pricebuild.zip`;
-        }
-      } catch (err) {
-        // Continue
-        if (isOutage(err)) outage = err;
-      }
-    }
-
-    if (!zipId && outage) {
-      return {
-        success: false,
-        transient: true,
-        error: `e-GP did not answer for project ${projectId}: ${outage.message}`,
-      };
-    }
-    if (!zipId) {
-      return {
-        success: false,
-        error: `No online attachment archive found in e-GP backend for project ${projectId}.`,
-      };
-    }
-
-    downloadUrl = `https://process5.gprocurement.go.th/egp-upload-service/v1/downloadFileTest?fileId=${zipId}`;
-  }
-
-  // 3. Download the actual binary archive from e-GP upload service
+/** The text layer of a PDF and its page count; empty for a file pdf-parse can't open. */
+async function readPdf(buffer) {
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
   try {
-    await paceRequest(downloadUrl);
-    const dlResponse = await axios.get(downloadUrl, {
+    const { text, pages } = await parser.getText();
+    return { text: text ?? '', pages: pages?.length ?? 0 };
+  } catch {
+    return { text: '', pages: 0 };
+  } finally {
+    await parser.destroy().catch(() => {});
+  }
+}
+
+// Windows refuses some characters in file names that zips can carry
+const safeFileName = (name) => baseName(name).replace(/[<>:"|?*\u0000-\u001f]/g, '_');
+
+/**
+ * Downloads a project's current announcement package from e-GP and keeps its
+ * project files (ADR 0020): the announcement, the bidding document, the TOR
+ * and any other file that isn't one of e-GP's blank forms. They go in
+ * `<documentsDir>/<projectId>/<package>/`, so each stage's files stay. The
+ * announcement's and bidding document's facts are read in code.
+ *
+ * @param {object} params
+ * @param {string} params.projectId - 11-digit e-GP project ID
+ * @param {string} params.documentsDir - Where packages are kept
+ * @param {string[]} [params.knownZipIds] - Packages already downloaded: if
+ *   e-GP's current one is among them, nothing is downloaded
+ * @param {number} [params.maxSizeBytes]
+ * @param {Date} [params.now]
+ * @param {Function} [params.pace] - Waits before each request (NFR-03); replaced in tests
+ * @returns {Promise<
+ *   | { success: true, unchanged: true, zipId: string }
+ *   | { success: true, unchanged: false, package: object, tor: object }
+ *   | { success: false, error: string, transient?: boolean }>}
+ *   `transient` is true when e-GP didn't answer, so trying again later may work.
+ */
+export async function downloadEgpPackage({
+  projectId,
+  documentsDir,
+  knownZipIds = [],
+  maxSizeBytes = MAX_PDF_SIZE_BYTES,
+  now = new Date(),
+  pace = paceRequest,
+}) {
+  // 1. Which package e-GP has for the project now
+  let zipId = null;
+  let name = null;
+  try {
+    const url = `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZip?projectId=${projectId}`;
+    await pace(url);
+    const { data } = await axios.get(url, { headers: EGP_SERVICE_HEADERS, timeout: 10000 });
+    zipId = data?.data?.zipId ?? null;
+    name = data?.data?.buildName1 || `${projectId}.zip`;
+  } catch (err) {
+    return {
+      success: false,
+      error: `e-GP did not answer for project ${projectId}: ${err.message}`,
+      transient: isOutage(err),
+    };
+  }
+  // The price package is not a stand-in: its one page is a price form, not a TOR
+  if (!zipId) return { success: false, error: `No announcement package in e-GP for project ${projectId}.` };
+  if (knownZipIds.includes(zipId)) return { success: true, unchanged: true, zipId };
+
+  // 2. Download it
+  let buffer;
+  try {
+    const url = `${PROCESS5}/egp-upload-service/v1/downloadFileTest?fileId=${zipId}`;
+    await pace(url);
+    const response = await axios.get(url, {
       headers: EGP_SERVICE_HEADERS,
       responseType: 'arraybuffer',
       timeout: 30000,
       maxContentLength: maxSizeBytes,
     });
-
-    const rawBuffer = Buffer.from(dlResponse.data);
-
-    // If direct PDF
-    if (rawBuffer.subarray(0, 4).toString('ascii').startsWith('%PDF')) {
-      const contentHash = computeContentHash(rawBuffer);
-      await fs.writeFile(targetPath, rawBuffer);
-      return {
-        success: true,
-        filePath: targetPath,
-        sizeBytes: rawBuffer.length,
-        originalFileName: fileName,
-        packageName,
-        contentHash,
-      };
-    }
-
-    // If ZIP archive
-    const zip = new AdmZip(rawBuffer);
-    const pdfEntries = zip
-      .getEntries()
-      .filter((e) => !e.isDirectory && e.entryName.toLowerCase().endsWith('.pdf'));
-
-    if (pdfEntries.length === 0) {
-      return {
-        success: false,
-        error: `No PDF files found inside e-GP archive "${packageName}".`,
-      };
-    }
-
-    // Rank entries to pick the best TOR document
-    // Priority:
-    // 1. Explicit TOR filenames (e.g. Attach_TOR_1.pdf, TOR.pdf)
-    // 2. Official Announcement documents (e.g. annoudoc*.pdf, doc*.pdf, bidding notice.pdf)
-    // 3. Price build / median price document (e.g. pB0.pdf)
-    // 4. Any other PDF
-    pdfEntries.sort((a, b) => {
-      const nameA = a.entryName.toLowerCase();
-      const nameB = b.entryName.toLowerCase();
-
-      const getScore = (name) => {
-        if (name.includes('tor')) return 100;
-        if (name.includes('annou')) return 80;
-        if (name.includes('bidding') || name.includes('noltice')) return 70;
-        if (name.includes('doc_')) return 60;
-        if (name.includes('pb0')) return 50;
-        return 10;
-      };
-
-      return getScore(nameB) - getScore(nameA);
-    });
-
-    const bestEntry = pdfEntries[0];
-    const pdfData = bestEntry.getData();
-    const contentHash = computeContentHash(pdfData);
-
-    await fs.writeFile(targetPath, pdfData);
-
-    // Look for companion text document if the best entry might be scanned
-    let companionText = '';
-    const textEntry = pdfEntries.find(
-      (e) =>
-        e.entryName.toLowerCase().includes('annou') ||
-        e.entryName.toLowerCase().includes('pb0'),
-    );
-    if (textEntry && textEntry !== bestEntry) {
-      try {
-        const textBuf = textEntry.getData();
-        const p = new PDFParse({ data: new Uint8Array(textBuf) });
-        const res = await p.getText();
-        companionText = (res?.text || '').trim();
-      } catch {
-        // ignore companion text errors
-      }
-    }
-
-    return {
-      success: true,
-      filePath: targetPath,
-      sizeBytes: pdfData.length,
-      originalFileName: bestEntry.entryName,
-      packageName,
-      companionText,
-      totalArchiveFiles: pdfEntries.length,
-      contentHash,
-    };
+    buffer = Buffer.from(response.data);
   } catch (err) {
     return {
       success: false,
-      error: `Failed to download or extract e-GP attachment for ${projectId}: ${err.message}`,
+      error: `Failed to download e-GP package ${name} for ${projectId}: ${err.message}`,
       transient: isOutage(err),
     };
   }
+
+  // 3. What's in it: a zip, or now and then a single PDF
+  let entries;
+  if (buffer.subarray(0, 4).toString('ascii').startsWith('%PDF')) {
+    entries = [{ name: `${projectId}.pdf`, data: buffer }];
+  } else {
+    try {
+      entries = new AdmZip(buffer)
+        .getEntries()
+        .filter((entry) => !entry.isDirectory)
+        .map((entry) => ({ name: entry.entryName, data: entry.getData() }));
+    } catch (err) {
+      return { success: false, error: `e-GP package ${name} for ${projectId} is not a zip: ${err.message}` };
+    }
+  }
+
+  const files = [];
+  const texts = {};
+  for (const entry of entries) {
+    const role = roleOfEntry(entry.name);
+    if (role === 'form') continue;
+    const file = {
+      role,
+      fileName: safeFileName(entry.name),
+      sizeBytes: entry.data.length,
+      contentHash: computeContentHash(entry.data),
+      data: entry.data,
+      pages: null,
+      textLayer: null,
+    };
+    if (/\.pdf$/i.test(file.fileName)) {
+      const { text, pages } = await readPdf(entry.data);
+      file.pages = pages;
+      file.textLayer = textLayerOf(text);
+      if (file.textLayer === 'text' && (role === 'announcement' || role === 'bidding')) texts[role] = text;
+    }
+    files.push(file);
+  }
+
+  // 4. The TOR's files, by elimination; a package without one is read from its documents
+  const picked = pickTorFiles(files.map((file) => ({ ...file, name: file.fileName }))).map((pick) =>
+    files.find((file) => file.fileName === pick.fileName),
+  );
+  for (const file of picked) file.role = 'tor';
+  const fallback = files.find((file) => file.role === 'bidding') ?? files.find((file) => file.role === 'announcement');
+  const parts = picked.length > 0 ? picked : [fallback].filter(Boolean);
+  if (parts.length === 0) return { success: false, error: `e-GP package ${name} for ${projectId} holds no PDF of its own.` };
+
+  // 5. Keep the files: one folder per package, so a new stage never overwrites the last
+  const folder = path.join(documentsDir, projectId, `${path.basename(name, '.zip')}_${zipId.slice(0, 8)}`);
+  await fs.mkdir(folder, { recursive: true });
+  for (const file of files) {
+    file.storagePath = path.join(folder, file.fileName);
+    await fs.writeFile(file.storagePath, file.data);
+    delete file.data;
+  }
+
+  const { problems, ...facts } = readPackageFacts({
+    announcementText: texts.announcement,
+    biddingText: texts.bidding,
+  });
+  if (files.some((file) => file.role === 'announcement') && !texts.announcement) {
+    problems.push('The announcement has no readable text layer');
+  }
+
+  return {
+    success: true,
+    unchanged: false,
+    package: {
+      zipId,
+      name,
+      downloadedAt: now,
+      files,
+      announcementText: texts.announcement ?? '',
+      biddingText: texts.bidding ?? '',
+      facts,
+      problems,
+    },
+    tor: torDocumentOf(parts),
+  };
+}
+
+/**
+ * The TOR as one document, from the files it's in. Its hash covers every
+ * part, so a change to any of them is a changed TOR.
+ */
+function torDocumentOf(parts) {
+  const [first] = parts;
+  return {
+    fileName: first.fileName,
+    storagePath: first.storagePath,
+    sizeBytes: parts.reduce((sum, part) => sum + part.sizeBytes, 0),
+    pages: parts.reduce((sum, part) => sum + (part.pages ?? 0), 0) || null,
+    contentHash: parts.length === 1 ? first.contentHash : computeContentHash(parts.map((part) => part.contentHash).join('|')),
+    documentType: parts.every((part) => part.textLayer === 'text') ? 'DIGITAL_TEXT_PDF' : 'SCANNED_PAPER_PDF',
+    // Only when there are several: OCR reads them in order as one document
+    parts:
+      parts.length > 1
+        ? parts.map(({ fileName, storagePath, pages, contentHash }) => ({ fileName, storagePath, pages, contentHash }))
+        : [],
+  };
+}
+
+/**
+ * The TOR alone, for the fetch-time download the sources still offer
+ * (`downloadAttachments`, which nothing turns on: the download step owns
+ * downloading). It goes through downloadEgpPackage, so the TOR is chosen the
+ * same way everywhere.
+ *
+ * @returns {Promise<{ success: boolean, filePath?: string, sizeBytes?: number, originalFileName?: string, packageName?: string, contentHash?: string, error?: string, transient?: boolean }>}
+ */
+export async function resolveAndDownloadEgpTorDocument({ projectId, destDir }) {
+  const result = await downloadEgpPackage({ projectId, documentsDir: destDir });
+  if (!result.success) return result;
+  return {
+    success: true,
+    filePath: result.tor.storagePath,
+    sizeBytes: result.tor.sizeBytes,
+    originalFileName: result.tor.fileName,
+    packageName: result.package.name,
+    contentHash: result.tor.contentHash,
+  };
 }
 
 /**
  * Parses a downloaded TOR PDF file and extracts document metadata & specifications.
- * Detects whether the document is a scanned image PDF or contains embedded text.
- * Also parses companion text if available.
+ * Detects whether the document has a readable text layer (text-layer.js):
+ * a scan, or a garbled layer, needs OCR.
  *
  * @param {string|Buffer} filePathOrBuffer
- * @param {string} [companionText='']
  * @returns {Promise<Object>}
  */
-export async function parseTorDocument(filePathOrBuffer, companionText = '') {
+export async function parseTorDocument(filePathOrBuffer) {
   try {
     let buffer;
     if (typeof filePathOrBuffer === 'string') {
@@ -340,11 +353,9 @@ export async function parseTorDocument(filePathOrBuffer, companionText = '') {
     const cleanedText = rawText
       .replace(/--\s*\d+\s*of\s*\d+\s*--/gi, '')
       .trim();
-    const isScanned = cleanedText.length < 50 && totalPages > 0;
+    const isScanned = textLayerOf(rawText) !== 'text' && totalPages > 0;
 
-    // Use companion text from announcement if primary signed TOR is scanned
-    const analysisText =
-      isScanned && companionText.length > 50 ? companionText : cleanedText;
+    const analysisText = isScanned ? '' : cleanedText;
     const arabicText = convertThaiDigitsToArabic(analysisText);
 
     // Extract structured spec hints
@@ -414,8 +425,6 @@ export async function parseTorDocument(filePathOrBuffer, companionText = '') {
         (isScanned
           ? 'Scanned document (physical ink signatures). OCR required for full text extraction.'
           : 'No text content.'),
-      hasCompanionText: companionText.length > 0,
-      companionSnippet: companionText ? companionText.slice(0, 300) : null,
       extractedSpecs: Object.keys(specs).length > 0 ? specs : null,
     };
   } catch (err) {

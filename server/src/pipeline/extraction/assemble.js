@@ -54,6 +54,26 @@ function runMetadata(run, extra) {
 const links = (tor) => ({ sourceUrl: tor.egpUrl || null, webUrl: egpAnnouncementUrl(tor.projectId) });
 
 /**
+ * The latest sentence each package fact was stated in (ADR 0020), as
+ * { value, quote, document }. A later package that doesn't state a fact
+ * leaves the earlier one standing, as it does on the Tor.
+ */
+function statedIn(tor) {
+  const latest = (read) => {
+    for (const pkg of [...(tor.packages ?? [])].reverse()) {
+      const fact = read(pkg.facts ?? {});
+      if (fact) return fact;
+    }
+    return null;
+  };
+  const window = latest((facts) => facts.submissionWindow);
+  return {
+    referencePriceTHB: latest((facts) => facts.referencePriceTHB),
+    submissionDeadline: window && { value: window.closesAt, quote: window.quote, document: window.document },
+  };
+}
+
+/**
  * The full record for a TOR the classify step found to be IT.
  *
  * @param {object} input
@@ -77,12 +97,18 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
   };
   // Where the feed has a value it wins. If the document says the same, the
   // quote still shows where; if it differs, the quote would contradict the
-  // stored value, so it's left out (the check has sent the TOR to review)
-  const feedFirst = (feedValue, field, given, value) => {
+  // stored value, so it's left out (the check has sent the TOR to review).
+  // A value read from the package's announcement or bidding document (ADR
+  // 0020) brings that sentence instead, saying which document it's from.
+  const feedFirst = (feedValue, field, given, value, stated = null) => {
     if (feedValue === null || feedValue === undefined) return fromAi(field, given, value);
     if (sameValue(feedValue, value)) fromAi(field, given, value);
+    else if (stated && sameValue(feedValue, stated.value)) {
+      evidence[field] = { quote: stated.quote, page: null, document: stated.document };
+    }
     return feedValue;
   };
+  const stated = statedIn(tor);
 
   // Title: when feed and document agree, the document's is kept, because the
   // feed wraps it in "ประกวดราคา… ด้วยวิธี… (e-bidding)". When they disagree,
@@ -108,8 +134,15 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
         'referencePriceTHB',
         facts.referencePrice,
         toAmount(facts.referencePrice),
+        stated.referencePriceTHB,
       ),
-      submissionDeadline: fromAi('submissionDeadline', facts.submissionDeadline, toDate(facts.submissionDeadline)),
+      submissionDeadline: feedFirst(
+        tor.submissionDeadline ?? null,
+        'submissionDeadline',
+        facts.submissionDeadline,
+        toDate(facts.submissionDeadline),
+        stated.submissionDeadline,
+      ),
       commentDeadline: fromAi('commentDeadline', facts.commentDeadline, toDate(facts.commentDeadline)),
       postedDate: feedFirst(feedDate(tor.announceDate), 'postedDate', facts.postedDate, toDate(facts.postedDate)),
       deliveryPeriodDays: fromAi('deliveryPeriodDays', facts.deliveryPeriodDays, toNumber(facts.deliveryPeriodDays)),

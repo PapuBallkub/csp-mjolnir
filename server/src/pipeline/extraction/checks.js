@@ -256,6 +256,19 @@ export function runChecks({ tor, classification, extracted }) {
   if (posted && aiPosted && bangkokDay(posted) !== bangkokDay(aiPosted)) {
     fail('cross-source', 'facts.postedDate', { feed: tor.announceDate, ai: aiPosted.toISOString() });
   }
+  // The bid date read from the package's documents (ADR 0020) is the one
+  // shown, so the AI misreading it can't mislead anyone: a minor failure,
+  // there for a reviewer, which doesn't hide the TOR
+  const bidsClose = tor.submissionDeadline ? new Date(tor.submissionDeadline) : null;
+  const aiBidsClose = values['facts.submissionDeadline'];
+  if (bidsClose && aiBidsClose && bangkokDay(bidsClose) !== bangkokDay(aiBidsClose)) {
+    fail(
+      'cross-source',
+      'facts.submissionDeadline',
+      { feed: bidsClose.toISOString(), ai: aiBidsClose.toISOString() },
+      'minor',
+    );
+  }
 
   // 4. Amounts against their own quote. Read from the quote, not the value: in
   //    a real TOR the model quoted "๕,๐๐๐,๐๐๐ บาท (สี่ล้านบาทถ้วน)" and gave
