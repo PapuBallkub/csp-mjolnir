@@ -64,6 +64,30 @@ test("the package's bid date and ราคากลาง win, quoting the docum
   assert.equal(new TorInsight(record).validateSync(), undefined);
 });
 
+test("the price form's budget wins, quoting the form, and its ราคากลาง never stands in for the announcement's (ADR 0023)", () => {
+  const formBudget = { value: 12_450_000, quote: 'วงเงินงบประมาณที่ได้รับจัดสรร … (สิบสองล้านสี่แสนห้าหมื่นบาทถ้วน)', document: 'price-form' };
+  const record = build({
+    change: (input) => {
+      input.tor.budgetTHB = 12_450_000; // the TOR's OCR said 12,500,000
+      input.tor.packages = [
+        {
+          kind: 'price',
+          facts: {
+            budgetTHB: formBudget,
+            referencePriceTHB: { value: 12_492_771, quote: 'กำหนดราคากลาง …', document: 'price-form' },
+          },
+        },
+      ];
+    },
+  });
+
+  assert.equal(record.facts.budgetTHB, 12_450_000);
+  assert.deepEqual(record.evidence.budgetTHB, { quote: formBudget.quote, page: null, document: 'price-form' });
+  // ราคากลาง is quoted only from an announcement; there is none here
+  assert.equal(record.evidence.referencePriceTHB, undefined);
+  assert.equal(new TorInsight(record).validateSync(), undefined);
+});
+
 test('the feed wins on prices, and the document fills what the feed lacks', () => {
   const { facts, evidence } = build();
 

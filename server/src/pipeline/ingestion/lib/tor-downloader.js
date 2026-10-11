@@ -17,7 +17,8 @@ import { PDFParse } from 'pdf-parse';
 import { isOutage } from '../../shared/failures.js';
 import { paceRequest } from '../../shared/request-pacer.js';
 import { convertThaiDigitsToArabic } from '../../shared/thai-text.js';
-import { baseName, pickTorFiles, readPackageFacts, roleOfEntry } from './egp-package.js';
+import { baseName, pickTorFiles, readPackageFacts, readPriceForm, roleOfEntry } from './egp-package.js';
+import { extractText } from './ocr.js';
 import { textLayerOf } from './text-layer.js';
 
 const DEFAULT_USER_AGENT =
@@ -133,6 +134,84 @@ async function readPdf(buffer) {
 // Windows refuses some characters in file names that zips can carry
 const safeFileName = (name) => baseName(name).replace(/[<>:"|?*\u0000-\u001f]/g, '_');
 
+// Where e-GP says which package a project has now, for each kind of package
+const LOOKUPS = {
+  announcement: {
+    url: (projectId) => `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZip?projectId=${projectId}`,
+    read: (data) => ({ zipId: data?.zipId ?? null, name: data?.buildName1 || null }),
+  },
+  price: {
+    url: (projectId) => `${PROCESS5}/egp-doc-price-estimate-service/dpe-common/infoDocPriceestZipHis?projectId=${projectId}`,
+    read: (data) => ({ zipId: data?.zipFileId ?? null, name: data?.zipFileName || null }),
+  },
+};
+
+/**
+ * Asks e-GP for a project's current package of one kind, and downloads it
+ * unless it's one already downloaded.
+ *
+ * @returns {Promise<
+ *   | { failed: object } | { none: true } | { unchanged: true, zipId: string }
+ *   | { zipId: string, name: string, entries: { name: string, data: Buffer }[] }>}
+ */
+async function fetchPackage({ kind, projectId, knownZipIds, maxSizeBytes, pace }) {
+  const lookup = LOOKUPS[kind];
+  let zipId;
+  let name;
+  try {
+    const url = lookup.url(projectId);
+    await pace(url);
+    const { data } = await axios.get(url, { headers: EGP_SERVICE_HEADERS, timeout: 10000 });
+    ({ zipId, name } = lookup.read(data?.data));
+  } catch (err) {
+    return {
+      failed: { success: false, error: `e-GP did not answer for project ${projectId}: ${err.message}`, transient: isOutage(err) },
+    };
+  }
+  if (!zipId) return { none: true };
+  if (knownZipIds.includes(zipId)) return { unchanged: true, zipId };
+  name ??= `${projectId}_${kind}.zip`;
+
+  let buffer;
+  try {
+    const url = `${PROCESS5}/egp-upload-service/v1/downloadFileTest?fileId=${zipId}`;
+    await pace(url);
+    const response = await axios.get(url, {
+      headers: EGP_SERVICE_HEADERS,
+      responseType: 'arraybuffer',
+      timeout: 30000,
+      maxContentLength: maxSizeBytes,
+    });
+    buffer = Buffer.from(response.data);
+  } catch (err) {
+    return {
+      failed: {
+        success: false,
+        error: `Failed to download e-GP package ${name} for ${projectId}: ${err.message}`,
+        transient: isOutage(err),
+      },
+    };
+  }
+
+  // A zip, or now and then a single PDF
+  if (buffer.subarray(0, 4).toString('ascii').startsWith('%PDF')) {
+    return { zipId, name, entries: [{ name: `${projectId}.pdf`, data: buffer }] };
+  }
+  try {
+    const entries = new AdmZip(buffer)
+      .getEntries()
+      .filter((entry) => !entry.isDirectory)
+      .map((entry) => ({ name: entry.entryName, data: entry.getData() }));
+    return { zipId, name, entries };
+  } catch (err) {
+    return { failed: { success: false, error: `e-GP package ${name} for ${projectId} is not a zip: ${err.message}` } };
+  }
+}
+
+/** One folder per package, so a new stage never overwrites the last. */
+const packageFolder = (documentsDir, projectId, { name, zipId }) =>
+  path.join(documentsDir, projectId, `${path.basename(name, '.zip')}_${zipId.slice(0, 8)}`);
+
 /**
  * Downloads a project's current announcement package from e-GP and keeps its
  * project files (ADR 0020): the announcement, the bidding document, the TOR
@@ -162,60 +241,12 @@ export async function downloadEgpPackage({
   now = new Date(),
   pace = paceRequest,
 }) {
-  // 1. Which package e-GP has for the project now
-  let zipId = null;
-  let name = null;
-  try {
-    const url = `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZip?projectId=${projectId}`;
-    await pace(url);
-    const { data } = await axios.get(url, { headers: EGP_SERVICE_HEADERS, timeout: 10000 });
-    zipId = data?.data?.zipId ?? null;
-    name = data?.data?.buildName1 || `${projectId}.zip`;
-  } catch (err) {
-    return {
-      success: false,
-      error: `e-GP did not answer for project ${projectId}: ${err.message}`,
-      transient: isOutage(err),
-    };
-  }
+  const fetched = await fetchPackage({ kind: 'announcement', projectId, knownZipIds, maxSizeBytes, pace });
+  if (fetched.failed) return fetched.failed;
   // The price package is not a stand-in: its one page is a price form, not a TOR
-  if (!zipId) return { success: false, error: `No announcement package in e-GP for project ${projectId}.` };
-  if (knownZipIds.includes(zipId)) return { success: true, unchanged: true, zipId };
-
-  // 2. Download it
-  let buffer;
-  try {
-    const url = `${PROCESS5}/egp-upload-service/v1/downloadFileTest?fileId=${zipId}`;
-    await pace(url);
-    const response = await axios.get(url, {
-      headers: EGP_SERVICE_HEADERS,
-      responseType: 'arraybuffer',
-      timeout: 30000,
-      maxContentLength: maxSizeBytes,
-    });
-    buffer = Buffer.from(response.data);
-  } catch (err) {
-    return {
-      success: false,
-      error: `Failed to download e-GP package ${name} for ${projectId}: ${err.message}`,
-      transient: isOutage(err),
-    };
-  }
-
-  // 3. What's in it: a zip, or now and then a single PDF
-  let entries;
-  if (buffer.subarray(0, 4).toString('ascii').startsWith('%PDF')) {
-    entries = [{ name: `${projectId}.pdf`, data: buffer }];
-  } else {
-    try {
-      entries = new AdmZip(buffer)
-        .getEntries()
-        .filter((entry) => !entry.isDirectory)
-        .map((entry) => ({ name: entry.entryName, data: entry.getData() }));
-    } catch (err) {
-      return { success: false, error: `e-GP package ${name} for ${projectId} is not a zip: ${err.message}` };
-    }
-  }
+  if (fetched.none) return { success: false, error: `No announcement package in e-GP for project ${projectId}.` };
+  if (fetched.unchanged) return { success: true, unchanged: true, zipId: fetched.zipId };
+  const { zipId, name, entries } = fetched;
 
   const files = [];
   const texts = {};
@@ -249,8 +280,8 @@ export async function downloadEgpPackage({
   const parts = picked.length > 0 ? picked : [fallback].filter(Boolean);
   if (parts.length === 0) return { success: false, error: `e-GP package ${name} for ${projectId} holds no PDF of its own.` };
 
-  // 5. Keep the files: one folder per package, so a new stage never overwrites the last
-  const folder = path.join(documentsDir, projectId, `${path.basename(name, '.zip')}_${zipId.slice(0, 8)}`);
+  // 5. Keep the files
+  const folder = packageFolder(documentsDir, projectId, { name, zipId });
   await fs.mkdir(folder, { recursive: true });
   for (const file of files) {
     file.storagePath = path.join(folder, file.fileName);
@@ -301,6 +332,98 @@ function torDocumentOf(parts) {
       parts.length > 1
         ? parts.map(({ fileName, storagePath, pages, contentHash }) => ({ fileName, storagePath, pages, contentHash }))
         : [],
+  };
+}
+
+/**
+ * Downloads a project's current price package (pricebuild_*.zip) and reads
+ * its price form, แบบ บก. (ADR 0023): the budget, and ราคากลาง. The form is
+ * a scan: it's OCR'd, and the amounts are read from their words, which OCR
+ * gets right far more often than the digits.
+ *
+ * @param {object} params - As downloadEgpPackage's, and:
+ * @param {number | null} [params.announcedReferencePrice] - ราคากลาง from the
+ *   announcement, which vouches for digits OCR read off the form
+ * @param {Function} [params.ocr] - extractText; replaced in tests
+ * @returns {Promise<
+ *   | { success: true, none: true }
+ *   | { success: true, unchanged: true, zipId: string }
+ *   | { success: true, unchanged: false, package: object }
+ *   | { success: false, error: string, transient?: boolean }>}
+ *   A project with no price package isn't a failure: none: true.
+ */
+export async function downloadEgpPricePackage({
+  projectId,
+  documentsDir,
+  knownZipIds = [],
+  maxSizeBytes = MAX_PDF_SIZE_BYTES,
+  now = new Date(),
+  pace = paceRequest,
+  ocr = extractText,
+  announcedReferencePrice = null,
+}) {
+  const fetched = await fetchPackage({ kind: 'price', projectId, knownZipIds, maxSizeBytes, pace });
+  if (fetched.failed) return fetched.failed;
+  if (fetched.none) return { success: true, none: true };
+  if (fetched.unchanged) return { success: true, unchanged: true, zipId: fetched.zipId };
+  const { zipId, name, entries } = fetched;
+
+  const folder = packageFolder(documentsDir, projectId, { name, zipId });
+  await fs.mkdir(folder, { recursive: true });
+  const files = [];
+  for (const entry of entries) {
+    const file = {
+      role: 'other',
+      fileName: safeFileName(entry.name),
+      storagePath: path.join(folder, safeFileName(entry.name)),
+      sizeBytes: entry.data.length,
+      contentHash: computeContentHash(entry.data),
+      pages: null,
+      textLayer: null,
+    };
+    await fs.writeFile(file.storagePath, entry.data);
+    files.push(file);
+  }
+
+  // The form: pB0.pdf, the only file in every price package we've seen
+  const pdfs = files.filter((file) => /\.pdf$/i.test(file.fileName));
+  const form = pdfs.find((file) => /^pb0\.pdf$/i.test(file.fileName)) ?? pdfs[0];
+  const problems = [];
+  let text = '';
+  if (form) {
+    form.role = 'price-form';
+    const layer = await readPdf(await fs.readFile(form.storagePath));
+    form.pages = layer.pages;
+    form.textLayer = textLayerOf(layer.text);
+    if (form.textLayer === 'text') {
+      text = layer.text;
+    } else {
+      try {
+        text = (await ocr(form.storagePath)).text;
+      } catch (err) {
+        problems.push(`The price form could not be read: ${err.message}`);
+      }
+    }
+  } else {
+    problems.push(`e-GP price package ${name} holds no PDF`);
+  }
+
+  const read = text
+    ? readPriceForm(text, { ocr: form.textLayer !== 'text', announcedReferencePrice })
+    : { budgetTHB: null, referencePriceTHB: null, problems: [] };
+  return {
+    success: true,
+    unchanged: false,
+    package: {
+      kind: 'price',
+      zipId,
+      name,
+      downloadedAt: now,
+      files,
+      priceFormText: text,
+      facts: { budgetTHB: read.budgetTHB, referencePriceTHB: read.referencePriceTHB },
+      problems: [...problems, ...read.problems],
+    },
   };
 }
 

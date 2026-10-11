@@ -37,7 +37,7 @@ import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
 import { FEED_HOURS, fetchFromProcess3 } from './sources/process3.js';
 import { fetchFromDataGo } from './sources/datago.js';
 import { PREVIEW_PAGES, extractText, isPreviewRead } from './lib/ocr.js';
-import { downloadEgpPackage } from './lib/tor-downloader.js';
+import { downloadEgpPackage, downloadEgpPricePackage } from './lib/tor-downloader.js';
 
 const DOCUMENTS_DIR =
   process.env.DOCUMENTS_DIR ||
@@ -252,6 +252,29 @@ export async function readTorParts(parts, options, ocr) {
   };
 }
 
+/**
+ * Records a new price package on a TOR (ADR 0023). The budget is the form's
+ * alone. ราคากลาง from the form is a check: the announcement's real text
+ * beats the form's OCR, so the form's fills in only where the announcement
+ * gave none, and a difference is noted on the package.
+ */
+export function applyPricePackage(tor, pkg) {
+  const { budgetTHB, referencePriceTHB } = pkg.facts;
+  const problems = [...pkg.problems];
+  if (budgetTHB) tor.budgetTHB = budgetTHB.value;
+  if (referencePriceTHB) {
+    if (!(tor.referencePriceTHB > 0)) tor.referencePriceTHB = referencePriceTHB.value;
+    else if (Math.abs(tor.referencePriceTHB - referencePriceTHB.value) >= 1) {
+      problems.push(
+        `ราคากลาง: the price form says ${referencePriceTHB.value.toLocaleString()}, ` +
+          `the announcement ${tor.referencePriceTHB.toLocaleString()}; the announcement's stands`,
+      );
+    }
+  }
+  tor.packages.push({ ...pkg, problems });
+  return { problems };
+}
+
 const describeFacts = ({ agency, referencePriceTHB, submissionWindow }) =>
   [
     agency && `agency ${agency.value}`,
@@ -274,15 +297,22 @@ export async function runDownloadStep({
   source = 'manual',
   retryFailed = false,
   download = downloadEgpPackage,
+  downloadPrice = downloadEgpPricePackage,
 }) {
   console.log('\n[Service 2: DOWNLOAD] Downloading e-GP document packages...');
   await fs.mkdir(documentsDir, { recursive: true });
 
   // Only TORs still to come or open: a cancelled or awarded one isn't a job,
-  // so its documents aren't worth fetching (ADR 0018)
+  // so its documents aren't worth fetching (ADR 0018). The price package is
+  // asked for once, and again at each new stage (ADR 0023).
   let queryFilter = {
     ...WORKABLE,
-    $or: [{ pipelineStatus: 'fetched' }, { packageCheckNeeded: true }, { 'packages.0': { $exists: false } }],
+    $or: [
+      { pipelineStatus: 'fetched' },
+      { packageCheckNeeded: true },
+      { 'packages.0': { $exists: false } },
+      { priceCheckedAt: null },
+    ],
   };
   if (id) {
     queryFilter = { projectId: id };
@@ -315,10 +345,15 @@ export async function runDownloadStep({
     const tor = candidates[i];
     console.log(`     [${i + 1}/${candidates.length}] Project ${tor.projectId}...`);
 
+    // Before the announcement's package clears the flag: a new stage may bring a new price too
+    const checkPrice = !tor.priceCheckedAt || tor.packageCheckNeeded;
+    const zipIdsOf = (kind) =>
+      (tor.packages ?? []).filter((pkg) => (pkg.kind ?? 'announcement') === kind).map((pkg) => pkg.zipId);
+
     const result = await download({
       projectId: tor.projectId,
       documentsDir,
-      knownZipIds: (tor.packages ?? []).map((pkg) => pkg.zipId),
+      knownZipIds: zipIdsOf('announcement'),
     });
 
     if (!result.success) {
@@ -345,6 +380,29 @@ export async function runDownloadStep({
       for (const problem of result.package.problems) console.warn(`        ! ${problem}`);
       const more = result.tor.parts.length > 1 ? ` + ${result.tor.parts.length - 1} more part(s)` : '';
       console.log(`        TOR: ${result.tor.fileName}${more}${torChanged ? '' : ' (unchanged, not read again)'}`);
+    }
+
+    if (checkPrice) {
+      const price = await downloadPrice({
+        projectId: tor.projectId,
+        documentsDir,
+        knownZipIds: zipIdsOf('price'),
+        announcedReferencePrice: tor.referencePriceTHB > 0 ? tor.referencePriceTHB : null,
+      });
+      if (!price.success) {
+        // Asked again next run; the TOR's own download still counts as done
+        console.warn(`        Price package: ${price.error}`);
+      } else {
+        tor.priceCheckedAt = new Date();
+        if (price.none) console.log('        Price package: none in e-GP');
+        else if (price.unchanged) console.log(`        Price package unchanged (${price.zipId})`);
+        else {
+          const { problems } = applyPricePackage(tor, price.package);
+          const { budgetTHB } = price.package.facts;
+          console.log(`        Price form: ${budgetTHB ? `budget ${budgetTHB.value.toLocaleString()}` : 'no budget read'}`);
+          for (const problem of problems) console.warn(`        ! ${problem}`);
+        }
+      }
     }
     await tor.save();
     await clearFailure({ projectId: tor.projectId, step: 'download' });

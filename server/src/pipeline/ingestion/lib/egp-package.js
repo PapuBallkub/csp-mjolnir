@@ -13,8 +13,8 @@
  * they're read by what they look like, not where they sit.
  */
 
-import { findThaiAmountInWords } from '../../shared/thai-number-words.js';
-import { convertThaiDigitsToArabic, parseThaiAmount } from '../../shared/thai-text.js';
+import { findThaiAmountInWords, parseThaiNumberWords } from '../../shared/thai-number-words.js';
+import { convertThaiDigitsToArabic, normalizeThaiPua, parseThaiAmount } from '../../shared/thai-text.js';
 
 // The blank forms e-GP puts in every package, byte for byte the same
 const FORM_NAMES = [
@@ -98,14 +98,15 @@ export function pickTorFiles(files) {
   return largest ? [largest] : [];
 }
 
-const flatten = (text) => String(text ?? '').replace(/\s+/g, ' ').trim();
+// One line of standard Thai: some fonts' text layers carry Private Use Area marks
+const flatten = (text) => normalizeThaiPua(text).replace(/\s+/g, ' ').trim();
 
 /**
  * The agency, from the announcement's heading: "ประกาศกรมการค้าภายใน" above
  * "เรื่อง …". A draft's may start with "(ร่าง)"; a long name may wrap.
  */
 export function readAgency(text) {
-  const lines = String(text ?? '')
+  const lines = normalizeThaiPua(text)
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
@@ -246,6 +247,147 @@ export function readAnnouncementWindow(text) {
     return windowOf({ day, month, year, opens: times[0].slice(1, 3), closes: times[1].slice(1, 3) }, item.trim());
   }
   return null;
+}
+
+/* --------------------------- The price form (ADR 0023) --------------------------- */
+
+// Slips Tesseract makes in amounts written in words, as seen on real price
+// forms: a dropped tone mark, or ล read as ด. Each is repaired only inside
+// an amount in words, which must then read as one, so a repair can't make
+// an amount out of ordinary text.
+const OCR_WORD_SLIPS = [
+  [/สี(?!่)/g, 'สี่'], // สีพัน → สี่พัน
+  [/ยี(?!่)/g, 'ยี่'], // ยีสิบ → ยี่สิบ
+  [/หนึง/g, 'หนึ่ง'],
+  [/หมืน/g, 'หมื่น'],
+  [/ด้าน/g, 'ล้าน'], // สี่ด้าน → สี่ล้าน
+];
+
+/**
+ * An amount written in words, read whole: "(หนึ่งล้าน…บาทถ้วน)". Every word
+ * must be a number word, so a slip OCR can't repair makes it unreadable
+ * instead of leaving a tail that reads as a smaller amount: "เก้าแสนเจ็ด
+ * หมืนห้าพันบาท" once read as ห้าพันบาท, 5,000.
+ */
+function readWordsWhole(words) {
+  let thai = String(words).replace(/[^ก-๏]/g, ''); // OCR noise, spaces and digits out
+  for (const [slip, fix] of OCR_WORD_SLIPS) thai = thai.replace(slip, fix);
+  const match = thai.match(/^(.+?)บาท(.*)$/);
+  if (!match) return null;
+  const baht = parseThaiNumberWords(match[1]);
+  if (baht === null) return null;
+  // After บาท: satang, or ถ้วน, which OCR may garble ("ถ้าว"): only satang counts
+  const satangWords = match[2].match(/^(.+)สตางค์$/)?.[1];
+  if (!satangWords) return baht;
+  const satang = parseThaiNumberWords(satangWords);
+  return satang === null || satang >= 100 ? null : baht + satang / 100;
+}
+
+// OCR writes ำ as two characters (U+0E4D U+0E32)
+const unifySaraAm = (text) => String(text ?? '').replace(/ํา/g, 'ำ');
+
+/** The integer digits of a number, for a size check: 1194600 → 7. */
+const digitCount = (value) => String(Math.trunc(value)).length;
+
+// A whole number just before "บาท" (Tesseract sometimes reads it "UM"), maybe
+// written "๑๓๕,๐๐๐.-บาท", with nothing glued to its front: a run OCR broke
+// with a letter isn't one
+const WHOLE_AMOUNT_BEFORE_BAHT = new RegExp(`(?:^|\\s)(${DIGIT}[0-9๐-๙,.]*${DIGIT})[.\\-\\s]*(?:บาท|um)`, 'gi');
+
+/**
+ * The amount an item of the form states. Forms write it in digits and
+ * often in words too:
+ * - **Words** give the value when they read whole: scanned digits are often
+ *   misread (๑,๑๙๔,๖๐๐ came out ๑,๑๕๕,๒๐๐) while the words survive. The
+ *   digits, when they read as a whole number, must have as many places: a
+ *   word OCR got wrong would rarely keep the size.
+ * - **Digits alone** otherwise. Whether OCR'd digits can be trusted is
+ *   decided by readPriceForm.
+ *
+ * @returns {{ value: number, quote: string, basis: 'words' | 'digits' } | { problem: string } | null}
+ */
+function amountIn(segment, label) {
+  // The innermost parentheses: OCR noise can open one far earlier
+  const words = segment.match(/\(([^()]*บาท[^()]*)\)/);
+  const before = words ? segment.slice(0, words.index) : segment;
+  const digitsMatch = [...before.matchAll(WHOLE_AMOUNT_BEFORE_BAHT)].at(-1);
+  const digits = digitsMatch ? parseThaiAmount(digitsMatch[1]) : null;
+
+  if (words) {
+    const value = readWordsWhole(words[1]);
+    if (value !== null) {
+      // Only digits that kept their separators: "๕๓๕๐๐๐๐๐๐" lost them, and its decimals with them
+      if (digits !== null && digitsMatch[1].includes(',') && digitCount(digits) !== digitCount(value)) {
+        return { problem: `${label}: the words say ${value.toLocaleString()}, the digits "${digitsMatch[1]}" a different size` };
+      }
+      return { value, basis: 'words', quote: segment.slice(0, words.index + words[0].length).trimEnd() };
+    }
+    if (digits === null) return { problem: `${label}: the amount in words can't be read in "${words[0]}"` };
+  }
+  if (digits === null) return null;
+  return { value: digits, basis: 'digits', quote: segment.slice(0, digitsMatch.index + digitsMatch[0].length).trimEnd() };
+}
+
+/**
+ * What the price form states (แบบ บก.: "ตารางแสดงวงเงินงบประมาณที่ได้รับจัดสรร
+ * และราคากลาง"):
+ * - the budget, from "วงเงินงบประมาณ" (the form's title says it too, without an
+ *   amount, so each mention is tried until one gives an amount);
+ * - ราคากลาง, from "กำหนดราคากลาง" (the date-and-amount item; the title's
+ *   "และราคากลาง" has none).
+ *
+ * An amount OCR read in digits alone is kept only when this form's ราคากลาง
+ * matches the announcement's, which is real text: proof that OCR read this
+ * form's digits right. A form with a real text layer needs no such proof.
+ * Construction's form (บก.01) lays its values out of order and isn't read.
+ *
+ * @param {string} text - The form's text layer, or its OCR text
+ * @param {{ ocr?: boolean, announcedReferencePrice?: number | null }} [options]
+ * @returns {{ budgetTHB: object | null, referencePriceTHB: object | null, problems: string[] }}
+ */
+export function readPriceForm(text, { ocr = true, announcedReferencePrice = null } = {}) {
+  const flat = flatten(unifySaraAm(text));
+  const problems = [];
+
+  // Each mention of the anchor runs to the next one, or to where the item ends
+  const firstAmount = (anchor, until, label) => {
+    for (const found of flat.matchAll(new RegExp(anchor.source, 'g'))) {
+      const rest = flat.slice(found.index + found[0].length);
+      const end = rest.search(new RegExp(`${anchor.source}|${until.source}`));
+      const segment = (end === -1 ? rest : rest.slice(0, end)).slice(0, 400);
+      const amount = amountIn(segment, label);
+      if (amount?.problem) {
+        problems.push(amount.problem);
+        return null;
+      }
+      if (amount) return { ...amount, quote: `${found[0]}${amount.quote}` };
+    }
+    return null;
+  };
+
+  // Forms word it "ที่ได้รับ(การ)จัดสรร", some text layers drop the tone mark
+  // ("ที่ไดรับ"), and OCR has read วงเงิน as จงเงิน
+  const budget = firstAmount(/(?:[วจ]งเงิน)?งบประมาณที่ได้?รับ(?:การ)?จัดสรร/, /ราคากลาง/, 'Budget');
+  const price = firstAmount(/กำหนดราคากลาง/, /แหล่งที่มา|รายชื่อ|ที่มาของ/, 'ราคากลาง on the price form');
+
+  const vouched = Boolean(price && announcedReferencePrice && Math.abs(price.value - announcedReferencePrice) < 1);
+  const keep = (amount, label) => {
+    if (!amount) return null;
+    if (amount.basis === 'digits' && ocr && !vouched) {
+      problems.push(
+        `${label}: OCR read ${amount.value.toLocaleString()} in digits alone, and this form's ราคากลาง ` +
+          "doesn't match the announcement's to vouch for them",
+      );
+      return null;
+    }
+    return { value: amount.value, quote: amount.quote, document: 'price-form' };
+  };
+
+  return {
+    budgetTHB: keep(budget, 'Budget'),
+    referencePriceTHB: keep(price, 'ราคากลาง on the price form'),
+    problems,
+  };
 }
 
 const sameWindow = (a, b) =>

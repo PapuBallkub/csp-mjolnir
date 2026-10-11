@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { parseThaiAmount } from '#pipeline/shared/thai-text.js';
+import { normalizeThaiPua, parseThaiAmount } from '#pipeline/shared/thai-text.js';
 
 test('parseThaiAmount reads the numbers data.go.th sends, satang included', () => {
   assert.equal(parseThaiAmount(9978750), 9978750);
@@ -26,4 +26,12 @@ test('parseThaiAmount refuses to guess at anything that is not a clean amount', 
   for (const unclear of [-5000, 'ประมาณ 1.8 ล้าน', '1,85,000', '1,850,000.000', '฿1,850,000', '1.850.000']) {
     assert.equal(parseThaiAmount(unclear), null, `${JSON.stringify(unclear)} is not read as a price`);
   }
+});
+
+test('normalizeThaiPua puts back the marks some fonts keep in the Private Use Area', () => {
+  // A real price form's text layer: "ได" + U+F70B + "รับ"
+  assert.equal(normalizeThaiPua('วงเงินงบประมาณที่ไดรับจัดสรร'), 'วงเงินงบประมาณที่ได้รับจัดสรร');
+  assert.equal(normalizeThaiPua('าน าณ'), 'ฐาน ญาณ');
+  assert.equal(normalizeThaiPua('ไม่มีอะไรเปลี่ยน'), 'ไม่มีอะไรเปลี่ยน');
+  assert.equal(normalizeThaiPua(null), '');
 });

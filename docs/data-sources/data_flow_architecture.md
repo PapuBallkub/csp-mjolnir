@@ -36,7 +36,8 @@ flowchart LR
 - **Each package's project files are kept, and its announcement is read in
   code** for the agency, ราคากลาง and bid window. A new stage's package is
   downloaded when the feed announces it ([0020](../decisions/0020-read-the-whole-egp-package.md)).
-  The budget, on the price form, isn't read yet; see
+  The budget is read from the price form, in the price package
+  ([0023](../decisions/0023-read-the-budget-from-the-price-form.md)); see
   [process5_gprocurement.md](process5_gprocurement.md#how-the-pipeline-uses-it-now).
 
 ## Where each fact is
