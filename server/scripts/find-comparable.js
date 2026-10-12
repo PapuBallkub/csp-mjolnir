@@ -18,7 +18,12 @@
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { TorInsight } from '#models/index.js';
-import { findComparableProjects, getProjectPrice } from '#features/reality-check/index.js';
+import {
+  findComparableProjects,
+  getProjectPrice,
+  calculatePriceBenchmarks,
+  analyzeRequirementDeviations,
+} from '#features/reality-check/index.js';
 
 function parseArgs(args) {
   const options = {
@@ -26,6 +31,7 @@ function parseArgs(args) {
     all: false,
     save: false,
     limit: 5,
+    verbose: false,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -38,6 +44,8 @@ function parseArgs(args) {
       options.save = true;
     } else if (arg === '--limit' && args[i + 1]) {
       options.limit = parseInt(args[++i], 10) || 5;
+    } else if (arg === '--verbose' || arg === '-v') {
+      options.verbose = true;
     } else if (arg === '--help' || arg === '-h') {
       options.help = true;
     }
@@ -57,6 +65,7 @@ Options:
   --all          Run similarity across all TorInsight documents
   --save         Save matched comparable projects to database
   --limit <N>    Number of comparable projects to find (default: 5)
+  --verbose, -v  Show detailed per-project matching log
   --help, -h     Show this help message
 `);
 }
@@ -102,22 +111,52 @@ async function inspectOne(projectId, { limit, save }) {
     );
   });
 
-  if (save) {
-    const comparableList = results.map((r) => ({
-      title: r.title,
-      year: r.year,
-      referencePriceTHB: r.referencePriceTHB,
-    }));
+  // Calculate historical price benchmarks (FR-20)
+  const benchmarks = calculatePriceBenchmarks(tor, results);
+  console.log(`------------------------------------------------------`);
+  console.log(`Historical Price Benchmarks (FR-20):`);
+  console.log(`  Sample Size:       ${benchmarks.sampleSize} project(s) [Reliability: ${benchmarks.reliability}]`);
+  console.log(`  Historical Median: ${formatTHB(benchmarks.historicalMedianTHB)}`);
+  console.log(`  Historical Mean:   ${formatTHB(benchmarks.historicalAverageTHB)}`);
+  console.log(`  Difference:        ${benchmarks.diffPercentage != null ? `${benchmarks.diffPercentage > 0 ? '+' : ''}${benchmarks.diffPercentage}% vs Median` : 'N/A'}`);
+  console.log(`  Verdict/Copy:      ${benchmarks.interpretation}`);
+  console.log(`------------------------------------------------------\n`);
 
+  // Requirement deviation & lock-spec analysis (FR-20, FR-21)
+  const lockSpec = analyzeRequirementDeviations(tor);
+  console.log(`------------------------------------------------------`);
+  console.log(`Lock-Spec & Requirement Deviations (FR-20, FR-21):`);
+  console.log(`  Risk Score:   ${lockSpec.riskScore}/100`);
+  console.log(`  Verdict:      ${lockSpec.verdictText}`);
+  console.log(`  Findings (${lockSpec.findings.length}):`);
+  if (lockSpec.findings.length === 0) {
+    console.log(`    • ไม่พบข้อกำหนดที่ส่อถึงการล็อกสเปก`);
+  } else {
+    lockSpec.findings.forEach((f, idx) => {
+      console.log(`    [${idx + 1}] [${f.severity.toUpperCase()}] ${f.title}`);
+      console.log(`        Category:  ${f.category}`);
+      console.log(`        Clause:    ${f.requirementText}`);
+      console.log(`        Benchmark: ${f.normalBenchmark}`);
+      if (f.sourceLocation) console.log(`        Location:  ${f.sourceLocation}`);
+    });
+  }
+  console.log(`------------------------------------------------------\n`);
+
+  if (save) {
     await TorInsight.updateOne(
       { projectId },
-      { $set: { 'analytics.priceAnalysis.comparableProjects': comparableList } }
+      {
+        $set: {
+          'analytics.priceAnalysis': benchmarks,
+          'analytics.lockSpec': lockSpec,
+        },
+      }
     );
-    console.log(`✓ Saved ${comparableList.length} comparable project(s) to TorInsight.`);
+    console.log(`✓ Saved price benchmarks and lock-spec analytics (${lockSpec.findings.length} findings) to TorInsight.`);
   }
 }
 
-async function processAll({ limit, save }) {
+async function processAll({ limit, save, verbose = false }) {
   const tors = await TorInsight.find({
     'identification.category': { $ne: null },
     $or: [
@@ -128,28 +167,99 @@ async function processAll({ limit, save }) {
 
   console.log(`Processing ${tors.length} valid TOR documents...`);
 
+  let newlyCalculatedCount = 0;
   let updatedCount = 0;
-  for (const tor of tors) {
-    const results = await findComparableProjects(tor, { limit });
-    if (save && results.length > 0) {
-      const comparableList = results.map((r) => ({
-        title: r.title,
-        year: r.year,
-        referencePriceTHB: r.referencePriceTHB,
-      }));
+  let unchangedCount = 0;
+  let matchedCount = 0;
+  let unbenchmarkedCount = 0;
 
+  for (let i = 0; i < tors.length; i++) {
+    const tor = tors[i];
+    const prev = tor.analytics?.priceAnalysis;
+    const prevMedian = prev?.historicalMedianTHB ?? null;
+    const prevSampleSize = prev?.sampleSize ?? prev?.comparableProjects?.length ?? 0;
+
+    const results = await findComparableProjects(tor, { limit });
+    const benchmarks = calculatePriceBenchmarks(tor, results);
+    const lockSpec = analyzeRequirementDeviations(tor);
+
+    if (results.length > 0) {
+      matchedCount += 1;
+    } else {
+      unbenchmarkedCount += 1;
+    }
+
+    // Track state change
+    if (prevMedian === null && benchmarks.historicalMedianTHB !== null) {
+      newlyCalculatedCount += 1;
+    } else if (
+      prevMedian !== null &&
+      (prevMedian !== benchmarks.historicalMedianTHB || prevSampleSize !== benchmarks.sampleSize)
+    ) {
+      updatedCount += 1;
+    } else {
+      unchangedCount += 1;
+    }
+
+    if (verbose) {
+      let changeTag = '';
+      let changeDetail = '';
+      if (prevMedian === null && benchmarks.historicalMedianTHB !== null) {
+        changeTag = '★ NEW';
+        changeDetail = `Median: ${formatTHB(benchmarks.historicalMedianTHB)} (${benchmarks.sampleSize} peer(s), diff: ${benchmarks.diffPercentage != null ? `${benchmarks.diffPercentage > 0 ? '+' : ''}${benchmarks.diffPercentage}%` : 'N/A'})`;
+      } else if (
+        prevMedian !== null &&
+        (prevMedian !== benchmarks.historicalMedianTHB || prevSampleSize !== benchmarks.sampleSize)
+      ) {
+        changeTag = '⟳ CHANGED';
+        changeDetail = `Median: ${formatTHB(prevMedian)} ➔ ${formatTHB(benchmarks.historicalMedianTHB)} (${prevSampleSize} ➔ ${benchmarks.sampleSize} peers)`;
+      } else if (benchmarks.historicalMedianTHB !== null) {
+        changeTag = '= UNCHANGED';
+        changeDetail = `Median: ${formatTHB(benchmarks.historicalMedianTHB)} (${benchmarks.sampleSize} peer(s), diff: ${benchmarks.diffPercentage != null ? `${benchmarks.diffPercentage > 0 ? '+' : ''}${benchmarks.diffPercentage}%` : 'N/A'})`;
+      } else {
+        changeTag = '∅ NO PEERS';
+        changeDetail = `No comparable projects found in category "${tor.identification?.category}" within budget bracket`;
+      }
+
+      const title = tor.identification?.titleTh?.slice(0, 50) || tor.projectId;
+      const priceStr = formatTHB(getProjectPrice(tor));
+
+      console.log(`[${i + 1}/${tors.length}] [${tor.projectId}] ${title}`);
+      console.log(`      Category: ${tor.identification?.category} | Price: ${priceStr}`);
+      console.log(`      Price:    [${changeTag}] ${changeDetail}`);
+      console.log(`      LockSpec: ${lockSpec.riskScore}/100 (${lockSpec.findings.length} finding(s)) - ${lockSpec.verdictText}`);
+      if (results.length > 0) {
+        const peerSummary = results
+          .map((r) => `${r.projectId} (${formatTHB(r.referencePriceTHB)})`)
+          .join(', ');
+        console.log(`      Peers:    ${peerSummary}`);
+      }
+      console.log('');
+    }
+
+    if (save) {
       await TorInsight.updateOne(
         { projectId: tor.projectId },
-        { $set: { 'analytics.priceAnalysis.comparableProjects': comparableList } }
+        {
+          $set: {
+            'analytics.priceAnalysis': benchmarks,
+            'analytics.lockSpec': lockSpec,
+          },
+        }
       );
-      updatedCount += 1;
     }
   }
 
+  if (verbose) {
+    console.log(`------------------------------------------------------`);
+  }
   if (save) {
-    console.log(`✓ Done: Updated ${updatedCount} of ${tors.length} projects in database.`);
+    console.log(`✓ Saved benchmarks and lock-spec analytics to database for ${tors.length} projects:`);
+    console.log(`  • Status:     ${matchedCount} project(s) with peers | ${unbenchmarkedCount} project(s) with 0 peers`);
+    console.log(`  • Changes:    ${newlyCalculatedCount} new, ${updatedCount} updated, ${unchangedCount} unchanged`);
   } else {
-    console.log(`✓ Done dry run across ${tors.length} projects (use --save to persist changes).`);
+    console.log(`✓ Dry run across ${tors.length} projects (${matchedCount} with peers, ${unbenchmarkedCount} without).`);
+    console.log(`  • Run with --save to persist changes to database.`);
   }
 }
 

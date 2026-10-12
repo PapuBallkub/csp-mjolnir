@@ -77,9 +77,9 @@ export function CatalogRow({
   const restTech = tech.length - visibleTech.length;
 
   // The reference price is what the catalog filters on; the budget stands in only when it's missing
-  const price = facts.referencePriceTHB ?? facts.budgetTHB;
+  const price = facts.referencePriceTHB ?? facts.budgetTHB ?? null;
   const priceLabel =
-    facts.referencePriceTHB !== null
+    facts.referencePriceTHB != null
       ? lang === "th" ? "ราคากลาง" : "reference price"
       : lang === "th" ? "งบประมาณ" : "budget";
 
@@ -178,7 +178,7 @@ export function CatalogRow({
         <div className="flex shrink-0 flex-col gap-2 border-t border-line/60 pt-3 sm:w-[196px] sm:items-end sm:justify-start sm:gap-3 sm:border-t-0 sm:border-l sm:border-line sm:pt-0 sm:pl-5">
           <div className="flex w-full items-end justify-between gap-4 sm:w-auto sm:flex-col sm:items-end sm:justify-start sm:gap-3">
             <div className="flex flex-col items-start sm:items-end">
-              {price !== null ? (
+              {price != null ? (
                 <span
                   className="font-mono tnum text-[19px] sm:text-[20px] leading-none font-semibold text-ink"
                   title={formatTHB(price)}

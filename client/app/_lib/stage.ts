@@ -99,16 +99,18 @@ type StageInput = {
  */
 export function stageOf({ status, latestAnnouncement, contractSigned }: StageInput): Stage {
   if (contractSigned) return { label: CONTRACT_SIGNED, saysChanged: false };
-  if (status === "Closed") return { label: STAGE_BY_STATUS.Closed, hint: HINTS.Closed, saysChanged: false };
+  const safeStatus = (status && status in STAGE_BY_STATUS) ? status : "Open";
+  if (safeStatus === "Closed") return { label: STAGE_BY_STATUS.Closed, hint: HINTS.Closed, saysChanged: false };
 
   const code = latestAnnouncement?.code;
   if (code && code in STAGE_BY_CODE) {
     const implied = STATUS_OF_CODE[code];
-    if (implied === null || implied === status) {
-      return { label: STAGE_BY_CODE[code], hint: HINTS[status], saysChanged: code === "D2" };
+    if (implied === null || implied === safeStatus) {
+      return { label: STAGE_BY_CODE[code], hint: HINTS[safeStatus], saysChanged: code === "D2" };
     }
   }
-  return { label: STAGE_BY_STATUS[status], hint: HINTS[status], saysChanged: false };
+  const label = STAGE_BY_STATUS[safeStatus] || { th: String(status || "เปิดรับข้อเสนอ"), en: String(status || "Open") };
+  return { label, hint: HINTS[safeStatus], saysChanged: false };
 }
 
 export type DeadlineInfo = {
@@ -121,24 +123,24 @@ export type DeadlineInfo = {
   missing: Bi;
 };
 
-type DeadlineFacts = { submissionDeadline: string | null; commentDeadline?: string | null };
+type DeadlineFacts = { submissionDeadline?: string | null; commentDeadline?: string | null };
 
 /**
  * The deadline that matters now. A draft out for public hearing asks for
  * comments by a date and has no bid date yet; everything else is about bids.
  */
-export function deadlineOf(status: TorStatus, facts: DeadlineFacts): DeadlineInfo {
+export function deadlineOf(status: TorStatus, facts?: DeadlineFacts | null): DeadlineInfo {
   if (status === "Draft") {
     return {
       kind: "comment",
-      date: facts.commentDeadline ?? null,
+      date: facts?.commentDeadline ?? null,
       label: { th: "ส่งความเห็นร่าง TOR ภายใน", en: "Comments on the draft due" },
       missing: { th: "TOR ไม่ระบุวันรับฟังความเห็น", en: "The TOR gives no comment deadline" },
     };
   }
   return {
     kind: "submission",
-    date: facts.submissionDeadline,
+    date: facts?.submissionDeadline ?? null,
     label: { th: "ยื่นข้อเสนอภายใน", en: "Bids due" },
     missing: { th: "TOR ไม่ระบุวันยื่นข้อเสนอ", en: "The TOR gives no bid deadline" },
   };

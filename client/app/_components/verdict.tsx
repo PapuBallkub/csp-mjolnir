@@ -93,7 +93,10 @@ const SCOPE_LABEL: Record<ScopeSize, Bi> = {
 };
 
 type Bi = { th: string; en: string };
-const say = (v: Bi, lang: Lang) => (lang === "th" ? v.th : v.en);
+const say = (v?: Bi | null, lang: Lang = "th") => {
+  if (!v) return "";
+  return lang === "th" ? (v.th ?? v.en ?? "") : (v.en ?? v.th ?? "");
+};
 
 /* --------------------------------- glyphs --------------------------------- */
 
@@ -417,10 +420,11 @@ export function LifecycleBadge({
   stage?: Stage;
   size?: "regular" | "large";
 }) {
-  const tone = LIFECYCLE_TONE[status];
-  const { label, hint } = stage ?? stageOf({ status });
+  const safeStatus = status || "Open";
+  const tone = LIFECYCLE_TONE[safeStatus];
+  const { label, hint } = stage ?? stageOf({ status: safeStatus });
   const colours =
-    status === "Closed"
+    safeStatus === "Closed"
       ? "border-dashed border-closed-line bg-surface text-ink-2"
       : tone
         ? `${TONE[tone].bg} ${TONE[tone].border} ${TONE[tone].text}`
@@ -430,8 +434,8 @@ export function LifecycleBadge({
       className={`${size === "large" ? largeStatusBadgeBase : statusBadgeBase} min-w-[82px] justify-center ${colours}`}
       title={hint ? say(hint, lang) : undefined}
     >
-      <LifecycleGlyph status={status} className={size === "large" ? "h-3.5 w-3.5 shrink-0" : undefined} />
-      <span>{say(label, lang)}</span>
+      <LifecycleGlyph status={safeStatus} className={size === "large" ? "h-3.5 w-3.5 shrink-0" : undefined} />
+      <span>{say(label, lang) || safeStatus}</span>
       {hint ? <span className="sr-only"> ({say(hint, lang)})</span> : null}
     </span>
   );

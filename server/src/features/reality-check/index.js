@@ -15,3 +15,21 @@ export {
   getProjectPrice,
   DOMAIN_KEYWORDS,
 } from './similarity.service.js';
+
+export {
+  calculatePriceBenchmarks,
+  calculateMedian,
+  calculateAverage,
+  computeTorPriceBenchmarks,
+} from './benchmark.service.js';
+
+export {
+  analyzeRequirementDeviations,
+  computeTorLockSpecAnalysis,
+  checkExperienceRatio,
+  checkManufacturerAuthorizations,
+  checkDisproportionateCertifications,
+  checkTechnologyVersionLock,
+  checkExcessivePenalty,
+  SEVERITY_POINTS,
+} from './deviation.service.js';

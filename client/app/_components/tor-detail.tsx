@@ -13,7 +13,7 @@ import { announcementLabel, deadlineOf, stageOf } from "../_lib/stage";
 import { AccentPanel, btn, Chip, Fact, Label, Panel, SectionHeading, Well } from "./ui";
 
 function formatMoney(amount: number | null | undefined, lang: Lang = "th"): string {
-  if (amount == null) return lang === "th" ? "ไม่ระบุใน TOR" : "Not specified in TOR";
+  if (amount == null || Number.isNaN(amount)) return lang === "th" ? "ไม่ระบุใน TOR" : "Not specified in TOR";
   return `฿${amount.toLocaleString("en-US")}`;
 }
 
@@ -1233,9 +1233,11 @@ export function TorDetail({
                   : "Comparison against historical median of similar past projects"
               }
               right={
-                <span className="font-mono text-[14px] font-bold">
-                  {price.diffPercentage > 0 ? `+${price.diffPercentage}%` : `${price.diffPercentage}%`}
-                </span>
+                price.diffPercentage != null ? (
+                  <span className="font-mono text-[14px] font-bold">
+                    {price.diffPercentage > 0 ? `+${price.diffPercentage}%` : `${price.diffPercentage}%`}
+                  </span>
+                ) : null
               }
             >
               {lang === "th" ? "ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "Price Reality Check"}
@@ -1262,11 +1264,15 @@ export function TorDetail({
 
               <div className="col-span-2 sm:col-span-1">
                 <Label>{lang === "th" ? "ส่วนต่างเทียบมัธยฐาน" : "Diff vs Median"}</Label>
-                <p className={`mt-1 font-mono text-[16px] font-bold ${
-                  price.diffPercentage > 10 ? "text-amend" : price.diffPercentage < -10 ? "text-risk" : "text-open"
-                }`}>
-                  {price.diffPercentage > 0 ? `+${price.diffPercentage}%` : `${price.diffPercentage}%`}
-                </p>
+                {price.diffPercentage != null ? (
+                  <p className={`mt-1 font-mono text-[16px] font-bold ${
+                    price.diffPercentage > 10 ? "text-amend" : price.diffPercentage < -10 ? "text-risk" : "text-open"
+                  }`}>
+                    {price.diffPercentage > 0 ? `+${price.diffPercentage}%` : `${price.diffPercentage}%`}
+                  </p>
+                ) : (
+                  <p className="mt-1 font-mono text-[16px] text-ink-3">—</p>
+                )}
               </div>
             </div>
 

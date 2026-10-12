@@ -72,7 +72,10 @@ export function TorDeadline({
   lang: Lang;
 }) {
   const info = deadlineOf(status, facts);
-  const say = (text: { th: string; en: string }) => (lang === "th" ? text.th : text.en);
+  const say = (text?: { th: string; en: string } | null) => {
+    if (!text) return "";
+    return lang === "th" ? (text.th ?? text.en ?? "") : (text.en ?? text.th ?? "");
+  };
 
   // Nothing left to do: say so, and keep the date it closed for the record
   if (isDead(status)) {

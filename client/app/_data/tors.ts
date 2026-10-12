@@ -14,8 +14,10 @@ export type Lang = "th" | "en";
 /** A bilingual string. Source content is Thai; English is the plain-language gloss. */
 export type Bi = { th: string; en: string };
 
-export function pick(value: Bi, lang: Lang): string {
-  return lang === "th" ? value.th : value.en;
+export function pick(value?: Bi | string | null, lang: Lang = "th"): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  return lang === "th" ? (value.th ?? value.en ?? "") : (value.en ?? value.th ?? "");
 }
 
 export type Status = "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";
@@ -1328,12 +1330,14 @@ export function matchScore(tor: Tor, profile: Profile): number {
 
 /* ---------------------------------- utils --------------------------------- */
 
-export function formatTHB(amount: number): string {
+export function formatTHB(amount?: number | null): string {
+  if (amount == null || Number.isNaN(amount)) return "—";
   return `฿${amount.toLocaleString("en-US")}`;
 }
 
 /** Compact form for dense rows: ฿12.4M, ฿890K. */
-export function formatTHBCompact(amount: number): string {
+export function formatTHBCompact(amount?: number | null): string {
+  if (amount == null || Number.isNaN(amount)) return "—";
   if (amount >= 1_000_000) {
     const millions = amount / 1_000_000;
     return `฿${millions % 1 === 0 ? millions : millions.toFixed(1)}M`;
