@@ -309,7 +309,21 @@ export function PriceBadge({ tor, lang }: { tor: Tor; lang: Lang }) {
 }
 
 /** The API's price check: % from the historical median, read with the detail page's ±15% line. */
-export function PriceDeltaBadge({ delta, lang }: { delta: number; lang: Lang }) {
+export function PriceDeltaBadge({
+  delta,
+  lang,
+}: {
+  delta?: number | null;
+  lang: Lang;
+}) {
+  if (delta == null || Number.isNaN(delta)) {
+    return (
+      <span className={`${badgeBase} border-line bg-surface-2 text-ink-3`}>
+        <span>—</span>
+        <span>{lang === "th" ? "ไม่มีราคาเปรียบเทียบ" : "No price comp"}</span>
+      </span>
+    );
+  }
   const verdict: PriceVerdict = delta > 15 ? "over" : delta < -15 ? "under" : "fair";
   return <PriceVerdictBadge verdict={verdict} delta={delta} lang={lang} />;
 }

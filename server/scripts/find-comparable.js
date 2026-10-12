@@ -22,7 +22,6 @@ import {
   findComparableProjects,
   getProjectPrice,
   calculatePriceBenchmarks,
-  analyzeRequirementDeviations,
 } from '#features/reality-check/index.js';
 
 function parseArgs(args) {
@@ -122,37 +121,12 @@ async function inspectOne(projectId, { limit, save }) {
   console.log(`  Verdict/Copy:      ${benchmarks.interpretation}`);
   console.log(`------------------------------------------------------\n`);
 
-  // Requirement deviation & lock-spec analysis (FR-20, FR-21)
-  const lockSpec = analyzeRequirementDeviations(tor);
-  console.log(`------------------------------------------------------`);
-  console.log(`Lock-Spec & Requirement Deviations (FR-20, FR-21):`);
-  console.log(`  Risk Score:   ${lockSpec.riskScore}/100`);
-  console.log(`  Verdict:      ${lockSpec.verdictText}`);
-  console.log(`  Findings (${lockSpec.findings.length}):`);
-  if (lockSpec.findings.length === 0) {
-    console.log(`    • ไม่พบข้อกำหนดที่ส่อถึงการล็อกสเปก`);
-  } else {
-    lockSpec.findings.forEach((f, idx) => {
-      console.log(`    [${idx + 1}] [${f.severity.toUpperCase()}] ${f.title}`);
-      console.log(`        Category:  ${f.category}`);
-      console.log(`        Clause:    ${f.requirementText}`);
-      console.log(`        Benchmark: ${f.normalBenchmark}`);
-      if (f.sourceLocation) console.log(`        Location:  ${f.sourceLocation}`);
-    });
-  }
-  console.log(`------------------------------------------------------\n`);
-
   if (save) {
     await TorInsight.updateOne(
       { projectId },
-      {
-        $set: {
-          'analytics.priceAnalysis': benchmarks,
-          'analytics.lockSpec': lockSpec,
-        },
-      }
+      { $set: { 'analytics.priceAnalysis': benchmarks } }
     );
-    console.log(`✓ Saved price benchmarks and lock-spec analytics (${lockSpec.findings.length} findings) to TorInsight.`);
+    console.log(`✓ Saved price benchmarks and ${benchmarks.comparableProjects.length} comparable project(s) to TorInsight.`);
   }
 }
 
@@ -181,7 +155,6 @@ async function processAll({ limit, save, verbose = false }) {
 
     const results = await findComparableProjects(tor, { limit });
     const benchmarks = calculatePriceBenchmarks(tor, results);
-    const lockSpec = analyzeRequirementDeviations(tor);
 
     if (results.length > 0) {
       matchedCount += 1;
@@ -226,8 +199,7 @@ async function processAll({ limit, save, verbose = false }) {
 
       console.log(`[${i + 1}/${tors.length}] [${tor.projectId}] ${title}`);
       console.log(`      Category: ${tor.identification?.category} | Price: ${priceStr}`);
-      console.log(`      Price:    [${changeTag}] ${changeDetail}`);
-      console.log(`      LockSpec: ${lockSpec.riskScore}/100 (${lockSpec.findings.length} finding(s)) - ${lockSpec.verdictText}`);
+      console.log(`      Result:   [${changeTag}] ${changeDetail}`);
       if (results.length > 0) {
         const peerSummary = results
           .map((r) => `${r.projectId} (${formatTHB(r.referencePriceTHB)})`)
@@ -240,12 +212,7 @@ async function processAll({ limit, save, verbose = false }) {
     if (save) {
       await TorInsight.updateOne(
         { projectId: tor.projectId },
-        {
-          $set: {
-            'analytics.priceAnalysis': benchmarks,
-            'analytics.lockSpec': lockSpec,
-          },
-        }
+        { $set: { 'analytics.priceAnalysis': benchmarks } }
       );
     }
   }
@@ -254,7 +221,7 @@ async function processAll({ limit, save, verbose = false }) {
     console.log(`------------------------------------------------------`);
   }
   if (save) {
-    console.log(`✓ Saved benchmarks and lock-spec analytics to database for ${tors.length} projects:`);
+    console.log(`✓ Saved benchmarks to database for ${tors.length} projects:`);
     console.log(`  • Status:     ${matchedCount} project(s) with peers | ${unbenchmarkedCount} project(s) with 0 peers`);
     console.log(`  • Changes:    ${newlyCalculatedCount} new, ${updatedCount} updated, ${unchangedCount} unchanged`);
   } else {

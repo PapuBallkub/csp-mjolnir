@@ -121,6 +121,7 @@ export function TorDetail({
   const isSaved = user?.watchlist?.includes(projectId) ?? false;
   const [toggleLoading, setToggleLoading] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showAllComparables, setShowAllComparables] = useState(false);
 
   useEffect(() => {
     if (!showAuthModal) return;
@@ -332,8 +333,12 @@ export function TorDetail({
               <span className="text-[12px] text-ink-3">
                 {lang === "th" ? "เทียบราคากลางในอดีต:" : "Price vs median:"}
               </span>
-              {diffPct === null ? (
+              {price == null ? (
                 <span className="text-[12px] text-ink-3">{notAnalysed}</span>
+              ) : diffPct === null ? (
+                <span className="text-[12px] text-ink-3">
+                  {lang === "th" ? "ไม่มีข้อมูลเปรียบเทียบ" : "No benchmark"}
+                </span>
               ) : (
                 <span
                   className={`font-mono text-[12px] font-semibold ${
@@ -345,6 +350,11 @@ export function TorDetail({
                   }`}
                 >
                   {diffPct > 0 ? `+${diffPct}%` : `${diffPct}%`}
+                  {price.sampleSize != null && price.sampleSize > 0 ? (
+                    <span className="ml-1 text-[11px] font-normal text-ink-3">
+                      (N={price.sampleSize})
+                    </span>
+                  ) : null}
                 </span>
               )}
             </div>
@@ -1222,96 +1232,223 @@ export function TorDetail({
           )}
 
           {/* ---------------------------------------------------------------- */}
-          {/* 11. DECISION SUPPORT: PRICE REALITY CHECK                        */}
           {/* ---------------------------------------------------------------- */}
-          {price ? (
-          <AccentPanel tone={priceTone} className="px-4 py-5 sm:px-6 sm:py-6">
-            <SectionHeading
-              sub={
-                lang === "th"
-                  ? "เปรียบเทียบราคากลางกับโครงการเทคโนโลยีลักษณะเดียวกันในอดีต (FR-19)"
-                  : "Comparison against historical median of similar past projects"
-              }
-              right={
-                price.diffPercentage != null ? (
-                  <span className="font-mono text-[14px] font-bold">
-                    {price.diffPercentage > 0 ? `+${price.diffPercentage}%` : `${price.diffPercentage}%`}
-                  </span>
-                ) : null
-              }
-            >
-              {lang === "th" ? "ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "Price Reality Check"}
-            </SectionHeading>
+          {/* 11. DECISION SUPPORT: PRICE REALITY CHECK (FR-20)                 */}
+          {/* ---------------------------------------------------------------- */}
+          {price ? (() => {
+            const sampleSize = price.sampleSize ?? price.comparableProjects?.length ?? 0;
+            const targetPrice = price.referencePriceTHB || facts.referencePriceTHB;
+            const isLowSample = price.reliability === "low" || (sampleSize > 0 && sampleSize < 3);
 
-            <p className="mt-2 text-[14.5px] leading-thai text-ink">
-              {price.interpretation}
-            </p>
+            return (
+              <AccentPanel tone={priceTone} className="px-4 py-5 sm:px-6 sm:py-6">
+                <SectionHeading
+                  sub={
+                    lang === "th"
+                      ? "เปรียบเทียบราคากลางกับโครงการเทคโนโลยีลักษณะเดียวกันในอดีต"
+                      : "Comparison against historical benchmarks of similar past projects"
+                  }
+                  right={
+                    price.diffPercentage != null ? (
+                      <span className={`inline-flex items-center gap-1.5 rounded-[2px] border px-2.5 py-1 font-mono text-[13px] font-bold ${
+                        price.diffPercentage > 15
+                          ? "border-amend-line bg-amend-bg text-amend"
+                          : price.diffPercentage < -15
+                          ? "border-risk-line bg-risk-bg text-risk"
+                          : "border-open-line bg-open-bg text-open"
+                      }`}>
+                        <span>{price.diffPercentage > 0 ? `+${price.diffPercentage}%` : `${price.diffPercentage}%`}</span>
+                        <span className="text-[11px] font-normal opacity-80">
+                          {price.diffPercentage > 15
+                            ? (lang === "th" ? "สูงกว่าค่ากลาง" : "above median")
+                            : price.diffPercentage < -15
+                            ? (lang === "th" ? "ต่ำกว่าค่ากลาง" : "below median")
+                            : (lang === "th" ? "ราคาอยู่ในเกณฑ์ปกติ" : "budget looks normal")}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] text-ink-3">
+                        {lang === "th" ? "ไม่มีข้อมูลเปรียบเทียบ" : "No benchmark"}
+                      </span>
+                    )
+                  }
+                >
+                  {lang === "th" ? "ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "Price Reality Check"}
+                </SectionHeading>
 
-            <div className="mt-4 grid grid-cols-2 gap-4 rounded-[3px] border border-line bg-surface p-3.5 sm:grid-cols-3">
-              <div>
-                <Label>{lang === "th" ? "ราคากลางโครงการนี้" : "Reference Price"}</Label>
-                <p className="mt-1 font-mono text-[16px] font-semibold text-ink">
-                  {formatMoney(price.referencePriceTHB || facts.referencePriceTHB)}
-                </p>
-              </div>
-
-              <div>
-                <Label>{lang === "th" ? "ค่ามัธยฐานในอดีต" : "Historical Median"}</Label>
-                <p className="mt-1 font-mono text-[16px] font-semibold text-ink-2">
-                  {formatMoney(price.historicalMedianTHB)}
-                </p>
-              </div>
-
-              <div className="col-span-2 sm:col-span-1">
-                <Label>{lang === "th" ? "ส่วนต่างเทียบมัธยฐาน" : "Diff vs Median"}</Label>
-                {price.diffPercentage != null ? (
-                  <p className={`mt-1 font-mono text-[16px] font-bold ${
-                    price.diffPercentage > 10 ? "text-amend" : price.diffPercentage < -10 ? "text-risk" : "text-open"
-                  }`}>
-                    {price.diffPercentage > 0 ? `+${price.diffPercentage}%` : `${price.diffPercentage}%`}
+                {!isLowSample && price.interpretation ? (
+                  <p className="mt-2 text-[14.5px] leading-thai text-ink">
+                    {price.interpretation}
                   </p>
-                ) : (
-                  <p className="mt-1 font-mono text-[16px] text-ink-3">—</p>
-                )}
-              </div>
-            </div>
+                ) : null}
 
-            {/* Comparable Projects Table */}
-            {price.comparableProjects && price.comparableProjects.length > 0 ? (
-              <div className="mt-5">
-                <Label>{lang === "th" ? "โครงการในอดีตที่ใช้เปรียบเทียบอ้างอิง" : "Comparable Reference Projects"}</Label>
-                <div className="mt-2 overflow-x-auto rounded-[3px] border border-line">
-                  <table className="w-full text-left text-[12.5px]">
-                    <thead className="border-b border-line bg-surface-2 text-ink-3">
-                      <tr>
-                        <th className="px-3 py-2 font-medium">{lang === "th" ? "ชื่อโครงการ" : "Project"}</th>
-                        <th className="px-3 py-2 font-medium">{lang === "th" ? "ปีงบ" : "Year"}</th>
-                        <th className="px-3 py-2 text-right font-medium">{lang === "th" ? "ราคากลาง" : "Price"}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-line bg-surface">
-                      {price.comparableProjects.map((p, idx) => (
-                        <tr key={idx}>
-                          <td className="px-3 py-2 font-medium text-ink">{p.title}</td>
-                          <td className="px-3 py-2 font-mono text-ink-2">{p.year}</td>
-                          <td className="px-3 py-2 text-right font-mono text-ink">
-                            {formatMoney(p.referencePriceTHB)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                {/* Low Sample Size Advisory Banner */}
+                {isLowSample ? (
+                  <div className="mt-3 flex items-start gap-2.5 rounded-[3px] border border-amend-line bg-amend-bg/50 p-2.5 text-[12px] leading-relaxed text-amend">
+                    <span className="font-bold text-[13px]">ⓘ</span>
+                    <span>
+                      {lang === "th"
+                        ? `ข้อสังเกต: การคำนวณอ้างอิงจากโครงการในอดีตจำนวน ${sampleSize} โครงการ ซึ่งมีจำนวนจำกัด อาจยังไม่สะท้อนแนวโน้มราคาทั่วทั้งตลาด`
+                        : `Notice: Benchmark is derived from ${sampleSize} comparable project(s). Sample size is limited and may not fully reflect general market trends.`}
+                    </span>
+                  </div>
+                ) : null}
+
+                {/* Benchmark Metrics Grid */}
+                <div className="mt-4 grid grid-cols-2 gap-3 rounded-[3px] border border-line bg-surface p-3.5 sm:grid-cols-4 lg:grid-cols-5">
+                  <div>
+                    <Label>{lang === "th" ? "ราคากลางโครงการนี้" : "Target Reference Price"}</Label>
+                    <p className="mt-1 font-mono text-[16px] font-semibold text-ink">
+                      {formatMoney(targetPrice)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label>{lang === "th" ? "ค่ามัธยฐานในอดีต" : "Historical Median"}</Label>
+                    <p className="mt-1 font-mono text-[16px] font-semibold text-ink-2">
+                      {formatMoney(price.historicalMedianTHB)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label>{lang === "th" ? "ค่าเฉลี่ยในอดีต" : "Historical Mean"}</Label>
+                    <p className="mt-1 font-mono text-[16px] font-semibold text-ink-2">
+                      {price.historicalAverageTHB != null ? formatMoney(price.historicalAverageTHB) : "—"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label>{lang === "th" ? "ส่วนต่างเทียบมัธยฐาน" : "Diff vs Median"}</Label>
+                    {price.diffPercentage != null ? (
+                      <p className={`mt-1 font-mono text-[16px] font-bold ${
+                        price.diffPercentage > 15
+                          ? "text-amend"
+                          : price.diffPercentage < -15
+                          ? "text-risk"
+                          : "text-open"
+                      }`}>
+                        {price.diffPercentage > 0 ? `+${price.diffPercentage}%` : `${price.diffPercentage}%`}
+                      </p>
+                    ) : (
+                      <p className="mt-1 font-mono text-[16px] text-ink-3">—</p>
+                    )}
+                  </div>
+
+                  <div className="col-span-2 sm:col-span-1">
+                    <Label>{lang === "th" ? "จำนวนเปรียบเทียบ" : "Comparable Count"}</Label>
+                    <p className="mt-1 font-mono text-[16px] font-semibold text-ink">
+                      {sampleSize} {lang === "th" ? "โครงการ" : "peers"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="mt-4 rounded-[3px] border border-line bg-surface/50 p-3 text-[12.5px] leading-thai text-ink-3">
-                {lang === "th"
-                  ? "ยังไม่มีข้อมูลโครงการจัดซื้อที่เทียบเคียงได้โดยตรงในฐานข้อมูลเพื่อแสดงตารางเปรียบเทียบ"
-                  : "No direct historical comparable projects currently registered in database."}
-              </div>
-            )}
-          </AccentPanel>
-          ) : (
+
+                {/* Comparable Projects Table */}
+                {price.comparableProjects && price.comparableProjects.length > 0 ? (() => {
+                  const comparables = price.comparableProjects;
+                  const limit = 5;
+                  const hasMore = comparables.length > limit;
+                  const visibleComparables = showAllComparables ? comparables : comparables.slice(0, limit);
+
+                  return (
+                    <div className="mt-5">
+                      <div className="flex items-center justify-between">
+                        <Label>{lang === "th" ? "โครงการในอดีตที่ใช้เปรียบเทียบอ้างอิง" : "Comparable Reference Projects"}</Label>
+                        <span className="text-[11px] text-ink-3 font-mono">
+                          {comparables.length} {lang === "th" ? "รายการ" : "items"}
+                        </span>
+                      </div>
+
+                      <div className="mt-2 overflow-x-auto rounded-[3px] border border-line">
+                        <table className="w-full text-left text-[12.5px]">
+                          <thead className="border-b border-line bg-surface-2 text-ink-3">
+                            <tr className="align-middle">
+                              <th className="min-w-[260px] px-3 py-2 font-medium align-middle">{lang === "th" ? "ชื่อโครงการอ้างอิง" : "Comparable Project"}</th>
+                              <th className="whitespace-nowrap px-3 py-2 font-medium align-middle">{lang === "th" ? "ปีงบ" : "FY"}</th>
+                              <th className="whitespace-nowrap px-3 py-2 text-right font-medium align-middle">{lang === "th" ? "ราคากลาง" : "Reference Price"}</th>
+                              <th className="whitespace-nowrap px-3 py-2 text-right font-medium leading-tight align-middle">
+                                {lang === "th" ? (
+                                  <>
+                                    ส่วนต่างเทียบ<br />โครงการนี้
+                                  </>
+                                ) : (
+                                  <>
+                                    vs Target<br />Project
+                                  </>
+                                )}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-line bg-surface">
+                            {visibleComparables.map((p, idx) => {
+                              const peerPrice = p.referencePriceTHB;
+                              const peerDiff = targetPrice && peerPrice
+                                ? Number((((peerPrice - targetPrice) / targetPrice) * 100).toFixed(1))
+                                : null;
+
+                              return (
+                                <tr key={idx} className="hover:bg-surface-2/40 transition-colors">
+                                  <td className="px-3 py-2 font-medium leading-thai text-ink">
+                                    {p.projectId ? (
+                                      <Link
+                                        href={`/tor/${p.projectId}`}
+                                        className="text-ink hover:text-accent hover:underline transition-colors"
+                                      >
+                                        {p.title}
+                                      </Link>
+                                    ) : (
+                                      p.title
+                                    )}
+                                  </td>
+                                  <td className="whitespace-nowrap px-3 py-2 font-mono text-ink-2">{p.year}</td>
+                                  <td className="whitespace-nowrap px-3 py-2 text-right font-mono text-ink">
+                                    {formatMoney(peerPrice)}
+                                  </td>
+                                  <td className="whitespace-nowrap px-3 py-2 text-right font-mono text-[12px]">
+                                    {peerDiff != null ? (
+                                      <span className={peerDiff > 0 ? "text-amend" : peerDiff < 0 ? "text-open" : "text-ink-3"}>
+                                        {peerDiff > 0 ? `+${peerDiff}%` : `${peerDiff}%`}
+                                      </span>
+                                    ) : "—"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {hasMore ? (
+                        <div className="mt-2.5 flex justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setShowAllComparables((prev) => !prev)}
+                            className="inline-flex items-center gap-1.5 rounded-[2px] border border-line bg-surface px-3 py-1 text-[12px] font-medium text-ink-2 hover:bg-surface-2 hover:text-ink transition-colors"
+                          >
+                            <span>
+                              {showAllComparables
+                                ? lang === "th"
+                                  ? "ย่อรายการ (แสดง 5 โครงการแรก)"
+                                  : "Show fewer (top 5)"
+                                : lang === "th"
+                                ? `ดูโครงการเปรียบเทียบทั้งหมด (${comparables.length} รายการ)`
+                                : `View all ${comparables.length} comparable projects`}
+                            </span>
+                            <span className="text-[10px]">{showAllComparables ? "▲" : "▼"}</span>
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })() : (
+                  <div className="mt-4 rounded-[3px] border border-line bg-surface/50 p-3 text-[12.5px] leading-thai text-ink-3">
+                    {lang === "th"
+                      ? "ยังไม่มีข้อมูลโครงการจัดซื้อที่เทียบเคียงได้โดยตรงในฐานข้อมูลเพื่อแสดงตารางเปรียบเทียบ"
+                      : "No direct historical comparable projects currently registered in database."}
+                  </div>
+                )}
+              </AccentPanel>
+            );
+          })() : (
             <NotAnalysed
               heading={lang === "th" ? "ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "Price Reality Check"}
               lang={lang}

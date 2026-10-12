@@ -27,6 +27,7 @@ const findingSchema = new mongoose.Schema(
 // Comparable project sub-schema for price reality check
 const comparableProjectSchema = new mongoose.Schema(
   {
+    projectId: { type: String, default: null },
     title: { type: String, required: true },
     year: { type: Number, required: true },
     referencePriceTHB: { type: Number, required: true },

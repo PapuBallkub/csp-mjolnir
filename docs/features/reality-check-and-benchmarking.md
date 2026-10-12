@@ -288,89 +288,41 @@ export function calculatePriceBenchmarks(targetTor, comparableProjects = []) {
 
 ---
 
-## 6. FR-20 & FR-21: Requirement Deviation Analysis & Lock-Spec Risk Scoring
+## 6. FR-21: Lock-Spec Risk Scoring & Flagging
 
-While Section 5 focuses on historical price benchmarking, the second half of FR-20 and FR-21 evaluates technical and qualification requirements against historical baselines and Thai government procurement regulations to identify **bid-tailoring ("lock-spec") signals**.
+FR-21 assesses requirement deviations from FR-20 against defined lock-specification risk criteria.
 
-Implemented in:
-- `server/src/features/reality-check/deviation.service.js`
-- `server/test/deviation.test.js`
+### 6.1 Lock-Spec Risk Findings
 
-### 6.1 Finding Data Model (`findingSchema`)
+Each deviation is modeled as an individual, self-contained finding (`findingSchema`):
+- `id`: Unique finding identifier (e.g., `FIND-68039469567-01`)
+- `title`: Short verdict title (e.g. *"กำหนดหนังสือแต่งตั้งตัวแทนจำหน่าย (MAF) ในงานจ้างบริการ"*)
+- `category`: Finding category (`Vendor Lock-in`, `Qualification Barrier`, `Specification Tailoring`)
+- `requirementText`: The exact clause extracted from the TOR
+- `normalBenchmark`: The market/historical baseline (e.g. *"งานจ้างพัฒนาทั่วไปไม่กำหนด MAF"*)
+- `sourceExcerpt` & `sourceLocation`: Page and section reference for traceability
+- `severity`: `high` (30 pts), `medium` (15 pts), `low` (5 pts)
 
-Each detected anomaly is modeled as an independent, self-contained unit conforming to `docs/features/tor-detail-page.md` and `AGENTS.md` guidelines:
+### 6.2 Key Deviation Criteria Evaluated
 
-| Field | Type | Description | Example |
-|---|---|---|---|
-| `id` | `String` | Unique finding ID prefixed with `FIND-<projectId>-<NN>` | `FIND-68039469567-01` |
-| `title` | `String` | Plain-language Thai verdict stating the deviation | `กำหนดหนังสือแต่งตั้งตัวแทนจำหน่าย (MAF) ในงานจ้างบริการ` |
-| `category` | `String` | Deviation classification | `Vendor Lock-in`, `Qualification Barrier`, `Specification Tailoring`, `Contractual Barrier` |
-| `requirementText` | `String` | Raw requirement or condition as extracted from the TOR | `ผู้ยื่นข้อเสนอต้องแนบหนังสือแต่งตั้งตัวแทนจำหน่ายจากเจ้าของผลิตภัณฑ์โดยตรง` |
-| `normalBenchmark` | `String` | Regulatory baseline or normal market practice | `หนังสือ ว 109: ห้ามกำหนดหนังสือแต่งตั้งตัวแทนจำหน่ายในงานจ้างพัฒนาระบบ` |
-| `sourceExcerpt` | `String` | Text quote from the document | `หนังสือแต่งตั้งตัวแทนจำหน่าย (MAF)` |
-| `sourceLocation` | `String` | Document page or section reference for traceability | `หน้า 7 · ข้อ 4.3` |
-| `severity` | `enum` | Risk weight: `high`, `medium`, or `low` | `high` |
+1. **Prior Experience Exceeds Normal Ratio:**
+   - Standard practice in Thai government procurement sets minimum past experience $\le 50\%$ of the reference price.
+   - If `eligibility.previousExperienceMinTHB` $> 0.5 \times \text{referencePriceTHB}$ $\rightarrow$ **Medium Severity**.
+   - If $> 0.8 \times \text{referencePriceTHB}$ $\rightarrow$ **High Severity**.
+2. **MAF Required on Software Development (`hire`):**
+   - If `eligibility.manufacturerAuthorizations` is present for `procurementKind === 'hire'` $\rightarrow$ **High Severity**.
+3. **Exact Outdated / Single-Vendor Version Locked:**
+   - If `technicalRequirements.requiredTechnologies` specifies an exact minor version or end-of-life platform where peers accept open standards $\rightarrow$ **High Severity**.
+4. **Disproportionate Certifications:**
+   - Demanding CMMI Level 5 or ISO 27001 on small budget projects (< 5M THB) $\rightarrow$ **Medium Severity**.
 
-### 6.2 Evaluated Deviation Rules
+### 6.3 Risk Score Calculation & Visual System
 
-The analysis engine evaluates five core deviation vectors:
+$$\text{riskScore} = \min(100, \sum \text{severity\_points})$$
 
-```
-                                  Requirement Deviation Engine
-                                               │
-       ┌───────────────────┬───────────────────┼───────────────────┬───────────────────┐
-       ▼                   ▼                   ▼                   ▼                   ▼
-1. Experience Ratio  2. Manufacturer Auth   3. Disproportionate  4. Legacy Tech Lock  5. Excessive Penalty
-  (>50%: Med, 15pts   (Hire/Dev: High, 30pt   Certifications     (EOL/Legacy: High,    (>0.20%/day: Med,
-   >80%: High, 30pts)  ≥3 MAFs: Med, 15pt)   (<5M: Med, 15pt)     30pts)                15pts)
-```
-
-#### Rule 1: Prior Experience Exceeds Normal Ratio (`checkExperienceRatio`)
-- **Regulation / Baseline:** Standard Thai government procurement rules restrict minimum past experience requirements to **no more than 50%** of the project reference price / budget.
-- **Evaluation:**
-  - If `previousExperienceMinTHB > 0.80 * referencePriceTHB` $\rightarrow$ **High Severity (30 pts)** (*กำหนดมูลค่าผลงานขั้นต่ำสูงเกิน 80% ของราคากลาง*).
-  - If `previousExperienceMinTHB > 0.50 * referencePriceTHB` $\rightarrow$ **Medium Severity (15 pts)** (*กำหนดมูลค่าผลงานขั้นต่ำเกิน 50% ของราคากลาง*).
-
-#### Rule 2: Manufacturer Authorization in Service/Development (`checkManufacturerAuthorizations`)
-- **Regulation / Baseline:** Comptroller General's Department circular (หนังสือ ว 109 / ว 119) prohibits requiring Manufacturer Authorization Form (MAF) in software development or hiring services (`hire`), as it restricts competition to pre-selected distributors.
-- **Evaluation:**
-  - If `procurementKind === 'hire'` or category is `software-development` and `manufacturerAuthorizations` is required $\rightarrow$ **High Severity (30 pts)**.
-  - If `procurementKind === 'buy'` but requires $\ge 3$ distinct manufacturer authorizations $\rightarrow$ **Medium Severity (15 pts)** (*กำหนด MAF ซ้ำซ้อนหลายรายการ*).
-
-#### Rule 3: Disproportionate Certifications on Small Budgets (`checkDisproportionateCertifications`)
-- **Baseline:** High-tier corporate certifications (e.g., CMMI Level 3/5, ISO/IEC 27001, ISO 20000) require substantial organizational overhead and are disproportionate for tenders with budgets under 5,000,000 THB.
-- **Evaluation:**
-  - If project budget $< 5,000,000\text{ THB}$ and `requiredCertifications` contains CMMI or ISO 27001 $\rightarrow$ **Medium Severity (15 pts)**.
-
-#### Rule 4: Technology Version Lock / End-of-Life Platforms (`checkTechnologyVersionLock`)
-- **Baseline:** TORs specifying exact obsolete versions (e.g., Windows Server 2008/2012, CentOS 7, Python 2.7, Java 7/8, PHP 5.x) where open or modern LTS standards exist often indicate tailoring toward legacy proprietary bids.
-- **Evaluation:**
-  - Detected legacy / EOL version matches in `requiredTechnologies` $\rightarrow$ **High Severity (30 pts)**.
-
-#### Rule 5: Excessive Daily Delay Penalty (`checkExcessivePenalty`)
-- **Regulation / Baseline:** Ministry of Finance procurement regulations set standard daily liquidated damages (ค่าปรับรายวัน) between **0.10% and 0.20% per day**. Rates exceeding 0.20%/day serve as an undue barrier against smaller bidders.
-- **Evaluation:**
-  - Extracted daily penalty rate $> 0.20\%\text{ per day}$ $\rightarrow$ **Medium Severity (15 pts)**.
-
-### 6.3 Risk Score Calculation & Thai Verdict Bands
-
-$$\text{riskScore} = \min\left(100, \sum_{i} \text{SEVERITY\_POINTS}(f_i)\right)$$
-
-Where point weights are:
-- `high` = 30 points
-- `medium` = 15 points
-- `low` = 5 points
-
-#### Verdict Copy & Visual System:
-
-| Risk Score Range | Level | UI Badge & Accent | Thai Verdict Copy |
-|---|---|---|---|
-| $\ge 70$ | High Risk | Crimson (`text-risk`, `bg-risk/10`) | `ความเสี่ยงสูง: พบเงื่อนไขที่อาจจำกัดการแข่งขันเฉพาะราย` |
-| $35 \le \text{score} < 70$ | Medium Risk | Amber (`text-amend`, `bg-amend/10`) | `ความเสี่ยงปานกลาง: พบข้อกำหนดบางประการที่ควรตรวจสอบเพิ่มเติม` |
-| $1 \le \text{score} < 35$ | Low Risk | Teal/Info (`text-open`, `bg-open/10`) | `ความเสี่ยงต่ำ: ข้อกำหนดส่วนใหญ่เป็นไปตามมาตรฐานตลาด` |
-| $0$ | Clean | Muted (`text-muted`, `bg-card`) | `ไม่พบข้อกำหนดที่ส่อถึงการล็อกสเปก` |
-
-*Note: Per `AGENTS.md`, copy describes verifiable evidence without making legal or accusatory assertions (never "rigged" or "corrupt").*
+- **High Risk ($\ge 70$):** Visual warning banner (`text-risk`, crimson hue) prominently displayed on the detail page and catalog row. Verdict copy states: *"ความเสี่ยงสูง: พบเงื่อนไขที่อาจจำกัดการแข่งขันเฉพาะราย"*.
+- **Medium Risk ($35 \le \text{riskScore} < 70$):** Amber advisory banner (`text-amend`).
+- **Low / Clean ($< 35$):** Normal status (`text-open`).
 
 ---
 
@@ -378,9 +330,9 @@ Where point weights are:
 
 ### 7.1 Lifecycle Triggers
 1. **Pipeline Execution (Ingestion Trigger):**
-   Computed during document ingestion and extraction pipeline. Pre-calculated data is written to `TorInsight.analytics.priceAnalysis` and `TorInsight.analytics.lockSpec`.
+   Computed immediately after Gemini extraction in `server/src/pipeline/extraction/process-tor.js`. Pre-calculated data is written to `TorInsight.analytics`.
 2. **Batch Refresh Trigger (`npm run comparable -- --all --save`):**
-   CLI command or recurring batch job that refreshes both price benchmarks and lock-spec deviation scores across all indexed projects.
+   Scheduled job (e.g., weekly) that re-runs similarity and median calculations across active `Open` TORs to incorporate newly completed historical tenders from data.go.th.
 3. **HTTP Serving:**
    API endpoints (`/api/tors/:id`) read pre-computed analytics directly from MongoDB with zero on-the-fly math, ensuring page load times remain $< 2\text{s}$ (NFR-01).
 
@@ -388,25 +340,20 @@ Where point weights are:
 
 #### Local Execution (from `server/`)
 ```bash
-# Test one TOR (shows comparable projects, price benchmarks, and lock-spec findings)
+# Test one TOR
 npm run comparable -- --id <projectId>
 
-# Run across all projects and save to MongoDB (shows clean summary of new/updated/unchanged)
+# Run across all projects and save to MongoDB
 npm run comparable -- --all --save
-
-# Run with verbose per-project matching log
-npm run comparable -- --all --save --verbose
 ```
 
 #### Docker Execution
 ```bash
-# Inspect a single TOR:
+# If containers are already running (docker compose up):
 docker compose exec server npm run comparable -- --id <projectId>
-
-# Run across all projects and persist:
 docker compose exec server npm run comparable -- --all --save
 
-# Detailed verbose log:
-docker compose exec server npm run comparable -- --all --save --verbose
+# As a one-off task (starts dependencies automatically):
+docker compose run --rm server npm run comparable -- --id <projectId>
+docker compose run --rm server npm run comparable -- --all --save
 ```
-

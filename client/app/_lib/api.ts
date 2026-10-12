@@ -253,6 +253,7 @@ export type LockSpecFinding = {
 };
 
 export type ComparableProject = {
+  projectId?: string | null;
   title: string;
   year: number;
   referencePriceTHB: number;
@@ -282,9 +283,13 @@ export type LockSpecAnalysis = {
 };
 
 export type PriceAnalysis = {
-  referencePriceTHB: number;
-  historicalMedianTHB: number;
-  diffPercentage: number;
+  referencePriceTHB: number | null;
+  historicalMedianTHB: number | null;
+  historicalAverageTHB?: number | null;
+  diffPercentage: number | null;
+  diffAveragePercentage?: number | null;
+  sampleSize?: number;
+  reliability?: "none" | "low" | "sufficient";
   interpretation: string;
   comparableProjects: ComparableProject[];
 };
@@ -332,7 +337,11 @@ export type TorInsightSummary = {
   /** null: the analysis hasn't been run, never a measured 0 */
   analytics: {
     lockSpec: { riskScore: number; verdictText: string } | null;
-    priceAnalysis: { diffPercentage: number } | null;
+    priceAnalysis: {
+      diffPercentage: number | null;
+      sampleSize?: number;
+      reliability?: "none" | "low" | "sufficient";
+    } | null;
   };
   amendmentInfo?: {
     isAmended: boolean;

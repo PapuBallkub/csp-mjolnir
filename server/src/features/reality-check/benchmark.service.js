@@ -71,6 +71,7 @@ export function calculatePriceBenchmarks(targetTor, comparableProjects = []) {
       return typeof price === 'number' && price > 0;
     })
     .map((p) => ({
+      projectId: p.projectId || p.candidate?.projectId || null,
       title: p.title || p.candidate?.identification?.titleTh || `โครงการรหัส ${p.projectId || p.candidate?.projectId || 'N/A'}`,
       year: p.year ?? (p.candidate ? (p.candidate.facts?.postedDate ? new Date(p.candidate.facts.postedDate).getFullYear() + 543 : 2567) : 2567),
       referencePriceTHB: p.referencePriceTHB ?? getProjectPrice(p.candidate),
