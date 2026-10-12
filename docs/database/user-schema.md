@@ -29,7 +29,8 @@ The `User` model represents an authenticated account on the platform. It support
 | `googleId` | `String` | Unique, Sparse index | `undefined` | Subject identifier (`sub`) from Google OAuth ID token. Sparse index ensures password-only users don't collide on `null`. | `"109823481239841234981"` |
 | `notificationConsent` | `Boolean` | — | `false` | Explicit opt-in consent for automated email alerts for watched TORs / amendments (FR08). | `true` |
 | `role` | `String` | Enum: `['user', 'admin']`, Indexed | `'user'` | Access control role. Admin rights (`admin`) can view scraper health, OCR confidence, and administrative overrides. | `'user'` or `'admin'` |
-| `watchlist` | `Array` | Max 200 items, indexed on `projectId` | `[]` | List of saved TOR items with timestamps (FR-17). | `[{"projectId": "67069277177", "savedAt": "..."}]` |
+| `profile` | `Object` | Subdocument (see §5) | `{ skills: [], budgetMin: 0, budgetMax: 0, certifications: [] }` | User technical capabilities and certifications for match scoring (FR-12). | `{ skills: ["React"], ... }` |
+| `watchlist` | `Array` | Max 200 items, indexed on `projectId` (see §6) | `[]` | List of saved TOR items with timestamps (FR-17). | `[{"projectId": "67069277177", "savedAt": "..."}]` |
 | `createdAt` | `Date` | Auto managed | — | Timestamp of account registration. | `"2026-09-29T10:00:00.000Z"` |
 | `updatedAt` | `Date` | Auto managed | — | Timestamp of last profile/account update. | `"2026-09-29T12:30:00.000Z"` |
 
@@ -110,7 +111,20 @@ The `User` model represents an authenticated account on the platform. It support
 
 ---
 
-## 5. Watchlist Subdocument Array (`watchlist`)
+## 5. Profile Subdocument (`profile`)
+
+Stores the user's technical capabilities (FR-12) for match scoring (FR-13).
+
+| Field | Type | Constraints | Default | Description | Example |
+|---|---|---|---|---|---|
+| `profile.skills` | `[String]` | Max 150 items; each trimmed, max 100 chars | `[]` | Technology names the user knows (matched against TOR tech stacks). | `["React", "Node.js", "PostgreSQL"]` |
+| `profile.budgetMin` | `Number` | ≥ 0, ≤ 10,000,000,000 | `0` | Minimum budget (THB) the user takes on. | `300000` |
+| `profile.budgetMax` | `Number` | ≥ 0, ≤ 10,000,000,000, ≥ `budgetMin` | `0` | Maximum budget (THB). `0` = not set. | `5000000` |
+| `profile.certifications` | `[String]` | Max 50 items; each trimmed, max 100 chars | `[]` | International & software standards held by user (e.g. ISO 29110, CMMI, ISO 27001). | `["ISO/IEC 29110", "ISO/IEC 27001"]` |
+
+---
+
+## 6. Watchlist Subdocument Array (`watchlist`)
 
 Stores the procurement opportunities the authenticated user is actively tracking (FR-17).
 

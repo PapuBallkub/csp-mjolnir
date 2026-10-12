@@ -1284,7 +1284,9 @@ export type MatchFactor = { met: boolean; label: Bi };
  */
 export function matchFactors(tor: Tor, profile: Profile): MatchFactor[] {
   const matched = tor.techStack.filter((t) => profile.skills.includes(t));
-  const budgetFits = tor.budget >= profile.budgetMin && tor.budget <= profile.budgetMax;
+  const budgetFits =
+    tor.budget >= profile.budgetMin &&
+    (profile.budgetMax === 0 || tor.budget <= profile.budgetMax);
   const scopeFits = profile.scopeSizes.includes(tor.scopeSize);
 
   return [
@@ -1314,7 +1316,10 @@ export function matchScore(tor: Tor, profile: Profile): number {
   const matched = tor.techStack.filter((t) => profile.skills.includes(t)).length;
   const skillFit = tor.techStack.length ? matched / tor.techStack.length : 0;
   const budgetFit =
-    tor.budget >= profile.budgetMin && tor.budget <= profile.budgetMax ? 1 : 0.15;
+    tor.budget >= profile.budgetMin &&
+    (profile.budgetMax === 0 || tor.budget <= profile.budgetMax)
+      ? 1
+      : 0.15;
   const scopeFit = profile.scopeSizes.includes(tor.scopeSize) ? 1 : 0.2;
   const smeBonus = profile.smeRegistered && tor.smeAdvantage ? 6 : 0;
 

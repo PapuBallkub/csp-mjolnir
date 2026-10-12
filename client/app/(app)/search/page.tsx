@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import { formatTHB, pick, type Bi, type Lang } from "../../_data/tors";
 import {
   listTors,
@@ -252,12 +253,27 @@ type Page = {
   at: Date;
 };
 
-export default function BrowsePage() {
+function BrowsePageContent() {
   const { lang } = useLang();
   const { profile } = useProfile();
   const { status: authStatus } = useAuth();
+  const searchParams = useSearchParams();
 
-  const [mode, setMode] = useState<Mode>("filter");
+  const [overrideMode, setOverrideMode] = useState<Mode | null>(null);
+  const mode: Mode = overrideMode ?? (searchParams.get("mode") === "match" ? "match" : "filter");
+
+  function setMode(nextMode: Mode) {
+    setOverrideMode(nextMode);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (nextMode === "match") {
+        url.searchParams.set("mode", "match");
+      } else {
+        url.searchParams.delete("mode");
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  }
   const [query, setQuery] = useState("");
   const [statuses, setStatuses] = useState<TorStatus[]>([]);
   const [amendedOnly, setAmendedOnly] = useState(false);
@@ -555,7 +571,15 @@ export default function BrowsePage() {
           <div className="border-t border-line pt-3">
             <Label>{lang === "th" ? "ช่วงงบที่รับได้" : "Budget range"}</Label>
             <p className="mt-1 font-mono tnum text-[12px] text-ink">
-              {formatTHB(profile.budgetMin)} – {formatTHB(profile.budgetMax)}
+              {profile.budgetMin === 0 && profile.budgetMax === 0
+                ? lang === "th"
+                  ? "ไม่จำกัดช่วงงบ (ทุกขนาดงาน)"
+                  : "Any budget (unconstrained)"
+                : profile.budgetMax === 0
+                  ? lang === "th"
+                    ? `${formatTHB(profile.budgetMin)} ขึ้นไป`
+                    : `${formatTHB(profile.budgetMin)}+`
+                  : `${formatTHB(profile.budgetMin)} – ${formatTHB(profile.budgetMax)}`}
             </p>
           </div>
 
@@ -1014,5 +1038,13 @@ export default function BrowsePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function BrowsePage() {
+  return (
+    <Suspense fallback={null}>
+      <BrowsePageContent />
+    </Suspense>
   );
 }

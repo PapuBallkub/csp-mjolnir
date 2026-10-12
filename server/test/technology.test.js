@@ -24,3 +24,41 @@ test('Technology schema: requires a display name and a matching key', async () =
   assert.ok(validationError?.errors.name);
   assert.ok(validationError?.errors.key);
 });
+
+test('GET /api/technologies: returns list of technologies from vocabulary or fallback', async () => {
+  const { createApp } = await import('../src/app.js');
+  const server = createApp().listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  const baseUrl = `http://localhost:${server.address().port}`;
+
+  try {
+    const res = await fetch(`${baseUrl}/api/technologies`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.ok(Array.isArray(body.technologies));
+    assert.ok(body.technologies.length > 0);
+    assert.ok(body.technologies.some((t) => t.name === 'React' || t.name === 'PostgreSQL'));
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('POST /api/technologies/request: returns 401 when not authenticated', async () => {
+  const { createApp } = await import('../src/app.js');
+  const server = createApp().listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  const baseUrl = `http://localhost:${server.address().port}`;
+
+  try {
+    const res = await fetch(`${baseUrl}/api/technologies/request`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Svelte' }),
+    });
+    assert.equal(res.status, 401);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+

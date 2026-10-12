@@ -51,6 +51,30 @@ const userSchema = new mongoose.Schema(
       default: 'user',
       index: true,
     },
+    // FR-12. What the user can build: skills, budget range, and certifications.
+    // Read by the match scorer (FR-13) and used to rank the catalog.
+    // Stored as a subdocument, not a separate collection, because every
+    // read of the user (requireAuth on every request) should carry it.
+    profile: {
+      skills: {
+        type: [String],
+        default: [],
+        validate: {
+          validator: (v) => v.length <= 50,
+          message: 'You can save at most 50 skills.',
+        },
+      },
+      budgetMin: { type: Number, default: 0, min: 0, max: 10_000_000_000 },
+      budgetMax: { type: Number, default: 0, min: 0, max: 10_000_000_000 },
+      certifications: {
+        type: [String],
+        default: [],
+        validate: {
+          validator: (v) => v.length <= 30,
+          message: 'You can save at most 30 certifications.',
+        },
+      },
+    },
     // FR-17. Personal watchlist of saved TOR projects.
     // Contains the e-GP project ID and the timestamp when it was saved.
     watchlist: {

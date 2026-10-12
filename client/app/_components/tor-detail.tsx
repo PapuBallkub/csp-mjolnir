@@ -281,13 +281,13 @@ export function TorDetail({
 
             {/* Fiscal Year Badge */}
             {fiscalYear ? (
-              <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-2.5 py-[3px] text-[11px] font-medium text-ink-2 font-mono">
+              <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 font-mono leading-normal">
                 {lang === "th" ? `ปีงบประมาณ ${fiscalYear}` : `FY ${fiscalYear}`}
               </span>
             ) : null}
 
             {/* Scope Badge */}
-            <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-2.5 py-[3px] text-[11px] font-medium text-ink-2">
+            <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 leading-normal">
               {lang === "th" ? scope.th : scope.en}
             </span>
 
