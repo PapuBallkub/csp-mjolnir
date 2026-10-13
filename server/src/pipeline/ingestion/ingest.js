@@ -32,10 +32,13 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Tor, TorInsight } from '#models/index.js';
+import { EGP_ANNOUNCEMENT_CODES, classifyAnnouncement } from '../shared/announcement-codes.js';
 import { MAX_ATTEMPTS, clearFailure, loadGivenUp, recordFailure } from '../shared/failures.js';
 import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
-import { FEED_HOURS, fetchFromProcess3 } from './sources/process3.js';
+import { deriveStatus } from '../shared/status-engine.js';
+import { FEED_HOURS, fetchFromProcess3, procurementKindOf } from './sources/process3.js';
 import { fetchFromDataGo } from './sources/datago.js';
+import { isDraftAnnouncement, readPostedDate, readTitle } from './lib/egp-package.js';
 import { PREVIEW_PAGES, extractText, isPreviewRead } from './lib/ocr.js';
 import { downloadEgpPackage, downloadEgpPricePackage } from './lib/tor-downloader.js';
 
@@ -52,6 +55,8 @@ function parseCliArgs() {
   let source = 'all'; // 'all' | 'process3' | 'datago'
   let skipOcr = false;
   let retryFailed = false;
+  let dept = null; // e-GP feed only: one agency's announcements, e.g. 0307
+  let types = null; // e-GP feed only: these announcement codes, e.g. D0,B0
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -80,10 +85,25 @@ function parseCliArgs() {
       skipOcr = true;
     } else if (arg === '--retry-failed') {
       retryFailed = true;
+    } else if (arg === '--dept' && i + 1 < argv.length) {
+      dept = argv[++i].trim();
+    } else if (arg.startsWith('--dept=')) {
+      dept = arg.split('=')[1].trim();
+    } else if (arg === '--types' && i + 1 < argv.length) {
+      types = argv[++i].split(',').map((code) => code.trim().toUpperCase()).filter(Boolean);
+    } else if (arg.startsWith('--types=')) {
+      types = arg.split('=')[1].split(',').map((code) => code.trim().toUpperCase()).filter(Boolean);
     }
   }
 
-  return { step, id, query, limit, source, skipOcr, retryFailed };
+  // A wrong agency code or type would make the feed answer with nothing, silently
+  if (dept && !/^\d{4}$/.test(dept)) throw new Error(`--dept takes an e-GP agency code of 4 digits, e.g. 0307; got "${dept}"`);
+  const unknown = (types ?? []).filter((code) => !EGP_ANNOUNCEMENT_CODES[code]);
+  if (unknown.length) {
+    throw new Error(`--types takes e-GP announcement codes (${Object.keys(EGP_ANNOUNCEMENT_CODES).join(', ')}); not ${unknown.join(', ')}`);
+  }
+
+  return { step, id, query, limit, source, skipOcr, retryFailed, dept, types };
 }
 
 /**
@@ -127,17 +147,21 @@ const pdfHashOf = (tor) => tor.document?.contentHash ?? null;
 /**
  * Service 1: Fetch metadata from procurement sources and pre-filter IT relevance.
  */
-export async function runFetchStep({ query, limit, source, documentsDir }) {
+export async function runFetchStep({ query, limit, source, dept = null, types = null, documentsDir }) {
   console.log('\n[Service 1: FETCH] Discovering announcements & pre-filtering IT...');
   let totalFetched = 0;
 
   if (source === 'all' || source === 'process3') {
-    console.log('  -> Querying e-GP RSS Feed (process3.gprocurement.go.th)...');
+    // One agency's feed (--dept) shows its last 7 days; the national one, the latest 20 of each type
+    const scope = [dept && `agency ${dept}`, types && `types ${types.join(', ')}`].filter(Boolean).join(', ');
+    console.log(`  -> Querying e-GP RSS Feed (process3.gprocurement.go.th)${scope ? `: ${scope}` : ''}...`);
     const p3Result = await fetchFromProcess3({
       query,
       limit: limit ?? Infinity,
       documentsDir,
       downloadAttachments: false,
+      deptId: dept ?? '',
+      types,
     });
     totalFetched += p3Result.fetched;
     console.log(`     Discovered: ${p3Result.discovered} new project(s); ${p3Result.updated} followed project(s) updated`);
@@ -285,6 +309,92 @@ const describeFacts = ({ agency, referencePriceTHB, submissionWindow }) =>
     .join(' · ') || 'no facts stated';
 
 /**
+ * Adds a project found by hand, one the feed never showed us (ingest:add).
+ * Everything comes from e-GP's own documents, not from guesses: the title,
+ * agency and posting date from its announcement, and its stage from whether
+ * the announcement is marked ร่าง (a draft) or not (an invitation). The feed
+ * corrects the stage later if it shows the project. It's downloaded here, so
+ * OCR and extraction pick it up next.
+ *
+ * @returns {Promise<object|null>} The new Tor, or null when nothing was added
+ */
+export async function runAddStep({
+  id,
+  documentsDir,
+  download = downloadEgpPackage,
+  downloadPrice = downloadEgpPricePackage,
+  now = new Date(),
+}) {
+  console.log('\n[ADD] Adding a project from e-GP...');
+  if (!/^\d{11}$/.test(id ?? '')) {
+    console.warn('  -> Give the 11-digit e-GP project ID: npm run ingest:add -- --id 69099683466');
+    return null;
+  }
+  if (await Tor.exists({ projectId: id })) {
+    console.warn(`  -> ${id} is already in the database. To check e-GP for new files: npm run ingest:download -- --id ${id}`);
+    return null;
+  }
+
+  const result = await download({ projectId: id, documentsDir });
+  if (!result.success || result.unchanged) {
+    console.warn(`  -> Not added: ${result.error ?? 'e-GP gave no package'}`);
+    return null;
+  }
+  const text = result.package.announcementText;
+  const title = readTitle(text);
+  if (!title) {
+    console.warn('  -> Not added: its announcement has no title to read (no "เรื่อง" line, or no text layer).');
+    return null;
+  }
+
+  const posted = readPostedDate(text);
+  const code = isDraftAnnouncement(text) ? 'B0' : 'D0';
+  const announcement = {
+    code,
+    type: classifyAnnouncement(code),
+    receivedAt: now,
+    publishedAt: posted ? new Date(posted) : null,
+    sourceUrl: `added by hand from e-GP package ${result.package.name}`,
+  };
+  const { status, isAmended, latestCode } = deriveStatus([announcement]);
+  const tor = new Tor({
+    projectId: id,
+    source: 'manual',
+    title,
+    procurementMethod: title.match(/ด้วยวิธี(.+)$/)?.[1]?.trim() ?? '',
+    procurementKind: procurementKindOf(title),
+    announceType: latestCode ?? code,
+    announceDate: posted,
+    status,
+    isAmended,
+    announcementHistory: [announcement],
+    pipelineStatus: 'downloaded',
+  });
+  applyPackage(tor, result);
+
+  const price = await downloadPrice({
+    projectId: id,
+    documentsDir,
+    announcedReferencePrice: tor.referencePriceTHB > 0 ? tor.referencePriceTHB : null,
+  });
+  if (price.success) {
+    tor.priceCheckedAt = now;
+    if (price.package) applyPricePackage(tor, price.package);
+  }
+  await tor.save();
+
+  const amount = (value) => (value > 0 ? value.toLocaleString() : 'not stated');
+  console.log(`  -> Added ${id}: ${title}`);
+  console.log(`     ${status} · ${tor.agency || 'agency not stated'} · posted ${posted ?? 'date not stated'}`);
+  console.log(
+    `     ราคากลาง ${amount(tor.referencePriceTHB)} · budget ${amount(tor.budgetTHB)} · ` +
+      `bids close ${tor.submissionDeadline ? tor.submissionDeadline.toISOString() : 'not stated'}`,
+  );
+  console.log('     Next: npm run ingest:ocr, then npm run extract (or npm run pipeline).');
+  return tor;
+}
+
+/**
  * Service 2: Download each workable TOR's e-GP package (ADR 0020): a new
  * project's, one whose project moved to a new stage, and one downloaded
  * before packages were kept. A package already downloaded isn't again.
@@ -294,7 +404,6 @@ const describeFacts = ({ agency, referencePriceTHB, submissionWindow }) =>
 export async function runDownloadStep({
   id,
   documentsDir,
-  source = 'manual',
   retryFailed = false,
   download = downloadEgpPackage,
   downloadPrice = downloadEgpPricePackage,
@@ -320,15 +429,11 @@ export async function runDownloadStep({
 
   let candidates = await Tor.find(queryFilter);
 
-  // If targeting a specific ID not yet in the DB, create placeholder so we can download it
+  // A project we don't have isn't made up here: a placeholder had no title,
+  // no agency and the status engine's default "Open". ingest:add reads it from e-GP.
   if (id && candidates.length === 0) {
-    const placeholder = new Tor({
-      projectId: id,
-      title: `Project ${id}`,
-      source: ['process3', 'datago'].includes(source) ? source : 'manual',
-      pipelineStatus: 'fetched',
-    });
-    candidates = [placeholder];
+    console.warn(`  -> ${id} is not in the database. Add it from e-GP with: npm run ingest:add -- --id ${id}`);
+    return 0;
   }
 
   candidates = await withoutGivenUp(candidates, { step: 'download', id, retryFailed });
@@ -423,7 +528,7 @@ export async function runDownloadStep({
  *
  * @param {Function} [options.ocr] - extractText; replaced in tests
  */
-export async function runOcrStep({ id, documentsDir, source = 'manual', retryFailed = false, ocr = extractText }) {
+export async function runOcrStep({ id, documentsDir, retryFailed = false, ocr = extractText }) {
   console.log('\n[Service 3: OCR] Extracting text & running OCR on PDF documents...');
 
   let previews = [];
@@ -431,27 +536,10 @@ export async function runOcrStep({ id, documentsDir, source = 'manual', retryFai
 
   if (id) {
     fullReads = await Tor.find({ projectId: id });
-
-    // If targeting a specific ID not in DB or without storagePath, check disk
+    // Never a placeholder made from a file on disk: it had no title or agency
     if (fullReads.length === 0) {
-      const expectedPdfPath = path.join(documentsDir, `${id}_TOR.pdf`);
-      if (fsSync.existsSync(expectedPdfPath)) {
-        const created = await Tor.findOneAndUpdate(
-          { projectId: id },
-          {
-            $set: {
-              title: `Project ${id}`,
-              source: ['process3', 'datago'].includes(source) ? source : 'manual',
-              pipelineStatus: 'downloaded',
-              'document.fileName': `${id}_TOR.pdf`,
-              'document.storagePath': expectedPdfPath,
-              'document.sizeBytes': fsSync.statSync(expectedPdfPath).size,
-            },
-          },
-          { upsert: true, returnDocument: 'after' },
-        );
-        fullReads = [created];
-      }
+      console.warn(`  -> ${id} is not in the database. Add it from e-GP with: npm run ingest:add -- --id ${id}`);
+      return 0;
     }
   } else {
     // A TOR already extracted as IT whose file changed is read whole: a
@@ -579,11 +667,19 @@ async function main() {
 async function runSteps(args) {
   const isAll = args.step === 'all';
 
+  // A project found by hand: added from e-GP, then left for the steps below to read
+  if (args.step === 'add') {
+    await runAddStep({ id: args.id, documentsDir: DOCUMENTS_DIR });
+    return;
+  }
+
   if (isAll || args.step === 'fetch') {
     await runFetchStep({
       query: args.query,
       limit: args.limit,
       source: args.source,
+      dept: args.dept,
+      types: args.types,
       documentsDir: DOCUMENTS_DIR,
     });
   }
@@ -591,7 +687,6 @@ async function runSteps(args) {
   if (isAll || args.step === 'download') {
     await runDownloadStep({
       id: args.id,
-      source: args.source,
       documentsDir: DOCUMENTS_DIR,
       retryFailed: args.retryFailed,
     });
@@ -600,7 +695,6 @@ async function runSteps(args) {
   if ((isAll && !args.skipOcr) || args.step === 'ocr') {
     await runOcrStep({
       id: args.id,
-      source: args.source,
       documentsDir: DOCUMENTS_DIR,
       retryFailed: args.retryFailed,
     });
@@ -617,9 +711,11 @@ async function runSteps(args) {
     digitalPdfs: await Tor.countDocuments({
       'document.documentType': 'DIGITAL_TEXT_PDF',
     }),
+    // Every stage a TOR can be at (ADR 0018), so none goes missing from the count
     statusBreakdown: {
       fetched: await Tor.countDocuments({ pipelineStatus: 'fetched' }),
       downloaded: await Tor.countDocuments({ pipelineStatus: 'downloaded' }),
+      ocrPreview: await Tor.countDocuments({ pipelineStatus: 'ocr_preview' }),
       ocrDone: await Tor.countDocuments({ pipelineStatus: 'ocr_done' }),
     },
   };

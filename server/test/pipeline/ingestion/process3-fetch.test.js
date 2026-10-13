@@ -412,3 +412,14 @@ test('fetchFromProcess3: with no keyword, every opening item is a candidate, and
   assert.equal((await Tor.findOne({ projectId: TEST_PROJECT_NO_KEYWORD }).lean()).procurementKind, 'buy');
   assert.equal((await Tor.findOne({ projectId: TEST_PROJECT_HIRE }).lean()).procurementKind, 'hire');
 });
+
+test('fetch asks one agency for only the types it was given', async () => {
+  const get = feedAnswers({});
+
+  await fetchP3({ deptId: '0307', types: ['D0', 'B0'] });
+
+  const asked = get.mock.calls.map((call) => new URL(call.arguments[0]));
+  assert.deepEqual(asked.map((url) => url.searchParams.get('anounceType')), ['B0', 'D0'], 'in the order a project goes through them');
+  assert.ok(asked.every((url) => url.searchParams.get('deptId') === '0307'));
+  mock.restoreAll();
+});

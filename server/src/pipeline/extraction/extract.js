@@ -220,7 +220,9 @@ async function run(args, { client, config }) {
       }
     } catch (error) {
       // Nothing was saved for this TOR; the next run picks it up again (NFR-06),
-      // until it has failed MAX_ATTEMPTS times on the same input
+      // until it has failed MAX_ATTEMPTS times on the same input. Tokens Gemini
+      // spent before the failure still count.
+      if (Array.isArray(error?.usage)) usages.push(...error.usage);
       counts.failed++;
       let note = '';
       if (!args.dryRun) {

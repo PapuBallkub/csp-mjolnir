@@ -26,8 +26,6 @@ import {
 
 const BASE_URL =
   'https://process3.gprocurement.go.th/EPROCRssFeedWeb/egpannouncerss.xml';
-const USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const REQUEST_TIMEOUT_MS = 20000;
 
 import {
@@ -37,6 +35,7 @@ import {
   codeFromTypeName,
 } from '../../shared/announcement-codes.js';
 import { paceRequest } from '../../shared/request-pacer.js';
+import { USER_AGENT } from '../../shared/user-agent.js';
 import { deriveStatus } from '../../shared/status-engine.js';
 import { fetchStageFields, hasAnnouncement, isPastFetch } from '../lib/fetch-rules.js';
 
@@ -142,6 +141,7 @@ export async function fetchFromProcess3({
   downloadAttachments = false,
   now = new Date(),
   pace = paceRequest,
+  types = null, // only these announcement codes, e.g. ['D0'] for an agency sweep
 }) {
   // Every request would hang for its full timeout: don't send any
   if (isFeedClosed(now)) {
@@ -178,8 +178,9 @@ export async function fetchFromProcess3({
 
   let failedRequests = 0;
 
-  for (let i = 0; i < ANNOUNCEMENT_TYPES.length; i++) {
-    const annType = ANNOUNCEMENT_TYPES[i];
+  const wanted = types ? ANNOUNCEMENT_TYPES.filter((t) => types.includes(t.code)) : ANNOUNCEMENT_TYPES;
+  for (let i = 0; i < wanted.length; i++) {
+    const annType = wanted[i];
     requested++;
     let answered = false;
     const requestUrl = new URL(BASE_URL);

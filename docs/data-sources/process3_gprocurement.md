@@ -27,6 +27,7 @@ https://process3.gprocurement.go.th/EPROCRssFeedWeb/egpannouncerss.xml?anounceTy
 | The manual gives the URL with `http://`. We use `https://`. | Manual, code |
 | `process3` answers `302` and redirects to the same path on `https://process.gprocurement.go.th`. Our HTTP client follows it. | Seen 2026-10-11 |
 | No account, key or captcha is needed. | Seen |
+| The feed answers the pipeline's own User-Agent, which names the project (`pipeline/shared/user-agent.js`). No browser disguise is needed. | Seen 2026-10-13 |
 
 ### Parameters
 
@@ -39,8 +40,10 @@ https://process3.gprocurement.go.th/EPROCRssFeedWeb/egpannouncerss.xml?anounceTy
 
 - Combine parameters with `&`.
 - With no `anounceType`, the feed returns invitations (`D0`).
-- We have not yet tested `deptId`, `deptsubId` or `methodId` live. The only
-  attempt, an agency sweep on 2026-10-08 at 08:36, ran into closed hours.
+- **`deptId` filters by agency (seen 2026-10-13).** `anounceType=D0&deptId=0307`
+  returned 4 กรมสรรพากร invitations, and `deptId=0304` returned 2 different
+  projects. Use it with `npm run ingest:fetch -- --dept 0307`.
+- We have not yet tested `deptsubId` or `methodId` live.
 - The manual points to a CGD guide for the full list of agency codes; we
   haven't found it yet.
 
@@ -102,9 +105,15 @@ RSS 2.0. Each `<item>` looks like this (seen 2026-10-07):
 - **Seen 2026-10-07:** `P0`, `B0`, `D0`, `D1`, `W0` and `W1` each returned 20
   items, all dated that day. `W2` returned 3 and `D2` 0, also all from that
   day.
-- **The 7-day backfill wasn't seen.** In practice the national feed shows about
-  a day's latest 20 per type. On a busy day we miss items unless we fetch more
-  often, or per agency with `deptId`.
+- **The national feed doesn't backfill.** On 2026-10-07 it showed only that
+  day's latest 20 per type. On Tue 2026-10-13 at 17:01 (a public holiday) it
+  returned **0 items** for `P0`, `B0`, `D0` and `W0`.
+- **Per-agency lists do backfill (seen 2026-10-13).** The same evening,
+  `deptId=0307` returned 4 `D0` items and 11 `W0` items dated 2026-10-06 to
+  2026-10-09.
+- So the national feed is a same-day view. On a busy day we miss items unless
+  we fetch more often, and on a quiet day it can be empty. Sweeping agencies
+  with `deptId` covers the past several days.
 
 ## When it answers
 
@@ -128,6 +137,7 @@ What we've seen:
 | Thu 2026-10-08, 03:13–07:25 (7 runs) | Answered every time |
 | Thu 2026-10-08, 08:36 | **No answer** (five 20 s timeouts), before the 09:00 closing |
 | Sun 2026-10-11, about 12:20 and 14:33 | **No answer**, including at 12:20, inside a documented open window |
+| Tue 2026-10-13 (public holiday), 17:01–17:02 | Answered in 0.1–8 s |
 | Every run so far | `anounceType=15` timed out |
 
 So far, weekday nights from 17:01 to about 08:30 are reliable. We don't know
@@ -150,9 +160,9 @@ The version merged in #204 said several things that turned out to be wrong:
 
 ## Not verified yet
 
-- `deptId`, `deptsubId` and `methodId` filtering, live.
+- `deptsubId` and `methodId` filtering, live.
 - The full list of 4-digit agency codes.
 - The feed's hours at weekends.
-- Whether the 7-day backfill exists.
+- Whether a per-agency list reaches the full 7 days, or stops at 20 items.
 - What a `D2` item links to.
 - Whether `15` ever answers.

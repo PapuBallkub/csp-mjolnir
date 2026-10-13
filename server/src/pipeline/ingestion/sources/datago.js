@@ -12,6 +12,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import { Tor } from '#models/index.js';
 import { paceRequest } from '../../shared/request-pacer.js';
+import { USER_AGENT } from '../../shared/user-agent.js';
 import { parseThaiAmount } from '../../shared/thai-text.js';
 import { fetchStageFields, isPastFetch } from '../lib/fetch-rules.js';
 import {
@@ -21,8 +22,6 @@ import {
 
 const BASE_URL = 'https://data.go.th/api/3/action/datastore_search';
 const DEFAULT_RESOURCE_ID = 'e4eaa1b4-eb1a-4534-b227-988ee25b898d'; // egp-contact-2568
-const USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const REQUEST_TIMEOUT_MS = 35000;
 
 /**
