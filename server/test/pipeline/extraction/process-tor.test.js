@@ -4,7 +4,7 @@ import { after, before, test } from 'node:test';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { TorInsight } from '#models/index.js';
 import { buildInsight } from '#pipeline/extraction/assemble.js';
-import { processTor, saveInsight } from '#pipeline/extraction/process-tor.js';
+import { classifyPreview, processTor, saveInsight } from '#pipeline/extraction/process-tor.js';
 import { RUN, fixture } from './fixtures.js';
 
 const CONFIG = { model: 'gemini-3.7-flash' };
@@ -130,4 +130,41 @@ test('saveInsight replaces extraction\'s fields in place, and leaves analytics a
   assert.equal(all[0].facts.budgetTHB, 13_000_000);
   assert.equal(all[0].analytics.lockSpec.riskScore, 42);
   assert.equal(all[0].evidence.budgetTHB, undefined, 'stale evidence went with the old value');
+});
+
+// A scan read for its first pages only (ADR 0018)
+const previewOf = (tor) => ({ ...tor, ocr: { ...tor.ocr, preview: true, pagesRead: 6 } });
+
+test('classifyPreview: an IT preview waits for its full text, hidden, with nothing extracted', async () => {
+  const { tor, classification } = fixture();
+  const client = fakeClient(classification);
+
+  const { insight, review } = await classifyPreview(previewOf(tor), { client, config: CONFIG });
+
+  assert.equal(client.calls.length, 1, 'only the classify call');
+  assert.equal(insight.metadata.awaitingFullText, true);
+  assert.equal(insight.metadata.excluded, undefined);
+  assert.equal(insight.identification.category, 'software-development');
+  assert.equal(review.preview, true);
+  await new TorInsight(insight).validate(); // fits the model
+});
+
+test('classifyPreview: a non-IT preview is excluded, and its TOR stops there', async () => {
+  const { tor, classification } = fixture();
+  const client = fakeClient({ ...classification, isIT: false, category: null, reason: 'ซื้อเตียงผ่าตัด' });
+
+  const { insight } = await classifyPreview(previewOf(tor), { client, config: CONFIG });
+
+  assert.equal(insight.metadata.excluded.reason, 'ซื้อเตียงผ่าตัด');
+  assert.ok(!insight.metadata.awaitingFullText);
+});
+
+test('a preview is never extracted, and a full text is never only classified', async () => {
+  const { tor, classification, extracted } = fixture();
+
+  const client = fakeClient(classification, extracted);
+  await assert.rejects(processTor(previewOf(tor), { client, config: CONFIG }), /Only a preview has been read/);
+  assert.equal(client.calls.length, 0, 'refused before any call');
+
+  await assert.rejects(classifyPreview(tor, { client, config: CONFIG }), /has its full text/);
 });

@@ -1,10 +1,12 @@
 import type { Lang, PriceVerdict, RiskLevel, ScopeSize, Status, Tor } from "../_data/tors";
 import { priceDeltaPct } from "../_data/tors";
 import type { TorInsightSummary, TorStatus } from "../_lib/api";
+import { stageOf, type Stage } from "../_lib/stage";
 
 // Re-export Status and keep backward-compat alias
 export type { Status };
 export type ApiStatus = Status;
+import { Label } from "./ui";
 
 /**
  * The verdict layer — the one thing this product has that a plain listing site
@@ -117,7 +119,7 @@ function StatusGlyph({ status, className = "" }: { status: Status; className?: s
       </svg>
     );
   }
-  if (status === "Cancelled") {
+  if (status === "Cancelled" || status === "Closed") {
     return (
       <svg viewBox="0 0 10 10" className={`h-2.5 w-2.5 shrink-0 ${className}`} aria-hidden="true">
         <path d="M2 2 L8 8 M8 2 L2 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -179,34 +181,47 @@ function DirectionGlyph({ verdict }: { verdict: PriceVerdict }) {
 const badgeBase =
   "inline-flex items-center gap-1.5 rounded-[2px] border px-2 py-[3px] text-[11px] font-medium leading-none whitespace-nowrap transition-all duration-150";
 
+const largeStatusBadgeBase =
+  "inline-flex items-center gap-2 rounded-[3px] border px-3 py-1.5 text-[13px] font-semibold leading-none whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-150";
+
+const statusBadgeBase =
+  "inline-flex items-center gap-1.5 rounded-[3px] border px-2.5 py-1 text-[12.5px] font-semibold leading-none whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-all duration-150";
+
 export function StatusBadge({
   status,
   lang,
   round,
   isAmended = false,
+  size = "regular",
 }: {
   status: Status;
   lang: Lang;
   /** e.g. "ครั้งที่ 2" — shown next to an amended status. */
   round?: string;
   isAmended?: boolean;
+  size?: "regular" | "large";
 }) {
   const toneKey = getStatusTone(status);
   const tone = status === "Draft"
     ? { bg: "bg-surface-2", border: "border-line", text: "text-ink-2", fill: "bg-ink-3" }
     : TONE[toneKey];
   const label = STATUS_LABEL[status] || { th: String(status), en: String(status) };
+  const base =
+    size === "large"
+      ? "inline-flex items-center gap-2 rounded-[3px] border px-3 py-1.5 text-[13px] font-semibold leading-none whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-150"
+      : statusBadgeBase;
+  const iconClass = size === "large" ? "h-3.5 w-3.5" : "h-3 w-3";
 
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={`${badgeBase} min-w-[74px] justify-center ${tone.bg} ${tone.border} ${tone.text}`}>
-        <StatusGlyph status={status} />
+      <span className={`${base} min-w-[82px] justify-center ${tone.bg} ${tone.border} ${tone.text}`}>
+        <StatusGlyph status={status} className={iconClass} />
         <span className="transition-opacity duration-150">{say(label, lang)}</span>
         {round ? <span className="font-mono opacity-70">{round}</span> : null}
       </span>
       {isAmended ? (
-        <span className={`${badgeBase} border-amend-line bg-amend-bg text-amend`}>
-          <span>✎</span>
+        <span className={`${base} border-amend-line bg-amend-bg text-amend`}>
+          <span className="text-[11px]">✎</span>
           <span>{lang === "th" ? "แก้ไขแล้ว" : "Amended"}</span>
         </span>
       ) : null}
@@ -334,11 +349,10 @@ export function SmeBadge({ lang }: { lang: Lang }) {
 export function SignalRail({ status, className = "" }: { status: Status; className?: string }) {
   const toneKey = getStatusTone(status);
   const fill = status === "Draft" ? "bg-ink-3" : TONE[toneKey].fill;
-  const isMuted = status === "Closed" || status === "Draft" || status === "Awarded";
   return (
     <span
       aria-hidden="true"
-      className={`w-[3px] shrink-0 rounded-full ${fill} ${isMuted ? "opacity-50" : ""} ${className}`}
+      className={`w-[5px] shrink-0 rounded-full ${fill} ${className}`}
     />
   );
 }
@@ -351,36 +365,24 @@ export function SignalRail({ status, className = "" }: { status: Status; classNa
  * also drawn dashed and drained: it is the platform's inference from the
  * deadline, not something the agency announced.
  */
-const LIFECYCLE: Record<TorStatus, { tone: Tone | null; label: Bi; hint?: Bi }> = {
-  Draft: {
-    tone: null,
-    label: { th: "ร่าง TOR", en: "Draft" },
-    hint: {
-      th: "ร่างเพื่อรับฟังความเห็น ยังไม่เปิดรับข้อเสนอ",
-      en: "Out for public hearing; bids are not open yet",
-    },
-  },
-  Open: { tone: "open", label: { th: "เปิดรับข้อเสนอ", en: "Open" } },
-  Awarded: { tone: "closed", label: { th: "ประกาศผู้ชนะแล้ว", en: "Awarded" } },
-  Closed: {
-    tone: "closed",
-    label: { th: "ปิดรับแล้ว", en: "Closed" },
-    hint: {
-      th: "ประเมินจากวันปิดรับ หน่วยงานยังไม่แจ้งผล",
-      en: "Inferred from the deadline; the agency hasn't reported an outcome",
-    },
-  },
-  Cancelled: { tone: "closed", label: { th: "ยกเลิก", en: "Cancelled" } },
+// The colour of each status. Its words (the stage, or the status when there
+// is no stage) come from stage.ts, the one vocabulary the badges and the
+// search filters share.
+const LIFECYCLE_TONE: Record<TorStatus, Tone | null> = {
+  Draft: null,
+  Open: "open",
+  Awarded: "closed",
+  Closed: "closed",
+  Cancelled: "closed",
 };
 
-export const lifecycleLabel = (status: TorStatus, lang: Lang) => say(LIFECYCLE[status].label, lang);
 
 const DEAD: TorStatus[] = ["Awarded", "Closed", "Cancelled"];
 export const isDead = (status: TorStatus) => DEAD.includes(status);
 
-function LifecycleGlyph({ status }: { status: TorStatus }) {
+function LifecycleGlyph({ status, className = "h-3 w-3 shrink-0" }: { status: TorStatus; className?: string }) {
   return (
-    <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 shrink-0" aria-hidden="true">
+    <svg viewBox="0 0 10 10" className={className} aria-hidden="true">
       {status === "Draft" && <circle cx="5" cy="5" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.4" />}
       {status === "Open" && <circle cx="5" cy="5" r="3.2" fill="currentColor" />}
       {status === "Awarded" && (
@@ -399,17 +401,36 @@ function LifecycleGlyph({ status }: { status: TorStatus }) {
   );
 }
 
-export function LifecycleBadge({ status, lang }: { status: TorStatus; lang: Lang }) {
-  const { tone, label, hint } = LIFECYCLE[status];
+/**
+ * The status badge. The status sets the colour and the glyph, so a dense list
+ * scans by colour; `stage` (from stageOf) names what e-GP announced, e.g.
+ * "ยกเลิกประกาศเชิญชวน" rather than just "ยกเลิก".
+ */
+export function LifecycleBadge({
+  status,
+  lang,
+  stage,
+  size = "regular",
+}: {
+  status: TorStatus;
+  lang: Lang;
+  stage?: Stage;
+  size?: "regular" | "large";
+}) {
+  const tone = LIFECYCLE_TONE[status];
+  const { label, hint } = stage ?? stageOf({ status });
   const colours =
     status === "Closed"
-      ? "border-dashed border-closed-line bg-transparent text-ink-3"
+      ? "border-dashed border-closed-line bg-surface text-ink-2"
       : tone
         ? `${TONE[tone].bg} ${TONE[tone].border} ${TONE[tone].text}`
         : "border-line-2 bg-surface text-ink-2";
   return (
-    <span className={`${badgeBase} min-w-[74px] justify-center ${colours}`} title={hint ? say(hint, lang) : undefined}>
-      <LifecycleGlyph status={status} />
+    <span
+      className={`${size === "large" ? largeStatusBadgeBase : statusBadgeBase} min-w-[82px] justify-center ${colours}`}
+      title={hint ? say(hint, lang) : undefined}
+    >
+      <LifecycleGlyph status={status} className={size === "large" ? "h-3.5 w-3.5 shrink-0" : undefined} />
       <span>{say(label, lang)}</span>
       {hint ? <span className="sr-only"> ({say(hint, lang)})</span> : null}
     </span>
@@ -420,8 +441,8 @@ export function LifecycleBadge({ status, lang }: { status: TorStatus; lang: Lang
 export function AmendedFlag({ lang }: { lang: Lang }) {
   const tone = TONE.amend;
   return (
-    <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
-      <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 shrink-0" aria-hidden="true">
+    <span className={`${statusBadgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
+      <svg viewBox="0 0 10 10" className="h-3 w-3 shrink-0" aria-hidden="true">
         <rect x="0" y="2.2" width="7" height="1.8" fill="currentColor" />
         <rect x="3" y="6" width="7" height="1.8" fill="currentColor" />
       </svg>
@@ -431,10 +452,10 @@ export function AmendedFlag({ lang }: { lang: Lang }) {
 }
 
 /** Who may bid is a category, not a verdict, so it stays monochrome. Decisive for freelancers. */
-export function CompaniesOnlyBadge({ lang }: { lang: Lang }) {
+export function CompaniesOnlyBadge({ lang, className = "" }: { lang: Lang; className?: string }) {
   return (
     <span
-      className={`${badgeBase} border-line bg-surface-2 text-ink-2`}
+      className={`inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 whitespace-nowrap leading-normal ${className}`}
       title={lang === "th" ? "TOR กำหนดให้ผู้ยื่นเป็นนิติบุคคล" : "The TOR requires bidders to be a registered company"}
     >
       {lang === "th" ? "เฉพาะนิติบุคคล" : "Companies only"}
@@ -454,7 +475,7 @@ export function LifecycleRail({ status, amended = false }: { status: TorStatus; 
   return (
     <span
       aria-hidden="true"
-      className={`w-[3px] shrink-0 rounded-full ${fill} ${status === "Closed" ? "opacity-50" : ""}`}
+      className={`w-[5px] shrink-0 rounded-full ${fill}`}
     />
   );
 }
@@ -531,9 +552,7 @@ export function VerdictStrip({
       <div className="grid grid-cols-1 divide-y divide-line rounded-[3px] border border-line bg-surface-2 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         {cells.map((cell) => (
           <div key={cell.label} className="flex flex-col gap-2 px-3.5 py-3">
-            <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-3">
-              {cell.label}
-            </span>
+            <Label>{cell.label}</Label>
             {cell.node}
           </div>
         ))}
@@ -577,9 +596,7 @@ export function VerdictStrip({
     <div className="grid grid-cols-1 divide-y divide-line rounded-[3px] border border-line bg-surface-2 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
       {cells.map((cell) => (
         <div key={cell.label} className="flex flex-col gap-2 px-3.5 py-3">
-          <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-3">
-            {cell.label}
-          </span>
+          <Label>{cell.label}</Label>
           {cell.node}
         </div>
       ))}

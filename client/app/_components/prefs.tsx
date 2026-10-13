@@ -2,12 +2,15 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { demoProfile, type Lang, type Profile } from "../_data/tors";
+import type { ApiError, UserProfile } from "../_lib/api";
+import { useAuth } from "./auth";
 
 /**
  * Content language. Source documents are Thai and most users read Thai, so
@@ -22,22 +25,68 @@ const LangContext = createContext<{ lang: Lang; setLang: (lang: Lang) => void }>
 });
 
 /**
- * The profile lives above the routes so editing skills on /profile changes the
- * ranking on /search without a round trip — which is the whole point of
- * splitting the two, and the thing a static mockup would fail to show.
+ * FR-12. When signed in, the profile is whatever the server last returned.
+ * When signed out, a guest-local profile lets someone try the matcher on
+ * /search without an account.
  */
-const ProfileContext = createContext<{
+type ProfileValue = {
   profile: Profile;
   setProfile: (profile: Profile) => void;
-}>({ profile: demoProfile, setProfile: () => {} });
+  /** True when a save is in flight. */
+  saving: boolean;
+  /** Calls the API. Returns the error, or null on success. */
+  saveProfile: (fields: Partial<UserProfile>) => Promise<ApiError | null>;
+};
+
+const ProfileContext = createContext<ProfileValue>({
+  profile: demoProfile,
+  setProfile: () => {},
+  saving: false,
+  saveProfile: async () => null,
+});
 
 export function PrefsProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>("th");
-  const [profile, setProfile] = useState<Profile>(demoProfile);
+  const { status, user, updateProfile: authUpdateProfile } = useAuth();
+
+  const [guestProfile, setGuestProfile] = useState<Profile>(demoProfile);
+  const [saving, setSaving] = useState(false);
+
+  const profile: Profile =
+    status === "authenticated" && user
+      ? {
+          name: user.name,
+          role: { th: "ผู้ใช้ระบบ", en: "Platform User" },
+          email: user.email,
+          skills: user.profile?.skills ?? [],
+          budgetMin: user.profile?.budgetMin ?? 0,
+          budgetMax: user.profile?.budgetMax ?? 0,
+          scopeSizes: [],
+          smeRegistered: false,
+          watchlist: guestProfile.watchlist,
+        }
+      : guestProfile;
+
+  const setProfile = useCallback((p: Profile) => {
+    setGuestProfile(p);
+  }, []);
+
+  const saveProfile = useCallback(
+    async (fields: Partial<UserProfile>) => {
+      if (status !== "authenticated") return null;
+      setSaving(true);
+      const error = await authUpdateProfile(fields);
+      setSaving(false);
+      return error;
+    },
+    [status, authUpdateProfile],
+  );
 
   return (
     <LangContext.Provider value={{ lang, setLang }}>
-      <ProfileContext.Provider value={{ profile, setProfile }}>{children}</ProfileContext.Provider>
+      <ProfileContext.Provider value={{ profile, setProfile, saving, saveProfile }}>
+        {children}
+      </ProfileContext.Provider>
     </LangContext.Provider>
   );
 }

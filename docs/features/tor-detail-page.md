@@ -179,6 +179,11 @@ DELAY PENALTY
 
 #### Behavior
 
+Every deadline says what it is for ([0019](../decisions/0019-stage-badges-and-deadlines-that-say-what-for.md)):
+a draft out for public hearing shows **ส่งความเห็นร่าง TOR ภายใน** (comments on
+the draft due), and has no bid date yet; anything else shows **ยื่นข้อเสนอภายใน**
+(bids due). A date the TOR doesn't state is said to be missing, never guessed.
+
 If the procurement is open, the deadline may include a remaining-time
 indicator. If the procurement is closed, the deadline should remain available as
 historical information but should no longer be presented as an actionable

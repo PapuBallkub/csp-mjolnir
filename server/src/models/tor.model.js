@@ -2,6 +2,84 @@ import mongoose from 'mongoose';
 
 // Shape only. Pipeline writes live in pipeline/ (ADR 0003).
 // Schema specification: docs/database/tor-schema.md
+
+// A value read from a package's documents in code (ADR 0020, 0023), with
+// the sentence it came from and the document that said it
+const quoted = (valueType) =>
+  new mongoose.Schema(
+    {
+      value: { type: valueType, required: true },
+      quote: { type: String, required: true },
+      document: { type: String, enum: ['announcement', 'bidding', 'price-form'], required: true },
+    },
+    { _id: false },
+  );
+
+// e-bidding takes bids on one day, between two times
+const submissionWindowSchema = new mongoose.Schema(
+  {
+    opensAt: { type: Date, required: true },
+    closesAt: { type: Date, required: true },
+    quote: { type: String, required: true },
+    document: { type: String, enum: ['announcement', 'bidding'], required: true },
+  },
+  { _id: false },
+);
+
+// One file kept from a package; e-GP's blank forms aren't kept
+const packageFileSchema = new mongoose.Schema(
+  {
+    role: { type: String, enum: ['announcement', 'bidding', 'tor', 'price-form', 'other'], required: true },
+    fileName: { type: String, required: true },
+    storagePath: { type: String, required: true },
+    sizeBytes: { type: Number, default: null },
+    pages: { type: Number, default: null }, // null for a file that isn't a PDF
+    contentHash: { type: String, default: null },
+    // 'text' reads as it is; 'scan' and 'garbled' need OCR; null if not a PDF
+    textLayer: { type: String, enum: ['text', 'scan', 'garbled'], default: null }, // validators skip null
+  },
+  { _id: false },
+);
+
+// One file of a TOR that comes in several
+const torPartSchema = new mongoose.Schema(
+  {
+    fileName: { type: String, required: true },
+    storagePath: { type: String, required: true },
+    pages: { type: Number, default: null },
+    contentHash: { type: String, default: null },
+  },
+  { _id: false },
+);
+
+// One e-GP document package. Each stage (draft, invitation, change) builds
+// an announcement package; the price package (pricebuild_*.zip) holds the
+// price form (ADR 0023).
+const packageSchema = new mongoose.Schema(
+  {
+    // Records from before ADR 0023 have none: they are announcement packages
+    kind: { type: String, enum: ['announcement', 'price'], default: 'announcement' },
+    zipId: { type: String, required: true },
+    name: { type: String, default: null }, // e.g. "69109028093_07102569.zip": the date it was built
+    downloadedAt: { type: Date, default: null },
+    files: { type: [packageFileSchema], default: [] },
+    // The real text layers, read in code now and by extraction later
+    announcementText: { type: String, default: '' },
+    biddingText: { type: String, default: '' },
+    // The price form's text, from OCR: the form is scanned
+    priceFormText: { type: String, default: '' },
+    facts: {
+      agency: { type: quoted(String), default: null },
+      budgetTHB: { type: quoted(Number), default: null }, // from the price form
+      referencePriceTHB: { type: quoted(Number), default: null },
+      submissionWindow: { type: submissionWindowSchema, default: null },
+    },
+    // Why a value the documents seem to state wasn't kept, e.g. digits and words disagree
+    problems: { type: [String], default: [] },
+  },
+  { _id: false },
+);
+
 const torSchema = new mongoose.Schema(
   {
     // The 11-digit e-GP project ID (e.g. "68039469567"). Primary dedup key.
@@ -59,6 +137,12 @@ const torSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    // When bids close, from the latest package's documents (ADR 0020). The
+    // window it closes is in packages[].facts.submissionWindow.
+    submissionDeadline: {
+      type: Date,
+      default: null,
+    },
     announceDate: {
       type: String,
       default: null,
@@ -68,13 +152,21 @@ const torSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    // What the title says the contract is (ADR 0018): จ้าง (hire: a job),
+    // ซื้อ (buy: supplying goods) or เช่า (rent). Null when the title says none.
+    procurementKind: {
+      type: String,
+      enum: ['hire', 'buy', 'rent'], // validators skip null
+      default: null,
+    },
     egpUrl: {
       type: String,
       default: '',
       trim: true,
     },
 
-    // Announcement type from RSS (B0=Draft TOR, D0=Invitation, 15=Reference Price)
+    // The latest e-GP announcement code seen; the codes are in
+    // pipeline/shared/announcement-codes.js (ADR 0017)
     announceType: {
       type: String,
       default: '',
@@ -92,7 +184,27 @@ const torSchema = new mongoose.Schema(
       projectStatus: { type: String, default: '' },
     },
 
-    // Downloaded PDF document details
+    // The e-GP document packages downloaded, oldest first (ADR 0020). Older
+    // ones stay, for amendment diffs (FR-16).
+    packages: {
+      type: [packageSchema],
+      default: [],
+    },
+    // Set by fetch when the feed announces a new stage of a project already
+    // downloaded; download then checks e-GP for a new package (ADR 0020)
+    packageCheckNeeded: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    // When e-GP was last asked for the price package, found or not (ADR
+    // 0023). Null: never asked, so download asks once; a new stage asks again.
+    priceCheckedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // The TOR: the latest package's, which OCR reads
     document: {
       fileName: { type: String, default: null },
       storagePath: { type: String, default: null },
@@ -100,9 +212,13 @@ const torSchema = new mongoose.Schema(
       pages: { type: Number, default: null },
       // 'DIGITAL_TEXT_PDF' | 'SCANNED_PAPER_PDF' | 'UNKNOWN'
       documentType: { type: String, default: 'UNKNOWN' },
-      // Cryptographic SHA-256 fingerprint for amendment detection (FR10)
+      // Cryptographic SHA-256 fingerprint for amendment detection (FR10).
+      // For a TOR in several files, a hash of their hashes.
       contentHash: { type: String, default: null, index: true },
       version: { type: Number, default: 1 },
+      // A TOR an agency split over several files, in reading order; empty for
+      // one file. OCR reads them as one document (ADR 0020).
+      parts: { type: [torPartSchema], default: [] },
     },
 
     // OCR & text extraction results
@@ -113,6 +229,11 @@ const torSchema = new mongoose.Schema(
       // Part of the document never reached rawText (page limit, timeout, or
       // failed pages). Extraction treats it as a failed check (ADR 0013).
       truncated: { type: Boolean, default: false },
+      // rawText holds only the first pages of a scan, read so classify can
+      // decide whether the TOR is IT before paying for the rest (ADR 0018).
+      // Extraction never extracts from a preview.
+      preview: { type: Boolean, default: false },
+      pagesRead: { type: Number, default: null },
       processedAt: { type: Date, default: null },
     },
 
@@ -152,7 +273,8 @@ const torSchema = new mongoose.Schema(
     ],
 
     // Chronological record of every e-GP announcement received for this project (FR-02).
-    // Each entry is one RSS item. The ingestion pipeline appends; nothing deletes.
+    // Each entry is one RSS item, recorded once however many polls see it
+    // (ADR 0016). The ingestion pipeline appends; nothing deletes.
     announcementHistory: [
       {
         code: { type: String, required: true }, // e.g. 'B0', 'D0', 'D1'
@@ -163,10 +285,12 @@ const torSchema = new mongoose.Schema(
       },
     ],
 
-    // Pipeline status: 'fetched' -> 'downloaded' -> 'ocr_done'
+    // Pipeline status: 'fetched' -> 'downloaded' -> 'ocr_preview' -> 'ocr_done'.
+    // A digital PDF, or a scan short enough to read whole, skips ocr_preview;
+    // a preview classified as not IT stays there (ADR 0018).
     pipelineStatus: {
       type: String,
-      enum: ['fetched', 'downloaded', 'ocr_done'],
+      enum: ['fetched', 'downloaded', 'ocr_preview', 'ocr_done'],
       default: 'fetched',
       index: true,
     },

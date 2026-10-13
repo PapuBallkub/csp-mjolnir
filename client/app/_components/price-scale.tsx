@@ -52,7 +52,7 @@ export function PriceScale({ tor, lang }: { tor: Tor; lang: Lang }) {
           className={`absolute top-0 flex flex-col items-start gap-1 ${anchor(projectPos)}`}
           style={{ left: `${projectPos}%` }}
         >
-          <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+          <span className="whitespace-nowrap text-[11px] font-medium text-ink-3">
             {lang === "th" ? "โครงการนี้" : "This project"}
           </span>
           <span
@@ -108,7 +108,7 @@ export function PriceScale({ tor, lang }: { tor: Tor; lang: Lang }) {
           className={`absolute top-[82px] flex flex-col gap-0.5 ${anchor(medianPos)}`}
           style={{ left: `${medianPos}%` }}
         >
-          <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+          <span className="whitespace-nowrap text-[11px] font-medium text-ink-3">
             {lang === "th" ? "ค่ากลาง" : "Median"}
           </span>
           <span className="whitespace-nowrap font-mono tnum text-[13px] font-medium text-ink-2">

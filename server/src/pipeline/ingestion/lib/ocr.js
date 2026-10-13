@@ -13,6 +13,7 @@ import path from 'node:path';
 import { PDFParse } from 'pdf-parse';
 import { pdf } from 'pdf-to-img';
 import { createWorker } from 'tesseract.js';
+import { textLayerOf } from './text-layer.js';
 
 const require = createRequire(import.meta.resolve('pdf-to-img'));
 const pdfjsDistPkg = require.resolve('pdfjs-dist/package.json');
@@ -36,6 +37,20 @@ const PAGE_TIMEOUT_MS = 60000; // 60s timeout per single page
 function positiveNumberFromEnv(name, fallback) {
   const value = Number(process.env[name]);
   return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+/** How many pages a preview reads: classify reads ~10,000 characters, about 5 (ADR 0018). */
+export const PREVIEW_PAGES = 6;
+
+/**
+ * Whether a read limited to the first pages left part of the document unread,
+ * so its text is only a preview (ADR 0018). A digital PDF is always read whole,
+ * and a scan no longer than the preview is complete.
+ *
+ * @param {{ usedOcr: boolean, pages: number, pagesRead: number }} result - From extractText
+ */
+export function isPreviewRead({ usedOcr, pages, pagesRead }) {
+  return usedOcr && (!pages || pagesRead < pages);
 }
 
 /**
@@ -107,7 +122,8 @@ export function cleanOcrText(text) {
  * @param {Object} [options]
  * @param {number} [options.maxPages] - Maximum pages to OCR (default OCR_MAX_PAGES, else 150)
  * @param {number} [options.secondsPerPage] - OCR time budget per page (default OCR_SECONDS_PER_PAGE, else 10)
- * @returns {Promise<{ text: string, confidence: number, usedOcr: boolean, pages: number, truncated: boolean }>}
+ * @returns {Promise<{ text: string, confidence: number, usedOcr: boolean, pages: number, pagesRead: number, truncated: boolean }>}
+ *   pagesRead: the pages actually read, fewer than pages when a limit stopped it
  */
 export async function extractText(pdfPath, options = {}) {
   const maxPages =
@@ -125,6 +141,7 @@ export async function extractText(pdfPath, options = {}) {
       confidence: 1.0,
       usedOcr: false,
       pages: digitalResult.pages,
+      pagesRead: digitalResult.pages,
       truncated: false,
     };
   }
@@ -155,7 +172,8 @@ async function tryEmbeddedDigitalText(buffer) {
       .filter(Boolean);
 
     const combinedText = formattedPages.join('\n\n').trim();
-    const isDigital = combinedText.length >= 50;
+    // A garbled layer (an old non-Unicode Thai font) is OCR'd like a scan
+    const isDigital = textLayerOf(combinedText) === 'text';
 
     return {
       isDigital,
@@ -177,7 +195,8 @@ async function tryEmbeddedDigitalText(buffer) {
  * @param {string} pdfPath
  * @param {number} [fallbackPages=0]
  * @param {{ maxPages: number, secondsPerPage: number }} limits
- * @returns {Promise<{ text: string, confidence: number, usedOcr: boolean, pages: number, truncated: boolean }>}
+ * @returns {Promise<{ text: string, confidence: number, usedOcr: boolean, pages: number, pagesRead: number, truncated: boolean }>}
+ *   pagesRead: the pages actually read, fewer than pages when a limit stopped it
  */
 async function ocrScannedPdf(pdfPath, fallbackPages = 0, { maxPages, secondsPerPage }) {
   let doc = null;
@@ -262,6 +281,7 @@ async function ocrScannedPdf(pdfPath, fallbackPages = 0, { maxPages, secondsPerP
       confidence: Math.round(avgConfidence * 100) / 100,
       usedOcr: true,
       pages: totalPages || pagesAttempted,
+      pagesRead: pagesAttempted,
       truncated: isTruncated({ stoppedEarly, skippedPages, pagesAttempted, totalPages }),
     };
   } finally {

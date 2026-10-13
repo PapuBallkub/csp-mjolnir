@@ -18,6 +18,7 @@
   --surface: #ffffff;
   --surface-2: #f3f5f7;
   --surface-3: #e4e8ed;
+  --surface-closed: #edf0f4;
   --ink: #101418;
   --ink-2: #4e575f;
   --ink-3: #7c8792;
@@ -53,6 +54,7 @@
   --surface: #12161a;
   --surface-2: #181d22;
   --surface-3: #1f252b;
+  --surface-closed: #161b20;
   --ink: #e6eaee;
   --ink-2: #9ba5af;
   --ink-3: #6e7883;
@@ -85,6 +87,7 @@
     --surface: #12161a;
     --surface-2: #181d22;
     --surface-3: #1f252b;
+    --surface-closed: #161b20;
     --ink: #e6eaee;
     --ink-2: #9ba5af;
     --ink-3: #6e7883;
@@ -115,6 +118,7 @@
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
+  --color-surface-closed: var(--surface-closed);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
@@ -137,7 +141,7 @@
   --color-closed-bg: var(--closed-bg);
   --color-closed-line: var(--closed-line);
 
-  --font-sans: var(--font-inter), var(--font-noto-thai), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-plex-sans), var(--font-plex-thai), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 
   --radius-card: 3px;

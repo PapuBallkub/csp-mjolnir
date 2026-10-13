@@ -148,6 +148,21 @@ test('cross-source: an AI price that differs from the feed fails, showing both v
   assert.equal(check.severity, 'critical');
 });
 
+test("cross-source: an AI bid date off the documents' is a minor failure, since the documents' is shown", () => {
+  const input = clean();
+  // Read from the package's bidding document (ADR 0020): 19 Aug 2569, 12:00
+  input.tor.submissionDeadline = new Date('2026-08-19T05:00:00Z');
+  input.extracted.facts.submissionDeadline = evidence('ยื่นข้อเสนอภายในวันที่ ๑๘ สิงหาคม ๒๕๖๙', 3, {
+    day: 18, month: 8, year: 2569, era: 'BE',
+  });
+  const check = failed(runChecks(input), 'cross-source', 'facts.submissionDeadline');
+  assert.equal(check.severity, 'minor');
+
+  // Same day, a different time (the window opens at 09:00): no failure
+  input.extracted.facts.submissionDeadline.value.day = 19;
+  assert.equal(failed(runChecks(input), 'cross-source', 'facts.submissionDeadline'), undefined);
+});
+
 test('cross-source: a feed with no value (null or an old 0) leaves the AI value unchallenged', () => {
   for (const missing of [null, 0]) {
     const input = clean();
@@ -232,4 +247,15 @@ test('confidenceScore: minor failures cost points, any critical one caps the sco
   assert.equal(confidenceScore([minor, minor]), 90);
   assert.equal(confidenceScore([critical]), 79);
   assert.equal(confidenceScore(Array(30).fill(critical)), 0);
+});
+
+test('grounding: a comment deadline is checked too, but a wrong one is minor, not hidden', () => {
+  const input = clean();
+  input.extracted.facts.commentDeadline = {
+    quote: 'เสนอแนะ วิจารณ์ ภายในวันที่ ๓๑ ตุลาคม ๒๕๖๙', // not in the document
+    page: 1,
+    value: { day: 31, month: 10, year: 2569, era: 'BE', hour: null, minute: null },
+  };
+
+  assert.equal(failed(runChecks(input), 'grounding', 'facts.commentDeadline').severity, 'minor');
 });

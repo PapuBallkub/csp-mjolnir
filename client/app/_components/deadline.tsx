@@ -1,5 +1,6 @@
 import { daysUntil, formatDate, type Lang, type Status } from "../_data/tors";
 import type { TorStatus } from "../_lib/api";
+import { deadlineOf } from "../_lib/stage";
 import { isDead } from "./verdict";
 
 /* ------------------------- real dates, from the API ------------------------ */
@@ -13,6 +14,40 @@ export function daysLeft(deadline: string, now: Date): number {
   return bangkokDay(new Date(deadline).getTime()) - bangkokDay(now.getTime());
 }
 
+/** Returns the dynamic countdown text and urgency tone for a given days left count. */
+export function countdownText(
+  days: number,
+  lang: Lang
+): { text: string; tone: string } {
+  if (days < 0) {
+    return {
+      text: lang === "th" ? "ปิดรับแล้ว" : "Closed",
+      tone: "text-ink-3",
+    };
+  }
+  if (days === 0) {
+    return {
+      text: lang === "th" ? "ครบกำหนดวันนี้" : "Due today",
+      tone: "text-risk font-bold",
+    };
+  }
+  if (days === 1) {
+    return {
+      text: lang === "th" ? "เหลืออีก 1 วัน" : "1 day left",
+      tone: "text-risk font-bold",
+    };
+  }
+  return {
+    text: lang === "th" ? `เหลืออีก ${days} วัน` : `${days} days left`,
+    tone:
+      days <= 2
+        ? "text-risk font-semibold"
+        : days <= 7
+        ? "text-amend font-semibold"
+        : "text-ink font-semibold",
+  };
+}
+
 /** e.g. "19 ต.ค. 2569" / "19 Oct 2026", in Thai time; the Thai year is the Buddhist one */
 export function formatThaiDate(iso: string, lang: Lang): string {
   const date = new Date(new Date(iso).getTime() + BANGKOK);
@@ -21,42 +56,60 @@ export function formatThaiDate(iso: string, lang: Lang): string {
 }
 
 /**
- * Time left on a real TOR. `now` comes from when the list arrived, the same
- * moment the API worked out which TORs are already Closed.
+ * Time left on a real TOR, and what it is left for: a draft asks for comments
+ * by a date, an invitation for bids (deadlineOf). `now` comes from when the
+ * list arrived, the same moment the API worked out which TORs are Closed.
  */
 export function TorDeadline({
-  deadline,
   status,
+  facts,
   now,
   lang,
 }: {
-  deadline: string | null;
   status: TorStatus;
+  facts: { submissionDeadline: string | null; commentDeadline?: string | null };
   now: Date;
   lang: Lang;
 }) {
+  const info = deadlineOf(status, facts);
+  const say = (text: { th: string; en: string }) => (lang === "th" ? text.th : text.en);
+
+  // Nothing left to do: say so, and keep the date it closed for the record
+  if (isDead(status)) {
+    const over =
+      status === "Closed"
+        ? { th: "ปิดรับข้อเสนอแล้ว", en: "Bidding closed" }
+        : { th: "ไม่รับข้อเสนอแล้ว", en: "No longer taking bids" };
+    return (
+      <span className="flex flex-col items-end gap-1 whitespace-nowrap">
+        <span className="text-[13.5px] font-medium text-ink-3">{say(over)}</span>
+        {info.date ? <span className="tnum text-[12.5px] text-ink-3">{formatThaiDate(info.date, lang)}</span> : null}
+      </span>
+    );
+  }
+
   let text: string;
   let tone = "text-ink-3";
-  if (isDead(status)) {
-    text = lang === "th" ? "ปิดรับแล้ว" : "Closed";
-  } else if (!deadline) {
-    text = lang === "th" ? "ไม่ระบุวันปิดรับ" : "No deadline given";
+  if (!info.date) {
+    text = say(info.missing);
   } else {
-    const days = daysLeft(deadline, now);
-    // Only a Draft can still be past it: the API turns a late Open into Closed
-    if (days < 0) text = lang === "th" ? "เลยกำหนดแล้ว" : "Deadline passed";
-    else if (days === 0) text = lang === "th" ? "ปิดรับวันนี้" : "Closes today";
-    else if (days === 1) text = lang === "th" ? "เหลืออีก 1 วัน" : "1 day left";
-    else text = lang === "th" ? `เหลืออีก ${days} วัน` : `${days} days left`;
-    if (days >= 0) tone = days <= 2 ? "text-risk" : days <= 7 ? "text-amend" : "text-ink-2";
+    const days = daysLeft(info.date, now);
+    // Only a draft can still be past it: the API turns a late Open into Closed
+    if (days < 0) {
+      text = say({ th: "ปิดรับความเห็นแล้ว", en: "Comment period over" });
+    } else {
+      const cd = countdownText(days, lang);
+      text = cd.text;
+      tone = cd.tone;
+    }
   }
 
   return (
-    <span className="flex flex-col items-end gap-0.5 whitespace-nowrap">
-      <span className={`font-mono tnum text-[12px] font-medium ${tone}`}>{text}</span>
-      {deadline ? (
-        <span className="font-mono tnum text-[11px] text-ink-3">{formatThaiDate(deadline, lang)}</span>
-      ) : null}
+    <span className="flex flex-col items-end gap-1 whitespace-nowrap">
+      {/* What the deadline is for, so "5 days left" never stands alone */}
+      <span className="text-[11.5px] leading-thai text-ink-3">{say(info.label)}</span>
+      <span className={`tnum text-[15.5px] sm:text-[16px] leading-none font-semibold ${tone}`}>{text}</span>
+      {info.date ? <span className="tnum text-[13px] font-medium text-ink-2">{formatThaiDate(info.date, lang)}</span> : null}
     </span>
   );
 }
@@ -76,7 +129,7 @@ export function deadlineTone(deadline: string | null | undefined, status: Status
   if (days < 0) return "text-ink-3";
   if (days <= 2) return "text-risk";
   if (days <= 7) return "text-amend";
-  return "text-ink-2";
+  return "text-ink font-semibold";
 }
 
 export function deadlineText(deadline: string | null | undefined, status: Status, lang: Lang): string {
@@ -103,12 +156,12 @@ export function Deadline({
   showDate?: boolean;
 }) {
   return (
-    <span className="flex flex-col items-end gap-0.5 whitespace-nowrap transition-opacity duration-150">
-      <span className={`font-mono tnum text-[12px] font-medium ${deadlineTone(deadline, status)}`}>
+    <span className="flex flex-col items-end gap-1 whitespace-nowrap transition-opacity duration-150">
+      <span className={`font-mono tnum text-[15px] sm:text-[15.5px] leading-none font-semibold ${deadlineTone(deadline, status)}`}>
         {deadlineText(deadline, status, lang)}
       </span>
       {showDate && deadline ? (
-        <span className="font-mono tnum text-[11px] text-ink-3">
+        <span className="font-mono tnum text-[13px] font-medium text-ink-2">
           {formatDate(deadline, lang)}
         </span>
       ) : null}

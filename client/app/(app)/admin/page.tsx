@@ -342,7 +342,7 @@ function AdminDashboard({
                 ].map((column) => (
                   <th
                     key={column.text}
-                    className={`px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
+                    className={`px-3 py-2 text-[11px] font-medium text-ink-3 ${
                       column.right ? "text-right" : ""
                     }`}
                   >

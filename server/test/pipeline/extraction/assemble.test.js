@@ -27,6 +27,67 @@ test('the assembled record passes the TorInsight model\'s own validation', () =>
   assert.equal(new TorInsight(build()).validateSync(), undefined);
 });
 
+test("the package's bid date and ราคากลาง win, quoting the document that states them (ADR 0020)", () => {
+  const closes = new Date('2026-08-19T05:00:00Z'); // 19 Aug 2569, 12:00 Bangkok
+  const statedPrice = { value: 12_400_000, quote: '๑๒,๔๐๐,๐๐๐.๐๐ บาท (สิบสองล้านสี่แสนบาทถ้วน)', document: 'announcement' };
+  const record = build({
+    change: (input) => {
+      input.tor.referencePriceTHB = 12_400_000;
+      input.tor.submissionDeadline = closes;
+      input.tor.packages = [
+        {
+          facts: {
+            referencePriceTHB: statedPrice,
+            submissionWindow: {
+              opensAt: new Date('2026-08-19T02:00:00Z'),
+              closesAt: closes,
+              quote: '๑๙ สิงหาคม ๒๕๖๙ ระหว่างเวลา ๐๙.๐๐ น. ถึง ๑๒.๐๐ น.',
+              document: 'bidding',
+            },
+          },
+        },
+        // A later package that doesn't state them leaves the earlier sentences standing
+        { facts: { referencePriceTHB: null, submissionWindow: null } },
+      ];
+    },
+  });
+
+  // The TOR said 18 Aug 16:30; the documents' value is the one kept, with their quote
+  assert.equal(record.facts.submissionDeadline.toISOString(), closes.toISOString());
+  assert.deepEqual(record.evidence.submissionDeadline, {
+    quote: '๑๙ สิงหาคม ๒๕๖๙ ระหว่างเวลา ๐๙.๐๐ น. ถึง ๑๒.๐๐ น.',
+    page: null,
+    document: 'bidding',
+  });
+  assert.equal(record.facts.referencePriceTHB, 12_400_000);
+  assert.deepEqual(record.evidence.referencePriceTHB, { quote: statedPrice.quote, page: null, document: 'announcement' });
+  assert.equal(new TorInsight(record).validateSync(), undefined);
+});
+
+test("the price form's budget wins, quoting the form, and its ราคากลาง never stands in for the announcement's (ADR 0023)", () => {
+  const formBudget = { value: 12_450_000, quote: 'วงเงินงบประมาณที่ได้รับจัดสรร … (สิบสองล้านสี่แสนห้าหมื่นบาทถ้วน)', document: 'price-form' };
+  const record = build({
+    change: (input) => {
+      input.tor.budgetTHB = 12_450_000; // the TOR's OCR said 12,500,000
+      input.tor.packages = [
+        {
+          kind: 'price',
+          facts: {
+            budgetTHB: formBudget,
+            referencePriceTHB: { value: 12_492_771, quote: 'กำหนดราคากลาง …', document: 'price-form' },
+          },
+        },
+      ];
+    },
+  });
+
+  assert.equal(record.facts.budgetTHB, 12_450_000);
+  assert.deepEqual(record.evidence.budgetTHB, { quote: formBudget.quote, page: null, document: 'price-form' });
+  // ราคากลาง is quoted only from an announcement; there is none here
+  assert.equal(record.evidence.referencePriceTHB, undefined);
+  assert.equal(new TorInsight(record).validateSync(), undefined);
+});
+
 test('the feed wins on prices, and the document fills what the feed lacks', () => {
   const { facts, evidence } = build();
 
@@ -110,4 +171,21 @@ test('a TOR with no agency anywhere is refused, rather than saved without one', 
     () => buildExcluded({ tor, classification: { ...classification, agency: null }, run: RUN }),
     /No agency/,
   );
+});
+
+test('a draft out for hearing keeps its comment deadline apart from the bid deadline (extract-v4)', () => {
+  const insight = build({
+    change: (input) => {
+      input.extracted.facts.submissionDeadline = null; // a draft has no bid date yet
+      input.extracted.facts.commentDeadline = {
+        quote: 'เสนอแนะ วิจารณ์ ภายในวันที่ ๒๐ ตุลาคม ๒๕๖๙',
+        page: 1,
+        value: { day: 20, month: 10, year: 2569, era: 'BE', hour: null, minute: null },
+      };
+    },
+  });
+
+  assert.ok(insight.facts.commentDeadline instanceof Date);
+  assert.equal(insight.facts.commentDeadline.getUTCFullYear(), 2026);
+  assert.equal(insight.facts.submissionDeadline, null);
 });

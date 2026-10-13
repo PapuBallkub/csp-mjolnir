@@ -102,6 +102,10 @@ The stack is Next.js on the front, Node.js with Express on the back.
 - **FR-01** Poll the e-GP RSS feed for new TOR announcements automatically.
 - **FR-02** Parse the announcement codes that matter: draft TOR (`B0`),
   invitation to bid (`D0`), amendment (`D1`/`D2`), reference price (`15`).
+  *Correction pending in the SRS:* e-GP defines `D1` as a cancelled
+  invitation and `D2` as a changed one, and adds the winner codes
+  `W0`/`W1`/`W2`. The system follows e-GP's definitions
+  ([0017](decisions/0017-read-the-egp-feed-as-egp-defines-it.md)).
 - **FR-03** Batch-fetch historical procurement data and agency codes from
   data.go.th.
 - **FR-04** Normalize everything ingested — XML, JSON, PDF — into one internal

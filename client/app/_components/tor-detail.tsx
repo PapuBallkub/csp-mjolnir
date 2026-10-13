@@ -7,9 +7,10 @@ import type { Lang } from "../_data/tors";
 import { getEgpAnnouncementUrl, getFiscalYear } from "../_lib/format";
 import { useLang, useProfile } from "./prefs";
 import { useAuth } from "./auth";
-import { StatusBadge } from "./verdict";
-import { AccentPanel, btn, Chip, Eyebrow, Fact, Label, Panel, SectionHeading, Well } from "./ui";
-import { CompaniesOnlyBadge } from "./verdict";
+import { AmendedFlag, CompaniesOnlyBadge, isDead, LifecycleBadge } from "./verdict";
+import { countdownText, daysLeft } from "./deadline";
+import { announcementLabel, deadlineOf, stageOf } from "../_lib/stage";
+import { AccentPanel, btn, Chip, Fact, Label, Panel, SectionHeading, Well } from "./ui";
 
 function formatMoney(amount: number | null | undefined, lang: Lang = "th"): string {
   if (amount == null) return lang === "th" ? "ไม่ระบุใน TOR" : "Not specified in TOR";
@@ -112,12 +113,13 @@ export function TorDetail({
   insight: TorInsightDetail;
 }) {
   const { lang } = useLang();
-  const { profile, setProfile } = useProfile();
-  const { user, status: authStatus } = useAuth();
+  const { profile } = useProfile();
+  const { user, status: authStatus, addToWatchlist, removeFromWatchlist } = useAuth();
   const isAuthenticated = authStatus === "authenticated" && !!user;
 
   const projectId = insight.projectId;
-  const [saved, setSaved] = useState(profile.watchlist.includes(projectId));
+  const isSaved = user?.watchlist?.includes(projectId) ?? false;
+  const [toggleLoading, setToggleLoading] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
@@ -129,23 +131,18 @@ export function TorDetail({
     return () => window.removeEventListener("keydown", onKey);
   }, [showAuthModal]);
 
-  const handleWatchlistClick = () => {
+  const handleWatchlistClick = async () => {
     if (!isAuthenticated) {
       setShowAuthModal(true);
       return;
     }
-    const nextSaved = !saved;
-    setSaved(nextSaved);
-    if (nextSaved) {
-      if (!profile.watchlist.includes(projectId)) {
-        setProfile({ ...profile, watchlist: [...profile.watchlist, projectId] });
-      }
+    setToggleLoading(true);
+    if (isSaved) {
+      await removeFromWatchlist(projectId);
     } else {
-      setProfile({
-        ...profile,
-        watchlist: profile.watchlist.filter((id) => id !== projectId),
-      });
+      await addToWatchlist(projectId);
     }
+    setToggleLoading(false);
   };
 
   const iden = insight.identification;
@@ -160,6 +157,12 @@ export function TorDetail({
   const lockSpec = insight.analytics.lockSpec;
   const price = insight.analytics.priceAnalysis;
   const amend = insight.amendmentInfo;
+  const stage = stageOf({
+    status: iden.status,
+    latestAnnouncement: insight.latestAnnouncement,
+    contractSigned: insight.contractSigned,
+  });
+  const deadline = deadlineOf(iden.status, facts);
 
   const scope = getScopeSize(facts.referencePriceTHB || facts.budgetTHB);
   const fiscalYear = getFiscalYear(facts.postedDate, insight.projectId);
@@ -169,7 +172,9 @@ export function TorDetail({
       : getEgpAnnouncementUrl(projectId);
 
   // Match profile skills with required technologies only if signed in
-  const requiredTechNames = tech.requiredTechnologies?.map((t) => t.name) || [];
+  const requiredTechNames = Array.from(
+    new Set(tech.requiredTechnologies?.map((t) => t.name).filter(Boolean) || []),
+  );
   const matchedSkills = isAuthenticated
     ? requiredTechNames.filter((t) =>
         profile.skills.some((s) => s.toLowerCase() === t.toLowerCase() || t.toLowerCase().includes(s.toLowerCase()))
@@ -196,14 +201,20 @@ export function TorDetail({
         <div className="scanlines pointer-events-none absolute inset-0 opacity-50" aria-hidden />
 
         <div className="relative mx-auto max-w-[1240px] px-4 py-6">
-          <nav className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-ink-3">
+          <nav className="flex flex-wrap items-center gap-2 text-[11.5px] text-ink-3">
             <Link href="/search" className="hover:text-ink hover:underline">
               {lang === "th" ? "ค้นหาประกาศ" : "Search"}
             </Link>
             <span>/</span>
-            <span className="tnum text-ink-2">{insight.projectId}</span>
+            <span className="font-mono tnum text-ink-2">{insight.projectId}</span>
             <span className="h-3 w-px bg-line" />
-            <span>e-GP {iden.egpReference || insight.projectId}</span>
+            <span className="font-mono">
+              {iden.egpReference
+                ? iden.egpReference.toLowerCase().startsWith("e-gp")
+                  ? iden.egpReference
+                  : `e-GP ${iden.egpReference}`
+                : `e-GP ${insight.projectId}`}
+            </span>
           </nav>
 
           <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink-2">
@@ -235,18 +246,48 @@ export function TorDetail({
           ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {/* Status Badge with prominent styling and amended tag */}
-            <StatusBadge status={iden.status} lang={lang} isAmended={amend.isAmended} />
+            {/* e-GP's stage, coloured by status; Amended unless the stage already says so */}
+            <LifecycleBadge status={iden.status} stage={stage} lang={lang} size="large" />
+            {amend?.isAmended && !stage.saysChanged ? <AmendedFlag lang={lang} /> : null}
+
+            {/* Deadline Countdown Pill in Header */}
+            {deadline.date ? (() => {
+              if (isDead(iden.status)) {
+                return (
+                  <span className="inline-flex items-center gap-1.5 rounded-[2px] border border-line bg-surface-2 px-2.5 py-[3px] text-[11px] font-medium text-ink-3">
+                    <span>
+                      {iden.status === "Closed"
+                        ? (lang === "th" ? "ปิดรับข้อเสนอแล้ว" : "Bidding closed")
+                        : (lang === "th" ? "สิ้นสุดแล้ว" : "Concluded")}
+                    </span>
+                  </span>
+                );
+              }
+              const days = daysLeft(deadline.date, new Date());
+              const cd = countdownText(days, lang);
+              const pillStyle =
+                days <= 2
+                  ? "border-risk-line bg-risk-bg text-risk"
+                  : days <= 7
+                  ? "border-amend-line bg-amend-bg text-amend"
+                  : "border-line bg-surface-2 text-ink";
+              return (
+                <span className={`inline-flex items-center gap-1.5 rounded-[2px] border px-2.5 py-[3px] text-[11.5px] font-semibold tnum ${pillStyle}`}>
+                  <span>{cd.text}</span>
+                  <span className="font-normal opacity-75">· {formatDateString(deadline.date, lang)}</span>
+                </span>
+              );
+            })() : null}
 
             {/* Fiscal Year Badge */}
             {fiscalYear ? (
-              <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-2.5 py-[3px] text-[11px] font-medium text-ink-2 font-mono">
+              <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 font-mono leading-normal">
                 {lang === "th" ? `ปีงบประมาณ ${fiscalYear}` : `FY ${fiscalYear}`}
               </span>
             ) : null}
 
             {/* Scope Badge */}
-            <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-2.5 py-[3px] text-[11px] font-medium text-ink-2">
+            <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 leading-normal">
               {lang === "th" ? scope.th : scope.en}
             </span>
 
@@ -353,11 +394,90 @@ export function TorDetail({
             ) : null}
 
             <div className="mt-4 flex flex-col border-t border-line/60 pt-2">
-              <Fact label={lang === "th" ? "กำหนดยื่นข้อเสนอ" : "Submission deadline"}>
-                <span className="font-mono text-[13px] font-medium text-ink">
-                  {formatDateString(facts.submissionDeadline, lang)}
-                </span>
+              {/* Each deadline says what it is for: comments on a draft, or bids */}
+              {deadline.kind === "comment" ? (
+                <Fact label={lang === "th" ? deadline.label.th : deadline.label.en}>
+                  {deadline.date ? (() => {
+                    if (isDead(iden.status)) {
+                      return (
+                        <div className="flex flex-col sm:items-end gap-0.5">
+                          <span className="tnum text-[14px] font-semibold text-ink">
+                            {formatDateString(deadline.date, lang)}
+                          </span>
+                          <span className="tnum text-[12px] font-medium text-ink-3">
+                            {lang === "th" ? "ปิดรับความเห็นแล้ว" : "Period ended"}
+                          </span>
+                        </div>
+                      );
+                    }
+                    const days = daysLeft(deadline.date, new Date());
+                    const cd = countdownText(days, lang);
+                    return (
+                      <div className="flex flex-col sm:items-end gap-0.5">
+                        <span className="tnum text-[14px] font-semibold text-ink">
+                          {formatDateString(deadline.date, lang)}
+                        </span>
+                        <span className={`tnum text-[12.5px] ${cd.tone}`}>
+                          {cd.text}
+                        </span>
+                      </div>
+                    );
+                  })() : (
+                    <span className="text-[13px] text-ink-3">
+                      {lang === "th" ? deadline.missing.th : deadline.missing.en}
+                    </span>
+                  )}
+                </Fact>
+              ) : null}
+              <Fact label={lang === "th" ? "ยื่นข้อเสนอภายใน" : "Bids due"}>
+                {facts.submissionDeadline ? (() => {
+                  if (isDead(iden.status)) {
+                    return (
+                      <div className="flex flex-col sm:items-end gap-0.5">
+                        <span className="tnum text-[14px] font-semibold text-ink">
+                          {formatDateString(facts.submissionDeadline, lang)}
+                        </span>
+                        <span className="tnum text-[12px] font-medium text-ink-3">
+                          {iden.status === "Closed"
+                            ? (lang === "th" ? "ปิดรับข้อเสนอแล้ว" : "Bidding closed")
+                            : (lang === "th" ? "สิ้นสุดการรับข้อเสนอ" : "Ended")}
+                        </span>
+                      </div>
+                    );
+                  }
+                  const days = daysLeft(facts.submissionDeadline, new Date());
+                  const cd = countdownText(days, lang);
+                  return (
+                    <div className="flex flex-col sm:items-end gap-0.5">
+                      <span className="tnum text-[14px] font-semibold text-ink">
+                        {formatDateString(facts.submissionDeadline, lang)}
+                      </span>
+                      <span className={`tnum text-[13px] ${cd.tone}`}>
+                        {cd.text}
+                      </span>
+                    </div>
+                  );
+                })() : (
+                  <span className="tnum text-[13px] font-medium text-ink">
+                    {deadline.kind === "comment"
+                      ? (lang === "th" ? "ยังไม่เปิด: ร่าง TOR ยังไม่ประกาศเชิญชวน" : "Not yet: no invitation to bid so far")
+                      : (lang === "th" ? "ไม่ระบุใน TOR" : "Not specified")}
+                  </span>
+                )}
               </Fact>
+
+              {insight.latestAnnouncement ? (
+                <Fact label={lang === "th" ? "ประกาศล่าสุดใน e-GP" : "Latest e-GP announcement"}>
+                  <span className="text-[12px] text-ink-2">
+                    {lang === "th"
+                      ? announcementLabel(insight.latestAnnouncement.code).th
+                      : announcementLabel(insight.latestAnnouncement.code).en}
+                    {insight.latestAnnouncement.publishedAt ? (
+                      <span className="tnum text-ink-3"> · {formatDateString(insight.latestAnnouncement.publishedAt, lang)}</span>
+                    ) : null}
+                  </span>
+                </Fact>
+              ) : null}
 
               <Fact label={lang === "th" ? "วิธีการจัดซื้อจัดจ้าง" : "Procurement method"}>
                 <span className="text-[12px] text-ink-2">
@@ -366,7 +486,7 @@ export function TorDetail({
               </Fact>
 
               <Fact label={lang === "th" ? "ระยะเวลาส่งมอบ" : "Delivery period"}>
-                <span className="font-mono text-[12px] text-ink">
+                <span className="tnum text-[12px] text-ink">
                   {facts.deliveryPeriodDays
                     ? `${facts.deliveryPeriodDays} ${lang === "th" ? "วัน" : "days"}`
                     : (lang === "th" ? "ไม่ระบุใน TOR" : "Not specified")}
@@ -374,7 +494,7 @@ export function TorDetail({
               </Fact>
 
               <Fact label={lang === "th" ? "ระยะเวลารับประกัน" : "Warranty"}>
-                <span className="font-mono text-[12px] text-ink">
+                <span className="tnum text-[12px] text-ink">
                   {facts.warrantyYears
                     ? `${facts.warrantyYears} ${lang === "th" ? "ปี" : "years"}`
                     : (lang === "th" ? "ไม่ระบุใน TOR" : "Not specified")}
@@ -387,14 +507,14 @@ export function TorDetail({
                 </span>
               </Fact>
 
-              <Fact label={lang === "th" ? "วันที่เผยแพร่" : "Posted date"} mono>
-                <span className="font-mono text-[12px]">
+              <Fact label={lang === "th" ? "วันที่เผยแพร่" : "Posted date"}>
+                <span className="tnum text-[12px]">
                   {formatDateString(facts.postedDate, lang)}
                 </span>
               </Fact>
 
-              <Fact label={lang === "th" ? "ปีงบประมาณ" : "Fiscal year"} mono>
-                <span className="font-mono text-[12.5px] font-semibold text-ink">
+              <Fact label={lang === "th" ? "ปีงบประมาณ" : "Fiscal year"}>
+                <span className="tnum text-[12.5px] font-semibold text-ink">
                   {fiscalYear
                     ? lang === "th"
                       ? `พ.ศ. ${fiscalYear}`
@@ -439,19 +559,24 @@ export function TorDetail({
             <button
               type="button"
               onClick={handleWatchlistClick}
-              className={saved ? `${btn.secondary} w-full text-[13px]` : `${btn.primary} w-full text-[13px]`}
-              aria-pressed={saved}
+              disabled={toggleLoading}
+              className={isSaved ? `${btn.secondary} w-full text-[13px]` : `${btn.primary} w-full text-[13px]`}
+              aria-pressed={isSaved}
             >
-              {saved
+              {toggleLoading
                 ? lang === "th"
-                  ? "✓ ติดตามประกาศนี้แล้ว"
-                  : "✓ On your watchlist"
-                : lang === "th"
-                  ? "★ บันทึกไว้ติดตามการเปลี่ยนแปลง"
-                  : "★ Save to watchlist"}
+                  ? "กำลังอัปเดต…"
+                  : "Updating…"
+                : isSaved
+                  ? lang === "th"
+                    ? "✓ ติดตามประกาศนี้แล้ว"
+                    : "✓ On your watchlist"
+                  : lang === "th"
+                    ? "★ บันทึกไว้ติดตามการเปลี่ยนแปลง"
+                    : "★ Save to watchlist"}
             </button>
             <p className="mt-2 text-[11px] leading-thai text-ink-3">
-              {saved
+              {isSaved
                 ? lang === "th"
                   ? "ระบบจะแจ้งเตือนเมื่อมีการออกเอกสารแก้ไข (Amendment) หรือประกาศผู้ชนะ"
                   : "You will be alerted if amended or awarded."
@@ -475,11 +600,11 @@ export function TorDetail({
             {isAuthenticated ? (
               <>
                 <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-3">
-                  {requiredTechNames.map((tName) => {
+                  {requiredTechNames.map((tName, idx) => {
                     const isMatch = matchedSkills.includes(tName);
                     return (
                       <span
-                        key={tName}
+                        key={`${tName}-${idx}`}
                         className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[11px] ${
                           isMatch
                             ? "border-open-line bg-open-bg text-open font-medium"
@@ -555,8 +680,8 @@ export function TorDetail({
                   <span className="text-[11px] text-ink-3">
                     {lang === "th" ? "ส่วนที่มีการแก้ไข:" : "Changed sections:"}
                   </span>
-                  {amend.changedSections.map((sec) => (
-                    <span key={sec} className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-amend border border-amend-line">
+                  {amend.changedSections.map((sec, idx) => (
+                    <span key={`${sec}-${idx}`} className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-amend border border-amend-line">
                       {sec}
                     </span>
                   ))}
@@ -576,7 +701,7 @@ export function TorDetail({
                   : "Objective and high-level scope from the source TOR document"
               }
             >
-              {lang === "th" ? "3. วัตถุประสงค์และขอบเขตโครงการ" : "3. Project Overview"}
+              {lang === "th" ? "วัตถุประสงค์และขอบเขตโครงการ" : "Project Overview"}
             </SectionHeading>
 
             {!overview.objective && !overview.highLevelScope && (!overview.majorComponents || overview.majorComponents.length === 0) ? (
@@ -631,7 +756,7 @@ export function TorDetail({
                   : "Everything required to deliver and pass official acceptance inspection"
               }
             >
-              {lang === "th" ? "4. สิ่งที่ต้องส่งมอบ (Deliverables)" : "4. Deliverables"}
+              {lang === "th" ? "สิ่งที่ต้องส่งมอบ (Deliverables)" : "Deliverables"}
             </SectionHeading>
 
             {(!deliverables.system || deliverables.system.length === 0) &&
@@ -723,7 +848,7 @@ export function TorDetail({
                   : "Required technology stack, system architecture and performance metrics"
               }
             >
-              {lang === "th" ? "5. ข้อกำหนดด้านเทคนิค (Technical Requirements)" : "5. Technical Requirements"}
+              {lang === "th" ? "ข้อกำหนดด้านเทคนิค (Technical Requirements)" : "Technical Requirements"}
             </SectionHeading>
 
 
@@ -738,11 +863,11 @@ export function TorDetail({
                 </p>
               ) : (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {tech.requiredTechnologies.map((t) => {
+                  {tech.requiredTechnologies.map((t, idx) => {
                     const isMatch = matchedSkills.includes(t.name);
                     return (
                       <Chip
-                        key={t.name}
+                        key={`${t.name}-${t.version ?? ""}-${idx}`}
                         className={isMatch ? "border-open-line bg-open-bg text-open" : ""}
                       >
                         {isMatch ? <span className="mr-1">✓</span> : null}
@@ -800,7 +925,7 @@ export function TorDetail({
                   : "Legacy systems, interfaces, and host deployment environment"
               }
             >
-              {lang === "th" ? "6. สภาพแวดล้อมและการเชื่อมต่อระบบเดิม" : "6. Integration & Environment"}
+              {lang === "th" ? "สภาพแวดล้อมและการเชื่อมต่อระบบเดิม" : "Integration & Environment"}
             </SectionHeading>
 
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -860,7 +985,7 @@ export function TorDetail({
                   : "Training, SLA response times, and ongoing maintenance expectations"
               }
             >
-              {lang === "th" ? "7. การดำเนินงานและการบำรุงรักษา" : "7. Operations & Maintenance"}
+              {lang === "th" ? "การดำเนินงานและการบำรุงรักษา" : "Operations & Maintenance"}
             </SectionHeading>
 
             <div className="mt-3 flex flex-col gap-4">
@@ -900,7 +1025,7 @@ export function TorDetail({
                   : "Qualifications, minimal prior contract value, and mandatory certifications"
               }
             >
-              {lang === "th" ? "8. คุณสมบัติผู้ยื่นข้อเสนอ (Eligibility)" : "8. Bidder Eligibility"}
+              {lang === "th" ? "คุณสมบัติผู้ยื่นข้อเสนอ (Eligibility)" : "Bidder Eligibility"}
             </SectionHeading>
 
             <div className="mt-3 flex flex-col gap-4">
@@ -975,7 +1100,7 @@ export function TorDetail({
                   : "Payment milestones, delivery conditions, and bid evaluation methodology"
               }
             >
-              {lang === "th" ? "9. เงื่อนไขสัญญาและการส่งมอบ" : "9. Contract Conditions"}
+              {lang === "th" ? "เงื่อนไขสัญญาและการส่งมอบ" : "Contract Conditions"}
             </SectionHeading>
 
             <div className="mt-3 flex flex-col gap-3 text-[13.5px]">
@@ -1015,7 +1140,7 @@ export function TorDetail({
                 </span>
               }
             >
-              {lang === "th" ? "10. วิเคราะห์ความเสี่ยงล็อกสเปก (Lock-Spec Risk)" : "10. Lock-Spec Risk Analysis"}
+              {lang === "th" ? "วิเคราะห์ความเสี่ยงล็อกสเปก (Lock-Spec Risk)" : "Lock-Spec Risk Analysis"}
             </SectionHeading>
 
             <div className="mt-2">
@@ -1092,7 +1217,7 @@ export function TorDetail({
           </AccentPanel>
           ) : (
             <NotAnalysed
-              heading={lang === "th" ? "10. วิเคราะห์ความเสี่ยงล็อกสเปก (Lock-Spec Risk)" : "10. Lock-Spec Risk Analysis"}
+              heading={lang === "th" ? "วิเคราะห์ความเสี่ยงล็อกสเปก (Lock-Spec Risk)" : "Lock-Spec Risk Analysis"}
               lang={lang}
             />
           )}
@@ -1114,7 +1239,7 @@ export function TorDetail({
                 </span>
               }
             >
-              {lang === "th" ? "11. ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "11. Price Reality Check"}
+              {lang === "th" ? "ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "Price Reality Check"}
             </SectionHeading>
 
             <p className="mt-2 text-[14.5px] leading-thai text-ink">
@@ -1183,7 +1308,7 @@ export function TorDetail({
           </AccentPanel>
           ) : (
             <NotAnalysed
-              heading={lang === "th" ? "11. ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "11. Price Reality Check"}
+              heading={lang === "th" ? "ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "Price Reality Check"}
               lang={lang}
             />
           )}
@@ -1200,7 +1325,7 @@ export function TorDetail({
                     : "Summary of changes made since original announcement"
                 }
               >
-                {lang === "th" ? "12. ประวัติการแก้ไขเอกสาร TOR" : "12. Amendment History"}
+                {lang === "th" ? "ประวัติการแก้ไขเอกสาร TOR" : "Amendment History"}
               </SectionHeading>
 
               <div className="mt-2">
@@ -1214,63 +1339,6 @@ export function TorDetail({
               </div>
             </AccentPanel>
           ) : null}
-
-          {/* ---------------------------------------------------------------- */}
-          {/* 13. SOURCE & TRACEABILITY                                        */}
-          {/* ---------------------------------------------------------------- */}
-          <div className="mt-2 border-t border-line pt-6">
-            <Eyebrow>{lang === "th" ? "13. การตรวจสอบย้อนกลับและเอกสารต้นทาง" : "13. Source & Traceability"}</Eyebrow>
-
-            <div className="mt-3 rounded-[3px] border border-line bg-surface-2/40 p-4">
-              <div className="flex flex-col gap-2 text-[12.5px] leading-thai text-ink-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-ink">{lang === "th" ? "รหัสโครงการ e-GP:" : "Project ID:"}</span>
-                  <span className="font-mono text-ink">{insight.projectId}</span>
-                </div>
-
-                {insight.document?.fileName ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-ink">{lang === "th" ? "เอกสารต้นฉบับ:" : "Source document:"}</span>
-                    <span className="font-mono text-ink-2">{insight.document.fileName}</span>
-                    {insight.document.pages ? (
-                      <span className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-mono border border-line">
-                        {insight.document.pages} {lang === "th" ? "หน้า" : "pages"}
-                      </span>
-                    ) : null}
-                    {insight.document.documentType ? (
-                      <span className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-mono border border-line">
-                        {insight.document.documentType === "DIGITAL_TEXT_PDF" ? "Digital PDF" : "Scanned Paper (OCR)"}
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {officialEgpUrl ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-ink">{lang === "th" ? "ประกาศทางการ:" : "Official Notice:"}</span>
-                    <a
-                      href={officialEgpUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-open underline hover:text-ink break-all"
-                    >
-                      {officialEgpUrl}
-                    </a>
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Mandatory Third-Party Disclaimer per AGENTS.md §6 */}
-              <div className="mt-4 border-t border-line/60 pt-3 text-[11.5px] leading-thai text-ink-3">
-                <p>
-                  <strong>{lang === "th" ? "ข้อความปฏิเสธความรับผิดชอบ:" : "Disclaimer:"}</strong>{" "}
-                  {lang === "th"
-                    ? "แพลตฟอร์มนี้เป็นเครื่องมือสนับสนุนการค้นหาและสรุปข้อมูลประกาศจัดซื้อจัดจ้างเท่านั้น (Third-party Discovery Tool) ไม่ใช่ระบบยื่นข้อเสนอทางการ การดำเนินการจัดซื้อจัดจ้างและยื่นซองข้อเสนอทั้งหมดต้องกระทำผ่านระบบ e-GP ของกรมบัญชีกลางเท่านั้น เอกสาร TOR ฉบับทางการเป็นเอกสารที่มีผลผูกพันทางกฎหมายสูงสุด"
-                    : "This platform is an independent third-party discovery and summarization tool. Official submissions and contract awards occur strictly via the Comptroller General's Department e-GP portal. The original TOR PDF remains the authoritative legal document."}
-                </p>
-              </div>
-            </div>
-          </div>
 
           <div className="flex items-center justify-between border-t border-line pt-4">
             <Link href="/search" className={btn.ghost}>

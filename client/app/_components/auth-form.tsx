@@ -245,7 +245,7 @@ export function AuthForm({ next }: { next: string | null }) {
 
             <div className="flex items-center gap-3 py-1">
               <span className="h-px flex-1 bg-line" />
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
+              <span className="text-[11px] font-medium text-ink-3">
                 {lang === "th" ? "หรือ" : "or"}
               </span>
               <span className="h-px flex-1 bg-line" />

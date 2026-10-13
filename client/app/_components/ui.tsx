@@ -113,24 +113,33 @@ export function SectionHeading({
  * most uses are column headings with no field to point at, but a form control
  * needs the association or its label is decoration to a screen reader.
  */
-export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) {
-  const className = "font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-3";
+export function Label({
+  children,
+  htmlFor,
+  className = "",
+}: {
+  children: ReactNode;
+  htmlFor?: string;
+  className?: string;
+}) {
+  const baseClass = "text-[11.5px] font-medium text-ink-3";
+  const merged = className ? `${baseClass} ${className}` : baseClass;
 
   if (htmlFor) {
     return (
-      <label htmlFor={htmlFor} className={className}>
+      <label htmlFor={htmlFor} className={merged}>
         {children}
       </label>
     );
   }
 
-  return <span className={className}>{children}</span>;
+  return <span className={merged}>{children}</span>;
 }
 
 /** Small caps eyebrow that sits above a heading to name a region. */
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <p className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-ink-3">
+    <p className="text-[11px] font-medium uppercase tracking-[0.05em] text-ink-3">
       {children}
     </p>
   );

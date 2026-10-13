@@ -36,6 +36,26 @@ const EXTRA = [
 ];
 const EXTRA_IDS = EXTRA.map((record) => record.projectId);
 
+// Extracted while Open; the feed changed the Tor afterwards. The insights
+// still hold the copy made at extraction (the EXTRA ones have no Tor at all,
+// so they also show an insight without a Tor keeps its copy).
+const LIVE = {
+  cancelled: '99999000008', // amended (D2), then cancelled (D1)
+  awarded: '99999000009', // winner announced (W0) after its deadline passed
+  contracted: '99999000010', // stored as Open, but data.go.th has its signed contract
+  // A changed invitation gave the Tor a new ราคากลาง and bid date, read from
+  // its documents after extraction (ADR 0020)
+  changed: '99999000011',
+};
+const LIVE_IDS = Object.values(LIVE);
+const liveInsight = (projectId, deadline) => ({
+  projectId,
+  identification: { titleTh: `ทดสอบสถานะสด ${projectId}`, agency: 'หน่วยงานทดสอบสถานะ', status: 'Open' },
+  facts: { referencePriceTHB: 3_000_000, submissionDeadline: deadline },
+  amendmentInfo: { isAmended: false },
+  metadata: { reviewStatus: 'pending', confidenceScore: 75 },
+});
+
 let server;
 let baseUrl;
 
@@ -44,8 +64,57 @@ before(async () => {
 
   // Clean up any test records
   await Tor.deleteOne({ projectId: testProjectId });
-  await TorInsight.deleteMany({ projectId: { $in: [testProjectId, ...EXTRA_IDS] } });
+  await TorInsight.deleteMany({ projectId: { $in: [testProjectId, ...EXTRA_IDS, ...LIVE_IDS] } });
+  await Tor.deleteMany({ projectId: { $in: LIVE_IDS } });
   await TorInsight.insertMany(EXTRA);
+
+  await TorInsight.insertMany([
+    liveInsight(LIVE.cancelled, new Date(Date.now() + 7 * DAY)),
+    liveInsight(LIVE.awarded, new Date(Date.now() - 3 * DAY)),
+    liveInsight(LIVE.contracted, new Date(Date.now() + 7 * DAY)),
+    { ...liveInsight(LIVE.changed, new Date(Date.now() + 7 * DAY)), facts: {
+      budgetTHB: 2_900_000, referencePriceTHB: 3_000_000, submissionDeadline: new Date(Date.now() + 7 * DAY),
+    } },
+  ]);
+  await Tor.insertMany([
+    {
+      projectId: LIVE.cancelled,
+      source: 'process3',
+      title: 'ทดสอบสถานะสด',
+      status: 'Cancelled',
+      isAmended: true,
+      announceType: 'D1',
+      announcementHistory: [
+        { code: 'D0', type: 'invitation', publishedAt: new Date('2026-10-01') },
+        { code: 'D2', type: 'amendment', publishedAt: new Date('2026-10-03') },
+        { code: 'D1', type: 'invitation_cancelled', publishedAt: new Date('2026-10-05') },
+      ],
+    },
+    { projectId: LIVE.awarded, source: 'process3', title: 'ทดสอบสถานะสด', status: 'Awarded' },
+    {
+      projectId: LIVE.contracted,
+      source: 'datago',
+      title: 'ทดสอบสถานะสด',
+      status: 'Open',
+      contract: { winnerName: 'บริษัท ผู้ชนะ จำกัด' },
+    },
+    {
+      projectId: LIVE.changed,
+      source: 'process3',
+      title: 'ทดสอบสถานะสด',
+      status: 'Open',
+      isAmended: true,
+      agency: 'กรมจากเอกสาร',
+      budgetTHB: 0, // an old record's 0 is no budget (ADR 0014): the insight's stands
+      referencePriceTHB: 3_100_000,
+      submissionDeadline: new Date(Date.now() + 20 * DAY),
+      announceType: 'D2',
+      announcementHistory: [
+        { code: 'D0', type: 'invitation', publishedAt: new Date('2026-10-01') },
+        { code: 'D2', type: 'amendment', publishedAt: new Date('2026-10-06') },
+      ],
+    },
+  ]);
 
   // Insert a test Tor and TorInsight record
   await Tor.create({
@@ -110,8 +179,8 @@ before(async () => {
 });
 
 after(async () => {
-  await Tor.deleteOne({ projectId: testProjectId });
-  await TorInsight.deleteMany({ projectId: { $in: [testProjectId, ...EXTRA_IDS] } });
+  await Tor.deleteMany({ projectId: { $in: [testProjectId, ...LIVE_IDS] } });
+  await TorInsight.deleteMany({ projectId: { $in: [testProjectId, ...EXTRA_IDS, ...LIVE_IDS] } });
 
   await new Promise((resolve) => server.close(resolve));
   await disconnectDatabase();
@@ -281,4 +350,82 @@ test('facets count what the public sees, with Closed worked out from the deadlin
 
   const res = await fetch(`${baseUrl}/api/tors/facets`);
   assert.equal(res.status, 200, 'not read as a project ID');
+});
+
+const liveIds = async (query) =>
+  (await listTors({ q: 'ทดสอบสถานะสด', limit: 50, ...query }, PILOT)).tors.map((tor) => tor.projectId).sort();
+
+test('a TOR the feed cancelled after extraction reads as Cancelled: list, filters, detail, counts', async () => {
+  assert.ok(!(await liveIds({ status: 'Open' })).includes(LIVE.cancelled), 'not offered as open');
+  assert.ok(!(await liveIds({ closingWithin: '10' })).includes(LIVE.cancelled), 'not "closing soon" either');
+  assert.deepEqual(await liveIds({ status: 'Cancelled' }), [LIVE.cancelled]);
+
+  const listed = (await listTors({ q: 'ทดสอบสถานะสด', limit: 50 }, PILOT)).tors.find((tor) => tor.projectId === LIVE.cancelled);
+  assert.equal(listed.identification.status, 'Cancelled');
+
+  const detail = await getTorByProjectId(LIVE.cancelled, PILOT);
+  assert.equal(detail.identification.status, 'Cancelled');
+  assert.equal(detail.amendmentInfo.isAmended, true, 'the amended flag comes from the Tor too');
+  assert.ok((await liveIds({ amended: 'true' })).includes(LIVE.cancelled));
+
+  assert.ok((await torFacets(PILOT)).statuses.Cancelled >= 1);
+});
+
+test('an awarded TOR past its deadline reads as Awarded, not as Closed', async () => {
+  assert.equal((await getTorByProjectId(LIVE.awarded, PILOT)).identification.status, 'Awarded');
+  assert.ok((await liveIds({ status: 'Awarded' })).includes(LIVE.awarded));
+  assert.ok(!(await liveIds({ status: 'Closed' })).includes(LIVE.awarded));
+});
+
+test('the total counts what a status filter shows', async () => {
+  const { tors, total } = await listTors({ q: 'ทดสอบสถานะสด', status: 'Cancelled' }, PILOT);
+  assert.equal(total, tors.length);
+  assert.equal(total, 1);
+});
+
+test('a TOR with a signed contract reads as Awarded, even when its stored status says Open', async () => {
+  assert.equal((await getTorByProjectId(LIVE.contracted, PILOT)).identification.status, 'Awarded');
+  assert.ok((await liveIds({ status: 'Awarded' })).includes(LIVE.contracted));
+  assert.ok(!(await liveIds({ status: 'Open' })).includes(LIVE.contracted), 'never offered as open');
+});
+
+test('each TOR says which e-GP stage it reached last, and whether a contract is signed', async () => {
+  const listed = (await listTors({ q: 'ทดสอบสถานะสด', limit: 50 }, PILOT)).tors;
+  const byId = Object.fromEntries(listed.map((tor) => [tor.projectId, tor]));
+
+  assert.equal(byId[LIVE.cancelled].latestAnnouncement.code, 'D1');
+  assert.equal(new Date(byId[LIVE.cancelled].latestAnnouncement.publishedAt).toISOString().slice(0, 10), '2026-10-05');
+  assert.equal(byId[LIVE.cancelled].contractSigned, false);
+  assert.equal(byId[LIVE.contracted].contractSigned, true);
+  assert.equal(byId[LIVE.contracted].latestAnnouncement, null, 'never announced by the feed');
+
+  const detail = await getTorByProjectId(LIVE.cancelled, PILOT);
+  assert.equal(detail.latestAnnouncement.code, 'D1');
+  assert.equal(new Date(detail.latestAnnouncement.publishedAt).toISOString().slice(0, 10), '2026-10-05');
+
+  // An insight without a Tor has neither
+  const orphan = await getTorByProjectId('99999000002', PILOT);
+  assert.deepEqual([orphan.latestAnnouncement, orphan.contractSigned], [null, false]);
+});
+
+test("the Tor's facts from the documents show without another extraction: list, filters, detail (ADR 0020)", async () => {
+  const listed = (await listTors({ q: 'ทดสอบสถานะสด', limit: 50 }, PILOT)).tors.find((tor) => tor.projectId === LIVE.changed);
+  assert.equal(listed.facts.referencePriceTHB, 3_100_000);
+  assert.equal(listed.facts.budgetTHB, 2_900_000, 'a Tor budget of 0 is none: the insight keeps its own');
+  assert.equal(listed.identification.agency, 'กรมจากเอกสาร');
+
+  // The bid date moved 20 days out: no longer "closing within 10 days"
+  assert.ok(!(await liveIds({ closingWithin: '10' })).includes(LIVE.changed));
+  assert.ok((await liveIds({ closingWithin: '30' })).includes(LIVE.changed));
+
+  const detail = await getTorByProjectId(LIVE.changed, PILOT);
+  assert.equal(detail.facts.referencePriceTHB, 3_100_000);
+  assert.equal(detail.facts.budgetTHB, 2_900_000);
+  assert.equal(detail.identification.agency, 'กรมจากเอกสาร');
+  assert.ok(new Date(detail.facts.submissionDeadline) > new Date(Date.now() + 19 * DAY));
+
+  // A Tor with none of these keeps the insight's copy
+  const cancelled = await getTorByProjectId(LIVE.cancelled, PILOT);
+  assert.equal(cancelled.facts.referencePriceTHB, 3_000_000);
+  assert.equal(cancelled.identification.agency, 'หน่วยงานทดสอบสถานะ');
 });

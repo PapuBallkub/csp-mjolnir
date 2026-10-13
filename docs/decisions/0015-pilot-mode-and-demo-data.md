@@ -1,6 +1,6 @@
 # 0015 · Pilot mode, and demo data that says it's demo
 
-Status: accepted · 2026-10-01
+Status: accepted · 2026-10-01 · updated 2026-10-08 (demo data is opt-in)
 
 ## Context
 
@@ -69,3 +69,21 @@ past its deadline is returned, and filtered, as Closed.
   acceptable, so a page that shows them must show the label.
 - **Revisit** when human review starts. Pilot mode should be off for any
   public deploy from then on.
+
+## Update · 2026-10-08: demo data is opt-in
+
+The catalog now has real pipeline results, including a project that is open
+right now. The demo insights got in their way: their made-up deadlines (15–24
+October 2026) made 2024–25 contracts look open, which is exactly what the open
+and closed cards in `/search` must not do.
+
+- `npm run seed` loads the technology vocabulary only.
+- `npm run seed -- --demo` loads the demo TORs and insights, as before, for
+  building UI.
+- `npm run seed -- --remove-demo` deletes every demo insight and nothing else:
+  pipeline results and all `Tor` records stay. Run it on any database that was
+  seeded before, so its catalog shows real results alone.
+
+Everything else here stands: demo data, when loaded, is still marked and
+labelled as demo, and pilot mode still decides whether unreviewed results are
+shown.

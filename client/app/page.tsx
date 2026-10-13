@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { useAuth } from "./_components/auth";
-import { useLang, LangToggle, ThemeToggle } from "./_components/prefs";
-import { Wordmark } from "./_components/shell";
+import { useLang } from "./_components/prefs";
+import { HeaderControls, Wordmark } from "./_components/shell";
 
 /**
  * Google sends a failed sign-in back here with ?auth=failed and nothing else —
@@ -156,7 +155,6 @@ const PROBLEMS = [
 
 export default function LandingPage() {
   const { lang } = useLang();
-  const { status } = useAuth();
   const t = HERO[lang];
 
   return (
@@ -167,29 +165,15 @@ export default function LandingPage() {
       </Suspense>
 
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-4 py-2.5">
-          <Link href="/" className="shrink-0 transition-opacity hover:opacity-80" title="Mjölnir Home">
+        <div className="mx-auto flex min-h-[52px] max-w-[1240px] items-center gap-4 px-4 py-2.5">
+          <Link
+            href="/"
+            className="flex h-[26px] items-center shrink-0 transition-opacity hover:opacity-80"
+            title="Mjölnir Home"
+          >
             <Wordmark />
           </Link>
-          <div className="ml-auto flex items-center gap-2">
-            <LangToggle />
-            <ThemeToggle />
-            {/* A signed-in visitor on the marketing page should not be
-                invited to sign in again. Fixed width either way, so the label
-                resolving does not shift the header. */}
-            <Link
-              href={status === "authenticated" ? "/search" : "/auth"}
-              className="inline-flex w-[74px] justify-center rounded-[3px] py-1.5 text-[13px] text-ink-2 transition-colors hover:text-ink"
-            >
-              {status === "authenticated"
-                ? lang === "th"
-                  ? "ค้นหา"
-                  : "Browse"
-                : lang === "th"
-                  ? "เข้าสู่ระบบ"
-                  : "Sign in"}
-            </Link>
-          </div>
+          <HeaderControls className="ml-auto" />
         </div>
       </header>
 
@@ -255,7 +239,7 @@ export default function LandingPage() {
       {/* Features */}
       <section className="bg-surface">
         <div className="mx-auto max-w-[1240px] px-4 py-16 sm:py-20">
-          <h2 className="text-[13px] font-medium uppercase tracking-[0.12em] text-ink-3">
+          <h2 className="text-[12px] font-medium uppercase tracking-[0.05em] text-ink-3">
             {lang === "th" ? "ความสามารถหลัก" : "Core capabilities"}
           </h2>
           <div className="mt-8 grid gap-6 sm:grid-cols-2">

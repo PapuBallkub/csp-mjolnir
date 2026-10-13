@@ -11,6 +11,14 @@
  * what to do next, rather than a screen that silently renders nothing.
  */
 
+/** FR-12. Stored server-side and returned inside every AuthUser. */
+export type UserProfile = {
+  skills: string[];
+  budgetMin: number;
+  budgetMax: number;
+  certifications: string[];
+};
+
 /** Mirrors `toPublicUser` on the server. Adding a field there means adding it here. */
 export type AuthUser = {
   id: string;
@@ -18,6 +26,8 @@ export type AuthUser = {
   name: string;
   role: "user" | "admin";
   notificationConsent: boolean;
+  profile: UserProfile;
+  watchlist: string[];
   createdAt: string;
 };
 
@@ -149,6 +159,17 @@ export function logout() {
  */
 export function me() {
   return request<UserResponse>("/api/auth/me", { cache: "no-store" });
+}
+
+/**
+ * FR-12. Saves profile preferences. PATCH, so only the fields sent are updated.
+ * Returns the full updated user — the caller replaces its AuthUser with this.
+ */
+export function updateProfile(body: Partial<UserProfile>) {
+  return request<UserResponse>("/api/profile", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 /**
@@ -348,6 +369,16 @@ export type PriceAnalysis = {
  */
 export type TorStatus = "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";
 
+/**
+ * e-GP's announcement codes (ADR 0017): 15 reference price, B0 draft TOR,
+ * D0 invitation, D2 invitation changed, D1 invitation cancelled, W0 winner,
+ * W2 winner changed, W1 winner cancelled.
+ */
+export type AnnouncementCode = "15" | "B0" | "D0" | "D2" | "D1" | "W0" | "W2" | "W1";
+
+/** The stage e-GP announced last, when the feed announced the TOR at all. */
+export type LatestAnnouncement = { code: AnnouncementCode; publishedAt: string | null } | null;
+
 export type TorInsightSummary = {
   projectId: string;
   identification: {
@@ -362,6 +393,8 @@ export type TorInsightSummary = {
     budgetTHB: number | null;
     referencePriceTHB: number | null;
     submissionDeadline: string | null;
+    /** A draft out for public hearing: comments due by this date (extract-v4) */
+    commentDeadline?: string | null;
     procurementMethod: string | null;
     penaltyClause: string | null;
     postedDate: string | null;
@@ -380,6 +413,9 @@ export type TorInsightSummary = {
   };
   /** Only companies may bid ("เฉพาะนิติบุคคล") */
   companiesOnly: boolean;
+  latestAnnouncement: LatestAnnouncement;
+  /** data.go.th has the signed contract */
+  contractSigned: boolean;
   review: TorReview;
   createdAt?: string;
 };
@@ -399,6 +435,8 @@ export type TorInsightDetail = {
     budgetTHB: number | null;
     referencePriceTHB: number | null;
     submissionDeadline: string | null;
+    /** A draft out for public hearing: comments due by this date (extract-v4) */
+    commentDeadline?: string | null;
     deliveryPeriodDays: number | null;
     procurementMethod: string | null;
     warrantyYears: number | null;
@@ -466,6 +504,9 @@ export type TorInsightDetail = {
     changedSections: string[];
   };
   companiesOnly: boolean;
+  latestAnnouncement: LatestAnnouncement;
+  /** data.go.th has the signed contract */
+  contractSigned: boolean;
   review: TorReview;
   document?: {
     fileName: string | null;
@@ -533,8 +574,72 @@ export function torFacets() {
   return request<TorFacets>("/api/tors/facets", { cache: "no-store" });
 }
 
+export type TechnologyItem = {
+  name: string;
+  category?: string;
+};
+
+export type TechnologiesResponse = {
+  technologies: TechnologyItem[];
+};
+
+export function getTechnologies() {
+  return request<TechnologiesResponse>("/api/technologies", { cache: "no-store" });
+}
+
+export type RequestTechnologyPayload = {
+  name: string;
+  category?: string;
+  reason?: string;
+};
+
+export type RequestTechnologyResponse = {
+  technology: TechnologyItem & { status?: string };
+  alreadyExists: boolean;
+};
+
+export function requestTechnology(payload: RequestTechnologyPayload) {
+  return request<RequestTechnologyResponse>("/api/technologies/request", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+
 export function getTorInsight(projectId: string) {
   return request<TorInsightDetail>(`/api/tors/${encodeURIComponent(projectId)}`, {
     cache: "no-store",
   });
 }
+
+/* ------------------------------------------------------------------ */
+/*  Watchlist (FR-17)                                                 */
+/* ------------------------------------------------------------------ */
+
+export type WatchlistResponse = {
+  tors: TorInsightSummary[];
+  savedIds: string[];
+};
+
+export type WatchlistToggleResult = {
+  saved: boolean;
+  projectId: string;
+  count: number;
+};
+
+export function getWatchlist() {
+  return request<WatchlistResponse>("/api/watchlist", { cache: "no-store" });
+}
+
+export function addToWatchlist(projectId: string) {
+  return request<WatchlistToggleResult>(`/api/watchlist/${encodeURIComponent(projectId)}`, {
+    method: "PUT",
+  });
+}
+
+export function removeFromWatchlist(projectId: string) {
+  return request<WatchlistToggleResult>(`/api/watchlist/${encodeURIComponent(projectId)}`, {
+    method: "DELETE",
+  });
+}
+

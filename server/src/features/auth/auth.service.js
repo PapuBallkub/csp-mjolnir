@@ -16,6 +16,15 @@ export function toPublicUser(user) {
     // this returned. Drop it here and every admin is silently forbidden.
     role: user.role,
     notificationConsent: user.notificationConsent,
+    // FR-12. The profile ships with every authed response, so the client
+    // always has it and the match scorer (FR-13) can run on any page.
+    profile: {
+      skills: user.profile?.skills ?? [],
+      budgetMin: user.profile?.budgetMin ?? 0,
+      budgetMax: user.profile?.budgetMax ?? 0,
+      certifications: user.profile?.certifications ?? [],
+    },
+    watchlist: (user.watchlist ?? []).map((w) => (typeof w === 'string' ? w : w.projectId)),
     createdAt: user.createdAt,
   };
 }

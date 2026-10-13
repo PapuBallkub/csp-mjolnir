@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cleanOcrText, isTruncated } from '#pipeline/ingestion/lib/ocr.js';
+import { PREVIEW_PAGES, cleanOcrText, isPreviewRead, isTruncated } from '#pipeline/ingestion/lib/ocr.js';
 
 test('cleanOcrText normalizes Unicode to NFC', () => {
   // Decomposed Thai character (e.g. 'ก' + upper vowel 'ิ')
@@ -88,4 +88,12 @@ test('isTruncated flags a single page whose OCR failed, even mid-document', () =
 
 test('isTruncated flags a document whose page count is unknown', () => {
   assert.equal(isTruncated({ ...complete, pagesAttempted: 5, totalPages: 0 }), true);
+});
+
+test('isPreviewRead: a long scan read for its first pages is a preview; anything read whole is not', () => {
+  assert.equal(PREVIEW_PAGES, 6);
+  assert.equal(isPreviewRead({ usedOcr: true, pages: 28, pagesRead: 6 }), true);
+  assert.equal(isPreviewRead({ usedOcr: true, pages: 0, pagesRead: 6 }), true, 'an unknown length counts as unread');
+  assert.equal(isPreviewRead({ usedOcr: true, pages: 4, pagesRead: 4 }), false, 'a short scan was read whole');
+  assert.equal(isPreviewRead({ usedOcr: false, pages: 40, pagesRead: 40 }), false, 'a digital PDF is always read whole');
 });

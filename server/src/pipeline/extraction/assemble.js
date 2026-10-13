@@ -32,6 +32,8 @@ function identity(tor, agency, extra = {}) {
     department: extra.department ?? null,
     egpReference: tor.projectId,
     category: extra.category ?? null,
+    // A copy as of now; the API reads the live status from the Tor, since the
+    // feed keeps changing it after extraction
     status: tor.status,
   };
 }
@@ -50,6 +52,30 @@ function runMetadata(run, extra) {
 }
 
 const links = (tor) => ({ sourceUrl: tor.egpUrl || null, webUrl: egpAnnouncementUrl(tor.projectId) });
+
+/**
+ * The latest sentence each package fact was stated in (ADR 0020), as
+ * { value, quote, document }. A later package that doesn't state a fact
+ * leaves the earlier one standing, as it does on the Tor.
+ */
+function statedIn(tor) {
+  // ราคากลาง is quoted from the announcement (real text), the budget from the
+  // price form (ADR 0023), the only document that states it
+  const latest = (kind, read) => {
+    for (const pkg of [...(tor.packages ?? [])].reverse()) {
+      if ((pkg.kind ?? 'announcement') !== kind) continue;
+      const fact = read(pkg.facts ?? {});
+      if (fact) return fact;
+    }
+    return null;
+  };
+  const window = latest('announcement', (facts) => facts.submissionWindow);
+  return {
+    budgetTHB: latest('price', (facts) => facts.budgetTHB),
+    referencePriceTHB: latest('announcement', (facts) => facts.referencePriceTHB),
+    submissionDeadline: window && { value: window.closesAt, quote: window.quote, document: window.document },
+  };
+}
 
 /**
  * The full record for a TOR the classify step found to be IT.
@@ -75,12 +101,18 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
   };
   // Where the feed has a value it wins. If the document says the same, the
   // quote still shows where; if it differs, the quote would contradict the
-  // stored value, so it's left out (the check has sent the TOR to review)
-  const feedFirst = (feedValue, field, given, value) => {
+  // stored value, so it's left out (the check has sent the TOR to review).
+  // A value read from the package's announcement or bidding document (ADR
+  // 0020) brings that sentence instead, saying which document it's from.
+  const feedFirst = (feedValue, field, given, value, stated = null) => {
     if (feedValue === null || feedValue === undefined) return fromAi(field, given, value);
     if (sameValue(feedValue, value)) fromAi(field, given, value);
+    else if (stated && sameValue(feedValue, stated.value)) {
+      evidence[field] = { quote: stated.quote, page: null, document: stated.document };
+    }
     return feedValue;
   };
+  const stated = statedIn(tor);
 
   // Title: when feed and document agree, the document's is kept, because the
   // feed wraps it in "ประกวดราคา… ด้วยวิธี… (e-bidding)". When they disagree,
@@ -100,14 +132,22 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
       category: classification.category ?? null,
     }),
     facts: {
-      budgetTHB: feedFirst(feedAmount(tor.budgetTHB), 'budgetTHB', facts.budget, toAmount(facts.budget)),
+      budgetTHB: feedFirst(feedAmount(tor.budgetTHB), 'budgetTHB', facts.budget, toAmount(facts.budget), stated.budgetTHB),
       referencePriceTHB: feedFirst(
         feedAmount(tor.referencePriceTHB),
         'referencePriceTHB',
         facts.referencePrice,
         toAmount(facts.referencePrice),
+        stated.referencePriceTHB,
       ),
-      submissionDeadline: fromAi('submissionDeadline', facts.submissionDeadline, toDate(facts.submissionDeadline)),
+      submissionDeadline: feedFirst(
+        tor.submissionDeadline ?? null,
+        'submissionDeadline',
+        facts.submissionDeadline,
+        toDate(facts.submissionDeadline),
+        stated.submissionDeadline,
+      ),
+      commentDeadline: fromAi('commentDeadline', facts.commentDeadline, toDate(facts.commentDeadline)),
       postedDate: feedFirst(feedDate(tor.announceDate), 'postedDate', facts.postedDate, toDate(facts.postedDate)),
       deliveryPeriodDays: fromAi('deliveryPeriodDays', facts.deliveryPeriodDays, toNumber(facts.deliveryPeriodDays)),
       contractDurationDays: fromAi('contractDurationDays', facts.contractDurationDays, toNumber(facts.contractDurationDays)),
@@ -149,6 +189,20 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
  * The minimal record for a TOR the classify step found not to be IT. The full
  * extraction never runs for it (D8); the reason stays for a reviewer to check.
  */
+/**
+ * The record for a preview the classify step found to be IT (ADR 0018): the
+ * full text is being read, and extraction follows. Like an excluded record,
+ * every section stays empty; unlike one, the public doesn't see it.
+ */
+export function buildAwaitingFullText({ tor, classification, run }) {
+  return {
+    projectId: tor.projectId,
+    identification: identity(tor, tor.agency || classification.agency, { category: classification.category ?? null }),
+    facts: links(tor),
+    metadata: runMetadata(run, { confidenceScore: null, checks: [], awaitingFullText: true }),
+  };
+}
+
 export function buildExcluded({ tor, classification, run }) {
   return {
     projectId: tor.projectId,

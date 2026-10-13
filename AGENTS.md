@@ -84,9 +84,10 @@ The detail page carries more than this (deliverables, eligibility, contract cond
 |---|---|
 | Draft | e-GP code `B0`: draft TOR out for public hearing |
 | Open | e-GP code `D0`: invitation to bid |
-| Awarded / Cancelled | e-GP, when the agency reports it |
+| Awarded | e-GP codes `W0`/`W2`: winner announced or changed (or a contract on data.go.th) |
+| Cancelled | e-GP code `D1`: invitation cancelled; `W1`: winner announcement cancelled |
 | Closed | **Inferred** by the platform: past the deadline with no update from the agency |
-| *Amended* (flag) | e-GP codes `D1`/`D2`. Overlaid on whichever status applies, because a TOR can be amended repeatedly while it stays Open. |
+| *Amended* (flag) | e-GP code `D2`: invitation changed. Overlaid on whichever status applies, because a TOR can be amended repeatedly while it stays Open. `D1` is a cancellation, not an amendment. |
 
 The server model already enforces these five statuses plus `isAmended`. The client fixture still uses a three-value status, so bring it up to the server's shape rather than the reverse.
 

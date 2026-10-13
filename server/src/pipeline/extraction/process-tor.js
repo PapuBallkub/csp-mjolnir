@@ -10,7 +10,7 @@
  */
 
 import { TorInsight } from '#models/index.js';
-import { buildExcluded, buildInsight } from './assemble.js';
+import { buildAwaitingFullText, buildExcluded, buildInsight } from './assemble.js';
 import { QUOTED_LISTS, keepGroundedItems, runChecks } from './checks.js';
 import { generateJson } from './gemini.js';
 import {
@@ -40,19 +40,54 @@ const at = (object, path) => path.split('.').reduce((value, key) => value?.[key]
 export async function askGemini(tor, { client, config }) {
   const rawText = tor.ocr?.rawText;
   if (!rawText) throw new Error('No OCR text yet; run ingest:ocr first.');
+  // A preview is part of the document by design: extracting from it would
+  // leave out whatever sits on the pages nobody read (ADR 0018)
+  if (tor.ocr.preview) throw new Error('Only a preview has been read; extraction waits for the full text.');
+
+  // 1. Classify: a small call on the first pages decides whether to go on (D8)
+  const classify = await classifyText(tor, { client, config });
+  if (!classify.data.isIT) return { classification: classify.data, extracted: null, usage: [classify.usage] };
 
   const ask = (systemInstruction, contents, responseSchema, extra = {}) =>
     generateJson({ client, model: config.model, systemInstruction, contents, responseSchema, thinkingLevel: THINKING_LEVEL, ...extra });
-
-  // 1. Classify: a small call on the first pages decides whether to go on (D8)
-  const classify = await ask(CLASSIFY_INSTRUCTION, buildClassifyContents({ title: tor.title, rawText }), classifySchema);
-  if (!classify.data.isIT) return { classification: classify.data, extracted: null, usage: [classify.usage] };
 
   // 2. Extract: the whole document, the feed deliberately left out
   const extract = await ask(EXTRACT_INSTRUCTION, buildExtractContents({ rawText }), extractSchema, {
     maxOutputTokens: EXTRACT_MAX_OUTPUT_TOKENS,
   });
   return { classification: classify.data, extracted: extract.data, usage: [classify.usage, extract.usage] };
+}
+
+/** The classify call alone: the title and the first pages (D8). */
+function classifyText(tor, { client, config }) {
+  return generateJson({
+    client,
+    model: config.model,
+    systemInstruction: CLASSIFY_INSTRUCTION,
+    contents: buildClassifyContents({ title: tor.title, rawText: tor.ocr.rawText }),
+    responseSchema: classifySchema,
+    thinkingLevel: THINKING_LEVEL,
+  });
+}
+
+/**
+ * Classifies a preview, the first pages of a scan (ADR 0018). Not IT: the
+ * record is excluded and the TOR stops here. IT: the record waits for the
+ * full text, which ingestion reads next; extraction then runs on it.
+ *
+ * @returns {Promise<{ insight: object, review: object, usage: object[] }>}
+ */
+export async function classifyPreview(tor, { client, config, now = new Date() }) {
+  if (!tor.ocr?.rawText) throw new Error('No OCR text yet; run ingest:ocr first.');
+  if (!tor.ocr.preview) throw new Error('This TOR has its full text; extract it instead.');
+
+  const classify = await classifyText(tor, { client, config });
+  const run = { model: config.model, promptVersion: PROMPT_VERSION, fingerprint: sourceFingerprint(tor), now };
+  const classification = classify.data;
+  const insight = classification.isIT
+    ? buildAwaitingFullText({ tor, classification, run })
+    : buildExcluded({ tor, classification, run });
+  return { insight, review: { classification, extracted: null, unknownTechnologies: [], preview: true }, usage: [classify.usage] };
 }
 
 /**
