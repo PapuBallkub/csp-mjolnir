@@ -114,9 +114,8 @@ date shows without paying for another extraction.
   They go back to OCR and one classify call each.
 - **The hand fixes become unnecessary** for ราคากลาง, the bid date and the
   agency. The budget isn't in the announcement; it comes with the price form.
-- **The bidding document's text is stored but not yet read by the AI.**
-  Extraction reading it, and the prompt change that goes with it, is a later
-  step.
+- **The bidding document's text is stored,** and extraction reads it
+  ([0025](0025-extraction-reads-the-bidding-document.md)).
 - **The bid window is a window, not a deadline.** e-bidding takes bids only
   on that day, between the two times. `submissionDeadline` is its closing
   time; the opening time is kept in the package for the page to show later.

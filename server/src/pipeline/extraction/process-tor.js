@@ -21,6 +21,7 @@ import {
   buildExtractContents,
 } from './prompts.js';
 import { classifySchema, extractSchema } from './schema.js';
+import { biddingTextOf, textsOf } from './documents.js';
 import { sourceFingerprint } from './select.js';
 import { resolveTechnologies as resolveFromDatabase } from './vocabulary.js';
 
@@ -51,8 +52,9 @@ export async function askGemini(tor, { client, config }) {
   const ask = (systemInstruction, contents, responseSchema, extra = {}) =>
     generateJson({ client, model: config.model, systemInstruction, contents, responseSchema, thinkingLevel: THINKING_LEVEL, ...extra });
 
-  // 2. Extract: the whole document, the feed deliberately left out
-  const extract = await ask(EXTRACT_INSTRUCTION, buildExtractContents({ rawText }), extractSchema, {
+  // 2. Extract: the TOR and its bidding document (ADR 0025), the feed deliberately left out
+  const contents = buildExtractContents({ rawText, biddingText: biddingTextOf(tor) });
+  const extract = await ask(EXTRACT_INSTRUCTION, contents, extractSchema, {
     maxOutputTokens: EXTRACT_MAX_OUTPUT_TOKENS,
   });
   return { classification: classify.data, extracted: extract.data, usage: [classify.usage, extract.usage] };
@@ -104,7 +106,9 @@ export async function classifyPreview(tor, { client, config, now = new Date() })
  */
 export async function processTor(tor, { client, config, now = new Date(), ...options }) {
   const answers = await askGemini(tor, { client, config });
-  const run = { model: config.model, promptVersion: PROMPT_VERSION, fingerprint: sourceFingerprint(tor), now };
+  // An extraction read the bidding document too; an excluded record, the TOR alone
+  const fingerprint = sourceFingerprint(tor, { bidding: Boolean(answers.extracted) });
+  const run = { model: config.model, promptVersion: PROMPT_VERSION, fingerprint, now };
   const built = await buildFromAnswers(tor, answers, { run, ...options });
   return { ...built, usage: answers.usage };
 }
@@ -126,11 +130,10 @@ export async function buildFromAnswers(
     };
   }
 
-  // 3. Check, and keep only list items whose quote is really in the document (R5)
-  const rawText = tor.ocr.rawText;
+  // 3. Check, and keep only list items whose quote is really in the documents (R5)
   const checkResult = runChecks({ tor, classification, extracted });
   const [technologyItems, certificationItems, authorizationItems] = QUOTED_LISTS.map(
-    (list) => keepGroundedItems(at(extracted, list), rawText).kept,
+    (list) => keepGroundedItems(at(extracted, list), textsOf(tor)).kept,
   );
   const { technologies, unknown } = await resolveTechnologies(technologyItems, { projectId: tor.projectId, dryRun });
 

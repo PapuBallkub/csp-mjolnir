@@ -198,7 +198,8 @@ Extraction reads each TOR at `ocr_done` with Gemini, and saves a `TorInsight`.
 For each TOR it runs:
 1. **Classify** (the first pages): is this IT? A non-IT TOR is saved as
    `excluded` and stops here.
-2. **Extract** (the whole text).
+2. **Extract** (the whole text, and the bidding document when the TOR's package has one:
+   [0025](decisions/0025-extraction-reads-the-bidding-document.md)).
 3. **Check:** every value against its quote, the feed and common sense.
 4. **Save.**
 
@@ -255,7 +256,8 @@ merge or confirm.
 ### `npm run extract`
 
 **Extracts every TOR that needs it:** TORs that have no insight yet, and TORs
-whose PDF or OCR text has changed since.
+whose PDF or OCR text has changed since. For an IT TOR, a new bidding document
+counts as a change too; a non-IT one isn't classified again for one.
 
 ```
 npm run extract                        # what needs doing

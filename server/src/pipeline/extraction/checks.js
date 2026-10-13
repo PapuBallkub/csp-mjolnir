@@ -11,6 +11,7 @@
 import { convertThaiDigitsToArabic, parseThaiAmount } from '../shared/thai-text.js';
 import { findThaiAmountInWords } from '../shared/thai-number-words.js';
 import { feedAmount, feedDate, toAmount, toDate, toNumber, toText } from './convert.js';
+import { DOCUMENTS, biddingTextOf, textsOf } from './documents.js';
 
 // A failed check on one of these caps the score below 80, so the TOR is hidden
 // and waits for review (D6, NFR-17).
@@ -125,6 +126,54 @@ export function isQuoteInSource(quote, source) {
   return false;
 }
 
+// A filled-in form's quote may sit within this many characters (spaces out)
+// either side of its longest chunk. On real bidding documents a quote's
+// chunks lay up to 1.34 times its length from it.
+const FORM_SPAN_MIN = 200;
+const FORM_SPAN_PER_QUOTE_CHAR = 1.5;
+const digitsOnly = (chunk) => /^[\d.,]+$/.test(chunk);
+// A filled-in value keeps its unit right after its number, however the
+// layout moves it: "๑ ปี", "๑๙ ตุลาคม", "๐๙.๐๐ น."
+const UNIT = new RegExp(
+  '^(?:ปี|เดือน|วัน|ชั่วโมง|นาที|น\\.|บาท|งวด|ครั้ง|' +
+    'มกราคม|กุมภาพันธ์|มีนาคม|เมษายน|พฤษภาคม|มิถุนายน|กรกฎาคม|สิงหาคม|กันยายน|ตุลาคม|พฤศจิกายน|ธันวาคม)',
+);
+
+/**
+ * Whether a quote from a filled-in form, the bidding document (ADR 0025), is
+ * in it. The form's values come out after its words, on the same line or the
+ * next ("ในวันที่ และเวลาในการเสนอ ⇥ ๑๙ ตุลาคม ๒๕๖๙ ระหว่างเวลา …"), so a quote
+ * that puts a value back into its sentence has the right pieces in another
+ * order. In order first; failing that, every chunk of the quote, as split by
+ * its spaces, must be there, close together. A number counts only as a whole
+ * number, and together with the unit the quote gives it: "๓ ปี" needs a "๓ปี"
+ * in the form, so a made-up value can't borrow a ๓ from a nearby clause.
+ */
+export function isFormQuoteInSource(quote, source) {
+  if (isQuoteInSource(quote, source)) return true;
+  const chunks = convertThaiDigitsToArabic(String(quote ?? '').normalize('NFKC'))
+    .toLowerCase()
+    .split(/[\s​]+/)
+    .filter(Boolean);
+  if (chunks.length < QUOTE_MIN_PIECES) return false;
+
+  // What each chunk must match: a number with its unit when the quote gives one
+  const needles = chunks.map((chunk, index) => {
+    if (!digitsOnly(chunk)) return { text: chunk };
+    const unit = chunks[index + 1]?.match(UNIT)?.[0] ?? '';
+    const escaped = `${chunk}${unit}`.replace(/[.]/g, '\\.');
+    return { pattern: new RegExp(`(?<![\\d.,])${escaped}${unit ? '' : '(?![\\d])'}`) };
+  });
+
+  const span = Math.max(FORM_SPAN_MIN, normalizeForMatch(quote).length * FORM_SPAN_PER_QUOTE_CHAR);
+  const longest = [...chunks].sort((a, b) => b.length - a.length)[0];
+  for (let at = source.indexOf(longest); at !== -1; at = source.indexOf(longest, at + 1)) {
+    const window = source.slice(Math.max(0, at - span), at + longest.length + span);
+    if (needles.every((needle) => (needle.text ? window.includes(needle.text) : needle.pattern.test(window)))) return true;
+  }
+  return false;
+}
+
 /** Every amount written in digits in a quote, read with parseThaiAmount. */
 export function amountsInQuote(quote) {
   const text = convertThaiDigitsToArabic(String(quote ?? '').normalize('NFKC'));
@@ -203,8 +252,15 @@ export function runChecks({ tor, classification, extracted }) {
   const checks = [];
   const fail = (check, field, detail, severity = severityOf(field)) =>
     checks.push({ check, field, severity, detail });
-  const source = normalizeForMatch(tor.ocr?.rawText);
-  const isGrounded = (quote) => isQuoteInSource(quote, source);
+  // Each quote is looked for in the document it says it's from (ADR 0025)
+  const sources = {
+    [DOCUMENTS.tor]: normalizeForMatch(tor.ocr?.rawText),
+    [DOCUMENTS.bidding]: normalizeForMatch(biddingTextOf(tor)),
+  };
+  const isGrounded = (quote, document = DOCUMENTS.tor) =>
+    document === DOCUMENTS.bidding
+      ? isFormQuoteInSource(quote, sources.bidding) // a filled-in form: its values sit out of order
+      : isQuoteInSource(quote, sources.tor);
 
   // 1. Grounding: every quote must really be in the document
   if (classification && !isGrounded(classification.quote)) {
@@ -212,12 +268,12 @@ export function runChecks({ tor, classification, extracted }) {
   }
   for (const field of Object.keys(EVIDENCED_FIELDS)) {
     const evidence = at(extracted, field);
-    if (evidence && !isGrounded(evidence.quote)) {
-      fail('grounding', field, { quote: evidence.quote, page: evidence.page });
+    if (evidence && !isGrounded(evidence.quote, evidence.document)) {
+      fail('grounding', field, { quote: evidence.quote, page: evidence.page, document: evidence.document ?? DOCUMENTS.tor });
     }
   }
   for (const list of QUOTED_LISTS) {
-    for (const item of keepGroundedItems(at(extracted, list), tor.ocr?.rawText).dropped) {
+    for (const item of keepGroundedItems(at(extracted, list), textsOf(tor)).dropped) {
       fail('grounding', list, { name: item?.name, quote: item?.quote, dropped: true }, 'minor');
     }
   }

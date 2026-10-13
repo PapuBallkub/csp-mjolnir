@@ -12,6 +12,7 @@
 
 import { egpAnnouncementUrl } from '../shared/egp-links.js';
 import { feedAmount, feedDate, toAmount, toDate, toNumber, toText } from './convert.js';
+import { DOCUMENTS } from './documents.js';
 
 const unique = (items) => [...new Set(items ?? [])];
 
@@ -94,9 +95,16 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
   const ai = extracted;
   const evidence = {};
 
-  // An AI value is used only where the feed has none, and brings its evidence
+  // An AI value is used only where the feed has none, and brings its evidence:
+  // the document it's quoted from, null for the TOR (ADR 0025)
   const fromAi = (field, given, value) => {
-    if (value !== null && value !== undefined && given) evidence[field] = { quote: given.quote, page: given.page ?? null };
+    if (value !== null && value !== undefined && given) {
+      evidence[field] = {
+        quote: given.quote,
+        page: given.page ?? null,
+        document: given.document === DOCUMENTS.bidding ? DOCUMENTS.bidding : null,
+      };
+    }
     return value ?? null;
   };
   // Where the feed has a value it wins. If the document says the same, the
