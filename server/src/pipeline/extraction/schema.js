@@ -17,7 +17,7 @@ import { Type } from '@google/genai';
 import { STANDARD_CONDITIONS, STANDARD_CONDITION_KEYS } from '#models/standard-conditions.js';
 
 /**
- * Kinds of IT project. Price analysis (FR-19) uses this to find similar past
+ * Kinds of IT project. Comparable project grouping (FR-19) uses this to find similar past
  * projects: the AI picks the label, and code does the comparing.
  */
 export const PROJECT_CATEGORIES = [

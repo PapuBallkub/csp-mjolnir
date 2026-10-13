@@ -2,14 +2,17 @@
 
 **Feature:** Reality Check Dashboard & Lock-Spec Flagging  
 **Related Requirements:**  
-- `FR-19`: Identify and group historical IT procurement projects based on relevant characteristics  
-- `FR-20`: Analyze TOR against similar historical projects (price benchmarks & requirement deviations)  
-- `FR-21`: Assess requirement deviations against lock-spec risk criteria & display visual warning  
+- `FR-19`: The system shall identify and group historical IT procurement projects that are similar to a given TOR based on their relevant project characteristics.  
+  *(Description: The system identifies historical IT procurement projects that are comparable to a given TOR using relevant characteristics, such as project category, scope, and technical requirements. The resulting groups provide a consistent basis for historical price benchmarking and technical and qualification requirement analysis.)*
+- `FR-20`: The system shall analyze a TOR against similar historical IT procurement projects by calculating price benchmarks and identifying deviations in price, technical requirements, and qualification conditions.  
+  *(Description: The system calculates the historical median and average prices of comparable projects and compares the current TOR's budget against these benchmarks. It also compares the TOR's technical and qualification requirements against common patterns in similar historical projects. The resulting benchmarks and deviations provide context for evaluating project budgets and identifying potentially unusual requirements.)*
+- `FR-21`: The system shall assess technical and qualification requirement deviations against defined lock-specification risk criteria and display a visual warning on TORs classified as high risk.  
+  *(Description: The system evaluates requirement deviations identified by FR20 to determine whether they meet the criteria for a high lock-specification risk. For TORs that meet these criteria, the system displays a visual warning and provides supporting findings to help users examine potentially restrictive requirements. A warning indicates a need for further review and does not, by itself, establish that a procurement is unfair.)*
 **Related Decisions:**  
 - [`0021 · Match comparable projects in code, not with an LLM`](../decisions/0021-find-comparable-projects.md)  
 - [`0022 · Pre-compute benchmarks in the pipeline, refresh by batch`](../decisions/0022-precompute-benchmarks-in-the-pipeline.md)  
 **Status:** Proposed  
-**Last Updated:** 2026-10-12  
+**Last Updated:** 2026-10-13  
 
 ---
 

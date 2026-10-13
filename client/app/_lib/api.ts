@@ -238,7 +238,7 @@ export function adminOperations() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  TOR & Insight (FR-10, FR-11, FR-13, FR-15, FR-16, FR-19, FR-20)   */
+/*  TOR & Insight (FR-10, FR-11, FR-13, FR-15, FR-16, FR-19, FR-20, FR-21) */
 /* ------------------------------------------------------------------ */
 
 export type LockSpecFinding = {

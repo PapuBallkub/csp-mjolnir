@@ -44,7 +44,7 @@ in `facts`.
 | Contract price (ราคาตกลงซื้อ/จ้าง) | The bidding result | `contract.agreedPriceTHB` | `Tor` |
 | Median and average of similar past projects | GIPDP | in `analytics.priceAnalysis` | `TorInsight` |
 
-Price analysis (FR-19) compares this TOR's ราคากลาง with the ราคากลาง of similar
+Price benchmarking and analysis (FR-20, using comparable projects identified under FR-19) compares this TOR's ราคากลาง with the ราคากลาง of similar
 past projects, and shows contract prices as context. It describes the gap and
 leaves the judgement to the reader.
 

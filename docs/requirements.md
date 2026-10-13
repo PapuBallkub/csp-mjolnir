@@ -147,14 +147,32 @@ The stack is Next.js on the front, Node.js with Express on the back.
 - **FR-18** Alert users, in-app or by email, when a watchlisted TOR changes
   status or is amended.
 
-### Price and lock-spec — 4.7
+### Reality check and lock-spec — 4.7
 
-- **FR-19** Show the historical median and average price of similar past IT
-  projects, from data.go.th.
-- **FR-20** Compare a TOR's technical and qualification requirements against
-  normalized historical baselines.
-- **FR-21** Visibly flag "high lock-spec risk" on TORs with statistically
-  unusual or hyper-specific requirements.
+- **FR-19** The system shall identify and group historical IT procurement projects
+  that are similar to a given TOR based on their relevant project characteristics.  
+  *Description:* The system identifies historical IT procurement projects that are
+  comparable to a given TOR using relevant characteristics, such as project category,
+  scope, and technical requirements. The resulting groups provide a consistent basis
+  for historical price benchmarking and technical and qualification requirement analysis.
+- **FR-20** The system shall analyze a TOR against similar historical IT
+  procurement projects by calculating price benchmarks and identifying deviations
+  in price, technical requirements, and qualification conditions.  
+  *Description:* The system calculates the historical median and average prices
+  of comparable projects and compares the current TOR's budget against these
+  benchmarks. It also compares the TOR's technical and qualification requirements
+  against common patterns in similar historical projects. The resulting benchmarks
+  and deviations provide context for evaluating project budgets and identifying
+  potentially unusual requirements.
+- **FR-21** The system shall assess technical and qualification requirement
+  deviations against defined lock-specification risk criteria and display a
+  visual warning on TORs classified as high risk.  
+  *Description:* The system evaluates requirement deviations identified by FR20
+  to determine whether they meet the criteria for a high lock-specification risk.
+  For TORs that meet these criteria, the system displays a visual warning and
+  provides supporting findings to help users examine potentially restrictive
+  requirements. A warning indicates a need for further review and does not, by
+  itself, establish that a procurement is unfair.  
 
 ### Admin — 4.8
 
@@ -251,8 +269,8 @@ SRS's `FR-07` is field extraction. Translate before looking one up.
 | FR09 | FR-15 | Lifecycle status |
 | FR10 | FR-16 | Hash and diff |
 | FR11 | FR-17, FR-18 | Watchlist and alerts |
-| FR12 | FR-19 | Historical price |
-| FR13 | FR-20, FR-21 | Lock-spec flag |
+| FR12 | FR-19, FR-20 | Historical price benchmarking & comparable projects |
+| FR13 | FR-20, FR-21 | Lock-spec risk warning & requirement deviations |
 | FR14 | FR-22 | Ingestion health dashboard |
 | FR15 | FR-23, NFR-17 | Confidence review, correction, reclassification |
 
@@ -263,8 +281,8 @@ SRS's `FR-07` is field extraction. Translate before looking one up.
 | US4 | FR-08 | Email and password |
 | US5 | FR-09 | Google sign-in |
 | US6 | FR-11 | Search and filter |
-| US7, US12 | FR-19 | Price history |
-| US8 | FR-20, FR-21 | Lock-spec flag |
+| US7, US12 | FR-19, FR-20 | Price history & benchmarks |
+| US8 | FR-20, FR-21 | Lock-spec risk warning & requirement deviations |
 | US9 | FR-15 | Status |
 | US10 | FR-17, FR-18 | Watchlist alerts |
 | US11 | FR-12 | Small-job preference — now a profile field, not a catalog filter |
