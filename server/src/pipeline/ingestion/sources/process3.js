@@ -45,6 +45,14 @@ export const ANNOUNCEMENT_TYPES = FETCHABLE_CODES.map((code) => ({
   name: `${EGP_ANNOUNCEMENT_CODES[code].nameEn} (${EGP_ANNOUNCEMENT_CODES[code].nameTh})`,
 }));
 
+// What scheduled runs ask for: every code but `15`, which has timed out on
+// every request so far. In a sweep it would cost each agency 20 seconds.
+export const ROUTINE_TYPES = FETCHABLE_CODES.filter((code) => code !== '15');
+
+// Requests in a row that went unanswered before a run stops asking: a feed
+// that hangs would otherwise cost every remaining request its full timeout
+const MAX_UNANSWERED_IN_A_ROW = 2;
+
 /**
  * Decodes Thai XML buffer checking UTF-8 first, falling back to Windows-874.
  * @param {Buffer|Uint8Array} buffer
@@ -131,7 +139,8 @@ export function isFeedClosed(now = new Date()) {
  * @param {Function} [options.pace] - Waits before each request (NFR-03); replaced in tests
  * @param {number} [options.limit=5] - At most this many new projects; updates to followed ones are never limited
  * @returns {Promise<{ fetched: number, discovered: number, updated: number, errors: string[],
- *   unreachable: boolean, closed: boolean }>}
+ *   unreachable: boolean, closed: boolean, requested: number, answered: number,
+ *   itemsByType: Record<string, number> }>}
  */
 export async function fetchFromProcess3({
   query = null,
@@ -152,6 +161,9 @@ export async function fetchFromProcess3({
       errors: [`${FEED_HOURS}; nothing was requested.`],
       unreachable: true,
       closed: true,
+      requested: 0,
+      answered: 0,
+      itemsByType: {},
     };
   }
 
@@ -177,10 +189,16 @@ export async function fetchFromProcess3({
     String(item.description || '').toLowerCase().includes(queryLower);
 
   let failedRequests = 0;
+  let unansweredInARow = 0;
+  const itemsByType = {};
 
   const wanted = types ? ANNOUNCEMENT_TYPES.filter((t) => types.includes(t.code)) : ANNOUNCEMENT_TYPES;
   for (let i = 0; i < wanted.length; i++) {
     const annType = wanted[i];
+    if (unansweredInARow >= MAX_UNANSWERED_IN_A_ROW) {
+      errors.push(`stopped asking after ${unansweredInARow} requests in a row went unanswered`);
+      break;
+    }
     requested++;
     let answered = false;
     const requestUrl = new URL(BASE_URL);
@@ -203,10 +221,12 @@ export async function fetchFromProcess3({
       });
 
       answered = true;
+      unansweredInARow = 0;
       const { xmlText } = decodeThaiXml(response.data);
       const parsed = parser.parse(xmlText);
       const channel = parsed?.rss?.channel || parsed?.channel;
       const items = channel?.item || [];
+      itemsByType[annType.code] = items.length;
 
       for (const currentItem of items) {
         const described = parseItemDescription(currentItem.description);
@@ -373,7 +393,10 @@ export async function fetchFromProcess3({
         else discovered++;
       }
     } catch (err) {
-      if (!answered) failedRequests++;
+      if (!answered) {
+        failedRequests++;
+        unansweredInARow++;
+      }
       errors.push(`RSS ${annType.code} error: ${err.message}`);
     }
   }
@@ -388,5 +411,8 @@ export async function fetchFromProcess3({
     errors,
     unreachable: requested > 0 && failedRequests === requested,
     closed: false,
+    requested,
+    answered: requested - failedRequests,
+    itemsByType,
   };
 }

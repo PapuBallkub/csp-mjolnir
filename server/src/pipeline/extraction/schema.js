@@ -158,6 +158,38 @@ export const classifySchema = {
   propertyOrdering: ['quote', 'reason', 'agency', 'isIT', 'category'],
 };
 
+/**
+ * The title screen (ADR 0026): a verdict for each title in a batch. Its
+ * version is the one at the top of prompts/screen.md, not extract.md's.
+ */
+export const SCREEN_VERDICTS = ['it', 'not_it', 'unsure'];
+
+export const screenSchema = {
+  type: Type.OBJECT,
+  properties: {
+    results: {
+      type: Type.ARRAY,
+      description: 'One entry for every project given, in the order given.',
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          projectId: { type: Type.STRING, description: 'The project ID exactly as given.' },
+          reason: { type: Type.STRING, description: 'One short phrase in Thai: what the title says the project is.' },
+          verdict: {
+            type: Type.STRING,
+            format: 'enum',
+            enum: SCREEN_VERDICTS,
+            description: 'it, not_it or unsure. not_it only when the title clearly has nothing to do with IT.',
+          },
+        },
+        required: ['projectId', 'reason', 'verdict'],
+        propertyOrdering: ['projectId', 'reason', 'verdict'],
+      },
+    },
+  },
+  required: ['results'],
+};
+
 /** Step 2: read the whole TOR into the TorInsight sections 4.1–4.9. */
 export const extractSchema = {
   type: Type.OBJECT,

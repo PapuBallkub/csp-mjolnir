@@ -1,5 +1,8 @@
 # Pipeline commands
 
+New to the pipeline? Start with [the plain-words guide](pipeline-guide.md):
+what it does, the journey of a project, and how to run and check it.
+
 How TORs get into the database, and the commands that move them along. The
 reasoning behind the design is in [0008](decisions/0008-tor-ingestion-pipeline.md)
 and [0013](decisions/0013-split-ingestion-and-ai-extraction.md).
@@ -16,7 +19,7 @@ fetch ─► download ─► OCR ─► Tor              Tor ─► classify ─
 
 - **Ingestion** finds TORs, downloads their PDFs, and turns them into text.
 - **Extraction** reads that text with Gemini and writes the normalized summary.
-  See [AI extraction](#ai-extraction).
+  Sese [AI extraction](#ai-extraction).
 
 Run every command from `server/`. The database named in `server/.env` must be
 reachable.
@@ -28,7 +31,7 @@ previous step left behind:
 
 | `pipelineStatus` | Meaning | Picked up by |
 |---|---|---|
-| `fetched` | Found in a source; no PDF yet | `ingest:download` |
+| `fetched` | Found in a source; no PDF yet | `npm run screen`, then `ingest:download` if the title screen lets it through ([0026](decisions/0026-screen-titles-before-downloading.md)) |
 | `downloaded` | PDF saved to `server/data/documents/` | `ingest:ocr` (preview) |
 | `ocr_preview` | The first 6 pages of a scan, read so classify can decide whether it's IT | AI extraction (classify only); then `ingest:ocr` reads the rest if it's IT |
 | `ocr_done` | The whole text in `ocr.rawText` | AI extraction |
@@ -45,18 +48,67 @@ One command takes new projects from the e-GP feed all the way to the catalog:
 npm run pipeline
 ```
 
-It runs four steps in order:
-1. `ingest -- --source process3`: fetch every opening item (no keyword), download,
-   and read a 6-page preview.
-2. `extract`: classify each preview. Not IT stops there; IT waits for its full
+It runs these steps in order:
+1. `ingest:fetch -- --source process3`: fetch every opening item from the
+   national feed (no keyword).
+2. `screen`: Gemini reads the new titles in batches. Only a project that is
+   clearly not IT stops here ([0026](decisions/0026-screen-titles-before-downloading.md)).
+3. `ingest:download`, `ingest:ocr`: download what passed and read a 6-page
+   preview.
+4. `extract`: classify each preview. Not IT stops there; IT waits for its full
    text.
-3. `ingest:ocr`: read the IT previews whole.
-4. `extract`: extract them. They then appear in `/search`.
+5. `ingest:ocr`: read the IT previews whole.
+6. `extract`: extract them. They then appear in `/search`.
 
 Run it during the feed's open hours (12:01–12:59 or 17:01–08:59, Bangkok time);
-outside them it still processes what's waiting. Each run costs one classify
-call per new project and one extraction per IT one. Add `-- --limit N` to the
-first step by hand to cap new projects.
+outside them it still processes what's waiting. Each run costs a screen call
+per 40 new titles, one classify call per project that passed, and one
+extraction per IT one.
+
+## Running on a schedule
+
+The pipeline runs as three **jobs** on a fixed schedule
+([0027](decisions/0027-run-the-pipeline-on-a-schedule.md)), in Bangkok time:
+
+| Time | Job | What it does |
+|---|---|---|
+| 08:00, 12:05, 17:05 | `poll` | The national feed, then process |
+| 18:00 | `sweep` | Every agency in `ingestion/data/egp-agencies.json` (267), then process |
+| 22:00 | `process` | Screen, download, OCR, classify and extract whatever is waiting, through the night |
+
+Each job takes no new work after its time box, 5 minutes before the next job,
+and leaves a `PipelineRun` record and a log file in
+`server/data/logs/<date>/`. Each time the feed is asked leaves a `FeedPoll`
+record.
+
+**One job by hand,** with its time box worked out from the schedule, or given:
+
+```
+npm run job -- poll
+npm run job -- sweep
+npm run job -- process --until 2026-10-14T07:55:00+07:00
+```
+
+**A day of jobs on your own machine:**
+
+```
+npm run schedule
+npm run schedule -- --now process    # start with this job right away
+```
+
+It waits for each time and starts that job. Keep the window open, the machine
+awake (plugged in, sleep off) and MongoDB running. Ctrl+C stops it. A machine
+that slept through a job's time starts it late when it wakes, and skips any
+other times it missed.
+
+**Reading a day back:** each job's log is in `server/data/logs/<date>/`, and
+in MongoDB:
+- `pipelineruns`: each job's steps, their exit codes, and the counts before
+  and after.
+- `feedpolls`: each request batch to the feed, with items per code. 20 items
+  means an agency's list may have been cut off.
+- `titlescreens`: each verdict. An `audit: true` project that classify then
+  found IT is one the screen got wrong.
 
 ## Commands
 
@@ -90,12 +142,39 @@ them as `fetched`. Nothing is downloaded.
 ```
 npm run ingest:fetch -- --limit 3
 npm run ingest:fetch -- --source process3 --query "ซอฟต์แวร์" --limit 2
+npm run ingest:fetch -- --dept 0307    # one agency
 ```
+
+### `npm run ingest -- --step sweep`
+**Asks the feed about every agency in the list,** one after another
+([0027](decisions/0027-run-the-pipeline-on-a-schedule.md)). An agency's list
+reaches back several days, up to 20 items per code, so the sweep finds what
+the national feed's latest 20 dropped. It asks every code but `15`, so it also
+brings the cancellations, winners and amendments of projects we follow.
+
+- About 1,870 requests for 267 agencies: 40–60 minutes.
+- Stops at the time box (`--until`), when the feed closes, or when 2 agencies
+  in a row get no answer.
+- `--agencies 0307,A004` sweeps just those.
+
+```
+npm run ingest -- --step sweep
+npm run ingest -- --step sweep --agencies 0307,0304,11012
+```
+
+### `npm run agencies:fetch`
+**Refreshes the agency list** the sweep uses, `ingestion/data/egp-agencies.json`,
+from e-GP's list of purchasing units on data.go.th (`egpdepartment`). It keeps
+central government only, about 270 agencies, and leaves out ministry codes
+(`03`), for which the feed returns nothing.
 
 ### `npm run ingest:download`
 **Downloads each workable TOR's e-GP package** ([0020](decisions/0020-read-the-whole-egp-package.md)),
 or one TOR's with `--id`. It takes:
-- a new project (`fetched`);
+- a new project (`fetched`) that the title screen let through: `it`,
+  `unsure`, or a `not_it` in the audit sample
+  ([0026](decisions/0026-screen-titles-before-downloading.md)). One not
+  screened yet waits; `--skip-screen` downloads it anyway;
 - a project the feed has announced at a new stage (`packageCheckNeeded`);
 - a project downloaded before packages were kept.
 
@@ -165,13 +244,16 @@ npm run ingest:ocr -- --id 67059626749
 | Option | Used by | Default | Meaning |
 |---|---|---|---|
 | `--id <projectId>` | download, ocr, add | all waiting records | Work on one TOR only. Download and OCR take one already in the database; add, one that isn't. |
-| `--dept <code>` | fetch | none | e-GP feed only: one agency's announcements (4 digits, e.g. `0307`). An agency's list reaches back several days (on 2026-10-13 it held items from 6–9 Oct); the national feed shows only the same day's latest 20 of each type, and can be empty. |
-| `--types <codes>` | fetch | every type | e-GP feed only: only these announcement codes, e.g. `D0,B0` |
+| `--dept <code>` | fetch | none | e-GP feed only: one agency's announcements, e.g. `0307`, `11012` or `A004` (codes in `ingestion/data/egp-agencies.json`). An agency's list reaches back several days, up to 20 items per code; the national feed shows only the same day's latest 20 of each type, and can be empty. |
+| `--agencies <codes>` | sweep | every agency in the list | Sweep only these, e.g. `0307,A004` |
+| `--types <codes>` | fetch, sweep | fetch: every type; sweep: every type but `15` | e-GP feed only: only these announcement codes, e.g. `D0,B0` |
+| `--until <time>` | sweep, download, ocr | none | The time box: no new work after this time, e.g. `2026-10-14T07:55:00+07:00`. The project in hand finishes. Jobs set it for you; `screen` and `extract` take it too. |
+| `--skip-screen` | download | off | Download new projects without waiting for the title screen |
 | `--query`, `-q` | fetch | none for e-GP; `คอมพิวเตอร์` for data.go.th | Keep only new projects whose title has this text. e-GP has none by default: classify decides what is IT |
 | `--limit`, `-l` | fetch | none for e-GP; `5` for data.go.th | At most this many **new** projects per source; updates to projects already in the database are never limited |
 | `--source` | fetch | `all` | `process3`, `datago` or `all` |
 | `--skip-ocr` | `ingest` | off | Stop after download |
-| `--step`, `-s` | `ingest` | `all` | `fetch`, `download`, `ocr`, `add` or `all`. The `ingest:*` scripts set this for you. |
+| `--step`, `-s` | `ingest` | `all` | `fetch`, `sweep`, `download`, `ocr`, `add` or `all` (fetch, download and OCR). The `ingest:*` scripts set this for you. |
 | `--retry-failed` | download, ocr | off | Also try the TORs that gave up after repeated failures |
 
 ## Settings
@@ -184,6 +266,10 @@ These are optional, in `server/.env`:
 | `OCR_MAX_PAGES` | `150` | Scanned pages to OCR per document |
 | `OCR_SECONDS_PER_PAGE` | `10` | OCR time budget per page. A document gets pages × this. |
 | `PIPELINE_MAX_ATTEMPTS` | `3` | Failures before a step leaves a TOR out. Ingestion and extraction both use it. |
+| `EGP_PACKAGE_MAX_MB` | `200` | The largest e-GP package downloaded. e-GP sends no size first, so a bigger one is found by downloading up to the limit, and the project then gives up at once. To fetch one by hand, raise this and run `ingest:download -- --id <projectId> --retry-failed`. |
+| `EXTRACTIONS_DIR` | `server/data/extractions` | Where Gemini's answers are saved, for `extract --recheck` |
+| `LOGS_DIR` | `server/data/logs` | Where each job writes its log |
+| `SCREEN_AUDIT_RATE` | `0.1` | The share of `not_it` projects that go the whole way anyway ([0026](decisions/0026-screen-titles-before-downloading.md)) |
 
 When OCR stops before the end of a document (page limit, time budget, or pages
 that failed), the log line says `TRUNCATED` and `Tor.ocr.truncated` is `true`.
@@ -273,6 +359,26 @@ extraction. It's safe to run again.
 
 Names a TOR uses that aren't in the list are added as `new`, for a person to
 merge or confirm.
+
+### `npm run screen`
+
+**Screens the titles of new projects** before anything is downloaded
+([0026](decisions/0026-screen-titles-before-downloading.md)). One Gemini call
+reads 40 titles and gives each a verdict:
+- `it`: clearly software or IT services. Downloaded.
+- `unsure`: can't tell from the title, hardware included. Downloaded, and
+  classify decides from the document.
+- `not_it`: clearly nothing to do with IT. Not downloaded, except a tenth of
+  them, chosen by project ID (`audit`), which go the whole way so we can see
+  what the screen gets wrong.
+
+A project is screened again only if its title or the screen's prompt version
+(`screen-v1`) changes.
+
+```
+npm run screen
+npm run screen -- --limit 40 --dry-run    # see the verdicts, save nothing
+```
 
 ### `npm run extract`
 

@@ -19,3 +19,6 @@ export { TorInsight } from './tor-insight.model.js';
 export { Technology } from './technology.model.js';
 export { PipelineLock } from './pipeline-lock.model.js';
 export { PipelineFailure } from './pipeline-failure.model.js';
+export { TitleScreen } from './title-screen.model.js';
+export { FeedPoll } from './feed-poll.model.js';
+export { PipelineRun } from './pipeline-run.model.js';

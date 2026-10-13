@@ -299,9 +299,29 @@ test('fetchFromProcess3: a feed that does not answer is reported, not replaced b
 
   assert.equal(result.fetched, 0);
   assert.equal(result.unreachable, true);
-  assert.equal(result.errors.length, get.mock.callCount());
+  // Two unanswered in a row: the rest would hang for their timeouts too (ADR 0027)
+  assert.equal(get.mock.callCount(), 2);
+  assert.equal(result.requested, 2);
+  assert.equal(result.answered, 0);
   assert.match(result.errors[0], /timeout/);
+  assert.match(result.errors.at(-1), /stopped asking after 2 requests in a row went unanswered/);
   assert.ok(get.mock.calls.every((call) => call.arguments[0].includes('egpannouncerss.xml')));
+});
+
+test('fetchFromProcess3: one request left unanswered does not stop the others, and items are counted by code', async () => {
+  mock.method(axios, 'get', async (url) => {
+    const code = new URL(url).searchParams.get('anounceType');
+    if (code === '15') throw new AxiosError('timeout of 20000ms exceeded', 'ECONNABORTED');
+    return { data: buildRssXml(code === 'W0' ? [{ projectId: '69100000001', code: 'W0', title: 'ซื้อรถบรรทุก' }] : []) };
+  });
+
+  const result = await fetchP3();
+
+  assert.equal(result.requested, 8);
+  assert.equal(result.answered, 7);
+  assert.equal(result.itemsByType.W0, 1);
+  assert.equal(result.itemsByType.D0, 0);
+  assert.equal(result.itemsByType['15'], undefined, 'an unanswered request returned no items to count');
 });
 
 test('fetchFromProcess3: a feed that answers with nothing new is not an outage', async () => {

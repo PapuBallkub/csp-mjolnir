@@ -34,7 +34,7 @@ https://process3.gprocurement.go.th/EPROCRssFeedWeb/egpannouncerss.xml?anounceTy
 | Parameter | Value | Source |
 |---|---|---|
 | `anounceType` | Announcement code, see below. **Spelled with one "n".** `announceType` is ignored and the feed returns 0 items with no error. | Manual; seen 2026-10-07 |
-| `deptId` | Agency code, **4 digits**: `0304` กรมบัญชีกลาง, `0307` กรมสรรพากร | Manual |
+| `deptId` | Agency code: `0304` กรมบัญชีกลาง, `0307` กรมสรรพากร. The manual says 4 digits; the feed also takes other formats (below). | Manual; seen 2026-10-13 |
 | `deptsubId` | Purchasing unit, **10 digits**: `0300400070` สำนักงานคลังจังหวัดเชียงใหม่ | Manual |
 | `methodId` | Procurement method, 2 digits: `02` สอบราคา, `15` e-market, `16` e-bidding, `18` คัดเลือก, `19` เฉพาะเจาะจง, `20`–`22` จ้างที่ปรึกษา, `23`–`26` จ้างออกแบบหรือควบคุมงานก่อสร้าง | Manual |
 
@@ -43,9 +43,24 @@ https://process3.gprocurement.go.th/EPROCRssFeedWeb/egpannouncerss.xml?anounceTy
 - **`deptId` filters by agency (seen 2026-10-13).** `anounceType=D0&deptId=0307`
   returned 4 กรมสรรพากร invitations, and `deptId=0304` returned 2 different
   projects. Use it with `npm run ingest:fetch -- --dept 0307`.
+- **The agency codes are on data.go.th:** e-GP's list of purchasing units,
+  dataset `egpdepartment` (64,134 units, published by THAILAND GOVERNMENT
+  SPENDING). `npm run agencies:fetch` keeps central government's, about 270
+  ([0027](../decisions/0027-run-the-pipeline-on-a-schedule.md)).
+- **Code formats, seen 2026-10-13** (`W0`):
+
+  | Code | Example | Items |
+  |---|---|---|
+  | 4 digits | `0307` กรมสรรพากร | 11 |
+  | 5 digits | `11012` สถาบันข้อมูลขนาดใหญ่ | 1 |
+  | Letter and digits | `A004` สำนักงานคณะกรรมการการศึกษาขั้นพื้นฐาน | 20 |
+  | 7 digits | `2810101`, a provincial administration | 3 |
+  | 2 digits, a ministry | `03` กระทรวงการคลัง | 0: no asking a ministry at once |
+  | 12 digits, an office | `030405500000` สำนักงานคลังจังหวัดเชียงใหม่ | 0 |
+  | State enterprise | `S702` | 0, not conclusive |
+  | Unknown | `9999` | 0, with no error |
+
 - We have not yet tested `deptsubId` or `methodId` live.
-- The manual points to a CGD guide for the full list of agency codes; we
-  haven't found it yet.
 
 ### Announcement codes
 
@@ -111,6 +126,10 @@ RSS 2.0. Each `<item>` looks like this (seen 2026-10-07):
 - **Per-agency lists do backfill (seen 2026-10-13).** The same evening,
   `deptId=0307` returned 4 `D0` items and 11 `W0` items dated 2026-10-06 to
   2026-10-09.
+- **An agency's list holds at most 20 items per code.** `deptId=A004` returned
+  exactly 20 `W0` items, dated 2026-10-06 to 2026-10-12. A busy agency can post
+  more than that between two requests; the pipeline's `FeedPoll` records show
+  which lists came back full.
 - So the national feed is a same-day view. On a busy day we miss items unless
   we fetch more often, and on a quiet day it can be empty. Sweeping agencies
   with `deptId` covers the past several days.
@@ -161,8 +180,8 @@ The version merged in #204 said several things that turned out to be wrong:
 ## Not verified yet
 
 - `deptsubId` and `methodId` filtering, live.
-- The full list of 4-digit agency codes.
+- Whether state enterprise codes (`S…`) and special-law agency codes work.
 - The feed's hours at weekends.
-- Whether a per-agency list reaches the full 7 days, or stops at 20 items.
+- How far back a quiet agency's list reaches: 7 days, as the manual says?
 - What a `D2` item links to.
 - Whether `15` ever answers.
