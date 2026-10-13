@@ -5,6 +5,7 @@ import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { TorInsight } from '#models/index.js';
 import { buildInsight } from '#pipeline/extraction/assemble.js';
 import { classifyPreview, processTor, saveInsight } from '#pipeline/extraction/process-tor.js';
+import { sourceFingerprint } from '#pipeline/extraction/select.js';
 import { RUN, fixture } from './fixtures.js';
 
 const CONFIG = { model: 'gemini-3.7-flash' };
@@ -45,6 +46,25 @@ test('a non-IT TOR stops after the classify call: extraction never runs (D8)', a
 
   assert.equal(client.calls.length, 1);
   assert.equal(insight.metadata.excluded.reason, 'ซื้อคอมพิวเตอร์อย่างเดียว');
+});
+
+test('extraction reads the bidding document too, and is fingerprinted with it; an excluded TOR is not (ADR 0025)', async () => {
+  const { tor, classification, extracted } = fixture();
+  tor.packages = [{ kind: 'announcement', biddingText: 'เอกสารประกวดราคาจ้าง\n-- 1 of 1 --' }];
+
+  const client = fakeClient(classification, extracted);
+  const it = await processTor(tor, { client, config: CONFIG, resolveTechnologies: fakeResolver().resolve });
+  const request = JSON.stringify(client.calls[1].contents);
+  assert.match(request, /=== Document: tor ===/);
+  assert.match(request, /=== Document: bidding ===\\n=== Page 1 ===\\nเอกสารประกวดราคาจ้าง/);
+  assert.equal(it.insight.metadata.sourceFingerprint, sourceFingerprint(tor, { bidding: true }));
+
+  const excluded = await processTor(tor, {
+    client: fakeClient({ ...classification, isIT: false, category: null, reason: 'ก่อสร้างถนน' }),
+    config: CONFIG,
+    resolveTechnologies: fakeResolver().resolve,
+  });
+  assert.equal(excluded.insight.metadata.sourceFingerprint, sourceFingerprint(tor), 'built from the TOR alone');
 });
 
 test('an IT TOR is classified, extracted, checked and assembled', async () => {

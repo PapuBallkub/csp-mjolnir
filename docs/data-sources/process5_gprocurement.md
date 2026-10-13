@@ -206,7 +206,9 @@ the budget was read for 12 of 28 projects, including both open IT ones. The
 **Known gaps:**
 - **Construction's price form (บก.01) isn't read,** so construction projects
   have no budget.
-- **The bidding document isn't given to the AI yet,** though its text is stored.
+- **Extraction reads the bidding document** for eligibility and terms
+  ([0025](../decisions/0025-extraction-reads-the-bidding-document.md)), but bonds
+  and registered capital aren't structured fields yet.
 - **A TOR with no recognisable name is a guess** (the largest file). Of four
   such packages, the guess found the TOR or its specification in three; the
   fourth held only drawings.

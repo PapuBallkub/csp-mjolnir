@@ -33,7 +33,10 @@ export const PROJECT_CATEGORIES = [
 const QUOTE =
   'Copied exactly from the document: the same words, the same digits (Thai or Arabic) and the ' +
   'same spacing. One sentence or less.';
-const PAGE = 'The number in the nearest "=== Page N ===" line above the quote.';
+const PAGE = 'The number in the nearest "=== Page N ===" line above the quote, in its own document.';
+const DOCUMENT =
+  'Which document the quote is copied from: the name in the "=== Document: … ===" line above it, ' +
+  '"tor" or "bidding".';
 
 const text = (description) => ({ type: Type.STRING, nullable: true, description });
 const list = (description) => ({ type: Type.ARRAY, items: { type: Type.STRING }, description });
@@ -44,14 +47,15 @@ function evidenced(value, description) {
   return {
     type: Type.OBJECT,
     nullable: true,
-    description: `${description} null when the document does not state it.`,
+    description: `${description} null when neither document states it.`,
     properties: {
       quote: { type: Type.STRING, description: QUOTE },
+      document: { type: Type.STRING, format: 'enum', enum: ['tor', 'bidding'], description: DOCUMENT },
       page: { type: Type.INTEGER, nullable: true, description: PAGE },
       value,
     },
-    required: ['quote', 'page', 'value'],
-    propertyOrdering: ['quote', 'page', 'value'],
+    required: ['quote', 'document', 'page', 'value'],
+    propertyOrdering: ['quote', 'document', 'page', 'value'],
   };
 }
 
@@ -178,6 +182,7 @@ export const extractSchema = {
         ),
         submissionDeadline: date(
           'The last date (and time) to submit a bid, วันยื่นข้อเสนอ or วันเสนอราคา, set by an invitation. ' +
+            'When bids are taken within a window ("ระหว่างเวลา ๐๙.๐๐ น. ถึง ๑๒.๐๐ น."), the time it closes. ' +
             'Null in a draft out for public hearing, which has none yet. Never the comment deadline.',
         ),
         commentDeadline: date(

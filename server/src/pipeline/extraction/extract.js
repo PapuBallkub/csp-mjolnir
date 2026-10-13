@@ -32,7 +32,7 @@ import { withRunLock } from '../shared/run-lock.js';
 import { createGeminiClient, readGeminiConfig } from './gemini.js';
 import { buildFromAnswers, classifyPreview, processTor, saveInsight } from './process-tor.js';
 import { PROMPT_VERSION } from './prompts.js';
-import { decide, sourceFingerprint } from './select.js';
+import { decide, fingerprintFor } from './select.js';
 
 const REVIEW_DIR =
   process.env.EXTRACTIONS_DIR || path.resolve(import.meta.dirname, '../../../data/extractions');
@@ -77,7 +77,7 @@ async function recheck(tors, existing, args) {
       continue;
     }
     const before = saved.insight.metadata;
-    if (before.sourceFingerprint !== sourceFingerprint(tor)) {
+    if (before.sourceFingerprint !== fingerprintFor(tor, before)) {
       counts.sourceChanged++;
       console.log(`${label}: the source changed since these answers; run without --recheck`);
       continue;
@@ -160,9 +160,11 @@ async function run(args, { client, config }) {
   const skipped = { current: 0, outdated: 0, reviewed: 0, gaveUp: 0 };
   const queue = [];
   for (const tor of tors) {
-    const fingerprint = sourceFingerprint(tor);
+    // Compared by what the existing result was built from (ADR 0025)
+    const insight = existing.get(tor.projectId) ?? null;
+    const fingerprint = fingerprintFor(tor, insight?.metadata);
     const decision = decide({
-      insight: existing.get(tor.projectId) ?? null,
+      insight,
       fingerprint,
       promptVersion: PROMPT_VERSION,
       model: config.model,

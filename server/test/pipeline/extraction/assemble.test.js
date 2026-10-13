@@ -64,6 +64,23 @@ test("the package's bid date and ราคากลาง win, quoting the docum
   assert.equal(new TorInsight(record).validateSync(), undefined);
 });
 
+test('an AI value quoted from the bidding document says so; one from the TOR keeps document null (ADR 0025)', () => {
+  const record = build({
+    change: (input) => {
+      input.extracted.facts.warrantyYears = {
+        quote: 'รับประกันความชำรุดบกพร่อง … ๑ ปี',
+        document: 'bidding',
+        page: 9,
+        value: 1,
+      };
+    },
+  });
+  assert.deepEqual(record.evidence.warrantyYears, { quote: 'รับประกันความชำรุดบกพร่อง … ๑ ปี', page: 9, document: 'bidding' });
+  // The fixture's delivery period is quoted from the TOR
+  assert.equal(record.evidence.deliveryPeriodDays.document, null);
+  assert.equal(new TorInsight(record).validateSync(), undefined);
+});
+
 test("the price form's budget wins, quoting the form, and its ราคากลาง never stands in for the announcement's (ADR 0023)", () => {
   const formBudget = { value: 12_450_000, quote: 'วงเงินงบประมาณที่ได้รับจัดสรร … (สิบสองล้านสี่แสนห้าหมื่นบาทถ้วน)', document: 'price-form' };
   const record = build({

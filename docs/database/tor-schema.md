@@ -61,7 +61,7 @@ Each e-GP document package downloaded. Each stage (draft, invitation, change) bu
 | `downloadedAt` | `Date` | When it was downloaded | |
 | `files` | `Array` | The files kept: `{ role, fileName, storagePath, sizeBytes, pages, contentHash, textLayer }`. `role` is `announcement`, `bidding`, `tor`, `price-form` or `other`; `textLayer` is `text`, `scan`, `garbled`, or null for a non-PDF. e-GP's blank forms aren't kept. | |
 | `announcementText` | `String` | The announcement's text layer | `"(สำเนา)\nประกาศกรมการค้าภายใน\n…"` |
-| `biddingText` | `String` | The bidding document's text layer; extraction will read it later | |
+| `biddingText` | `String` | The bidding document's text layer, which extraction reads ([0025](../decisions/0025-extraction-reads-the-bidding-document.md)) | |
 | `priceFormText` | `String` | A price package's form, as OCR read it (or its text layer) | |
 | `facts.agency` | `{ value, quote, document }` | From the announcement's heading | `{ "value": "กรมการค้าภายใน", "quote": "ประกาศกรมการค้าภายใน", "document": "announcement" }` |
 | `facts.referencePriceTHB` | `{ value, quote, document }` | ราคากลาง, kept only when its digits and words agree. A price package's is a check on the announcement's. | `{ "value": 1290420, … }` |
