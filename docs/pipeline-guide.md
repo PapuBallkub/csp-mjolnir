@@ -156,12 +156,17 @@ You need:
   ```
 - **Access to Gemini.** Ask the team for the Google Cloud project and the
   `aiplatform.user` role, then follow "Setup, once per person" in
-  [pipeline.md](pipeline.md#setup-once-per-person). Check it works with:
-  ```
-  npm run gemini:check
-  ```
+  [pipeline.md](pipeline.md#setup-once-per-person).
 
-Run every command below from the `server` folder.
+**Every pipeline command runs from the `server` folder,** not the project
+folder. From the project folder, go there first, then check Gemini works:
+
+```
+cd server
+npm run gemini:check
+```
+
+Run from anywhere else, npm says it "could not read package.json".
 
 ### The commands you'll use
 
