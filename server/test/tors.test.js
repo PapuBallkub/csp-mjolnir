@@ -130,6 +130,10 @@ before(async () => {
       fileName: `${testProjectId}_TOR.pdf`,
       pages: 12,
       documentType: 'DIGITAL_TEXT_PDF',
+      // Server internals: never sent to the public
+      storagePath: `D:\\server\\data\\documents\\${testProjectId}\\pkg\\Attach_TOR_1.pdf`,
+      contentHash: 'a'.repeat(64),
+      parts: [{ fileName: 'Attach_TOR_1.pdf', storagePath: 'D:\\server\\data\\x.pdf', pages: 12 }],
     },
     ocr: {
       rawText: 'ข้อกำหนดโครงการทดสอบ...',
@@ -233,6 +237,9 @@ test('GET /api/tors/:projectId: returns full TOR detail and raw document metadat
   assert.equal(data.document.documentType, 'DIGITAL_TEXT_PDF');
   assert.equal(data.document.pages, 12);
   assert.equal(data.analytics.lockSpec.riskScore, 25);
+  // Only what the page shows: no path on the server's disk, no hash
+  assert.deepEqual(Object.keys(data.document).sort(), ['documentType', 'fileName', 'pages', 'sizeBytes']);
+  assert.ok(!JSON.stringify(data).includes('server\\\\data'), 'no server path anywhere in the response');
 });
 
 test('GET /api/tors/:projectId: returns 404 for unknown project ID', async () => {

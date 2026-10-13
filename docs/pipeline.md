@@ -119,6 +119,25 @@ npm run ingest:download
 npm run ingest:download -- --id 68039469567
 ```
 
+`--id` works on a project already in the database. For one that isn't, use
+`ingest:add`.
+
+### `npm run ingest:add`
+**Adds a project found by hand,** one the feed never showed us, from e-GP's
+own documents:
+- **From its announcement:** its title, agency and posting date. A "ร่าง"
+  heading marks it a draft; otherwise it's an invitation. The feed corrects the
+  stage if it later shows the project.
+- **Its packages:** downloaded like any other project's, with ราคากลาง, the
+  bid window and the budget read from them.
+
+It's left at `downloaded`, so `ingest:ocr` and `extract` (or `npm run
+pipeline`) pick it up next. A project already in the database is refused.
+
+```
+npm run ingest:add -- --id 69109028093
+```
+
 ### `npm run ingest:ocr`
 **Extracts the text**, in two passes over workable TORs:
 1. **Preview:** each `downloaded` scan is read for its first 6 pages
@@ -145,12 +164,14 @@ npm run ingest:ocr -- --id 67059626749
 
 | Option | Used by | Default | Meaning |
 |---|---|---|---|
-| `--id <projectId>` | download, ocr | all waiting records | Work on one TOR only |
+| `--id <projectId>` | download, ocr, add | all waiting records | Work on one TOR only. Download and OCR take one already in the database; add, one that isn't. |
+| `--dept <code>` | fetch | none | e-GP feed only: one agency's announcements (4 digits, e.g. `0307`). An agency's list reaches back several days (on 2026-10-13 it held items from 6–9 Oct); the national feed shows only the same day's latest 20 of each type, and can be empty. |
+| `--types <codes>` | fetch | every type | e-GP feed only: only these announcement codes, e.g. `D0,B0` |
 | `--query`, `-q` | fetch | none for e-GP; `คอมพิวเตอร์` for data.go.th | Keep only new projects whose title has this text. e-GP has none by default: classify decides what is IT |
 | `--limit`, `-l` | fetch | none for e-GP; `5` for data.go.th | At most this many **new** projects per source; updates to projects already in the database are never limited |
 | `--source` | fetch | `all` | `process3`, `datago` or `all` |
 | `--skip-ocr` | `ingest` | off | Stop after download |
-| `--step`, `-s` | `ingest` | `all` | `fetch`, `download`, `ocr` or `all`. The `ingest:*` scripts set this for you. |
+| `--step`, `-s` | `ingest` | `all` | `fetch`, `download`, `ocr`, `add` or `all`. The `ingest:*` scripts set this for you. |
 | `--retry-failed` | download, ocr | off | Also try the TORs that gave up after repeated failures |
 
 ## Settings

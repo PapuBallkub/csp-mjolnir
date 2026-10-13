@@ -3,7 +3,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { pickTorFiles, readAgency, readPackageFacts, readPriceForm, roleOfEntry } from '#pipeline/ingestion/lib/egp-package.js';
+import {
+  isDraftAnnouncement,
+  pickTorFiles,
+  readAgency,
+  readPackageFacts,
+  readPostedDate,
+  readPriceForm,
+  readTitle,
+  roleOfEntry,
+} from '#pipeline/ingestion/lib/egp-package.js';
 
 // What pdf-parse gives for real e-GP documents (fetched 2026-10-08 to 10-11)
 const fixture = (name) =>
@@ -274,4 +283,21 @@ test('readPriceForm trusts digits alone on a real text layer, or when the form v
     referencePriceTHB: null,
     problems: [],
   });
+});
+
+test('a project found by hand: its title, stage and posting date come from its announcement', () => {
+  const invitation = fixture('69109062251-announcement.txt');
+  assert.equal(
+    readTitle(invitation),
+    'ประกวดราคาจ้างบำรุงรักษาเครื่องคอมพิวเตอร์แม่ข่าย (Server) เครื่องคอมพิวเตอร์ และ LAN Cable ด้วยวิธีประกวดราคาอิเล็กทรอนิกส์ (e-bidding)',
+  );
+  assert.equal(isDraftAnnouncement(invitation), false);
+  assert.equal(readPostedDate(invitation), '2026-10-07');
+
+  const draft = fixture('69109028093-draft-announcement.txt');
+  assert.equal(isDraftAnnouncement(draft), true, 'marked ร่าง above its heading');
+  assert.match(readTitle(draft), /^ประกวดราคาซื้อสิทธิการใช้งานระบบบัญชีผู้ใช้งาน Active Directory/);
+
+  assert.equal(readTitle('ไม่มีหัวเรื่อง'), null);
+  assert.equal(readPostedDate('ไม่มีวันที่'), null);
 });

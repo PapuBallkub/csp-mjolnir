@@ -45,19 +45,42 @@ export async function askGemini(tor, { client, config }) {
   // leave out whatever sits on the pages nobody read (ADR 0018)
   if (tor.ocr.preview) throw new Error('Only a preview has been read; extraction waits for the full text.');
 
-  // 1. Classify: a small call on the first pages decides whether to go on (D8)
-  const classify = await classifyText(tor, { client, config });
-  if (!classify.data.isIT) return { classification: classify.data, extracted: null, usage: [classify.usage] };
+  const usage = [];
+  return keepingUsage(usage, async () => {
+    // 1. Classify: a small call on the first pages decides whether to go on (D8)
+    const classify = await classifyText(tor, { client, config });
+    usage.push(classify.usage);
+    if (!classify.data.isIT) return { classification: classify.data, extracted: null, usage };
 
-  const ask = (systemInstruction, contents, responseSchema, extra = {}) =>
-    generateJson({ client, model: config.model, systemInstruction, contents, responseSchema, thinkingLevel: THINKING_LEVEL, ...extra });
+    const ask = (systemInstruction, contents, responseSchema, extra = {}) =>
+      generateJson({ client, model: config.model, systemInstruction, contents, responseSchema, thinkingLevel: THINKING_LEVEL, ...extra });
 
-  // 2. Extract: the TOR and its bidding document (ADR 0025), the feed deliberately left out
-  const contents = buildExtractContents({ rawText, biddingText: biddingTextOf(tor) });
-  const extract = await ask(EXTRACT_INSTRUCTION, contents, extractSchema, {
-    maxOutputTokens: EXTRACT_MAX_OUTPUT_TOKENS,
+    // 2. Extract: the TOR and its bidding document (ADR 0025), the feed deliberately left out
+    const contents = buildExtractContents({ rawText, biddingText: biddingTextOf(tor) });
+    const extract = await ask(EXTRACT_INSTRUCTION, contents, extractSchema, {
+      maxOutputTokens: EXTRACT_MAX_OUTPUT_TOKENS,
+    });
+    usage.push(extract.usage);
+    return { classification: classify.data, extracted: extract.data, usage };
   });
-  return { classification: classify.data, extracted: extract.data, usage: [classify.usage, extract.usage] };
+}
+
+/**
+ * Runs work that calls Gemini, and if it fails, hands the error on with the
+ * tokens already spent (`error.usage`): a call that answered costs money even
+ * when what follows it fails, and the run's token count must say so. An
+ * unusable answer carries its own usage (GeminiResponseError).
+ */
+async function keepingUsage(usage, work) {
+  try {
+    return await work();
+  } catch (error) {
+    const spent = [...usage];
+    if (error?.usage && !Array.isArray(error.usage)) spent.push(error.usage);
+    else if (Array.isArray(error?.usage)) spent.push(...error.usage.filter((item) => !spent.includes(item)));
+    if (error && typeof error === 'object') error.usage = spent;
+    throw error;
+  }
 }
 
 /** The classify call alone: the title and the first pages (D8). */
@@ -83,13 +106,17 @@ export async function classifyPreview(tor, { client, config, now = new Date() })
   if (!tor.ocr?.rawText) throw new Error('No OCR text yet; run ingest:ocr first.');
   if (!tor.ocr.preview) throw new Error('This TOR has its full text; extract it instead.');
 
-  const classify = await classifyText(tor, { client, config });
-  const run = { model: config.model, promptVersion: PROMPT_VERSION, fingerprint: sourceFingerprint(tor), now };
-  const classification = classify.data;
-  const insight = classification.isIT
-    ? buildAwaitingFullText({ tor, classification, run })
-    : buildExcluded({ tor, classification, run });
-  return { insight, review: { classification, extracted: null, unknownTechnologies: [], preview: true }, usage: [classify.usage] };
+  const usage = [];
+  return keepingUsage(usage, async () => {
+    const classify = await classifyText(tor, { client, config });
+    usage.push(classify.usage);
+    const run = { model: config.model, promptVersion: PROMPT_VERSION, fingerprint: sourceFingerprint(tor), now };
+    const classification = classify.data;
+    const insight = classification.isIT
+      ? buildAwaitingFullText({ tor, classification, run })
+      : buildExcluded({ tor, classification, run });
+    return { insight, review: { classification, extracted: null, unknownTechnologies: [], preview: true }, usage };
+  });
 }
 
 /**
@@ -106,11 +133,14 @@ export async function classifyPreview(tor, { client, config, now = new Date() })
  */
 export async function processTor(tor, { client, config, now = new Date(), ...options }) {
   const answers = await askGemini(tor, { client, config });
-  // An extraction read the bidding document too; an excluded record, the TOR alone
-  const fingerprint = sourceFingerprint(tor, { bidding: Boolean(answers.extracted) });
-  const run = { model: config.model, promptVersion: PROMPT_VERSION, fingerprint, now };
-  const built = await buildFromAnswers(tor, answers, { run, ...options });
-  return { ...built, usage: answers.usage };
+  // Building can still fail after Gemini answered: its tokens are counted then too
+  return keepingUsage(answers.usage, async () => {
+    // An extraction read the bidding document too; an excluded record, the TOR alone
+    const fingerprint = sourceFingerprint(tor, { bidding: Boolean(answers.extracted) });
+    const run = { model: config.model, promptVersion: PROMPT_VERSION, fingerprint, now };
+    const built = await buildFromAnswers(tor, answers, { run, ...options });
+    return { ...built, usage: answers.usage };
+  });
 }
 
 /**

@@ -67,6 +67,38 @@ test('extraction reads the bidding document too, and is fingerprinted with it; a
   assert.equal(excluded.insight.metadata.sourceFingerprint, sourceFingerprint(tor), 'built from the TOR alone');
 });
 
+test('a failure after Gemini answered still reports the tokens it spent', async () => {
+  const { tor, classification, extracted } = fixture();
+
+  // The extract answer stops early: both calls' tokens were spent
+  const stoppedEarly = {
+    models: {
+      calls: 0,
+      async generateContent() {
+        this.calls++;
+        return {
+          text: JSON.stringify(this.calls === 1 ? classification : {}),
+          candidates: [{ finishReason: this.calls === 1 ? 'STOP' : 'MAX_TOKENS' }],
+          usageMetadata: { promptTokenCount: this.calls === 1 ? 100 : 5000, candidatesTokenCount: 10 },
+        };
+      },
+    },
+  };
+  const early = await processTor(tor, { client: stoppedEarly, config: CONFIG }).catch((error) => error);
+  assert.match(early.message, /stopped early/);
+  assert.deepEqual(early.usage.map((u) => u.promptTokenCount), [100, 5000]);
+
+  // Gemini answered both, and building the record fails afterwards
+  const noAgency = { ...tor, agency: '' };
+  const lateFailure = await processTor(noAgency, {
+    client: fakeClient({ ...classification, agency: null }, { ...extracted, identification: { ...extracted.identification, agency: null } }),
+    config: CONFIG,
+    resolveTechnologies: fakeResolver().resolve,
+  }).catch((error) => error);
+  assert.match(lateFailure.message, /No agency/);
+  assert.equal(lateFailure.usage.length, 2, 'the classify and the extract call');
+});
+
 test('an IT TOR is classified, extracted, checked and assembled', async () => {
   const { tor, classification, extracted } = fixture();
   const client = fakeClient(classification, extracted);

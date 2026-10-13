@@ -21,6 +21,7 @@
     "ingest:fetch": "node src/pipeline/ingestion/ingest.js --step fetch",
     "ingest:download": "node src/pipeline/ingestion/ingest.js --step download",
     "ingest:ocr": "node src/pipeline/ingestion/ingest.js --step ocr",
+    "ingest:add": "node src/pipeline/ingestion/ingest.js --step add",
     "gemini:check": "node scripts/check-gemini.js",
     "technologies:seed": "node scripts/seed-technologies.js",
     "extract": "node src/pipeline/extraction/extract.js",
