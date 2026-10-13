@@ -139,7 +139,7 @@ export function isFeedClosed(now = new Date()) {
  * @param {Function} [options.pace] - Waits before each request (NFR-03); replaced in tests
  * @param {number} [options.limit=5] - At most this many new projects; updates to followed ones are never limited
  * @returns {Promise<{ fetched: number, discovered: number, updated: number, errors: string[],
- *   unreachable: boolean, closed: boolean, requested: number, answered: number,
+ *   unreachable: boolean, rateLimited: boolean, closed: boolean, requested: number, answered: number,
  *   itemsByType: Record<string, number> }>}
  */
 export async function fetchFromProcess3({
@@ -161,6 +161,7 @@ export async function fetchFromProcess3({
       errors: [`${FEED_HOURS}; nothing was requested.`],
       unreachable: true,
       closed: true,
+      rateLimited: false,
       requested: 0,
       answered: 0,
       itemsByType: {},
@@ -190,6 +191,7 @@ export async function fetchFromProcess3({
 
   let failedRequests = 0;
   let unansweredInARow = 0;
+  let rateLimited = false;
   const itemsByType = {};
 
   const wanted = types ? ANNOUNCEMENT_TYPES.filter((t) => types.includes(t.code)) : ANNOUNCEMENT_TYPES;
@@ -395,6 +397,13 @@ export async function fetchFromProcess3({
     } catch (err) {
       if (!answered) {
         failedRequests++;
+        // e-GP asked us to slow down: it would refuse the rest too, and asking
+        // anyway only digs deeper. The caller decides when to try again.
+        if (err.response?.status === 429) {
+          rateLimited = true;
+          errors.push(`RSS ${annType.code}: e-GP asked us to slow down (HTTP 429); stopped asking`);
+          break;
+        }
         unansweredInARow++;
       }
       errors.push(`RSS ${annType.code} error: ${err.message}`);
@@ -409,7 +418,9 @@ export async function fetchFromProcess3({
     discovered,
     updated,
     errors,
-    unreachable: requested > 0 && failedRequests === requested,
+    // A feed that refused us (429) answered: it's busy, not down
+    unreachable: !rateLimited && requested > 0 && failedRequests === requested,
+    rateLimited,
     closed: false,
     requested,
     answered: requested - failedRequests,

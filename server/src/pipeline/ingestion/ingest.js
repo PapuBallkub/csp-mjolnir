@@ -43,6 +43,7 @@ import { MAX_ATTEMPTS, clearFailure, isTooBig, loadGivenUp, recordFailure } from
 import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
 import { deriveStatus } from '../shared/status-engine.js';
 import { WORKABLE } from '../shared/workable.js';
+import { createPacer } from '../shared/request-pacer.js';
 import { isPastDeadline, parseUntil } from '../shared/deadline.js';
 import { FEED_HOURS, ROUTINE_TYPES, fetchFromProcess3, procurementKindOf } from './sources/process3.js';
 import { fetchFromDataGo } from './sources/datago.js';
@@ -184,6 +185,9 @@ export async function runFetchStep({ query, limit, source, dept = null, types = 
       console.warn(`     ${FEED_HOURS}, so nothing was requested. Run again after 12:01 or 17:01.`);
     } else {
       reportSourceErrors(p3Result.errors);
+      if (p3Result.rateLimited) {
+        console.warn('     e-GP asked us to slow down (HTTP 429): the rest of this poll waits for the next run.');
+      }
       if (p3Result.unreachable) {
         console.warn('     e-GP RSS DID NOT ANSWER: no new announcements were fetched from it this run.');
       }
@@ -223,6 +227,7 @@ export async function recordPoll({ deptId, startedAt, finishedAt = new Date(), r
       startedAt,
       finishedAt,
       closed: Boolean(result.closed),
+      rateLimited: Boolean(result.rateLimited),
       requested: result.requested ?? 0,
       answered: result.answered ?? 0,
       itemsByType: result.itemsByType ?? {},
@@ -246,18 +251,36 @@ export function loadAgencies(file = AGENCIES_FILE) {
 // in a row get no answer at all, the rest would go the same way
 const MAX_DEAD_AGENCIES_IN_A_ROW = 2;
 
+// e-GP refused the first sweep, sent at one request a second, with HTTP 429
+// after about 250 requests in 4 minutes (2026-10-13). So the sweep goes
+// slower than NFR-03's limit: 1,870 requests take about 95 minutes.
+// EGP_SWEEP_SECONDS changes the pace.
+const parsedSweepSeconds = Number.parseFloat(process.env.EGP_SWEEP_SECONDS ?? '');
+export const SWEEP_INTERVAL_MS = (parsedSweepSeconds > 0 ? parsedSweepSeconds : 3) * 1000;
+
+// When e-GP asks us to slow down anyway: wait, then ask the same agency again.
+// A sweep that is refused this many times in a row stops.
+export const RATE_LIMIT_PAUSE_MS = 10 * 60 * 1000;
+const MAX_PAUSES_IN_A_ROW = 3;
+
+const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
- * The sweep (ADR 0027): asks the feed about each agency in turn. An agency's
- * list reaches back several days, up to 20 items a code, where the national
- * feed shows only the day's latest 20; the sweep finds what that dropped.
- * Asking every code also brings the cancellations, winners and amendments of
- * the projects we follow, whichever agency they belong to.
+ * The sweep (ADR 0027): asks the feed about each agency in turn, one request
+ * every SWEEP_INTERVAL_MS. An agency's list reaches back several days, up to
+ * 20 items a code, where the national feed shows only the day's latest 20;
+ * the sweep finds what that dropped. Asking every code also brings the
+ * cancellations, winners and amendments of the projects we follow, whichever
+ * agency they belong to.
  *
- * Stops early when the feed closes, the time box is over, or the feed stops
- * answering.
+ * When e-GP asks us to slow down (HTTP 429), the sweep pauses and asks the
+ * same agency again. It stops early when the feed closes, the time box is
+ * over, the feed stops answering, or it keeps refusing us.
  *
  * @param {Function} [options.fetch] - fetchFromProcess3; replaced in tests
  * @param {Function} [options.record] - recordPoll; replaced in tests
+ * @param {Function} [options.pace] - waits before each request; replaced in tests
+ * @param {Function} [options.sleep] - waits out a pause; replaced in tests
  */
 export async function runSweepStep({
   agencies = loadAgencies(),
@@ -267,25 +290,58 @@ export async function runSweepStep({
   fetch = fetchFromProcess3,
   record = recordPoll,
   now = () => new Date(),
+  pace = createPacer({ intervalMs: SWEEP_INTERVAL_MS }),
+  sleep = defaultSleep,
+  pauseMs = RATE_LIMIT_PAUSE_MS,
 }) {
-  console.log(`\n[SWEEP] Asking the e-GP feed about ${agencies.length} agencies (${types.join(', ')})...`);
-  const totals = { asked: 0, discovered: 0, updated: 0, unanswered: 0, full: 0, stoppedBy: null };
+  console.log(
+    `\n[SWEEP] Asking the e-GP feed about ${agencies.length} agencies (${types.join(', ')}), ` +
+      `one request every ${SWEEP_INTERVAL_MS / 1000} s...`,
+  );
+  const totals = { asked: 0, discovered: 0, updated: 0, unanswered: 0, full: 0, pauses: 0, stoppedBy: null };
   let deadInARow = 0;
+  let pausesInARow = 0;
 
-  for (const [index, agency] of agencies.entries()) {
+  for (let index = 0; index < agencies.length; ) {
+    const agency = agencies[index];
     if (isPastDeadline(until, now())) {
       totals.stoppedBy = 'time';
       console.log(`  -> Time box over after ${index} of ${agencies.length} agencies.`);
       break;
     }
     const startedAt = now();
-    const result = await fetch({ deptId: agency.code, types, limit: Infinity, documentsDir, downloadAttachments: false, now: startedAt });
+    const result = await fetch({ deptId: agency.code, types, limit: Infinity, documentsDir, downloadAttachments: false, now: startedAt, pace });
     await record({ deptId: agency.code, startedAt, finishedAt: now(), result });
     if (result.closed) {
       totals.stoppedBy = 'closed';
       console.warn(`  -> ${FEED_HOURS}: stopped after ${index} of ${agencies.length} agencies.`);
       break;
     }
+
+    if (result.rateLimited) {
+      // New projects it answered with before refusing are saved; the rest of
+      // this agency is asked again after the pause
+      totals.discovered += result.discovered;
+      const resumeAt = new Date(now().getTime() + pauseMs);
+      if (pausesInARow >= MAX_PAUSES_IN_A_ROW || isPastDeadline(until, resumeAt)) {
+        totals.stoppedBy = 'rate-limit';
+        console.warn(
+          `  -> e-GP still asks us to slow down (HTTP 429) at ${agency.code}: sweep stopped after ` +
+            `${index} of ${agencies.length} agencies. The next sweep starts again from the top.`,
+        );
+        break;
+      }
+      totals.pauses++;
+      pausesInARow++;
+      console.warn(
+        `  -> e-GP asked us to slow down (HTTP 429) at ${agency.code}, after ${index} agencies: ` +
+          `pausing ${Math.round(pauseMs / 60_000)} min, then asking again (pause ${pausesInARow} of ${MAX_PAUSES_IN_A_ROW})`,
+      );
+      await sleep(pauseMs);
+      continue;
+    }
+    pausesInARow = 0;
+    index++;
 
     totals.asked++;
     totals.discovered += result.discovered;
@@ -300,7 +356,7 @@ export async function runSweepStep({
           (result.unreachable ? ' · NO ANSWER' : ''),
       );
     }
-    if ((index + 1) % 25 === 0) console.log(`  -> ${index + 1} of ${agencies.length} agencies asked`);
+    if (index % 25 === 0) console.log(`  -> ${index} of ${agencies.length} agencies asked`);
 
     if (result.unreachable) {
       totals.unanswered++;
@@ -318,7 +374,8 @@ export async function runSweepStep({
   console.log(
     `  -> ${totals.asked} agencies asked: ${totals.discovered} new project(s), ${totals.updated} followed project(s) seen again` +
       (totals.full ? `; ${totals.full} agencies had a full list (20)` : '') +
-      (totals.unanswered ? `; ${totals.unanswered} did not answer` : ''),
+      (totals.unanswered ? `; ${totals.unanswered} did not answer` : '') +
+      (totals.pauses ? `; paused ${totals.pauses} time(s) when e-GP asked us to slow down` : ''),
   );
   return totals;
 }

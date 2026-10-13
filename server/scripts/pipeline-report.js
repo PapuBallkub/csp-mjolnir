@@ -44,7 +44,8 @@ async function feed(since) {
     console.log(
       `  ${label}: ${list.length} poll(s), ${sum(list, 'requested')} requests, ` +
         `${percent(sum(list, 'answered'), sum(list, 'requested'))} answered, ` +
-        `${list.filter((poll) => poll.closed).length} at closed hours · ` +
+        `${list.filter((poll) => poll.closed).length} at closed hours, ` +
+        `${list.filter((poll) => poll.rateLimited).length} refused (HTTP 429: e-GP asked us to slow down) · ` +
         `${sum(list, 'discovered')} new project(s), ${sum(list, 'updated')} followed seen again`,
     );
     console.log(`    items by code: ${Object.entries(items).map(([code, n]) => `${code} ${n}`).join(', ') || 'none'}`);

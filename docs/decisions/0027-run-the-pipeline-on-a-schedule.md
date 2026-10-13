@@ -39,10 +39,17 @@ Downloads, OCR and Gemini don't depend on the feed's hours.
 - **Poll and sweep ask for every code but `15`,** which has timed out on every
   request so far. Asking every code also brings cancellations, winners and
   amendments of the projects we follow.
-- **The sweep asks 267 central-government agencies,** about 1,870 requests at
-  one a second (NFR-03). The list is `ingestion/data/egp-agencies.json`,
-  refreshed by `npm run agencies:fetch`. Local government, schools, hospitals
-  and state enterprises come later, if the first runs justify them.
+- **The sweep asks 267 central-government agencies,** about 1,870 requests.
+  The list is `ingestion/data/egp-agencies.json`, refreshed by
+  `npm run agencies:fetch`. Local government, schools, hospitals and state
+  enterprises come later, if the first runs justify them.
+- **The sweep sends one request every 3 seconds,** slower than NFR-03's one a
+  second, so it takes about 95 minutes. The first sweep went at one a second,
+  and e-GP refused it with HTTP 429 ("too many requests") after about 250
+  requests in 4 minutes. `EGP_SWEEP_SECONDS` changes the pace.
+- **When e-GP refuses anyway, the sweep pauses for 10 minutes** and asks the
+  same agency again. It stops after 3 refusals in a row, or when a pause would
+  run past its time box; the next sweep starts from the top.
 
 **Each job is a command, `npm run job -- <name>`.** It runs its steps one
 after another, each in its own process, as the same commands run by hand.
@@ -59,7 +66,8 @@ Whatever starts it, it behaves the same: the local scheduler for a test
   the same TORs.
 
 **A feed that stops answering stops being asked.**
-- Within one request batch, after 2 requests in a row get no answer.
+- Within one request batch, after 2 requests in a row get no answer, or at
+  the first refusal (HTTP 429).
 - In a sweep, after 2 agencies in a row get no answer at all.
 - Otherwise a dead feed would cost every remaining request its 20-second
   timeout, about 10 hours for a sweep.

@@ -152,9 +152,12 @@ reaches back several days, up to 20 items per code, so the sweep finds what
 the national feed's latest 20 dropped. It asks every code but `15`, so it also
 brings the cancellations, winners and amendments of projects we follow.
 
-- About 1,870 requests for 267 agencies: 40–60 minutes.
-- Stops at the time box (`--until`), when the feed closes, or when 2 agencies
-  in a row get no answer.
+- About 1,870 requests for 267 agencies, one every 3 seconds: about 95
+  minutes. At one a second, e-GP refused us (HTTP 429) after about 250.
+- When e-GP refuses (429), it pauses 10 minutes and asks the same agency
+  again, up to 3 times in a row.
+- Stops at the time box (`--until`), when the feed closes, when 2 agencies
+  in a row get no answer, or after 3 refusals in a row.
 - `--agencies 0307,A004` sweeps just those.
 
 ```
@@ -266,6 +269,7 @@ These are optional, in `server/.env`:
 | `OCR_MAX_PAGES` | `150` | Scanned pages to OCR per document |
 | `OCR_SECONDS_PER_PAGE` | `10` | OCR time budget per page. A document gets pages × this. |
 | `PIPELINE_MAX_ATTEMPTS` | `3` | Failures before a step leaves a TOR out. Ingestion and extraction both use it. |
+| `EGP_SWEEP_SECONDS` | `3` | Seconds between the sweep's requests to the feed. e-GP refused one a second ([0027](decisions/0027-run-the-pipeline-on-a-schedule.md)). |
 | `EGP_PACKAGE_MAX_MB` | `200` | The largest e-GP package downloaded. e-GP sends no size first, so a bigger one is found by downloading up to the limit, and the project then gives up at once. To fetch one by hand, raise this and run `ingest:download -- --id <projectId> --retry-failed`. |
 | `EXTRACTIONS_DIR` | `server/data/extractions` | Where Gemini's answers are saved, for `extract --recheck` |
 | `LOGS_DIR` | `server/data/logs` | Where each job writes its log |

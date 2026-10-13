@@ -61,8 +61,9 @@ The feed can be asked in two ways:
   but it misses most of a busy day, and on a holiday it's empty.
 - **One agency at a time:** that agency's latest 20 of each kind, reaching
   back several days. Asking all 267 central-government agencies, one after
-  another, is called the **sweep**. It takes about an hour, and it's how we
-  find what the national list missed.
+  another, is called the **sweep**. It's how we find what the national list
+  missed. It takes about an hour and a half, because e-GP turns us away if
+  we ask faster.
 
 ## The journey of one project
 
@@ -209,6 +210,8 @@ step it took.
 | The national list returns nothing | A quiet day or a holiday. Normal. |
 | An agency's list has exactly 20 items | It may hold more; some can be cut off. Normal for busy agencies. |
 | "the source did not answer; not counted" | e-GP or Gemini was briefly down. It's tried again next run. |
+| "e-GP asked us to slow down (HTTP 429)", then a 10-minute pause | e-GP's limit on how fast we may ask. The sweep waits and carries on. Normal now and then. |
+| The sweep stopped after 3 refusals in a row | e-GP is limiting us harder than usual. The next sweep starts again; if it happens every night, slow the sweep down. |
 | **NO ANSWER** from the feed outside office hours, run after run | The feed is down or blocking us. Look at the logs. |
 | A project at "attempt 3 of 3" | It's skipped from now on. Look at its error. |
 | A Gemini call taking over a minute | Gemini is slow at times. Normal. |

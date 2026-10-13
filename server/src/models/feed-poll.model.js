@@ -13,6 +13,8 @@ const feedPollSchema = new mongoose.Schema(
 
     // Nothing was sent: the feed's closed hours (ADR 0017)
     closed: { type: Boolean, default: false },
+    // e-GP asked us to slow down (HTTP 429) and the rest went unasked
+    rateLimited: { type: Boolean, default: false },
 
     requested: { type: Number, default: 0 }, // requests sent
     answered: { type: Number, default: 0 }, // of those, answered at all

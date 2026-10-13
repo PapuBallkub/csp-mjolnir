@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { FeedPoll } from '#models/index.js';
-import { loadAgencies, recordPoll, runSweepStep } from '#pipeline/ingestion/ingest.js';
+import { SWEEP_INTERVAL_MS, loadAgencies, recordPoll, runSweepStep } from '#pipeline/ingestion/ingest.js';
 import { ROUTINE_TYPES } from '#pipeline/ingestion/sources/process3.js';
 
 const TEST_DB = 'mjolnir_test_sweep';
@@ -19,8 +19,8 @@ const noAnswer = () => answered({ unreachable: true, answered: 0, itemsByType: {
 /** A fake feed that answers each agency in turn with the next result given. */
 function fakeFeed(...results) {
   const asked = [];
-  const fetch = async ({ deptId, types, limit }) => {
-    asked.push({ deptId, types, limit });
+  const fetch = async ({ deptId, types, limit, pace }) => {
+    asked.push({ deptId, types, limit, pace });
     return results[asked.length - 1] ?? answered();
   };
   return { fetch, asked };
@@ -99,6 +99,64 @@ test('runSweepStep: stops when the feed closes, and when the time box is over', 
   });
   assert.equal(timed.asked, 2);
   assert.equal(timed.stoppedBy, 'time');
+});
+
+test('runSweepStep: paces its requests with its own, slower pacer', async () => {
+  const feed = fakeFeed();
+  const pace = async () => {};
+
+  await runSweepStep({ agencies: AGENCIES.slice(0, 2), fetch: feed.fetch, record: async () => {}, pace, documentsDir: 'unused' });
+
+  assert.ok(SWEEP_INTERVAL_MS >= 2000, 'slower than one a second: e-GP refused that');
+  assert.ok(feed.asked.every((options) => options.pace === pace));
+});
+
+test('runSweepStep: when e-GP asks us to slow down, pauses and asks the same agency again', async () => {
+  const refused = () => answered({ rateLimited: true, answered: 2, discovered: 1 });
+  const feed = fakeFeed(answered(), refused(), answered({ discovered: 2 }), answered(), answered(), answered());
+  const pauses = [];
+  const { saved, record } = records();
+
+  const totals = await runSweepStep({
+    agencies: AGENCIES,
+    fetch: feed.fetch,
+    record,
+    sleep: async (ms) => pauses.push(ms),
+    pauseMs: 600_000,
+    documentsDir: 'unused',
+  });
+
+  assert.deepEqual(feed.asked.map((a) => a.deptId), ['0304', '0307', '0307', '11012', 'A004', '0101']);
+  assert.deepEqual(pauses, [600_000]);
+  assert.equal(saved.length, 6, 'the refused poll is recorded too');
+  assert.equal(totals.asked, AGENCIES.length);
+  assert.equal(totals.pauses, 1);
+  assert.equal(totals.discovered, 3, 'what it found before refusing still counts');
+  assert.equal(totals.stoppedBy, null);
+});
+
+test('runSweepStep: stops after three pauses in a row, or when a pause would pass the time box', async () => {
+  const refused = () => answered({ rateLimited: true, answered: 0 });
+  const stubborn = fakeFeed(refused(), refused(), refused(), refused(), answered());
+  const pauses = [];
+  const totals = await runSweepStep({
+    agencies: AGENCIES, fetch: stubborn.fetch, record: async () => {}, sleep: async (ms) => pauses.push(ms), documentsDir: 'unused',
+  });
+  assert.equal(pauses.length, 3);
+  assert.equal(stubborn.asked.length, 4);
+  assert.equal(totals.stoppedBy, 'rate-limit');
+
+  const late = fakeFeed(refused());
+  const boxed = await runSweepStep({
+    agencies: AGENCIES,
+    fetch: late.fetch,
+    record: async () => {},
+    sleep: async () => assert.fail('no pause past the time box'),
+    until: new Date(Date.now() + 60_000),
+    pauseMs: 600_000,
+    documentsDir: 'unused',
+  });
+  assert.equal(boxed.stoppedBy, 'rate-limit');
 });
 
 test('runSweepStep: counts agencies whose list was full, since 20 is all a list holds', async () => {

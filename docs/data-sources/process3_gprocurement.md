@@ -134,6 +134,21 @@ RSS 2.0. Each `<item>` looks like this (seen 2026-10-07):
   we fetch more often, and on a quiet day it can be empty. Sweeping agencies
   with `deptId` covers the past several days.
 
+## How fast we may ask
+
+**e-GP limits how fast a client may ask (seen 2026-10-13).** The first full
+sweep asked at one request a second, about 7 per agency. At 23:16, after 37
+agencies (about 250 requests in 4 minutes), the feed answered
+**HTTP 429 Too Many Requests** to every request. We didn't capture the
+response's headers, so whether it says how long to wait (`Retry-After`) is
+unknown. By 23:46 it answered again.
+
+So the sweep asks once every 3 seconds, pauses 10 minutes on a 429, and
+asks the same agency again ([0027](../decisions/0027-run-the-pipeline-on-a-schedule.md)).
+The national poll, 7 requests, is well under the limit. The limit's real
+size, and whether e-GP's document server (`process5`) shares it, are not
+known yet.
+
 ## When it answers
 
 **Manual:** the feed is closed during office hours.

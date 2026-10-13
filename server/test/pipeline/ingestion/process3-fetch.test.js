@@ -308,6 +308,23 @@ test('fetchFromProcess3: a feed that does not answer is reported, not replaced b
   assert.ok(get.mock.calls.every((call) => call.arguments[0].includes('egpannouncerss.xml')));
 });
 
+test('fetchFromProcess3: when e-GP asks us to slow down (429), it stops asking at once', async () => {
+  const get = mock.method(axios, 'get', async (url) => {
+    if (new URL(url).searchParams.get('anounceType') === 'D0') {
+      throw new AxiosError('Request failed with status code 429', 'ERR_BAD_REQUEST', undefined, undefined, { status: 429 });
+    }
+    return { data: buildRssXml([]) };
+  });
+
+  const result = await fetchP3({ types: ['B0', 'D0', 'D2', 'W0'] });
+
+  assert.equal(get.mock.callCount(), 2, 'B0 answered, D0 refused, nothing after');
+  assert.equal(result.rateLimited, true);
+  assert.equal(result.unreachable, false, 'refusing us is busy, not down');
+  assert.equal(result.answered, 1);
+  assert.match(result.errors.at(-1), /slow down \(HTTP 429\)/);
+});
+
 test('fetchFromProcess3: one request left unanswered does not stop the others, and items are counted by code', async () => {
   mock.method(axios, 'get', async (url) => {
     const code = new URL(url).searchParams.get('anounceType');
