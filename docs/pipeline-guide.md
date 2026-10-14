@@ -54,7 +54,7 @@ The website reads the results from the database.
 |---|---|---|
 | **The e-GP feed** | New announcements: drafts, invitations to bid, changes, cancellations, winners | The only source of projects that are **open now**. It is **open only from 17:01 to 08:29** (Bangkok time), so the pipeline only asks it then. |
 | **e-GP document packages** | Each project's files: the announcement, the bidding document, the TOR, and the price form | Downloaded once per stage of the project. Some are scans, which must be read with OCR (text recognition). |
-| **data.go.th** | Past contracts, from fiscal year 2568 (October 2024 to September 2025) | Not open projects. Meant for price comparisons; being reworked. |
+| **data.go.th** | e-GP's list of agencies and their codes; past contracts from fiscal year 2568 (October 2024 to September 2025) | The pipeline uses only the agency list now, for the sweep. The past contracts aren't open projects; an import of them, for price comparisons, is planned. |
 
 The feed can be asked in two ways:
 - **The national list:** today's latest 20 announcements of each kind. Quick,

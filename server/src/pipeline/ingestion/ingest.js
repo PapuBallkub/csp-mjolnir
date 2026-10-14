@@ -3,7 +3,7 @@
  *
  * Automated CLI runner for the TOR ingestion pipeline (FR01-FR04).
  * Supports independent stage execution and end-to-end chaining:
- * 1. Fetch: Query procurement sources (process3, datago) & pre-filter IT metadata
+ * 1. Fetch: new announcements from the e-GP feed (process3), the only source of open projects
  * 2. Download: Resolve & stream download official TOR PDF packages from e-GP backend
  * 3. OCR: Hybrid text extraction (digital PDF text or Tesseract OCR for scans)
  *
@@ -46,7 +46,6 @@ import { WORKABLE } from '../shared/workable.js';
 import { paceRequest } from '../shared/request-pacer.js';
 import { isPastDeadline, parseUntil } from '../shared/deadline.js';
 import { FEED_HOURS, ROUTINE_TYPES, fetchFromProcess3, procurementKindOf } from './sources/process3.js';
-import { fetchFromDataGo } from './sources/datago.js';
 import { isDraftAnnouncement, readPostedDate, readTitle } from './lib/egp-package.js';
 import { PREVIEW_PAGES, extractText, isPreviewRead } from './lib/ocr.js';
 import { downloadEgpPackage, downloadEgpPricePackage } from './lib/tor-downloader.js';
@@ -59,9 +58,9 @@ function parseCliArgs() {
   const argv = process.argv.slice(2);
   let step = 'all'; // 'all' | 'fetch' | 'download' | 'ocr'
   let id = null; // optional single projectId
-  let query = null; // e-GP: none, classify decides; data.go.th: คอมพิวเตอร์
-  let limit = null; // e-GP: no cap on new projects; data.go.th: 5
-  let source = 'all'; // 'all' | 'process3' | 'datago'
+  let query = null; // none by default: the title screen and classify decide what is IT
+  let limit = null; // no cap on new projects
+  let source = 'process3'; // the e-GP feed; 'all' means the same
   let skipOcr = false;
   let retryFailed = false;
   let dept = null; // e-GP feed only: one agency's announcements, e.g. 0307
@@ -121,6 +120,16 @@ function parseCliArgs() {
 
   // A wrong agency code or type would make the feed answer with nothing, silently.
   // Codes come in several formats: 0307, 11012, A004 (egp-agencies.json).
+  // The e-GP feed is the one source left. data.go.th's reader was removed: it
+  // read mislabelled columns and stored finished contracts as Open
+  // (docs/data-sources/data_go_th.md).
+  if (source === 'datago') {
+    throw new Error(
+      '--source datago was removed: data.go.th has past contracts only, and its reader mislabelled them. ' +
+        'See docs/data-sources/data_go_th.md.',
+    );
+  }
+  if (!['process3', 'all'].includes(source)) throw new Error(`--source takes process3; got "${source}"`);
   if (dept && !/^[A-Z0-9]{3,11}$/.test(dept)) {
     throw new Error(`--dept takes an e-GP agency code such as 0307, 11012 or A004; got "${dept}"`);
   }
@@ -166,54 +175,36 @@ const pdfHashOf = (tor) => tor.document?.contentHash ?? null;
 /**
  * Service 1: Fetch metadata from procurement sources and pre-filter IT relevance.
  */
-export async function runFetchStep({ query, limit, source, dept = null, types = null, documentsDir }) {
+export async function runFetchStep({ query, limit, dept = null, types = null, documentsDir }) {
   console.log('\n[Service 1: FETCH] Discovering announcements & pre-filtering IT...');
-  let totalFetched = 0;
 
-  if (source === 'all' || source === 'process3') {
-    // One agency's feed (--dept) shows its last 7 days; the national one, the latest 20 of each type
-    const scope = [dept && `agency ${dept}`, types && `types ${types.join(', ')}`].filter(Boolean).join(', ');
-    console.log(`  -> Querying e-GP RSS Feed (process3.gprocurement.go.th)${scope ? `: ${scope}` : ''}...`);
-    const startedAt = new Date();
-    const p3Result = await fetchFromProcess3({
-      query,
-      limit: limit ?? Infinity,
-      documentsDir,
-      downloadAttachments: false,
-      deptId: dept ?? '',
-      types,
-      now: startedAt,
-    });
-    await recordPoll({ deptId: dept ?? '', startedAt, result: p3Result });
-    totalFetched += p3Result.fetched;
-    console.log(`     Discovered: ${p3Result.discovered} new project(s); ${p3Result.updated} followed project(s) updated`);
-    if (p3Result.closed) {
-      console.warn(`     ${FEED_HOURS}, so nothing was requested. Run again after 17:01.`);
-    } else {
-      reportSourceErrors(p3Result.errors);
-      if (p3Result.rateLimited) {
-        console.warn('     e-GP asked us to slow down (HTTP 429): the rest of this poll waits for the next run.');
-      }
-      if (p3Result.unreachable) {
-        console.warn('     e-GP RSS DID NOT ANSWER: no new announcements were fetched from it this run.');
-      }
+  // One agency's feed (--dept) shows its last 7 days; the national one, the latest 20 of each type
+  const scope = [dept && `agency ${dept}`, types && `types ${types.join(', ')}`].filter(Boolean).join(', ');
+  console.log(`  -> Querying e-GP RSS Feed (process3.gprocurement.go.th)${scope ? `: ${scope}` : ''}...`);
+  const startedAt = new Date();
+  const p3Result = await fetchFromProcess3({
+    query,
+    limit: limit ?? Infinity,
+    documentsDir,
+    downloadAttachments: false,
+    deptId: dept ?? '',
+    types,
+    now: startedAt,
+  });
+  await recordPoll({ deptId: dept ?? '', startedAt, result: p3Result });
+  console.log(`     Discovered: ${p3Result.discovered} new project(s); ${p3Result.updated} followed project(s) updated`);
+  if (p3Result.closed) {
+    console.warn(`     ${FEED_HOURS}, so nothing was requested. Run again after 17:01.`);
+  } else {
+    reportSourceErrors(p3Result.errors);
+    if (p3Result.rateLimited) {
+      console.warn('     e-GP asked us to slow down (HTTP 429): the rest of this poll waits for the next run.');
+    }
+    if (p3Result.unreachable) {
+      console.warn('     e-GP RSS DID NOT ANSWER: no new announcements were fetched from it this run.');
     }
   }
-
-  if (source === 'all' || source === 'datago') {
-    console.log('  -> Querying Open Gov Data (data.go.th CKAN)...');
-    const dgResult = await fetchFromDataGo({
-      query: query ?? 'คอมพิวเตอร์',
-      limit: limit ?? 5,
-      documentsDir,
-      downloadAttachments: false,
-    });
-    totalFetched += dgResult.fetched;
-    console.log(`     Discovered: ${dgResult.fetched} project(s)`);
-    reportSourceErrors(dgResult.errors);
-  }
-
-  return totalFetched;
+  return p3Result.fetched;
 }
 
 /** Prints every error a source reported. A count alone once hid a dead feed. */
@@ -1000,9 +991,8 @@ async function main() {
   if (args.id) {
     console.log(`Target Project  : ${args.id}`);
   }
-  console.log(`Query Filter    : ${args.query ? `"${args.query}"` : "none for e-GP (classify decides); คอมพิวเตอร์ for data.go.th"}`);
-  console.log(`Limit per source: ${args.limit ?? "none for e-GP; 5 for data.go.th"}`);
-  console.log(`Source Target   : ${args.source}`);
+  console.log(`Query Filter    : ${args.query ? `"${args.query}"` : "none (the title screen and classify decide)"}`);
+  console.log(`New projects    : ${args.limit ?? "no limit"}`);
   console.log(`Document Dir    : ${DOCUMENTS_DIR}`);
   console.log(`Skip OCR        : ${args.skipOcr}`);
   console.log(`Retry failed    : ${args.retryFailed}`);
@@ -1035,7 +1025,6 @@ async function runSteps(args) {
     await runFetchStep({
       query: args.query,
       limit: args.limit,
-      source: args.source,
       dept,
       types: args.types,
       documentsDir: DOCUMENTS_DIR,
