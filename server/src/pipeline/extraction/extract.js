@@ -28,6 +28,7 @@ import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Technology, Tor, TorInsight } from '#models/index.js';
 import { MAX_ATTEMPTS, clearFailure, loadGivenUp, recordFailure } from '../shared/failures.js';
+import { isPastDeadline, parseUntil } from '../shared/deadline.js';
 import { withRunLock } from '../shared/run-lock.js';
 import { createGeminiClient, readGeminiConfig } from './gemini.js';
 import { buildFromAnswers, classifyPreview, processTor, saveInsight } from './process-tor.js';
@@ -51,6 +52,7 @@ function parseArgs(argv) {
     outdated: argv.includes('--outdated'),
     recheck: argv.includes('--recheck'),
     retryFailed: argv.includes('--retry-failed'),
+    until: parseUntil(value('--until')), // the time box of a scheduled run (ADR 0027)
   };
 }
 
@@ -180,7 +182,12 @@ async function run(args, { client, config }) {
   const counts = { saved: 0, excluded: 0, awaiting: 0, failed: 0 };
   const usages = [];
 
+  let timedOut = 0;
   for (const [index, { tor, decision, inputKey }] of queue.slice(0, args.limit).entries()) {
+    if (isPastDeadline(args.until)) {
+      timedOut = Math.min(queue.length, args.limit) - index;
+      break;
+    }
     const label = `[${index + 1}/${Math.min(queue.length, args.limit)}] ${tor.projectId} (${decision.reason})`;
     if (decision.warn) console.warn(`${label}: a person had reviewed this result; it goes back to pending.`);
     try {
@@ -240,7 +247,8 @@ async function run(args, { client, config }) {
   console.log(
     `\nDone: ${counts.saved} extracted, ${counts.excluded} excluded, ` +
       `${counts.awaiting} IT preview(s) waiting for their full text, ${counts.failed} failed` +
-      (leftOver ? `, ${leftOver} left for the next run (--limit)` : ''),
+      (leftOver ? `, ${leftOver} left for the next run (--limit)` : '') +
+      (timedOut ? `, ${timedOut} left for the next run (time box over)` : ''),
   );
   console.log(
     `Skipped: ${skipped.current} up to date, ${skipped.outdated} on an older prompt (run with --outdated), ` +

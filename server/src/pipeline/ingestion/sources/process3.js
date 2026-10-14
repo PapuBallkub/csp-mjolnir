@@ -45,6 +45,14 @@ export const ANNOUNCEMENT_TYPES = FETCHABLE_CODES.map((code) => ({
   name: `${EGP_ANNOUNCEMENT_CODES[code].nameEn} (${EGP_ANNOUNCEMENT_CODES[code].nameTh})`,
 }));
 
+// What scheduled runs ask for: every code but `15`, which has timed out on
+// every request so far. In a sweep it would cost each agency 20 seconds.
+export const ROUTINE_TYPES = FETCHABLE_CODES.filter((code) => code !== '15');
+
+// Requests in a row that went unanswered before a run stops asking: a feed
+// that hangs would otherwise cost every remaining request its full timeout
+const MAX_UNANSWERED_IN_A_ROW = 2;
+
 /**
  * Decodes Thai XML buffer checking UTF-8 first, falling back to Windows-874.
  * @param {Buffer|Uint8Array} buffer
@@ -104,13 +112,12 @@ export function procurementKindOf(title) {
   return match ? KINDS[match[1]] : null;
 }
 
-// e-GP closes the RSS link 09:00–12:00 and 13:00–17:00, Bangkok time
-// (กรมบัญชีกลาง's RSS manual, 4.5). A request then hangs until it times out.
-const CLOSED_MINUTES = [
-  [9 * 60, 12 * 60],
-  [13 * 60, 17 * 60],
-];
-export const FEED_HOURS = 'e-GP closes the RSS feed 09:00–12:00 and 13:00–17:00 (Bangkok time)';
+// The RSS link is open 17:01–08:29 only, Bangkok time (กรมบัญชีกลาง's RSS
+// manual, 4.8, the edition with 2024 examples). An older edition gave a
+// lunch-hour opening too; the feed timed out at 12:05 and 12:20 (2026-10-11,
+// 2026-10-14) and at 08:36. A request when closed hangs until it times out.
+const CLOSED_MINUTES = [[8 * 60 + 30, 17 * 60]];
+export const FEED_HOURS = 'e-GP opens the RSS feed only 17:01–08:29 (Bangkok time)';
 
 /** Whether the feed is closed at this moment. Bangkok has no daylight saving. */
 export function isFeedClosed(now = new Date()) {
@@ -130,8 +137,14 @@ export function isFeedClosed(now = new Date()) {
  * @param {Date} [options.now] - When the feed is asked, for its opening hours
  * @param {Function} [options.pace] - Waits before each request (NFR-03); replaced in tests
  * @param {number} [options.limit=5] - At most this many new projects; updates to followed ones are never limited
+ * @param {string|null} [options.announceDate] - One day's announcements only, as YYYYMMDD (Gregorian),
+ *   with no earlier days filled in (manual 4.6)
  * @returns {Promise<{ fetched: number, discovered: number, updated: number, errors: string[],
- *   unreachable: boolean, closed: boolean }>}
+ *   unreachable: boolean, rateLimited: boolean, closed: boolean, requested: number, answered: number,
+ *   itemsByType: Record<string, number>, countByType: Record<string, number>,
+ *   oldestDateByType: Record<string, string> }>}
+ *   `countByType` is e-GP's `countbyday`: how many that day really has, where a list shows 20 at most.
+ *   `oldestDateByType` is the oldest pubDate in each list, YYYY-MM-DD.
  */
 export async function fetchFromProcess3({
   query = null,
@@ -142,6 +155,7 @@ export async function fetchFromProcess3({
   now = new Date(),
   pace = paceRequest,
   types = null, // only these announcement codes, e.g. ['D0'] for an agency sweep
+  announceDate = null, // one day only, YYYYMMDD
 }) {
   // Every request would hang for its full timeout: don't send any
   if (isFeedClosed(now)) {
@@ -152,6 +166,12 @@ export async function fetchFromProcess3({
       errors: [`${FEED_HOURS}; nothing was requested.`],
       unreachable: true,
       closed: true,
+      rateLimited: false,
+      requested: 0,
+      answered: 0,
+      itemsByType: {},
+      countByType: {},
+      oldestDateByType: {},
     };
   }
 
@@ -177,10 +197,19 @@ export async function fetchFromProcess3({
     String(item.description || '').toLowerCase().includes(queryLower);
 
   let failedRequests = 0;
+  let unansweredInARow = 0;
+  let rateLimited = false;
+  const itemsByType = {};
+  const countByType = {};
+  const oldestDateByType = {};
 
   const wanted = types ? ANNOUNCEMENT_TYPES.filter((t) => types.includes(t.code)) : ANNOUNCEMENT_TYPES;
   for (let i = 0; i < wanted.length; i++) {
     const annType = wanted[i];
+    if (unansweredInARow >= MAX_UNANSWERED_IN_A_ROW) {
+      errors.push(`stopped asking after ${unansweredInARow} requests in a row went unanswered`);
+      break;
+    }
     requested++;
     let answered = false;
     const requestUrl = new URL(BASE_URL);
@@ -190,6 +219,7 @@ export async function fetchFromProcess3({
     if (deptId) {
       requestUrl.searchParams.set('deptId', deptId);
     }
+    if (announceDate) requestUrl.searchParams.set('announceDate', announceDate);
 
     try {
       await pace(requestUrl.toString());
@@ -203,10 +233,21 @@ export async function fetchFromProcess3({
       });
 
       answered = true;
+      unansweredInARow = 0;
       const { xmlText } = decodeThaiXml(response.data);
       const parsed = parser.parse(xmlText);
       const channel = parsed?.rss?.channel || parsed?.channel;
       const items = channel?.item || [];
+      itemsByType[annType.code] = items.length;
+      // How many that day really has, where the list shows 20 at most (manual 4.7)
+      const count = Number.parseInt(String(channel?.countbyday ?? ''), 10);
+      if (Number.isInteger(count)) countByType[annType.code] = count;
+      // The oldest day in the list: the one a full list may have cut short
+      const days = items
+        .map((item) => String(item.pubDate ?? '').slice(0, 10))
+        .filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day))
+        .sort();
+      if (days.length) oldestDateByType[annType.code] = days[0];
 
       for (const currentItem of items) {
         const described = parseItemDescription(currentItem.description);
@@ -373,7 +414,17 @@ export async function fetchFromProcess3({
         else discovered++;
       }
     } catch (err) {
-      if (!answered) failedRequests++;
+      if (!answered) {
+        failedRequests++;
+        // e-GP asked us to slow down: it would refuse the rest too, and asking
+        // anyway only digs deeper. The caller decides when to try again.
+        if (err.response?.status === 429) {
+          rateLimited = true;
+          errors.push(`RSS ${annType.code}: e-GP asked us to slow down (HTTP 429); stopped asking`);
+          break;
+        }
+        unansweredInARow++;
+      }
       errors.push(`RSS ${annType.code} error: ${err.message}`);
     }
   }
@@ -386,7 +437,14 @@ export async function fetchFromProcess3({
     discovered,
     updated,
     errors,
-    unreachable: requested > 0 && failedRequests === requested,
+    // A feed that refused us (429) answered: it's busy, not down
+    unreachable: !rateLimited && requested > 0 && failedRequests === requested,
+    rateLimited,
     closed: false,
+    requested,
+    answered: requested - failedRequests,
+    itemsByType,
+    countByType,
+    oldestDateByType,
   };
 }

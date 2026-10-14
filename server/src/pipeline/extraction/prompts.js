@@ -35,6 +35,20 @@ export const PROMPT_VERSION = extract.version;
 export const CLASSIFY_INSTRUCTION = read('prompts/classify.md');
 export const EXTRACT_INSTRUCTION = `${extract.body}\n\n${read('references/glossary.md')}`;
 
+// The title screen has a version of its own: changing it re-screens the
+// projects still waiting, and nothing that was extracted (ADR 0026)
+const screen = parseVersion(read('prompts/screen.md'));
+export const SCREEN_VERSION = screen.version;
+export const SCREEN_INSTRUCTION = screen.body;
+
+/** The screen request: one project a line, its ID, how it's bought and its title. */
+export function buildScreenContents(tors) {
+  const lines = tors.map((tor) =>
+    [tor.projectId, tor.procurementMethod || '-', String(tor.title ?? '').replace(/\s+/g, ' ').trim()].join(' | '),
+  );
+  return `Projects, one a line: project ID | procurement method | title\n\n${lines.join('\n')}`;
+}
+
 /** The classify request: the feed's title helps, and the first pages decide. */
 export function buildClassifyContents({ title, rawText }) {
   return [

@@ -23,6 +23,12 @@ import { extractText } from './ocr.js';
 import { textLayerOf } from './text-layer.js';
 
 const MAX_PDF_SIZE_BYTES = 50 * 1024 * 1024; // 50MB safety limit for large scanned TORs & archives
+// A package zip holds every file of a stage, scanned annexes included. One
+// passed 200MB in the first scheduled run (69099687693, 2026-10-13); e-GP
+// sends no size first, so a bigger one is only found by downloading it.
+// EGP_PACKAGE_MAX_MB raises the limit for a retry by hand.
+const parsedPackageMb = Number.parseInt(process.env.EGP_PACKAGE_MAX_MB ?? '', 10);
+const MAX_PACKAGE_SIZE_BYTES = (parsedPackageMb > 0 ? parsedPackageMb : 200) * 1024 * 1024;
 
 // Who we are, honestly: no browser's name, no page we didn't come from
 const EGP_SERVICE_HEADERS = {
@@ -235,7 +241,7 @@ export async function downloadEgpPackage({
   projectId,
   documentsDir,
   knownZipIds = [],
-  maxSizeBytes = MAX_PDF_SIZE_BYTES,
+  maxSizeBytes = MAX_PACKAGE_SIZE_BYTES,
   now = new Date(),
   pace = paceRequest,
 }) {
@@ -354,7 +360,7 @@ export async function downloadEgpPricePackage({
   projectId,
   documentsDir,
   knownZipIds = [],
-  maxSizeBytes = MAX_PDF_SIZE_BYTES,
+  maxSizeBytes = MAX_PACKAGE_SIZE_BYTES,
   now = new Date(),
   pace = paceRequest,
   ocr = extractText,

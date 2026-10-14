@@ -38,11 +38,22 @@ const NETWORK_CODES = new Set([
  * limit (429). Works for axios errors (e-GP, data.go.th) and Gemini's.
  */
 export function isOutage(error) {
+  // A file over the size limit was answered, in full, up to the limit: the
+  // file is the problem, and trying again downloads the same bytes again
+  if (isTooBig(error)) return false;
   const status = error?.response?.status ?? error?.status;
   if (Number.isInteger(status)) return status === 429 || status >= 500;
   const code = error?.code ?? error?.cause?.code;
   return NETWORK_CODES.has(code) || (axios.isAxiosError(error) && !error.response);
 }
+
+/**
+ * Whether a download stopped at its size limit. e-GP sends no size before the
+ * bytes, so this is only found by downloading up to the limit, and trying
+ * again stops at the same place: the step gives up at once (`final`).
+ */
+export const isTooBig = (error) =>
+  /maxContentLength size of \d+ exceeded/.test(typeof error === 'string' ? error : String(error?.message ?? ''));
 
 const messageOf = (error) =>
   String(typeof error === 'string' ? error : (error?.message ?? error)).slice(0, 1000);
@@ -58,6 +69,8 @@ const messageOf = (error) =>
  * @param {Error|string} input.error
  * @param {string|null} [input.inputKey] - What the step worked from
  * @param {boolean} [input.transient] - Defaults to isOutage(error)
+ * @param {boolean} [input.final] - Trying again can only fail the same way (a file
+ *   over the size limit): the TOR gives up now, not after the usual attempts
  * @returns {Promise<{ attempts: number, counted: boolean, gaveUp: boolean }>}
  */
 export async function recordFailure({
@@ -68,11 +81,13 @@ export async function recordFailure({
   transient = isOutage(error),
   now = new Date(),
   maxAttempts = MAX_ATTEMPTS,
+  final = false,
 }) {
   // Read, then write: safe because the run lock lets one run work at a time
   const previous = await PipelineFailure.findOne({ projectId, step }).lean();
   const sameInput = Boolean(previous) && (previous.inputKey ?? null) === inputKey;
-  const attempts = (sameInput ? previous.attempts : 0) + (transient ? 0 : 1);
+  const counted = (sameInput ? previous.attempts : 0) + (transient ? 0 : 1);
+  const attempts = final && !transient ? Math.max(counted, maxAttempts) : counted;
 
   await PipelineFailure.updateOne(
     { projectId, step },
