@@ -3,7 +3,9 @@ import { Router } from 'express';
 import { requireAuth, requireRole } from '#features/auth/index.js';
 
 import {
+  handleDismissPipelineFailure,
   handleReExtract,
+  handleRetryPipelineStep,
   handleTriggerIngest,
   handleUpdateReview,
   readOperations,
@@ -38,3 +40,10 @@ adminRoutes.post('/review/:projectId/re-extract', handleReExtract);
 
 // Trigger on-demand ingestion poll across procurement feeds
 adminRoutes.post('/ingest', handleTriggerIngest);
+
+// Re-trigger / retry a failed pipeline step (FR-24)
+adminRoutes.post('/pipeline/retry', handleRetryPipelineStep);
+
+// Dismiss a permanent pipeline failure (FR-24)
+adminRoutes.post('/pipeline/dismiss', handleDismissPipelineFailure);
+

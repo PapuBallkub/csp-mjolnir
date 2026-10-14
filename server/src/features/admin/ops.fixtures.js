@@ -117,3 +117,69 @@ export const pipelineStats = {
   avgExtractionConfidence: 0.91,
   amendmentsDetected7d: 5,
 };
+
+/** Fallback snapshot of pipeline funnel stages when collections are cold or empty. */
+export const defaultStageSnapshot = {
+  stages: {
+    fetched: 14,
+    downloaded: 8,
+    ocr_preview: 2,
+    ocr_done: 22,
+  },
+  screens: {
+    pass: 28,
+    not_it: 16,
+  },
+  insights: {
+    extracted: 20,
+    excluded: 2,
+    'awaiting full text': 2,
+  },
+};
+
+/** Fallback list of stuck / failing pipeline steps. */
+export const defaultPipelineFailures = [
+  {
+    projectId: '68049205582',
+    projectTitle: 'จ้างบำรุงรักษาและพัฒนาระบบคลาวด์กลาง กรมการจัดหางาน',
+    agency: 'กรมการจัดหางาน',
+    step: 'ocr',
+    attempts: 2,
+    lastError: 'OCR timeout: 62 pages scanned at 300dpi exceeded 60s processing budget',
+    lastTransient: false,
+    firstFailedAt: '2026-10-14 06:12:00',
+    lastFailedAt: '2026-10-14 07:15:22',
+  },
+  {
+    projectId: '68099120441',
+    projectTitle: 'ซื้อระบบวิเคราะห์ข้อมูลจราจรอัจฉริยะ',
+    agency: 'กรุงเทพมหานคร',
+    step: 'extract',
+    attempts: 1,
+    lastError: 'Gemini API 429: Resource has been exhausted (rate limit exceeded)',
+    lastTransient: true,
+    firstFailedAt: '2026-10-14 08:30:11',
+    lastFailedAt: '2026-10-14 08:30:11',
+  },
+];
+
+/** Fallback recent scheduled job executions. */
+export const defaultPipelineRuns = [
+  {
+    id: 'run-fixture-01',
+    job: 'poll',
+    outcome: 'done',
+    startedAt: '2026-10-14 08:00:00',
+    finishedAt: '2026-10-14 08:03:45',
+    durationMs: 225000,
+    steps: [
+      { name: 'ingest fetch', exitCode: 0, ms: 14200 },
+      { name: 'screen', exitCode: 0, ms: 8900 },
+      { name: 'ingest download', exitCode: 0, ms: 45000 },
+      { name: 'ingest ocr', exitCode: 0, ms: 85000 },
+      { name: 'extract', exitCode: 0, ms: 71900 },
+    ],
+    error: null,
+  },
+];
+

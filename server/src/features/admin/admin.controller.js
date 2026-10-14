@@ -1,6 +1,8 @@
 import {
+  dismissPipelineFailure,
   getOperations,
   reExtractTor,
+  retryPipelineStep,
   triggerIngestion,
   updateTorReview,
 } from './admin.service.js';
@@ -58,3 +60,58 @@ export async function handleTriggerIngest(req, res, next) {
     next(err);
   }
 }
+
+export async function handleRetryPipelineStep(req, res, next) {
+  try {
+    const { projectId, step } = req.body || {};
+    if (!projectId || !step) {
+      return res.status(400).json({
+        error: { message: 'projectId and step (download, ocr, extract) are required' },
+      });
+    }
+
+    const validSteps = ['download', 'ocr', 'extract'];
+    if (!validSteps.includes(step)) {
+      return res.status(400).json({
+        error: { message: `step must be one of: ${validSteps.join(', ')}` },
+      });
+    }
+
+    const result = await retryPipelineStep(projectId, step);
+    res.json(result);
+  } catch (err) {
+    if (err.name === 'RunLockHeldError' || err.code === 'RUN_LOCK_HELD') {
+      return res.status(409).json({
+        error: {
+          message:
+            'Pipeline is currently executing another job. Step failure was cleared and re-queued for the next cycle.',
+        },
+      });
+    }
+    next(err);
+  }
+}
+
+export async function handleDismissPipelineFailure(req, res, next) {
+  try {
+    const { projectId, step, reason } = req.body || {};
+    if (!projectId || !step) {
+      return res.status(400).json({
+        error: { message: 'projectId and step (download, ocr, extract) are required' },
+      });
+    }
+
+    const validSteps = ['download', 'ocr', 'extract'];
+    if (!validSteps.includes(step)) {
+      return res.status(400).json({
+        error: { message: `step must be one of: ${validSteps.join(', ')}` },
+      });
+    }
+
+    const result = await dismissPipelineFailure(projectId, step, reason);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+

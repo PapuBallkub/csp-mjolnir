@@ -225,10 +225,49 @@ export type ReviewItem = {
   misclassified?: { predicted: string; likely: string };
 };
 
+export type PipelineFailureItem = {
+  projectId: string;
+  projectTitle: string;
+  agency: string;
+  step: "download" | "ocr" | "extract";
+  attempts: number;
+  lastError: string;
+  lastTransient: boolean;
+  firstFailedAt: string;
+  lastFailedAt: string;
+};
+
+export type PipelineStageSnapshot = {
+  stages: Record<string, number>;
+  screens: Record<string, number>;
+  insights: Record<string, number>;
+};
+
+export type PipelineRunStep = {
+  name: string;
+  exitCode: number | null;
+  startedAt: string | null;
+  ms: number;
+};
+
+export type PipelineRunItem = {
+  id: string;
+  job: "poll" | "sweep" | "process";
+  outcome: "running" | "done" | "timed-out" | "skipped" | "failed";
+  startedAt: string;
+  finishedAt?: string | null;
+  durationMs: number;
+  steps: PipelineRunStep[];
+  error?: string | null;
+};
+
 export type AdminOperations = {
   sources: ScraperSource[];
   reviewQueue: ReviewItem[];
   recentLogs?: IngestionExecutionLog[];
+  pipelineFailures?: PipelineFailureItem[];
+  stageSnapshot?: PipelineStageSnapshot;
+  pipelineRuns?: PipelineRunItem[];
   stats: {
     docsIngestedToday: number;
     totalIndexedTors?: number;
@@ -312,6 +351,43 @@ export function adminTriggerIngest(source: string = "all") {
     body: JSON.stringify({ source, limit: 2 }),
   });
 }
+
+export type RetryPipelineStepResult = {
+  ok: boolean;
+  projectId: string;
+  step: string;
+  status: string;
+  message: string;
+};
+
+export type DismissPipelineFailureResult = {
+  ok: boolean;
+  projectId: string;
+  step: string;
+  status: string;
+  message: string;
+};
+
+/**
+ * Re-triggers / retries a stuck or failed pipeline step (FR-24).
+ */
+export function adminRetryPipelineStep(projectId: string, step: string) {
+  return request<RetryPipelineStepResult>("/api/admin/pipeline/retry", {
+    method: "POST",
+    body: JSON.stringify({ projectId, step }),
+  });
+}
+
+/**
+ * Permanently dismisses a failed pipeline step and marks the document excluded (FR-24).
+ */
+export function adminDismissPipelineFailure(projectId: string, step: string, reason?: string) {
+  return request<DismissPipelineFailureResult>("/api/admin/pipeline/dismiss", {
+    method: "POST",
+    body: JSON.stringify({ projectId, step, reason }),
+  });
+}
+
 
 /* ------------------------------------------------------------------ */
 /*  TOR & Insight (FR-10, FR-11, FR-13, FR-15, FR-16, FR-19, FR-20)   */

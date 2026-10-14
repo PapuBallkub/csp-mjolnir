@@ -1,8 +1,13 @@
 import fsSync from 'node:fs';
 import path from 'node:path';
-import { FeedPoll, IngestionLog, TitleScreen, Tor, TorInsight } from '#models/index.js';
+import { FeedPoll, IngestionLog, PipelineFailure, PipelineRun, TitleScreen, Tor, TorInsight } from '#models/index.js';
 import { runFetchStep } from '#pipeline/ingestion/ingest.js';
+import { clearFailure } from '#pipeline/shared/failures.js';
+import { snapshot } from '#pipeline/jobs/run-job.js';
 import {
+  defaultPipelineFailures,
+  defaultPipelineRuns,
+  defaultStageSnapshot,
   pipelineStats,
   reviewQueue as defaultReviewQueue,
   scraperSources as defaultSources,
@@ -275,10 +280,112 @@ export async function getDynamicReviewQueue() {
 }
 
 /**
- * Returns complete operational payload for the admin dashboard (FR-22, FR-23).
+ * Retrieves stuck or failed pipeline tasks with project details (FR-24).
+ */
+export async function getPipelineFailures() {
+  try {
+    const failures = await PipelineFailure.find()
+      .sort({ lastFailedAt: -1 })
+      .limit(50)
+      .lean();
+
+    if (!failures || failures.length === 0) return [];
+
+    const projectIds = failures.map((f) => f.projectId);
+    const tors = await Tor.find({ projectId: { $in: projectIds } })
+      .select('projectId title agency')
+      .lean();
+    const torMap = new Map(tors.map((t) => [t.projectId, t]));
+
+    return failures.map((f) => {
+      const tor = torMap.get(f.projectId);
+      return {
+        projectId: f.projectId,
+        projectTitle: tor?.title || `Project ${f.projectId}`,
+        agency: tor?.agency || '',
+        step: f.step,
+        attempts: f.attempts,
+        lastError: f.lastError,
+        lastTransient: Boolean(f.lastTransient),
+        firstFailedAt: f.firstFailedAt
+          ? new Date(f.firstFailedAt).toISOString().slice(0, 19).replace('T', ' ')
+          : '-',
+        lastFailedAt: f.lastFailedAt
+          ? new Date(f.lastFailedAt).toISOString().slice(0, 19).replace('T', ' ')
+          : '-',
+      };
+    });
+  } catch {
+    return defaultPipelineFailures;
+  }
+}
+
+/**
+ * Returns document counts across all pipeline stages (FR-24).
+ */
+export async function getPipelineStageSnapshot() {
+  try {
+    const live = await snapshot();
+    return live || defaultStageSnapshot;
+  } catch {
+    return defaultStageSnapshot;
+  }
+}
+
+/**
+ * Returns recent scheduled job execution records (FR-24).
+ */
+export async function getRecentPipelineRuns() {
+  try {
+    const runs = await PipelineRun.find()
+      .sort({ startedAt: -1 })
+      .limit(10)
+      .lean();
+
+    if (!runs || runs.length === 0) return defaultPipelineRuns;
+
+    return runs.map((r) => {
+      const started = r.startedAt ? new Date(r.startedAt) : null;
+      const finished = r.finishedAt ? new Date(r.finishedAt) : null;
+      const durationMs =
+        started && finished ? Math.max(0, finished.getTime() - started.getTime()) : 0;
+
+      return {
+        id: String(r._id),
+        job: r.job,
+        outcome: r.outcome,
+        startedAt: started ? started.toISOString().slice(0, 19).replace('T', ' ') : '-',
+        finishedAt: finished ? finished.toISOString().slice(0, 19).replace('T', ' ') : null,
+        durationMs,
+        steps: (r.steps || []).map((s) => ({
+          name: s.name,
+          exitCode: s.exitCode,
+          startedAt: s.startedAt
+            ? new Date(s.startedAt).toISOString().slice(0, 19).replace('T', ' ')
+            : null,
+          ms: s.ms || 0,
+        })),
+        error: r.error || null,
+      };
+    });
+  } catch {
+    return defaultPipelineRuns;
+  }
+}
+
+/**
+ * Returns complete operational payload for the admin dashboard (FR-22, FR-23, FR-24).
  */
 export async function getOperations() {
-  const [sources, stats, reviewQueue, recentLogs] = await Promise.all([
+  const [
+    sources,
+    stats,
+    reviewQueue,
+    recentLogs,
+    pipelineFailures,
+    stageSnapshot,
+    pipelineRuns,
+  ] = await Promise.all([
     getDynamicSources(),
     getDynamicStats(),
     getDynamicReviewQueue(),
@@ -301,6 +408,9 @@ export async function getOperations() {
         }))
       )
       .catch(() => []),
+    getPipelineFailures(),
+    getPipelineStageSnapshot(),
+    getRecentPipelineRuns(),
   ]);
 
   return {
@@ -308,6 +418,9 @@ export async function getOperations() {
     stats,
     reviewQueue,
     recentLogs,
+    pipelineFailures,
+    stageSnapshot,
+    pipelineRuns,
   };
 }
 
@@ -524,5 +637,104 @@ export async function triggerIngestion({ source = 'all', limit = 2 } = {}) {
     ok: true,
     fetched: total,
     message: `Ingestion poll completed: discovered/updated ${total} record(s)`,
+  };
+}
+
+/**
+ * Resets a stuck/failed pipeline step and queues it for execution (FR-24).
+ */
+export async function retryPipelineStep(projectId, step) {
+  if (!projectId) {
+    const error = new Error('projectId is required');
+    error.status = 400;
+    throw error;
+  }
+  const validSteps = ['download', 'ocr', 'extract'];
+  if (!validSteps.includes(step)) {
+    const error = new Error(`Invalid step: ${step}. Must be one of: ${validSteps.join(', ')}`);
+    error.status = 400;
+    throw error;
+  }
+
+  const tor = await Tor.findOne({ projectId });
+  if (!tor) {
+    const error = new Error(`TOR document ${projectId} not found`);
+    error.status = 404;
+    throw error;
+  }
+
+  // Clear failure record so the step is no longer blocked
+  await clearFailure({ projectId, step });
+
+  // Reset pipelineStatus / insight to prerequisite state so step workers pick it up
+  if (step === 'download') {
+    tor.pipelineStatus = 'fetched';
+    await tor.save();
+  } else if (step === 'ocr') {
+    tor.pipelineStatus = 'downloaded';
+    await tor.save();
+  } else if (step === 'extract') {
+    await TorInsight.updateOne(
+      { projectId },
+      {
+        $set: { 'metadata.reviewStatus': 'pending' },
+        $unset: { 'metadata.excluded': 1 },
+      },
+    );
+  }
+
+  return {
+    ok: true,
+    projectId,
+    step,
+    status: 're-queued',
+    message: `Failure cleared and project ${projectId} re-queued for ${step}`,
+  };
+}
+
+/**
+ * Dismisses a pipeline failure permanently and marks document as excluded (FR-24).
+ */
+export async function dismissPipelineFailure(
+  projectId,
+  step,
+  reason = 'Dismissed by administrator',
+) {
+  if (!projectId) {
+    const error = new Error('projectId is required');
+    error.status = 400;
+    throw error;
+  }
+  const validSteps = ['download', 'ocr', 'extract'];
+  if (!validSteps.includes(step)) {
+    const error = new Error(`Invalid step: ${step}. Must be one of: ${validSteps.join(', ')}`);
+    error.status = 400;
+    throw error;
+  }
+
+  // Remove the active failure record from queue
+  await clearFailure({ projectId, step });
+
+  // Mark TorInsight as excluded so scheduled runs don't repeatedly retry it
+  await TorInsight.findOneAndUpdate(
+    { projectId },
+    {
+      $set: {
+        'metadata.origin': 'pipeline',
+        'metadata.excluded': {
+          reason: reason || 'Dismissed by administrator: unreadable or corrupt document',
+          dismissedAt: new Date(),
+        },
+      },
+    },
+    { upsert: true, returnDocument: 'after' },
+  );
+
+  return {
+    ok: true,
+    projectId,
+    step,
+    status: 'dismissed',
+    message: `Failure for project ${projectId} on step ${step} dismissed`,
   };
 }

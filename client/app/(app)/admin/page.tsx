@@ -2,12 +2,17 @@
 
 import { useEffect, useState } from "react";
 import {
+  adminDismissPipelineFailure,
   adminOperations,
   adminReExtract,
+  adminRetryPipelineStep,
   adminTriggerIngest,
   adminUpdateReview,
   type AdminOperations,
   type ApiError,
+  type PipelineFailureItem,
+  type PipelineRunItem,
+  type PipelineStageSnapshot,
   type ReviewItem,
   type SourceHealth,
   type UpdateReviewPayload,
@@ -175,6 +180,68 @@ function AdminDashboard({
   const [pollingSource, setPollingSource] = useState<string | null>(null);
   const [pollMessage, setPollMessage] = useState<string | null>(null);
 
+  // Pipeline Monitoring & Diagnostics State (FR-24)
+  const [retryingStep, setRetryingStep] = useState<string | null>(null);
+  const [dismissingStep, setDismissingStep] = useState<string | null>(null);
+  const [pipelineActionMsg, setPipelineActionMsg] = useState<{
+    text: string;
+    type: "success" | "error";
+  } | null>(null);
+  const [expandedFailureId, setExpandedFailureId] = useState<string | null>(null);
+  const [showJobHistory, setShowJobHistory] = useState(false);
+
+  const handleRetryStep = async (projectId: string, step: string) => {
+    const key = `${projectId}-${step}`;
+    setRetryingStep(key);
+    setPipelineActionMsg(null);
+    const res = await adminRetryPipelineStep(projectId, step);
+    setRetryingStep(null);
+    if (res.ok) {
+      setPipelineActionMsg({
+        type: "success",
+        text:
+          lang === "th"
+            ? `รีเซ็ตและส่งโครงการ ${projectId} ขั้นตอน (${step}) เข้าคิวประมวลผลใหม่เรียบร้อยแล้ว`
+            : `Re-queued project ${projectId} for ${step} processing.`,
+      });
+      onRefresh();
+    } else {
+      setPipelineActionMsg({
+        type: "error",
+        text: res.error.message,
+      });
+    }
+  };
+
+  const handleDismissFailure = async (projectId: string, step: string) => {
+    const confirmMsg =
+      lang === "th"
+        ? `ยืนยันการละเว้นข้อผิดพลาดของโครงการ ${projectId} (${step})? ระบบจะยกเว้นเอกสารนี้และไม่ดึงมาประมวลผลซ้ำอีก`
+        : `Confirm dismissing failure for project ${projectId} (${step})? The pipeline will exclude this document from future runs.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    const key = `${projectId}-${step}`;
+    setDismissingStep(key);
+    setPipelineActionMsg(null);
+    const res = await adminDismissPipelineFailure(projectId, step);
+    setDismissingStep(null);
+    if (res.ok) {
+      setPipelineActionMsg({
+        type: "success",
+        text:
+          lang === "th"
+            ? `ละเว้นข้อผิดพลาดโครงการ ${projectId} (${step}) เรียบร้อยแล้ว`
+            : `Dismissed failure for project ${projectId} (${step}).`,
+      });
+      onRefresh();
+    } else {
+      setPipelineActionMsg({
+        type: "error",
+        text: res.error.message,
+      });
+    }
+  };
+
   // Review Queue Search & Filters
   const [filterTab, setFilterTab] = useState<"all" | "pending" | "misclassified" | "reviewed">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -293,6 +360,283 @@ function AdminDashboard({
           </Panel>
         ))}
       </div>
+
+      {/* Pipeline Stage Funnel (FR-24) */}
+      <section className="mb-8">
+        <SectionHeading
+          sub={
+            lang === "th"
+              ? "การเคลื่อนที่ของข้อมูลตามลำดับขั้น ตั้งแต่ดึงประกาศ e-GP จนถึงสกัดข้อมูลด้วย AI"
+              : "End-to-end data progression from raw e-GP notice to structured AI extraction"
+          }
+        >
+          {lang === "th" ? "โฟลว์สถานะ Pipeline" : "Pipeline stage funnel"}
+        </SectionHeading>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <Panel className="p-3.5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Stage 1</span>
+                <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[1px] font-mono text-[10px] text-ink-2">Feed / RSS</span>
+              </div>
+              <p className="mt-1 font-mono tnum text-[22px] font-semibold text-ink">
+                {ops.stageSnapshot?.stages?.fetched ?? 0}
+              </p>
+              <p className="mt-1 text-[12px] leading-thai text-ink-2 font-medium">
+                {lang === "th" ? "ตรวจพบประกาศ (Fetched)" : "Discovered notices"}
+              </p>
+            </div>
+            <p className="mt-2 text-[11px] leading-thai text-ink-3 border-t border-line/60 pt-2">
+              {lang === "th" ? "ดึงผ่าน RSS process3 / CKAN data.go.th" : "Retrieved from RSS & open data portals"}
+            </p>
+          </Panel>
+
+          <Panel className="p-3.5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Stage 2</span>
+                <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[1px] font-mono text-[10px] text-ink-2">PDF Package</span>
+              </div>
+              <p className="mt-1 font-mono tnum text-[22px] font-semibold text-ink">
+                {ops.stageSnapshot?.stages?.downloaded ?? 0}
+              </p>
+              <p className="mt-1 text-[12px] leading-thai text-ink-2 font-medium">
+                {lang === "th" ? "ดาวน์โหลดเอกสารแล้ว (Downloaded)" : "PDF files downloaded"}
+              </p>
+            </div>
+            <p className="mt-2 text-[11px] leading-thai text-ink-3 border-t border-line/60 pt-2">
+              {lang === "th" ? "ไฟล์แนบ TOR และราคากลางพร้อมอ่าน" : "TOR attachments ready for text extraction"}
+            </p>
+          </Panel>
+
+          <Panel className="p-3.5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Stage 3</span>
+                <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[1px] font-mono text-[10px] text-ink-2">Tesseract / OCR</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <p className="mt-1 font-mono tnum text-[22px] font-semibold text-ink">
+                  {ops.stageSnapshot?.stages?.ocr_done ?? 0}
+                </p>
+                {(ops.stageSnapshot?.stages?.ocr_preview ?? 0) > 0 && (
+                  <span className="text-[11px] font-mono text-amend">
+                    (+{ops.stageSnapshot?.stages?.ocr_preview} preview)
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-[12px] leading-thai text-ink-2 font-medium">
+                {lang === "th" ? "อ่านข้อความสำเร็จ (OCR Done)" : "OCR text ready"}
+              </p>
+            </div>
+            <p className="mt-2 text-[11px] leading-thai text-ink-3 border-t border-line/60 pt-2">
+              {lang === "th" ? "แปลงสแกน PDF เป็นข้อความดิจิทัล" : "Converted scanned PDFs to readable text"}
+            </p>
+          </Panel>
+
+          <Panel className="p-3.5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Stage 4</span>
+                <span className="rounded-[2px] border border-open-line bg-open-bg px-1.5 py-[1px] font-mono text-[10px] text-open font-medium">Gemini LLM</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <p className="mt-1 font-mono tnum text-[22px] font-semibold text-open">
+                  {ops.stageSnapshot?.insights?.extracted ?? 0}
+                </p>
+                {(ops.stageSnapshot?.insights?.excluded ?? 0) > 0 && (
+                  <span className="text-[11px] font-mono text-ink-3">
+                    ({ops.stageSnapshot?.insights?.excluded} non-IT)
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-[12px] leading-thai text-ink-2 font-medium">
+                {lang === "th" ? "สกัดข้อมูล IT สำเร็จ (Extracted)" : "Structured TORs extracted"}
+              </p>
+            </div>
+            <p className="mt-2 text-[11px] leading-thai text-ink-3 border-t border-line/60 pt-2">
+              {lang === "th" ? "พร้อมให้ผู้ใช้ค้นหาและประเมินความเสี่ยง" : "Ready for search, matching & risk check"}
+            </p>
+          </Panel>
+        </div>
+      </section>
+
+      {/* Stuck & Failed Tasks Table (FR-24) */}
+      <section className="mb-8">
+        <SectionHeading
+          right={
+            (ops.pipelineFailures?.length ?? 0) > 0 ? (
+              <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 font-mono text-[11px] text-risk font-medium">
+                {ops.pipelineFailures?.length} {lang === "th" ? "รายการที่ต้องแก้ไข" : "stuck task(s)"}
+              </span>
+            ) : null
+          }
+          sub={
+            lang === "th"
+              ? "รายการงานที่ติดขัดหรือล้มเหลวระหว่างดาวน์โหลด, OCR หรือสกัดข้อมูลด้วย AI พร้อมคำสั่งสั่งรันใหม่"
+              : "Tasks that stopped or failed during download, OCR, or extraction with diagnostic error codes and retry triggers."
+          }
+        >
+          {lang === "th" ? "งานที่ติดขัดในระบบ (Stuck & Failed Tasks)" : "Stuck & failed pipeline tasks"}
+        </SectionHeading>
+
+        {pipelineActionMsg ? (
+          <div
+            className={`mb-3 rounded-[3px] border px-3 py-2 font-mono text-[12px] ${
+              pipelineActionMsg.type === "success"
+                ? "border-open-line bg-open-bg text-open"
+                : "border-risk-line bg-risk-bg text-risk"
+            }`}
+          >
+            {pipelineActionMsg.text}
+          </div>
+        ) : null}
+
+        {(!ops.pipelineFailures || ops.pipelineFailures.length === 0) ? (
+          <Panel className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="text-open text-[16px]">✓</span>
+              <span className="text-[13px] leading-thai text-ink-2">
+                {lang === "th"
+                  ? "ระบบทำงานราบรื่น — ไม่มีงานที่ติดค้างในขั้นตอน Download, OCR หรือ Extraction"
+                  : "All pipeline stages are healthy — no stuck or failed tasks."}
+              </span>
+            </div>
+            <span className="font-mono text-[11px] text-ink-3">0 failures</span>
+          </Panel>
+        ) : (
+          <Panel className="overflow-x-auto">
+            <table className="w-full min-w-[880px] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-line bg-surface-2">
+                  {[
+                    { text: lang === "th" ? "รหัส / โครงการ" : "Project", right: false },
+                    { text: lang === "th" ? "ขั้นตอน" : "Step", right: false },
+                    { text: lang === "th" ? "ลักษณะปัญหา" : "Error Nature", right: false },
+                    { text: lang === "th" ? "พยายาม" : "Attempts", right: true },
+                    { text: lang === "th" ? "ข้อความแจ้งเตือนล่าสุด" : "Diagnostic message", right: false },
+                    { text: lang === "th" ? "เวลาที่พบ" : "Last failed", right: true },
+                    { text: lang === "th" ? "การจัดการ" : "Action", right: true },
+                  ].map((col) => (
+                    <th
+                      key={col.text}
+                      className={`px-3 py-2 text-[11px] font-medium text-ink-3 ${
+                        col.right ? "text-right" : ""
+                      }`}
+                    >
+                      {col.text}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {ops.pipelineFailures.map((failure) => {
+                  const isRetrying = retryingStep === `${failure.projectId}-${failure.step}`;
+                  const isDismissing = dismissingStep === `${failure.projectId}-${failure.step}`;
+                  const isExpanded = expandedFailureId === `${failure.projectId}-${failure.step}`;
+
+                  return (
+                    <tr
+                      key={`${failure.projectId}-${failure.step}`}
+                      className="border-b border-line align-top last:border-b-0 hover:bg-surface-2/40"
+                    >
+                      <td className="px-3 py-2.5 max-w-[280px]">
+                        <span className="font-mono text-[11px] font-semibold text-ink">
+                          {failure.projectId}
+                        </span>
+                        <p className="text-[12px] leading-thai text-ink font-medium line-clamp-1">
+                          {failure.projectTitle}
+                        </p>
+                        <p className="text-[11px] text-ink-3 line-clamp-1">{failure.agency}</p>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[2px] font-mono text-[10px] uppercase font-semibold text-ink">
+                          {failure.step}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {failure.lastTransient ? (
+                          <span className="inline-flex rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-[2px] text-[10px] font-medium text-amend">
+                            {lang === "th" ? "⚠️ ขัดข้องชั่วคราว (Outage)" : "⚠️ Transient (Outage)"}
+                          </span>
+                        ) : (
+                          <span className="inline-flex rounded-[2px] border border-risk-line bg-risk-bg px-1.5 py-[2px] text-[10px] font-medium text-risk">
+                            {lang === "th" ? "❌ ข้อผิดพลาดถาวร (Defect)" : "❌ Permanent defect"}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-[12px] text-ink">
+                        {failure.attempts} / 3
+                      </td>
+                      <td className="px-3 py-2.5 max-w-[320px]">
+                        <p className="font-mono text-[11px] leading-relaxed text-risk line-clamp-2">
+                          {failure.lastError}
+                        </p>
+                        {failure.lastError && failure.lastError.length > 80 ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedFailureId(isExpanded ? null : `${failure.projectId}-${failure.step}`)
+                            }
+                            className="mt-1 text-[11px] text-ink-3 underline hover:text-ink cursor-pointer"
+                          >
+                            {isExpanded
+                              ? lang === "th"
+                                ? "ย่อรายละเอียด"
+                                : "Collapse"
+                              : lang === "th"
+                                ? "ดูข้อความเต็ม..."
+                                : "View full error..."}
+                          </button>
+                        ) : null}
+                        {isExpanded ? (
+                          <pre className="mt-2 p-2 rounded-[2px] border border-line bg-surface font-mono text-[10px] text-ink-2 whitespace-pre-wrap max-h-48 overflow-y-auto">
+                            {failure.lastError}
+                          </pre>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-[11px] text-ink-3 whitespace-nowrap">
+                        {failure.lastFailedAt}
+                      </td>
+                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleRetryStep(failure.projectId, failure.step)}
+                            disabled={isRetrying || isDismissing}
+                            className={`${btn.primary} font-mono text-[11px] py-1 px-2.5`}
+                            aria-label={`Retry ${failure.step} for ${failure.projectId}`}
+                          >
+                            {isRetrying ? (
+                              <span className="animate-spin inline-block mr-1">↻</span>
+                            ) : (
+                              "↻ "
+                            )}
+                            {lang === "th" ? "ลองใหม่" : "Retry"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDismissFailure(failure.projectId, failure.step)}
+                            disabled={isRetrying || isDismissing}
+                            className={`${btn.ghost} font-mono text-[11px] py-1 px-2 text-ink-3 hover:text-risk`}
+                            aria-label={`Dismiss failure for ${failure.projectId}`}
+                          >
+                            {isDismissing ? (
+                              <span className="animate-spin inline-block mr-1">↻</span>
+                            ) : null}
+                            {lang === "th" ? "ละเว้น" : "Dismiss"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Panel>
+        )}
+      </section>
 
       {/* Scrapers by Source */}
       <section className="mb-8">
@@ -513,6 +857,123 @@ function AdminDashboard({
           </Panel>
         </section>
       ) : null}
+
+      {/* Scheduled Job History (FR-24) */}
+      {ops.pipelineRuns && ops.pipelineRuns.length > 0 ? (
+        <section className="mb-8">
+          <SectionHeading
+            right={
+              <button
+                type="button"
+                onClick={() => setShowJobHistory(!showJobHistory)}
+                className={`${btn.secondary} font-mono text-[11px] py-0.5 px-2`}
+              >
+                {showJobHistory
+                  ? lang === "th"
+                    ? "ซ่อนประวัติ"
+                    : "Hide history"
+                  : lang === "th"
+                    ? "แสดงประวัติ"
+                    : "Show history"}
+              </button>
+            }
+            sub={
+              lang === "th"
+                ? "บันทึกการทำงานของคำสั่งอัตโนมัติ (poll, sweep, process) พร้อมสถานะของแต่ละขั้นตอน"
+                : "Execution telemetry for cron & scheduled pipeline jobs with step breakdown."
+            }
+          >
+            {lang === "th" ? "ประวัติการรัน Job อัตโนมัติ" : "Scheduled job execution history"}
+          </SectionHeading>
+
+          {showJobHistory ? (
+            <Panel className="overflow-x-auto">
+              <table className="w-full min-w-[760px] border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-line bg-surface-2">
+                    {[
+                      { text: lang === "th" ? "เวลาเริ่มต้น" : "Timestamp", right: false },
+                      { text: lang === "th" ? "งาน (Job)" : "Job", right: false },
+                      { text: lang === "th" ? "ผลลัพธ์" : "Outcome", right: false },
+                      { text: lang === "th" ? "เวลาที่ใช้" : "Duration", right: true },
+                      { text: lang === "th" ? "ขั้นตอนย่อย" : "Steps", right: false },
+                    ].map((col) => (
+                      <th
+                        key={col.text}
+                        className={`px-3 py-2 text-[11px] font-medium text-ink-3 ${
+                          col.right ? "text-right" : ""
+                        }`}
+                      >
+                        {col.text}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ops.pipelineRuns.map((run) => (
+                    <tr
+                      key={run.id}
+                      className="border-b border-line align-middle last:border-b-0 hover:bg-surface-2/40"
+                    >
+                      <td className="px-3 py-2 font-mono text-[11px] text-ink-2 whitespace-nowrap">
+                        {run.startedAt}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[2px] font-mono text-[10px] text-ink font-semibold uppercase">
+                          {run.job}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex rounded-[2px] border px-1.5 py-[2px] font-mono text-[10px] uppercase font-medium ${
+                            run.outcome === "done"
+                              ? "border-open-line bg-open-bg text-open"
+                              : run.outcome === "timed-out"
+                                ? "border-amend-line bg-amend-bg text-amend"
+                                : run.outcome === "failed"
+                                  ? "border-risk-line bg-risk-bg text-risk"
+                                  : "border-line bg-surface-2 text-ink-2"
+                          }`}
+                        >
+                          {run.outcome}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-[11px] text-ink-2">
+                        {run.durationMs > 1000
+                          ? `${(run.durationMs / 1000).toFixed(1)}s`
+                          : `${run.durationMs}ms`}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          {run.steps.map((step, idx) => (
+                            <span
+                              key={idx}
+                              className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-[1px] font-mono text-[10px] ${
+                                step.exitCode === 0
+                                  ? "border-line bg-surface text-ink-2"
+                                  : step.exitCode === null
+                                    ? "border-line/60 bg-surface-2 text-ink-3"
+                                    : "border-risk-line bg-risk-bg text-risk"
+                              }`}
+                              title={`${step.name}: exit code ${step.exitCode ?? "none"}, ${step.ms}ms`}
+                            >
+                              <span>{step.name}</span>
+                              <span className="text-[9px]">
+                                {step.exitCode === 0 ? "✓" : step.exitCode === null ? "—" : "✗"}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Panel>
+          ) : null}
+        </section>
+      ) : null}
+
 
       {/* Extraction Review Queue */}
       <section>
