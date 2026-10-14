@@ -10,14 +10,18 @@ is safe to repeat, a lease in MongoDB keeps two runs apart, and failing TORs
 stop after 3 tries. What was missing was the schedule itself, and coverage.
 
 What the e-GP feed allows ([process3_gprocurement.md](../data-sources/process3_gprocurement.md)):
-- **It's closed 09:00–12:00 and 13:00–17:00.** Agencies post during office
-  hours, so most posts happen while it's closed.
+- **It's open 17:01–08:29 only** (the manual's newer edition, and every
+  observation). Agencies post during office hours, while it's closed.
 - **The national feed shows only the same day's latest 20 items per code.**
-  Polling it more often doesn't add coverage, and on a quiet day it's empty.
+  Its own count (`countbyday`) says what that misses: 377 invitations on
+  2026-10-07, 490 on 2026-10-09. Polling more often doesn't add coverage.
 - **One agency's list (`deptId`) reaches back several days, up to 20 items
-  per code.** That's where coverage has to come from.
+  per code,** and `announceDate` asks for one day only. One agency on one day
+  was complete in every test. That's where coverage has to come from.
 - The agency codes are published on data.go.th (`egpdepartment`), and the feed
   accepts them whatever their format: `0307`, `11012`, `A004`.
+- **e-GP refuses the 240th request in a row** (HTTP 429), whatever the pace,
+  until we stop for a while.
 
 Downloads, OCR and Gemini don't depend on the feed's hours.
 
@@ -27,9 +31,8 @@ Downloads, OCR and Gemini don't depend on the feed's hours.
 
 | Time | Job | What it does |
 |---|---|---|
-| 08:00 | poll | National feed, then process |
-| 12:05 | poll | National feed, then process |
-| 17:05 | poll | National feed, then process |
+| 08:00 | poll | National feed, then process, before the feed closes at 08:30 |
+| 17:05 | poll | National feed, then process, as soon as it opens |
 | 18:00 | sweep | Every agency in the list, then process |
 | 22:00 | process | Whatever is still waiting, through the night |
 
@@ -43,13 +46,20 @@ Downloads, OCR and Gemini don't depend on the feed's hours.
   The list is `ingestion/data/egp-agencies.json`, refreshed by
   `npm run agencies:fetch`. Local government, schools, hospitals and state
   enterprises come later, if the first runs justify them.
-- **The sweep sends one request every 3 seconds,** slower than NFR-03's one a
-  second, so it takes about 95 minutes. The first sweep went at one a second,
-  and e-GP refused it with HTTP 429 ("too many requests") after about 250
-  requests in 4 minutes. `EGP_SWEEP_SECONDS` changes the pace.
+- **The sweep asks at one request a second (NFR-03) and pauses 10 minutes
+  after every 230,** before e-GP's limit of 240. A full sweep takes about 100
+  minutes, half of it pausing. Slowing down instead doesn't help: at one
+  request every 3 seconds, e-GP still refused the 240th, 7 times in a night.
+  `EGP_FEED_BURST` changes the 230.
 - **When e-GP refuses anyway, the sweep pauses for 10 minutes** and asks the
-  same agency again. It stops after 3 refusals in a row, or when a pause would
+  same thing again. It stops after 3 refusals in a row, or when a pause would
   run past its time box; the next sweep starts from the top.
+- **A full list is asked again day by day.** An agency's list that comes back
+  with 20 items may have cut days short: its oldest day, and any day before
+  it since the last sweep. Those days are asked again with `announceDate`,
+  and e-GP's `countbyday` says whether anything is still missing. Days since
+  the last sweep means yesterday and today by default; `--days N` looks
+  further back, up to the 7 days a list covers, after a sweep was missed.
 
 **Each job is a command, `npm run job -- <name>`.** It runs its steps one
 after another, each in its own process, as the same commands run by hand.
@@ -73,19 +83,23 @@ Whatever starts it, it behaves the same: the local scheduler for a test
   timeout, about 10 hours for a sweep.
 
 **Every run leaves records.**
-- `FeedPoll`: each time the feed was asked, nationally or for one agency:
-  requests, answers, items per code and new projects. A count of 20 means an
-  agency's list may have been cut off. This is the polling health of FR-22.
+- `FeedPoll`: each time the feed was asked, nationally, for one agency, or
+  for one agency's day: requests, answers, refusals, items per code, e-GP's
+  count per code and new projects. This is the polling health of FR-22.
 - `PipelineRun`: each job, with its steps, their exit codes and times, and
   the counts before and after (projects by stage, screen verdicts, insights).
 - A log file per job under `data/logs/<date>/`.
 
 ## Consequences
 
-- **Coverage goes from the day's latest 20 to every central-government
-  agency's recent list.** A busy agency can still post more than 20 a code
-  between two sweeps; the `FeedPoll` records show which, and those can be
-  swept more often.
+- **Coverage goes from 4–5% of a busy day to every central-government
+  agency's announcements,** with e-GP's own count as proof. An agency that
+  posts more than 20 of one code in one day is still cut off; the
+  `FeedPoll` records show which, and `methodId` or `deptsubId` might split it
+  (not tested).
+- **The first test day (2026-10-13 22:00 to 2026-10-14 12:05) found 418 new
+  projects.** 60 of them were IT and were extracted, 54 with a score of 80 or
+  more. The sweep found 394 of the 418, the national polls 24.
 - **Weekend hours are learned, not guessed.** The schedule runs every day: a
   quick, empty answer is a quiet day, and a timeout during open hours is the
   feed down.

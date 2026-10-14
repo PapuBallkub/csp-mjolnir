@@ -50,11 +50,28 @@ async function feed(since) {
     );
     console.log(`    items by code: ${Object.entries(items).map(([code, n]) => `${code} ${n}`).join(', ') || 'none'}`);
   }
-  const full = agencies.filter((poll) => Object.values(poll.itemsByType ?? {}).some((n) => n >= 20));
-  if (full.length) {
-    console.log(`  agencies with a full list (20, some may be cut off): ${[...new Set(full.map((poll) => poll.deptId))].join(', ')}`);
+
+  // e-GP's own count of each day (countbyday) against what its list showed
+  for (const poll of national.filter((p) => Object.keys(p.countByType ?? {}).length)) {
+    const seen = Object.entries(poll.countByType).map(([code, count]) => `${code} ${poll.itemsByType?.[code] ?? 0} of ${count}`);
+    console.log(`  national ${bangkokTime(poll.startedAt)}: seen ${seen.join(', ')} announced that day`);
   }
-  const silent = polls.filter((poll) => poll.requested && !poll.answered);
+  const byDay = agencies.filter((poll) => poll.announceDate);
+  if (byDay.length) {
+    const cut = byDay.filter((poll) =>
+      Object.entries(poll.countByType ?? {}).some(([code, count]) => count > (poll.itemsByType?.[code] ?? 0)),
+    );
+    console.log(
+      `  full agency lists asked again day by day: ${byDay.length}; still cut off: ${cut.length}` +
+        (cut.length ? ` (${cut.map((poll) => `${poll.deptId} ${poll.announceDate}`).join(', ')})` : ''),
+    );
+  } else {
+    const full = agencies.filter((poll) => Object.values(poll.itemsByType ?? {}).some((n) => n >= 20));
+    if (full.length) {
+      console.log(`  agencies with a full list (20, some may be cut off): ${[...new Set(full.map((poll) => poll.deptId))].join(', ')}`);
+    }
+  }
+  const silent = polls.filter((poll) => poll.requested && !poll.answered && !poll.rateLimited);
   for (const poll of silent.slice(0, 5)) {
     console.log(`  NO ANSWER ${bangkokTime(poll.startedAt)} ${poll.deptId || 'national'}: ${poll.problems?.[0] ?? ''}`);
   }

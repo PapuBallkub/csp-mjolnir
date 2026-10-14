@@ -154,10 +154,11 @@ test('parseItemDescription: reads the project id, method and type the feed write
   assert.deepEqual(parseItemDescription(undefined), { projectId: null, method: null, typeName: null });
 });
 
-test('isFeedClosed: e-GP closes the feed 09:00–12:00 and 13:00–17:00 Bangkok time', () => {
+test('isFeedClosed: e-GP opens the feed 17:01–08:29 only, Bangkok time', () => {
   const at = (bangkok) => new Date(`2026-10-07T${bangkok}:00+07:00`);
-  for (const time of ['08:59', '12:01', '12:59', '17:01', '23:30', '03:00']) assert.equal(isFeedClosed(at(time)), false, time);
-  for (const time of ['09:00', '10:30', '12:00', '13:00', '16:59', '17:00']) assert.equal(isFeedClosed(at(time)), true, time);
+  for (const time of ['17:01', '23:30', '00:00', '03:00', '08:29']) assert.equal(isFeedClosed(at(time)), false, time);
+  // No lunch-hour opening: an older manual had one, and the feed timed out then
+  for (const time of ['08:30', '08:59', '10:30', '12:05', '12:59', '16:59', '17:00']) assert.equal(isFeedClosed(at(time)), true, time);
 });
 
 test('fetchFromProcess3: a recorded e-GP response is read end to end', async () => {
@@ -325,6 +326,23 @@ test('fetchFromProcess3: when e-GP asks us to slow down (429), it stops asking a
   assert.match(result.errors.at(-1), /slow down \(HTTP 429\)/);
 });
 
+test('fetchFromProcess3: reads e-GP\'s count of the day and the oldest day in each list, and can ask one day', async () => {
+  const get = mock.method(axios, 'get', async (url) => {
+    return { data: new URL(url).searchParams.get('anounceType') === 'D0' ? recordedFeed() : buildRssXml([]) };
+  });
+
+  const result = await fetchP3({ types: ['D0', 'W0'], deptId: '0307', announceDate: '20261007' });
+
+  // The national list of 2026-10-07: 20 shown of the 377 announced
+  assert.equal(result.itemsByType.D0, 20);
+  assert.equal(result.countByType.D0, 377);
+  assert.equal(result.oldestDateByType.D0, '2026-10-07');
+  assert.equal(result.oldestDateByType.W0, undefined, 'an empty list has no oldest day');
+  const asked = new URL(get.mock.calls[0].arguments[0]);
+  assert.equal(asked.searchParams.get('announceDate'), '20261007');
+  assert.equal(asked.searchParams.get('deptId'), '0307');
+});
+
 test('fetchFromProcess3: one request left unanswered does not stop the others, and items are counted by code', async () => {
   mock.method(axios, 'get', async (url) => {
     const code = new URL(url).searchParams.get('anounceType');
@@ -365,7 +383,7 @@ test('fetchFromProcess3: during e-GP\'s closed hours nothing is requested', asyn
 
   assert.equal(get.mock.callCount(), 0);
   assert.deepEqual([result.fetched, result.closed, result.unreachable], [0, true, true]);
-  assert.match(result.errors[0], /09:00–12:00 and 13:00–17:00/);
+  assert.match(result.errors[0], /only 17:01–08:29/);
 });
 
 test('fetchFromProcess3: news about a followed project gets through whatever its title says', async () => {

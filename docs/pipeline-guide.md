@@ -52,7 +52,7 @@ The website reads the results from the database.
 
 | Source | What it gives us | Notes |
 |---|---|---|
-| **The e-GP feed** | New announcements: drafts, invitations to bid, changes, cancellations, winners | The only source of projects that are **open now**. It is **closed during office hours** (09:00–12:00 and 13:00–17:00, Bangkok time), so the pipeline only asks it outside those hours. |
+| **The e-GP feed** | New announcements: drafts, invitations to bid, changes, cancellations, winners | The only source of projects that are **open now**. It is **open only from 17:01 to 08:29** (Bangkok time), so the pipeline only asks it then. |
 | **e-GP document packages** | Each project's files: the announcement, the bidding document, the TOR, and the price form | Downloaded once per stage of the project. Some are scans, which must be read with OCR (text recognition). |
 | **data.go.th** | Past contracts, from fiscal year 2568 (October 2024 to September 2025) | Not open projects. Meant for price comparisons; being reworked. |
 
@@ -62,8 +62,8 @@ The feed can be asked in two ways:
 - **One agency at a time:** that agency's latest 20 of each kind, reaching
   back several days. Asking all 267 central-government agencies, one after
   another, is called the **sweep**. It's how we find what the national list
-  missed. It takes about an hour and a half, because e-GP turns us away if
-  we ask faster.
+  missed. It takes about an hour and a half, with short pauses: e-GP turns
+  us away after 240 requests in a row.
 
 ## The journey of one project
 
@@ -137,9 +137,8 @@ The pipeline runs by itself at fixed times, in Bangkok time:
 
 | Time | Run | What it does | Why then |
 |---|---|---|---|
-| 08:00 | poll | The national list, then processing | Before the feed closes at 09:00 |
-| 12:05 | poll | The national list, then processing | The feed's lunch-hour opening |
-| 17:05 | poll | The national list, then processing | The feed reopens at 17:00 |
+| 08:00 | poll | The national list, then processing | Before the feed closes at 08:30 |
+| 17:05 | poll | The national list, then processing | The feed reopens at 17:01 |
 | 18:00 | sweep | All 267 agencies, then processing | Catches what the national list missed |
 | 22:00 | process | Download, read and summarise whatever is waiting | Through the night, until 07:55 |
 
@@ -210,8 +209,10 @@ step it took.
 | The national list returns nothing | A quiet day or a holiday. Normal. |
 | An agency's list has exactly 20 items | It may hold more; some can be cut off. Normal for busy agencies. |
 | "the source did not answer; not counted" | e-GP or Gemini was briefly down. It's tried again next run. |
-| "e-GP asked us to slow down (HTTP 429)", then a 10-minute pause | e-GP's limit on how fast we may ask. The sweep waits and carries on. Normal now and then. |
-| The sweep stopped after 3 refusals in a row | e-GP is limiting us harder than usual. The next sweep starts again; if it happens every night, slow the sweep down. |
+| "pausing 10 min, before e-GP's limit" | Planned: the sweep rests every 230 requests. Normal. |
+| "e-GP asked us to slow down (HTTP 429)", then a 10-minute pause | e-GP refused us anyway. The sweep waits and carries on. Fine now and then. |
+| The sweep stopped after 3 refusals in a row | e-GP is limiting us harder than usual. The next sweep starts again; if it happens every night, lower `EGP_FEED_BURST`. |
+| "asked again by day: … cut off" | An agency posted more than 20 of one kind in one day; some of that day is missing. Rare. |
 | **NO ANSWER** from the feed outside office hours, run after run | The feed is down or blocking us. Look at the logs. |
 | A project at "attempt 3 of 3" | It's skipped from now on. Look at its error. |
 | A Gemini call taking over a minute | Gemini is slow at times. Normal. |

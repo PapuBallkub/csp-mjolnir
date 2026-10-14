@@ -13,7 +13,7 @@ test('nextSlot: the next job today, in Bangkok time whatever the machine is set 
 });
 
 test('nextSlot: strictly after now, and over midnight to tomorrow', () => {
-  assert.deepEqual(nextSlot(bangkok('2026-10-14T08:00:00')), { at: bangkok('2026-10-14T12:05:00'), job: 'poll' });
+  assert.deepEqual(nextSlot(bangkok('2026-10-14T08:00:00')), { at: bangkok('2026-10-14T17:05:00'), job: 'poll' });
   assert.deepEqual(nextSlot(bangkok('2026-10-14T22:00:00')), { at: bangkok('2026-10-15T08:00:00'), job: 'poll' });
   // 23:30 in Bangkok is still 16:30 UTC the same day
   assert.deepEqual(nextSlot(bangkok('2026-10-14T23:30:00')), { at: bangkok('2026-10-15T08:00:00'), job: 'poll' });
@@ -29,7 +29,8 @@ test('untilFor: a job stops taking work shortly before the next one starts', () 
 
 test('SCHEDULE: polls only while the feed is open; times in order', () => {
   const minutes = (at) => Number(at.slice(0, 2)) * 60 + Number(at.slice(3));
-  const open = (m) => (m >= 12 * 60 + 1 && m < 13 * 60) || m >= 17 * 60 + 1 || m < 9 * 60;
+  // The feed is open 17:01–08:29 only (manual 4.8)
+  const open = (m) => m >= 17 * 60 + 1 || m <= 8 * 60 + 29;
   for (const slot of SCHEDULE.filter((s) => s.job !== 'process')) assert.ok(open(minutes(slot.at)), `${slot.job} at ${slot.at}`);
   const times = SCHEDULE.map((s) => minutes(s.at));
   assert.deepEqual(times, [...times].sort((a, b) => a - b));

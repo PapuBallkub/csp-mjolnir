@@ -8,6 +8,8 @@ const feedPollSchema = new mongoose.Schema(
   {
     source: { type: String, enum: ['process3'], required: true },
     deptId: { type: String, default: '' }, // '' for the national feed
+    // One day only (YYYYMMDD), when a full list is asked again day by day
+    announceDate: { type: String, default: null },
     startedAt: { type: Date, required: true, index: true },
     finishedAt: { type: Date, required: true },
 
@@ -21,6 +23,9 @@ const feedPollSchema = new mongoose.Schema(
     // Items returned, by announcement code. An agency's list stops at 20, so
     // 20 here may mean some were cut off.
     itemsByType: { type: Map, of: Number, default: {} },
+    // e-GP's own count of that day's announcements, by code (`countbyday`):
+    // more than the items means the list was cut off
+    countByType: { type: Map, of: Number, default: {} },
     discovered: { type: Number, default: 0 }, // new projects added
     updated: { type: Number, default: 0 }, // followed projects seen again
 

@@ -71,8 +71,8 @@ What a bidder needs, and the file that states it most reliably:
 
 | | process3 feed | process5 files | data.go.th |
 |---|---|---|---|
-| **Documented** | Closed 09:00–12:00 and 13:00–17:00; open 12:01–12:59 and 17:01–08:59 (CGD manual) | Nothing published | Not checked yet |
-| **Seen** | Weekday nights answered; stopped by 08:36 on a Thursday; no answer on a Sunday at 12:20 or 14:33 | Answered every call: weekday night, morning, office hours and Sunday | Not checked yet |
+| **Documented** | Open 17:01–08:29 only (CGD manual, the edition with 2024 examples; an older edition also opened 12:01–12:59) | Nothing published | Not checked yet |
+| **Seen** | Weekday nights answered; stopped by 08:36 on a Thursday; no answer on a Sunday at 12:20 or 14:33, nor on a Wednesday at 12:05 | Answered every call: weekday night, morning, office hours and Sunday | Not checked yet |
 | **When closed** | The connection hangs until the client times out | Never seen closed | Not checked yet |
 
 **Run fetches on weekday nights, 17:01 to 08:30.** The file services can be

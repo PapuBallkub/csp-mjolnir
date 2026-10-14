@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { FeedPoll } from '#models/index.js';
-import { SWEEP_INTERVAL_MS, loadAgencies, recordPoll, runSweepStep } from '#pipeline/ingestion/ingest.js';
+import { FEED_BURST, daysToAskAgain, loadAgencies, recordPoll, runSweepStep } from '#pipeline/ingestion/ingest.js';
 import { ROUTINE_TYPES } from '#pipeline/ingestion/sources/process3.js';
 
 const TEST_DB = 'mjolnir_test_sweep';
@@ -19,8 +19,8 @@ const noAnswer = () => answered({ unreachable: true, answered: 0, itemsByType: {
 /** A fake feed that answers each agency in turn with the next result given. */
 function fakeFeed(...results) {
   const asked = [];
-  const fetch = async ({ deptId, types, limit, pace }) => {
-    asked.push({ deptId, types, limit, pace });
+  const fetch = async ({ deptId, types, limit, pace, announceDate }) => {
+    asked.push({ deptId, types, limit, pace, announceDate });
     return results[asked.length - 1] ?? answered();
   };
   return { fetch, asked };
@@ -101,14 +101,22 @@ test('runSweepStep: stops when the feed closes, and when the time box is over', 
   assert.equal(timed.stoppedBy, 'time');
 });
 
-test('runSweepStep: paces its requests with its own, slower pacer', async () => {
-  const feed = fakeFeed();
+test('runSweepStep: pauses before e-GP\'s limit, every burst of requests', async () => {
+  const feed = fakeFeed(); // 7 requests an agency
   const pace = async () => {};
+  const pauses = [];
 
-  await runSweepStep({ agencies: AGENCIES.slice(0, 2), fetch: feed.fetch, record: async () => {}, pace, documentsDir: 'unused' });
+  const totals = await runSweepStep({
+    agencies: AGENCIES, fetch: feed.fetch, record: async () => {}, pace, sleep: async (ms) => pauses.push(ms),
+    burst: 14, pauseMs: 600_000, documentsDir: 'unused',
+  });
 
-  assert.ok(SWEEP_INTERVAL_MS >= 2000, 'slower than one a second: e-GP refused that');
+  // 0304 and 0307 make 14; 11012 would pass the burst, so a pause first; then A004, 0101 likewise
+  assert.deepEqual(pauses, [600_000, 600_000]);
+  assert.equal(totals.pauses, 2);
+  assert.equal(totals.asked, AGENCIES.length);
   assert.ok(feed.asked.every((options) => options.pace === pace));
+  assert.ok(FEED_BURST < 240, 'e-GP refuses the 240th request');
 });
 
 test('runSweepStep: when e-GP asks us to slow down, pauses and asks the same agency again', async () => {
@@ -130,7 +138,8 @@ test('runSweepStep: when e-GP asks us to slow down, pauses and asks the same age
   assert.deepEqual(pauses, [600_000]);
   assert.equal(saved.length, 6, 'the refused poll is recorded too');
   assert.equal(totals.asked, AGENCIES.length);
-  assert.equal(totals.pauses, 1);
+  assert.equal(totals.refusals, 1);
+  assert.equal(totals.pauses, 0, 'no planned pause: the burst was never spent');
   assert.equal(totals.discovered, 3, 'what it found before refusing still counts');
   assert.equal(totals.stoppedBy, null);
 });
@@ -159,6 +168,41 @@ test('runSweepStep: stops after three pauses in a row, or when a pause would pas
   assert.equal(boxed.stoppedBy, 'rate-limit');
 });
 
+test('daysToAskAgain: the days a full list may have cut short, since the last sweep', () => {
+  // The list is all from today: today itself, and yesterday, may be missing items
+  assert.deepEqual(daysToAskAgain('2026-10-14', '2026-10-14'), ['2026-10-13', '2026-10-14']);
+  // It reaches back to yesterday: today is complete, yesterday may not be
+  assert.deepEqual(daysToAskAgain('2026-10-13', '2026-10-14'), ['2026-10-13']);
+  // It reaches back further than the last sweep: nothing new is missing
+  assert.deepEqual(daysToAskAgain('2026-10-09', '2026-10-14'), []);
+  // After a few days off, look further back
+  assert.deepEqual(daysToAskAgain('2026-10-12', '2026-10-14', 3), ['2026-10-11', '2026-10-12']);
+  assert.deepEqual(daysToAskAgain(undefined, '2026-10-14'), []);
+});
+
+test('runSweepStep: a full list is asked again day by day, and e-GP\'s count says what is still cut off', async () => {
+  // 18:00 Bangkok on 2026-10-14
+  const now = () => new Date('2026-10-14T11:00:00Z');
+  const feed = fakeFeed(
+    answered({ itemsByType: { W0: 20, D0: 3 }, oldestDateByType: { W0: '2026-10-14', D0: '2026-10-09' } }),
+    answered({ requested: 1, itemsByType: { W0: 6 }, countByType: { W0: 6 }, discovered: 0 }),
+    answered({ requested: 1, itemsByType: { W0: 20 }, countByType: { W0: 31 }, discovered: 0 }),
+  );
+  const { saved, record } = records();
+
+  const totals = await runSweepStep({ agencies: AGENCIES.slice(0, 1), fetch: feed.fetch, record, now, documentsDir: 'unused' });
+
+  assert.deepEqual(
+    feed.asked.slice(1).map((a) => [a.deptId, a.types.join(','), a.announceDate]),
+    [['0304', 'W0', '20261013'], ['0304', 'W0', '20261014']],
+  );
+  assert.equal(feed.asked[0].announceDate, undefined, 'the first ask is the usual list');
+  assert.deepEqual(saved.map((poll) => poll.announceDate), [null, '20261013', '20261014']);
+  assert.equal(totals.full, 1);
+  assert.equal(totals.askedAgain, 2);
+  assert.equal(totals.cutOff, 1, '31 announced on the 14th, 20 shown');
+});
+
 test('runSweepStep: counts agencies whose list was full, since 20 is all a list holds', async () => {
   const feed = fakeFeed(answered({ itemsByType: { W0: 20, D0: 3 } }), answered({ itemsByType: { D0: 20 } }));
   const totals = await runSweepStep({ agencies: AGENCIES.slice(0, 3), fetch: feed.fetch, record: async () => {}, documentsDir: 'unused' });
@@ -169,16 +213,24 @@ test('recordPoll: saves what was asked and what came back', async () => {
   const startedAt = new Date('2026-10-14T11:00:00Z');
   await recordPoll({
     deptId: '0307',
+    announceDate: '20261014',
     startedAt,
     finishedAt: new Date('2026-10-14T11:00:09Z'),
-    result: answered({ discovered: 1, itemsByType: { D0: 4, W0: 11 }, errors: ['a', 'b', 'c', 'd', 'e', 'f'] }),
+    result: answered({
+      discovered: 1,
+      itemsByType: { D0: 4, W0: 11 },
+      countByType: { D0: 4, W0: 11 },
+      errors: ['a', 'b', 'c', 'd', 'e', 'f'],
+    }),
   });
 
   const poll = await FeedPoll.findOne({ deptId: '0307' }).lean();
   assert.equal(poll.source, 'process3');
+  assert.equal(poll.announceDate, '20261014');
   assert.equal(poll.requested, 7);
   assert.equal(poll.answered, 7);
   assert.equal(poll.discovered, 1);
   assert.equal(poll.itemsByType.W0, 11);
+  assert.equal(poll.countByType.W0, 11);
   assert.deepEqual(poll.problems, ['a', 'b', 'c', 'd', 'e'], 'the first few errors only');
 });

@@ -43,7 +43,7 @@ import { MAX_ATTEMPTS, clearFailure, isTooBig, loadGivenUp, recordFailure } from
 import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
 import { deriveStatus } from '../shared/status-engine.js';
 import { WORKABLE } from '../shared/workable.js';
-import { createPacer } from '../shared/request-pacer.js';
+import { paceRequest } from '../shared/request-pacer.js';
 import { isPastDeadline, parseUntil } from '../shared/deadline.js';
 import { FEED_HOURS, ROUTINE_TYPES, fetchFromProcess3, procurementKindOf } from './sources/process3.js';
 import { fetchFromDataGo } from './sources/datago.js';
@@ -69,6 +69,7 @@ function parseCliArgs() {
   let until = null; // the time box: no new work after it (ADR 0027)
   let skipScreen = false; // download new projects without waiting for the title screen
   let agencies = null; // sweep only these agency codes, e.g. 0307,A004
+  let days = 1; // sweep: how many days back a full list is asked again, day by day
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -111,6 +112,8 @@ function parseCliArgs() {
       until = parseUntil(arg.slice('--until='.length));
     } else if (arg === '--skip-screen') {
       skipScreen = true;
+    } else if (arg === '--days' && i + 1 < argv.length) {
+      days = Number.parseInt(argv[++i], 10);
     } else if (arg === '--agencies' && i + 1 < argv.length) {
       agencies = argv[++i].split(',').map((code) => code.trim().toUpperCase()).filter(Boolean);
     }
@@ -126,7 +129,10 @@ function parseCliArgs() {
     throw new Error(`--types takes e-GP announcement codes (${Object.keys(EGP_ANNOUNCEMENT_CODES).join(', ')}); not ${unknown.join(', ')}`);
   }
 
-  return { step, id, query, limit, source, skipOcr, retryFailed, dept, types, until, skipScreen, agencies };
+  // An agency list reaches back 7 days at most (manual 4.2)
+  if (!(days >= 0 && days <= 7)) throw new Error(`--days takes 0 to 7; got "${days}"`);
+
+  return { step, id, query, limit, source, skipOcr, retryFailed, dept, types, until, skipScreen, agencies, days };
 }
 
 /**
@@ -182,7 +188,7 @@ export async function runFetchStep({ query, limit, source, dept = null, types = 
     totalFetched += p3Result.fetched;
     console.log(`     Discovered: ${p3Result.discovered} new project(s); ${p3Result.updated} followed project(s) updated`);
     if (p3Result.closed) {
-      console.warn(`     ${FEED_HOURS}, so nothing was requested. Run again after 12:01 or 17:01.`);
+      console.warn(`     ${FEED_HOURS}, so nothing was requested. Run again after 17:01.`);
     } else {
       reportSourceErrors(p3Result.errors);
       if (p3Result.rateLimited) {
@@ -219,11 +225,12 @@ function reportSourceErrors(errors) {
  * Keeps a record of one time the feed was asked (ADR 0027): the polling
  * health FR-22 asks for. A record that can't be saved never stops the run.
  */
-export async function recordPoll({ deptId, startedAt, finishedAt = new Date(), result }) {
+export async function recordPoll({ deptId, announceDate = null, startedAt, finishedAt = new Date(), result }) {
   try {
     await FeedPoll.create({
       source: 'process3',
       deptId,
+      announceDate,
       startedAt,
       finishedAt,
       closed: Boolean(result.closed),
@@ -231,6 +238,7 @@ export async function recordPoll({ deptId, startedAt, finishedAt = new Date(), r
       requested: result.requested ?? 0,
       answered: result.answered ?? 0,
       itemsByType: result.itemsByType ?? {},
+      countByType: result.countByType ?? {},
       discovered: result.discovered ?? 0,
       updated: result.updated ?? 0,
       problems: (result.errors ?? []).slice(0, 5),
@@ -251,31 +259,61 @@ export function loadAgencies(file = AGENCIES_FILE) {
 // in a row get no answer at all, the rest would go the same way
 const MAX_DEAD_AGENCIES_IN_A_ROW = 2;
 
-// e-GP refused the first sweep, sent at one request a second, with HTTP 429
-// after about 250 requests in 4 minutes (2026-10-13). So the sweep goes
-// slower than NFR-03's limit: 1,870 requests take about 95 minutes.
-// EGP_SWEEP_SECONDS changes the pace.
-const parsedSweepSeconds = Number.parseFloat(process.env.EGP_SWEEP_SECONDS ?? '');
-export const SWEEP_INTERVAL_MS = (parsedSweepSeconds > 0 ? parsedSweepSeconds : 3) * 1000;
+// e-GP refuses the 240th request (HTTP 429), whatever the pace: at one a
+// second and at one every 3 seconds alike, then again after each 10-minute
+// pause, 7 times in one night (2026-10-14). So the sweep asks at NFR-03's
+// one a second and pauses before the limit, instead of waiting to be refused.
+// EGP_FEED_BURST changes how many requests go out between pauses.
+const parsedBurst = Number.parseInt(process.env.EGP_FEED_BURST ?? '', 10);
+export const FEED_BURST = parsedBurst > 0 ? parsedBurst : 230;
+export const FEED_PAUSE_MS = 10 * 60 * 1000;
 
-// When e-GP asks us to slow down anyway: wait, then ask the same agency again.
-// A sweep that is refused this many times in a row stops.
-export const RATE_LIMIT_PAUSE_MS = 10 * 60 * 1000;
-const MAX_PAUSES_IN_A_ROW = 3;
+// A sweep that e-GP refuses this many times in a row, even after pausing, stops
+const MAX_REFUSALS_IN_A_ROW = 3;
 
 const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** A day as Bangkok sees it, YYYY-MM-DD. */
+const bangkokDay = (date) => new Date(date.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
 /**
- * The sweep (ADR 0027): asks the feed about each agency in turn, one request
- * every SWEEP_INTERVAL_MS. An agency's list reaches back several days, up to
- * 20 items a code, where the national feed shows only the day's latest 20;
- * the sweep finds what that dropped. Asking every code also brings the
- * cancellations, winners and amendments of the projects we follow, whichever
- * agency they belong to.
+ * The days a full list may have cut short, to ask again one at a time. A list
+ * holds the latest 20: every day newer than its oldest is complete, and its
+ * oldest day, and the days before it, may not be. Only the days since the
+ * last sweep matter, `lookbackDays` back from today; the sweeps before
+ * covered the rest.
  *
- * When e-GP asks us to slow down (HTTP 429), the sweep pauses and asks the
- * same agency again. It stops early when the feed closes, the time box is
- * over, the feed stops answering, or it keeps refusing us.
+ * @param {string|undefined} oldest - The oldest day in the list, YYYY-MM-DD
+ * @param {string} today - YYYY-MM-DD, Bangkok
+ * @returns {string[]} Days, oldest first, YYYY-MM-DD
+ */
+export function daysToAskAgain(oldest, today, lookbackDays = 1) {
+  if (!oldest) return [];
+  const days = [];
+  const end = Date.parse(`${today}T00:00:00Z`);
+  for (let back = lookbackDays; back >= 0; back--) {
+    const day = new Date(end - back * DAY_MS).toISOString().slice(0, 10);
+    if (day <= oldest) days.push(day);
+  }
+  return days;
+}
+
+/**
+ * The sweep (ADR 0027): asks the feed about each agency in turn. An agency's
+ * list reaches back up to 7 days, at most 20 items a code, where the national
+ * feed shows only the day's latest 20; the sweep finds what that dropped.
+ * Asking every code also brings the cancellations, winners and amendments of
+ * the projects we follow, whichever agency they belong to.
+ *
+ * A list that comes back full (20) may have cut days short: those days are
+ * asked again, one at a time (`announceDate`), and e-GP's own count for each
+ * (`countbyday`) says whether anything is still missing.
+ *
+ * It pauses every FEED_BURST requests, before e-GP's limit, and when e-GP
+ * refuses anyway (HTTP 429), then carries on with the same request. It stops
+ * early when the feed closes, the time box is over, the feed stops answering,
+ * or e-GP keeps refusing.
  *
  * @param {Function} [options.fetch] - fetchFromProcess3; replaced in tests
  * @param {Function} [options.record] - recordPoll; replaced in tests
@@ -286,78 +324,102 @@ export async function runSweepStep({
   agencies = loadAgencies(),
   types = ROUTINE_TYPES,
   until = null,
+  lookbackDays = 1,
   documentsDir,
   fetch = fetchFromProcess3,
   record = recordPoll,
   now = () => new Date(),
-  pace = createPacer({ intervalMs: SWEEP_INTERVAL_MS }),
+  pace = paceRequest,
   sleep = defaultSleep,
-  pauseMs = RATE_LIMIT_PAUSE_MS,
+  pauseMs = FEED_PAUSE_MS,
+  burst = FEED_BURST,
 }) {
   console.log(
     `\n[SWEEP] Asking the e-GP feed about ${agencies.length} agencies (${types.join(', ')}), ` +
-      `one request every ${SWEEP_INTERVAL_MS / 1000} s...`,
+      `pausing ${Math.round(pauseMs / 60_000)} min every ${burst} requests...`,
   );
-  const totals = { asked: 0, discovered: 0, updated: 0, unanswered: 0, full: 0, pauses: 0, stoppedBy: null };
-  let deadInARow = 0;
-  let pausesInARow = 0;
+  const totals = {
+    asked: 0, discovered: 0, updated: 0, unanswered: 0, full: 0, askedAgain: 0, cutOff: 0,
+    pauses: 0, refusals: 0, stoppedBy: null,
+  };
+  const today = bangkokDay(now());
+  const pauseMinutes = Math.round(pauseMs / 60_000);
+  let sent = 0; // requests since the last pause
+  let refusalsInARow = 0;
 
-  for (let index = 0; index < agencies.length; ) {
-    const agency = agencies[index];
-    if (isPastDeadline(until, now())) {
+  /** Waits out a pause, unless it would run past the time box. False: stop instead. */
+  async function pause() {
+    if (isPastDeadline(until, new Date(now().getTime() + pauseMs))) {
       totals.stoppedBy = 'time';
-      console.log(`  -> Time box over after ${index} of ${agencies.length} agencies.`);
-      break;
+      return false;
     }
-    const startedAt = now();
-    const result = await fetch({ deptId: agency.code, types, limit: Infinity, documentsDir, downloadAttachments: false, now: startedAt, pace });
-    await record({ deptId: agency.code, startedAt, finishedAt: now(), result });
-    if (result.closed) {
-      totals.stoppedBy = 'closed';
-      console.warn(`  -> ${FEED_HOURS}: stopped after ${index} of ${agencies.length} agencies.`);
-      break;
-    }
+    await sleep(pauseMs);
+    sent = 0;
+    return true;
+  }
 
-    if (result.rateLimited) {
-      // New projects it answered with before refusing are saved; the rest of
-      // this agency is asked again after the pause
-      totals.discovered += result.discovered;
-      const resumeAt = new Date(now().getTime() + pauseMs);
-      if (pausesInARow >= MAX_PAUSES_IN_A_ROW || isPastDeadline(until, resumeAt)) {
-        totals.stoppedBy = 'rate-limit';
-        console.warn(
-          `  -> e-GP still asks us to slow down (HTTP 429) at ${agency.code}: sweep stopped after ` +
-            `${index} of ${agencies.length} agencies. The next sweep starts again from the top.`,
-        );
-        break;
+  /**
+   * Sends one request batch and records it, pausing first when the burst is
+   * spent, and again when e-GP refuses. Null when the sweep must stop.
+   */
+  async function ask(label, options, expected) {
+    for (;;) {
+      if (isPastDeadline(until, now())) {
+        totals.stoppedBy = 'time';
+        return null;
       }
-      totals.pauses++;
-      pausesInARow++;
+      if (sent + expected > burst) {
+        totals.pauses++;
+        console.log(`  -> ${sent} requests sent: pausing ${pauseMinutes} min, before e-GP's limit`);
+        if (!(await pause())) return null;
+      }
+      const startedAt = now();
+      const result = await fetch({
+        ...options,
+        limit: Infinity,
+        documentsDir,
+        downloadAttachments: false,
+        now: startedAt,
+        pace,
+      });
+      sent += result.requested ?? 0;
+      await record({ deptId: options.deptId, announceDate: options.announceDate ?? null, startedAt, finishedAt: now(), result });
+      if (result.closed) {
+        totals.stoppedBy = 'closed';
+        return null;
+      }
+      if (!result.rateLimited) {
+        refusalsInARow = 0;
+        return result;
+      }
+
+      // New projects it answered with before refusing are saved already
+      totals.discovered += result.discovered;
+      totals.refusals++;
+      if (refusalsInARow >= MAX_REFUSALS_IN_A_ROW) {
+        totals.stoppedBy = 'rate-limit';
+        return null;
+      }
+      refusalsInARow++;
       console.warn(
-        `  -> e-GP asked us to slow down (HTTP 429) at ${agency.code}, after ${index} agencies: ` +
-          `pausing ${Math.round(pauseMs / 60_000)} min, then asking again (pause ${pausesInARow} of ${MAX_PAUSES_IN_A_ROW})`,
+        `  -> e-GP asked us to slow down (HTTP 429) at ${label}: pausing ${pauseMinutes} min, ` +
+          `then asking again (${refusalsInARow} of ${MAX_REFUSALS_IN_A_ROW})`,
       );
-      await sleep(pauseMs);
-      continue;
+      if (!(await pause())) {
+        totals.stoppedBy = 'rate-limit';
+        return null;
+      }
     }
-    pausesInARow = 0;
-    index++;
+  }
+
+  let deadInARow = 0;
+  for (const [index, agency] of agencies.entries()) {
+    const result = await ask(agency.code, { deptId: agency.code, types }, types.length);
+    if (!result) break;
 
     totals.asked++;
     totals.discovered += result.discovered;
     totals.updated += result.updated;
-    // 20 is as many as an agency's list holds: some of its items may be cut off
-    const full = Object.entries(result.itemsByType ?? {}).filter(([, count]) => count >= 20).map(([code]) => code);
-    if (full.length) totals.full++;
-    if (result.discovered || full.length || result.unreachable) {
-      console.log(
-        `     ${agency.code} ${agency.name}: ${result.discovered} new, ${result.updated} followed` +
-          (full.length ? ` · 20 items (the most a list holds) for ${full.join(', ')}` : '') +
-          (result.unreachable ? ' · NO ANSWER' : ''),
-      );
-    }
-    if (index % 25 === 0) console.log(`  -> ${index} of ${agencies.length} agencies asked`);
-
     if (result.unreachable) {
       totals.unanswered++;
       if (++deadInARow >= MAX_DEAD_AGENCIES_IN_A_ROW) {
@@ -366,16 +428,64 @@ export async function runSweepStep({
         reportSourceErrors(result.errors);
         break;
       }
-    } else {
-      deadInARow = 0;
+      console.log(`     ${agency.code} ${agency.name}: NO ANSWER`);
+      continue;
     }
+    deadInARow = 0;
+
+    // A full list may have cut days short: ask those days one at a time
+    const full = types.filter((code) => (result.itemsByType?.[code] ?? 0) >= 20);
+    if (full.length) totals.full++;
+    const notes = [];
+    let stopped = false;
+    for (const code of full) {
+      for (const day of daysToAskAgain(result.oldestDateByType?.[code], today, lookbackDays)) {
+        const dated = await ask(`${agency.code} ${code} ${day}`, {
+          deptId: agency.code,
+          types: [code],
+          announceDate: day.replaceAll('-', ''),
+        }, 1);
+        if (!dated) {
+          stopped = true;
+          break;
+        }
+        totals.askedAgain++;
+        totals.discovered += dated.discovered;
+        totals.updated += dated.updated;
+        const shown = dated.itemsByType?.[code] ?? 0;
+        const count = dated.countByType?.[code];
+        if (Number.isInteger(count) && count > shown) {
+          totals.cutOff++;
+          notes.push(`${code} ${day}: ${shown} of ${count}, the rest cut off`);
+        } else {
+          notes.push(`${code} ${day}: all ${shown}`);
+        }
+      }
+      if (stopped) break;
+    }
+
+    if (result.discovered || full.length) {
+      console.log(
+        `     ${agency.code} ${agency.name}: ${result.discovered} new, ${result.updated} followed` +
+          (full.length ? ` · full list for ${full.join(', ')}; asked again by day: ${notes.join('; ') || 'nothing since the last sweep'}` : ''),
+      );
+    }
+    if ((index + 1) % 25 === 0) console.log(`  -> ${index + 1} of ${agencies.length} agencies asked`);
+    if (stopped) break;
   }
 
+  const why = {
+    time: 'the time box is over',
+    closed: FEED_HOURS,
+    'rate-limit': `e-GP kept refusing (HTTP 429) after ${MAX_REFUSALS_IN_A_ROW} pauses in a row`,
+  }[totals.stoppedBy];
+  if (why) console.warn(`  -> Sweep stopped after ${totals.asked} of ${agencies.length} agencies: ${why}.`);
   console.log(
     `  -> ${totals.asked} agencies asked: ${totals.discovered} new project(s), ${totals.updated} followed project(s) seen again` +
-      (totals.full ? `; ${totals.full} agencies had a full list (20)` : '') +
+      (totals.full ? `; ${totals.full} full list(s), ${totals.askedAgain} day(s) asked again, ${totals.cutOff} still cut off` : '') +
       (totals.unanswered ? `; ${totals.unanswered} did not answer` : '') +
-      (totals.pauses ? `; paused ${totals.pauses} time(s) when e-GP asked us to slow down` : ''),
+      (totals.pauses ? `; ${totals.pauses} planned pause(s)` : '') +
+      (totals.refusals ? `; refused ${totals.refusals} time(s) (HTTP 429)` : ''),
   );
   return totals;
 }
@@ -908,7 +1018,13 @@ async function runSteps(args) {
     const agencies = args.agencies
       ? args.agencies.map((code) => all.find((agency) => agency.code === code) ?? { code, name: '(not in the list)' })
       : all;
-    await runSweepStep({ agencies, types: args.types ?? ROUTINE_TYPES, until: args.until, documentsDir: DOCUMENTS_DIR });
+    await runSweepStep({
+      agencies,
+      types: args.types ?? ROUTINE_TYPES,
+      until: args.until,
+      lookbackDays: args.days,
+      documentsDir: DOCUMENTS_DIR,
+    });
   }
 
   if (isAll || args.step === 'download') {

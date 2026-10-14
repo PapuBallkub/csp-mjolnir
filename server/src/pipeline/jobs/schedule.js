@@ -2,17 +2,16 @@
  * server/src/pipeline/jobs/schedule.js
  *
  * When each job runs, in Bangkok time (ADR 0027). Only fetching depends on
- * the feed's hours, 12:01–12:59 and 17:01–08:59; downloads, OCR and Gemini
- * run whenever there's work.
+ * the feed's hours, 17:01–08:29; downloads, OCR and Gemini run whenever
+ * there's work.
  *
  * Each job stops taking new work HANDOVER_MS before the next one starts, so
  * jobs don't queue up behind each other.
  */
 
 export const SCHEDULE = [
-  { at: '08:00', job: 'poll' }, // what was posted after the 17:05 poll
-  { at: '12:05', job: 'poll' }, // the morning's posts
-  { at: '17:05', job: 'poll' }, // the afternoon's posts
+  { at: '08:00', job: 'poll' }, // what was posted after the 17:05 poll, before the feed closes at 08:30
+  { at: '17:05', job: 'poll' }, // the day's posts, as soon as the feed opens
   { at: '18:00', job: 'sweep' }, // every agency: what the national feed dropped, and stage changes
   { at: '22:00', job: 'process' }, // the night: OCR and Gemini on whatever is waiting
 ];

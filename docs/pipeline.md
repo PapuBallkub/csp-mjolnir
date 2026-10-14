@@ -60,7 +60,7 @@ It runs these steps in order:
 5. `ingest:ocr`: read the IT previews whole.
 6. `extract`: extract them. They then appear in `/search`.
 
-Run it during the feed's open hours (12:01–12:59 or 17:01–08:59, Bangkok time);
+Run it during the feed's open hours (17:01–08:29, Bangkok time);
 outside them it still processes what's waiting. Each run costs a screen call
 per 40 new titles, one classify call per project that passed, and one
 extraction per IT one.
@@ -72,7 +72,7 @@ The pipeline runs as three **jobs** on a fixed schedule
 
 | Time | Job | What it does |
 |---|---|---|
-| 08:00, 12:05, 17:05 | `poll` | The national feed, then process |
+| 08:00, 17:05 | `poll` | The national feed, then process |
 | 18:00 | `sweep` | Every agency in `ingestion/data/egp-agencies.json` (267), then process |
 | 22:00 | `process` | Screen, download, OCR, classify and extract whatever is waiting, through the night |
 
@@ -127,9 +127,8 @@ them as `fetched`. Nothing is downloaded.
 
 - e-GP RSS is the only source of **open** projects; data.go.th has past
   contracts only.
-- **The e-GP feed is closed 09:00–12:00 and 13:00–17:00, Bangkok time.**
-  Fetch then sends no request and says so. Run it at 12:01–12:59 or after
-  17:01.
+- **The e-GP feed is open 17:01–08:29 only, Bangkok time.** At other times
+  fetch sends no request and says so.
 - Each request returns only the 20 latest items of one announcement type
   ([0017](decisions/0017-read-the-egp-feed-as-egp-defines-it.md)).
 - `--query` and `--limit` choose **new** projects. A project already in the
@@ -152,10 +151,15 @@ reaches back several days, up to 20 items per code, so the sweep finds what
 the national feed's latest 20 dropped. It asks every code but `15`, so it also
 brings the cancellations, winners and amendments of projects we follow.
 
-- About 1,870 requests for 267 agencies, one every 3 seconds: about 95
-  minutes. At one a second, e-GP refused us (HTTP 429) after about 250.
-- When e-GP refuses (429), it pauses 10 minutes and asks the same agency
-  again, up to 3 times in a row.
+- About 1,870 requests for 267 agencies at one a second, with a 10-minute
+  pause after every 230: about 100 minutes. e-GP refuses the 240th request in
+  a row (HTTP 429), whatever the pace.
+- When e-GP refuses anyway, it pauses 10 minutes and asks again, up to 3
+  times in a row.
+- **A list that comes back full (20) is asked again day by day**
+  (`announceDate`), for the days it may have cut short since the last sweep.
+  e-GP's own count (`countbyday`) says whether anything is still missing.
+  `--days N` looks N days back instead of 1, after a missed sweep.
 - Stops at the time box (`--until`), when the feed closes, when 2 agencies
   in a row get no answer, or after 3 refusals in a row.
 - `--agencies 0307,A004` sweeps just those.
@@ -163,6 +167,7 @@ brings the cancellations, winners and amendments of projects we follow.
 ```
 npm run ingest -- --step sweep
 npm run ingest -- --step sweep --agencies 0307,0304,11012
+npm run ingest -- --step sweep --days 3    # after two days without a sweep
 ```
 
 ### `npm run agencies:fetch`
@@ -249,6 +254,7 @@ npm run ingest:ocr -- --id 67059626749
 | `--id <projectId>` | download, ocr, add | all waiting records | Work on one TOR only. Download and OCR take one already in the database; add, one that isn't. |
 | `--dept <code>` | fetch | none | e-GP feed only: one agency's announcements, e.g. `0307`, `11012` or `A004` (codes in `ingestion/data/egp-agencies.json`). An agency's list reaches back several days, up to 20 items per code; the national feed shows only the same day's latest 20 of each type, and can be empty. |
 | `--agencies <codes>` | sweep | every agency in the list | Sweep only these, e.g. `0307,A004` |
+| `--days <n>` | sweep | `1` | How many days back a full list is asked again, day by day: 0 to 7 |
 | `--types <codes>` | fetch, sweep | fetch: every type; sweep: every type but `15` | e-GP feed only: only these announcement codes, e.g. `D0,B0` |
 | `--until <time>` | sweep, download, ocr | none | The time box: no new work after this time, e.g. `2026-10-14T07:55:00+07:00`. The project in hand finishes. Jobs set it for you; `screen` and `extract` take it too. |
 | `--skip-screen` | download | off | Download new projects without waiting for the title screen |
@@ -269,7 +275,7 @@ These are optional, in `server/.env`:
 | `OCR_MAX_PAGES` | `150` | Scanned pages to OCR per document |
 | `OCR_SECONDS_PER_PAGE` | `10` | OCR time budget per page. A document gets pages × this. |
 | `PIPELINE_MAX_ATTEMPTS` | `3` | Failures before a step leaves a TOR out. Ingestion and extraction both use it. |
-| `EGP_SWEEP_SECONDS` | `3` | Seconds between the sweep's requests to the feed. e-GP refused one a second ([0027](decisions/0027-run-the-pipeline-on-a-schedule.md)). |
+| `EGP_FEED_BURST` | `230` | Requests the sweep sends before a 10-minute pause. e-GP refuses the 240th in a row ([0027](decisions/0027-run-the-pipeline-on-a-schedule.md)). |
 | `EGP_PACKAGE_MAX_MB` | `200` | The largest e-GP package downloaded. e-GP sends no size first, so a bigger one is found by downloading up to the limit, and the project then gives up at once. To fetch one by hand, raise this and run `ingest:download -- --id <projectId> --retry-failed`. |
 | `EXTRACTIONS_DIR` | `server/data/extractions` | Where Gemini's answers are saved, for `extract --recheck` |
 | `LOGS_DIR` | `server/data/logs` | Where each job writes its log |
