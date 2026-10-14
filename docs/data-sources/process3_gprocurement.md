@@ -143,11 +143,18 @@ RSS 2.0. Each `<item>` looks like this (seen 2026-10-07):
   | กรมสรรพากร (`0307`) invitations, 2026-10-09 | 1 | 1 |
   | กรมบัญชีกลาง (`0304`) winners, 2024-11-26 | 8 | 8 |
   | กรมสรรพากร (`0307`) winners, 2025-03-14 | 13 | 13 |
+  | กรมชลประทาน (`0703`) invitations, 2026-10-12 and 2026-10-14 | 38 each | 20 |
+  | กรมชลประทาน (`0703`) winners, 2026-10-12 / 2026-10-14 | 372 / 336 | 20 |
 
 - So the national list shows 4–5% of a busy day, and is empty on a quiet
-  one. One agency on one day was complete every time, and `countbyday` says
-  when it isn't. The sweep asks each agency's list, and asks a full list
-  again day by day ([0027](../decisions/0027-run-the-pipeline-on-a-schedule.md)).
+  one. One agency on one day is usually complete, and `countbyday` says when
+  it isn't. The sweep asks each agency's list, and asks a full list again
+  day by day ([0027](../decisions/0027-run-the-pipeline-on-a-schedule.md)).
+- **The busiest agencies post more than 20 of a code in a day.**
+  `methodId` filters, and `countbyday` follows it: กรมชลประทาน's invitations
+  on 2026-10-14 were 38 with `methodId=16` (e-bidding) and 0 with `18`
+  (คัดเลือก). But all 38 were e-bidding, so the method can't split that
+  day. Splitting by purchasing unit (`deptsubId`) is untested.
 
 ## How fast we may ask
 
@@ -219,8 +226,9 @@ The version merged in #204 said several things that turned out to be wrong:
 
 ## Not verified yet
 
-- `deptsubId` and `methodId` filtering, live: the way to split an agency's
-  day that has more than 20.
+- `deptsubId` filtering, live: the way left to split an agency's day that
+  has more than 20, and where its codes come from (data.go.th's
+  `egpsubdepartment` lists 25,500 units).
 - Whether state enterprise codes (`S…`) and special-law agency codes work.
 - The feed's hours at weekends.
 - How far back `announceDate` reaches: 2024-11-26 worked.

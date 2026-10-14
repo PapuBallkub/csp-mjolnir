@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { FeedPoll } from '#models/index.js';
-import { FEED_BURST, daysToAskAgain, loadAgencies, recordPoll, runSweepStep } from '#pipeline/ingestion/ingest.js';
+import { FEED_BURST, daysToAskAgain, loadAgencies, recordPoll, resolveAgency, runSweepStep } from '#pipeline/ingestion/ingest.js';
 import { ROUTINE_TYPES } from '#pipeline/ingestion/sources/process3.js';
 
 const TEST_DB = 'mjolnir_test_sweep';
@@ -166,6 +166,22 @@ test('runSweepStep: stops after three pauses in a row, or when a pause would pas
     documentsDir: 'unused',
   });
   assert.equal(boxed.stoppedBy, 'rate-limit');
+});
+
+test('resolveAgency: takes a code as given, or as PowerShell left it, and says when it is unknown', () => {
+  const list = [{ code: '0201', name: 'กรมการปกครอง' }, { code: 'A004', name: 'สพฐ.' }, { code: '11012', name: 'BDI' }];
+
+  assert.deepEqual(resolveAgency('A004', list), { agency: list[1], note: null });
+  assert.equal(resolveAgency('11012', list).agency, list[2]);
+
+  // An unquoted 0201,0703 in PowerShell arrives as 201,703
+  const padded = resolveAgency('201', list);
+  assert.equal(padded.agency, list[0]);
+  assert.match(padded.note, /read 201 as 0201/);
+
+  const unknown = resolveAgency('703', list);
+  assert.equal(unknown.agency, null, '0703 is not in this list either');
+  assert.match(unknown.note, /703 is not in egp-agencies.json/);
 });
 
 test('daysToAskAgain: the days a full list may have cut short, since the last sweep', () => {
