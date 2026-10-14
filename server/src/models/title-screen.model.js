@@ -16,6 +16,10 @@ const titleScreenSchema = new mongoose.Schema(
     verdict: { type: String, enum: ['it', 'not_it', 'unsure'], required: true, index: true },
     reason: { type: String, default: '' }, // one short sentence, in Thai
 
+    // The kind of IT project, from the title alone (screen-v2, ADR 0028):
+    // one of PROJECT_CATEGORIES, or null when the title can't tell
+    category: { type: String, default: null },
+
     // A not_it project picked at random to go the whole way anyway, so the
     // team can measure what the screen misses (ADR 0026)
     audit: { type: Boolean, default: false, index: true },

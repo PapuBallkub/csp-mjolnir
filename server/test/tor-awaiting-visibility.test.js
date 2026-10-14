@@ -34,3 +34,20 @@ test('a TOR classified from its preview stays hidden until extraction fills it i
   await TorInsight.updateOne({ projectId: PROJECT }, { $set: { 'metadata.awaitingFullText': false } });
   assert.equal((await listTors({ q: 'ทดสอบรอข้อความเต็ม' }, PILOT)).total, 1);
 });
+
+test('a past project known only from its title stays hidden, and so can\'t be watched (ADR 0028)', async () => {
+  const pastId = '99999000021';
+  await TorInsight.deleteMany({ projectId: pastId });
+  await TorInsight.create({
+    projectId: pastId,
+    identification: { titleTh: 'ทดสอบโครงการในอดีต', agency: 'หน่วยงานทดสอบอดีต', status: 'Awarded', category: 'software-licenses' },
+    facts: { referencePriceTHB: 1200000, agreedPriceTHB: 1100000 },
+    metadata: { reviewStatus: 'pending', titleOnly: true },
+  });
+  try {
+    assert.equal((await listTors({ q: 'ทดสอบโครงการในอดีต' }, PILOT)).total, 0);
+    assert.equal(await getTorByProjectId(pastId, PILOT), null);
+  } finally {
+    await TorInsight.deleteMany({ projectId: pastId });
+  }
+});

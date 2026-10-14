@@ -8,11 +8,13 @@ What data.go.th offers for procurement, checked against the portal itself
 - **e-GP's agency codes,** from the dataset `egpdepartment`, for the feed
   sweep: `npm run agencies:fetch` writes
   `ingestion/data/egp-agencies.json` ([0027](../decisions/0027-run-the-pipeline-on-a-schedule.md)).
-- **Nothing else, for now.** The pipeline used to search the contracts
-  dataset for a few rows each run (`--source datago`). That reader read the
-  columns wrongly (below) and stored finished contracts as Open, so it was
-  removed on 2026-10-15. An import of past contracts, read correctly, is
-  planned.
+- **Past contracts, for price comparisons:** `npm run history:import` reads
+  `egp-contact-2568`'s CSV files by position and keeps the publicly announced
+  ones whose titles look like IT, as ordinary projects with status Awarded
+  ([0028](../decisions/0028-past-projects-from-data-go-th.md)).
+- An older reader (`--source datago`) searched the contracts for a few rows
+  each run, read their columns wrongly (below) and stored finished contracts
+  as Open. It was removed on 2026-10-15.
 
 data.go.th has **past contracts only, never open projects.** Open projects
 come from the e-GP feed ([process3_gprocurement.md](process3_gprocurement.md)).
@@ -97,10 +99,12 @@ To read every row, read the CSV files (about 5 GB together), not the API.
 
 ### The columns are mislabelled, in the CSV itself (Seen 2026-10-13)
 
-The header names 31 columns; every row has 28 values. The three English
-location columns are missing from the data, so from the 16th value on,
-each sits under the wrong heading, and the last three headings are always
-empty. Read by position:
+Every row has 28 values, in the same order in every file. The header names
+31 columns in parts 2–10 and 26 in part 1, which also leaves out the district
+headings (Seen 2026-10-15). Either way the values don't line up with their
+headings: in parts 2–10, the three English location columns are missing
+from the data, so from the 16th value on each sits under the wrong heading,
+and the last three headings are always empty. Read by position:
 
 | Position | Heading | What it really holds |
 |---|---|---|
@@ -128,6 +132,15 @@ empty. Read by position:
 - A reader can check it's reading right: position 18 must hold one of the two
   status words.
 
+### One row per contract (Seen 2026-10-15)
+
+A project awarded to several winners has a row for each contract: the same
+project values (title, ราคากลาง, agreed price) on every row, and a winner,
+contract number and amount of its own. The amounts add up to the agreed
+price. Among the publicly announced IT-looking rows, 111 of 6,593 projects
+(1.7%) have several, e.g. a digital-radio project split three ways
+(218.4 + 460.6 + 363.6 million = 1,042.6 million agreed).
+
 ### Values to clean
 
 - Dates are short and Buddhist-era: `9 เม.ย. 68` is 2025-04-09.
@@ -142,6 +155,10 @@ empty. Read by position:
 | ประกวดราคาอิเล็กทรอนิกส์ (e-bidding) | 19.6% |
 | คัดเลือก (selection) | 3.6% |
 | Consultants, design, e-market | 0.4% |
+
+Across all ten files (Seen 2026-10-15), only 120,560 rows (2.6%) were
+publicly announced, and 119,806 of them are in part 1: the files are
+grouped by method, and parts 2–10 are almost all direct purchases.
 
 A direct purchase has no public announcement or TOR on e-GP. Projects that
 were announced publicly do: by the project ID in this dataset, e-GP still

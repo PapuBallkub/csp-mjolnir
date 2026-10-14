@@ -180,6 +180,38 @@ from e-GP's list of purchasing units on data.go.th (`egpdepartment`). It keeps
 central government only, about 270 agencies, and leaves out ministry codes
 (`03`), for which the feed returns nothing.
 
+### `npm run history:import`
+**Imports past contracts from data.go.th** ([0028](decisions/0028-past-projects-from-data-go-th.md)):
+fiscal year 2568, signed contracts only, never open projects. It keeps only
+what is useful for price comparisons:
+
+1. **Publicly announced projects.** Direct purchases (เฉพาะเจาะจง), three
+   quarters of the rows, never had a public TOR.
+2. **Titles that look like IT,** by a loose keyword list in code. The title
+   screen decides properly afterwards.
+
+Each kept project becomes an ordinary `Tor` record with status Awarded and
+its contract (`source: 'datago'`). A project awarded as several contracts has
+a row for each; they're merged, the amount added up and every winner kept. A project we already have keeps its own
+values and gains the contract. No Gemini is used.
+
+- It reads the 10 CSV files as they download (about 5 GB), not data.go.th's
+  API, which holds only 74% of the rows. Values are read by position: the
+  files' headings are wrong ([data_go_th.md](data-sources/data_go_th.md)).
+- `--dry-run` counts what each filter keeps and estimates the title screen's
+  tokens, and saves nothing. `--parts 1,4` reads only those files; `--limit N`
+  stops after N kept rows.
+- Every write is an upsert by project ID, so an interrupted import can run
+  again.
+
+```
+npm run history:import -- --dry-run
+npm run history:import -- --parts 10 --limit 50
+npm run history:import
+```
+
+Then `npm run screen -- --past` screens their titles.
+
 ### `npm run ingest:download`
 **Downloads each workable TOR's e-GP package** ([0020](decisions/0020-read-the-whole-egp-package.md)),
 or one TOR's with `--id`. It takes:
@@ -386,12 +418,24 @@ reads 40 titles and gives each a verdict:
   them, chosen by project ID (`audit`), which go the whole way so we can see
   what the screen gets wrong.
 
+Each verdict also names the kind of IT project the title points to, one of
+the seven categories, or none (`screen-v2`).
+
 A project is screened again only if its title or the screen's prompt version
-(`screen-v1`) changes.
+(`screen-v2`) changes.
+
+**Past projects from `history:import` are screened only with `--past`.**
+There can be thousands, so it's a decision, and the scheduled jobs never do
+it. Those found `it` or `unsure` get a **title-level TorInsight record**: title,
+agency, prices and category, every other section empty and nothing quoted.
+It counts in benchmarks; the site, the review queue and detailed comparisons
+leave it out. Full extraction replaces it once the project's documents are
+read ([0028](decisions/0028-past-projects-from-data-go-th.md)).
 
 ```
 npm run screen
 npm run screen -- --limit 40 --dry-run    # see the verdicts, save nothing
+npm run screen -- --past --limit 200      # past projects, 200 at a time
 ```
 
 ### `npm run extract`

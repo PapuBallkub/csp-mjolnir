@@ -883,9 +883,11 @@ export async function runOcrStep({ id, documentsDir, retryFailed = false, until 
   } else {
     // A TOR already extracted as IT whose file changed is read whole: a
     // preview would be classified again, and hide its page meanwhile (ADR 0020)
+    // A title-level record isn't an extraction: it was built from a title (ADR 0028)
     const extracted = await TorInsight.distinct('projectId', {
       'metadata.excluded': null,
       'metadata.awaitingFullText': { $ne: true },
+      'metadata.titleOnly': { $ne: true },
     });
     const downloaded = { pipelineStatus: 'downloaded', 'document.storagePath': { $ne: null }, ...WORKABLE };
     previews = await Tor.find({ ...downloaded, projectId: { $nin: extracted } });

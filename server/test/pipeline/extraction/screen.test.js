@@ -3,9 +3,18 @@ import { after, before, beforeEach, test } from 'node:test';
 import mongoose from 'mongoose';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { TitleScreen, Tor } from '#models/index.js';
+import { TitleScreen, Tor, TorInsight } from '#models/index.js';
 import { SCREEN_VERSION, buildScreenContents } from '#pipeline/extraction/prompts.js';
-import { BATCH_SIZE, findUnscreened, isAudited, runScreen, saveScreens, screenBatch } from '#pipeline/extraction/screen.js';
+import {
+  BATCH_SIZE,
+  findUnscreened,
+  isAudited,
+  runScreen,
+  saveScreens,
+  saveTitleLevel,
+  screenBatch,
+  titleLevelFingerprint,
+} from '#pipeline/extraction/screen.js';
 
 // A database of its own: the screen takes every new project
 const TEST_DB = 'mjolnir_test_screen';
@@ -49,6 +58,7 @@ before(async () => {
 beforeEach(async () => {
   await Tor.deleteMany({});
   await TitleScreen.deleteMany({});
+  await TorInsight.deleteMany({});
 });
 
 after(async () => {
@@ -188,4 +198,91 @@ test('runScreen: stops after two failed batches in a row, and after the time box
   const boxed = await runScreen({ client: later, config: CONFIG, until: new Date(Date.now() - 1000), log: quiet });
   assert.equal(later.calls.length, 0);
   assert.equal(boxed.left, ids.length);
+});
+
+// A past project as history:import leaves it (ADR 0028)
+const past = (projectId, title, extra = {}) => ({
+  projectId,
+  source: 'datago',
+  title,
+  agency: 'กรุงเทพมหานคร',
+  subAgency: 'สำนักยุทธศาสตร์',
+  procurementMethod: 'ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)',
+  budgetTHB: 96469000,
+  referencePriceTHB: 96469000,
+  announceDate: '2025-04-28',
+  status: 'Awarded',
+  pipelineStatus: 'fetched',
+  contract: { winnerTaxId: '0993000524276', contractNo: '12-12-2568', agreedPriceTHB: 95842000, fiscalYear: 2568 },
+  ...extra,
+});
+
+test('screenBatch: a category for it and unsure, none for not_it or an unknown kind; no audit for past projects', async () => {
+  const client = fakeClient({
+    results: [
+      { projectId: '69100000001', reason: 'พัฒนาระบบ', verdict: 'it', category: 'software-development' },
+      { projectId: '69100000002', reason: 'ซื้อรถ', verdict: 'not_it', category: 'software-development' },
+      { projectId: '69100000003', reason: 'คอมพิวเตอร์', verdict: 'unsure', category: 'made-up-kind' },
+    ],
+  });
+  const batch = ['69100000001', '69100000002', '69100000003'].map((id) => tor(id, 'x'));
+
+  const { screens } = await screenBatch(batch, { client, config: CONFIG, auditRate: 1, past: true });
+
+  assert.deepEqual(screens.map((s) => s.category), ['software-development', null, null]);
+  assert.ok(screens.every((s) => s.audit === false), 'past projects are never audited');
+});
+
+test('findUnscreened: --past takes the imported past projects, and only those', async () => {
+  await Tor.create([tor('69100000001', 'ใหม่จากประกาศ'), past('67099725090', 'โครงการในอดีต')]);
+
+  assert.deepEqual((await findUnscreened()).map((t) => t.projectId), ['69100000001']);
+  assert.deepEqual((await findUnscreened({ past: true })).map((t) => t.projectId), ['67099725090']);
+});
+
+test('runScreen --past: IT and unsure past projects get a title-level record, not_it ones none', async () => {
+  await Tor.create([
+    past('67099725090', 'ขยายทรัพยากรพื้นฐานดิจิทัลสำหรับศูนย์ข้อมูล'),
+    past('67099725091', 'ซื้อครุภัณฑ์คอมพิวเตอร์'),
+    past('67099725092', 'ก่อสร้างถนนคอนกรีต'),
+  ]);
+  const client = fakeClient({
+    results: [
+      { projectId: '67099725090', reason: 'ศูนย์ข้อมูล', verdict: 'it', category: 'systems-integration' },
+      { projectId: '67099725091', reason: 'คอมพิวเตอร์', verdict: 'unsure', category: null },
+      { projectId: '67099725092', reason: 'ก่อสร้าง', verdict: 'not_it', category: null },
+    ],
+  });
+
+  const counts = await runScreen({ client, config: CONFIG, past: true, log: quiet });
+
+  assert.equal(counts.titleLevel, 2);
+  const record = await TorInsight.findOne({ projectId: '67099725090' }).lean();
+  assert.equal(record.metadata.titleOnly, true);
+  assert.equal(record.metadata.confidenceScore, null);
+  assert.equal(record.identification.status, 'Awarded');
+  assert.equal(record.identification.category, 'systems-integration');
+  assert.equal(record.identification.department, 'สำนักยุทธศาสตร์');
+  assert.equal(record.facts.referencePriceTHB, 96469000);
+  assert.equal(record.facts.agreedPriceTHB, 95842000);
+  assert.equal(record.facts.postedDate.toISOString().slice(0, 10), '2025-04-28');
+  assert.equal(record.metadata.sourceFingerprint, titleLevelFingerprint(await Tor.findOne({ projectId: '67099725090' }).lean()));
+  assert.equal(await TorInsight.countDocuments({ projectId: '67099725092' }), 0);
+});
+
+test('saveTitleLevel: never over a full extraction or a not-IT verdict; over an older title-level one, yes', async () => {
+  await Tor.create([past('67099725090', 'ระบบ ก'), past('67099725091', 'ระบบ ข'), past('67099725092', 'ระบบ ค')]);
+  await TorInsight.create([
+    { projectId: '67099725090', identification: { titleTh: 'สกัดเต็มแล้ว', agency: 'ก', status: 'Awarded' }, metadata: { confidenceScore: 95 } },
+    { projectId: '67099725091', identification: { titleTh: 'ไม่ใช่ไอที', agency: 'ข', status: 'Awarded' }, metadata: { excluded: { reason: 'ไม่ใช่' } } },
+    { projectId: '67099725092', identification: { titleTh: 'ชื่อเก่า', agency: 'ค', status: 'Awarded' }, metadata: { titleOnly: true } },
+  ]);
+  const screen = (projectId) => ({ projectId, verdict: 'it', category: 'other-it', modelName: 'gemini-test', promptVersion: SCREEN_VERSION });
+
+  const saved = await saveTitleLevel(['67099725090', '67099725091', '67099725092'].map(screen));
+
+  assert.equal(saved, 1);
+  assert.equal((await TorInsight.findOne({ projectId: '67099725090' }).lean()).metadata.confidenceScore, 95);
+  assert.ok((await TorInsight.findOne({ projectId: '67099725091' }).lean()).metadata.excluded);
+  assert.equal((await TorInsight.findOne({ projectId: '67099725092' }).lean()).identification.titleTh, 'ระบบ ค');
 });

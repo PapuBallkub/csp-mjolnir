@@ -18,7 +18,7 @@
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { TorInsight } from '#models/index.js';
-import { findComparableProjects, getProjectPrice } from '#features/reality-check/index.js';
+import { FULL_EXTRACTION, findComparableProjects, getProjectPrice } from '#features/reality-check/index.js';
 
 function parseArgs(args) {
   const options = {
@@ -118,7 +118,9 @@ async function inspectOne(projectId, { limit, save }) {
 }
 
 async function processAll({ limit, save }) {
+  // Comparables are worked out for full extractions only (ADR 0028)
   const tors = await TorInsight.find({
+    ...FULL_EXTRACTION,
     'identification.category': { $ne: null },
     $or: [
       { 'facts.referencePriceTHB': { $gt: 0 } },
