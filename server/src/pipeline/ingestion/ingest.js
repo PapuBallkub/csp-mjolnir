@@ -310,6 +310,30 @@ export function loadAgencies(file = AGENCIES_FILE) {
   return JSON.parse(fsSync.readFileSync(file, 'utf8')).agencies;
 }
 
+/**
+ * Finds an agency by a code given on the command line. The feed answers an
+ * unknown code with an empty list, no error, so a wrong code would pass
+ * unnoticed. PowerShell reads an unquoted list such as 0201,0703 as numbers
+ * and drops their leading zeros, so a short number whose 4-digit form is in
+ * the list is taken as that agency.
+ *
+ * @returns {{ agency: object|null, note: string|null }} `note` says what was
+ *   assumed, or why the code is unknown
+ */
+export function resolveAgency(code, agencies) {
+  const found = agencies.find((agency) => agency.code === code);
+  if (found) return { agency: found, note: null };
+  const padded = /^\d{1,3}$/.test(code) ? code.padStart(4, '0') : null;
+  const match = padded && agencies.find((agency) => agency.code === padded);
+  if (match) {
+    return {
+      agency: match,
+      note: `read ${code} as ${padded}: PowerShell drops leading zeros from an unquoted list; quote it, e.g. --agencies "0201,0703"`,
+    };
+  }
+  return { agency: null, note: `${code} is not in egp-agencies.json: the feed answers an unknown code with nothing` };
+}
+
 // A dead feed costs each agency its unanswered requests: after two agencies
 // in a row get no answer at all, the rest would go the same way
 const MAX_DEAD_AGENCIES_IN_A_ROW = 2;
@@ -1057,11 +1081,17 @@ async function runSteps(args) {
   }
 
   if (isAll || args.step === 'fetch') {
+    let dept = args.dept;
+    if (dept) {
+      const { agency, note } = resolveAgency(dept, loadAgencies());
+      if (note) console.warn(`  ! ${note}`);
+      dept = agency?.code ?? dept;
+    }
     await runFetchStep({
       query: args.query,
       limit: args.limit,
       source: args.source,
-      dept: args.dept,
+      dept,
       types: args.types,
       documentsDir: DOCUMENTS_DIR,
     });
@@ -1071,7 +1101,11 @@ async function runSteps(args) {
   if (args.step === 'sweep') {
     const all = loadAgencies();
     const agencies = args.agencies
-      ? args.agencies.map((code) => all.find((agency) => agency.code === code) ?? { code, name: '(not in the list)' })
+      ? args.agencies.map((code) => {
+          const { agency, note } = resolveAgency(code, all);
+          if (note) console.warn(`  ! ${note}`);
+          return agency ?? { code, name: '(not in the list)' };
+        })
       : all;
     await runSweepStep({
       agencies,
