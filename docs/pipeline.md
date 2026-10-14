@@ -162,7 +162,10 @@ brings the cancellations, winners and amendments of projects we follow.
   `--days N` looks N days back instead of 1, after a missed sweep.
 - Stops at the time box (`--until`), when the feed closes, when 2 agencies
   in a row get no answer, or after 3 refusals in a row.
-- `--agencies 0307,A004` sweeps just those.
+- `--agencies 0307,A004` sweeps just those. **In PowerShell, quote a list
+  that starts with 0:** `--agencies "0201,0703"`. Unquoted, PowerShell reads
+  it as numbers and drops the zeros; the sweep then reads `201` as `0201`
+  and says so, and warns about any code that isn't in the list.
 
 ```
 npm run ingest -- --step sweep
