@@ -616,7 +616,11 @@ function ReviewItemCard({
 
     const fieldsPayload: UpdateReviewPayload["fields"] = {};
     for (const [key, val] of Object.entries(fieldValues)) {
-      if (
+      if (key.includes("ชื่อโครงการ") || key.includes("Project Title") || key === "title") {
+        fieldsPayload.title = val.trim();
+      } else if (key.includes("หน่วยงาน") || key.includes("Agency Name") || key === "agency") {
+        fieldsPayload.agency = val.trim();
+      } else if (
         key.includes("ราคากลาง") ||
         key.includes("Reference Price") ||
         key.includes("Maximum Budget")

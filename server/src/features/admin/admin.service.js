@@ -1,6 +1,6 @@
 import fsSync from 'node:fs';
 import path from 'node:path';
-import { IngestionLog, Tor, TorInsight } from '#models/index.js';
+import { FeedPoll, IngestionLog, TitleScreen, Tor, TorInsight } from '#models/index.js';
 import { runFetchStep } from '#pipeline/ingestion/ingest.js';
 import {
   pipelineStats,
@@ -185,6 +185,18 @@ export async function getDynamicReviewQueue() {
         ? insight.metadata.confidenceScore / 100
         : 0.85;
 
+      lowFields.push({
+        field: 'ชื่อโครงการ (Project Title)',
+        value: insight.identification?.titleTh || tor?.title || `Project ${insight.projectId}`,
+        confidence: score,
+      });
+
+      lowFields.push({
+        field: 'หน่วยงาน (Agency Name)',
+        value: insight.identification?.agency || tor?.agency || '',
+        confidence: score,
+      });
+
       if (insight.facts?.referencePriceTHB != null) {
         lowFields.push({
           field: 'ราคากลาง (Reference Price)',
@@ -343,6 +355,22 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
   const userId = user?._id || user?.id || null;
 
   if (action === 'approve') {
+    if (fields.title !== undefined) {
+      const title = String(fields.title || '').trim();
+      if (title) {
+        insight.identification.titleTh = title;
+        if (tor) tor.title = title;
+      }
+    }
+
+    if (fields.agency !== undefined) {
+      const agency = String(fields.agency || '').trim();
+      if (agency) {
+        insight.identification.agency = agency;
+        if (tor) tor.agency = agency;
+      }
+    }
+
     if (fields.referencePriceTHB !== undefined) {
       const num =
         fields.referencePriceTHB === null || fields.referencePriceTHB === ''
@@ -383,12 +411,18 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
       insight.technicalRequirements.requiredTechnologies = techList;
     }
 
+    insight.identification.category = 'IT / software';
     insight.metadata.reviewStatus = 'approved';
     insight.metadata.reviewedBy = userId;
     insight.metadata.reviewedAt = new Date();
     insight.metadata.excluded = null;
     insight.metadata.confidenceScore = Math.max(insight.metadata.confidenceScore || 0, 85);
+    await TitleScreen.updateOne(
+      { projectId },
+      { $set: { verdict: 'pass', reason: 'Admin approved TOR and verified IT classification' } },
+    ).catch(() => {});
   } else if (action === 'reclassify') {
+    insight.identification.category = 'non-IT';
     insight.metadata.excluded = {
       reason: reclassifyReason || 'Civil works — out of scope',
       quote: null,
@@ -396,11 +430,21 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
     insight.metadata.reviewStatus = 'rejected';
     insight.metadata.reviewedBy = userId;
     insight.metadata.reviewedAt = new Date();
+    await TitleScreen.updateOne(
+      { projectId },
+      { $set: { verdict: 'fail', reason: reclassifyReason || 'Civil works — out of scope' } },
+    ).catch(() => {});
   } else if (action === 'confirm_classification') {
+    insight.identification.category = 'IT / software';
     insight.metadata.excluded = null;
     insight.metadata.reviewStatus = 'approved';
     insight.metadata.reviewedBy = userId;
     insight.metadata.reviewedAt = new Date();
+    insight.metadata.confidenceScore = Math.max(insight.metadata.confidenceScore || 0, 85);
+    await TitleScreen.updateOne(
+      { projectId },
+      { $set: { verdict: 'pass', reason: 'Admin confirmed IT classification' } },
+    ).catch(() => {});
   } else {
     const error = new Error(`Unknown review action: ${action}`);
     error.status = 400;

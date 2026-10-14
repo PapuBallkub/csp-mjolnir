@@ -255,6 +255,8 @@ export type UpdateReviewPayload = {
   action: "approve" | "reclassify" | "confirm_classification";
   reclassifyReason?: string;
   fields?: {
+    title?: string;
+    agency?: string;
     referencePriceTHB?: number | null;
     budgetTHB?: number | null;
     submissionDeadline?: string | null;
