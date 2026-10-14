@@ -28,11 +28,12 @@ import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Technology, Tor, TorInsight } from '#models/index.js';
 import { MAX_ATTEMPTS, clearFailure, loadGivenUp, recordFailure } from '../shared/failures.js';
+import { isPastDeadline, parseUntil } from '../shared/deadline.js';
 import { withRunLock } from '../shared/run-lock.js';
 import { createGeminiClient, readGeminiConfig } from './gemini.js';
 import { buildFromAnswers, classifyPreview, processTor, saveInsight } from './process-tor.js';
 import { PROMPT_VERSION } from './prompts.js';
-import { decide, sourceFingerprint } from './select.js';
+import { decide, fingerprintFor } from './select.js';
 
 const REVIEW_DIR =
   process.env.EXTRACTIONS_DIR || path.resolve(import.meta.dirname, '../../../data/extractions');
@@ -51,6 +52,7 @@ function parseArgs(argv) {
     outdated: argv.includes('--outdated'),
     recheck: argv.includes('--recheck'),
     retryFailed: argv.includes('--retry-failed'),
+    until: parseUntil(value('--until')), // the time box of a scheduled run (ADR 0027)
   };
 }
 
@@ -77,7 +79,7 @@ async function recheck(tors, existing, args) {
       continue;
     }
     const before = saved.insight.metadata;
-    if (before.sourceFingerprint !== sourceFingerprint(tor)) {
+    if (before.sourceFingerprint !== fingerprintFor(tor, before)) {
       counts.sourceChanged++;
       console.log(`${label}: the source changed since these answers; run without --recheck`);
       continue;
@@ -160,9 +162,11 @@ async function run(args, { client, config }) {
   const skipped = { current: 0, outdated: 0, reviewed: 0, gaveUp: 0 };
   const queue = [];
   for (const tor of tors) {
-    const fingerprint = sourceFingerprint(tor);
+    // Compared by what the existing result was built from (ADR 0025)
+    const insight = existing.get(tor.projectId) ?? null;
+    const fingerprint = fingerprintFor(tor, insight?.metadata);
     const decision = decide({
-      insight: existing.get(tor.projectId) ?? null,
+      insight,
       fingerprint,
       promptVersion: PROMPT_VERSION,
       model: config.model,
@@ -178,7 +182,12 @@ async function run(args, { client, config }) {
   const counts = { saved: 0, excluded: 0, awaiting: 0, failed: 0 };
   const usages = [];
 
+  let timedOut = 0;
   for (const [index, { tor, decision, inputKey }] of queue.slice(0, args.limit).entries()) {
+    if (isPastDeadline(args.until)) {
+      timedOut = Math.min(queue.length, args.limit) - index;
+      break;
+    }
     const label = `[${index + 1}/${Math.min(queue.length, args.limit)}] ${tor.projectId} (${decision.reason})`;
     if (decision.warn) console.warn(`${label}: a person had reviewed this result; it goes back to pending.`);
     try {
@@ -218,7 +227,9 @@ async function run(args, { client, config }) {
       }
     } catch (error) {
       // Nothing was saved for this TOR; the next run picks it up again (NFR-06),
-      // until it has failed MAX_ATTEMPTS times on the same input
+      // until it has failed MAX_ATTEMPTS times on the same input. Tokens Gemini
+      // spent before the failure still count.
+      if (Array.isArray(error?.usage)) usages.push(...error.usage);
       counts.failed++;
       let note = '';
       if (!args.dryRun) {
@@ -236,7 +247,8 @@ async function run(args, { client, config }) {
   console.log(
     `\nDone: ${counts.saved} extracted, ${counts.excluded} excluded, ` +
       `${counts.awaiting} IT preview(s) waiting for their full text, ${counts.failed} failed` +
-      (leftOver ? `, ${leftOver} left for the next run (--limit)` : ''),
+      (leftOver ? `, ${leftOver} left for the next run (--limit)` : '') +
+      (timedOut ? `, ${timedOut} left for the next run (time box over)` : ''),
   );
   console.log(
     `Skipped: ${skipped.current} up to date, ${skipped.outdated} on an older prompt (run with --outdated), ` +

@@ -14,12 +14,16 @@ const MAX_ATTEMPTS = 4; // the first try plus three retries
 const BASE_DELAY_MS = 2000; // 2 s, then 4 s, then 8 s
 const REQUEST_TIMEOUT_MS = 5 * 60 * 1000; // a 150-page TOR is a long read
 
-/** A response we cannot use, even though the request itself succeeded. */
+/**
+ * A response we cannot use, even though the request itself succeeded. Its
+ * tokens were spent all the same, so it carries their count (`usage`).
+ */
 export class GeminiResponseError extends Error {
-  constructor(message, { finishReason = null } = {}) {
+  constructor(message, { finishReason = null, usage = null } = {}) {
     super(message);
     this.name = 'GeminiResponseError';
     this.finishReason = finishReason;
+    this.usage = usage;
   }
 }
 
@@ -114,7 +118,7 @@ export async function generateJson({
     if (finishReason !== 'STOP') {
       throw new GeminiResponseError(
         `Gemini stopped early (${finishReason ?? 'no finish reason'}); the response is not saved.`,
-        { finishReason },
+        { finishReason, usage: response.usageMetadata ?? null },
       );
     }
 
@@ -122,7 +126,10 @@ export async function generateJson({
     try {
       data = JSON.parse(response.text);
     } catch {
-      throw new GeminiResponseError('Gemini returned text that is not valid JSON.', { finishReason });
+      throw new GeminiResponseError('Gemini returned text that is not valid JSON.', {
+        finishReason,
+        usage: response.usageMetadata ?? null,
+      });
     }
     return { data, usage: response.usageMetadata ?? {}, finishReason };
   }

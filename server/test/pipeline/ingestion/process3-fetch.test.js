@@ -154,10 +154,11 @@ test('parseItemDescription: reads the project id, method and type the feed write
   assert.deepEqual(parseItemDescription(undefined), { projectId: null, method: null, typeName: null });
 });
 
-test('isFeedClosed: e-GP closes the feed 09:00–12:00 and 13:00–17:00 Bangkok time', () => {
+test('isFeedClosed: e-GP opens the feed 17:01–08:29 only, Bangkok time', () => {
   const at = (bangkok) => new Date(`2026-10-07T${bangkok}:00+07:00`);
-  for (const time of ['08:59', '12:01', '12:59', '17:01', '23:30', '03:00']) assert.equal(isFeedClosed(at(time)), false, time);
-  for (const time of ['09:00', '10:30', '12:00', '13:00', '16:59', '17:00']) assert.equal(isFeedClosed(at(time)), true, time);
+  for (const time of ['17:01', '23:30', '00:00', '03:00', '08:29']) assert.equal(isFeedClosed(at(time)), false, time);
+  // No lunch-hour opening: an older manual had one, and the feed timed out then
+  for (const time of ['08:30', '08:59', '10:30', '12:05', '12:59', '16:59', '17:00']) assert.equal(isFeedClosed(at(time)), true, time);
 });
 
 test('fetchFromProcess3: a recorded e-GP response is read end to end', async () => {
@@ -299,9 +300,63 @@ test('fetchFromProcess3: a feed that does not answer is reported, not replaced b
 
   assert.equal(result.fetched, 0);
   assert.equal(result.unreachable, true);
-  assert.equal(result.errors.length, get.mock.callCount());
+  // Two unanswered in a row: the rest would hang for their timeouts too (ADR 0027)
+  assert.equal(get.mock.callCount(), 2);
+  assert.equal(result.requested, 2);
+  assert.equal(result.answered, 0);
   assert.match(result.errors[0], /timeout/);
+  assert.match(result.errors.at(-1), /stopped asking after 2 requests in a row went unanswered/);
   assert.ok(get.mock.calls.every((call) => call.arguments[0].includes('egpannouncerss.xml')));
+});
+
+test('fetchFromProcess3: when e-GP asks us to slow down (429), it stops asking at once', async () => {
+  const get = mock.method(axios, 'get', async (url) => {
+    if (new URL(url).searchParams.get('anounceType') === 'D0') {
+      throw new AxiosError('Request failed with status code 429', 'ERR_BAD_REQUEST', undefined, undefined, { status: 429 });
+    }
+    return { data: buildRssXml([]) };
+  });
+
+  const result = await fetchP3({ types: ['B0', 'D0', 'D2', 'W0'] });
+
+  assert.equal(get.mock.callCount(), 2, 'B0 answered, D0 refused, nothing after');
+  assert.equal(result.rateLimited, true);
+  assert.equal(result.unreachable, false, 'refusing us is busy, not down');
+  assert.equal(result.answered, 1);
+  assert.match(result.errors.at(-1), /slow down \(HTTP 429\)/);
+});
+
+test('fetchFromProcess3: reads e-GP\'s count of the day and the oldest day in each list, and can ask one day', async () => {
+  const get = mock.method(axios, 'get', async (url) => {
+    return { data: new URL(url).searchParams.get('anounceType') === 'D0' ? recordedFeed() : buildRssXml([]) };
+  });
+
+  const result = await fetchP3({ types: ['D0', 'W0'], deptId: '0307', announceDate: '20261007' });
+
+  // The national list of 2026-10-07: 20 shown of the 377 announced
+  assert.equal(result.itemsByType.D0, 20);
+  assert.equal(result.countByType.D0, 377);
+  assert.equal(result.oldestDateByType.D0, '2026-10-07');
+  assert.equal(result.oldestDateByType.W0, undefined, 'an empty list has no oldest day');
+  const asked = new URL(get.mock.calls[0].arguments[0]);
+  assert.equal(asked.searchParams.get('announceDate'), '20261007');
+  assert.equal(asked.searchParams.get('deptId'), '0307');
+});
+
+test('fetchFromProcess3: one request left unanswered does not stop the others, and items are counted by code', async () => {
+  mock.method(axios, 'get', async (url) => {
+    const code = new URL(url).searchParams.get('anounceType');
+    if (code === '15') throw new AxiosError('timeout of 20000ms exceeded', 'ECONNABORTED');
+    return { data: buildRssXml(code === 'W0' ? [{ projectId: '69100000001', code: 'W0', title: 'ซื้อรถบรรทุก' }] : []) };
+  });
+
+  const result = await fetchP3();
+
+  assert.equal(result.requested, 8);
+  assert.equal(result.answered, 7);
+  assert.equal(result.itemsByType.W0, 1);
+  assert.equal(result.itemsByType.D0, 0);
+  assert.equal(result.itemsByType['15'], undefined, 'an unanswered request returned no items to count');
 });
 
 test('fetchFromProcess3: a feed that answers with nothing new is not an outage', async () => {
@@ -328,7 +383,7 @@ test('fetchFromProcess3: during e-GP\'s closed hours nothing is requested', asyn
 
   assert.equal(get.mock.callCount(), 0);
   assert.deepEqual([result.fetched, result.closed, result.unreachable], [0, true, true]);
-  assert.match(result.errors[0], /09:00–12:00 and 13:00–17:00/);
+  assert.match(result.errors[0], /only 17:01–08:29/);
 });
 
 test('fetchFromProcess3: news about a followed project gets through whatever its title says', async () => {
@@ -411,4 +466,15 @@ test('fetchFromProcess3: with no keyword, every opening item is a candidate, and
   assert.equal(result.discovered, 2);
   assert.equal((await Tor.findOne({ projectId: TEST_PROJECT_NO_KEYWORD }).lean()).procurementKind, 'buy');
   assert.equal((await Tor.findOne({ projectId: TEST_PROJECT_HIRE }).lean()).procurementKind, 'hire');
+});
+
+test('fetch asks one agency for only the types it was given', async () => {
+  const get = feedAnswers({});
+
+  await fetchP3({ deptId: '0307', types: ['D0', 'B0'] });
+
+  const asked = get.mock.calls.map((call) => new URL(call.arguments[0]));
+  assert.deepEqual(asked.map((url) => url.searchParams.get('anounceType')), ['B0', 'D0'], 'in the order a project goes through them');
+  assert.ok(asked.every((url) => url.searchParams.get('deptId') === '0307'));
+  mock.restoreAll();
 });

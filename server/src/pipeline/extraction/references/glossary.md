@@ -5,6 +5,10 @@
 | งบประมาณ, วงเงินงบประมาณ, วงเงินที่ได้รับจัดสรร | The budget the agency has set aside | `facts.budget` |
 | ราคากลาง, ราคาอ้างอิง | The official reference price bids are judged against | `facts.referencePrice` |
 | วันยื่นข้อเสนอ, กำหนดยื่นข้อเสนอ, ยื่นเอกสารภายในวันที่ | The bid submission deadline | `facts.submissionDeadline` |
+| เสนอราคา … ในวันที่ … ระหว่างเวลา … น. ถึง … น. | The bid window: bids are taken that day, between the two times | `facts.submissionDeadline`, the closing time |
+| เอกสารประกวดราคา | The bidding document: the legal terms of the bidding | the `bidding` document |
+| ทุนจดทะเบียน … ไม่ต่ำกว่า | The registered capital the bidder must have paid up | `eligibility.companyRequirements` |
+| กิจการร่วมค้า | Whether a joint venture may bid, and on what terms | `eligibility.companyRequirements` |
 | วันประกาศ, ประกาศ ณ วันที่ | The publication date | `facts.postedDate` |
 | กำหนดส่งมอบ, ส่งมอบงานภายใน ... วัน | The delivery period | `facts.deliveryPeriodDays` |
 | ระยะเวลาดำเนินการ, อายุสัญญา | The contract duration | `facts.contractDurationDays` |

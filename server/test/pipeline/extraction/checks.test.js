@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { test } from 'node:test';
 
 import {
   confidenceScore,
+  isFormQuoteInSource,
   isQuoteInSource,
   keepGroundedItems,
   normalizeForMatch,
@@ -77,6 +80,52 @@ function clean() {
 
 const failed = (result, check, field) =>
   result.checks.find((c) => c.check === check && (field === undefined || c.field === field));
+
+test('grounding: a quote is looked for in the document it says it is from (ADR 0025)', () => {
+  // The bidding document of the TOR's latest announcement package
+  const biddingText = 'ผู้ชนะต้องรับประกันความชำรุดบกพร่องเป็นระยะเวลาไม่น้อยกว่า ๑ ปี\n-- 1 of 1 --';
+  const withBidding = () => {
+    const input = clean();
+    input.tor.packages = [{ kind: 'announcement', biddingText }];
+    return input;
+  };
+  const warranty = (document) => ({ ...evidence('รับประกันความชำรุดบกพร่องเป็นระยะเวลาไม่น้อยกว่า ๑ ปี', 1, 1), document });
+
+  const fromBidding = withBidding();
+  fromBidding.extracted.facts.warrantyYears = warranty('bidding');
+  assert.equal(failed(runChecks(fromBidding), 'grounding'), undefined);
+
+  // The same quote claimed from the TOR isn't in the TOR: the reviewer is told where it looked
+  const misattributed = withBidding();
+  misattributed.extracted.facts.warrantyYears = warranty('tor');
+  const check = failed(runChecks(misattributed), 'grounding', 'facts.warrantyYears');
+  assert.equal(check.detail.document, 'tor');
+
+  // A quoted list item may come from either document
+  const listed = withBidding();
+  listed.extracted.eligibility.requiredCertifications = [{ quote: 'รับประกันความชำรุดบกพร่อง', name: 'ไม่ใช่ใบรับรอง' }];
+  assert.equal(failed(runChecks(listed), 'grounding', 'eligibility.requiredCertifications'), undefined);
+});
+
+test('a bidding-document quote may put a value back in its sentence, but never change it (ADR 0025)', () => {
+  // A real bidding document: its filled-in values come out after the form's words
+  const source = normalizeForMatch(
+    fs.readFileSync(path.join(import.meta.dirname, '..', 'ingestion', 'fixtures', 'egp-package', '69109062251-bidding.txt'), 'utf8'),
+  );
+  // What the model quoted in a real run, the value moved back into its sentence
+  const deadline =
+    'ผู้ยื่นข้อเสนอจะต้องยื่นข้อเสนอและเสนอราคาทางระบบจัดซื้อจัดจ้างภาครัฐ ด้วยอิเล็กทรอนิกส์ในวันที่ ๑๙ ตุลาคม ๒๕๖๙ ระหว่างเวลา ๐๙.๐๐ น. ถึง ๑๒.๐๐ น.';
+  assert.equal(isQuoteInSource(deadline, source), false, 'not in this order');
+  assert.equal(isFormQuoteInSource(deadline, source), true, 'every piece is there, close together');
+
+  // A changed value isn't there, however its words line up
+  for (const madeUp of [
+    deadline.replace('๑๙ ตุลาคม', '๒๐ ตุลาคม'),
+    deadline.replace('๑๒.๐๐ น.', '๑๖.๐๐ น.'),
+  ]) {
+    assert.equal(isFormQuoteInSource(madeUp, source), false, madeUp);
+  }
+});
 
 test('a correct extraction passes every check, OCR quirks and all', () => {
   const result = runChecks(clean());

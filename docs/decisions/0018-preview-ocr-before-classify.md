@@ -1,6 +1,6 @@
 # 0018 · Read a preview, classify it, then read the rest
 
-Status: proposed · 2026-10-08
+Status: proposed · 2026-10-08 · amended by [0026](0026-screen-titles-before-downloading.md): titles are screened before downloading
 
 ## Context
 

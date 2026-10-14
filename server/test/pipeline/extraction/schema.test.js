@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { Type } from '@google/genai';
 
 import { STANDARD_CONDITION_KEYS } from '#models/standard-conditions.js';
-import { PROJECT_CATEGORIES, classifySchema, extractSchema } from '#pipeline/extraction/schema.js';
+import { PROJECT_CATEGORIES, classifySchema, extractSchema, screenSchema } from '#pipeline/extraction/schema.js';
 
 // Visits every object schema in the tree, with a readable path for messages.
 function* objects(schema, at = '$') {
@@ -16,7 +16,7 @@ function* objects(schema, at = '$') {
   if (schema.type === Type.ARRAY) yield* objects(schema.items, `${at}[]`);
 }
 
-for (const [name, schema] of Object.entries({ classifySchema, extractSchema })) {
+for (const [name, schema] of Object.entries({ classifySchema, extractSchema, screenSchema })) {
   test(`${name}: every field is required, so Gemini says null rather than leaving it out`, () => {
     for (const [at, object] of objects(schema)) {
       const properties = Object.keys(object.properties ?? {});

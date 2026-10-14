@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { decide, sourceFingerprint } from '#pipeline/extraction/select.js';
+import { decide, fingerprintFor, sourceFingerprint } from '#pipeline/extraction/select.js';
 
 const tor = { document: { contentHash: 'pdf-1' }, amendments: [], ocr: { rawText: '=== Page 1 ===\nข้อความ' } };
 const NOW = { fingerprint: sourceFingerprint(tor), promptVersion: 'extract-v3', model: 'gemini-3.7-flash' };
@@ -53,4 +53,29 @@ test('a reviewed result survives --outdated, and is only redone when forced, wit
 test('an up-to-date result is skipped unless forced', () => {
   assert.equal(run(insight()), 'skip:current');
   assert.equal(run(insight(), { force: true }), 'process:forced');
+});
+
+test('an extraction is fingerprinted with its bidding document, an excluded result without it (ADR 0025)', () => {
+  const withBidding = {
+    ...tor,
+    packages: [{ kind: 'announcement', biddingText: 'เอกสารประกวดราคา ฉบับแรก' }],
+  };
+  const changedBidding = {
+    ...tor,
+    packages: [{ kind: 'announcement', biddingText: 'เอกสารประกวดราคา ฉบับแก้ไข' }],
+  };
+
+  // An extraction read the bidding document: a new one makes its result wrong
+  assert.notEqual(sourceFingerprint(withBidding, { bidding: true }), sourceFingerprint(changedBidding, { bidding: true }));
+  // An excluded or awaiting result was built from the TOR alone: it isn't classified again for one
+  assert.equal(sourceFingerprint(withBidding), sourceFingerprint(changedBidding));
+  assert.equal(sourceFingerprint(withBidding), sourceFingerprint(tor));
+  // A TOR with no bidding document fingerprints as it always did
+  assert.equal(sourceFingerprint(tor, { bidding: true }), sourceFingerprint(tor));
+
+  // fingerprintFor picks by what the existing result was built from
+  assert.equal(fingerprintFor(withBidding, { excluded: { reason: 'ก่อสร้างถนน' } }), sourceFingerprint(withBidding));
+  assert.equal(fingerprintFor(withBidding, { awaitingFullText: true }), sourceFingerprint(withBidding));
+  assert.equal(fingerprintFor(withBidding, { excluded: null }), sourceFingerprint(withBidding, { bidding: true }));
+  assert.equal(fingerprintFor(withBidding, undefined), sourceFingerprint(withBidding), 'nothing yet: decide calls it new anyway');
 });

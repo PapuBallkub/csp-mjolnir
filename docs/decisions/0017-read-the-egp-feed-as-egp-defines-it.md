@@ -23,7 +23,9 @@ The pipeline had never read a single real item:
 4. **Winner announcements weren't fetched** (`W0`, `W1`, `W2`), so the feed
    could never award or cancel a project.
 5. **The feed closes during office hours:** 09:00–12:00 and 13:00–17:00,
-   Bangkok time (manual 4.5). A request then hangs until it times out. 0016
+   Bangkok time (manual 4.5). *A newer edition of the manual says open
+   17:01–08:29 only, which fits what the feed does; see
+   [0027](0027-run-the-pipeline-on-a-schedule.md).* A request then hangs until it times out. 0016
    read those timeouts as a dead feed. Outside those hours it answers in
    seconds.
 6. **Each request returns the 20 latest items of its type,** topped up from

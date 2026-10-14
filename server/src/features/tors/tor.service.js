@@ -445,10 +445,20 @@ export async function getTorByProjectId(projectId, { showUnreviewed, now = new D
 
   return {
     ...toPublic(withLiveStatus(insight, rawTor), now),
-    document: rawTor?.document || null,
+    document: publicDocument(rawTor?.document),
     ocr: rawTor?.ocr || null,
     source: rawTor?.source || null,
   };
+}
+
+/**
+ * What the public may know about the TOR's file: what the page shows. Never
+ * where the server keeps it (`storagePath`, the parts' paths) or its hash.
+ */
+function publicDocument(document) {
+  if (!document) return null;
+  const { fileName = null, sizeBytes = null, pages = null, documentType = null } = document;
+  return { fileName, sizeBytes, pages, documentType };
 }
 
 // A search box is user input: its text is matched literally, not as a pattern

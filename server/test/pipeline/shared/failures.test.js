@@ -4,7 +4,7 @@ import { AxiosError } from 'axios';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { PipelineFailure } from '#models/index.js';
-import { clearFailure, isOutage, loadGivenUp, recordFailure } from '#pipeline/shared/failures.js';
+import { MAX_ATTEMPTS, clearFailure, isOutage, isTooBig, loadGivenUp, recordFailure } from '#pipeline/shared/failures.js';
 
 const TEST_DB = 'mjolnir_test';
 const PROJECT = '66666000001';
@@ -24,6 +24,26 @@ beforeEach(async () => {
 after(async () => {
   await PipelineFailure.deleteMany({ projectId: { $in: [PROJECT, OTHER] } });
   await disconnectDatabase();
+});
+
+test('isOutage: a file over the size limit is the file\'s problem, not an outage', () => {
+  // How axios reports it: no response object, like a timeout
+  const tooBig = new AxiosError('maxContentLength size of 52428800 exceeded', 'ERR_BAD_RESPONSE');
+  assert.equal(isOutage(tooBig), false);
+  assert.equal(isTooBig(tooBig), true);
+  // The downloader hands the step its message, not the error
+  assert.equal(isTooBig('Failed to download e-GP package x.zip for 1: maxContentLength size of 209715200 exceeded'), true);
+  assert.equal(isTooBig(new AxiosError('timeout of 30000ms exceeded', 'ECONNABORTED')), false);
+});
+
+test('recordFailure: a final failure gives up at once, an outage never does', async () => {
+  const first = await recordFailure({ projectId: PROJECT, step: 'download', error: 'too big', transient: false, final: true });
+  assert.equal(first.attempts, MAX_ATTEMPTS);
+  assert.equal(first.gaveUp, true);
+
+  const outage = await recordFailure({ projectId: OTHER, step: 'download', error: 'timeout', transient: true, final: true });
+  assert.equal(outage.attempts, 0);
+  assert.equal(outage.gaveUp, false);
 });
 
 test('isOutage: a source that did not answer, is down, or rate-limits us', () => {
