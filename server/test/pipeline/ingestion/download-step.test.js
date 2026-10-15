@@ -199,6 +199,43 @@ test('download step: a TOR that is past (cancelled, or with a winner) is never d
   assert.equal(get.mock.callCount(), 0, 'no request to e-GP for either');
 });
 
+/** A past project from data.go.th: awarded, never in the feed, never screened by the download gate. */
+const pastProject = (projectId, historyRequestedAt = null) => ({
+  projectId,
+  source: 'datago',
+  title: 'จ้างพัฒนาระบบสารสนเทศ ปี 2568',
+  status: 'Awarded',
+  contract: { winnerName: 'บริษัท ผู้ชนะ จำกัด', agreedPriceTHB: 1_850_000 },
+  pipelineStatus: 'fetched',
+  historyRequestedAt,
+});
+
+test('download step: a past project asked for is downloaded, though awarded; one not asked for is not (ADR 0028)', async () => {
+  const asked = '55555000007';
+  const notAsked = '55555000008';
+  await Tor.create([pastProject(asked, new Date()), pastProject(notAsked)]);
+  const get = egpHasNoFile();
+
+  await runDownloadStep({ documentsDir });
+
+  const urls = get.mock.calls.map((call) => call.arguments[0]).join(' ');
+  assert.match(urls, new RegExp(asked), 'asked for: downloaded without a title screen');
+  assert.doesNotMatch(urls, new RegExp(notAsked));
+});
+
+test('download step: a past project e-GP has no package for gives up at once (ADR 0028)', async () => {
+  const asked = '55555000007';
+  await Tor.create(pastProject(asked, new Date()));
+  egpHasNoFile();
+
+  await runDownloadStep({ documentsDir });
+
+  // An awarded project's package won't appear later; a new one's may, so it gets its usual tries
+  const past = await PipelineFailure.findOne({ projectId: asked, step: 'download' }).lean();
+  assert.equal(past.attempts, MAX_ATTEMPTS);
+  assert.equal((await failureOf()).attempts, 1);
+});
+
 test('download step: a TOR the e-GP feed never announced is never downloaded', async () => {
   await Tor.deleteMany({});
   // What the removed data.go.th fallback left behind: "Open" only by default

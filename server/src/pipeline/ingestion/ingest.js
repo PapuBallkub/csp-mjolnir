@@ -22,6 +22,9 @@
  *   # Try again the TORs that gave up after repeated failures
  *   node src/pipeline/ingestion/ingest.js --retry-failed
  *
+ *   # Choose tonight's past projects to read in full (ADR 0028); --dry-run only shows them
+ *   node src/pipeline/ingestion/ingest.js --step history --dry-run
+ *
  *   # Every agency in data/egp-agencies.json (ADR 0027), within a time box
  *   node src/pipeline/ingestion/ingest.js --step sweep --until 2026-10-14T21:55:00+07:00
  *
@@ -45,6 +48,7 @@ import { deriveStatus } from '../shared/status-engine.js';
 import { WORKABLE } from '../shared/workable.js';
 import { paceRequest } from '../shared/request-pacer.js';
 import { isPastDeadline, parseUntil } from '../shared/deadline.js';
+import { requestPastProjects, selectPastProjects } from './lib/past-requests.js';
 import { FEED_HOURS, ROUTINE_TYPES, fetchFromProcess3, procurementKindOf } from './sources/process3.js';
 import { isDraftAnnouncement, readPostedDate, readTitle } from './lib/egp-package.js';
 import { PREVIEW_PAGES, extractText, isPreviewRead } from './lib/ocr.js';
@@ -67,6 +71,7 @@ function parseCliArgs() {
   let types = null; // e-GP feed only: these announcement codes, e.g. D0,B0
   let until = null; // the time box: no new work after it (ADR 0027)
   let skipScreen = false; // download new projects without waiting for the title screen
+  let dryRun = false; // history: show tonight's choice, ask for nothing
   let agencies = null; // sweep only these agency codes, e.g. 0307,A004
   let days = 1; // sweep: how many days back a full list is asked again, day by day
 
@@ -109,6 +114,8 @@ function parseCliArgs() {
       until = parseUntil(argv[++i]);
     } else if (arg.startsWith('--until=')) {
       until = parseUntil(arg.slice('--until='.length));
+    } else if (arg === '--dry-run') {
+      dryRun = true;
     } else if (arg === '--skip-screen') {
       skipScreen = true;
     } else if (arg === '--days' && i + 1 < argv.length) {
@@ -141,7 +148,7 @@ function parseCliArgs() {
   // An agency list reaches back 7 days at most (manual 4.2)
   if (!(days >= 0 && days <= 7)) throw new Error(`--days takes 0 to 7; got "${days}"`);
 
-  return { step, id, query, limit, source, skipOcr, retryFailed, dept, types, until, skipScreen, agencies, days };
+  return { step, id, query, limit, source, skipOcr, retryFailed, dept, types, until, skipScreen, agencies, days, dryRun };
 }
 
 /**
@@ -703,6 +710,32 @@ export async function runAddStep({
   return tor;
 }
 
+// A past project chosen to be read in full and not downloaded yet (ADR 0028)
+const PAST_REQUESTED = { pipelineStatus: 'fetched', historyRequestedAt: { $ne: null } };
+
+/**
+ * Chooses tonight's past projects to read in full, and asks for them: download
+ * and OCR then take them like any project (ADR 0028). With dryRun, only says
+ * which it would choose.
+ */
+export async function runHistoryStep({ dryRun = false, now = new Date(), select = selectPastProjects } = {}) {
+  console.log('\n[HISTORY] Choosing past projects to read in full...');
+  const { pending, chosen } = await select({ now });
+  if (pending) console.log(`  -> ${pending} chosen before are still waiting to be downloaded; they count against tonight's budget.`);
+  if (chosen.length === 0) {
+    console.log('  -> None to ask for tonight.');
+    return 0;
+  }
+  for (const pick of chosen) console.log(`     ${pick.projectId} ${pick.why.padEnd(18)} ${pick.title.slice(0, 80)}`);
+  if (dryRun) {
+    console.log(`  -> Dry run: ${chosen.length} would be asked for; nothing changed.`);
+    return 0;
+  }
+  const asked = await requestPastProjects(chosen, { now });
+  console.log(`  -> ${asked} past project(s) asked for: download and OCR take them next.`);
+  return asked;
+}
+
 // The title screen lets a new project through unless it's clearly not IT, and
 // lets a sample of those through too (ADR 0026)
 const PASSES_SCREEN = { $or: [{ verdict: { $in: ['it', 'unsure'] } }, { audit: true }] };
@@ -734,13 +767,19 @@ export async function runDownloadStep({
   // asked for once, and again at each new stage (ADR 0023).
   const passed = screened ? await TitleScreen.distinct('projectId', PASSES_SCREEN) : null;
   let queryFilter = {
-    ...WORKABLE,
     $or: [
-      { pipelineStatus: 'fetched', ...(passed && { projectId: { $in: passed } }) },
       {
-        pipelineStatus: { $ne: 'fetched' },
-        $or: [{ packageCheckNeeded: true }, { 'packages.0': { $exists: false } }, { priceCheckedAt: null }],
+        ...WORKABLE,
+        $or: [
+          { pipelineStatus: 'fetched', ...(passed && { projectId: { $in: passed } }) },
+          {
+            pipelineStatus: { $ne: 'fetched' },
+            $or: [{ packageCheckNeeded: true }, { 'packages.0': { $exists: false } }, { priceCheckedAt: null }],
+          },
+        ],
       },
+      // A past project chosen to be read in full: not workable, asked for (ADR 0028)
+      PAST_REQUESTED,
     ],
   };
   if (id) {
@@ -794,7 +833,8 @@ export async function runDownloadStep({
         error: result.error,
         transient: Boolean(result.transient),
         // The same file would stop at the same limit: no use downloading it again
-        final: isTooBig(result.error),
+        // A past project with no package won't get one later either (ADR 0028)
+        final: isTooBig(result.error) || (Boolean(tor.historyRequestedAt) && /No announcement package/.test(result.error)),
       });
       console.warn(`        Download failed: ${result.error}${note}`);
       continue;
@@ -895,10 +935,16 @@ export async function runOcrStep({ id, documentsDir, retryFailed = false, until 
     // Extraction says which previews are IT; ingestion only reads that (ADR 0013)
     const waiting = await TorInsight.distinct('projectId', { 'metadata.awaitingFullText': true });
     fullReads = await Tor.find({
-      ...WORKABLE,
       $or: [
-        { pipelineStatus: 'ocr_preview', projectId: { $in: waiting } },
-        { ...downloaded, projectId: { $in: extracted } },
+        {
+          ...WORKABLE,
+          $or: [
+            { pipelineStatus: 'ocr_preview', projectId: { $in: waiting } },
+            { ...downloaded, projectId: { $in: extracted } },
+          ],
+        },
+        // A past project chosen on purpose is read whole: no preview (ADR 0028)
+        { pipelineStatus: 'downloaded', 'document.storagePath': { $ne: null }, historyRequestedAt: { $ne: null } },
       ],
     });
   }
@@ -1031,6 +1077,12 @@ async function runSteps(args) {
       types: args.types,
       documentsDir: DOCUMENTS_DIR,
     });
+  }
+
+  // Tonight's past projects to read in full (ADR 0028)
+  if (args.step === 'history') {
+    await runHistoryStep({ dryRun: args.dryRun });
+    return;
   }
 
   // Every agency in egp-agencies.json, one after another (ADR 0027)

@@ -8,8 +8,11 @@
  *
  *   poll     the national feed, then process
  *   sweep    every agency in egp-agencies.json, then process
- *   process  screen the new titles, download what passed, read it, classify
- *            it, and extract the IT ones (ADR 0018, 0026)
+ *   process  refresh comparable projects, choose past projects to read in
+ *            full tonight (ADR 0028), then screen the new titles, download
+ *            what passed, read it, classify it, and extract the IT ones
+ *            (ADR 0018, 0026). poll and sweep process the same way, without
+ *            the first two.
  *
  * Usage:
  *   npm run job -- poll
@@ -50,6 +53,10 @@ export const STEPS = {
   download: { name: 'ingest download', script: 'ingestion/ingest.js', args: ['--step', 'download'] },
   ocr: { name: 'ingest ocr', script: 'ingestion/ingest.js', args: ['--step', 'ocr'] },
   extract: { name: 'extract', script: 'extraction/extract.js', args: [] },
+  // Past projects to read in full tonight (ADR 0028)
+  history: { name: 'ingest history', script: 'ingestion/ingest.js', args: ['--step', 'history'] },
+  // Comparable projects for every full extraction (ADR 0021, 0022), the team's nightly batch
+  comparisons: { name: 'comparisons', script: '../../scripts/find-comparable.js', args: ['--all', '--save'] },
 };
 
 // Screen the new titles, download what passed, preview it, classify the
@@ -59,7 +66,9 @@ const PROCESS = ['screen', 'download', 'ocr', 'extract', 'ocr', 'extract'];
 export const JOBS = {
   poll: ['fetch', ...PROCESS],
   sweep: ['sweep', ...PROCESS],
-  process: PROCESS,
+  // The night: comparisons first, so a long night of OCR can't crowd them out,
+  // then the past projects chosen for tonight join what's waiting (ADR 0028)
+  process: ['comparisons', 'history', ...PROCESS],
 };
 
 // How long a job waits for the one before it, and how often it looks

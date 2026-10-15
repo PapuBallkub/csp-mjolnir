@@ -83,13 +83,33 @@ changed source.
 or a price (`hasSignedContract`). data.go.th leaves the name blank on 8,029
 signed contracts.
 
+**7. Past projects are read in full a few a night** (`ingest --step
+history`, in the 22:00 `process` job). It chooses up to `HISTORY_PER_NIGHT`
+(20) title-level projects:
+- first, for each open IT TOR, soonest deadline first, the past projects its
+  comparison would rank highest: the same category, within its price band
+  (0.3× to 3×), then by the comparison's own score. Every open TOR gets its
+  closest before any gets a second, and none more than three;
+- then the newest past projects, for the rest of the night.
+
+A chosen project is marked `Tor.historyRequestedAt`. Download takes it
+although it's awarded and skips the title screen, which has already passed
+it. OCR reads it whole, with no preview, since it was chosen as IT.
+Extraction then replaces the title-level record. Projects chosen earlier and
+not downloaded yet count against the night's number. A past project e-GP has
+no package for gives up at once: an awarded project won't get one later.
+
+The same job refreshes the comparisons first (`find-comparable --all
+--save`), so that a long night of OCR can't crowd them out.
+
 ## Changes to the records
 
 | Model | Change |
 |---|---|
 | `Tor.contract` | `amountTHB` (งบสัญญา, the total), `fiscalYear`, `contractStatus`, `winners` |
+| `Tor` | `historyRequestedAt` (Date, default null, indexed): chosen to be read in full |
 | `TorInsight.metadata` | `titleOnly` (Boolean, default false, indexed) |
-| `TorInsight.facts` | `agreedPriceTHB` |
+| `TorInsight.facts` | `agreedPriceTHB`: kept by full extraction too, from `Tor.contract` |
 | `TitleScreen` | `category` |
 
 ## Consequences
@@ -99,8 +119,12 @@ signed contracts.
   publicly announced (2.6%), and 6,833 of those have IT-looking titles.
   Screening them is about 171 Gemini calls, 0.75 million input and 0.41
   million output tokens: about the input of 14 large TOR extractions.
-- **Detailed comparisons see past projects only once they're extracted,**
-  which the nightly lazy extraction adds next.
+- **Detailed comparisons see past projects only once they're extracted:**
+  about 20 a night, so the first open TORs wait a few nights for theirs. On
+  the 36-project sample (2026-10-16), 8 of the 20 were chosen as like an open
+  TOR. With so few to choose from, some pairs were loose (a traffic-signal
+  contract like a data centre): the full import gives the category and price
+  band far more to choose from.
 - **The catalog shows every status by default,** so extracted past projects
   would appear under Awarded. Defaulting `/search` to Draft and Open is a
   frontend change.
