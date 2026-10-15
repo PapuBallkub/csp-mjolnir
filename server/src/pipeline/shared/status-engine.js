@@ -7,7 +7,8 @@
  *   Draft → Open → Awarded | Closed | Cancelled
  *
  * Rules (ADR 0017):
- * 1. A contract with a winner (data.go.th) means Awarded, whatever the feed says.
+ * 1. A signed contract (data.go.th) means Awarded, whatever the feed says:
+ *    a winner's name, a contract number or a price (hasSignedContract).
  * 2. Otherwise the latest announcement that implies a status decides:
  *    B0 Draft · D0, D2 Open · D1 Cancelled · W0, W2 Awarded · W1 Cancelled.
  *    15 (ราคากลาง) changes nothing. A new invitation after a cancellation
@@ -41,6 +42,19 @@ function chronological(history) {
 }
 
 /**
+ * Whether a contract was signed. A winner's name says so, but data.go.th
+ * leaves it blank on 8,029 FY2568 rows that still have the winner's tax ID,
+ * a contract number and an amount (ADR 0028): any of those counts too.
+ *
+ * @param {object} [contract] the contract sub-document from data.go.th
+ */
+export function hasSignedContract(contract) {
+  return Boolean(
+    contract?.winnerName || contract?.contractNo || contract?.agreedPriceTHB > 0 || contract?.amountTHB > 0,
+  );
+}
+
+/**
  * @param {Array<{ code: string, publishedAt?: Date|string|null, receivedAt?: Date|string|null }>} history
  *   the announcementHistory array from the Tor document
  * @param {{ winnerName?: string | null }} [contract] the contract sub-document from data.go.th
@@ -52,7 +66,7 @@ export function deriveStatus(history = [], contract = {}) {
   const isAmended = ordered.some((entry) => AMENDMENT_CODES.includes(entry.code));
   const latestCode = ordered.at(-1)?.code ?? null;
 
-  if (contract?.winnerName) return { status: 'Awarded', isAmended, latestCode };
+  if (hasSignedContract(contract)) return { status: 'Awarded', isAmended, latestCode };
 
   // No history at all: Open, as data.go.th imports have always been
   let status = 'Open';

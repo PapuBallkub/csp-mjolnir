@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { deriveStatus } from '#pipeline/shared/status-engine.js';
+import { deriveStatus, hasSignedContract } from '#pipeline/shared/status-engine.js';
 
 // Status and the amended flag; latestCode has its own test
 const statusOf = (...args) => {
@@ -81,4 +81,18 @@ test('latestCode is the code of the latest announcement by publish date', () => 
   assert.equal(deriveStatus([on('D1', 6), on('D0', 3)]).latestCode, 'D1');
   assert.equal(deriveStatus([{ code: 'B0' }, { code: 'D0' }]).latestCode, 'D0');
   assert.equal(deriveStatus([]).latestCode, null);
+});
+
+test('hasSignedContract: a winner name, a contract number or a price says a contract was signed (ADR 0028)', () => {
+  assert.equal(hasSignedContract({ winnerName: 'บริษัท ตัวอย่าง จำกัด' }), true);
+  // data.go.th leaves the name blank on some signed contracts
+  assert.equal(hasSignedContract({ winnerName: null, winnerTaxId: '0993000524276', contractNo: '12-12-2568' }), true);
+  assert.equal(hasSignedContract({ agreedPriceTHB: 95842000 }), true);
+  assert.equal(hasSignedContract({ amountTHB: 95842000 }), true);
+  assert.equal(hasSignedContract({ winnerName: '', contractNo: null, agreedPriceTHB: 0 }), false);
+  assert.equal(hasSignedContract(undefined), false);
+
+  const open = [{ code: 'D0', publishedAt: '2025-04-28' }];
+  assert.equal(deriveStatus(open, { contractNo: '12-12-2568' }).status, 'Awarded');
+  assert.equal(deriveStatus(open, {}).status, 'Open');
 });

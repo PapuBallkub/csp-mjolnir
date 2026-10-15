@@ -70,6 +70,22 @@ export function getFiscalYear(dateVal, projectId) {
 }
 
 /**
+ * Detailed comparisons use fully extracted projects only, which have
+ * technologies and scope (ADR 0028). Not a title-level record of a past
+ * project (built from its title and data.go.th row), nor a preview waiting for
+ * its full text (ADR 0018), nor a project found not IT.
+ */
+export const FULL_EXTRACTION = {
+  'metadata.titleOnly': { $ne: true },
+  'metadata.awaitingFullText': { $ne: true },
+  'metadata.excluded': null,
+};
+
+/** The same, for a record already in hand. */
+export const isFullExtraction = (tor) =>
+  !tor?.metadata?.titleOnly && !tor?.metadata?.awaitingFullText && !tor?.metadata?.excluded;
+
+/**
  * Resolves the primary reference price for a TOR document.
  * Checks facts.referencePriceTHB first, then facts.budgetTHB.
  *
@@ -251,6 +267,7 @@ export async function findComparableProjects(targetTor, options = {}) {
     // In-memory pool filtering
     candidates = candidatesPool.filter((cand) => {
       if (cand.projectId === targetTor.projectId) return false;
+      if (!isFullExtraction(cand)) return false;
       if (cand.identification?.category !== targetCategory) return false;
       const price = getProjectPrice(cand);
       return price !== null && price >= minPrice && price <= maxPrice;
@@ -259,6 +276,7 @@ export async function findComparableProjects(targetTor, options = {}) {
     // Stage 1: Query MongoDB using the compound index
     candidates = await TorInsight.find({
       projectId: { $ne: targetTor.projectId },
+      ...FULL_EXTRACTION,
       'identification.category': targetCategory,
       $or: [
         { 'facts.referencePriceTHB': { $gte: minPrice, $lte: maxPrice } },

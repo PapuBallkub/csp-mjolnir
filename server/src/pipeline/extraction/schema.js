@@ -181,9 +181,18 @@ export const screenSchema = {
             enum: SCREEN_VERDICTS,
             description: 'it, not_it or unsure. not_it only when the title clearly has nothing to do with IT.',
           },
+          category: {
+            type: Type.STRING,
+            nullable: true,
+            format: 'enum',
+            enum: PROJECT_CATEGORIES,
+            description:
+              'The kind of IT project the title describes. null for not_it, and null when the title ' +
+              'does not say enough to tell.',
+          },
         },
-        required: ['projectId', 'reason', 'verdict'],
-        propertyOrdering: ['projectId', 'reason', 'verdict'],
+        required: ['projectId', 'reason', 'verdict', 'category'],
+        propertyOrdering: ['projectId', 'reason', 'verdict', 'category'],
       },
     },
   },
