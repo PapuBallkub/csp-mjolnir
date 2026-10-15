@@ -97,12 +97,15 @@ async function screen(since) {
 
 async function catalog(since) {
   const insights = await TorInsight.find({ 'metadata.processedAt': { $gte: since }, 'metadata.origin': { $ne: 'demo' } }).lean();
-  const extracted = insights.filter((i) => !i.metadata.excluded && !i.metadata.awaitingFullText);
+  const extracted = insights.filter((i) => !i.metadata.excluded && !i.metadata.awaitingFullText && !i.metadata.titleOnly);
+  // Past projects known from their title only, until extracted (ADR 0028)
+  const titleLevel = insights.filter((i) => i.metadata.titleOnly).length;
   console.log('\nCLASSIFY AND EXTRACT');
   console.log(
     `  ${insights.length} result(s): ${extracted.length} extracted, ` +
       `${insights.filter((i) => i.metadata.excluded).length} excluded (not IT), ` +
-      `${insights.filter((i) => i.metadata.awaitingFullText).length} IT waiting for the full text`,
+      `${insights.filter((i) => i.metadata.awaitingFullText).length} IT waiting for the full text` +
+      (titleLevel ? `, ${titleLevel} past project(s) at title level` : ''),
   );
   for (const insight of extracted) {
     console.log(`    ${insight.projectId} score ${insight.metadata.confidenceScore ?? '-'} · ${String(insight.identification?.titleTh ?? '').slice(0, 80)}`);

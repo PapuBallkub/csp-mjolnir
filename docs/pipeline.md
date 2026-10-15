@@ -122,11 +122,12 @@ npm run ingest -- --skip-ocr          # fetch and download only; OCR later
 ```
 
 ### `npm run ingest:fetch`
-**Finds new TORs** in e-GP RSS (`process3`) and data.go.th (`datago`), and saves
-them as `fetched`. Nothing is downloaded.
+**Finds new TORs** in the e-GP RSS feed (`process3`), and saves them as
+`fetched`. Nothing is downloaded.
 
-- e-GP RSS is the only source of **open** projects; data.go.th has past
-  contracts only.
+- The feed is the only source of **open** projects. data.go.th has past
+  contracts only, and its old reader (`--source datago`) was removed: it read
+  the columns wrongly ([data_go_th.md](data-sources/data_go_th.md)).
 - **The e-GP feed is open 17:01–08:29 only, Bangkok time.** At other times
   fetch sends no request and says so.
 - Each request returns only the 20 latest items of one announcement type
@@ -179,6 +180,38 @@ from e-GP's list of purchasing units on data.go.th (`egpdepartment`). It keeps
 central government only, about 270 agencies, and leaves out ministry codes
 (`03`), for which the feed returns nothing.
 
+### `npm run history:import`
+**Imports past contracts from data.go.th** ([0028](decisions/0028-past-projects-from-data-go-th.md)):
+fiscal year 2568, signed contracts only, never open projects. It keeps only
+what is useful for price comparisons:
+
+1. **Publicly announced projects.** Direct purchases (เฉพาะเจาะจง), three
+   quarters of the rows, never had a public TOR.
+2. **Titles that look like IT,** by a loose keyword list in code. The title
+   screen decides properly afterwards.
+
+Each kept project becomes an ordinary `Tor` record with status Awarded and
+its contract (`source: 'datago'`). A project awarded as several contracts has
+a row for each; they're merged, the amount added up and every winner kept. A project we already have keeps its own
+values and gains the contract. No Gemini is used.
+
+- It reads the 10 CSV files as they download (about 5 GB), not data.go.th's
+  API, which holds only 74% of the rows. Values are read by position: the
+  files' headings are wrong ([data_go_th.md](data-sources/data_go_th.md)).
+- `--dry-run` counts what each filter keeps and estimates the title screen's
+  tokens, and saves nothing. `--parts 1,4` reads only those files; `--limit N`
+  stops after N kept rows.
+- Every write is an upsert by project ID, so an interrupted import can run
+  again.
+
+```
+npm run history:import -- --dry-run
+npm run history:import -- --parts 10 --limit 50
+npm run history:import
+```
+
+Then `npm run screen -- --past` screens their titles.
+
 ### `npm run ingest:download`
 **Downloads each workable TOR's e-GP package** ([0020](decisions/0020-read-the-whole-egp-package.md)),
 or one TOR's with `--id`. It takes:
@@ -206,7 +239,7 @@ What it does with a package:
 
 ```
 npm run ingest:download
-npm run ingest:download -- --id 68039469567
+npm run ingest:download -- --id 69109028093
 ```
 
 `--id` works on a project already in the database. For one that isn't, use
@@ -247,7 +280,7 @@ changing an OCR setting.
 
 ```
 npm run ingest:ocr
-npm run ingest:ocr -- --id 67059626749
+npm run ingest:ocr -- --id 69109028093
 ```
 
 ## Options
@@ -261,9 +294,9 @@ npm run ingest:ocr -- --id 67059626749
 | `--types <codes>` | fetch, sweep | fetch: every type; sweep: every type but `15` | e-GP feed only: only these announcement codes, e.g. `D0,B0` |
 | `--until <time>` | sweep, download, ocr | none | The time box: no new work after this time, e.g. `2026-10-14T07:55:00+07:00`. The project in hand finishes. Jobs set it for you; `screen` and `extract` take it too. |
 | `--skip-screen` | download | off | Download new projects without waiting for the title screen |
-| `--query`, `-q` | fetch | none for e-GP; `คอมพิวเตอร์` for data.go.th | Keep only new projects whose title has this text. e-GP has none by default: classify decides what is IT |
-| `--limit`, `-l` | fetch | none for e-GP; `5` for data.go.th | At most this many **new** projects per source; updates to projects already in the database are never limited |
-| `--source` | fetch | `all` | `process3`, `datago` or `all` |
+| `--query`, `-q` | fetch | none | Keep only new projects whose title has this text. None by default: the title screen and classify decide what is IT |
+| `--limit`, `-l` | fetch | none | At most this many **new** projects; updates to projects already in the database are never limited |
+| `--source` | fetch | `process3` | The e-GP feed, the only source now (`all` means the same). `datago` was removed. |
 | `--skip-ocr` | `ingest` | off | Stop after download |
 | `--step`, `-s` | `ingest` | `all` | `fetch`, `sweep`, `download`, `ocr`, `add` or `all` (fetch, download and OCR). The `ingest:*` scripts set this for you. |
 | `--retry-failed` | download, ocr | off | Also try the TORs that gave up after repeated failures |
@@ -385,12 +418,24 @@ reads 40 titles and gives each a verdict:
   them, chosen by project ID (`audit`), which go the whole way so we can see
   what the screen gets wrong.
 
+Each verdict also names the kind of IT project the title points to, one of
+the seven categories, or none (`screen-v2`).
+
 A project is screened again only if its title or the screen's prompt version
-(`screen-v1`) changes.
+(`screen-v2`) changes.
+
+**Past projects from `history:import` are screened only with `--past`.**
+There can be thousands, so it's a decision, and the scheduled jobs never do
+it. Those found `it` or `unsure` get a **title-level TorInsight record**: title,
+agency, prices and category, every other section empty and nothing quoted.
+It counts in benchmarks; the site, the review queue and detailed comparisons
+leave it out. Full extraction replaces it once the project's documents are
+read ([0028](decisions/0028-past-projects-from-data-go-th.md)).
 
 ```
 npm run screen
 npm run screen -- --limit 40 --dry-run    # see the verdicts, save nothing
+npm run screen -- --past --limit 200      # past projects, 200 at a time
 ```
 
 ### `npm run extract`

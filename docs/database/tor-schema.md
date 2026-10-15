@@ -29,10 +29,16 @@ Stores contractor award, winning bidder, and contract finalization data (availab
 | `winnerName` | `String` | `null` | Name of the winning bidding company/vendor | `"บริษัท บางกอก เมดิคอล ซอฟต์แวร์ จำกัด"` |
 | `winnerTaxId` | `String` | `null` | 13-digit Juristic Tax ID of the winning company | `"0105548152334"` |
 | `contractNo` | `String` | `null` | Official government contract number | `"9/2568"` |
-| `contractSignDate` | `String` | `null` | Date when the contract was signed (Thai format) | `"14 ม.ค. 69"` |
-| `contractEndDate` | `String` | `null` | Contract expiration or completion date | `null` or `"30 ก.ย. 69"` |
+| `contractSignDate` | `String` | `null` | Date when the contract was signed. ISO from the data.go.th import ([0028](../decisions/0028-past-projects-from-data-go-th.md)); older records may hold the Thai short form | `"2025-09-12"` |
+| `contractEndDate` | `String` | `null` | When the contract ends | `"2026-05-10"` |
 | `agreedPriceTHB` | `Number` | `null` | Final agreed contract price (ราคาตกลงซื้อ/จ้าง) in Thai Baht (THB). `null` when the source doesn't give one. | `12300000` |
-| `projectStatus` | `String` | `""` | Description of the contract status from upstream agency | `"ประกวดราคาจ้างพัฒนาคลังข้อมูลสุขภาพดิจิทัล..."` |
+| `projectStatus` | `String` | `""` | The project's status in data.go.th: ระหว่างดำเนินการ (the contract's work is under way) or สิ้นสุดสัญญา. Records from the old reader held the title here; it was cleared. | `"ระหว่างดำเนินการ"` |
+| `amountTHB` | `Number` | `null` | The contract's own amount (งบสัญญา), from data.go.th | `95842000` |
+| `fiscalYear` | `Number` | `null` | Fiscal year, Buddhist era (ปีงบประมาณ) | `2568` |
+| `contractStatus` | `String` | `""` | The contract's status in data.go.th: ระหว่างดำเนินการ or สิ้นสุดสัญญา | `"ระหว่างดำเนินการ"` |
+| `winners` | `Array` | not set | Every contract the project was awarded as: `{ name, taxId, contractNo, signDate, endDate, amountTHB, contractStatus }`. One, or several when the project was split between winners; then the fields above are the first's, and `amountTHB` is the total. From the data.go.th import. | `[{ "name": "บริษัท ฟอร์ท คอร์ปอเรชั่น จำกัด (มหาชน)", "contractNo": "บ.28/2568", "amountTHB": 460602900, … }]` |
+
+Any of a winner's name, a contract number or a price means a contract was signed, and the project is Awarded: data.go.th leaves the name blank on some signed contracts ([0028](../decisions/0028-past-projects-from-data-go-th.md)).
 
 ---
 

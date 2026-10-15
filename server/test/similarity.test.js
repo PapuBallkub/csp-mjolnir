@@ -197,3 +197,27 @@ test('findComparableProjects: matches realistic project 69109062251 (maintenance
   assert.ok(results[0].score > 0.8, 'Top score should be high (>80%)');
   assert.ok(results[1].score > 0.7, 'Second score should also be high');
 });
+
+test('findComparableProjects: full extractions only, not title-level or waiting records (ADR 0028)', async () => {
+  const target = {
+    projectId: 'TARGET_002',
+    identification: { category: 'software-licenses', titleTh: 'เช่าใช้บริการ Microsoft 365' },
+    facts: { referencePriceTHB: 1000000 },
+  };
+  const candidate = (projectId, metadata) => ({
+    projectId,
+    identification: { category: 'software-licenses', titleTh: 'เช่าใช้บริการ Microsoft 365 รายปี' },
+    facts: { referencePriceTHB: 1100000 },
+    metadata,
+  });
+  const pool = [
+    candidate('FULL', {}),
+    candidate('TITLE_LEVEL', { titleOnly: true }),
+    candidate('WAITING', { awaitingFullText: true }),
+    candidate('NOT_IT', { excluded: { reason: 'ไม่ใช่งานไอที' } }),
+  ];
+
+  const results = await findComparableProjects(target, { candidatesPool: pool });
+
+  assert.deepEqual(results.map((r) => r.projectId), ['FULL']);
+});
