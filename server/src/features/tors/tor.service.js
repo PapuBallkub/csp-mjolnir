@@ -13,6 +13,8 @@ export function visibilityFilter({ showUnreviewed = env.showUnreviewedInsights }
     'metadata.reviewStatus': { $ne: 'rejected' },
     // Classified from a preview, not extracted yet: nothing to show (ADR 0018)
     'metadata.awaitingFullText': { $ne: true },
+    // A past project known only from its title and data.go.th row (ADR 0028)
+    'metadata.titleOnly': { $ne: true },
   };
   if (showUnreviewed) return always;
   return {
@@ -36,11 +38,25 @@ export function displayStatus(status, deadline, now = new Date()) {
  * anything filters, sorts or counts on them. An insight without a Tor keeps
  * its copy.
  *
- * A contract with a winner means Awarded, whatever the stored status says:
- * the same rule as the status engine (deriveStatus), so old records whose
- * status was never brought up to date can't show a signed contract as open.
+ * A signed contract means Awarded, whatever the stored status says: the same
+ * rule as the status engine (hasSignedContract), so old records whose status
+ * was never brought up to date can't show a signed contract as open. A
+ * winner's name, a contract number or a price counts: data.go.th leaves the
+ * name blank on some signed contracts (ADR 0028).
  */
-const HAS_WINNER = { $gt: [{ $strLenCP: { $ifNull: ['$contract.winnerName', ''] } }, 0] };
+const filled = (field) => ({ $gt: [{ $strLenCP: { $ifNull: [field, ''] } }, 0] });
+const SIGNED_CONTRACT = {
+  $or: [
+    filled('$contract.winnerName'),
+    filled('$contract.contractNo'),
+    { $gt: [{ $ifNull: ['$contract.agreedPriceTHB', 0] }, 0] },
+    { $gt: [{ $ifNull: ['$contract.amountTHB', 0] }, 0] },
+  ],
+};
+
+/** The same rule, for a Tor already in hand */
+const hasSignedContract = (contract) =>
+  Boolean(contract?.winnerName || contract?.contractNo || contract?.agreedPriceTHB > 0 || contract?.amountTHB > 0);
 
 /*
  * The same goes for the facts the Tor holds, read from the feed or from the
@@ -70,8 +86,8 @@ const LIVE_STATUS = [
             budgetTHB: 1,
             referencePriceTHB: 1,
             submissionDeadline: 1,
-            status: { $cond: [HAS_WINNER, 'Awarded', '$status'] },
-            contractSigned: HAS_WINNER,
+            status: { $cond: [SIGNED_CONTRACT, 'Awarded', '$status'] },
+            contractSigned: SIGNED_CONTRACT,
             // The stage e-GP announced last (ADR 0017), only for TORs the feed
             // actually announced: an older record's announceType is a guess
             latestAnnouncement: {
@@ -109,13 +125,13 @@ function withLiveStatus(insight, tor) {
   const times = history.map((entry) => entry.publishedAt).filter(Boolean).map((date) => new Date(date).getTime());
   return {
     ...insight,
-    contractSigned: Boolean(tor.contract?.winnerName),
+    contractSigned: hasSignedContract(tor.contract),
     latestAnnouncement: history.length
       ? { code: tor.announceType, publishedAt: times.length ? new Date(Math.max(...times)) : null }
       : null,
     identification: {
       ...insight.identification,
-      status: tor.contract?.winnerName ? 'Awarded' : (tor.status ?? insight.identification?.status),
+      status: hasSignedContract(tor.contract) ? 'Awarded' : (tor.status ?? insight.identification?.status),
       agency: tor.agency || insight.identification?.agency,
     },
     facts: {
@@ -436,6 +452,9 @@ export async function getTorByProjectId(projectId, { showUnreviewed, now = new D
         announceType: 1,
         'announcementHistory.publishedAt': 1,
         'contract.winnerName': 1,
+        'contract.contractNo': 1,
+        'contract.agreedPriceTHB': 1,
+        'contract.amountTHB': 1,
         'ocr.truncated': 1,
         'ocr.usedOcr': 1,
       },
@@ -445,10 +464,20 @@ export async function getTorByProjectId(projectId, { showUnreviewed, now = new D
 
   return {
     ...toPublic(withLiveStatus(insight, rawTor), now),
-    document: rawTor?.document || null,
+    document: publicDocument(rawTor?.document),
     ocr: rawTor?.ocr || null,
     source: rawTor?.source || null,
   };
+}
+
+/**
+ * What the public may know about the TOR's file: what the page shows. Never
+ * where the server keeps it (`storagePath`, the parts' paths) or its hash.
+ */
+function publicDocument(document) {
+  if (!document) return null;
+  const { fileName = null, sizeBytes = null, pages = null, documentType = null } = document;
+  return { fileName, sizeBytes, pages, documentType };
 }
 
 // A search box is user input: its text is matched literally, not as a pattern

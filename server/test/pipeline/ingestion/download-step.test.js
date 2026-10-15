@@ -9,8 +9,8 @@ import axios, { AxiosError } from 'axios';
 import mongoose from 'mongoose';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { PipelineFailure, Tor } from '#models/index.js';
-import { applyPackage, applyPricePackage, readTorParts, runDownloadStep } from '#pipeline/ingestion/ingest.js';
+import { PipelineFailure, TitleScreen, Tor } from '#models/index.js';
+import { applyPackage, applyPricePackage, readTorParts, runAddStep, runDownloadStep } from '#pipeline/ingestion/ingest.js';
 import { isPreviewRead } from '#pipeline/ingestion/lib/ocr.js';
 import { downloadEgpPackage, downloadEgpPricePackage } from '#pipeline/ingestion/lib/tor-downloader.js';
 import { MAX_ATTEMPTS } from '#pipeline/shared/failures.js';
@@ -27,9 +27,23 @@ before(async () => {
   documentsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gipdp-download-'));
 });
 
+/** A title screen verdict, as the screen step saves it (ADR 0026). */
+const screened = (projectId, verdict, audit = false) =>
+  TitleScreen.create({
+    projectId,
+    title: 'จ้างพัฒนาระบบคอมพิวเตอร์',
+    verdict,
+    audit,
+    modelName: 'gemini-test',
+    promptVersion: 'screen-test',
+    screenedAt: new Date(),
+  });
+
 beforeEach(async () => {
   await Tor.deleteMany({});
   await PipelineFailure.deleteMany({});
+  await TitleScreen.deleteMany({});
+  await screened(PROJECT, 'it');
   await Tor.create({
     projectId: PROJECT,
     source: 'process3',
@@ -107,6 +121,62 @@ test('download step: a download that works forgets the earlier failures', async 
 
   assert.equal((await Tor.findOne({ projectId: PROJECT }).lean()).pipelineStatus, 'downloaded');
   assert.equal(await failureOf(), null);
+});
+
+test('download step: a new project waits for the title screen, and not_it stops it (ADR 0026)', async () => {
+  await TitleScreen.deleteMany({});
+  const get = egpHasNoFile();
+
+  await runDownloadStep({ documentsDir });
+  assert.equal(get.mock.callCount(), 0, 'not screened yet: not downloaded');
+
+  await screened(PROJECT, 'not_it');
+  await runDownloadStep({ documentsDir });
+  assert.equal(get.mock.callCount(), 0, 'not IT by its title: not downloaded');
+
+  await runDownloadStep({ documentsDir, screened: false });
+  assert.equal(get.mock.callCount(), 1, '--skip-screen downloads it anyway');
+});
+
+test('download step: unsure and audited not_it projects are downloaded', async () => {
+  const unsure = '55555000005';
+  const audited = '55555000006';
+  await Tor.create(
+    [unsure, audited].map((projectId) => ({
+      projectId,
+      source: 'process3',
+      title: 'ซื้อครุภัณฑ์คอมพิวเตอร์',
+      pipelineStatus: 'fetched',
+      announcementHistory: [{ code: 'D0', type: 'invitation', publishedAt: new Date('2026-10-07') }],
+    })),
+  );
+  await screened(unsure, 'unsure');
+  await screened(audited, 'not_it', true);
+  const get = egpHasNoFile();
+
+  await runDownloadStep({ documentsDir });
+
+  const asked = get.mock.calls.map((call) => call.arguments[0]).join(' ');
+  for (const projectId of [PROJECT, unsure, audited]) assert.match(asked, new RegExp(projectId));
+});
+
+test('download step: a project already downloaded is checked at a new stage, screened or not', async () => {
+  await TitleScreen.deleteMany({});
+  await Tor.updateOne({ projectId: PROJECT }, { pipelineStatus: 'ocr_done', packageCheckNeeded: true, priceCheckedAt: new Date() });
+  const get = egpHasNoFile();
+
+  await runDownloadStep({ documentsDir });
+
+  assert.ok(get.mock.callCount() > 0, 'the screen only gates new projects');
+});
+
+test('download step: nothing new starts once the time box is over (ADR 0027)', async () => {
+  const get = egpHasNoFile();
+
+  await runDownloadStep({ documentsDir, until: new Date(Date.now() - 1000) });
+
+  assert.equal(get.mock.callCount(), 0);
+  assert.equal((await Tor.findOne({ projectId: PROJECT }).lean()).pipelineStatus, 'fetched');
 });
 
 test('download step: a TOR that is past (cancelled, or with a winner) is never downloaded', async () => {
@@ -351,6 +421,44 @@ test('readTorParts: a TOR in several files reads as one document, a preview spen
   assert.deepEqual([whole.pages, whole.pagesRead, whole.truncated], [12, 12, false]);
   assert.equal(isPreviewRead(whole), false);
   assert.equal(whole.confidence, 0.8);
+});
+
+/* ----------------------- a project found by hand (ingest:add) ----------------------- */
+
+const FOUND_BY_HAND = '55555000099';
+
+test('download step: --id for a project not in the database adds no placeholder', async () => {
+  const get = egpServes({ current: 'zip-d0', zips: { 'zip-d0': await invitation() } });
+
+  assert.equal(await run({ id: FOUND_BY_HAND }), 0);
+
+  assert.equal(await Tor.exists({ projectId: FOUND_BY_HAND }), null, 'no "Project X" with a default status');
+  assert.equal(get.mock.callCount(), 0);
+});
+
+test('ingest:add builds the record from e-GP: title, agency, stage and posting date from its announcement', async () => {
+  egpServes({ current: 'zip-d0', zips: { 'zip-d0': await invitation() } });
+
+  const tor = await runAddStep({ id: FOUND_BY_HAND, documentsDir, download, downloadPrice });
+
+  const saved = await Tor.findOne({ projectId: FOUND_BY_HAND }).lean();
+  assert.equal(saved.source, 'manual');
+  assert.match(saved.title, /^ประกวดราคาจ้างบำรุงรักษาเครื่องคอมพิวเตอร์แม่ข่าย .* ด้วยวิธีประกวดราคาอิเล็กทรอนิกส์ \(e-bidding\)$/);
+  assert.equal(saved.procurementMethod, 'ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)');
+  assert.equal(saved.procurementKind, 'hire');
+  assert.equal(saved.agency, 'กรมการค้าภายใน');
+  // Not marked ร่าง: an invitation, Open, posted the day its announcement says
+  assert.equal(saved.status, 'Open');
+  assert.equal(saved.announcementHistory[0].code, 'D0');
+  assert.equal(saved.announcementHistory[0].publishedAt.toISOString().slice(0, 10), '2026-10-07');
+  assert.equal(saved.referencePriceTHB, 1_290_420);
+  assert.equal(saved.pipelineStatus, 'downloaded', 'ready for OCR');
+  assert.ok(saved.priceCheckedAt);
+  assert.equal(tor.projectId, FOUND_BY_HAND);
+
+  // Added once: a second add refuses, and leaves it as it is
+  assert.equal(await runAddStep({ id: FOUND_BY_HAND, documentsDir, download, downloadPrice }), null);
+  await Tor.deleteOne({ projectId: FOUND_BY_HAND });
 });
 
 /* --------------------------- the price form (ADR 0023) --------------------------- */

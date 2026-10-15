@@ -7,20 +7,19 @@ The details live in one page per source:
 |---|---|---|
 | `process3.gprocurement.go.th`, the e-GP RSS feed | Finds **open** projects (drafts and invitations) and follows them to the winner | [process3_gprocurement.md](process3_gprocurement.md) |
 | `process5.gprocurement.go.th`, e-GP's file services | Holds each project's documents: announcement, bidding document, TOR, price form | [process5_gprocurement.md](process5_gprocurement.md) |
-| `data.go.th`, the open-data portal | Past contracts, for history and price comparison | [data_go_th.md](data_go_th.md) |
+| `data.go.th`, the open-data portal | e-GP's agency codes, for the sweep. Its past contracts aren't read now; an import is planned. | [data_go_th.md](data_go_th.md) |
 
 The commands and pipeline stages are in [pipeline.md](../pipeline.md). The
 reasons behind them are in the decisions it links to.
 
-**Checked 2026-10-11 for e-GP.** data.go.th hasn't been checked against its
-page yet.
+**Checked 2026-10-11 for e-GP, and 2026-10-13 to 15 for data.go.th.**
 
 ## The flow today
 
 ```mermaid
 flowchart LR
     RSS["process3 RSS<br/>new and changed announcements"] --> TOR[("Tor<br/>MongoDB")]
-    DGO["data.go.th<br/>past contracts"] --> TOR
+    DGO["data.go.th<br/>agency codes"] -. sweep list .-> RSS
     TOR --> DL["download<br/>process5: announcement zip,<br/>else price zip"]
     DL --> PDF["one PDF kept:<br/>server/data/documents/&lt;id&gt;_TOR.pdf"]
     PDF --> OCR["OCR<br/>6-page preview, then the rest if IT"]
@@ -71,9 +70,9 @@ What a bidder needs, and the file that states it most reliably:
 
 | | process3 feed | process5 files | data.go.th |
 |---|---|---|---|
-| **Documented** | Closed 09:00–12:00 and 13:00–17:00; open 12:01–12:59 and 17:01–08:59 (CGD manual) | Nothing published | Not checked yet |
-| **Seen** | Weekday nights answered; stopped by 08:36 on a Thursday; no answer on a Sunday at 12:20 or 14:33 | Answered every call: weekday night, morning, office hours and Sunday | Not checked yet |
-| **When closed** | The connection hangs until the client times out | Never seen closed | Not checked yet |
+| **Documented** | Open 17:01–08:29 only (CGD manual, the edition with 2024 examples; an older edition also opened 12:01–12:59) | Nothing published | Nothing published |
+| **Seen** | Weekday nights answered; stopped by 08:36 on a Thursday; no answer on a Sunday at 12:20 or 14:33, nor on a Wednesday at 12:05 | Answered every call: weekday night, morning, office hours and Sunday | Answered at every hour tried, evening, night and day (2026-10-13 to 15) |
+| **When closed** | The connection hangs until the client times out | Never seen closed | Never seen closed |
 
 **Run fetches on weekday nights, 17:01 to 08:30.** The file services can be
 called any time.

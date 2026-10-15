@@ -16,19 +16,23 @@ import path from 'node:path';
 import { PDFParse } from 'pdf-parse';
 import { isOutage } from '../../shared/failures.js';
 import { paceRequest } from '../../shared/request-pacer.js';
+import { USER_AGENT } from '../../shared/user-agent.js';
 import { convertThaiDigitsToArabic } from '../../shared/thai-text.js';
 import { baseName, pickTorFiles, readPackageFacts, readPriceForm, roleOfEntry } from './egp-package.js';
 import { extractText } from './ocr.js';
 import { textLayerOf } from './text-layer.js';
 
-const DEFAULT_USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const MAX_PDF_SIZE_BYTES = 50 * 1024 * 1024; // 50MB safety limit for large scanned TORs & archives
+// A package zip holds every file of a stage, scanned annexes included. One
+// passed 200MB in the first scheduled run (69099687693, 2026-10-13); e-GP
+// sends no size first, so a bigger one is only found by downloading it.
+// EGP_PACKAGE_MAX_MB raises the limit for a retry by hand.
+const parsedPackageMb = Number.parseInt(process.env.EGP_PACKAGE_MAX_MB ?? '', 10);
+const MAX_PACKAGE_SIZE_BYTES = (parsedPackageMb > 0 ? parsedPackageMb : 200) * 1024 * 1024;
 
+// Who we are, honestly: no browser's name, no page we didn't come from
 const EGP_SERVICE_HEADERS = {
-  'User-Agent': DEFAULT_USER_AGENT,
-  Referer: 'http://process.gprocurement.go.th/egp2procmainWeb/procsearch.sch',
-  Origin: 'http://process.gprocurement.go.th',
+  'User-Agent': USER_AGENT,
   Accept: '*/*',
 };
 
@@ -72,7 +76,7 @@ export async function downloadTorPdf({
       method: 'GET',
       url,
       headers: {
-        'User-Agent': DEFAULT_USER_AGENT,
+        'User-Agent': USER_AGENT,
         Accept: 'application/pdf, application/octet-stream, */*',
       },
       responseType: 'arraybuffer',
@@ -237,7 +241,7 @@ export async function downloadEgpPackage({
   projectId,
   documentsDir,
   knownZipIds = [],
-  maxSizeBytes = MAX_PDF_SIZE_BYTES,
+  maxSizeBytes = MAX_PACKAGE_SIZE_BYTES,
   now = new Date(),
   pace = paceRequest,
 }) {
@@ -356,7 +360,7 @@ export async function downloadEgpPricePackage({
   projectId,
   documentsDir,
   knownZipIds = [],
-  maxSizeBytes = MAX_PDF_SIZE_BYTES,
+  maxSizeBytes = MAX_PACKAGE_SIZE_BYTES,
   now = new Date(),
   pace = paceRequest,
   ocr = extractText,

@@ -35,5 +35,20 @@ test('classify reads the feed title and only the first pages', () => {
 
 test('extract is never shown the feed, so cross-source stays a real check', () => {
   const contents = buildExtractContents({ rawText: '=== Page 1 ===\nราคากลาง', title: 'FEED-TITLE', referencePriceTHB: 1 });
-  assert.equal(contents, '=== Page 1 ===\nราคากลาง');
+  assert.equal(contents, '=== Document: tor ===\n=== Page 1 ===\nราคากลาง');
+});
+
+test('extract reads the bidding document after the TOR, its pages headed like the TOR\'s (ADR 0025)', () => {
+  // pdf-parse ends each page with "-- N of M --"
+  const biddingText = 'เอกสารประกวดราคา\n\n-- 1 of 2 --\n\nหลักประกันสัญญา ร้อยละ ๕\n\n-- 2 of 2 --\n';
+  const contents = buildExtractContents({ rawText: '=== Page 1 ===\nขอบเขตของงาน', biddingText });
+  assert.equal(
+    contents,
+    [
+      '=== Document: tor ===\n=== Page 1 ===\nขอบเขตของงาน',
+      '=== Document: bidding ===\n=== Page 1 ===\nเอกสารประกวดราคา\n\n=== Page 2 ===\nหลักประกันสัญญา ร้อยละ ๕',
+    ].join('\n\n'),
+  );
+  // No bidding document: the TOR alone
+  assert.equal(buildExtractContents({ rawText: 'x', biddingText: '  ' }), '=== Document: tor ===\nx');
 });

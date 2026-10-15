@@ -114,6 +114,10 @@ const torInsightSchema = new mongoose.Schema(
     // numbers (historical median, averages) live in analytics, never here.
     facts: {
       budgetTHB: { type: Number, default: null }, // งบประมาณ: feed first, AI fills gaps
+      // ราคาตกลงซื้อ/จ้าง: what the winner agreed to, from data.go.th's contract
+      // (ADR 0028). Against ราคากลาง, it shows how far below the ceiling a
+      // project was won. Null until there's a contract.
+      agreedPriceTHB: { type: Number, default: null },
       referencePriceTHB: { type: Number, default: null, index: true }, // ราคากลาง: feed first, AI fills gaps
       submissionDeadline: { type: Date, default: null }, // to submit a bid, set by an invitation
       // To send comments on a draft out for public hearing (ร่าง TOR). A draft has
@@ -270,6 +274,11 @@ const torInsightSchema = new mongoose.Schema(
       // and extraction follows. Every section above stays empty until then,
       // and the public doesn't see the record (ADR 0018).
       awaitingFullText: { type: Boolean, default: false, index: true },
+      // A past project known only from its data.go.th row and its title
+      // (ADR 0028): identification and prices, every other section empty,
+      // nothing quoted. Counted in benchmarks; never shown as a summary,
+      // reviewed or used as a detailed comparable. Full extraction replaces it.
+      titleOnly: { type: Boolean, default: false, index: true },
     },
   },
   { timestamps: true },

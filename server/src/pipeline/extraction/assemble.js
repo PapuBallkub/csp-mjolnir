@@ -12,6 +12,7 @@
 
 import { egpAnnouncementUrl } from '../shared/egp-links.js';
 import { feedAmount, feedDate, toAmount, toDate, toNumber, toText } from './convert.js';
+import { DOCUMENTS } from './documents.js';
 
 const unique = (items) => [...new Set(items ?? [])];
 
@@ -94,9 +95,16 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
   const ai = extracted;
   const evidence = {};
 
-  // An AI value is used only where the feed has none, and brings its evidence
+  // An AI value is used only where the feed has none, and brings its evidence:
+  // the document it's quoted from, null for the TOR (ADR 0025)
   const fromAi = (field, given, value) => {
-    if (value !== null && value !== undefined && given) evidence[field] = { quote: given.quote, page: given.page ?? null };
+    if (value !== null && value !== undefined && given) {
+      evidence[field] = {
+        quote: given.quote,
+        page: given.page ?? null,
+        document: given.document === DOCUMENTS.bidding ? DOCUMENTS.bidding : null,
+      };
+    }
     return value ?? null;
   };
   // Where the feed has a value it wins. If the document says the same, the
@@ -213,5 +221,32 @@ export function buildExcluded({ tor, classification, run }) {
       checks: [],
       excluded: { reason: classification.reason, quote: classification.quote ?? null },
     }),
+  };
+}
+
+/**
+ * A past project known only from its data.go.th row and its title (ADR 0028):
+ * identification, prices and the category the title screen gave, every other
+ * section empty and nothing quoted. It counts in benchmarks and is never shown
+ * as a summary. Full extraction replaces it once the project's documents are
+ * read: the documents make a different fingerprint, so extraction treats it as
+ * a changed source.
+ *
+ * @param {object} input.tor - The Tor, with its data.go.th contract
+ * @param {{ category: string|null }} input.screen - Its title screen verdict
+ */
+export function buildTitleLevel({ tor, screen, run }) {
+  return {
+    projectId: tor.projectId,
+    identification: identity(tor, tor.agency, { category: screen.category ?? null, department: tor.subAgency || null }),
+    facts: {
+      ...links(tor),
+      budgetTHB: feedAmount(tor.budgetTHB),
+      referencePriceTHB: feedAmount(tor.referencePriceTHB),
+      agreedPriceTHB: feedAmount(tor.contract?.agreedPriceTHB),
+      procurementMethod: tor.procurementMethod || null,
+      postedDate: feedDate(tor.announceDate),
+    },
+    metadata: runMetadata(run, { confidenceScore: null, checks: [], titleOnly: true }),
   };
 }

@@ -157,10 +157,10 @@ each User-Agent:
 
 **An honest User-Agent works.** The firewall rejects a fake-looking browser
 string, not tools that say what they are, so we don't need to imitate a
-browser. Our code still sends a Chrome User-Agent with `Referer` and `Origin`
-headers (`tor-downloader.js`, `process3.js`); switching to an honest one is a
-pipeline task. Every request goes through the request pacer: at most one a
-second per site ([0016](../decisions/0016-pipeline-runs-are-safe-to-repeat.md)).
+browser. Every request the pipeline sends names it, with a link to the project
+(`pipeline/shared/user-agent.js`), and sends no `Referer` or `Origin`: it didn't
+come from e-GP's pages. Every request goes through the request pacer: at most
+one a second per site ([0016](../decisions/0016-pipeline-runs-are-safe-to-repeat.md)).
 
 ## When it answers
 
@@ -206,7 +206,9 @@ the budget was read for 12 of 28 projects, including both open IT ones. The
 **Known gaps:**
 - **Construction's price form (บก.01) isn't read,** so construction projects
   have no budget.
-- **The bidding document isn't given to the AI yet,** though its text is stored.
+- **Extraction reads the bidding document** for eligibility and terms
+  ([0025](../decisions/0025-extraction-reads-the-bidding-document.md)), but bonds
+  and registered capital aren't structured fields yet.
 - **A TOR with no recognisable name is a guess** (the largest file). Of four
   such packages, the guess found the TOR or its specification in three; the
   fourth held only drawings.

@@ -13,6 +13,8 @@ export {
   calculateScopeSimilarity,
   getFiscalYear,
   getProjectPrice,
+  FULL_EXTRACTION,
+  isFullExtraction,
   DOMAIN_KEYWORDS,
 } from './similarity.service.js';
 

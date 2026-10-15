@@ -33,7 +33,10 @@ export const PROJECT_CATEGORIES = [
 const QUOTE =
   'Copied exactly from the document: the same words, the same digits (Thai or Arabic) and the ' +
   'same spacing. One sentence or less.';
-const PAGE = 'The number in the nearest "=== Page N ===" line above the quote.';
+const PAGE = 'The number in the nearest "=== Page N ===" line above the quote, in its own document.';
+const DOCUMENT =
+  'Which document the quote is copied from: the name in the "=== Document: … ===" line above it, ' +
+  '"tor" or "bidding".';
 
 const text = (description) => ({ type: Type.STRING, nullable: true, description });
 const list = (description) => ({ type: Type.ARRAY, items: { type: Type.STRING }, description });
@@ -44,14 +47,15 @@ function evidenced(value, description) {
   return {
     type: Type.OBJECT,
     nullable: true,
-    description: `${description} null when the document does not state it.`,
+    description: `${description} null when neither document states it.`,
     properties: {
       quote: { type: Type.STRING, description: QUOTE },
+      document: { type: Type.STRING, format: 'enum', enum: ['tor', 'bidding'], description: DOCUMENT },
       page: { type: Type.INTEGER, nullable: true, description: PAGE },
       value,
     },
-    required: ['quote', 'page', 'value'],
-    propertyOrdering: ['quote', 'page', 'value'],
+    required: ['quote', 'document', 'page', 'value'],
+    propertyOrdering: ['quote', 'document', 'page', 'value'],
   };
 }
 
@@ -154,6 +158,47 @@ export const classifySchema = {
   propertyOrdering: ['quote', 'reason', 'agency', 'isIT', 'category'],
 };
 
+/**
+ * The title screen (ADR 0026): a verdict for each title in a batch. Its
+ * version is the one at the top of prompts/screen.md, not extract.md's.
+ */
+export const SCREEN_VERDICTS = ['it', 'not_it', 'unsure'];
+
+export const screenSchema = {
+  type: Type.OBJECT,
+  properties: {
+    results: {
+      type: Type.ARRAY,
+      description: 'One entry for every project given, in the order given.',
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          projectId: { type: Type.STRING, description: 'The project ID exactly as given.' },
+          reason: { type: Type.STRING, description: 'One short phrase in Thai: what the title says the project is.' },
+          verdict: {
+            type: Type.STRING,
+            format: 'enum',
+            enum: SCREEN_VERDICTS,
+            description: 'it, not_it or unsure. not_it only when the title clearly has nothing to do with IT.',
+          },
+          category: {
+            type: Type.STRING,
+            nullable: true,
+            format: 'enum',
+            enum: PROJECT_CATEGORIES,
+            description:
+              'The kind of IT project the title describes. null for not_it, and null when the title ' +
+              'does not say enough to tell.',
+          },
+        },
+        required: ['projectId', 'reason', 'verdict', 'category'],
+        propertyOrdering: ['projectId', 'reason', 'verdict', 'category'],
+      },
+    },
+  },
+  required: ['results'],
+};
+
 /** Step 2: read the whole TOR into the TorInsight sections 4.1–4.9. */
 export const extractSchema = {
   type: Type.OBJECT,
@@ -178,6 +223,7 @@ export const extractSchema = {
         ),
         submissionDeadline: date(
           'The last date (and time) to submit a bid, วันยื่นข้อเสนอ or วันเสนอราคา, set by an invitation. ' +
+            'When bids are taken within a window ("ระหว่างเวลา ๐๙.๐๐ น. ถึง ๑๒.๐๐ น."), the time it closes. ' +
             'Null in a draft out for public hearing, which has none yet. Never the comment deadline.',
         ),
         commentDeadline: date(

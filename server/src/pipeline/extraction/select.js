@@ -7,6 +7,7 @@
  */
 
 import crypto from 'node:crypto';
+import { biddingTextOf, isExtraction } from './documents.js';
 
 const sha256 = (text) => crypto.createHash('sha256').update(text).digest('hex');
 
@@ -14,11 +15,25 @@ const sha256 = (text) => crypto.createHash('sha256').update(text).digest('hex');
  * A hash over everything an insight is built from: the main PDF, any amendment
  * documents in order (R14), and the OCR text itself, so re-running OCR (say,
  * with a higher page limit) also counts as a changed source.
+ *
+ * A full extraction also reads the bidding document (ADR 0025), so its hash
+ * covers that too (`bidding: true`). An excluded or awaiting record was built
+ * from the TOR alone, and a new bidding document doesn't make it wrong: its
+ * hash leaves the bidding document out, so it isn't classified again for one.
+ *
+ * @param {object} tor
+ * @param {{ bidding?: boolean }} [options]
  */
-export function sourceFingerprint(tor) {
+export function sourceFingerprint(tor, { bidding = false } = {}) {
   const documents = [tor.document?.contentHash, ...(tor.amendments ?? []).map((a) => a.contentHash)];
-  return sha256(JSON.stringify([documents.filter(Boolean), sha256(tor.ocr?.rawText ?? '')]));
+  const parts = [documents.filter(Boolean), sha256(tor.ocr?.rawText ?? '')];
+  const biddingText = bidding ? biddingTextOf(tor) : '';
+  if (biddingText) parts.push(sha256(biddingText));
+  return sha256(JSON.stringify(parts));
 }
+
+/** The fingerprint to compare an existing insight with: by what it was built from. */
+export const fingerprintFor = (tor, metadata) => sourceFingerprint(tor, { bidding: isExtraction(metadata) });
 
 /**
  * Decides what a run does with one TOR.

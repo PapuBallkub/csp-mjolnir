@@ -56,7 +56,7 @@ Used as the values of the `evidence` map (§3.2b): where an extracted value came
 |---|---|---|---|---|---|
 | `quote` | `String` | Yes | — | The exact text that states the value | `"ราคากลาง ๑,๘๕๐,๐๐๐ บาท"` |
 | `page` | `Number` | No | `null` | The TOR page it's on; null for a quote from another document | `3` |
-| `document` | `String` | No | `null` | Where the quote is: null for the TOR; `announcement`, `bidding` or `price-form` for a value read in code from that document ([0020](../decisions/0020-read-the-whole-egp-package.md), [0023](../decisions/0023-read-the-budget-from-the-price-form.md)) | `"announcement"` |
+| `document` | `String` | No | `null` | Where the quote is: null for the TOR; `bidding` for a value the AI read from the bidding document ([0025](../decisions/0025-extraction-reads-the-bidding-document.md)); `announcement`, `bidding` or `price-form` for a value read in code from that document ([0020](../decisions/0020-read-the-whole-egp-package.md), [0023](../decisions/0023-read-the-budget-from-the-price-form.md)) | `"announcement"` |
 
 ### 2.4 `technologySchema`
 Used in `technicalRequirements.requiredTechnologies`.
@@ -124,6 +124,7 @@ Used in `metadata.excluded`, when the classify step finds the document isn't IT.
 | Field | Type | Default | Indexed | Description |
 |---|---|---|---|---|
 | `budgetTHB` | `Number` | `null` | No | Budget (งบประมาณ): what the agency has set aside, in Thai Baht (THB). From the feed first; the AI fills gaps. |
+| `agreedPriceTHB` | `Number` | `null` | No | Agreed price (ราคาตกลงซื้อ/จ้าง): what the winner agreed to, from data.go.th's contract. Against ราคากลาง, how far below the ceiling the project was won. Null until there's a contract ([0028](../decisions/0028-past-projects-from-data-go-th.md)). |
 | `referencePriceTHB` | `Number` | `null` | Yes | Reference price (ราคากลาง): the official price bids are judged against, in Thai Baht (THB). From the feed first; the AI fills gaps. |
 | `submissionDeadline` | `Date` | `null` | No | Deadline date & time for bids submission, set by an invitation (ประกาศเชิญชวน). Null in a draft out for public hearing. |
 | `commentDeadline` | `Date` | `null` | No | A draft out for public hearing (ร่าง TOR): the last date to send comments. Never a bid date; the two are never swapped (extract-v4, [0019](../decisions/0019-stage-badges-and-deadlines-that-say-what-for.md)). |
@@ -286,6 +287,7 @@ Tracks post-publishing changes and revisions to the procurement document:
 | `reviewedAt` | `Date` | `null` | When it was reviewed. |
 | `excluded` | `exclusionSchema` | `null` | Set when the document isn't IT (§2.6). Extraction stops there, so the other sections stay empty (NFR-16). |
 | `awaitingFullText` | `Boolean` | `false` | Classify read a preview and found IT: the full text is being read, and extraction follows. The other sections stay empty, and the public doesn't see the record until then [0018](../decisions/0018-preview-ocr-before-classify.md). |
+| `titleOnly` | `Boolean` (Indexed) | `false` | A past project known only from its data.go.th row and its title: identification, prices and the title screen's category; every other section empty, nothing quoted, no score. Counted in benchmarks; never shown on the site, reviewed or used as a detailed comparable. Full extraction replaces it ([0028](../decisions/0028-past-projects-from-data-go-th.md)). |
 
 ---
 

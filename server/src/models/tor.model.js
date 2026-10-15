@@ -182,6 +182,28 @@ const torSchema = new mongoose.Schema(
       contractEndDate: { type: String, default: null },
       agreedPriceTHB: { type: Number, default: null }, // ราคาตกลงซื้อ/จ้าง: the signed contract price
       projectStatus: { type: String, default: '' },
+      // From data.go.th's FY2568 contracts (ADR 0028)
+      amountTHB: { type: Number, default: null }, // งบสัญญา: the contract's own amount
+      fiscalYear: { type: Number, default: null }, // ปีงบประมาณ, Buddhist era, e.g. 2568
+      contractStatus: { type: String, default: '' }, // ระหว่างดำเนินการ or สิ้นสุดสัญญา
+      // Every contract the project was awarded as: one, or several when it was
+      // split between winners. The fields above are the first's, and
+      // amountTHB is their total (ADR 0028).
+      winners: {
+        type: [
+          {
+            _id: false,
+            name: { type: String, default: null },
+            taxId: { type: String, default: null },
+            contractNo: { type: String, default: null },
+            signDate: { type: String, default: null },
+            endDate: { type: String, default: null },
+            amountTHB: { type: Number, default: null },
+            contractStatus: { type: String, default: '' },
+          },
+        ],
+        default: undefined,
+      },
     },
 
     // The e-GP document packages downloaded, oldest first (ADR 0020). Older

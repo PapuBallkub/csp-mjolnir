@@ -27,22 +27,44 @@ https://process3.gprocurement.go.th/EPROCRssFeedWeb/egpannouncerss.xml?anounceTy
 | The manual gives the URL with `http://`. We use `https://`. | Manual, code |
 | `process3` answers `302` and redirects to the same path on `https://process.gprocurement.go.th`. Our HTTP client follows it. | Seen 2026-10-11 |
 | No account, key or captcha is needed. | Seen |
+| The feed answers the pipeline's own User-Agent, which names the project (`pipeline/shared/user-agent.js`). No browser disguise is needed. | Seen 2026-10-13 |
 
 ### Parameters
 
 | Parameter | Value | Source |
 |---|---|---|
 | `anounceType` | Announcement code, see below. **Spelled with one "n".** `announceType` is ignored and the feed returns 0 items with no error. | Manual; seen 2026-10-07 |
-| `deptId` | Agency code, **4 digits**: `0304` กรมบัญชีกลาง, `0307` กรมสรรพากร | Manual |
+| `deptId` | Agency code: `0304` กรมบัญชีกลาง, `0307` กรมสรรพากร. The manual says 4 digits; the feed also takes other formats (below). | Manual; seen 2026-10-13 |
 | `deptsubId` | Purchasing unit, **10 digits**: `0300400070` สำนักงานคลังจังหวัดเชียงใหม่ | Manual |
 | `methodId` | Procurement method, 2 digits: `02` สอบราคา, `15` e-market, `16` e-bidding, `18` คัดเลือก, `19` เฉพาะเจาะจง, `20`–`22` จ้างที่ปรึกษา, `23`–`26` จ้างออกแบบหรือควบคุมงานก่อสร้าง | Manual |
+| `announceDate` | One day, `YYYYMMDD`, Gregorian: `20241126`. The feed then returns that day's announcements only, with no earlier days filled in (manual 4.6). It reaches back at least to 2024-11-26. | Manual; seen 2026-10-14 |
 
 - Combine parameters with `&`.
+- **Every response says how many that day really has:** `<countbyday>` in
+  the channel (manual 4.7), while the list still shows 20 at most. Without
+  `announceDate` it's the latest day's count.
 - With no `anounceType`, the feed returns invitations (`D0`).
-- We have not yet tested `deptId`, `deptsubId` or `methodId` live. The only
-  attempt, an agency sweep on 2026-10-08 at 08:36, ran into closed hours.
-- The manual points to a CGD guide for the full list of agency codes; we
-  haven't found it yet.
+- **`deptId` filters by agency (seen 2026-10-13).** `anounceType=D0&deptId=0307`
+  returned 4 กรมสรรพากร invitations, and `deptId=0304` returned 2 different
+  projects. Use it with `npm run ingest:fetch -- --dept 0307`.
+- **The agency codes are on data.go.th:** e-GP's list of purchasing units,
+  dataset `egpdepartment` (64,134 units, published by THAILAND GOVERNMENT
+  SPENDING). `npm run agencies:fetch` keeps central government's, about 270
+  ([0027](../decisions/0027-run-the-pipeline-on-a-schedule.md)).
+- **Code formats, seen 2026-10-13** (`W0`):
+
+  | Code | Example | Items |
+  |---|---|---|
+  | 4 digits | `0307` กรมสรรพากร | 11 |
+  | 5 digits | `11012` สถาบันข้อมูลขนาดใหญ่ | 1 |
+  | Letter and digits | `A004` สำนักงานคณะกรรมการการศึกษาขั้นพื้นฐาน | 20 |
+  | 7 digits | `2810101`, a provincial administration | 3 |
+  | 2 digits, a ministry | `03` กระทรวงการคลัง | 0: no asking a ministry at once |
+  | 12 digits, an office | `030405500000` สำนักงานคลังจังหวัดเชียงใหม่ | 0 |
+  | State enterprise | `S702` | 0, not conclusive |
+  | Unknown | `9999` | 0, with no error |
+
+- We have not yet tested `deptsubId` or `methodId` live.
 
 ### Announcement codes
 
@@ -102,18 +124,69 @@ RSS 2.0. Each `<item>` looks like this (seen 2026-10-07):
 - **Seen 2026-10-07:** `P0`, `B0`, `D0`, `D1`, `W0` and `W1` each returned 20
   items, all dated that day. `W2` returned 3 and `D2` 0, also all from that
   day.
-- **The 7-day backfill wasn't seen.** In practice the national feed shows about
-  a day's latest 20 per type. On a busy day we miss items unless we fetch more
-  often, or per agency with `deptId`.
+- **The national feed doesn't backfill.** On 2026-10-07 it showed only that
+  day's latest 20 per type. On Tue 2026-10-13 at 17:01 (a public holiday) it
+  returned **0 items** for `P0`, `B0`, `D0` and `W0`.
+- **Per-agency lists do backfill (seen 2026-10-13).** The same evening,
+  `deptId=0307` returned 4 `D0` items and 11 `W0` items dated 2026-10-06 to
+  2026-10-09.
+- **An agency's list holds at most 20 items per code.** `deptId=A004` returned
+  exactly 20 `W0` items, dated 2026-10-06 to 2026-10-12. 28 of 267 agencies
+  came back with a full list in the first sweep (2026-10-14).
+- **How much the national list misses (`countbyday`, seen 2026-10-14):**
+
+  | List | Announced that day | Shown |
+  |---|---|---|
+  | National invitations, 2026-10-07 | 377 | 20 |
+  | National invitations, 2026-10-09 | 490 | 20 |
+  | สพฐ (`A004`) winners, 2026-10-12 | 5 | 5 |
+  | กรมสรรพากร (`0307`) invitations, 2026-10-09 | 1 | 1 |
+  | กรมบัญชีกลาง (`0304`) winners, 2024-11-26 | 8 | 8 |
+  | กรมสรรพากร (`0307`) winners, 2025-03-14 | 13 | 13 |
+  | กรมชลประทาน (`0703`) invitations, 2026-10-12 and 2026-10-14 | 38 each | 20 |
+  | กรมชลประทาน (`0703`) winners, 2026-10-12 / 2026-10-14 | 372 / 336 | 20 |
+
+- So the national list shows 4–5% of a busy day, and is empty on a quiet
+  one. One agency on one day is usually complete, and `countbyday` says when
+  it isn't. The sweep asks each agency's list, and asks a full list again
+  day by day ([0027](../decisions/0027-run-the-pipeline-on-a-schedule.md)).
+- **The busiest agencies post more than 20 of a code in a day.**
+  `methodId` filters, and `countbyday` follows it: กรมชลประทาน's invitations
+  on 2026-10-14 were 38 with `methodId=16` (e-bidding) and 0 with `18`
+  (คัดเลือก). But all 38 were e-bidding, so the method can't split that
+  day. Splitting by purchasing unit (`deptsubId`) is untested.
+
+## How fast we may ask
+
+**e-GP refuses the 240th request in a row, whatever the pace.** It answers
+**HTTP 429 Too Many Requests** from then on, until we stop for a while.
+
+| Sweep | Pace | What happened |
+|---|---|---|
+| 2026-10-13, 23:12 | One a second | Refused after about 250 requests, 4 minutes in |
+| 2026-10-14, 00:06 | One every 3 seconds | Refused 7 times, each time after exactly 240 requests (238, then 2 more), 12 minutes in. After each 10-minute pause, another 240 were answered. |
+
+So it's a count that resets after a quiet spell of 10 minutes or less, not
+a rate: slowing down only made the sweep take longer. We didn't capture the
+429 response's headers, so whether it says how long to wait (`Retry-After`)
+is unknown.
+
+The sweep therefore asks at one a second and pauses 10 minutes after every
+230 requests, before the limit; a 429 still makes it pause and ask again
+([0027](../decisions/0027-run-the-pipeline-on-a-schedule.md)). The national
+poll, 7 requests, is well under the limit. Downloads from e-GP's document
+server (`process5`), about 4 requests a project, haven't been refused yet.
 
 ## When it answers
 
-**Manual:** the feed is closed during office hours.
+**Manual:** the feed is **open 17:01–08:29 only** (4.8, in
+[the edition with 2024 examples](https://www.gprocurement.go.th/wps/wcm/connect/a29d7750-c6b6-4428-b9a4-6c8224626073/Rss+%2822-05-61%29.pdf?MOD=AJPERES)).
+An older edition gave closed hours of 09:00–12:00 and 13:00–17:00, with a
+lunch-hour opening; the feed never answered then.
 
 | Closed | Open |
 |---|---|
-| 09:00–12:00 | 12:01–12:59 |
-| 13:00–17:00 | 17:01–08:59 |
+| 08:30–17:00 | 17:01–08:29 |
 
 A closed feed doesn't return an empty list. **The connection hangs until the
 client times out.** Code: `isFeedClosed()` sends nothing during closed hours,
@@ -126,12 +199,15 @@ What we've seen:
 | Wed 2026-10-07, 13:43 | No answer (closed hours, as documented) |
 | Wed 2026-10-07, 19:07–19:09 | Answered: `P0`, `B0`, `D0`, `D1`, `D2`, `W0`, `W1`, `W2` |
 | Thu 2026-10-08, 03:13–07:25 (7 runs) | Answered every time |
-| Thu 2026-10-08, 08:36 | **No answer** (five 20 s timeouts), before the 09:00 closing |
-| Sun 2026-10-11, about 12:20 and 14:33 | **No answer**, including at 12:20, inside a documented open window |
+| Thu 2026-10-08, 08:36 | **No answer** (five 20 s timeouts): after the 08:29 closing |
+| Sun 2026-10-11, about 12:20 and 14:33 | **No answer**: closed |
+| Tue 2026-10-13 (public holiday), 17:01–17:02 | Answered in 0.1–8 s |
+| Tue–Wed 2026-10-13/14, 22:00–08:06 | Answered through the night, apart from the 429s above |
+| Wed 2026-10-14, 12:05 | **No answer** (20 s timeouts): closed, as the new edition says |
 | Every run so far | `anounceType=15` timed out |
 
-So far, weekday nights from 17:01 to about 08:30 are reliable. We don't know
-yet whether weekends follow the manual.
+Every observation fits 17:01–08:29. We don't know yet whether weekends
+follow it.
 
 ## Corrections to the previous version of this page
 
@@ -150,9 +226,13 @@ The version merged in #204 said several things that turned out to be wrong:
 
 ## Not verified yet
 
-- `deptId`, `deptsubId` and `methodId` filtering, live.
-- The full list of 4-digit agency codes.
+- `deptsubId` filtering, live: the way left to split an agency's day that
+  has more than 20, and where its codes come from (data.go.th's
+  `egpsubdepartment` lists 25,500 units).
+- Whether state enterprise codes (`S…`) and special-law agency codes work.
 - The feed's hours at weekends.
-- Whether the 7-day backfill exists.
+- How far back `announceDate` reaches: 2024-11-26 worked.
+- How short a pause resets the 240-request count: 10 minutes is enough.
+- How far back a quiet agency's list reaches: 7 days, as the manual says?
 - What a `D2` item links to.
 - Whether `15` ever answers.

@@ -249,6 +249,62 @@ export function readAnnouncementWindow(text) {
   return null;
 }
 
+/* ---------------- What a project found by hand is (ingest:add) ---------------- */
+
+/**
+ * The title, as the feed would give it: "เรื่อง" up to its "ด้วยวิธี…" line,
+ * "ประกวดราคาจ้าง… ด้วยวิธีประกวดราคาอิเล็กทรอนิกส์ (e-bidding)". A long title
+ * wraps; its lines are joined with a space.
+ */
+export function readTitle(text) {
+  const lines = normalizeThaiPua(text)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const start = lines.findIndex((line) => line.startsWith('เรื่อง'));
+  if (start === -1) return null;
+  const parts = [];
+  for (const line of lines.slice(start, start + 5)) {
+    if (line.startsWith('มีความประสงค์')) break;
+    parts.push(parts.length === 0 ? line.replace(/^เรื่อง\s*/, '') : line);
+    if (line.includes('ด้วยวิธี')) break;
+  }
+  return parts.join(' ').trim() || null;
+}
+
+/** A draft out for public hearing says so above its heading: "ร่าง" or "(ร่าง)". */
+export function isDraftAnnouncement(text) {
+  const head = normalizeThaiPua(text)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+  return head.some((line) => line === 'ร่าง' || line.startsWith('(ร่าง)'));
+}
+
+/**
+ * The day it was posted, "ประกาศขึ้นเว็บวันที่ ๗ ตุลาคม ๒๕๖๙" or else
+ * "ประกาศ ณ วันที่ …", as the feed writes dates ("2026-10-07"); null if neither.
+ */
+export function readPostedDate(text) {
+  const flat = flatten(text);
+  for (const anchor of ['ประกาศขึ้นเว็บวันที่', 'ประกาศ ณ วันที่']) {
+    const at = flat.indexOf(anchor);
+    if (at === -1) continue;
+    const match = flat
+      .slice(at + anchor.length, at + anchor.length + 40)
+      .match(new RegExp(`^\\s*(${DIGIT}{1,2})\\s*${MONTH}\\s*(?:พ\\.ศ\\.\\s*)?(${DIGIT}{4})`));
+    if (!match) continue;
+    const day = number(match[1]);
+    const month = monthOf(match[2]);
+    const year = number(match[3]);
+    const ce = year > 2400 ? year - BUDDHIST_ERA_OFFSET : year;
+    if (!(day >= 1 && day <= 31 && month >= 1)) continue;
+    return `${ce}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+  return null;
+}
+
 /* --------------------------- The price form (ADR 0023) --------------------------- */
 
 // Slips Tesseract makes in amounts written in words, as seen on real price

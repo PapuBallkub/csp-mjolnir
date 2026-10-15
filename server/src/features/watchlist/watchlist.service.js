@@ -94,8 +94,9 @@ export async function getWatchlist(userId, now = new Date()) {
  * Idempotent: prevents duplicate entries.
  */
 export async function addToWatchlist(userId, projectId) {
-  // Ensure the TOR actually exists in TorInsight
-  const exists = await TorInsight.exists({ projectId });
+  // Ensure the TOR exists, and is one the user can see: saving a project
+  // the catalog never shows would leave an entry the watchlist hides
+  const exists = await TorInsight.exists({ projectId, ...visibilityFilter() });
   if (!exists) {
     throw notFound('TOR project not found.');
   }

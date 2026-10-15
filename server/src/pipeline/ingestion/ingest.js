@@ -3,7 +3,7 @@
  *
  * Automated CLI runner for the TOR ingestion pipeline (FR01-FR04).
  * Supports independent stage execution and end-to-end chaining:
- * 1. Fetch: Query procurement sources (process3, datago) & pre-filter IT metadata
+ * 1. Fetch: new announcements from the e-GP feed (process3), the only source of open projects
  * 2. Download: Resolve & stream download official TOR PDF packages from e-GP backend
  * 3. OCR: Hybrid text extraction (digital PDF text or Tesseract OCR for scans)
  *
@@ -22,6 +22,12 @@
  *   # Try again the TORs that gave up after repeated failures
  *   node src/pipeline/ingestion/ingest.js --retry-failed
  *
+ *   # Every agency in data/egp-agencies.json (ADR 0027), within a time box
+ *   node src/pipeline/ingestion/ingest.js --step sweep --until 2026-10-14T21:55:00+07:00
+ *
+ * A new project is downloaded only after the title screen (npm run screen)
+ * lets it through (ADR 0026); --skip-screen downloads it anyway.
+ *
  * One ingestion run at a time: a second one exits without doing anything
  * (ADR 0016).
  */
@@ -31,11 +37,16 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { Tor, TorInsight } from '#models/index.js';
-import { MAX_ATTEMPTS, clearFailure, loadGivenUp, recordFailure } from '../shared/failures.js';
+import { FeedPoll, TitleScreen, Tor, TorInsight } from '#models/index.js';
+import { EGP_ANNOUNCEMENT_CODES, classifyAnnouncement } from '../shared/announcement-codes.js';
+import { MAX_ATTEMPTS, clearFailure, isTooBig, loadGivenUp, recordFailure } from '../shared/failures.js';
 import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
-import { FEED_HOURS, fetchFromProcess3 } from './sources/process3.js';
-import { fetchFromDataGo } from './sources/datago.js';
+import { deriveStatus } from '../shared/status-engine.js';
+import { WORKABLE } from '../shared/workable.js';
+import { paceRequest } from '../shared/request-pacer.js';
+import { isPastDeadline, parseUntil } from '../shared/deadline.js';
+import { FEED_HOURS, ROUTINE_TYPES, fetchFromProcess3, procurementKindOf } from './sources/process3.js';
+import { isDraftAnnouncement, readPostedDate, readTitle } from './lib/egp-package.js';
 import { PREVIEW_PAGES, extractText, isPreviewRead } from './lib/ocr.js';
 import { downloadEgpPackage, downloadEgpPricePackage } from './lib/tor-downloader.js';
 
@@ -47,11 +58,17 @@ function parseCliArgs() {
   const argv = process.argv.slice(2);
   let step = 'all'; // 'all' | 'fetch' | 'download' | 'ocr'
   let id = null; // optional single projectId
-  let query = null; // e-GP: none, classify decides; data.go.th: คอมพิวเตอร์
-  let limit = null; // e-GP: no cap on new projects; data.go.th: 5
-  let source = 'all'; // 'all' | 'process3' | 'datago'
+  let query = null; // none by default: the title screen and classify decide what is IT
+  let limit = null; // no cap on new projects
+  let source = 'process3'; // the e-GP feed; 'all' means the same
   let skipOcr = false;
   let retryFailed = false;
+  let dept = null; // e-GP feed only: one agency's announcements, e.g. 0307
+  let types = null; // e-GP feed only: these announcement codes, e.g. D0,B0
+  let until = null; // the time box: no new work after it (ADR 0027)
+  let skipScreen = false; // download new projects without waiting for the title screen
+  let agencies = null; // sweep only these agency codes, e.g. 0307,A004
+  let days = 1; // sweep: how many days back a full list is asked again, day by day
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -80,10 +97,51 @@ function parseCliArgs() {
       skipOcr = true;
     } else if (arg === '--retry-failed') {
       retryFailed = true;
+    } else if (arg === '--dept' && i + 1 < argv.length) {
+      dept = argv[++i].trim().toUpperCase();
+    } else if (arg.startsWith('--dept=')) {
+      dept = arg.split('=')[1].trim().toUpperCase();
+    } else if (arg === '--types' && i + 1 < argv.length) {
+      types = argv[++i].split(',').map((code) => code.trim().toUpperCase()).filter(Boolean);
+    } else if (arg.startsWith('--types=')) {
+      types = arg.split('=')[1].split(',').map((code) => code.trim().toUpperCase()).filter(Boolean);
+    } else if (arg === '--until' && i + 1 < argv.length) {
+      until = parseUntil(argv[++i]);
+    } else if (arg.startsWith('--until=')) {
+      until = parseUntil(arg.slice('--until='.length));
+    } else if (arg === '--skip-screen') {
+      skipScreen = true;
+    } else if (arg === '--days' && i + 1 < argv.length) {
+      days = Number.parseInt(argv[++i], 10);
+    } else if (arg === '--agencies' && i + 1 < argv.length) {
+      agencies = argv[++i].split(',').map((code) => code.trim().toUpperCase()).filter(Boolean);
     }
   }
 
-  return { step, id, query, limit, source, skipOcr, retryFailed };
+  // A wrong agency code or type would make the feed answer with nothing, silently.
+  // Codes come in several formats: 0307, 11012, A004 (egp-agencies.json).
+  // The e-GP feed is the one source left. data.go.th's reader was removed: it
+  // read mislabelled columns and stored finished contracts as Open
+  // (docs/data-sources/data_go_th.md).
+  if (source === 'datago') {
+    throw new Error(
+      '--source datago was removed: data.go.th has past contracts only, and its reader mislabelled them. ' +
+        'See docs/data-sources/data_go_th.md.',
+    );
+  }
+  if (!['process3', 'all'].includes(source)) throw new Error(`--source takes process3; got "${source}"`);
+  if (dept && !/^[A-Z0-9]{3,11}$/.test(dept)) {
+    throw new Error(`--dept takes an e-GP agency code such as 0307, 11012 or A004; got "${dept}"`);
+  }
+  const unknown = (types ?? []).filter((code) => !EGP_ANNOUNCEMENT_CODES[code]);
+  if (unknown.length) {
+    throw new Error(`--types takes e-GP announcement codes (${Object.keys(EGP_ANNOUNCEMENT_CODES).join(', ')}); not ${unknown.join(', ')}`);
+  }
+
+  // An agency list reaches back 7 days at most (manual 4.2)
+  if (!(days >= 0 && days <= 7)) throw new Error(`--days takes 0 to 7; got "${days}"`);
+
+  return { step, id, query, limit, source, skipOcr, retryFailed, dept, types, until, skipScreen, agencies, days };
 }
 
 /**
@@ -105,21 +163,11 @@ async function withoutGivenUp(candidates, { step, id, retryFailed, inputKeyOf = 
 }
 
 /** Records a failed step, and says whether it counted and whether the TOR gave up. */
-async function noteFailure({ projectId, step, error, transient = false, inputKey = null }) {
-  const { attempts, counted, gaveUp } = await recordFailure({ projectId, step, error, transient, inputKey });
+async function noteFailure({ projectId, step, error, transient = false, inputKey = null, final = false }) {
+  const { attempts, counted, gaveUp } = await recordFailure({ projectId, step, error, transient, inputKey, final });
   if (!counted) return ' (the source did not answer; not counted as an attempt)';
   return ` (attempt ${attempts} of ${MAX_ATTEMPTS}${gaveUp ? '; skipped from now on until --retry-failed' : ''})`;
 }
-
-// Download and OCR only TORs still to come or open (ADR 0018):
-// - announced by the e-GP feed, the only source of open projects (ADR 0017).
-//   With no announcement, "Open" is only the status engine's default.
-// - not past: a TOR with a contract winner is past, whatever its status says.
-const WORKABLE = {
-  status: { $in: ['Draft', 'Open'] },
-  'announcementHistory.0': { $exists: true },
-  'contract.winnerName': { $in: [null, ''] },
-};
 
 // OCR works from the PDF: a new PDF gets new tries
 const pdfHashOf = (tor) => tor.document?.contentHash ?? null;
@@ -127,49 +175,334 @@ const pdfHashOf = (tor) => tor.document?.contentHash ?? null;
 /**
  * Service 1: Fetch metadata from procurement sources and pre-filter IT relevance.
  */
-export async function runFetchStep({ query, limit, source, documentsDir }) {
+export async function runFetchStep({ query, limit, dept = null, types = null, documentsDir }) {
   console.log('\n[Service 1: FETCH] Discovering announcements & pre-filtering IT...');
-  let totalFetched = 0;
 
-  if (source === 'all' || source === 'process3') {
-    console.log('  -> Querying e-GP RSS Feed (process3.gprocurement.go.th)...');
-    const p3Result = await fetchFromProcess3({
-      query,
-      limit: limit ?? Infinity,
-      documentsDir,
-      downloadAttachments: false,
-    });
-    totalFetched += p3Result.fetched;
-    console.log(`     Discovered: ${p3Result.discovered} new project(s); ${p3Result.updated} followed project(s) updated`);
-    if (p3Result.closed) {
-      console.warn(`     ${FEED_HOURS}, so nothing was requested. Run again after 12:01 or 17:01.`);
-    } else {
-      reportSourceErrors(p3Result.errors);
-      if (p3Result.unreachable) {
-        console.warn('     e-GP RSS DID NOT ANSWER: no new announcements were fetched from it this run.');
-      }
+  // One agency's feed (--dept) shows its last 7 days; the national one, the latest 20 of each type
+  const scope = [dept && `agency ${dept}`, types && `types ${types.join(', ')}`].filter(Boolean).join(', ');
+  console.log(`  -> Querying e-GP RSS Feed (process3.gprocurement.go.th)${scope ? `: ${scope}` : ''}...`);
+  const startedAt = new Date();
+  const p3Result = await fetchFromProcess3({
+    query,
+    limit: limit ?? Infinity,
+    documentsDir,
+    downloadAttachments: false,
+    deptId: dept ?? '',
+    types,
+    now: startedAt,
+  });
+  await recordPoll({ deptId: dept ?? '', startedAt, result: p3Result });
+  console.log(`     Discovered: ${p3Result.discovered} new project(s); ${p3Result.updated} followed project(s) updated`);
+  if (p3Result.closed) {
+    console.warn(`     ${FEED_HOURS}, so nothing was requested. Run again after 17:01.`);
+  } else {
+    reportSourceErrors(p3Result.errors);
+    if (p3Result.rateLimited) {
+      console.warn('     e-GP asked us to slow down (HTTP 429): the rest of this poll waits for the next run.');
+    }
+    if (p3Result.unreachable) {
+      console.warn('     e-GP RSS DID NOT ANSWER: no new announcements were fetched from it this run.');
     }
   }
-
-  if (source === 'all' || source === 'datago') {
-    console.log('  -> Querying Open Gov Data (data.go.th CKAN)...');
-    const dgResult = await fetchFromDataGo({
-      query: query ?? 'คอมพิวเตอร์',
-      limit: limit ?? 5,
-      documentsDir,
-      downloadAttachments: false,
-    });
-    totalFetched += dgResult.fetched;
-    console.log(`     Discovered: ${dgResult.fetched} project(s)`);
-    reportSourceErrors(dgResult.errors);
-  }
-
-  return totalFetched;
+  return p3Result.fetched;
 }
 
 /** Prints every error a source reported. A count alone once hid a dead feed. */
 function reportSourceErrors(errors) {
   for (const error of errors) console.warn(`     ! ${error}`);
+}
+
+/**
+ * Keeps a record of one time the feed was asked (ADR 0027): the polling
+ * health FR-22 asks for. A record that can't be saved never stops the run.
+ */
+export async function recordPoll({ deptId, announceDate = null, startedAt, finishedAt = new Date(), result }) {
+  try {
+    await FeedPoll.create({
+      source: 'process3',
+      deptId,
+      announceDate,
+      startedAt,
+      finishedAt,
+      closed: Boolean(result.closed),
+      rateLimited: Boolean(result.rateLimited),
+      requested: result.requested ?? 0,
+      answered: result.answered ?? 0,
+      itemsByType: result.itemsByType ?? {},
+      countByType: result.countByType ?? {},
+      discovered: result.discovered ?? 0,
+      updated: result.updated ?? 0,
+      problems: (result.errors ?? []).slice(0, 5),
+    });
+  } catch (error) {
+    console.warn(`     ! Could not record this poll: ${error.message}`);
+  }
+}
+
+const AGENCIES_FILE = path.resolve(import.meta.dirname, 'data/egp-agencies.json');
+
+/** The agencies the sweep asks about (scripts/fetch-egp-agencies.js). */
+export function loadAgencies(file = AGENCIES_FILE) {
+  return JSON.parse(fsSync.readFileSync(file, 'utf8')).agencies;
+}
+
+/**
+ * Finds an agency by a code given on the command line. The feed answers an
+ * unknown code with an empty list, no error, so a wrong code would pass
+ * unnoticed. PowerShell reads an unquoted list such as 0201,0703 as numbers
+ * and drops their leading zeros, so a short number whose 4-digit form is in
+ * the list is taken as that agency.
+ *
+ * @returns {{ agency: object|null, note: string|null }} `note` says what was
+ *   assumed, or why the code is unknown
+ */
+export function resolveAgency(code, agencies) {
+  const found = agencies.find((agency) => agency.code === code);
+  if (found) return { agency: found, note: null };
+  const padded = /^\d{1,3}$/.test(code) ? code.padStart(4, '0') : null;
+  const match = padded && agencies.find((agency) => agency.code === padded);
+  if (match) {
+    return {
+      agency: match,
+      note: `read ${code} as ${padded}: PowerShell drops leading zeros from an unquoted list; quote it, e.g. --agencies "0201,0703"`,
+    };
+  }
+  return { agency: null, note: `${code} is not in egp-agencies.json: the feed answers an unknown code with nothing` };
+}
+
+// A dead feed costs each agency its unanswered requests: after two agencies
+// in a row get no answer at all, the rest would go the same way
+const MAX_DEAD_AGENCIES_IN_A_ROW = 2;
+
+// e-GP refuses the 240th request (HTTP 429), whatever the pace: at one a
+// second and at one every 3 seconds alike, then again after each 10-minute
+// pause, 7 times in one night (2026-10-14). So the sweep asks at NFR-03's
+// one a second and pauses before the limit, instead of waiting to be refused.
+// EGP_FEED_BURST changes how many requests go out between pauses.
+const parsedBurst = Number.parseInt(process.env.EGP_FEED_BURST ?? '', 10);
+export const FEED_BURST = parsedBurst > 0 ? parsedBurst : 230;
+export const FEED_PAUSE_MS = 10 * 60 * 1000;
+
+// A sweep that e-GP refuses this many times in a row, even after pausing, stops
+const MAX_REFUSALS_IN_A_ROW = 3;
+
+const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** A day as Bangkok sees it, YYYY-MM-DD. */
+const bangkokDay = (date) => new Date(date.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+/**
+ * The days a full list may have cut short, to ask again one at a time. A list
+ * holds the latest 20: every day newer than its oldest is complete, and its
+ * oldest day, and the days before it, may not be. Only the days since the
+ * last sweep matter, `lookbackDays` back from today; the sweeps before
+ * covered the rest.
+ *
+ * @param {string|undefined} oldest - The oldest day in the list, YYYY-MM-DD
+ * @param {string} today - YYYY-MM-DD, Bangkok
+ * @returns {string[]} Days, oldest first, YYYY-MM-DD
+ */
+export function daysToAskAgain(oldest, today, lookbackDays = 1) {
+  if (!oldest) return [];
+  const days = [];
+  const end = Date.parse(`${today}T00:00:00Z`);
+  for (let back = lookbackDays; back >= 0; back--) {
+    const day = new Date(end - back * DAY_MS).toISOString().slice(0, 10);
+    if (day <= oldest) days.push(day);
+  }
+  return days;
+}
+
+/**
+ * The sweep (ADR 0027): asks the feed about each agency in turn. An agency's
+ * list reaches back up to 7 days, at most 20 items a code, where the national
+ * feed shows only the day's latest 20; the sweep finds what that dropped.
+ * Asking every code also brings the cancellations, winners and amendments of
+ * the projects we follow, whichever agency they belong to.
+ *
+ * A list that comes back full (20) may have cut days short: those days are
+ * asked again, one at a time (`announceDate`), and e-GP's own count for each
+ * (`countbyday`) says whether anything is still missing.
+ *
+ * It pauses every FEED_BURST requests, before e-GP's limit, and when e-GP
+ * refuses anyway (HTTP 429), then carries on with the same request. It stops
+ * early when the feed closes, the time box is over, the feed stops answering,
+ * or e-GP keeps refusing.
+ *
+ * @param {Function} [options.fetch] - fetchFromProcess3; replaced in tests
+ * @param {Function} [options.record] - recordPoll; replaced in tests
+ * @param {Function} [options.pace] - waits before each request; replaced in tests
+ * @param {Function} [options.sleep] - waits out a pause; replaced in tests
+ */
+export async function runSweepStep({
+  agencies = loadAgencies(),
+  types = ROUTINE_TYPES,
+  until = null,
+  lookbackDays = 1,
+  documentsDir,
+  fetch = fetchFromProcess3,
+  record = recordPoll,
+  now = () => new Date(),
+  pace = paceRequest,
+  sleep = defaultSleep,
+  pauseMs = FEED_PAUSE_MS,
+  burst = FEED_BURST,
+}) {
+  console.log(
+    `\n[SWEEP] Asking the e-GP feed about ${agencies.length} agencies (${types.join(', ')}), ` +
+      `pausing ${Math.round(pauseMs / 60_000)} min every ${burst} requests...`,
+  );
+  const totals = {
+    asked: 0, discovered: 0, updated: 0, unanswered: 0, full: 0, askedAgain: 0, cutOff: 0,
+    pauses: 0, refusals: 0, stoppedBy: null,
+  };
+  const today = bangkokDay(now());
+  const pauseMinutes = Math.round(pauseMs / 60_000);
+  let sent = 0; // requests since the last pause
+  let refusalsInARow = 0;
+
+  /** Waits out a pause, unless it would run past the time box. False: stop instead. */
+  async function pause() {
+    if (isPastDeadline(until, new Date(now().getTime() + pauseMs))) {
+      totals.stoppedBy = 'time';
+      return false;
+    }
+    await sleep(pauseMs);
+    sent = 0;
+    return true;
+  }
+
+  /**
+   * Sends one request batch and records it, pausing first when the burst is
+   * spent, and again when e-GP refuses. Null when the sweep must stop.
+   */
+  async function ask(label, options, expected) {
+    for (;;) {
+      if (isPastDeadline(until, now())) {
+        totals.stoppedBy = 'time';
+        return null;
+      }
+      if (sent + expected > burst) {
+        totals.pauses++;
+        console.log(`  -> ${sent} requests sent: pausing ${pauseMinutes} min, before e-GP's limit`);
+        if (!(await pause())) return null;
+      }
+      const startedAt = now();
+      const result = await fetch({
+        ...options,
+        limit: Infinity,
+        documentsDir,
+        downloadAttachments: false,
+        now: startedAt,
+        pace,
+      });
+      sent += result.requested ?? 0;
+      await record({ deptId: options.deptId, announceDate: options.announceDate ?? null, startedAt, finishedAt: now(), result });
+      if (result.closed) {
+        totals.stoppedBy = 'closed';
+        return null;
+      }
+      if (!result.rateLimited) {
+        refusalsInARow = 0;
+        return result;
+      }
+
+      // New projects it answered with before refusing are saved already
+      totals.discovered += result.discovered;
+      totals.refusals++;
+      if (refusalsInARow >= MAX_REFUSALS_IN_A_ROW) {
+        totals.stoppedBy = 'rate-limit';
+        return null;
+      }
+      refusalsInARow++;
+      console.warn(
+        `  -> e-GP asked us to slow down (HTTP 429) at ${label}: pausing ${pauseMinutes} min, ` +
+          `then asking again (${refusalsInARow} of ${MAX_REFUSALS_IN_A_ROW})`,
+      );
+      if (!(await pause())) {
+        totals.stoppedBy = 'rate-limit';
+        return null;
+      }
+    }
+  }
+
+  let deadInARow = 0;
+  for (const [index, agency] of agencies.entries()) {
+    const result = await ask(agency.code, { deptId: agency.code, types }, types.length);
+    if (!result) break;
+
+    totals.asked++;
+    totals.discovered += result.discovered;
+    totals.updated += result.updated;
+    if (result.unreachable) {
+      totals.unanswered++;
+      if (++deadInARow >= MAX_DEAD_AGENCIES_IN_A_ROW) {
+        totals.stoppedBy = 'no-answer';
+        console.warn(`  -> e-GP RSS DID NOT ANSWER for ${deadInARow} agencies in a row: sweep stopped.`);
+        reportSourceErrors(result.errors);
+        break;
+      }
+      console.log(`     ${agency.code} ${agency.name}: NO ANSWER`);
+      continue;
+    }
+    deadInARow = 0;
+
+    // A full list may have cut days short: ask those days one at a time
+    const full = types.filter((code) => (result.itemsByType?.[code] ?? 0) >= 20);
+    if (full.length) totals.full++;
+    const notes = [];
+    let stopped = false;
+    for (const code of full) {
+      for (const day of daysToAskAgain(result.oldestDateByType?.[code], today, lookbackDays)) {
+        const dated = await ask(`${agency.code} ${code} ${day}`, {
+          deptId: agency.code,
+          types: [code],
+          announceDate: day.replaceAll('-', ''),
+        }, 1);
+        if (!dated) {
+          stopped = true;
+          break;
+        }
+        totals.askedAgain++;
+        totals.discovered += dated.discovered;
+        totals.updated += dated.updated;
+        const shown = dated.itemsByType?.[code] ?? 0;
+        const count = dated.countByType?.[code];
+        if (Number.isInteger(count) && count > shown) {
+          totals.cutOff++;
+          notes.push(`${code} ${day}: ${shown} of ${count}, the rest cut off`);
+        } else {
+          notes.push(`${code} ${day}: all ${shown}`);
+        }
+      }
+      if (stopped) break;
+    }
+
+    if (result.discovered || full.length) {
+      console.log(
+        `     ${agency.code} ${agency.name}: ${result.discovered} new, ${result.updated} followed` +
+          (full.length ? ` · full list for ${full.join(', ')}; asked again by day: ${notes.join('; ') || 'nothing since the last sweep'}` : ''),
+      );
+    }
+    if ((index + 1) % 25 === 0) console.log(`  -> ${index + 1} of ${agencies.length} agencies asked`);
+    if (stopped) break;
+  }
+
+  const why = {
+    time: 'the time box is over',
+    closed: FEED_HOURS,
+    'rate-limit': `e-GP kept refusing (HTTP 429) after ${MAX_REFUSALS_IN_A_ROW} pauses in a row`,
+  }[totals.stoppedBy];
+  if (why) console.warn(`  -> Sweep stopped after ${totals.asked} of ${agencies.length} agencies: ${why}.`);
+  console.log(
+    `  -> ${totals.asked} agencies asked: ${totals.discovered} new project(s), ${totals.updated} followed project(s) seen again` +
+      (totals.full ? `; ${totals.full} full list(s), ${totals.askedAgain} day(s) asked again, ${totals.cutOff} still cut off` : '') +
+      (totals.unanswered ? `; ${totals.unanswered} did not answer` : '') +
+      (totals.pauses ? `; ${totals.pauses} planned pause(s)` : '') +
+      (totals.refusals ? `; refused ${totals.refusals} time(s) (HTTP 429)` : ''),
+  );
+  return totals;
 }
 
 /**
@@ -285,17 +618,111 @@ const describeFacts = ({ agency, referencePriceTHB, submissionWindow }) =>
     .join(' · ') || 'no facts stated';
 
 /**
+ * Adds a project found by hand, one the feed never showed us (ingest:add).
+ * Everything comes from e-GP's own documents, not from guesses: the title,
+ * agency and posting date from its announcement, and its stage from whether
+ * the announcement is marked ร่าง (a draft) or not (an invitation). The feed
+ * corrects the stage later if it shows the project. It's downloaded here, so
+ * OCR and extraction pick it up next.
+ *
+ * @returns {Promise<object|null>} The new Tor, or null when nothing was added
+ */
+export async function runAddStep({
+  id,
+  documentsDir,
+  download = downloadEgpPackage,
+  downloadPrice = downloadEgpPricePackage,
+  now = new Date(),
+}) {
+  console.log('\n[ADD] Adding a project from e-GP...');
+  if (!/^\d{11}$/.test(id ?? '')) {
+    console.warn('  -> Give the 11-digit e-GP project ID: npm run ingest:add -- --id 69099683466');
+    return null;
+  }
+  if (await Tor.exists({ projectId: id })) {
+    console.warn(`  -> ${id} is already in the database. To check e-GP for new files: npm run ingest:download -- --id ${id}`);
+    return null;
+  }
+
+  const result = await download({ projectId: id, documentsDir });
+  if (!result.success || result.unchanged) {
+    console.warn(`  -> Not added: ${result.error ?? 'e-GP gave no package'}`);
+    return null;
+  }
+  const text = result.package.announcementText;
+  const title = readTitle(text);
+  if (!title) {
+    console.warn('  -> Not added: its announcement has no title to read (no "เรื่อง" line, or no text layer).');
+    return null;
+  }
+
+  const posted = readPostedDate(text);
+  const code = isDraftAnnouncement(text) ? 'B0' : 'D0';
+  const announcement = {
+    code,
+    type: classifyAnnouncement(code),
+    receivedAt: now,
+    publishedAt: posted ? new Date(posted) : null,
+    sourceUrl: `added by hand from e-GP package ${result.package.name}`,
+  };
+  const { status, isAmended, latestCode } = deriveStatus([announcement]);
+  const tor = new Tor({
+    projectId: id,
+    source: 'manual',
+    title,
+    procurementMethod: title.match(/ด้วยวิธี(.+)$/)?.[1]?.trim() ?? '',
+    procurementKind: procurementKindOf(title),
+    announceType: latestCode ?? code,
+    announceDate: posted,
+    status,
+    isAmended,
+    announcementHistory: [announcement],
+    pipelineStatus: 'downloaded',
+  });
+  applyPackage(tor, result);
+
+  const price = await downloadPrice({
+    projectId: id,
+    documentsDir,
+    announcedReferencePrice: tor.referencePriceTHB > 0 ? tor.referencePriceTHB : null,
+  });
+  if (price.success) {
+    tor.priceCheckedAt = now;
+    if (price.package) applyPricePackage(tor, price.package);
+  }
+  await tor.save();
+
+  const amount = (value) => (value > 0 ? value.toLocaleString() : 'not stated');
+  console.log(`  -> Added ${id}: ${title}`);
+  console.log(`     ${status} · ${tor.agency || 'agency not stated'} · posted ${posted ?? 'date not stated'}`);
+  console.log(
+    `     ราคากลาง ${amount(tor.referencePriceTHB)} · budget ${amount(tor.budgetTHB)} · ` +
+      `bids close ${tor.submissionDeadline ? tor.submissionDeadline.toISOString() : 'not stated'}`,
+  );
+  console.log('     Next: npm run ingest:ocr, then npm run extract (or npm run pipeline).');
+  return tor;
+}
+
+// The title screen lets a new project through unless it's clearly not IT, and
+// lets a sample of those through too (ADR 0026)
+const PASSES_SCREEN = { $or: [{ verdict: { $in: ['it', 'unsure'] } }, { audit: true }] };
+
+/**
  * Service 2: Download each workable TOR's e-GP package (ADR 0020): a new
  * project's, one whose project moved to a new stage, and one downloaded
  * before packages were kept. A package already downloaded isn't again.
+ *
+ * A new project waits for the title screen (ADR 0026), unless `screened` is
+ * false (--skip-screen).
  *
  * @param {Function} [options.download] - downloadEgpPackage; replaced in tests
  */
 export async function runDownloadStep({
   id,
   documentsDir,
-  source = 'manual',
   retryFailed = false,
+  screened = true,
+  until = null,
   download = downloadEgpPackage,
   downloadPrice = downloadEgpPricePackage,
 }) {
@@ -305,30 +732,30 @@ export async function runDownloadStep({
   // Only TORs still to come or open: a cancelled or awarded one isn't a job,
   // so its documents aren't worth fetching (ADR 0018). The price package is
   // asked for once, and again at each new stage (ADR 0023).
+  const passed = screened ? await TitleScreen.distinct('projectId', PASSES_SCREEN) : null;
   let queryFilter = {
     ...WORKABLE,
     $or: [
-      { pipelineStatus: 'fetched' },
-      { packageCheckNeeded: true },
-      { 'packages.0': { $exists: false } },
-      { priceCheckedAt: null },
+      { pipelineStatus: 'fetched', ...(passed && { projectId: { $in: passed } }) },
+      {
+        pipelineStatus: { $ne: 'fetched' },
+        $or: [{ packageCheckNeeded: true }, { 'packages.0': { $exists: false } }, { priceCheckedAt: null }],
+      },
     ],
   };
   if (id) {
     queryFilter = { projectId: id };
+  } else if (screened) {
+    await reportScreen();
   }
 
   let candidates = await Tor.find(queryFilter);
 
-  // If targeting a specific ID not yet in the DB, create placeholder so we can download it
+  // A project we don't have isn't made up here: a placeholder had no title,
+  // no agency and the status engine's default "Open". ingest:add reads it from e-GP.
   if (id && candidates.length === 0) {
-    const placeholder = new Tor({
-      projectId: id,
-      title: `Project ${id}`,
-      source: ['process3', 'datago'].includes(source) ? source : 'manual',
-      pipelineStatus: 'fetched',
-    });
-    candidates = [placeholder];
+    console.warn(`  -> ${id} is not in the database. Add it from e-GP with: npm run ingest:add -- --id ${id}`);
+    return 0;
   }
 
   candidates = await withoutGivenUp(candidates, { step: 'download', id, retryFailed });
@@ -342,6 +769,10 @@ export async function runDownloadStep({
   let successCount = 0;
 
   for (let i = 0; i < candidates.length; i++) {
+    if (isPastDeadline(until)) {
+      console.log(`  -> Time box over: ${candidates.length - i} project(s) left for the next run.`);
+      break;
+    }
     const tor = candidates[i];
     console.log(`     [${i + 1}/${candidates.length}] Project ${tor.projectId}...`);
 
@@ -362,6 +793,8 @@ export async function runDownloadStep({
         step: 'download',
         error: result.error,
         transient: Boolean(result.transient),
+        // The same file would stop at the same limit: no use downloading it again
+        final: isTooBig(result.error),
       });
       console.warn(`        Download failed: ${result.error}${note}`);
       continue;
@@ -412,6 +845,17 @@ export async function runDownloadStep({
   return successCount;
 }
 
+/** Says how many new projects the title screen stopped, and how many still wait for it. */
+async function reportScreen() {
+  const fresh = await Tor.find({ ...WORKABLE, pipelineStatus: 'fetched' }, { projectId: 1 }).lean();
+  if (fresh.length === 0) return;
+  const screens = await TitleScreen.find({ projectId: { $in: fresh.map((tor) => tor.projectId) } }, { verdict: 1, audit: 1 }).lean();
+  const stopped = screens.filter((screen) => screen.verdict === 'not_it' && !screen.audit).length;
+  const waiting = fresh.length - screens.length;
+  if (stopped) console.log(`  -> ${stopped} new project(s) not downloaded: the title screen found them not IT.`);
+  if (waiting) console.log(`  -> ${waiting} new project(s) wait for the title screen (npm run screen), or use --skip-screen.`);
+}
+
 /**
  * Service 3: OCR, in two passes over the TORs still to come or open (ADR 0018).
  * 1. Preview: a downloaded scan is read for its first PREVIEW_PAGES pages,
@@ -423,7 +867,7 @@ export async function runDownloadStep({
  *
  * @param {Function} [options.ocr] - extractText; replaced in tests
  */
-export async function runOcrStep({ id, documentsDir, source = 'manual', retryFailed = false, ocr = extractText }) {
+export async function runOcrStep({ id, documentsDir, retryFailed = false, until = null, ocr = extractText }) {
   console.log('\n[Service 3: OCR] Extracting text & running OCR on PDF documents...');
 
   let previews = [];
@@ -431,34 +875,19 @@ export async function runOcrStep({ id, documentsDir, source = 'manual', retryFai
 
   if (id) {
     fullReads = await Tor.find({ projectId: id });
-
-    // If targeting a specific ID not in DB or without storagePath, check disk
+    // Never a placeholder made from a file on disk: it had no title or agency
     if (fullReads.length === 0) {
-      const expectedPdfPath = path.join(documentsDir, `${id}_TOR.pdf`);
-      if (fsSync.existsSync(expectedPdfPath)) {
-        const created = await Tor.findOneAndUpdate(
-          { projectId: id },
-          {
-            $set: {
-              title: `Project ${id}`,
-              source: ['process3', 'datago'].includes(source) ? source : 'manual',
-              pipelineStatus: 'downloaded',
-              'document.fileName': `${id}_TOR.pdf`,
-              'document.storagePath': expectedPdfPath,
-              'document.sizeBytes': fsSync.statSync(expectedPdfPath).size,
-            },
-          },
-          { upsert: true, returnDocument: 'after' },
-        );
-        fullReads = [created];
-      }
+      console.warn(`  -> ${id} is not in the database. Add it from e-GP with: npm run ingest:add -- --id ${id}`);
+      return 0;
     }
   } else {
     // A TOR already extracted as IT whose file changed is read whole: a
     // preview would be classified again, and hide its page meanwhile (ADR 0020)
+    // A title-level record isn't an extraction: it was built from a title (ADR 0028)
     const extracted = await TorInsight.distinct('projectId', {
       'metadata.excluded': null,
       'metadata.awaitingFullText': { $ne: true },
+      'metadata.titleOnly': { $ne: true },
     });
     const downloaded = { pipelineStatus: 'downloaded', 'document.storagePath': { $ne: null }, ...WORKABLE };
     previews = await Tor.find({ ...downloaded, projectId: { $nin: extracted } });
@@ -493,6 +922,10 @@ export async function runOcrStep({ id, documentsDir, source = 'manual', retryFai
   let successCount = 0;
 
   for (const [i, { tor, preview }] of queue.entries()) {
+    if (isPastDeadline(until)) {
+      console.log(`  -> Time box over: ${queue.length - i} document(s) left for the next run.`);
+      break;
+    }
     const label = `     [${i + 1}/${queue.length}]`;
     const pdfPath = tor.document?.storagePath || path.join(documentsDir, `${tor.projectId}_TOR.pdf`);
     // A TOR in several files is read as one document (ADR 0020)
@@ -560,9 +993,8 @@ async function main() {
   if (args.id) {
     console.log(`Target Project  : ${args.id}`);
   }
-  console.log(`Query Filter    : ${args.query ? `"${args.query}"` : "none for e-GP (classify decides); คอมพิวเตอร์ for data.go.th"}`);
-  console.log(`Limit per source: ${args.limit ?? "none for e-GP; 5 for data.go.th"}`);
-  console.log(`Source Target   : ${args.source}`);
+  console.log(`Query Filter    : ${args.query ? `"${args.query}"` : "none (the title screen and classify decide)"}`);
+  console.log(`New projects    : ${args.limit ?? "no limit"}`);
   console.log(`Document Dir    : ${DOCUMENTS_DIR}`);
   console.log(`Skip OCR        : ${args.skipOcr}`);
   console.log(`Retry failed    : ${args.retryFailed}`);
@@ -579,11 +1011,43 @@ async function main() {
 async function runSteps(args) {
   const isAll = args.step === 'all';
 
+  // A project found by hand: added from e-GP, then left for the steps below to read
+  if (args.step === 'add') {
+    await runAddStep({ id: args.id, documentsDir: DOCUMENTS_DIR });
+    return;
+  }
+
   if (isAll || args.step === 'fetch') {
+    let dept = args.dept;
+    if (dept) {
+      const { agency, note } = resolveAgency(dept, loadAgencies());
+      if (note) console.warn(`  ! ${note}`);
+      dept = agency?.code ?? dept;
+    }
     await runFetchStep({
       query: args.query,
       limit: args.limit,
-      source: args.source,
+      dept,
+      types: args.types,
+      documentsDir: DOCUMENTS_DIR,
+    });
+  }
+
+  // Every agency in egp-agencies.json, one after another (ADR 0027)
+  if (args.step === 'sweep') {
+    const all = loadAgencies();
+    const agencies = args.agencies
+      ? args.agencies.map((code) => {
+          const { agency, note } = resolveAgency(code, all);
+          if (note) console.warn(`  ! ${note}`);
+          return agency ?? { code, name: '(not in the list)' };
+        })
+      : all;
+    await runSweepStep({
+      agencies,
+      types: args.types ?? ROUTINE_TYPES,
+      until: args.until,
+      lookbackDays: args.days,
       documentsDir: DOCUMENTS_DIR,
     });
   }
@@ -591,18 +1055,19 @@ async function runSteps(args) {
   if (isAll || args.step === 'download') {
     await runDownloadStep({
       id: args.id,
-      source: args.source,
       documentsDir: DOCUMENTS_DIR,
       retryFailed: args.retryFailed,
+      screened: !args.skipScreen,
+      until: args.until,
     });
   }
 
   if ((isAll && !args.skipOcr) || args.step === 'ocr') {
     await runOcrStep({
       id: args.id,
-      source: args.source,
       documentsDir: DOCUMENTS_DIR,
       retryFailed: args.retryFailed,
+      until: args.until,
     });
   }
 
@@ -617,9 +1082,11 @@ async function runSteps(args) {
     digitalPdfs: await Tor.countDocuments({
       'document.documentType': 'DIGITAL_TEXT_PDF',
     }),
+    // Every stage a TOR can be at (ADR 0018), so none goes missing from the count
     statusBreakdown: {
       fetched: await Tor.countDocuments({ pipelineStatus: 'fetched' }),
       downloaded: await Tor.countDocuments({ pipelineStatus: 'downloaded' }),
+      ocrPreview: await Tor.countDocuments({ pipelineStatus: 'ocr_preview' }),
       ocrDone: await Tor.countDocuments({ pipelineStatus: 'ocr_done' }),
     },
   };
