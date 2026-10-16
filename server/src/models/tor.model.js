@@ -212,6 +212,14 @@ const torSchema = new mongoose.Schema(
       type: [packageSchema],
       default: [],
     },
+    // A past project (from data.go.th) chosen to be read in full, and when:
+    // download and OCR take it although it isn't workable (ADR 0028)
+    historyRequestedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+
     // Set by fetch when the feed announces a new stage of a project already
     // downloaded; download then checks e-GP for a new package (ADR 0020)
     packageCheckNeeded: {

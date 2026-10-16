@@ -34,7 +34,7 @@ Downloads, OCR and Gemini don't depend on the feed's hours.
 | 08:00 | poll | National feed, then process, before the feed closes at 08:30 |
 | 17:05 | poll | National feed, then process, as soon as it opens |
 | 18:00 | sweep | Every agency in the list, then process |
-| 22:00 | process | Whatever is still waiting, through the night |
+| 22:00 | process | The comparisons and tonight's past projects ([0028](0028-past-projects-from-data-go-th.md)), then whatever is still waiting, through the night |
 
 - **Process** screens new titles ([0026](0026-screen-titles-before-downloading.md)),
   downloads what passed, previews it, classifies it, reads the IT ones whole and

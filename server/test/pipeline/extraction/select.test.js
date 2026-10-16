@@ -55,6 +55,12 @@ test('an up-to-date result is skipped unless forced', () => {
   assert.equal(run(insight(), { force: true }), 'process:forced');
 });
 
+test('a title-level record is replaced once the project has been read (ADR 0028)', () => {
+  // Built from the title and data.go.th's figures: a hash of those, not of any document
+  const titleLevel = insight({ sourceFingerprint: 'title-level-hash', titleOnly: true });
+  assert.equal(run(titleLevel), 'process:source-changed');
+});
+
 test('an extraction is fingerprinted with its bidding document, an excluded result without it (ADR 0025)', () => {
   const withBidding = {
     ...tor,
