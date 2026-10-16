@@ -22,6 +22,7 @@ const ID = {
   itPreview: '55555100006', // classify said IT: read whole now
   notItPreview: '55555100007', // classify said not IT: left as it is
   itChanged: '55555100008', // extracted as IT, then a new package changed its TOR: read whole
+  pastRequested: '55555100009', // a past project chosen to be read in full (ADR 0028): read whole
 };
 
 // What the fake OCR reads for each document, by whether it was limited
@@ -31,6 +32,7 @@ const READS = {
   [ID.digital]: () => ({ usedOcr: false, pages: 40, pagesRead: 40, truncated: false }),
   [ID.itPreview]: (limited) => ({ usedOcr: true, pages: 30, pagesRead: limited ? 6 : 30, truncated: limited }),
   [ID.itChanged]: (limited) => ({ usedOcr: true, pages: 30, pagesRead: limited ? 6 : 30, truncated: limited }),
+  [ID.pastRequested]: (limited) => ({ usedOcr: true, pages: 30, pagesRead: limited ? 6 : 30, truncated: limited }),
 };
 
 let documentsDir;
@@ -69,12 +71,21 @@ before(async () => {
     tor(ID.itPreview, { pipelineStatus: 'ocr_preview', ocr: { rawText: 'บางหน้า', preview: true, pagesRead: 6 } }),
     tor(ID.notItPreview, { pipelineStatus: 'ocr_preview', ocr: { rawText: 'บางหน้า', preview: true, pagesRead: 6 } }),
     tor(ID.itChanged),
+    // Awarded and never in the feed, but asked for, with its title-level record
+    tor(ID.pastRequested, {
+      source: 'datago',
+      status: 'Awarded',
+      announcementHistory: [],
+      contract: { winnerName: 'บริษัท ผู้ชนะ จำกัด' },
+      historyRequestedAt: new Date(),
+    }),
   ]);
   // What extraction decided about the two previews (the model's fields aren't needed here)
   await TorInsight.collection.insertMany([
     { projectId: ID.itPreview, metadata: { awaitingFullText: true } },
     { projectId: ID.notItPreview, metadata: { excluded: { reason: 'ซื้อเตียงผ่าตัด' } } },
     { projectId: ID.itChanged, metadata: { excluded: null } }, // a full IT result, public
+    { projectId: ID.pastRequested, metadata: { excluded: null, titleOnly: true } },
   ]);
 
   await runOcrStep({ documentsDir, ocr: fakeOcr });
@@ -127,4 +138,11 @@ test('OCR step: a TOR already extracted as IT whose file changed is read whole, 
   assert.equal(doc.pipelineStatus, 'ocr_done');
   assert.deepEqual([doc.ocr.preview, doc.ocr.pagesRead], [false, 30]);
   assert.deepEqual(calls.find((call) => call.id === ID.itChanged).options, {});
+});
+
+test('OCR step: a past project asked for is read whole, never previewed (ADR 0028)', async () => {
+  const doc = await stored(ID.pastRequested);
+  assert.equal(doc.pipelineStatus, 'ocr_done');
+  assert.deepEqual([doc.ocr.preview, doc.ocr.pagesRead], [false, 30]);
+  assert.deepEqual(calls.filter((call) => call.id === ID.pastRequested).map((call) => call.options), [{}], 'read once, whole');
 });

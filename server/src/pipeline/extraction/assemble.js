@@ -148,6 +148,8 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
         toAmount(facts.referencePrice),
         stated.referencePriceTHB,
       ),
+      // The signed price, from data.go.th; never in the TOR (ADR 0028)
+      agreedPriceTHB: feedAmount(tor.contract?.agreedPriceTHB),
       submissionDeadline: feedFirst(
         tor.submissionDeadline ?? null,
         'submissionDeadline',

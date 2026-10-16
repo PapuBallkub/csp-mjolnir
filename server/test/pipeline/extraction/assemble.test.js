@@ -166,6 +166,22 @@ test('every new result waits for review, with its score and failed checks', () =
   assert.equal(metadata.excluded, null);
 });
 
+test('a past project read in full keeps its signed price and is no longer title-level (ADR 0028)', () => {
+  const insight = build({
+    change: (input) => {
+      input.tor.status = 'Awarded';
+      input.tor.contract = { winnerName: 'บริษัท ตัวอย่าง จำกัด', agreedPriceTHB: 11_900_000 };
+    },
+  });
+
+  assert.equal(new TorInsight(insight).validateSync(), undefined);
+  assert.equal(insight.facts.agreedPriceTHB, 11_900_000);
+  assert.equal(insight.metadata.titleOnly, undefined, 'saved over the title-level record, it clears the mark');
+  assert.equal(new TorInsight(insight).metadata.titleOnly, false);
+  // A TOR with no contract has no signed price, never a guess
+  assert.equal(build().facts.agreedPriceTHB, null);
+});
+
 test('a non-IT TOR gets a minimal record that still validates', () => {
   const { tor, classification } = fixture();
   tor.agency = ''; // an RSS record has no agency name
