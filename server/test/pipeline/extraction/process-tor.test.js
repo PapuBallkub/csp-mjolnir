@@ -211,6 +211,28 @@ test('classifyPreview: a non-IT preview is excluded, and its TOR stops there', a
   assert.ok(!insight.metadata.awaitingFullText);
 });
 
+test("saveInsight: a past project its preview shows isn't IT is no longer title-level (ADR 0028)", async (t) => {
+  if (!isDbConnected) return t.skip('MongoDB is not reachable');
+  const { tor, classification } = fixture();
+  await TorInsight.deleteOne({ projectId: tor.projectId });
+  // What the title screen left: counted in benchmarks until the documents are read
+  await TorInsight.collection.insertOne({
+    projectId: tor.projectId,
+    identification: { titleTh: tor.title, agency: tor.agency, status: 'Awarded' },
+    facts: { agreedPriceTHB: 1_850_000 },
+    metadata: { titleOnly: true, excluded: null },
+  });
+  const client = fakeClient({ ...classification, isIT: false, category: null, reason: 'ซื้อคอมพิวเตอร์ All in One' });
+
+  const { insight } = await classifyPreview(previewOf({ ...tor, status: 'Awarded' }), { client, config: CONFIG });
+  await saveInsight(insight);
+
+  const saved = await TorInsight.findOne({ projectId: tor.projectId }).lean();
+  assert.equal(saved.metadata.titleOnly, false, 'out of benchmarks and the nightly choice');
+  assert.equal(saved.metadata.excluded.reason, 'ซื้อคอมพิวเตอร์ All in One');
+  await TorInsight.deleteOne({ projectId: tor.projectId });
+});
+
 test('a preview is never extracted, and a full text is never only classified', async () => {
   const { tor, classification, extracted } = fixture();
 

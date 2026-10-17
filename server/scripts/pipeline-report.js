@@ -116,7 +116,16 @@ async function pastProjects(since) {
       `${insights.filter((i) => i.metadata.excluded).length} not IT once read`,
   );
   if (earlier) console.log(`  ${earlier} asked for before that still wait for their download`);
-  console.log(`  ${titleLevel} known by their title only, left to choose from`);
+
+  // Unsure ones have no record until read: chosen only after the IT ones
+  const unsureIds = await TitleScreen.distinct('projectId', { verdict: 'unsure' });
+  const read = new Set(await TorInsight.distinct('projectId', { projectId: { $in: unsureIds } }));
+  const unsureLeft = await Tor.countDocuments({
+    projectId: { $in: unsureIds.filter((projectId) => !read.has(projectId)) },
+    source: 'datago',
+    historyRequestedAt: null,
+  });
+  console.log(`  left to choose from: ${titleLevel} found IT by their title (title-level records), ${unsureLeft} unsure`);
 }
 
 async function catalog(since) {

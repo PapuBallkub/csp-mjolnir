@@ -16,8 +16,9 @@
  *
  * Past projects imported from data.go.th (npm run history:import) are
  * screened only when asked for, with --past: there can be thousands, and the
- * spend is a decision. Those found IT or unsure get a title-level TorInsight
- * record, which counts in benchmarks until full extraction replaces it.
+ * spend is a decision. Those found IT get a title-level TorInsight record,
+ * which counts in benchmarks until full extraction replaces it. Unsure ones
+ * get none until their documents are read.
  *
  * Usage:
  *   npm run screen
@@ -75,26 +76,33 @@ export function titleLevelFingerprint(tor) {
 }
 
 /**
- * Builds title-level records for past projects the screen found IT or unsure
- * (ADR 0028). Never over a full extraction, or a project its documents showed
- * not IT: only where there's no record yet, or a title-level one.
+ * Builds title-level records for past projects the screen found IT (ADR
+ * 0028). An unsure one gets none: most are hardware a title can't rule out,
+ * and a title-level record counts in benchmarks. It can still be chosen to be
+ * read in full, after the IT ones. Never over a full extraction, or a project
+ * its documents showed not IT: only where there's no record yet, or a
+ * title-level one. A title-level record whose project is now screened unsure
+ * or not_it is removed.
  *
  * @returns {Promise<number>} How many were saved
  */
 export async function saveTitleLevel(screens, { now = new Date() } = {}) {
-  const kept = screens.filter((screen) => screen.verdict !== 'not_it');
-  if (kept.length === 0) return 0;
-  const ids = kept.map((screen) => screen.projectId);
-  const tors = new Map((await Tor.find({ projectId: { $in: ids } }).lean()).map((tor) => [tor.projectId, tor]));
+  if (screens.length === 0) return 0;
+  const ids = screens.map((screen) => screen.projectId);
   const existing = new Map(
     (await TorInsight.find({ projectId: { $in: ids } }, { projectId: 1, metadata: 1 }).lean()).map((insight) => [insight.projectId, insight]),
   );
+  const titleLevel = (projectId) => Boolean(existing.get(projectId)?.metadata?.titleOnly);
 
+  const dropped = screens.filter((screen) => screen.verdict !== 'it' && titleLevel(screen.projectId));
+  if (dropped.length) await TorInsight.deleteMany({ projectId: { $in: dropped.map((screen) => screen.projectId) }, 'metadata.titleOnly': true });
+
+  const kept = screens.filter((screen) => screen.verdict === 'it');
+  const tors = new Map((await Tor.find({ projectId: { $in: kept.map((screen) => screen.projectId) } }).lean()).map((tor) => [tor.projectId, tor]));
   let saved = 0;
   for (const screen of kept) {
     const tor = tors.get(screen.projectId);
-    const before = existing.get(screen.projectId);
-    if (!tor || (before && !before.metadata?.titleOnly)) continue;
+    if (!tor || (existing.has(screen.projectId) && !titleLevel(screen.projectId))) continue;
     const run = { model: screen.modelName, promptVersion: screen.promptVersion, fingerprint: titleLevelFingerprint(tor), now };
     await saveInsight(buildTitleLevel({ tor, screen, run }));
     saved++;

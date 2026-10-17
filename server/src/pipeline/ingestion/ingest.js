@@ -726,7 +726,9 @@ export async function runHistoryStep({ dryRun = false, now = new Date(), select 
     console.log('  -> None to ask for tonight.');
     return 0;
   }
-  for (const pick of chosen) console.log(`     ${pick.projectId} ${pick.why.padEnd(18)} ${pick.title.slice(0, 80)}`);
+  for (const pick of chosen) {
+    console.log(`     ${pick.projectId} ${pick.verdict.padEnd(6)} ${pick.why.padEnd(18)} ${pick.title.slice(0, 80)}`);
+  }
   if (dryRun) {
     console.log(`  -> Dry run: ${chosen.length} would be asked for; nothing changed.`);
     return 0;
@@ -897,7 +899,8 @@ async function reportScreen() {
 }
 
 /**
- * Service 3: OCR, in two passes over the TORs still to come or open (ADR 0018).
+ * Service 3: OCR, in two passes over the TORs still to come or open (ADR 0018),
+ * and the past projects chosen to be read in full (ADR 0028).
  * 1. Preview: a downloaded scan is read for its first PREVIEW_PAGES pages,
  *    enough for classify to decide whether it's IT. A digital PDF, or a scan
  *    no longer than that, is read whole.
@@ -929,22 +932,24 @@ export async function runOcrStep({ id, documentsDir, retryFailed = false, until 
       'metadata.awaitingFullText': { $ne: true },
       'metadata.titleOnly': { $ne: true },
     });
-    const downloaded = { pipelineStatus: 'downloaded', 'document.storagePath': { $ne: null }, ...WORKABLE };
-    previews = await Tor.find({ ...downloaded, projectId: { $nin: extracted } });
+    // A past project chosen to be read in full goes through both passes too
+    // (ADR 0028): many are hardware its title didn't rule out, and a preview
+    // is all classify needs to drop one
+    const readable = { $or: [WORKABLE, { historyRequestedAt: { $ne: null } }] };
+    const downloaded = { pipelineStatus: 'downloaded', 'document.storagePath': { $ne: null } };
+    previews = await Tor.find({ $and: [readable, { ...downloaded, projectId: { $nin: extracted } }] });
 
     // Extraction says which previews are IT; ingestion only reads that (ADR 0013)
     const waiting = await TorInsight.distinct('projectId', { 'metadata.awaitingFullText': true });
     fullReads = await Tor.find({
-      $or: [
+      $and: [
+        readable,
         {
-          ...WORKABLE,
           $or: [
             { pipelineStatus: 'ocr_preview', projectId: { $in: waiting } },
             { ...downloaded, projectId: { $in: extracted } },
           ],
         },
-        // A past project chosen on purpose is read whole: no preview (ADR 0028)
-        { pipelineStatus: 'downloaded', 'document.storagePath': { $ne: null }, historyRequestedAt: { $ne: null } },
       ],
     });
   }
