@@ -388,6 +388,106 @@ export function adminDismissPipelineFailure(projectId: string, step: string, rea
   });
 }
 
+export type PipelineStageDetail = {
+  done: boolean;
+  timestamp?: string | null;
+  usedOcr?: boolean;
+  confidence?: number | null;
+  status?: string;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  error?: string | null;
+};
+
+export type PipelineRecordDiagnostics = {
+  projectId: string;
+  title: string;
+  agency: string;
+  budgetTHB: number | null;
+  referencePriceTHB: number | null;
+  submissionDeadline: string | null;
+  status: string;
+  isAmended: boolean;
+  pipelineStatus: string;
+  source: string;
+  announceDate: string | null;
+  stages: {
+    fetched: PipelineStageDetail;
+    downloaded: PipelineStageDetail;
+    ocr: PipelineStageDetail;
+    extracted: PipelineStageDetail;
+    reviewed: PipelineStageDetail;
+  };
+  document?: {
+    fileName: string;
+    pages: number;
+    sizeBytes: number;
+    documentType: string;
+    sourceUrl?: string;
+  } | null;
+  ocr?: {
+    usedOcr?: boolean;
+    confidence?: number | null;
+  } | null;
+  activeFailure?: {
+    step: string;
+    attempts: number;
+    lastError: string;
+    lastTransient: boolean;
+    firstFailedAt: string;
+    lastFailedAt: string;
+  } | null;
+  insight?: {
+    confidence: number | null;
+    reviewStatus: string;
+    excluded?: { reason: string; dismissedAt: string } | null;
+    extractedTechnologies: string[];
+    lockSpecRisk: string;
+  } | null;
+  titleScreen?: {
+    category?: string | null;
+    verdict?: string;
+    isItRelated?: boolean;
+    reason?: string;
+    screenedAt?: string;
+  } | null;
+};
+
+export type GetPipelineRecordResult = {
+  ok: boolean;
+  record: PipelineRecordDiagnostics;
+};
+
+export type AddPipelineRecordResult = {
+  ok: boolean;
+  projectId: string;
+  title: string;
+  agency: string;
+  status: string;
+  pipelineStatus: string;
+  message: string;
+};
+
+/**
+ * Retrieves full lifecycle diagnostics for an individual procurement record (FR-24).
+ */
+export function adminGetPipelineRecord(projectId: string) {
+  return request<GetPipelineRecordResult>(
+    `/api/admin/pipeline/record/${encodeURIComponent(projectId.trim())}`,
+  );
+}
+
+/**
+ * Manually adds an 11-digit e-GP project ID and initiates download of its packages (FR-24).
+ */
+export function adminAddPipelineRecord(projectId: string) {
+  return request<AddPipelineRecordResult>("/api/admin/pipeline/add", {
+    method: "POST",
+    body: JSON.stringify({ projectId: projectId.trim() }),
+  });
+}
+
+
 
 /* ------------------------------------------------------------------ */
 /*  TOR & Insight (FR-10, FR-11, FR-13, FR-15, FR-16, FR-19, FR-20)   */

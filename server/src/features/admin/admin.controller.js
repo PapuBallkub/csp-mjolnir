@@ -1,6 +1,8 @@
 import {
+  addManualProcurementRecord,
   dismissPipelineFailure,
   getOperations,
+  getPipelineRecordDiagnostics,
   reExtractTor,
   retryPipelineStep,
   triggerIngestion,
@@ -114,4 +116,43 @@ export async function handleDismissPipelineFailure(req, res, next) {
     next(err);
   }
 }
+
+export async function handleGetPipelineRecord(req, res, next) {
+  try {
+    const { projectId } = req.params;
+    const result = await getPipelineRecordDiagnostics(projectId);
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({
+        error: { message: err.message },
+      });
+    }
+    next(err);
+  }
+}
+
+export async function handleAddManualRecord(req, res, next) {
+  try {
+    const { projectId } = req.body || {};
+    const result = await addManualProcurementRecord({ projectId });
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({
+        error: { message: err.message },
+      });
+    }
+    if (err.name === 'RunLockHeldError' || err.code === 'RUN_LOCK_HELD') {
+      return res.status(409).json({
+        error: {
+          message:
+            'Pipeline is currently executing another job. Please try again shortly.',
+        },
+      });
+    }
+    next(err);
+  }
+}
+
 

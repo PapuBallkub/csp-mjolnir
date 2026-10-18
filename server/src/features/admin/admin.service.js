@@ -1,9 +1,10 @@
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { FeedPoll, IngestionLog, PipelineFailure, PipelineRun, TitleScreen, Tor, TorInsight } from '#models/index.js';
-import { runFetchStep } from '#pipeline/ingestion/ingest.js';
+import { runAddStep, runFetchStep } from '#pipeline/ingestion/ingest.js';
 import { clearFailure } from '#pipeline/shared/failures.js';
 import { snapshot } from '#pipeline/jobs/run-job.js';
+import { withRunLock } from '#pipeline/shared/run-lock.js';
 import {
   defaultPipelineFailures,
   defaultPipelineRuns,
@@ -738,3 +739,191 @@ export async function dismissPipelineFailure(
     message: `Failure for project ${projectId} on step ${step} dismissed`,
   };
 }
+
+/**
+ * Aggregates complete lifecycle diagnostics for an individual procurement record (FR-24).
+ */
+export async function getPipelineRecordDiagnostics(projectId) {
+  if (!projectId || typeof projectId !== 'string' || !projectId.trim()) {
+    const error = new Error('projectId is required');
+    error.status = 400;
+    throw error;
+  }
+
+  const cleanId = projectId.trim();
+
+  const [tor, failure, insight, titleScreen] = await Promise.all([
+    Tor.findOne({ projectId: cleanId }),
+    PipelineFailure.findOne({ projectId: cleanId }),
+    TorInsight.findOne({ projectId: cleanId }),
+    TitleScreen.findOne({ projectId: cleanId }),
+  ]);
+
+  if (!tor && !titleScreen) {
+    const error = new Error(`Procurement record ${cleanId} not found`);
+    error.status = 404;
+    throw error;
+  }
+
+  const pipelineStatus =
+    tor?.pipelineStatus ||
+    (titleScreen?.verdict === 'not_it' ? 'rejected_non_it' : 'unknown');
+
+  const isFetched = Boolean(tor || titleScreen);
+  const isDownloaded = Boolean(
+    tor && ['downloaded', 'ocr_preview', 'ocr_done', 'extracted', 'reviewed'].includes(tor.pipelineStatus),
+  );
+  const isOcrDone = Boolean(
+    tor && ['ocr_done', 'extracted', 'reviewed'].includes(tor.pipelineStatus),
+  );
+  const isExtracted = Boolean(
+    insight || tor?.pipelineStatus === 'extracted' || tor?.pipelineStatus === 'reviewed',
+  );
+  const isReviewed = Boolean(
+    insight?.metadata?.reviewStatus === 'approved' || insight?.metadata?.checked,
+  );
+
+  return {
+    ok: true,
+    record: {
+      projectId: cleanId,
+      title: tor?.title || titleScreen?.projectTitle || 'Unknown Project',
+      agency: tor?.agency || 'Unknown Agency',
+      budgetTHB: tor?.budgetTHB ?? insight?.facts?.budgetTHB ?? null,
+      referencePriceTHB: tor?.referencePriceTHB ?? insight?.facts?.referencePriceTHB ?? null,
+      submissionDeadline: tor?.submissionDeadline ?? insight?.facts?.submissionDeadline ?? null,
+      status: tor?.status || 'Draft',
+      isAmended: Boolean(tor?.isAmended),
+      pipelineStatus,
+      source: tor?.source || 'process3',
+      announceDate: tor?.announceDate || null,
+      stages: {
+        fetched: { done: isFetched, timestamp: tor?.createdAt || titleScreen?.screenedAt || null },
+        downloaded: { done: isDownloaded, timestamp: tor?.document?.downloadedAt || null },
+        ocr: {
+          done: isOcrDone,
+          usedOcr: Boolean(tor?.ocr?.usedOcr),
+          confidence: tor?.ocr?.confidence ?? null,
+          error: failure?.step === 'ocr' ? failure.lastError : null,
+        },
+        extracted: {
+          done: isExtracted,
+          confidence: insight?.metadata?.confidenceScore ?? insight?.confidence ?? null,
+          error: failure?.step === 'extract' ? failure.lastError : null,
+        },
+        reviewed: {
+          done: isReviewed,
+          status: insight?.metadata?.reviewStatus || 'pending',
+          reviewedBy: insight?.metadata?.reviewedBy || null,
+          reviewedAt: insight?.metadata?.reviewedAt || null,
+        },
+      },
+      document: tor?.document
+        ? {
+            fileName: tor.document.fileName,
+            pages: tor.document.pages,
+            sizeBytes: tor.document.sizeBytes,
+            documentType: tor.document.documentType,
+            sourceUrl: tor.document.sourceUrl,
+          }
+        : null,
+      activeFailure: failure
+        ? {
+            step: failure.step,
+            attempts: failure.attempts,
+            lastError: failure.lastError,
+            lastTransient: Boolean(failure.lastTransient),
+            firstFailedAt: failure.firstFailedAt,
+            lastFailedAt: failure.lastFailedAt,
+          }
+        : null,
+      insight: insight
+        ? {
+            confidence: insight.metadata?.confidenceScore ?? insight.confidence ?? null,
+            reviewStatus: insight.metadata?.reviewStatus || 'pending',
+            excluded: insight.metadata?.excluded || null,
+            extractedTechnologies: insight.facts?.requiredTechStack || [],
+            lockSpecRisk:
+              insight.lockSpecAnalysis?.riskLevel ||
+              (insight.analytics?.lockSpec?.riskScore > 60
+                ? 'high'
+                : insight.analytics?.lockSpec?.riskScore > 30
+                ? 'medium'
+                : 'low'),
+          }
+        : null,
+      titleScreen: titleScreen
+        ? {
+            category: titleScreen.category,
+            verdict: titleScreen.verdict,
+            isItRelated: titleScreen.verdict === 'it',
+            reason: titleScreen.reason,
+            screenedAt: titleScreen.screenedAt,
+          }
+        : null,
+    },
+  };
+}
+
+/**
+ * Manually adds a procurement record by 11-digit e-GP project ID and downloads its packages (FR-24).
+ */
+export async function addManualProcurementRecord({ projectId }) {
+  if (!projectId || !/^\d{11}$/.test(String(projectId).trim())) {
+    const error = new Error('e-GP project ID must be exactly 11 digits (e.g. 69099683466)');
+    error.status = 400;
+    throw error;
+  }
+
+  const cleanId = String(projectId).trim();
+
+  // Uniqueness check
+  if (await Tor.exists({ projectId: cleanId })) {
+    const error = new Error(`Project ${cleanId} already exists in the database`);
+    error.status = 409;
+    throw error;
+  }
+
+  const documentsDir = process.env.DOCUMENTS_DIR || './data/documents';
+
+  let tor;
+  try {
+    tor = await withRunLock('ingestion', async () => {
+      // Re-verify inside lock to guard against concurrent runs
+      if (await Tor.exists({ projectId: cleanId })) {
+        const err = new Error(`Project ${cleanId} already exists in the database`);
+        err.status = 409;
+        throw err;
+      }
+      return await runAddStep({ id: cleanId, documentsDir });
+    });
+  } catch (err) {
+    if (err.name === 'RunLockHeldError' || err.code === 'RUN_LOCK_HELD') {
+      const lockError = new Error(
+        'Pipeline is currently executing another ingestion job. Please try again shortly.',
+      );
+      lockError.status = 409;
+      throw lockError;
+    }
+    throw err;
+  }
+
+  if (!tor) {
+    const error = new Error(
+      `Could not add project ${cleanId}: e-GP returned no announcement package or the announcement has no readable title.`,
+    );
+    error.status = 422;
+    throw error;
+  }
+
+  return {
+    ok: true,
+    projectId: tor.projectId,
+    title: tor.title,
+    agency: tor.agency || '',
+    status: tor.status,
+    pipelineStatus: tor.pipelineStatus,
+    message: `Project ${cleanId} successfully added and package downloaded.`,
+  };
+}
+

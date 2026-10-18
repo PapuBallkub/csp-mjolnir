@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import {
+  adminAddPipelineRecord,
   adminDismissPipelineFailure,
+  adminGetPipelineRecord,
   adminOperations,
   adminReExtract,
   adminRetryPipelineStep,
@@ -11,6 +13,7 @@ import {
   type AdminOperations,
   type ApiError,
   type PipelineFailureItem,
+  type PipelineRecordDiagnostics,
   type PipelineRunItem,
   type PipelineStageSnapshot,
   type ReviewItem,
@@ -190,6 +193,73 @@ function AdminDashboard({
   const [expandedFailureId, setExpandedFailureId] = useState<string | null>(null);
   const [showJobHistory, setShowJobHistory] = useState(false);
 
+  // Record Diagnostic Inspector & Manual Addition State (FR-24)
+  const [searchInspectorId, setSearchInspectorId] = useState("");
+  const [inspectingProjectId, setInspectingProjectId] = useState<string | null>(null);
+  const [diagnosticRecord, setDiagnosticRecord] = useState<PipelineRecordDiagnostics | null>(null);
+  const [isInspectorLoading, setIsInspectorLoading] = useState(false);
+  const [inspectorError, setInspectorError] = useState<string | null>(null);
+
+  // Manual Add Modal State (FR-24)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addProjectId, setAddProjectId] = useState("");
+  const [isAddingProject, setIsAddingProject] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  const handleInspect = async (projectId: string) => {
+    const cleanId = projectId.trim();
+    if (!cleanId) return;
+    setInspectingProjectId(cleanId);
+    setIsInspectorLoading(true);
+    setInspectorError(null);
+    const res = await adminGetPipelineRecord(cleanId);
+    setIsInspectorLoading(false);
+    if (res.ok) {
+      setDiagnosticRecord(res.data.record);
+    } else {
+      setInspectorError(res.error.message);
+    }
+  };
+
+  const handleQuickSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchInspectorId.trim()) {
+      handleInspect(searchInspectorId.trim());
+    }
+  };
+
+  const handleAddProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanId = addProjectId.trim();
+    if (!/^\d{11}$/.test(cleanId)) {
+      setAddError(
+        lang === "th"
+          ? "รหัสโครงการต้องเป็นตัวเลข 11 หลัก เช่น 69099683466"
+          : "e-GP project ID must be exactly 11 digits (e.g. 69099683466)",
+      );
+      return;
+    }
+    setIsAddingProject(true);
+    setAddError(null);
+    const res = await adminAddPipelineRecord(cleanId);
+    setIsAddingProject(false);
+    if (res.ok) {
+      setIsAddModalOpen(false);
+      setAddProjectId("");
+      setPipelineActionMsg({
+        type: "success",
+        text:
+          lang === "th"
+            ? `เพิ่มโครงการ ${res.data.projectId} และดาวน์โหลดเอกสาร e-GP เรียบร้อยแล้ว`
+            : `Project ${res.data.projectId} added and e-GP package downloaded successfully.`,
+      });
+      onRefresh();
+      handleInspect(cleanId);
+    } else {
+      setAddError(res.error.message);
+    }
+  };
+
   const handleRetryStep = async (projectId: string, step: string) => {
     const key = `${projectId}-${step}`;
     setRetryingStep(key);
@@ -331,12 +401,45 @@ function AdminDashboard({
             {lang === "th" ? "สุขภาพระบบเก็บข้อมูลและการตรวจสอบข้อมูล" : "Pipeline Health & Data Integrity"}
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Quick Project Inspector Search (FR-24) */}
+          <form onSubmit={handleQuickSearchSubmit} className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={searchInspectorId}
+              onChange={(e) => setSearchInspectorId(e.target.value)}
+              placeholder={lang === "th" ? "ตรวจรหัส 11 หลัก..." : "Inspect project ID..."}
+              className={`${input} h-9 w-44 font-mono text-[12px]`}
+            />
+            <button
+              type="submit"
+              disabled={!searchInspectorId.trim()}
+              className={`${btn.secondary} h-9 px-3 text-[12px]`}
+              title={lang === "th" ? "ตรวจสอบสถานะรายโครงการ" : "Inspect Record"}
+            >
+              🔍 {lang === "th" ? "ตรวจสอบ" : "Inspect"}
+            </button>
+          </form>
+
+          {/* Manual Add Button (FR-24) */}
+          <button
+            type="button"
+            onClick={() => {
+              setAddProjectId("");
+              setAddError(null);
+              setIsAddModalOpen(true);
+            }}
+            className={`${btn.primary} h-9 px-3 text-[12px]`}
+          >
+            + {lang === "th" ? "เพิ่มโครงการ e-GP" : "Add e-GP Project"}
+          </button>
+
+          {/* Refresh Button */}
           <button
             type="button"
             onClick={onRefresh}
             disabled={isRefreshing || isPolling}
-            className={btn.secondary}
+            className={`${btn.secondary} h-9 px-3 text-[12px]`}
             aria-label={lang === "th" ? "รีเฟรชข้อมูล" : "Refresh data"}
           >
             {isRefreshing ? (
@@ -542,9 +645,14 @@ function AdminDashboard({
                       className="border-b border-line align-top last:border-b-0 hover:bg-surface-2/40"
                     >
                       <td className="px-3 py-2.5 max-w-[280px]">
-                        <span className="font-mono text-[11px] font-semibold text-ink">
-                          {failure.projectId}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleInspect(failure.projectId)}
+                          className="font-mono text-[11px] font-semibold text-ink hover:text-open hover:underline cursor-pointer text-left block"
+                          title={lang === "th" ? "คลิกเพื่อตรวจสอบสถานะรายโครงการ" : "Click to inspect record"}
+                        >
+                          {failure.projectId} 🔍
+                        </button>
                         <p className="text-[12px] leading-thai text-ink font-medium line-clamp-1">
                           {failure.projectTitle}
                         </p>
@@ -1042,6 +1150,61 @@ function AdminDashboard({
           </div>
         )}
       </section>
+
+      {/* Record Inspector Modal (FR-24) */}
+      {inspectingProjectId && (
+        <RecordInspectorModal
+          projectId={inspectingProjectId}
+          record={diagnosticRecord}
+          isLoading={isInspectorLoading}
+          error={inspectorError}
+          lang={lang}
+          onClose={() => {
+            setInspectingProjectId(null);
+            setDiagnosticRecord(null);
+            setInspectorError(null);
+          }}
+          onRetryStep={async (pid, step) => {
+            await handleRetryStep(pid, step);
+            handleInspect(pid);
+          }}
+          onDismissFailure={async (pid, step) => {
+            await handleDismissFailure(pid, step);
+            handleInspect(pid);
+          }}
+          onReExtract={async (pid) => {
+            const res = await adminReExtract(pid);
+            if (res.ok) {
+              setPipelineActionMsg({
+                type: "success",
+                text:
+                  lang === "th"
+                    ? `เริ่มอ่านเอกสารโครงการ ${pid} ใหม่เรียบร้อยแล้ว`
+                    : `Re-extraction queued for project ${pid}`,
+              });
+              onRefresh();
+              handleInspect(pid);
+            }
+          }}
+        />
+      )}
+
+      {/* Manual Add Record Modal (FR-24) */}
+      {isAddModalOpen && (
+        <AddRecordModal
+          isOpen={isAddModalOpen}
+          projectId={addProjectId}
+          onChangeProjectId={setAddProjectId}
+          onSubmit={handleAddProject}
+          isLoading={isAddingProject}
+          error={addError}
+          lang={lang}
+          onClose={() => {
+            setIsAddModalOpen(false);
+            setAddError(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1325,3 +1488,561 @@ function ReviewItemCard({
     </Panel>
   );
 }
+
+function RecordInspectorModal({
+  projectId,
+  record,
+  isLoading,
+  error,
+  lang,
+  onClose,
+  onRetryStep,
+  onDismissFailure,
+  onReExtract,
+}: {
+  projectId: string;
+  record: PipelineRecordDiagnostics | null;
+  isLoading: boolean;
+  error: string | null;
+  lang: "th" | "en";
+  onClose: () => void;
+  onRetryStep: (pid: string, step: string) => Promise<void>;
+  onDismissFailure: (pid: string, step: string) => Promise<void>;
+  onReExtract: (pid: string) => Promise<void>;
+}) {
+  const [retrying, setRetrying] = useState(false);
+  const [reExtracting, setReExtracting] = useState(false);
+
+  const formatMoney = (val: number | null | undefined) =>
+    typeof val === "number" && val > 0
+      ? `฿${val.toLocaleString()}`
+      : lang === "th"
+      ? "ไม่ได้ระบุ"
+      : "Not stated";
+
+  const formatDate = (iso: string | null | undefined) =>
+    iso ? iso.slice(0, 16).replace("T", " ") : "—";
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[4px] border border-line bg-surface p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 border-b border-line pb-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[14px] font-bold text-ink">
+                {projectId}
+              </span>
+              {record ? (
+                <>
+                  <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] uppercase font-medium text-ink-2">
+                    {record.source}
+                  </span>
+                  <span
+                    className={`rounded-[2px] border px-1.5 py-0.5 font-mono text-[10px] font-medium ${
+                      record.status === "Open"
+                        ? "border-open-line bg-open-bg text-open"
+                        : "border-line bg-surface-2 text-ink"
+                    }`}
+                  >
+                    {record.status}
+                  </span>
+                  <span className="rounded-[2px] border border-line-2 bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-ink">
+                    Stage: {record.pipelineStatus}
+                  </span>
+                </>
+              ) : null}
+            </div>
+            <h2 className="mt-1.5 text-[16px] font-semibold leading-snug text-ink">
+              {record?.title ||
+                (isLoading
+                  ? lang === "th"
+                    ? "กำลังโหลดข้อมูล..."
+                    : "Loading..."
+                  : projectId)}
+            </h2>
+            {record?.agency ? (
+              <p className="mt-0.5 text-[12px] text-ink-3">{record.agency}</p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-[3px] border border-line-2 bg-surface px-2.5 py-1 font-mono text-[12px] text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="py-4">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-ink" />
+              <p className="mt-3 text-[13px] text-ink-2">
+                {lang === "th"
+                  ? "กำลังดึงข้อมูลการประมวลผลของโครงการ..."
+                  : "Fetching record lifecycle diagnostics..."}
+              </p>
+            </div>
+          ) : error ? (
+            <div className="rounded-[3px] border border-risk-line bg-risk-bg p-4 text-center">
+              <p className="font-semibold text-risk text-[14px]">
+                {lang === "th" ? "ไม่พบข้อมูลโครงการ" : "Record Diagnostic Lookup Failed"}
+              </p>
+              <p className="mt-1 font-mono text-[12px] text-risk/80">{error}</p>
+            </div>
+          ) : record ? (
+            <div className="space-y-5">
+              {/* Active Failure Callout */}
+              {record.activeFailure ? (
+                <div className="rounded-[3px] border border-risk-line bg-risk-bg/50 p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-[12px] font-bold text-risk uppercase">
+                      ⚠️ {lang === "th" ? "พบข้อผิดพลาดในขั้นตอน" : "Active Failure in Step"}:{" "}
+                      {record.activeFailure.step}
+                    </span>
+                    <span className="font-mono text-[11px] text-risk">
+                      {lang === "th"
+                        ? `ครั้งที่ ${record.activeFailure.attempts} / 3`
+                        : `Attempt ${record.activeFailure.attempts} of 3`}
+                    </span>
+                  </div>
+                  <p className="mt-2 font-mono text-[12px] leading-relaxed text-risk">
+                    {record.activeFailure.lastError}
+                  </p>
+                  <p className="mt-1 font-mono text-[10px] text-risk/70">
+                    {lang === "th" ? "ผิดพลาดล่าสุดเมื่อ" : "Last failure"}:{" "}
+                    {formatDate(record.activeFailure.lastFailedAt)}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={retrying}
+                      onClick={async () => {
+                        setRetrying(true);
+                        await onRetryStep(record.projectId, record.activeFailure!.step);
+                        setRetrying(false);
+                      }}
+                      className={`${btn.primary} h-7 px-3 text-[11px]`}
+                    >
+                      {retrying
+                        ? "..."
+                        : lang === "th"
+                        ? `รีเซ็ตและสั่งรันขั้นตอน ${record.activeFailure.step} ใหม่`
+                        : `Retry ${record.activeFailure.step} Step`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onDismissFailure(record.projectId, record.activeFailure!.step)
+                      }
+                      className={`${btn.secondary} h-7 px-3 text-[11px] text-risk`}
+                    >
+                      {lang === "th" ? "ละเว้นข้อผิดพลาดนี้ (Dismiss)" : "Dismiss Failure"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Stage Progression Flow */}
+              <div>
+                <Label>
+                  {lang === "th"
+                    ? "ลำดับขั้นการประมวลผล (Stage Progression)"
+                    : "Pipeline Stage Progression"}
+                </Label>
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-5">
+                  {[
+                    {
+                      key: "fetched",
+                      title: lang === "th" ? "1. ดึงประกาศ" : "1. Fetched",
+                      stage: record.stages.fetched,
+                    },
+                    {
+                      key: "downloaded",
+                      title: lang === "th" ? "2. ดาวน์โหลด" : "2. Downloaded",
+                      stage: record.stages.downloaded,
+                    },
+                    {
+                      key: "ocr",
+                      title: lang === "th" ? "3. ทำ OCR" : "3. OCR Text",
+                      stage: record.stages.ocr,
+                    },
+                    {
+                      key: "extracted",
+                      title: lang === "th" ? "4. สกัดข้อมูล" : "4. Extracted",
+                      stage: record.stages.extracted,
+                    },
+                    {
+                      key: "reviewed",
+                      title: lang === "th" ? "5. ตรวจทาน" : "5. Reviewed",
+                      stage: record.stages.reviewed,
+                    },
+                  ].map(({ key, title, stage }) => (
+                    <div
+                      key={key}
+                      className={`rounded-[3px] border p-2.5 text-center ${
+                        stage.done
+                          ? "border-open-line bg-open-bg/40 text-ink"
+                          : stage.error
+                          ? "border-risk-line bg-risk-bg/40 text-ink"
+                          : "border-line bg-surface-2/40 text-ink-3"
+                      }`}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="font-mono text-[12px] font-bold">
+                          {stage.done ? "✓" : stage.error ? "✕" : "○"}
+                        </span>
+                        <span className="text-[11px] font-medium">{title}</span>
+                      </div>
+                      <p className="mt-1 font-mono text-[10px] text-ink-2 truncate">
+                        {stage.done
+                          ? stage.confidence
+                            ? `${Math.round(stage.confidence)}%`
+                            : lang === "th"
+                            ? "เสร็จสิ้น"
+                            : "Done"
+                          : stage.error
+                          ? lang === "th"
+                            ? "ขัดข้อง"
+                            : "Failed"
+                          : lang === "th"
+                          ? "รอดำเนินการ"
+                          : "Pending"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Document Details & OCR / Insight Grid */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {/* Document Box */}
+                <Panel className="p-3">
+                  <Label>
+                    {lang === "th" ? "เอกสารแนบจาก e-GP" : "e-GP Document Attachment"}
+                  </Label>
+                  {record.document ? (
+                    <div className="mt-2 space-y-1.5 font-mono text-[12px]">
+                      <div className="flex justify-between border-b border-line pb-1">
+                        <span className="text-ink-3">File:</span>
+                        <span className="text-ink truncate max-w-[180px]">
+                          {record.document.fileName}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-b border-line pb-1">
+                        <span className="text-ink-3">Pages:</span>
+                        <span className="text-ink">
+                          {record.document.pages ?? "—"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-b border-line pb-1">
+                        <span className="text-ink-3">Size:</span>
+                        <span className="text-ink">
+                          {record.document.sizeBytes
+                            ? `${(record.document.sizeBytes / (1024 * 1024)).toFixed(2)} MB`
+                            : "—"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-ink-3">Type:</span>
+                        <span className="text-ink">{record.document.documentType}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-[12px] text-ink-3 italic">
+                      {lang === "th"
+                        ? "ยังไม่มีเอกสารแนบที่ดาวน์โหลด"
+                        : "No downloaded document package"}
+                    </p>
+                  )}
+                </Panel>
+
+                {/* AI Insight Box */}
+                <Panel className="p-3">
+                  <Label>
+                    {lang === "th"
+                      ? "การประเมินและการสกัดข้อมูล AI"
+                      : "AI Extraction & Intelligence"}
+                  </Label>
+                  <div className="mt-2 space-y-2 font-mono text-[12px]">
+                    <div className="flex items-center justify-between border-b border-line pb-1">
+                      <span className="text-ink-3">OCR Score:</span>
+                      <span className="font-bold text-ink">
+                        {(record.stages.ocr?.confidence ?? record.ocr?.confidence) != null
+                          ? `${Math.round((record.stages.ocr?.confidence ?? record.ocr?.confidence!) * 100)}%`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between border-b border-line pb-1">
+                      <span className="text-ink-3">Extraction Score:</span>
+                      <span className="font-bold text-ink">
+                        {record.insight?.confidence != null
+                          ? `${record.insight.confidence}%`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between border-b border-line pb-1">
+                      <span className="text-ink-3">Lock-spec Risk:</span>
+                      <span
+                        className={`rounded-[2px] px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+                          record.insight?.lockSpecRisk === "high"
+                            ? "bg-risk-bg text-risk border border-risk-line"
+                            : record.insight?.lockSpecRisk === "medium"
+                            ? "bg-amend-bg text-amend border border-amend-line"
+                            : "bg-open-bg text-open border border-open-line"
+                        }`}
+                      >
+                        {record.insight?.lockSpecRisk ?? "low"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between pt-0.5">
+                      <span className="text-ink-3">Review Status:</span>
+                      <span className="text-ink font-medium">
+                        {record.insight?.reviewStatus ?? "pending"}
+                      </span>
+                    </div>
+                  </div>
+                </Panel>
+              </div>
+
+              {/* Title Screen Details */}
+              {record.titleScreen ? (
+                <Panel className="p-3">
+                  <div className="flex items-center justify-between">
+                    <Label>
+                      {lang === "th"
+                        ? "การคัดกรองหัวข้อ (Title Screen)"
+                        : "Title Screening Intelligence"}
+                    </Label>
+                    <span
+                      className={`rounded-[2px] px-1.5 py-0.5 font-mono text-[10px] font-semibold ${
+                        record.titleScreen.isItRelated
+                          ? "bg-open-bg text-open border border-open-line"
+                          : "bg-risk-bg text-risk border border-risk-line"
+                      }`}
+                    >
+                      {record.titleScreen.isItRelated ? "IT Related" : "Non-IT Rejected"}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-[12px] leading-relaxed text-ink-2">
+                    {record.titleScreen.reason ||
+                      (lang === "th" ? "ไม่มีเหตุผลระบุ" : "No reason recorded")}
+                  </p>
+                  {record.titleScreen.category ? (
+                    <p className="mt-1 font-mono text-[11px] text-ink-3">
+                      Category: {record.titleScreen.category}
+                    </p>
+                  ) : null}
+                </Panel>
+              ) : null}
+
+              {/* Budget & Price Details */}
+              <div className="grid grid-cols-2 gap-2 text-[12px]">
+                <Panel className="p-2.5">
+                  <span className="text-ink-3 text-[11px]">
+                    {lang === "th" ? "งบประมาณ" : "Budget"}:
+                  </span>
+                  <p className="font-mono font-medium text-ink mt-0.5">
+                    {formatMoney(record.budgetTHB)}
+                  </p>
+                </Panel>
+                <Panel className="p-2.5">
+                  <span className="text-ink-3 text-[11px]">
+                    {lang === "th" ? "ราคากลาง" : "Reference Price"}:
+                  </span>
+                  <p className="font-mono font-medium text-ink mt-0.5">
+                    {formatMoney(record.referencePriceTHB)}
+                  </p>
+                </Panel>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Footer Actions */}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4">
+          <div className="flex items-center gap-2">
+            {record ? (
+              <>
+                <button
+                  type="button"
+                  disabled={reExtracting}
+                  onClick={async () => {
+                    setReExtracting(true);
+                    await onReExtract(record.projectId);
+                    setReExtracting(false);
+                  }}
+                  className={`${btn.secondary} h-8 px-3 text-[12px]`}
+                >
+                  {reExtracting
+                    ? "..."
+                    : lang === "th"
+                    ? "↻ สั่งอ่านเอกสารใหม่ (Re-extract)"
+                    : "↻ Re-extract"}
+                </button>
+                <a
+                  href={`/tor/${record.projectId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`${btn.secondary} h-8 px-3 text-[12px]`}
+                >
+                  {lang === "th" ? "เปิดดูบนเว็บ" : "View in Catalog"} ↗
+                </a>
+                <a
+                  href={`https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${record.projectId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`${btn.ghost} h-8 px-2.5 text-[12px]`}
+                >
+                  e-GP ↗
+                </a>
+              </>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className={`${btn.primary} h-8 px-4 text-[12px]`}
+          >
+            {lang === "th" ? "ปิด" : "Close"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddRecordModal({
+  isOpen,
+  projectId,
+  onChangeProjectId,
+  onSubmit,
+  isLoading,
+  error,
+  lang,
+  onClose,
+}: {
+  isOpen: boolean;
+  projectId: string;
+  onChangeProjectId: (val: string) => void;
+  onSubmit: (e: React.FormEvent) => Promise<void>;
+  isLoading: boolean;
+  error: string | null;
+  lang: "th" | "en";
+  onClose: () => void;
+}) {
+  if (!isOpen) return null;
+
+  const isValid = /^\d{11}$/.test(projectId.trim());
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-md rounded-[4px] border border-line bg-surface p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-line pb-3">
+          <h2 className="text-[16px] font-semibold text-ink">
+            {lang === "th"
+              ? "เพิ่มโครงการจัดซื้อจัดจ้าง e-GP"
+              : "Add e-GP Procurement Notice"}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-[3px] border border-line-2 bg-surface px-2 py-0.5 font-mono text-[12px] text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={onSubmit} className="mt-4 space-y-4">
+          <p className="text-[12px] leading-thai text-ink-2">
+            {lang === "th"
+              ? "ระบุรหัสโครงการ e-GP 11 หลักเพื่อดึงประกาศและเอกสารราคากลางเข้าสู่ระบบ ระบบจะดาวน์โหลดและส่งเข้าสู่ขั้นตอนประมวลผลทันที"
+              : "Enter an 11-digit e-GP project ID to download the announcement and price packages and queue it into the processing pipeline."}
+          </p>
+
+          <div>
+            <Label>
+              {lang === "th"
+                ? "รหัสโครงการ e-GP (11 หลัก)"
+                : "e-GP Project ID (11 digits)"}
+            </Label>
+            <input
+              type="text"
+              required
+              autoFocus
+              maxLength={11}
+              value={projectId}
+              onChange={(e) => onChangeProjectId(e.target.value.replace(/\D/g, ""))}
+              placeholder="e.g. 69099683466"
+              className={`${input} mt-1 font-mono tracking-wider`}
+            />
+            <div className="mt-1 flex items-center justify-between text-[11px] font-mono">
+              <span className={isValid ? "text-open font-semibold" : "text-ink-3"}>
+                {isValid
+                  ? lang === "th"
+                    ? "✓ รูปแบบถูกต้อง (11 หลัก)"
+                    : "✓ Valid 11-digit ID"
+                  : lang === "th"
+                  ? `ต้องระบุ 11 หลัก (ปัจจุบัน ${projectId.length}/11)`
+                  : `${projectId.length}/11 digits`}
+              </span>
+            </div>
+          </div>
+
+          {error ? (
+            <div className="rounded-[3px] border border-risk-line bg-risk-bg p-2.5 font-mono text-[12px] text-risk">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-end gap-2 border-t border-line pt-3">
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={onClose}
+              className={`${btn.secondary} h-9 px-3.5`}
+            >
+              {lang === "th" ? "ยกเลิก" : "Cancel"}
+            </button>
+            <button
+              type="submit"
+              disabled={!isValid || isLoading}
+              className={`${btn.primary} h-9 px-4`}
+            >
+              {isLoading ? (
+                <>
+                  <span className="animate-spin inline-block">↻</span>{" "}
+                  {lang === "th" ? "กำลังดึงข้อมูล..." : "Fetching..."}
+                </>
+              ) : lang === "th" ? (
+                "+ ดึงข้อมูลโครงการ"
+              ) : (
+                "+ Fetch & Ingest"
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+

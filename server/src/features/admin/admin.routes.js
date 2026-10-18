@@ -3,7 +3,9 @@ import { Router } from 'express';
 import { requireAuth, requireRole } from '#features/auth/index.js';
 
 import {
+  handleAddManualRecord,
   handleDismissPipelineFailure,
+  handleGetPipelineRecord,
   handleReExtract,
   handleRetryPipelineStep,
   handleTriggerIngest,
@@ -46,4 +48,11 @@ adminRoutes.post('/pipeline/retry', handleRetryPipelineStep);
 
 // Dismiss a permanent pipeline failure (FR-24)
 adminRoutes.post('/pipeline/dismiss', handleDismissPipelineFailure);
+
+// Record-level lifecycle diagnostics (FR-24)
+adminRoutes.get('/pipeline/record/:projectId', handleGetPipelineRecord);
+
+// Manually add procurement record from e-GP reference (FR-24)
+adminRoutes.post('/pipeline/add', handleAddManualRecord);
+
 

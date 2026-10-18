@@ -1,6 +1,6 @@
-# 0016 · Admin monitoring metrics, review queue fields, and dataset integrity
+# 0029 · Admin monitoring metrics, review queue fields, and dataset integrity
 
-Status: accepted · 2026-10-05
+Status: proposed · 2026-10-18
 
 ## Context
 

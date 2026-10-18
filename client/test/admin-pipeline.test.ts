@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
 import {
+  adminAddPipelineRecord,
   adminDismissPipelineFailure,
+  adminGetPipelineRecord,
   adminOperations,
   adminRetryPipelineStep,
 } from "../app/_lib/api.ts";
@@ -171,3 +173,85 @@ test("adminOperations receives and deserializes pipeline failures, stages, and r
   assert.equal(res.data.pipelineRuns?.length, 1);
   assert.equal(res.data.pipelineRuns?.[0].job, "poll");
 });
+
+test("adminGetPipelineRecord queries /api/admin/pipeline/record/:projectId", async () => {
+  const calls = stubFetch(
+    json(200, {
+      ok: true,
+      record: {
+        projectId: "69099683466",
+        title: "โครงการระบบคอมพิวเตอร์",
+        agency: "กรุงเทพมหานคร",
+        budgetTHB: 10_000_000,
+        referencePriceTHB: 9_800_000,
+        submissionDeadline: null,
+        status: "Open",
+        isAmended: false,
+        pipelineStatus: "downloaded",
+        source: "process3",
+        announceDate: "2026-10-18",
+        stages: {
+          fetched: { done: true },
+          downloaded: { done: true },
+          ocr: { done: false },
+          extracted: { done: false },
+          reviewed: { done: false },
+        },
+      },
+    }),
+  );
+
+  const res = await adminGetPipelineRecord("69099683466");
+  assert.equal(res.ok, true);
+  if (!res.ok) return;
+
+  assert.equal(res.data.record.projectId, "69099683466");
+  assert.equal(res.data.record.pipelineStatus, "downloaded");
+  assert.equal(res.data.record.stages.downloaded.done, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/admin/pipeline/record/69099683466");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+test("adminAddPipelineRecord posts to /api/admin/pipeline/add with projectId", async () => {
+  const calls = stubFetch(
+    json(200, {
+      ok: true,
+      projectId: "69099683466",
+      title: "โครงการติดตั้งระบบเครือข่าย",
+      agency: "สำนักการแพทย์",
+      status: "Open",
+      pipelineStatus: "downloaded",
+      message: "Project 69099683466 successfully added and package downloaded.",
+    }),
+  );
+
+  const res = await adminAddPipelineRecord("69099683466");
+  assert.equal(res.ok, true);
+  if (!res.ok) return;
+
+  assert.equal(res.data.projectId, "69099683466");
+  assert.equal(res.data.pipelineStatus, "downloaded");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/admin/pipeline/add");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.body, JSON.stringify({ projectId: "69099683466" }));
+});
+
+test("adminAddPipelineRecord handles 409 conflict when duplicate project", async () => {
+  stubFetch(
+    json(409, {
+      error: {
+        message: "Project 69099683466 already exists in the database",
+      },
+    }),
+  );
+
+  const res = await adminAddPipelineRecord("69099683466");
+  assert.equal(res.ok, false);
+  if (res.ok) return;
+
+  assert.equal(res.error.status, 409);
+  assert.match(res.error.message, /already exists/);
+});
+

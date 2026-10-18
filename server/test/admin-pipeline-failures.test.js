@@ -5,6 +5,7 @@ import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import {
   PipelineFailure,
   PipelineRun,
+  TitleScreen,
   Tor,
   TorInsight,
   User,
@@ -44,6 +45,7 @@ after(async () => {
   await PipelineRun.deleteMany({ host: `test-${runId}` });
   await Tor.deleteMany({ projectId: new RegExp(`^TEST-${runId}`) });
   await TorInsight.deleteMany({ projectId: new RegExp(`^TEST-${runId}`) });
+  await TitleScreen.deleteMany({ projectId: new RegExp(`^TEST-${runId}`) });
 
   await new Promise((resolve) => server.close(resolve));
   await disconnectDatabase();
@@ -262,3 +264,191 @@ test('FR-24: POST /api/admin/pipeline/dismiss clears failure and excludes docume
   assert.ok(insight);
   assert.equal(insight.metadata.excluded.reason, 'Permanently missing on agency portal');
 });
+
+test('FR-24: GET /api/admin/pipeline/record/:projectId enforces authentication and role guards', async () => {
+  const projId = `TEST-${runId}-004`;
+
+  // Guest receives 401
+  const resGuest = await fetch(`${baseUrl}/api/admin/pipeline/record/${projId}`);
+  assert.equal(resGuest.status, 401);
+
+  // Normal user receives 403
+  const userCookie = await signUp('diag-user', { role: 'user' });
+  const resUser = await fetch(`${baseUrl}/api/admin/pipeline/record/${projId}`, {
+    headers: { cookie: userCookie },
+  });
+  assert.equal(resUser.status, 403);
+});
+
+test('FR-24: GET /api/admin/pipeline/record/:projectId returns 404 when project not found', async () => {
+  const adminCookie = await signUp('diag-404-admin', { role: 'admin' });
+  const missingId = `TEST-${runId}-MISSING`;
+
+  const res = await fetch(`${baseUrl}/api/admin/pipeline/record/${missingId}`, {
+    headers: { cookie: adminCookie },
+  });
+  assert.equal(res.status, 404);
+  const data = await res.json();
+  assert.match(data.error.message, /not found/i);
+});
+
+test('FR-24: GET /api/admin/pipeline/record/:projectId aggregates full lifecycle diagnostics', async () => {
+  const adminCookie = await signUp('diag-success-admin', { role: 'admin' });
+  const projId = `TEST-${runId}-005`;
+
+  await Tor.create({
+    projectId: projId,
+    title: 'โครงการพัฒนาระบบคลาวด์ภาครัฐ',
+    agency: 'กระทรวงดิจิทัลเพื่อเศรษฐกิจและสังคม',
+    pipelineStatus: 'downloaded',
+    source: 'process3',
+    budgetTHB: 50_000_000,
+    referencePriceTHB: 49_500_000,
+    submissionDeadline: new Date(Date.now() + 86400_000),
+    status: 'Open',
+    document: {
+      fileName: 'tor-test-cloud.pdf',
+      pages: 35,
+      sizeBytes: 2_450_000,
+      documentType: 'application/pdf',
+      downloadedAt: new Date(),
+    },
+    ocr: {
+      usedOcr: true,
+      confidence: 0.92,
+    },
+  });
+
+  await PipelineFailure.create({
+    projectId: projId,
+    step: 'ocr',
+    attempts: 1,
+    lastError: 'Temporary OCR worker timeout',
+    lastTransient: true,
+    firstFailedAt: new Date(),
+    lastFailedAt: new Date(),
+  });
+
+  await TorInsight.create({
+    projectId: projId,
+    identification: {
+      titleTh: 'โครงการพัฒนาระบบคลาวด์ภาครัฐ',
+      agency: 'กระทรวงดิจิทัลเพื่อเศรษฐกิจและสังคม',
+      status: 'Open',
+    },
+    confidence: 88,
+    facts: {
+      budgetTHB: 50_000_000,
+      referencePriceTHB: 49_500_000,
+      requiredTechStack: ['Kubernetes', 'PostgreSQL'],
+    },
+    analytics: {
+      lockSpec: {
+        riskScore: 50,
+      },
+    },
+    metadata: {
+      origin: 'pipeline',
+      reviewStatus: 'pending',
+      confidenceScore: 88,
+    },
+  });
+
+  await TitleScreen.create({
+    projectId: projId,
+    title: 'โครงการพัฒนาระบบคลาวด์ภาครัฐ',
+    verdict: 'it',
+    category: 'Software/IT',
+    reason: 'Government cloud system infrastructure and migration',
+    modelName: 'gemini-1.5-flash',
+    promptVersion: 'screen-v2',
+    screenedAt: new Date(),
+  });
+
+  const res = await fetch(`${baseUrl}/api/admin/pipeline/record/${projId}`, {
+    headers: { cookie: adminCookie },
+  });
+  assert.equal(res.status, 200);
+
+  const data = await res.json();
+  assert.equal(data.ok, true);
+  assert.ok(data.record);
+  assert.equal(data.record.projectId, projId);
+  assert.equal(data.record.title, 'โครงการพัฒนาระบบคลาวด์ภาครัฐ');
+  assert.equal(data.record.agency, 'กระทรวงดิจิทัลเพื่อเศรษฐกิจและสังคม');
+  assert.equal(data.record.budgetTHB, 50_000_000);
+  assert.equal(data.record.pipelineStatus, 'downloaded');
+
+  // Verify stage progression flags
+  assert.equal(data.record.stages.fetched.done, true);
+  assert.equal(data.record.stages.downloaded.done, true);
+  assert.equal(data.record.stages.ocr.done, false);
+  assert.equal(data.record.stages.ocr.error, 'Temporary OCR worker timeout');
+
+  // Verify active failure
+  assert.ok(data.record.activeFailure);
+  assert.equal(data.record.activeFailure.step, 'ocr');
+  assert.equal(data.record.activeFailure.attempts, 1);
+  assert.equal(data.record.activeFailure.lastTransient, true);
+
+  // Verify insight & screening
+  assert.ok(data.record.insight);
+  assert.equal(data.record.insight.confidence, 88);
+  assert.equal(data.record.insight.lockSpecRisk, 'medium');
+  assert.ok(data.record.titleScreen);
+  assert.equal(data.record.titleScreen.isItRelated, true);
+});
+
+test('FR-24: POST /api/admin/pipeline/add validates authentication, regex format, and duplicates', async () => {
+  const adminCookie = await signUp('add-admin', { role: 'admin' });
+
+  // Guest 401
+  const resGuest = await fetch(`${baseUrl}/api/admin/pipeline/add`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ projectId: '69099683466' }),
+  });
+  assert.equal(resGuest.status, 401);
+
+  // Non-admin 403
+  const userCookie = await signUp('add-user', { role: 'user' });
+  const resUser = await fetch(`${baseUrl}/api/admin/pipeline/add`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: userCookie },
+    body: JSON.stringify({ projectId: '69099683466' }),
+  });
+  assert.equal(resUser.status, 403);
+
+  // Invalid format (not 11 digits) -> 400
+  const resBadId = await fetch(`${baseUrl}/api/admin/pipeline/add`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    body: JSON.stringify({ projectId: '12345' }),
+  });
+  assert.equal(resBadId.status, 400);
+  const badIdBody = await resBadId.json();
+  assert.match(badIdBody.error.message, /11 digits/i);
+
+  // Duplicate project already in database -> 409
+  const existingId = '68099123456';
+  await Tor.create({
+    projectId: existingId,
+    title: 'โครงการที่มีอยู่แล้ว',
+    agency: 'กรุงเทพมหานคร',
+    pipelineStatus: 'downloaded',
+    source: 'manual',
+  });
+
+  const resDup = await fetch(`${baseUrl}/api/admin/pipeline/add`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    body: JSON.stringify({ projectId: existingId }),
+  });
+  assert.equal(resDup.status, 409);
+  const dupBody = await resDup.json();
+  assert.match(dupBody.error.message, /already exists/i);
+
+  // Clean up
+  await Tor.deleteOne({ projectId: existingId });
+});
+
