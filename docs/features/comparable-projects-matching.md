@@ -36,11 +36,12 @@ All fields are read from the normalized [`TorInsight`](../../server/src/models/t
 
 | Field Path | Data Type | Role in Matching | Why We Use It |
 |---|---|---|---|
-| `identification.category` | **`String`** | **Stage 1: Hard Filter** | Broad IT domain (e.g., `software-development`, `data-and-ai`, `network-and-security`). A web app is never compared against PC hardware. |
+| `identification.category` | **`String`** | **Stage 1: Hard Filter** | Broad IT domain (e.g., `software-development`, `cloud-and-infrastructure`, `maintenance-and-support`). A web app is never compared against PC hardware. |
 | `facts.referencePriceTHB` *(or `budgetTHB`)* | **`Number`** | **Stage 1: Hard Bracket & Stage 2: Scale Score** | Enforces reasonable budget bounds ($[0.3\times, 3.0\times]$) and computes mathematical scale closeness. |
-| `identification.titleTh` | **`String`** | **Stage 2: Scope Overlap** | Extracted into domain archetype keywords (`mobile`, `erp`, `gis`, etc.) to match system types. |
-| `overview.majorComponents` | **`[String]`** *(List of strings)* | **Stage 2: Scope Overlap** | Combined with `titleTh` to identify core functional modules. |
+| `overview.systemArchetype` | **`String`** *(enum)* | **Stage 2: Scope Score (Primary)** | Standardized deliverable architecture (`mobile-app`, `web-portal`, `enterprise-erp`, `data-analytics`, `gis-mapping`, `infra-networking`, `other`). Provides direct 100% match or penalty mismatch without regex guesswork. |
+| `overview.majorComponents` & `highLevelScope` | **`[String]`** / **`String`** | **Stage 2: Scope Overlap (Fallback)** | Curated domain keyword extraction used **only** when `systemArchetype` is missing (`null`) or `'other'` on legacy records. |
 | `technicalRequirements.requiredTechnologies` | **`[Object]`** *(List of `{name, version}`)* | **Stage 2: Tech Bonus Score** | Calculates technology overlap (e.g., React, PostgreSQL, Docker) using Jaccard similarity. |
+| `identification.titleTh` | **`String`** | **Display & Traceability Only** | Excluded from similarity scoring to eliminate administrative phrase noise. Populates the output `{ title, year, referencePriceTHB }` for user cards and citations. |
 | `facts.deliveryPeriodDays` | **`Number`** | **Excluded from Hard Filtering** | Contract durations in Thai procurement are frequently compressed to meet the September 30 fiscal budget year-end, rather than reflecting technical complexity. |
 
 ---
@@ -96,29 +97,21 @@ Both double the budget (20M) and half the budget (5M) yield a score of $0.50$.
 
 ### Step 2: Scope Similarity Score ($S_{\text{scope}}$, 35% Weight)
 
-- **Input:** Raw text strings (`identification.titleTh`) and lists of component strings (`overview.majorComponents`).
-- **How text becomes a score:**
-  1. Combine `titleTh` and all items in `majorComponents` into one lowercase string.
-  2. Scan against domain archetype keywords (`mobile`, `app`, `แอปพลิเคชัน`, `erp`, `crm`, `gis`, `e-service`, `portal`, `database`, `cloud`, etc.).
-  3. Form a **Set of tokens** for each project.
-  4. Compute the **Jaccard Similarity** (intersection over union):
-     $$S_{\text{scope}} = \frac{|\text{Tokens}_A \cap \text{Tokens}_B|}{|\text{Tokens}_A \cup \text{Tokens}_B|}$$
+#### 1. Primary: Direct System Archetype Matching
+When `overview.systemArchetype` has been extracted by Gemini during ingestion:
+- **Same Archetype** (e.g. `mobile-app` vs `mobile-app`): **$1.00$ (100%)**
+- **Different Archetype** (e.g. `mobile-app` vs `enterprise-erp`): **$0.15$ (Mismatch penalty)**
+- **Hybrid Projects** (multiple archetypes): Jaccard overlap between archetype sets $\frac{|A \cap B|}{|A \cup B|}$.
 
-#### Text Walkthrough Example
-- **Target Project:**
-  - Title: *"โครงการพัฒนา Mobile Application สำหรับรับเรื่องร้องเรียน"*
-  - Extracted Keywords ($A$): `{"mobile", "app", "แอปพลิเคชัน"}`
-- **Candidate 1 (Mobile App Peer):**
-  - Title: *"จ้างพัฒนา Mobile App และ Web Portal บริการประชาชน"*
-  - Extracted Keywords ($B_1$): `{"mobile", "app", "portal"}`
-  - Shared ($A \cap B_1$): `{"mobile", "app"}` (2 words)
-  - Union ($A \cup B_1$): `{"mobile", "app", "แอปพลิเคชัน", "portal"}` (4 words)
-  - **$S_{\text{scope}} = 2 / 4 = \mathbf{0.50}$**
-- **Candidate 2 (Hardware/CCTV):**
-  - Title: *"ติดตั้งระบบกล้องวงจรปิด CCTV และเครือข่าย Network"*
-  - Extracted Keywords ($B_2$): `{"cctv", "network", "เครือข่าย"}`
-  - Shared ($A \cap B_2$): `0` words
-  - **$S_{\text{scope}} = 0 / 6 = \mathbf{0.00}$**
+*Note: In the primary path, the AI's archetype is trusted directly; `titleTh` is NOT scanned.*
+
+#### 2. Fallback: Keyword Token Matching (for legacy / unclassified records)
+If `overview.systemArchetype` is `null` or `'other'`:
+1. Combine `majorComponents` and `highLevelScope` into one lowercase string (`titleTh` is excluded to avoid administrative wording noise).
+2. Scan against domain archetype keywords (`mobile`, `app`, `แอปพลิเคชัน`, `erp`, `crm`, `gis`, `e-service`, `portal`, `database`, `cloud`, etc.).
+3. Form a **Set of tokens** for each project and compute Jaccard Similarity:
+   $$S_{\text{scope}} = \frac{|\text{Tokens}_A \cap \text{Tokens}_B|}{|\text{Tokens}_A \cup \text{Tokens}_B|}$$
+
 - **Fallback Rule:** If neither project contains any recognized domain keywords, $S_{\text{scope}}$ defaults to **$0.50$ (Neutral)** so that neither project is unfairly disqualified.
 
 ---
@@ -188,23 +181,21 @@ In statistics, **3 is the smallest sample that provides a distinct middle value 
 
 ---
 
-## 6. Target Evolution: AI-Extracted System Archetypes
+## 6. Implementation: AI-Extracted System Archetypes
 
-To replace heuristic regex keyword matching with direct enum matching:
-Extend Gemini's extraction schema (`server/src/pipeline/extraction/schema.js`) to extract a standardized `systemArchetype` enum during ingestion:
+Gemini's extraction schema (`server/src/pipeline/extraction/schema.js`) extracts a standardized `systemArchetype` enum directly during ingestion:
 ```javascript
-archetype: {
-  type: 'string',
-  enum: [
-    'mobile-app',         // Mobile applications (iOS / Android)
-    'web-portal',         // Web portals, e-Services, public websites
-    'enterprise-erp',     // ERP, CRM, HR, inventory, internal workflow
-    'data-analytics',     // Data warehouse, BI dashboards, AI, Big Data
-    'gis-mapping',        // Map / spatial systems
-    'infra-networking',   // Cloud setup, server migration, cabling, CCTV
-    'other'
-  ]
-}
+export const SYSTEM_ARCHETYPES = [
+  'mobile-app',         // Mobile applications (iOS / Android)
+  'web-portal',         // Web portals, e-Services, public websites
+  'enterprise-erp',     // ERP, CRM, HR, inventory, internal workflow
+  'data-analytics',     // Data warehouse, BI dashboards, AI, Big Data
+  'gis-mapping',        // Map / spatial systems
+  'infra-networking',   // Cloud setup, server migration, cabling, CCTV
+  'other'
+];
 ```
-Then, code similarity simply compares `candidate.archetype === target.archetype`, strictly fulfilling:  
+Stored in `TorInsight.overview.systemArchetype`.
+
+Then, the similarity engine in `similarity.service.js` compares archetypes directly (scoring 1.0 for match, 0.15 for mismatch), falling back to keyword heuristics only for legacy records where `systemArchetype` is not yet populated. This strictly fulfills:  
 > **"The AI picks the label; code does the comparing."**

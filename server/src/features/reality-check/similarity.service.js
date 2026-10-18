@@ -8,41 +8,150 @@
  */
 
 import { TorInsight } from '#models/index.js';
+import { SYSTEM_ARCHETYPES } from '#pipeline/extraction/index.js';
 
-/** Domain keywords commonly found in Thai government IT procurement */
-export const DOMAIN_KEYWORDS = [
-  'erp',
-  'crm',
-  'gis',
-  'e-service',
-  'portal',
-  'mobile',
-  'app',
-  'แอปพลิเคชัน',
-  'เว็บไซต์',
-  'ฐานข้อมูล',
-  'database',
-  'cloud',
-  'คลาวด์',
-  'data center',
-  'ศูนย์ข้อมูล',
-  'security',
-  'ความมั่นคงปลอดภัย',
-  'cybersecurity',
-  'ai',
-  'analytics',
-  'iot',
-  'network',
-  'เครือข่าย',
-  'cctv',
-  'สารสนเทศ',
-  'บริหารจัดการ',
-  'บำรุงรักษา',
-  'คอมพิวเตอร์',
-  'แม่ข่าย',
-  'server',
-  'lan',
-];
+export { SYSTEM_ARCHETYPES };
+
+/**
+ * Synonymous Thai and English terms mapped to canonical system archetypes.
+ * Used for heuristic detection when a TOR has not been AI-classified with systemArchetype.
+ */
+export const ARCHETYPE_KEYWORDS = {
+  'mobile-app': [
+    'mobile',
+    'app',
+    'แอปพลิเคชัน',
+    'ios',
+    'android',
+    'สมาร์ตโฟน',
+    'มือถือ',
+  ],
+  'web-portal': [
+    'web',
+    'เว็บไซต์',
+    'portal',
+    'e-service',
+    'ระบบบริการ',
+    'เว็บพอร์ทัล',
+    'เว็บแอปพลิเคชัน',
+  ],
+  'enterprise-erp': [
+    'erp',
+    'crm',
+    'สารสนเทศ',
+    'บริหารจัดการ',
+    'คลัง',
+    'บัญชี',
+    'บุคคล',
+    'hr',
+    'พัสดุ',
+    'งบประมาณ',
+  ],
+  'data-analytics': [
+    'data',
+    'database',
+    'ฐานข้อมูล',
+    'analytics',
+    'ai',
+    'dashboard',
+    'คลังข้อมูล',
+    'บิ๊กดาต้า',
+    'ปัญญาประดิษฐ์',
+  ],
+  'gis-mapping': [
+    'gis',
+    'แผนที่',
+    'ภูมิสารสนเทศ',
+    'ผังเมือง',
+    'พิกัด',
+  ],
+  'infra-networking': [
+    'cloud',
+    'คลาวด์',
+    'network',
+    'cctv',
+    'security',
+    'ความมั่นคงปลอดภัย',
+    'cybersecurity',
+    'แม่ข่าย',
+    'server',
+    'lan',
+    'เครือข่าย',
+    'ศูนย์ข้อมูล',
+    'data center',
+    'คอมพิวเตอร์แม่ข่าย',
+    'บำรุงรักษา',
+    'คอมพิวเตอร์',
+    'iot',
+  ],
+};
+
+/** Flattened domain keywords for backward compatibility */
+export const DOMAIN_KEYWORDS = Object.values(ARCHETYPE_KEYWORDS).flat();
+
+/**
+ * Resolves the system archetypes of a project.
+ * Supports direct AI extraction and heuristic detection from title, components, and scope.
+ *
+ * @param {object} tor
+ * @returns {Set<string>}
+ */
+export function getProjectArchetypes(tor) {
+  const archetypes = new Set();
+
+  // 1. Direct from AI extraction
+  const direct = tor?.overview?.systemArchetype || tor?.identification?.archetype;
+  if (Array.isArray(direct)) {
+    for (const a of direct) {
+      if (SYSTEM_ARCHETYPES.includes(a)) archetypes.add(a);
+    }
+  } else if (typeof direct === 'string' && SYSTEM_ARCHETYPES.includes(direct)) {
+    archetypes.add(direct);
+  }
+
+  // If AI already extracted a valid, non-'other' archetype, trust it directly!
+  // Scanning title/components with regex keywords is only a fallback for legacy records.
+  if (archetypes.size > 0 && !archetypes.has('other')) {
+    return archetypes;
+  }
+
+  // 2. Fallback heuristic scan from major components and high-level scope
+  // (Only runs if direct AI archetype is missing or 'other'; titleTh is excluded from scoring)
+  const components = (tor?.overview?.majorComponents ?? [])
+    .map((c) => String(c ?? '').toLowerCase())
+    .join(' ');
+  const scope = String(tor?.overview?.highLevelScope ?? '').toLowerCase();
+  const combined = `${components} ${scope}`.trim();
+
+  for (const [archetype, keywords] of Object.entries(ARCHETYPE_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (combined.includes(kw)) {
+        archetypes.add(archetype);
+        break;
+      }
+    }
+  }
+
+  if (archetypes.size === 0) {
+    archetypes.add('other');
+  }
+
+  return archetypes;
+}
+
+/**
+ * Resolves the primary system archetype of a project.
+ *
+ * @param {object} tor
+ * @returns {string}
+ */
+export function getProjectArchetype(tor) {
+  const set = getProjectArchetypes(tor);
+  for (const a of set) {
+    if (a !== 'other') return a;
+  }
+  return 'other';
+}
 
 /**
  * Calculates Thai fiscal year in Buddhist Era (พ.ศ.).
@@ -147,17 +256,18 @@ export function calculateTechSimilarity(techsA = [], techsB = []) {
 }
 
 /**
- * Extracts normalized domain keyword tokens from title and major components.
+ * Extracts normalized domain keyword tokens from major components and high-level scope.
+ * (titleTh is excluded from scoring to prevent administrative phrase noise)
  *
  * @param {object} tor
  * @returns {Set<string>}
  */
 export function extractScopeTokens(tor) {
-  const title = String(tor?.identification?.titleTh ?? '').toLowerCase();
   const components = (tor?.overview?.majorComponents ?? [])
     .map((c) => String(c ?? '').toLowerCase())
     .join(' ');
-  const combined = `${title} ${components}`;
+  const scope = String(tor?.overview?.highLevelScope ?? '').toLowerCase();
+  const combined = `${components} ${scope}`.trim();
 
   const tokens = new Set();
   for (const kw of DOMAIN_KEYWORDS) {
@@ -169,14 +279,34 @@ export function extractScopeTokens(tor) {
 }
 
 /**
- * Calculates Jaccard overlap of domain scope keywords.
- * S_scope = |ScopeA ∩ ScopeB| / |ScopeA ∪ ScopeB| in [0, 1].
+ * Calculates similarity between two projects based on system archetype and scope.
+ * 1. When both projects have identifiable archetypes:
+ *    - Jaccard overlap on shared system archetypes
+ * 2. When either has 'other', falls back to Jaccard overlap of domain tokens.
  *
  * @param {object} torA
  * @param {object} torB
  * @returns {number}
  */
 export function calculateScopeSimilarity(torA, torB) {
+  const archsA = getProjectArchetypes(torA);
+  const archsB = getProjectArchetypes(torB);
+
+  const nonOtherA = [...archsA].filter((a) => a !== 'other');
+  const nonOtherB = [...archsB].filter((a) => a !== 'other');
+
+  if (nonOtherA.length > 0 && nonOtherB.length > 0) {
+    let intersection = 0;
+    for (const a of nonOtherA) {
+      if (archsB.has(a)) intersection += 1;
+    }
+    const union = new Set([...nonOtherA, ...nonOtherB]).size;
+    if (intersection > 0) {
+      return Number((intersection / union).toFixed(4));
+    }
+    return 0.15; // Different archetypes in same category
+  }
+
   const tokensA = extractScopeTokens(torA);
   const tokensB = extractScopeTokens(torB);
 
@@ -188,7 +318,7 @@ export function calculateScopeSimilarity(torA, torB) {
     if (tokensB.has(t)) intersection += 1;
   }
   const union = new Set([...tokensA, ...tokensB]).size;
-  return union > 0 ? intersection / union : 0.5;
+  return union > 0 ? Number((intersection / union).toFixed(4)) : 0.5;
 }
 
 /**
@@ -230,6 +360,9 @@ export function calculateCompositeSimilarity(targetTor, candidateTor) {
  * @param {number} [options.limit=5] - Number of comparable projects to return
  * @param {number} [options.minPriceFactor=0.3] - Lower bound bracket multiplier
  * @param {number} [options.maxPriceFactor=3.0] - Upper bound bracket multiplier
+ * @param {boolean} [options.adaptive=true] - Whether to expand bracket if < 3 candidates
+ * @param {number} [options.adaptiveMinPriceFactor=0.15] - Adaptive lower bound multiplier
+ * @param {number} [options.adaptiveMaxPriceFactor=6.0] - Adaptive upper bound multiplier
  * @param {Array<object>} [options.candidatesPool=null] - Optional in-memory candidates
  *   pool (used for unit tests or offline runs)
  * @returns {Promise<Array<{
@@ -247,6 +380,9 @@ export async function findComparableProjects(targetTor, options = {}) {
     limit = 5,
     minPriceFactor = 0.3,
     maxPriceFactor = 3.0,
+    adaptive = true,
+    adaptiveMinPriceFactor = 0.15,
+    adaptiveMaxPriceFactor = 6.0,
     candidatesPool = null,
   } = options;
 
@@ -258,39 +394,60 @@ export async function findComparableProjects(targetTor, options = {}) {
     return [];
   }
 
-  const minPrice = targetPrice * minPriceFactor;
-  const maxPrice = targetPrice * maxPriceFactor;
+  const filterPool = (pool, minF, maxF) => {
+    const minP = targetPrice * minF;
+    const maxP = targetPrice * maxF;
+    return pool.filter((cand) => {
+      if (cand.projectId === targetTor.projectId) return false;
+      if (!isFullExtraction(cand)) return false;
+      if (cand.identification?.category !== targetCategory) return false;
+      const price = getProjectPrice(cand);
+      return price !== null && price >= minP && price <= maxP;
+    });
+  };
 
   let candidates = [];
 
   if (Array.isArray(candidatesPool)) {
     // In-memory pool filtering
-    candidates = candidatesPool.filter((cand) => {
-      if (cand.projectId === targetTor.projectId) return false;
-      if (!isFullExtraction(cand)) return false;
-      if (cand.identification?.category !== targetCategory) return false;
-      const price = getProjectPrice(cand);
-      return price !== null && price >= minPrice && price <= maxPrice;
-    });
+    candidates = filterPool(candidatesPool, minPriceFactor, maxPriceFactor);
+    if (adaptive && candidates.length < 3) {
+      const expanded = filterPool(candidatesPool, adaptiveMinPriceFactor, adaptiveMaxPriceFactor);
+      if (expanded.length > candidates.length) {
+        candidates = expanded;
+      }
+    }
   } else {
     // Stage 1: Query MongoDB using the compound index
-    candidates = await TorInsight.find({
-      projectId: { $ne: targetTor.projectId },
-      ...FULL_EXTRACTION,
-      'identification.category': targetCategory,
-      $or: [
-        { 'facts.referencePriceTHB': { $gte: minPrice, $lte: maxPrice } },
-        { 'facts.budgetTHB': { $gte: minPrice, $lte: maxPrice } },
-      ],
-    })
-      .select({
-        projectId: 1,
-        identification: 1,
-        facts: 1,
-        overview: 1,
-        technicalRequirements: 1,
+    const queryMongo = async (minF, maxF) => {
+      const minP = targetPrice * minF;
+      const maxP = targetPrice * maxF;
+      return TorInsight.find({
+        projectId: { $ne: targetTor.projectId },
+        ...FULL_EXTRACTION,
+        'identification.category': targetCategory,
+        $or: [
+          { 'facts.referencePriceTHB': { $gte: minP, $lte: maxP } },
+          { 'facts.budgetTHB': { $gte: minP, $lte: maxP } },
+        ],
       })
-      .lean();
+        .select({
+          projectId: 1,
+          identification: 1,
+          facts: 1,
+          overview: 1,
+          technicalRequirements: 1,
+        })
+        .lean();
+    };
+
+    candidates = await queryMongo(minPriceFactor, maxPriceFactor);
+    if (adaptive && candidates.length < 3) {
+      const expanded = await queryMongo(adaptiveMinPriceFactor, adaptiveMaxPriceFactor);
+      if (expanded.length > candidates.length) {
+        candidates = expanded;
+      }
+    }
   }
 
   if (candidates.length === 0) {

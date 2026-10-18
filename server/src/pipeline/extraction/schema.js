@@ -30,6 +30,21 @@ export const PROJECT_CATEGORIES = [
   'other-it',
 ];
 
+/**
+ * System archetypes for comparable project grouping (FR-19 & ADR 0021).
+ * AI classifies the core deliverable architecture so code can compare
+ * projects without fragile keyword regex.
+ */
+export const SYSTEM_ARCHETYPES = [
+  'mobile-app', // Mobile applications (iOS, Android, cross-platform)
+  'web-portal', // Web portals, e-Services, public service websites, CMS
+  'enterprise-erp', // ERP, CRM, HR, inventory, financial, workflow
+  'data-analytics', // Data warehouse, BI dashboards, AI, big data, analytics
+  'gis-mapping', // Map, GIS, geospatial, spatial analysis systems
+  'infra-networking', // Infrastructure, cloud, servers, cabling, CCTV, data center
+  'other', // General or specialized IT systems
+];
+
 const QUOTE =
   'Copied exactly from the document: the same words, the same digits (Thai or Arabic) and the ' +
   'same spacing. One sentence or less.';
@@ -267,8 +282,17 @@ export const extractSchema = {
         objective: text('What the agency wants to achieve, in one or two sentences.'),
         majorComponents: list('The main parts of the system or work, one short Thai phrase each.'),
         highLevelScope: text('What is in the scope of work, in two or three sentences.'),
+        systemArchetype: {
+          type: Type.STRING,
+          nullable: true,
+          format: 'enum',
+          enum: SYSTEM_ARCHETYPES,
+          description:
+            'The core deliverable architecture or archetype of the system: ' +
+            'mobile-app, web-portal, enterprise-erp, data-analytics, gis-mapping, infra-networking, or other.',
+        },
       },
-      required: ['objective', 'majorComponents', 'highLevelScope'],
+      required: ['objective', 'majorComponents', 'highLevelScope', 'systemArchetype'],
     },
     deliverables: {
       type: Type.OBJECT,
