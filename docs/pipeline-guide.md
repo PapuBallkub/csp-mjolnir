@@ -76,11 +76,18 @@ from data.go.th** (fiscal year 2568), once:
 - Gemini then sorts their titles, when someone runs it by hand. Those that
   are IT get a **title-level summary**: title, agency, prices and the kind of
   project, nothing else. It counts in price statistics, but the site never
-  shows it.
+  shows it. Those it's unsure about, mostly computer equipment and other
+  hardware, get nothing and count nowhere until their documents are read.
 - **Every night, 20 of them have their documents read in full,** like any
   project, and then they get a normal summary that detailed comparisons can
-  use. The night run picks first the past projects most like the projects
-  open now, those closing soonest first, then the newest.
+  use. The night run looks after the open projects closing soonest first:
+  each gets the past projects most like it until it has 5 similar projects
+  (past or new), then the next one gets its turn. Once all have 5, the
+  soonest look for more. The unsure ones come only after the IT ones.
+- **This only happens on nights the 22:00 run runs,** so for now, only when
+  someone's computer is running the schedule then. At 20 a night, reading
+  all 2,239 IT past projects would take about 110 nights. That isn't the
+  aim: the aim is past projects like the ones open now.
 
 ## The journey of one project
 

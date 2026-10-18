@@ -240,7 +240,7 @@ test('findUnscreened: --past takes the imported past projects, and only those', 
   assert.deepEqual((await findUnscreened({ past: true })).map((t) => t.projectId), ['67099725090']);
 });
 
-test('runScreen --past: IT and unsure past projects get a title-level record, not_it ones none', async () => {
+test('runScreen --past: IT past projects get a title-level record; unsure and not_it ones none', async () => {
   await Tor.create([
     past('67099725090', 'ขยายทรัพยากรพื้นฐานดิจิทัลสำหรับศูนย์ข้อมูล'),
     past('67099725091', 'ซื้อครุภัณฑ์คอมพิวเตอร์'),
@@ -256,7 +256,7 @@ test('runScreen --past: IT and unsure past projects get a title-level record, no
 
   const counts = await runScreen({ client, config: CONFIG, past: true, log: quiet });
 
-  assert.equal(counts.titleLevel, 2);
+  assert.equal(counts.titleLevel, 1);
   const record = await TorInsight.findOne({ projectId: '67099725090' }).lean();
   assert.equal(record.metadata.titleOnly, true);
   assert.equal(record.metadata.confidenceScore, null);
@@ -267,6 +267,8 @@ test('runScreen --past: IT and unsure past projects get a title-level record, no
   assert.equal(record.facts.agreedPriceTHB, 95842000);
   assert.equal(record.facts.postedDate.toISOString().slice(0, 10), '2025-04-28');
   assert.equal(record.metadata.sourceFingerprint, titleLevelFingerprint(await Tor.findOne({ projectId: '67099725090' }).lean()));
+  // Unsure is mostly hardware: it counts nowhere until its documents are read
+  assert.equal(await TorInsight.countDocuments({ projectId: '67099725091' }), 0);
   assert.equal(await TorInsight.countDocuments({ projectId: '67099725092' }), 0);
 });
 
@@ -285,4 +287,19 @@ test('saveTitleLevel: never over a full extraction or a not-IT verdict; over an 
   assert.equal((await TorInsight.findOne({ projectId: '67099725090' }).lean()).metadata.confidenceScore, 95);
   assert.ok((await TorInsight.findOne({ projectId: '67099725091' }).lean()).metadata.excluded);
   assert.equal((await TorInsight.findOne({ projectId: '67099725092' }).lean()).identification.titleTh, 'ระบบ ค');
+});
+
+test('saveTitleLevel: a title-level record goes when its project is screened unsure or not_it now', async () => {
+  await Tor.create([past('67099725090', 'ระบบ ก'), past('67099725091', 'ระบบ ข')]);
+  await TorInsight.create([
+    { projectId: '67099725090', identification: { titleTh: 'ระบบ ก', agency: 'ก', status: 'Awarded' }, metadata: { titleOnly: true } },
+    { projectId: '67099725091', identification: { titleTh: 'สกัดเต็มแล้ว', agency: 'ข', status: 'Awarded' }, metadata: { confidenceScore: 95 } },
+  ]);
+  const screen = (projectId, verdict) => ({ projectId, verdict, category: null, modelName: 'gemini-test', promptVersion: SCREEN_VERSION });
+
+  const saved = await saveTitleLevel([screen('67099725090', 'unsure'), screen('67099725091', 'not_it')]);
+
+  assert.equal(saved, 0);
+  assert.equal(await TorInsight.countDocuments({ projectId: '67099725090' }), 0);
+  assert.equal((await TorInsight.findOne({ projectId: '67099725091' }).lean()).metadata.confidenceScore, 95, 'a full extraction stays');
 });

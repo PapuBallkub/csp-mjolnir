@@ -287,7 +287,7 @@ Tracks post-publishing changes and revisions to the procurement document:
 | `reviewedAt` | `Date` | `null` | When it was reviewed. |
 | `excluded` | `exclusionSchema` | `null` | Set when the document isn't IT (§2.6). Extraction stops there, so the other sections stay empty (NFR-16). |
 | `awaitingFullText` | `Boolean` | `false` | Classify read a preview and found IT: the full text is being read, and extraction follows. The other sections stay empty, and the public doesn't see the record until then [0018](../decisions/0018-preview-ocr-before-classify.md). |
-| `titleOnly` | `Boolean` (Indexed) | `false` | A past project known only from its data.go.th row and its title: identification, prices and the title screen's category; every other section empty, nothing quoted, no score. Counted in benchmarks; never shown on the site, reviewed or used as a detailed comparable. Full extraction replaces it ([0028](../decisions/0028-past-projects-from-data-go-th.md)). |
+| `titleOnly` | `Boolean` (Indexed) | `false` | A past project known only from its data.go.th row and its title: identification, prices and the title screen's category; every other section empty, nothing quoted, no score. Only for a past project the screen found `it`; an `unsure` one has no record until read. Counted in benchmarks; never shown on the site, reviewed or used as a detailed comparable. Full extraction replaces it ([0028](../decisions/0028-past-projects-from-data-go-th.md)). |
 
 ---
 

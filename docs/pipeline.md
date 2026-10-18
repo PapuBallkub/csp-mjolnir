@@ -216,17 +216,25 @@ Then `npm run screen -- --past` screens their titles, and the night's
 ### `npm run ingest -- --step history`
 **Chooses tonight's past projects to read in full**
 ([0028](decisions/0028-past-projects-from-data-go-th.md)), up to
-`HISTORY_PER_NIGHT` (20), from those known by their title only:
-1. **What the open TORs need.** For each open IT TOR, soonest deadline first,
-   the past projects its comparison would rank highest: the same category,
-   0.3× to 3× its price, then the comparison's own score. Each open TOR gets
-   its closest before any gets a second, and at most three.
-2. **The newest,** for the rest of the night.
+`HISTORY_PER_NIGHT` (20), from the past projects not read yet:
+1. **What the open TORs need, soonest deadline first.** Each open IT TOR
+   gets the past projects its comparison would rank highest (the same
+   category, 0.3× to 3× its price, then the comparison's own score) until it
+   has `HISTORY_ENOUGH_RELATED` (5) related ones. Then the next TOR's turn
+   comes. Once every open TOR has 5, the soonest goes on to 10, and so on.
+   Related: any project read in full that is in its comparison, past or new,
+   or a past one chosen for it and not read yet.
+2. **The newest,** only when no open TOR has a candidate left.
 
-It only marks them (`Tor.historyRequestedAt`). Download, OCR and extraction
-then take them like any project, and extraction replaces the title-level
-record. Projects chosen earlier and not downloaded yet count against the 20,
-so a night that couldn't download doesn't pile up. The `process` job runs it.
+Past projects the title screen found `it` come first. `Unsure` ones, mostly
+hardware, come only after every `it` one that fits.
+
+It only marks them: `Tor.historyRequestedAt`, and `Tor.historyRequestedFor`
+for the TOR it was chosen for. Download, OCR and extraction then take them
+like any project, and the result replaces the title-level record. Projects
+chosen earlier and not downloaded yet count against the 20, so a night that
+couldn't download doesn't pile up. The `process` job runs it, so nothing is
+chosen on a night the 22:00 job doesn't run.
 
 ```
 npm run ingest -- --step history --dry-run    # show tonight's choice, change nothing
@@ -286,15 +294,18 @@ npm run ingest:add -- --id 69109028093
 ```
 
 ### `npm run ingest:ocr`
-**Extracts the text**, in two passes over workable TORs:
+**Extracts the text**, in two passes over workable TORs and the past
+projects chosen to be read in full (`--step history`):
 1. **Preview:** each `downloaded` scan is read for its first 6 pages
    (`ocr_preview`). A digital PDF, or a scan of 6 pages or fewer, is read whole
    (`ocr_done`).
 2. **Full:** each preview that classify found to be IT is read whole
    (`ocr_done`). So is a TOR already extracted as IT whose file changed: a
-   preview would hide its page until extraction caught up. So is a past
-   project chosen to be read in full: it was chosen as IT, so it isn't
-   previewed.
+   preview would hide its page until extraction caught up.
+
+A past project is previewed like any other, because its title can hide
+hardware that classify drops after the preview
+([0028](decisions/0028-past-projects-from-data-go-th.md)).
 
 A digital PDF is read in seconds; a scan goes through Tesseract OCR at about
 4 s a page. A text layer that isn't Thai (an old non-Unicode font) is OCR'd
@@ -342,6 +353,7 @@ These are optional, in `server/.env`:
 | `EGP_PACKAGE_MAX_MB` | `200` | The largest e-GP package downloaded. e-GP sends no size first, so a bigger one is found by downloading up to the limit, and the project then gives up at once. To fetch one by hand, raise this and run `ingest:download -- --id <projectId> --retry-failed`. |
 | `EXTRACTIONS_DIR` | `server/data/extractions` | Where Gemini's answers are saved, for `extract --recheck` |
 | `HISTORY_PER_NIGHT` | `20` | Past projects chosen each night to be read in full ([0028](decisions/0028-past-projects-from-data-go-th.md)). Those chosen earlier and not downloaded yet count against it; `0` turns it off. |
+| `HISTORY_ENOUGH_RELATED` | `5` | Related projects an open TOR gets before the next TOR's turn comes, and the step it goes up by once every open TOR has that many. The comparison lists 5. |
 | `LOGS_DIR` | `server/data/logs` | Where each job writes its log |
 | `SCREEN_AUDIT_RATE` | `0.1` | The share of `not_it` projects that go the whole way anyway ([0026](decisions/0026-screen-titles-before-downloading.md)) |
 
@@ -454,11 +466,13 @@ A project is screened again only if its title or the screen's prompt version
 
 **Past projects from `history:import` are screened only with `--past`.**
 There can be thousands, so it's a decision, and the scheduled jobs never do
-it. Those found `it` or `unsure` get a **title-level TorInsight record**: title,
+it. Those found `it` get a **title-level TorInsight record**: title,
 agency, prices and category, every other section empty and nothing quoted.
 It counts in benchmarks; the site, the review queue and detailed comparisons
 leave it out. Full extraction replaces it once the project's documents are
 read ([0028](decisions/0028-past-projects-from-data-go-th.md)).
+Those found `unsure`, mostly hardware, get none and count nowhere until
+they're read.
 
 ```
 npm run screen

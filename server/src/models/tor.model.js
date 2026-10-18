@@ -219,6 +219,12 @@ const torSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    // The open TOR it was chosen as like, until read; null when chosen as
+    // the newest. It counts toward that TOR's related projects (ADR 0028).
+    historyRequestedFor: {
+      type: String,
+      default: null,
+    },
 
     // Set by fetch when the feed announces a new stage of a project already
     // downloaded; download then checks e-GP for a new package (ADR 0020)

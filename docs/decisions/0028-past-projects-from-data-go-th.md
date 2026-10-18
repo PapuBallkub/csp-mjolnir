@@ -58,7 +58,7 @@ It is never part of the scheduled jobs: thousands of titles are a spending
 decision.
 
 **4. A title-level TorInsight record (`metadata.titleOnly`)** for each past
-project found `it` or `unsure`:
+project found `it`:
 - `identification`: title, agency, department, category, status Awarded;
 - `facts`: budget, ราคากลาง, the agreed price (new, `facts.agreedPriceTHB`),
   method, posted date and links;
@@ -68,6 +68,14 @@ It is built in code, with no Gemini call beyond the screen. It is never
 written over a full extraction or a not-IT verdict. Full extraction replaces
 it: the documents make a different fingerprint, so extraction treats it as a
 changed source.
+
+**A past project found `unsure` gets no record** until its documents are
+read, so it counts nowhere. The full screen (2026-10-16) found 2,689 of
+them, mostly hardware the title couldn't rule out: computer equipment
+(ครุภัณฑ์คอมพิวเตอร์), servers, LED signs, CCTV. If it were counted, it would
+skew benchmarks towards hardware prices. It can still be chosen to be read
+in full, after the IT ones (7). A title-level record whose project is later
+screened `unsure` or `not_it` is removed.
 
 **5. Who reads title-level records:**
 
@@ -85,17 +93,33 @@ signed contracts.
 
 **7. Past projects are read in full a few a night** (`ingest --step
 history`, in the 22:00 `process` job). It chooses up to `HISTORY_PER_NIGHT`
-(20) title-level projects:
-- first, for each open IT TOR, soonest deadline first, the past projects its
-  comparison would rank highest: the same category, within its price band
-  (0.3× to 3×), then by the comparison's own score. Every open TOR gets its
-  closest before any gets a second, and none more than three;
-- then the newest past projects, for the rest of the night.
+(20) past projects:
+- **For the open IT TORs, soonest deadline first.** Each one gets past
+  projects until it has `HISTORY_ENOUGH_RELATED` (5) related ones. Only then
+  does the next TOR's turn come: a TOR closing tomorrow matters more than an
+  even spread. 5 is a step, not a limit. Once every open TOR has 5, the
+  soonest goes on to 10, then the next, and so on.
+- **Related** means a project already read in full that the TOR's comparison
+  would list: the same category, 0.3× to 3× its price. It can be past or
+  new, since what matters is relevance, not age. A past project already
+  chosen for that TOR and not read yet counts too, so a TOR isn't given more
+  while its picks wait. One found not IT once read, or one that gave up,
+  stops counting, and the TOR's turn comes again.
+- **Candidates are ranked by the comparison's own score.** Those found `it`
+  come first, and `unsure` ones only after every `it` one in the band.
+- **The newest,** IT first, only on a night when no open TOR has a candidate
+  left.
 
-A chosen project is marked `Tor.historyRequestedAt`. Download takes it
+A chosen project is marked `Tor.historyRequestedAt`, and
+`Tor.historyRequestedFor` names the open TOR it was chosen for. Download takes it
 although it's awarded and skips the title screen, which has already passed
-it. OCR reads it whole, with no preview, since it was chosen as IT.
-Extraction then replaces the title-level record. Projects chosen earlier and
+it. OCR previews it like any scan, and classify reads the preview. This
+matters because the screen let through 2,689 past projects as `unsure`, most
+of them hardware: a computer purchase (ครุภัณฑ์คอมพิวเตอร์), servers, LED
+signs. Classify drops one of those after 6 pages, where reading the whole
+scan would take up to 10 minutes. One found IT is read whole and extracted
+the same night, since the job runs OCR and extraction twice. Either way, the
+result replaces the title-level record. Projects chosen earlier and
 not downloaded yet count against the night's number. A past project e-GP has
 no package for gives up at once: an awarded project won't get one later.
 
@@ -107,7 +131,7 @@ The same job refreshes the comparisons first (`find-comparable --all
 | Model | Change |
 |---|---|
 | `Tor.contract` | `amountTHB` (งบสัญญา, the total), `fiscalYear`, `contractStatus`, `winners` |
-| `Tor` | `historyRequestedAt` (Date, default null, indexed): chosen to be read in full |
+| `Tor` | `historyRequestedAt` (Date, default null, indexed): chosen to be read in full; `historyRequestedFor` (String, default null): the open TOR it was chosen for |
 | `TorInsight.metadata` | `titleOnly` (Boolean, default false, indexed) |
 | `TorInsight.facts` | `agreedPriceTHB`: kept by full extraction too, from `Tor.contract` |
 | `TitleScreen` | `category` |
@@ -119,12 +143,23 @@ The same job refreshes the comparisons first (`find-comparable --all
   publicly announced (2.6%), and 6,833 of those have IT-looking titles.
   Screening them is about 171 Gemini calls, 0.75 million input and 0.41
   million output tokens: about the input of 14 large TOR extractions.
-- **Detailed comparisons see past projects only once they're extracted:**
-  about 20 a night, so the first open TORs wait a few nights for theirs. On
-  the 36-project sample (2026-10-16), 8 of the 20 were chosen as like an open
-  TOR. With so few to choose from, some pairs were loose (a traffic-signal
-  contract like a data centre): the full import gives the category and price
-  band far more to choose from.
+- **The real run (2026-10-16)** imported 6,642 projects. The screen took 165
+  calls, 0.65 million input and 0.39 million output tokens. It found 2,239
+  `it`, 2,689 `unsure` and 1,708 `not_it`.
+- **The keyword list loses little.** A random 400 of the 107,523 public
+  projects it rejected were screened: none came back `it`, and 13 came back
+  `unsure`, all equipment. So, at 95% confidence, it misses under 0.75% of
+  them, about 800 at most, against 2,239 found.
+- **Reading them all takes months, and isn't the aim.** At 20 a night, the IT
+  ones alone take about 110 nights. A pick found not IT, or with no package,
+  still uses a place. Nights count only when the 22:00 job runs: with no
+  hosting yet, only when someone's `npm run schedule` is running then. The
+  aim is related past projects for the TORs open now.
+- **TORs closing later wait.** On 2026-10-16 there were 76 open IT TORs to
+  choose for, and 20 places a night. The soonest take every place until they
+  have 5 related projects, or close, so a TOR closing in two weeks may close
+  before its turn. A TOR in a busy category may already have 5 from other
+  projects read in full, and then gives its turn away at once.
 - **The catalog shows every status by default,** so extracted past projects
   would appear under Awarded. Defaulting `/search` to Draft and Open is a
   frontend change.
