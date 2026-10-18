@@ -41,8 +41,6 @@ All fields are read from the normalized [`TorInsight`](../../server/src/models/t
 | `overview.systemArchetype` | **`String`** *(enum)* | **Stage 2: Scope Score (Primary)** | Standardized deliverable architecture (`mobile-app`, `web-portal`, `enterprise-erp`, `data-analytics`, `gis-mapping`, `infra-networking`, `other`). Provides direct 100% match or penalty mismatch without regex guesswork. |
 | `overview.majorComponents` & `highLevelScope` | **`[String]`** / **`String`** | **Stage 2: Scope Overlap (Fallback)** | Curated domain keyword extraction used **only** when `systemArchetype` is missing (`null`) or `'other'` on legacy records. |
 | `technicalRequirements.requiredTechnologies` | **`[Object]`** *(List of `{name, version}`)* | **Stage 2: Tech Bonus Score** | Calculates technology overlap (e.g., React, PostgreSQL, Docker) using Jaccard similarity. |
-| `identification.titleTh` | **`String`** | **Display & Traceability Only** | Excluded from similarity scoring to eliminate administrative phrase noise. Populates the output `{ title, year, referencePriceTHB }` for user cards and citations. |
-| `facts.deliveryPeriodDays` | **`Number`** | **Excluded from Hard Filtering** | Contract durations in Thai procurement are frequently compressed to meet the September 30 fiscal budget year-end, rather than reflecting technical complexity. |
 
 ---
 
