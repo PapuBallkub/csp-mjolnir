@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { Type } from '@google/genai';
 
 import { STANDARD_CONDITION_KEYS } from '#models/standard-conditions.js';
-import { PROJECT_CATEGORIES, classifySchema, extractSchema, screenSchema } from '#pipeline/extraction/schema.js';
+import { PROJECT_CATEGORIES, SYSTEM_ARCHETYPES, classifySchema, extractSchema, screenSchema } from '#pipeline/extraction/schema.js';
 
 // Visits every object schema in the tree, with a readable path for messages.
 function* objects(schema, at = '$') {
@@ -54,4 +54,10 @@ test('extractSchema: money is copied as written, for code to parse', () => {
   for (const field of ['budget', 'referencePrice']) {
     assert.equal(extractSchema.properties.facts.properties[field].properties.value.type, Type.STRING);
   }
+});
+
+test('extractSchema: systemArchetype enum matches SYSTEM_ARCHETYPES', () => {
+  const { systemArchetype } = extractSchema.properties.overview.properties;
+  assert.deepEqual(systemArchetype.enum, SYSTEM_ARCHETYPES);
+  assert.equal(systemArchetype.nullable, true);
 });

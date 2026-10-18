@@ -12,7 +12,7 @@ export {
   isRetryable,
   readGeminiConfig,
 } from './gemini.js';
-export { PROJECT_CATEGORIES, classifySchema, extractSchema } from './schema.js';
+export { PROJECT_CATEGORIES, SYSTEM_ARCHETYPES, classifySchema, extractSchema } from './schema.js';
 export { processTor, saveInsight } from './process-tor.js';
 export { decide, sourceFingerprint } from './select.js';
 export { confidenceScore, runChecks } from './checks.js';

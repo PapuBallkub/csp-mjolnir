@@ -85,7 +85,8 @@ All benchmarking and analysis rely on fields already normalized by the extractio
 | `identification` | `category` | **Primary Hard Filter.** Ensures comparisons remain within the same domain (`software-development`, `systems-integration`, `data-and-ai`, `network-and-security`, etc.). |
 | `identification` | `titleTh` | **Scope Keyword Matching.** Distinguishes sub-domains (e.g. ERP, Mobile App, GIS, Portal). |
 | `facts` | `referencePriceTHB`, `budgetTHB` | **Scale Proximity & Price Benchmarking.** Establishes budget bracket and serves as the baseline for deviation calculation. |
-| `facts` | `deliveryPeriodDays` | **Scope Scale Context.** Reflects expected project delivery timeframe. |
+| `facts` | `deliveryPeriodDays` | **Scope Scale Context.** Reflects expected project delivery timeframe (never a hard filter). |
+| `overview` | `systemArchetype` | **Deliverable Architecture Matching.** Direct AI-extracted system archetype (`mobile-app`, `web-portal`, `enterprise-erp`, `data-analytics`, `gis-mapping`, `infra-networking`, `other`). |
 | `overview` | `majorComponents` | **Scope Similarity.** Overlapping functional modules increase project comparability score. |
 | `technicalRequirements` | `requiredTechnologies` | **Bonus Ranking (Jaccard).** Shared technologies (`name`, `version`) boost similarity ranking. Explicit versions are flagged as lock-spec signals. |
 | `eligibility` | `previousExperienceMinTHB` | **Qualification Deviation Check.** Compares past experience requirement against project reference price. |
@@ -103,6 +104,8 @@ $$\text{Category} = T.\text{category}$$
 $$0.3 \times T.\text{referencePriceTHB} \le \text{referencePriceTHB} \le 3.0 \times T.\text{referencePriceTHB}$$
 $$\text{projectId} \neq T.\text{projectId}$$
 
+**Adaptive Fallback:** If the candidate pool contains fewer than 3 projects ($N < 3$), the system automatically widens the bracket to $[0.15\times, 6.0\times]$ to prevent zero-result dropouts on small datasets.
+
 ### 4.2 Composite Similarity Scoring (Stage 2)
 For each candidate $C$ in the retrieved pool, calculate a composite similarity score $S \in [0, 1]$:
 
@@ -110,8 +113,10 @@ $$S = 0.45 \cdot S_{\text{scale}} + 0.35 \cdot S_{\text{scope}} + 0.20 \cdot S_{
 
 - **Scale Proximity ($S_{\text{scale}}$):**
   $$S_{\text{scale}} = \frac{\min(T.\text{price}, C.\text{price})}{\max(T.\text{price}, C.\text{price})}$$
-- **Scope Keyword Similarity ($S_{\text{scope}}$):**
-  Jaccard overlap of domain tokens (ERP, GIS, e-Service, Mobile, Cloud, Security) found in title and `majorComponents`. (Defaults to 0.5 if neither project contains specialized domain tokens).
+- **Scope & System Archetype Similarity ($S_{\text{scope}}$):**
+  - **Identical Archetypes:** $1.0$ (e.g. both are `mobile-app` or both are `enterprise-erp`).
+  - **Mismatched Archetypes:** $0.15$ (penalizing comparing a mobile app to an ERP in the same category).
+  - **Unclassified Fallback:** Jaccard overlap of domain tokens found in title, `majorComponents`, and `highLevelScope` (defaults to $0.5$ if neither contains specialized tokens).
 - **Technology Overlap ($S_{\text{tech}}$):**
   Jaccard index of normalized technology names:
   $$S_{\text{tech}} = \frac{|T.\text{tech} \cap C.\text{tech}|}{|T.\text{tech} \cup C.\text{tech}|}$$

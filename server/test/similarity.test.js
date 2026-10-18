@@ -7,6 +7,8 @@ import {
   calculateCompositeSimilarity,
   getFiscalYear,
   getProjectPrice,
+  getProjectArchetype,
+  SYSTEM_ARCHETYPES,
   findComparableProjects,
 } from '#features/reality-check/index.js';
 
@@ -220,4 +222,100 @@ test('findComparableProjects: full extractions only, not title-level or waiting 
   const results = await findComparableProjects(target, { candidatesPool: pool });
 
   assert.deepEqual(results.map((r) => r.projectId), ['FULL']);
+});
+
+test('getProjectArchetype: prioritizes AI-extracted systemArchetype over heuristic detection', () => {
+  // Direct AI extraction sets 'mobile-app'
+  const aiExtractedTor = {
+    overview: { systemArchetype: 'mobile-app' },
+    identification: { titleTh: 'โครงการพัฒนาระบบคลังข้อมูลกลาง' }, // title mentions data warehouse
+  };
+  assert.equal(getProjectArchetype(aiExtractedTor), 'mobile-app');
+
+  // titleTh is excluded from scoring: only having ERP in title returns 'other'
+  const titleOnlyTor = {
+    identification: { titleTh: 'จ้างพัฒนาระบบ ERP บริหารจัดการพัสดุและคลังสินค้า' },
+  };
+  assert.equal(getProjectArchetype(titleOnlyTor), 'other');
+
+  // Fallback heuristic: detects 'enterprise-erp' from majorComponents
+  const heuristicTor = {
+    overview: { majorComponents: ['ระบบ ERP บริหารจัดการพัสดุและคลังสินค้า'] },
+  };
+  assert.equal(getProjectArchetype(heuristicTor), 'enterprise-erp');
+
+  // Unknown components fall back to 'other'
+  const unknownTor = {
+    overview: { majorComponents: ['โครงการตามข้อตกลงพิเศษหน่วยงาน'] },
+  };
+  assert.equal(getProjectArchetype(unknownTor), 'other');
+});
+
+test('calculateScopeSimilarity: matches identical system archetypes with high score, penalizes mismatches', () => {
+  const mobileTorA = { overview: { systemArchetype: 'mobile-app' } };
+  const mobileTorB = { overview: { systemArchetype: 'mobile-app' } };
+  const erpTor = { overview: { systemArchetype: 'enterprise-erp' } };
+
+  // Identical archetypes -> 1.0 (100% architecture match)
+  assert.equal(calculateScopeSimilarity(mobileTorA, mobileTorB), 1.0);
+
+  // Different archetypes -> 0.15 (penalized mismatch)
+  assert.equal(calculateScopeSimilarity(mobileTorA, erpTor), 0.15);
+});
+
+test('findComparableProjects: adaptive bracket widens when candidates < 3', async () => {
+  const target = {
+    projectId: 'TARGET_EXPAND',
+    identification: { category: 'data-and-ai', titleTh: 'ระบบประมวลผลข้อมูล AI' },
+    facts: { referencePriceTHB: 10000000 }, // 10M
+    overview: { systemArchetype: 'data-analytics' },
+  };
+
+  const pool = [
+    // 1 candidate within [0.3x, 3.0x] (3M - 30M)
+    {
+      projectId: 'CAND_1',
+      identification: { category: 'data-and-ai', titleTh: 'ระบบวิเคราะห์ข้อมูล 1' },
+      facts: { referencePriceTHB: 12000000 },
+      overview: { systemArchetype: 'data-analytics' },
+    },
+    // 2 candidates outside [0.3x, 3.0x], but within adaptive [0.15x, 6.0x] (1.5M - 60M)
+    {
+      projectId: 'CAND_2',
+      identification: { category: 'data-and-ai', titleTh: 'ระบบวิเคราะห์ข้อมูล 2' },
+      facts: { referencePriceTHB: 2000000 }, // 2M (0.2x)
+      overview: { systemArchetype: 'data-analytics' },
+    },
+    {
+      projectId: 'CAND_3',
+      identification: { category: 'data-and-ai', titleTh: 'ระบบวิเคราะห์ข้อมูล 3' },
+      facts: { referencePriceTHB: 40000000 }, // 40M (4.0x)
+      overview: { systemArchetype: 'data-analytics' },
+    },
+    // 1 candidate way out of scale (80M > 6.0x)
+    {
+      projectId: 'CAND_WAY_OUT',
+      identification: { category: 'data-and-ai', titleTh: 'ระบบวิเคราะห์ข้อมูล 4' },
+      facts: { referencePriceTHB: 80000000 },
+    },
+  ];
+
+  // With adaptive: false, only CAND_1 matches
+  const strictResults = await findComparableProjects(target, {
+    candidatesPool: pool,
+    adaptive: false,
+  });
+  assert.equal(strictResults.length, 1);
+  assert.equal(strictResults[0].projectId, 'CAND_1');
+
+  // With default adaptive: true, count < 3 expands bracket to include CAND_2 and CAND_3
+  const adaptiveResults = await findComparableProjects(target, {
+    candidatesPool: pool,
+    adaptive: true,
+  });
+  assert.equal(adaptiveResults.length, 3);
+  assert.deepEqual(
+    adaptiveResults.map((r) => r.projectId).sort(),
+    ['CAND_1', 'CAND_2', 'CAND_3'],
+  );
 });

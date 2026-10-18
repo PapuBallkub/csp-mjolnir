@@ -39,10 +39,12 @@ For GIPDP's price benchmarking (FR-20), two projects are considered comparable w
 
 | Field in `TorInsight` | Data Type | Role in Matching | Rationale |
 |---|---|---|---|
-| `identification.category` | `String` | **Stage 1: Hard Filter** | Broad IT domain (`software-development`, `data-and-ai`, `network-and-security`, etc.). Guaranteed by Gemini during ingestion. |
+| `identification.category` | `String` | **Stage 1: Hard Filter** | Broad IT domain (`software-development`, `cloud-and-infrastructure`, `maintenance-and-support`, etc.). Guaranteed by Gemini during ingestion. |
 | `facts.referencePriceTHB` *(or `budgetTHB`)* | `Number` | **Stage 1: Hard Bracket & Stage 2: Scale Score** | Enforces economic tier bounds ($[0.3\times, 3.0\times]$) and calculates budget scale proximity. |
-| `identification.titleTh` & `overview.majorComponents` | `String` / `[String]` | **Stage 2: Scope Archetype Score** | Identifies system archetypes (Mobile, Web Portal, ERP, GIS, Data Platform) via curated domain keyword clusters. |
+| `overview.systemArchetype` | `String` (enum) | **Stage 2: Scope Score (Primary)** | Standardized deliverable architecture (`mobile-app`, `web-portal`, `enterprise-erp`, etc.). Direct matching (1.0) or penalty (0.15) replaces regex ambiguity. |
+| `overview.majorComponents` & `highLevelScope` | `[String]` / `String` | **Stage 2: Scope Overlap (Fallback)** | Curated domain keyword clusters used **only** as a fallback for legacy records where `systemArchetype` is missing or `'other'`. |
 | `technicalRequirements.requiredTechnologies` | `[Object]` | **Stage 2: Bonus Tech Score (Jaccard)** | Shared technologies (`name`, `version`) boost similarity ranking when present, but are soft-weighted with neutral fallbacks ($0.5$). |
+| `identification.titleTh` | `String` | **Display & Traceability Only** | Excluded from similarity scoring to eliminate administrative phrase noise. Populates the output `{ title, year, referencePriceTHB }` for user cards and citations. |
 | `facts.deliveryPeriodDays` | `Number` | **Excluded from Hard Filtering** | Contract durations in Thai procurement are frequently compressed to meet the September 30 fiscal budget year-end, rather than reflecting technical complexity. It must never act as a hard filter. |
 
 ---
@@ -98,18 +100,20 @@ $$\text{Score} = 0.45 \cdot S_{\text{scale}} + 0.35 \cdot S_{\text{scope}} + 0.2
 1. **Scale Proximity ($S_{\text{scale}}$, 45%):**
    $$S_{\text{scale}} = \frac{\min(\text{Price}_A, \text{Price}_B)}{\max(\text{Price}_A, \text{Price}_B)}$$
 2. **Scope Overlap ($S_{\text{scope}}$, 35%):**
-   Jaccard similarity on domain keyword tokens extracted from `titleTh` and `majorComponents`. If neither project contains recognized domain tokens, defaults to a neutral $0.5$ fallback.
+   Direct comparison on `overview.systemArchetype` (1.0 for match, 0.15 for mismatch). For unclassified legacy records, falls back to keyword matching across `majorComponents` and `highLevelScope`, or a neutral $0.5$ fallback. `titleTh` is excluded from scoring.
 3. **Tech Stack Similarity ($S_{\text{tech}}$, 20%):**
    Jaccard similarity of normalized technology names from `requiredTechnologies`. Defaults to $0.5$ when neither project specifies technologies.
 
 The top 5 highest-scoring candidates populate `analytics.priceAnalysis.comparableProjects`.
+`titleTh` is added to the output object solely for display on the TOR card.
 
 ---
 
-### 6. Architectural Evolution
+### 6. Architectural Evolution & Implementation
 
-- **Current Implementation:** Curated domain keyword clusters in `server/src/features/reality-check/similarity.service.js`.
-- **Target Evolution:** Extend the Gemini extraction schema (`schema.js`) to extract a standardized `systemArchetype` enum (`mobile-app`, `web-portal`, `enterprise-erp`, `data-analytics`, `gis-mapping`, `infra-networking`) directly during ingestion. This completely replaces regex keyword matching with direct enum matching, strictly adhering to *"The AI picks the label; code does the comparing."*
+- **Direct System Archetype Matching:** Gemini extracts a standardized `overview.systemArchetype` enum (`mobile-app`, `web-portal`, `enterprise-erp`, `data-analytics`, `gis-mapping`, `infra-networking`, `other`) during ingestion in `schema.js`.
+- **Primary vs. Fallback:** The similarity engine in `similarity.service.js` directly compares `systemArchetype` (with Jaccard overlap on hybrid projects, scoring 1.0 for match, 0.15 for mismatch). For unclassified or legacy records where `systemArchetype` is null, it gracefully falls back to tokenized keyword matching (`ARCHETYPE_KEYWORDS`). This strictly adheres to:
+  > *"The AI picks the label; code does the comparing."*
 
 ---
 
