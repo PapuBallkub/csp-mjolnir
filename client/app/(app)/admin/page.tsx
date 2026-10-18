@@ -54,7 +54,7 @@ function confidenceTone(value: number): string {
 function ConfidenceBar({ value, label }: { value: number; label: string }) {
   return (
     <span className="flex items-center gap-2 whitespace-nowrap">
-      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-3">{label}</span>
+      <span className="text-[10px] uppercase font-semibold tracking-[0.1em] text-ink-3">{label}</span>
       <span className="relative h-[4px] w-16 overflow-hidden rounded-full bg-line">
         <span
           className={`absolute inset-y-0 left-0 rounded-full ${confidenceTone(value)}`}
@@ -394,10 +394,10 @@ function AdminDashboard({
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-line pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="rounded-[2px] bg-ink text-surface px-1.5 py-0.5 font-mono text-[10px] uppercase font-semibold tracking-wider">
+            <span className="rounded-[2px] bg-ink text-surface px-1.5 py-0.5 text-[10px] uppercase font-semibold tracking-wider">
               ADMIN OPS
             </span>
-            <span className="font-mono text-[11px] text-ink-3">
+            <span className="text-[11px] text-ink-3">
               {lang === "th" ? "แดชบอร์ดดูแลระบบและความสมบูรณ์ข้อมูล" : "Pipeline Telemetry & Data Integrity"}
             </span>
           </div>
@@ -416,7 +416,7 @@ function AdminDashboard({
               onChange={(e) => setSearchInspectorId(e.target.value)}
               placeholder={lang === "th" ? "ตรวจรหัส 11 หลัก..." : "Inspect project ID..."}
               maxLength={11}
-              className={`${input} h-9 w-44 sm:w-52 pr-8 font-mono text-[12px]`}
+              className={`${input} h-9 w-44 sm:w-52 pr-8 text-[12px]`}
             />
             <button
               type="submit"
@@ -493,7 +493,7 @@ function AdminDashboard({
           right={
             <div className="flex items-center gap-3">
               {inMaintenance ? (
-                <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-1 font-mono text-[11px] font-medium text-amend">
+                <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-1 text-[11px] font-medium text-amend">
                   {lang === "th" ? "⚠️ ปิดปรับปรุง 00:00–04:00" : "⚠️ Maintenance 00:00–04:00"}
                 </span>
               ) : null}
@@ -515,7 +515,7 @@ function AdminDashboard({
         </SectionHeading>
 
         {pollMessage ? (
-          <div className="mb-3 rounded-[3px] border border-open-line bg-open-bg px-3 py-2 font-mono text-[12px] text-open">
+          <div className="mb-3 rounded-[3px] border border-open-line bg-open-bg px-3 py-2 text-[12px] text-open">
             {pollMessage}
           </div>
         ) : null}
@@ -556,16 +556,16 @@ function AdminDashboard({
                         {source.name}
                       </span>
                       {inMaintenance && source.id === "process3" ? (
-                        <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-[1px] font-mono text-[10px] text-amend">
+                        <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-[1px] text-[10px] text-amend">
                           {lang === "th" ? "ปิดปรับปรุง 00:00–04:00" : "Maintenance 00:00–04:00"}
                         </span>
                       ) : null}
                     </div>
-                    <span className="mt-0.5 block font-mono text-[10px] text-ink-3">
+                    <span className="mt-0.5 block text-[10px] text-ink-3">
                       {source.portal} · {source.format}
                     </span>
                     {source.error ? (
-                      <p className="mt-1.5 max-w-[420px] rounded-[3px] border border-risk-line bg-risk-bg px-2 py-1.5 font-mono text-[11px] leading-relaxed text-risk">
+                      <p className="mt-1.5 max-w-[420px] rounded-[3px] border border-risk-line bg-risk-bg px-2 py-1.5 text-[11px] leading-relaxed text-risk">
                         {source.error}
                       </p>
                     ) : null}
@@ -608,7 +608,7 @@ function AdminDashboard({
                       type="button"
                       onClick={() => handleTriggerPoll(source.id)}
                       disabled={isPolling || isRefreshing}
-                      className={`${btn.secondary} font-mono text-[11px] py-1 px-2.5`}
+                      className={`${btn.secondary} text-[11px] py-1 px-2.5`}
                     >
                       {isPolling && pollingSource === source.id ? (
                         <span className="animate-spin inline-block mr-1">↻</span>
@@ -628,7 +628,7 @@ function AdminDashboard({
         <section className="mb-8">
           <SectionHeading
             right={
-              <span className="font-mono text-[11px] text-ink-3">
+              <span className="text-[11px] text-ink-3">
                 {recentLogs.length} {lang === "th" ? "รอบล่าสุด" : "recent runs"}
               </span>
             }
@@ -650,7 +650,7 @@ function AdminDashboard({
                   ].map((column) => (
                     <th
                       key={column.text}
-                      className={`px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
+                      className={`px-3 py-2 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
                         column.right ? "text-right" : ""
                       }`}
                     >
@@ -665,11 +665,11 @@ function AdminDashboard({
                     key={log.id}
                     className="border-b border-line align-middle last:border-b-0"
                   >
-                    <td className="px-3 py-2 font-mono text-[11px] text-ink-2 whitespace-nowrap">
+                    <td className="px-3 py-2 font-mono tnum text-[11px] text-ink-2 whitespace-nowrap">
                       {log.startedAt}
                     </td>
                     <td className="px-3 py-2">
-                      <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[2px] font-mono text-[10px] text-ink font-medium">
+                      <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[2px] text-[10px] text-ink font-medium">
                         {log.source === "process3" ? "process3 (e-GP)" : "datago (data.go.th)"}
                       </span>
                     </td>
@@ -682,15 +682,15 @@ function AdminDashboard({
                         {HEALTH[log.status]?.label[lang] ?? log.status}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-right font-mono text-[11px] text-ink-2">
+                    <td className="px-3 py-2 text-right font-mono tnum text-[11px] text-ink-2">
                       {log.durationMs > 1000
                         ? `${(log.durationMs / 1000).toFixed(1)}s`
                         : `${log.durationMs}ms`}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono text-[11px] text-ink font-medium">
+                    <td className="px-3 py-2 text-right font-mono tnum text-[11px] text-ink font-medium">
                       {log.itemsDiscovered} / {log.itemsIngested}
                     </td>
-                    <td className="px-3 py-2 font-mono text-[11px]">
+                    <td className="px-3 py-2 text-[11px]">
                       {log.error ? (
                         <span className="text-risk">{log.error}</span>
                       ) : (
@@ -720,7 +720,7 @@ function AdminDashboard({
       <section>
         <SectionHeading
           right={
-            <span className="font-mono text-[11px] text-ink-3">
+            <span className="text-[11px] text-ink-3">
               {pendingCount} {lang === "th" ? "รอดำเนินการ" : "pending"}
             </span>
           }
@@ -758,7 +758,7 @@ function AdminDashboard({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={lang === "th" ? "ค้นหาด้วยเลขโครงการ / ชื่อ..." : "Filter by project ID / title..."}
-              className={`${input} font-mono text-[12px] h-8`}
+              className={`${input} text-[12px] h-8`}
             />
           </div>
         </div>
@@ -917,11 +917,11 @@ function PipelineStageFunnel({
           >
             <div>
               <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] font-bold tracking-wider text-ink-3">
+                <span className="text-[10px] font-bold tracking-wider text-ink-3">
                   STAGE {item.num}
                 </span>
                 <span
-                  className={`rounded-[2px] border px-1.5 py-[1px] font-mono text-[10px] ${
+                  className={`rounded-[2px] border px-1.5 py-[1px] text-[10px] ${
                     item.highlight
                       ? "border-open-line bg-open-bg text-open font-semibold"
                       : "border-line bg-surface-2 text-ink-2"
@@ -939,7 +939,7 @@ function PipelineStageFunnel({
                   {item.count.toLocaleString()}
                 </p>
                 {item.extra && (
-                  <span className="font-mono text-[11px] text-amend">
+                  <span className="text-[11px] text-amend font-medium">
                     ({item.extra})
                   </span>
                 )}
@@ -951,7 +951,7 @@ function PipelineStageFunnel({
             <div className="mt-3 border-t border-line/60 pt-2 flex items-center justify-between text-[11px] text-ink-3">
               <span className="leading-thai truncate">{item.sub}</span>
               {idx < funnel.length - 1 && (
-                <span className="hidden lg:inline text-ink-3 ml-1 font-mono">→</span>
+                <span className="hidden lg:inline text-ink-3 ml-1">→</span>
               )}
             </div>
           </Panel>
@@ -987,7 +987,7 @@ function PipelineFailuresSection({
       <SectionHeading
         right={
           failureCount > 0 ? (
-            <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 font-mono text-[11px] text-risk font-semibold">
+            <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] text-risk font-semibold">
               {failureCount} {lang === "th" ? "รายการที่ติดขัด" : "stuck task(s)"}
             </span>
           ) : null
@@ -1003,7 +1003,7 @@ function PipelineFailuresSection({
 
       {actionMsg && (
         <div
-          className={`mb-3 rounded-[3px] border px-3 py-2 font-mono text-[12px] ${
+          className={`mb-3 rounded-[3px] border px-3 py-2 text-[12px] ${
             actionMsg.type === "success"
               ? "border-open-line bg-open-bg text-open"
               : "border-risk-line bg-risk-bg text-risk"
@@ -1023,7 +1023,7 @@ function PipelineFailuresSection({
                 : "All pipeline stages are healthy — no stuck or failed tasks."}
             </span>
           </div>
-          <span className="font-mono text-[11px] text-ink-3">0 failures</span>
+          <span className="text-[11px] text-ink-3">0 failures</span>
         </Panel>
       ) : (
         <Panel className="overflow-x-auto shadow-xs">
@@ -1114,7 +1114,7 @@ function PipelineFailureRow({
         <p className="text-[11px] text-ink-3 line-clamp-1">{failure.agency}</p>
       </td>
       <td className="px-3 py-2.5">
-        <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[2px] font-mono text-[10px] uppercase font-semibold text-ink">
+        <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[2px] text-[10px] uppercase font-semibold text-ink">
           {failure.step}
         </span>
       </td>
@@ -1129,13 +1129,13 @@ function PipelineFailureRow({
           </span>
         )}
       </td>
-      <td className="px-3 py-2.5 text-right font-mono text-[12px] text-ink">
+      <td className="px-3 py-2.5 text-right font-mono tnum text-[12px] text-ink">
         <span className={failure.attempts >= 3 ? "text-risk font-bold" : ""}>
           {failure.attempts} / 3
         </span>
       </td>
       <td className="px-3 py-2.5 max-w-[320px]">
-        <p className="font-mono text-[11px] leading-relaxed text-risk line-clamp-2">
+        <p className="text-[11px] leading-relaxed text-risk line-clamp-2">
           {failure.lastError}
         </p>
         <div className="mt-1 flex items-center gap-2">
@@ -1153,7 +1153,7 @@ function PipelineFailureRow({
           <button
             type="button"
             onClick={handleCopy}
-            className="text-[10px] font-mono text-ink-3 hover:text-ink cursor-pointer"
+            className="text-[10px] text-ink-3 hover:text-ink cursor-pointer"
           >
             {isCopied
               ? (lang === "th" ? "✓ คัดลอกแล้ว" : "✓ Copied")
@@ -1166,7 +1166,7 @@ function PipelineFailureRow({
           </pre>
         )}
       </td>
-      <td className="px-3 py-2.5 text-right font-mono text-[11px] text-ink-3 whitespace-nowrap">
+      <td className="px-3 py-2.5 text-right font-mono tnum text-[11px] text-ink-3 whitespace-nowrap">
         {failure.lastFailedAt}
       </td>
       <td className="px-3 py-2.5 text-right whitespace-nowrap">
@@ -1175,7 +1175,7 @@ function PipelineFailureRow({
             type="button"
             onClick={() => onRetry(failure.projectId, failure.step)}
             disabled={isRetrying || isDismissing}
-            className={`${btn.primary} font-mono text-[11px] py-1 px-2.5`}
+            className={`${btn.primary} text-[11px] py-1 px-2.5`}
             aria-label={`Retry ${failure.step} for ${failure.projectId}`}
           >
             {isRetrying ? (
@@ -1189,7 +1189,7 @@ function PipelineFailureRow({
             type="button"
             onClick={() => onDismiss(failure.projectId, failure.step)}
             disabled={isRetrying || isDismissing}
-            className={`${btn.ghost} font-mono text-[11px] py-1 px-2 text-ink-3 hover:text-risk`}
+            className={`${btn.ghost} text-[11px] py-1 px-2 text-ink-3 hover:text-risk`}
             aria-label={`Dismiss failure for ${failure.projectId}`}
           >
             {isDismissing ? (
@@ -1223,7 +1223,7 @@ function PipelineRunsSection({
           <button
             type="button"
             onClick={onToggleHistory}
-            className={`${btn.secondary} font-mono text-[11px] py-0.5 px-2.5`}
+            className={`${btn.secondary} text-[11px] py-0.5 px-2.5`}
           >
             {showHistory
               ? lang === "th" ? "ซ่อนประวัติ" : "Hide history"
@@ -1283,17 +1283,17 @@ function PipelineRunRow({
 }) {
   return (
     <tr className="border-b border-line align-middle last:border-b-0 hover:bg-surface-2/40">
-      <td className="px-3 py-2 font-mono text-[11px] text-ink-2 whitespace-nowrap">
+      <td className="px-3 py-2 font-mono tnum text-[11px] text-ink-2 whitespace-nowrap">
         {run.startedAt}
       </td>
       <td className="px-3 py-2">
-        <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[2px] font-mono text-[10px] text-ink font-semibold uppercase">
+        <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[2px] text-[10px] text-ink font-semibold uppercase">
           {run.job}
         </span>
       </td>
       <td className="px-3 py-2">
         <span
-          className={`inline-flex rounded-[2px] border px-1.5 py-[2px] font-mono text-[10px] uppercase font-medium ${
+          className={`inline-flex rounded-[2px] border px-1.5 py-[2px] text-[10px] uppercase font-medium ${
             run.outcome === "done"
               ? "border-open-line bg-open-bg text-open"
               : run.outcome === "timed-out"
@@ -1306,7 +1306,7 @@ function PipelineRunRow({
           {run.outcome}
         </span>
       </td>
-      <td className="px-3 py-2 text-right font-mono text-[11px] text-ink-2">
+      <td className="px-3 py-2 text-right font-mono tnum text-[11px] text-ink-2">
         {run.durationMs > 1000
           ? `${(run.durationMs / 1000).toFixed(1)}s`
           : `${run.durationMs}ms`}
@@ -1317,7 +1317,7 @@ function PipelineRunRow({
             run.steps.map((step, idx) => (
               <span
                 key={idx}
-                className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-[1px] font-mono text-[10px] ${
+                className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-[1px] text-[10px] ${
                   step.exitCode === 0
                     ? "border-line bg-surface text-ink-2"
                     : step.exitCode === null
@@ -1507,7 +1507,7 @@ function ReviewItemCard({
       {isOpen ? (
         <div className="border-t border-line bg-surface-2 px-3.5 py-3">
           {errorMsg ? (
-            <div className="mb-3 rounded-[3px] border border-risk-line bg-risk-bg p-2.5 font-mono text-[12px] text-risk">
+            <div className="mb-3 rounded-[3px] border border-risk-line bg-risk-bg p-2.5 text-[12px] text-risk">
               {errorMsg}
             </div>
           ) : null}
@@ -1567,7 +1567,7 @@ function ReviewItemCard({
                     onChange={(e) =>
                       setFieldValues((prev) => ({ ...prev, [field.field]: e.target.value }))
                     }
-                    className={`${input} font-mono flex-1`}
+                    className={`${input} flex-1`}
                     aria-label={field.field}
                   />
                   <span className="font-mono tnum text-[11px] text-ink-3">
@@ -1691,18 +1691,18 @@ function RecordInspectorModal({
                 <button
                   type="button"
                   onClick={handleCopyId}
-                  className="rounded-[2px] border border-line-2 bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-3 hover:text-ink cursor-pointer"
+                  className="rounded-[2px] border border-line-2 bg-surface-2 px-1.5 py-0.5 text-[10px] text-ink-3 hover:text-ink cursor-pointer"
                   title="Copy Project ID"
                 >
                   {copiedId ? "✓ Copied" : "📋 Copy"}
                 </button>
                 {record ? (
                   <>
-                    <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] uppercase font-medium text-ink-2">
+                    <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase font-medium text-ink-2">
                       {record.source}
                     </span>
                     <span
-                      className={`rounded-[2px] border px-1.5 py-0.5 font-mono text-[10px] font-medium ${
+                      className={`rounded-[2px] border px-1.5 py-0.5 text-[10px] font-medium ${
                         record.status === "Open"
                           ? "border-open-line bg-open-bg text-open"
                           : "border-line bg-surface-2 text-ink"
@@ -1710,7 +1710,7 @@ function RecordInspectorModal({
                     >
                       {record.status}
                     </span>
-                    <span className="rounded-[2px] border border-line-2 bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-ink">
+                    <span className="rounded-[2px] border border-line-2 bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-ink">
                       Stage: {record.pipelineStatus}
                     </span>
                   </>
@@ -1731,7 +1731,7 @@ function RecordInspectorModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-[3px] border border-line-2 bg-surface px-2.5 py-1 font-mono text-[12px] text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
+              className="rounded-[3px] border border-line-2 bg-surface px-2.5 py-1 text-[12px] text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
               aria-label="Close"
             >
               ✕
@@ -1788,7 +1788,7 @@ function RecordInspectorModal({
               <p className="font-semibold text-risk text-[14px]">
                 {lang === "th" ? "ไม่พบข้อมูลโครงการ" : "Record Diagnostic Lookup Failed"}
               </p>
-              <p className="mt-1 font-mono text-[12px] text-risk/80">{error}</p>
+              <p className="mt-1 text-[12px] text-risk/80">{error}</p>
             </div>
           ) : record ? (
             <div className="space-y-4">
@@ -1799,22 +1799,22 @@ function RecordInspectorModal({
                   {record.activeFailure ? (
                     <div className="rounded-[3px] border border-risk-line bg-risk-bg/50 p-4">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-[12px] font-bold text-risk uppercase">
+                        <span className="text-[12px] font-bold text-risk uppercase">
                           ⚠️ {lang === "th" ? "พบข้อผิดพลาดในขั้นตอน" : "Active Failure in Step"}:{" "}
                           {record.activeFailure.step}
                         </span>
-                        <span className="font-mono text-[11px] text-risk">
+                        <span className="font-mono tnum text-[11px] text-risk">
                           {lang === "th"
                             ? `ครั้งที่ ${record.activeFailure.attempts} / 3`
                             : `Attempt ${record.activeFailure.attempts} of 3`}
                         </span>
                       </div>
-                      <p className="mt-2 font-mono text-[12px] leading-relaxed text-risk">
+                      <p className="mt-2 text-[12px] leading-relaxed text-risk">
                         {record.activeFailure.lastError}
                       </p>
-                      <p className="mt-1 font-mono text-[10px] text-risk/70">
+                      <p className="mt-1 text-[10px] text-risk/70">
                         {lang === "th" ? "ผิดพลาดล่าสุดเมื่อ" : "Last failure"}:{" "}
-                        {formatDate(record.activeFailure.lastFailedAt)}
+                        <span className="font-mono tnum">{formatDate(record.activeFailure.lastFailedAt)}</span>
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
@@ -1897,12 +1897,12 @@ function RecordInspectorModal({
                           }`}
                         >
                           <div className="flex items-center justify-center gap-1">
-                            <span className="font-mono text-[12px] font-bold">
+                            <span className="text-[12px] font-bold">
                               {stage.done ? "✓" : stage.error ? "✕" : "○"}
                             </span>
                             <span className="text-[11px] font-medium">{title}</span>
                           </div>
-                          <p className="mt-1 font-mono text-[10px] text-ink-2 truncate">
+                          <p className="mt-1 text-[10px] text-ink-2 truncate">
                             {stage.done
                               ? stage.confidence
                                 ? `${Math.round(stage.confidence)}%`
@@ -1937,7 +1937,7 @@ function RecordInspectorModal({
                             : "Title Screening Intelligence"}
                         </Label>
                         <span
-                          className={`rounded-[2px] px-1.5 py-0.5 font-mono text-[10px] font-semibold ${
+                          className={`rounded-[2px] px-1.5 py-0.5 text-[10px] font-semibold ${
                             record.titleScreen.isItRelated
                               ? "bg-open-bg text-open border border-open-line"
                               : "bg-risk-bg text-risk border border-risk-line"
@@ -1951,7 +1951,7 @@ function RecordInspectorModal({
                           (lang === "th" ? "ไม่มีเหตุผลระบุ" : "No reason recorded")}
                       </p>
                       {record.titleScreen.category ? (
-                        <p className="mt-1 font-mono text-[11px] text-ink-3">
+                        <p className="mt-1 text-[11px] text-ink-3">
                           Category: {record.titleScreen.category}
                         </p>
                       ) : null}
@@ -1965,10 +1965,10 @@ function RecordInspectorModal({
                         {lang === "th" ? "ความมั่นใจ OCR (Optical Char)" : "OCR Confidence"}
                       </Label>
                       <div className="mt-2 flex items-baseline justify-between">
-                        <span className="font-mono text-[22px] font-bold text-ink">
+                        <span className="font-mono tnum text-[22px] font-bold text-ink">
                           {ocrPercent != null ? `${ocrPercent}%` : "—"}
                         </span>
-                        <span className="font-mono text-[10px] text-ink-3">
+                        <span className="text-[10px] text-ink-3">
                           {record.stages?.ocr?.usedOcr ? "Tesseract Engine" : "Digital Text"}
                         </span>
                       </div>
@@ -1989,7 +1989,7 @@ function RecordInspectorModal({
                         {lang === "th" ? "ความมั่นใจการสกัด AI" : "AI Extraction Score"}
                       </Label>
                       <div className="mt-2 flex items-baseline justify-between">
-                        <span className="font-mono text-[22px] font-bold text-ink">
+                        <span className="font-mono tnum text-[22px] font-bold text-ink">
                           {extPercent != null ? `${extPercent}%` : "—"}
                         </span>
                         <span
@@ -2023,7 +2023,7 @@ function RecordInspectorModal({
                       <span className="text-ink-3 text-[11px]">
                         {lang === "th" ? "งบประมาณ (Budget)" : "Budget"}:
                       </span>
-                      <p className="font-mono font-medium text-ink mt-0.5">
+                      <p className="font-mono tnum font-medium text-ink mt-0.5">
                         {formatMoney(record.budgetTHB)}
                       </p>
                     </Panel>
@@ -2031,7 +2031,7 @@ function RecordInspectorModal({
                       <span className="text-ink-3 text-[11px]">
                         {lang === "th" ? "ราคากลาง (Reference Price)" : "Reference Price"}:
                       </span>
-                      <p className="font-mono font-medium text-ink mt-0.5">
+                      <p className="font-mono tnum font-medium text-ink mt-0.5">
                         {formatMoney(record.referencePriceTHB)}
                       </p>
                     </Panel>
@@ -2048,7 +2048,7 @@ function RecordInspectorModal({
                       {lang === "th" ? "เอกสารแนบจาก e-GP" : "e-GP Document Attachment"}
                     </Label>
                     {record.document ? (
-                      <div className="mt-2 space-y-2 font-mono text-[12px]">
+                      <div className="mt-2 space-y-2 text-[12px]">
                         <div className="flex justify-between border-b border-line pb-1.5">
                           <span className="text-ink-3">File Name:</span>
                           <span className="text-ink font-medium truncate max-w-[320px]">
@@ -2057,13 +2057,13 @@ function RecordInspectorModal({
                         </div>
                         <div className="flex justify-between border-b border-line pb-1.5">
                           <span className="text-ink-3">Pages:</span>
-                          <span className="text-ink">
+                          <span className="text-ink font-mono tnum">
                             {record.document.pages ?? "—"}
                           </span>
                         </div>
                         <div className="flex justify-between border-b border-line pb-1.5">
                           <span className="text-ink-3">Size:</span>
-                          <span className="text-ink">
+                          <span className="text-ink font-mono tnum">
                             {record.document.sizeBytes
                               ? `${(record.document.sizeBytes / (1024 * 1024)).toFixed(2)} MB`
                               : "—"}
@@ -2088,14 +2088,14 @@ function RecordInspectorModal({
                     <Label>
                       {lang === "th" ? "ข้อมูลและไทม์ไลน์ประกาศ" : "Procurement Timeline & Meta"}
                     </Label>
-                    <div className="mt-2 space-y-2 font-mono text-[12px]">
+                    <div className="mt-2 space-y-2 text-[12px]">
                       <div className="flex justify-between border-b border-line pb-1.5">
                         <span className="text-ink-3">Announce Date:</span>
-                        <span className="text-ink">{record.announceDate || "—"}</span>
+                        <span className="text-ink font-mono tnum">{record.announceDate || "—"}</span>
                       </div>
                       <div className="flex justify-between border-b border-line pb-1.5">
                         <span className="text-ink-3">Submission Deadline:</span>
-                        <span className="text-ink">{record.submissionDeadline || "—"}</span>
+                        <span className="text-ink font-mono tnum">{record.submissionDeadline || "—"}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-ink-3">Source Portal:</span>
@@ -2205,7 +2205,7 @@ function AddRecordModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-[3px] border border-line-2 bg-surface px-2 py-0.5 font-mono text-[12px] text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
+            className="rounded-[3px] border border-line-2 bg-surface px-2 py-0.5 text-[12px] text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
           >
             ✕
           </button>
@@ -2234,7 +2234,7 @@ function AddRecordModal({
               placeholder="e.g. 69099683466"
               className={`${input} mt-1 font-mono tracking-wider`}
             />
-            <div className="mt-1 flex items-center justify-between text-[11px] font-mono">
+            <div className="mt-1 flex items-center justify-between text-[11px]">
               <span className={isValid ? "text-open font-semibold" : "text-ink-3"}>
                 {isValid
                   ? lang === "th"
@@ -2248,7 +2248,7 @@ function AddRecordModal({
           </div>
 
           {error ? (
-            <div className="rounded-[3px] border border-risk-line bg-risk-bg p-2.5 font-mono text-[12px] text-risk">
+            <div className="rounded-[3px] border border-risk-line bg-risk-bg p-2.5 text-[12px] text-risk">
               {error}
             </div>
           ) : null}
