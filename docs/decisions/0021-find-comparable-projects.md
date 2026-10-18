@@ -44,8 +44,6 @@ For GIPDP's price benchmarking (FR-20), two projects are considered comparable w
 | `overview.systemArchetype` | `String` (enum) | **Stage 2: Scope Score (Primary)** | Standardized deliverable architecture (`mobile-app`, `web-portal`, `enterprise-erp`, etc.). Direct matching (1.0) or penalty (0.15) replaces regex ambiguity. |
 | `overview.majorComponents` & `highLevelScope` | `[String]` / `String` | **Stage 2: Scope Overlap (Fallback)** | Curated domain keyword clusters used **only** as a fallback for legacy records where `systemArchetype` is missing or `'other'`. |
 | `technicalRequirements.requiredTechnologies` | `[Object]` | **Stage 2: Bonus Tech Score (Jaccard)** | Shared technologies (`name`, `version`) boost similarity ranking when present, but are soft-weighted with neutral fallbacks ($0.5$). |
-| `identification.titleTh` | `String` | **Display & Traceability Only** | Excluded from similarity scoring to eliminate administrative phrase noise. Populates the output `{ title, year, referencePriceTHB }` for user cards and citations. |
-| `facts.deliveryPeriodDays` | `Number` | **Excluded from Hard Filtering** | Contract durations in Thai procurement are frequently compressed to meet the September 30 fiscal budget year-end, rather than reflecting technical complexity. It must never act as a hard filter. |
 
 ---
 
