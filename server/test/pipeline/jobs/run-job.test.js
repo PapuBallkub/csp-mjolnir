@@ -42,9 +42,12 @@ after(async () => {
 const later = (ms) => new Date(Date.now() + ms);
 
 test('JOBS: every job processes in the same order, screen before download', () => {
-  assert.deepEqual(JOBS.process, ['screen', 'download', 'ocr', 'extract', 'ocr', 'extract']);
-  assert.deepEqual(JOBS.poll, ['fetch', ...JOBS.process]);
-  assert.deepEqual(JOBS.sweep, ['sweep', ...JOBS.process]);
+  const processing = ['screen', 'download', 'ocr', 'extract', 'ocr', 'extract'];
+  assert.deepEqual(JOBS.poll, ['fetch', ...processing]);
+  assert.deepEqual(JOBS.sweep, ['sweep', ...processing]);
+  // The night refreshes comparisons first, then asks for past projects before download takes them (ADR 0028)
+  assert.deepEqual(JOBS.process, ['comparisons', 'history', ...processing]);
+  assert.ok(STEPS.history.args.includes('history'));
   assert.ok(!STEPS.fetch.args.join(' ').includes('15'), 'the poll leaves out 15, which always times out');
 });
 

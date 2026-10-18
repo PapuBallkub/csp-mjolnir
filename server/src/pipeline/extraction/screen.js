@@ -11,10 +11,20 @@
  * the team's question answerable: how many IT TORs have titles that don't
  * look it.
  *
+ * Each verdict also names the kind of IT project the title points to, or
+ * none (screen-v2, ADR 0028).
+ *
+ * Past projects imported from data.go.th (npm run history:import) are
+ * screened only when asked for, with --past: there can be thousands, and the
+ * spend is a decision. Those found IT get a title-level TorInsight record,
+ * which counts in benchmarks until full extraction replaces it. Unsure ones
+ * get none until their documents are read.
+ *
  * Usage:
  *   npm run screen
  *   npm run screen -- --limit 40 --dry-run
  *   npm run screen -- --until 2026-10-14T07:55:00+07:00
+ *   npm run screen -- --past --limit 200
  *
  * Runs under the extraction lock: it spends Gemini like extraction does.
  */
@@ -22,13 +32,15 @@
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { TitleScreen, Tor } from '#models/index.js';
+import { TitleScreen, Tor, TorInsight } from '#models/index.js';
 import { isPastDeadline, parseUntil } from '../shared/deadline.js';
 import { withRunLock } from '../shared/run-lock.js';
 import { WORKABLE } from '../shared/workable.js';
 import { createGeminiClient, generateJson, readGeminiConfig } from './gemini.js';
 import { SCREEN_INSTRUCTION, SCREEN_VERSION, buildScreenContents } from './prompts.js';
-import { SCREEN_VERDICTS, screenSchema } from './schema.js';
+import { PROJECT_CATEGORIES, SCREEN_VERDICTS, screenSchema } from './schema.js';
+import { buildTitleLevel } from './assemble.js';
+import { saveInsight } from './process-tor.js';
 
 // About 40 short lines: small enough that Gemini answers every one, big
 // enough that a thousand titles take 25 calls, not a thousand
@@ -53,13 +65,59 @@ export function isAudited(projectId, rate = AUDIT_RATE) {
   return hash.readUInt32BE(0) / 0x1_0000_0000 < rate;
 }
 
+// Past projects from data.go.th (ADR 0028): never workable, so they're
+// screened only when asked for (--past), and only once imported
+const PAST = { source: 'datago', pipelineStatus: 'fetched' };
+
+/** What a title-level record is built from: changing any of it builds it again. */
+export function titleLevelFingerprint(tor) {
+  const basis = ['datago', tor.title, tor.agency, tor.subAgency, tor.budgetTHB, tor.referencePriceTHB, tor.contract ?? null];
+  return crypto.createHash('sha256').update(JSON.stringify(basis)).digest('hex');
+}
+
 /**
- * New projects waiting for the screen: workable, not downloaded yet, and not
- * screened on their current title with the current prompt.
+ * Builds title-level records for past projects the screen found IT (ADR
+ * 0028). An unsure one gets none: most are hardware a title can't rule out,
+ * and a title-level record counts in benchmarks. It can still be chosen to be
+ * read in full, after the IT ones. Never over a full extraction, or a project
+ * its documents showed not IT: only where there's no record yet, or a
+ * title-level one. A title-level record whose project is now screened unsure
+ * or not_it is removed.
+ *
+ * @returns {Promise<number>} How many were saved
  */
-export async function findUnscreened() {
+export async function saveTitleLevel(screens, { now = new Date() } = {}) {
+  if (screens.length === 0) return 0;
+  const ids = screens.map((screen) => screen.projectId);
+  const existing = new Map(
+    (await TorInsight.find({ projectId: { $in: ids } }, { projectId: 1, metadata: 1 }).lean()).map((insight) => [insight.projectId, insight]),
+  );
+  const titleLevel = (projectId) => Boolean(existing.get(projectId)?.metadata?.titleOnly);
+
+  const dropped = screens.filter((screen) => screen.verdict !== 'it' && titleLevel(screen.projectId));
+  if (dropped.length) await TorInsight.deleteMany({ projectId: { $in: dropped.map((screen) => screen.projectId) }, 'metadata.titleOnly': true });
+
+  const kept = screens.filter((screen) => screen.verdict === 'it');
+  const tors = new Map((await Tor.find({ projectId: { $in: kept.map((screen) => screen.projectId) } }).lean()).map((tor) => [tor.projectId, tor]));
+  let saved = 0;
+  for (const screen of kept) {
+    const tor = tors.get(screen.projectId);
+    if (!tor || (existing.has(screen.projectId) && !titleLevel(screen.projectId))) continue;
+    const run = { model: screen.modelName, promptVersion: screen.promptVersion, fingerprint: titleLevelFingerprint(tor), now };
+    await saveInsight(buildTitleLevel({ tor, screen, run }));
+    saved++;
+  }
+  return saved;
+}
+
+/**
+ * Projects waiting for the screen, not screened on their current title with
+ * the current prompt: new workable ones from the feed, or with `past`, the
+ * past projects imported from data.go.th.
+ */
+export async function findUnscreened({ past = false } = {}) {
   const tors = await Tor.find(
-    { ...WORKABLE, pipelineStatus: 'fetched' },
+    past ? PAST : { ...WORKABLE, pipelineStatus: 'fetched' },
     { projectId: 1, title: 1, procurementMethod: 1 },
   )
     .sort({ createdAt: 1, _id: 1 }) // oldest first, in a fixed order
@@ -80,7 +138,7 @@ export async function findUnscreened() {
  *
  * @returns {Promise<{ screens: object[], missing: string[], usage: object }>}
  */
-export async function screenBatch(tors, { client, config, now = new Date(), auditRate = AUDIT_RATE }) {
+export async function screenBatch(tors, { client, config, now = new Date(), auditRate = AUDIT_RATE, past = false }) {
   const { data, usage } = await generateJson({
     client,
     model: config.model,
@@ -108,7 +166,11 @@ export async function screenBatch(tors, { client, config, now = new Date(), audi
       title: given.get(projectId).title,
       verdict: answer.verdict,
       reason: String(answer.reason ?? '').trim(),
-      audit: answer.verdict === 'not_it' && isAudited(projectId, auditRate),
+      // None for not_it, and only one of the fixed kinds
+      category: answer.verdict !== 'not_it' && PROJECT_CATEGORIES.includes(answer.category) ? answer.category : null,
+      // The audit sample is for new projects, which it sends to download; a
+      // past project isn't downloaded that way
+      audit: !past && answer.verdict === 'not_it' && isAudited(projectId, auditRate),
       modelName: config.model,
       promptVersion: SCREEN_VERSION,
       screenedAt: now,
@@ -135,11 +197,14 @@ export async function saveScreens(screens) {
  * @returns {Promise<{ it: number, not_it: number, unsure: number, audit: number, missing: number,
  *   failedBatches: number, left: number, usage: object[] }>}
  */
-export async function runScreen({ client, config, limit = Infinity, until = null, dryRun = false, log = console }) {
-  const waiting = await findUnscreened();
+export async function runScreen({ client, config, limit = Infinity, until = null, dryRun = false, past = false, log = console }) {
+  const waiting = await findUnscreened({ past });
   const queue = waiting.slice(0, limit);
-  const counts = { it: 0, not_it: 0, unsure: 0, audit: 0, missing: 0, failedBatches: 0, left: 0, usage: [] };
-  log.log(`${waiting.length} new project(s) waiting for the title screen${queue.length < waiting.length ? `; screening ${queue.length}` : ''}.`);
+  const counts = { it: 0, not_it: 0, unsure: 0, audit: 0, missing: 0, failedBatches: 0, left: 0, titleLevel: 0, usage: [] };
+  log.log(
+    `${waiting.length} ${past ? 'past' : 'new'} project(s) waiting for the title screen` +
+      `${queue.length < waiting.length ? `; screening ${queue.length}` : ''}.`,
+  );
 
   let failedInARow = 0;
   for (let start = 0; start < queue.length; start += BATCH_SIZE) {
@@ -151,16 +216,19 @@ export async function runScreen({ client, config, limit = Infinity, until = null
     const batch = queue.slice(start, start + BATCH_SIZE);
     const label = `[${start + 1}–${start + batch.length}/${queue.length}]`;
     try {
-      const { screens, missing, usage } = await screenBatch(batch, { client, config });
+      const { screens, missing, usage } = await screenBatch(batch, { client, config, past });
       counts.usage.push(usage);
-      if (!dryRun) await saveScreens(screens);
+      if (!dryRun) {
+        await saveScreens(screens);
+        if (past) counts.titleLevel += await saveTitleLevel(screens);
+      }
       failedInARow = 0;
 
       for (const screen of screens) {
         counts[screen.verdict]++;
         if (screen.audit) counts.audit++;
         const tag = screen.audit ? 'not_it, audited' : screen.verdict;
-        log.log(`  ${screen.projectId} ${tag.padEnd(16)} ${screen.reason} · ${screen.title.slice(0, 70)}`);
+        log.log(`  ${screen.projectId} ${tag.padEnd(16)} ${(screen.category ?? '-').padEnd(23)} ${screen.reason} · ${screen.title.slice(0, 60)}`);
       }
       counts.missing += missing.length;
       const note = missing.length ? `; ${missing.length} unanswered, screened again next run` : '';
@@ -190,6 +258,7 @@ function parseArgs(argv) {
     limit: Number.isInteger(limit) && limit > 0 ? limit : Infinity,
     until: parseUntil(value('--until')),
     dryRun: argv.includes('--dry-run'),
+    past: argv.includes('--past'),
   };
 }
 
@@ -200,7 +269,8 @@ async function main() {
   const config = readGeminiConfig();
   const client = createGeminiClient(config);
   console.log(
-    `Title screen · ${config.model} · prompt ${SCREEN_VERSION} · audit ${Math.round(AUDIT_RATE * 100)}% of not_it` +
+    `Title screen${args.past ? ' of past projects' : ''} · ${config.model} · prompt ${SCREEN_VERSION}` +
+      `${args.past ? '' : ` · audit ${Math.round(AUDIT_RATE * 100)}% of not_it`}` +
       `${args.dryRun ? ' · DRY RUN (nothing saved)' : ''}\n`,
   );
 
@@ -210,7 +280,8 @@ async function main() {
       const counts = await runScreen({ client, config, ...args });
       console.log(
         `\nDone: ${counts.it} it, ${counts.unsure} unsure, ${counts.not_it} not_it ` +
-          `(${counts.audit} of them audited, so downloaded anyway)` +
+          (args.past ? '' : `(${counts.audit} of them audited, so downloaded anyway)`) +
+          (counts.titleLevel ? `; ${counts.titleLevel} title-level record(s) saved` : '') +
           (counts.missing ? `, ${counts.missing} unanswered` : '') +
           (counts.failedBatches ? `, ${counts.failedBatches} batch(es) failed` : ''),
       );

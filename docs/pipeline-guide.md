@@ -54,7 +54,7 @@ The website reads the results from the database.
 |---|---|---|
 | **The e-GP feed** | New announcements: drafts, invitations to bid, changes, cancellations, winners | The only source of projects that are **open now**. It is **open only from 17:01 to 08:29** (Bangkok time), so the pipeline only asks it then. |
 | **e-GP document packages** | Each project's files: the announcement, the bidding document, the TOR, and the price form | Downloaded once per stage of the project. Some are scans, which must be read with OCR (text recognition). |
-| **data.go.th** | Past contracts, from fiscal year 2568 (October 2024 to September 2025) | Not open projects. Meant for price comparisons; being reworked. |
+| **data.go.th** | e-GP's list of agencies and their codes; past contracts from fiscal year 2568 (October 2024 to September 2025) | The agency list feeds the sweep. The past contracts aren't open projects: the IT ones are imported once, for price comparisons (below). |
 
 The feed can be asked in two ways:
 - **The national list:** today's latest 20 announcements of each kind. Quick,
@@ -64,6 +64,30 @@ The feed can be asked in two ways:
   another, is called the **sweep**. It's how we find what the national list
   missed. It takes about an hour and a half, with short pauses: e-GP turns
   us away after 240 requests in a row.
+
+## Past projects
+
+Prices only mean something next to what similar projects cost before. The
+feed brings few of those, so the pipeline can also import **past contracts
+from data.go.th** (fiscal year 2568), once:
+
+- Only projects that were announced publicly, with titles that look like IT,
+  are kept. They become ordinary projects with status Awarded.
+- Gemini then sorts their titles, when someone runs it by hand. Those that
+  are IT get a **title-level summary**: title, agency, prices and the kind of
+  project, nothing else. It counts in price statistics, but the site never
+  shows it. Those it's unsure about, mostly computer equipment and other
+  hardware, get nothing and count nowhere until their documents are read.
+- **Every night, 20 of them have their documents read in full,** like any
+  project, and then they get a normal summary that detailed comparisons can
+  use. The night run looks after the open projects closing soonest first:
+  each gets the past projects most like it until it has 5 similar projects
+  (past or new), then the next one gets its turn. Once all have 5, the
+  soonest look for more. The unsure ones come only after the IT ones.
+- **This only happens on nights the 22:00 run runs,** so for now, only when
+  someone's computer is running the schedule then. At 20 a night, reading
+  all 2,239 IT past projects would take about 110 nights. That isn't the
+  aim: the aim is past projects like the ones open now.
 
 ## The journey of one project
 
@@ -140,7 +164,7 @@ The pipeline runs by itself at fixed times, in Bangkok time:
 | 08:00 | poll | The national list, then processing | Before the feed closes at 08:30 |
 | 17:05 | poll | The national list, then processing | The feed reopens at 17:01 |
 | 18:00 | sweep | All 267 agencies, then processing | Catches what the national list missed |
-| 22:00 | process | Download, read and summarise whatever is waiting | Through the night, until 07:55 |
+| 22:00 | process | Update the price comparisons, pick tonight's 20 past projects, then download, read and summarise whatever is waiting | Through the night, until 07:55 |
 
 "Processing" is stages 2 to 9 above. Each run stops taking new work 5
 minutes before the next one starts, and only one runs at a time.
@@ -177,6 +201,9 @@ Run from anywhere else, npm says it "could not read package.json".
 | Run one round by hand | `npm run job -- poll` (or `sweep`, or `process`) |
 | See what happened in the last 24 hours | `npm run report` |
 | Add one project the feed never showed | `npm run ingest:add -- --id 69109028093` |
+| Import past IT contracts from data.go.th, once | `npm run history:import -- --dry-run` to see the counts, then without `--dry-run` |
+| Sort those past projects' titles with Gemini | `npm run screen -- --past --limit 200` (costs Gemini; run by hand only) |
+| See which past projects tonight's run would read in full | `npm run ingest -- --step history --dry-run` |
 
 **`npm run schedule` keeps running until you stop it.** It waits for the
 next time in the table, starts that run, and waits again. A window that seems

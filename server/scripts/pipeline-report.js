@@ -2,8 +2,8 @@
  * server/scripts/pipeline-report.js
  *
  * What the scheduled pipeline did (ADR 0027): its jobs, the feed's answers,
- * the title screen's verdicts and what reached the catalog, from the records
- * the runs leave in MongoDB.
+ * the title screen's verdicts, the past projects chosen to be read in full,
+ * and what reached the catalog, from the records the runs leave in MongoDB.
  *
  * Usage:
  *   npm run report                 # the last 24 hours
@@ -11,8 +11,9 @@
  */
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { FeedPoll, PipelineFailure, PipelineRun, TitleScreen, TorInsight } from '#models/index.js';
+import { FeedPoll, PipelineFailure, PipelineRun, TitleScreen, Tor, TorInsight } from '#models/index.js';
 import { bangkokTime } from '#pipeline/jobs/schedule.js';
+import { MAX_ATTEMPTS } from '#pipeline/shared/failures.js';
 
 const minutes = (ms) => `${Math.round(ms / 60_000)} min`;
 const percent = (part, whole) => (whole ? `${Math.round((100 * part) / whole)}%` : '-');
@@ -95,14 +96,49 @@ async function screen(since) {
   );
 }
 
+// The past projects asked for in this window, and how far each got (ADR 0028)
+async function pastProjects(since) {
+  const asked = await Tor.find({ historyRequestedAt: { $gte: since } }, { projectId: 1, pipelineStatus: 1 }).lean();
+  const earlier = await Tor.countDocuments({ historyRequestedAt: { $lt: since }, pipelineStatus: 'fetched' });
+  const titleLevel = await TorInsight.countDocuments({ 'metadata.titleOnly': true });
+  if (asked.length === 0 && earlier === 0 && titleLevel === 0) return;
+
+  const ids = asked.map((tor) => tor.projectId);
+  const insights = await TorInsight.find({ projectId: { $in: ids } }, { metadata: 1 }).lean();
+  const gaveUp = await PipelineFailure.countDocuments({ projectId: { $in: ids }, step: 'download', attempts: { $gte: MAX_ATTEMPTS } });
+  const waiting = asked.filter((tor) => tor.pipelineStatus === 'fetched').length;
+  const extracted = insights.filter((i) => !i.metadata.titleOnly && !i.metadata.excluded && !i.metadata.awaitingFullText);
+  console.log('\nPAST PROJECTS');
+  console.log(
+    `  ${asked.length} asked for, to read in full: ${waiting} not downloaded yet` +
+      (gaveUp ? ` (${gaveUp} gave up: no package)` : '') +
+      `, ${asked.length - waiting} downloaded, ${extracted.length} extracted, ` +
+      `${insights.filter((i) => i.metadata.excluded).length} not IT once read`,
+  );
+  if (earlier) console.log(`  ${earlier} asked for before that still wait for their download`);
+
+  // Unsure ones have no record until read: chosen only after the IT ones
+  const unsureIds = await TitleScreen.distinct('projectId', { verdict: 'unsure' });
+  const read = new Set(await TorInsight.distinct('projectId', { projectId: { $in: unsureIds } }));
+  const unsureLeft = await Tor.countDocuments({
+    projectId: { $in: unsureIds.filter((projectId) => !read.has(projectId)) },
+    source: 'datago',
+    historyRequestedAt: null,
+  });
+  console.log(`  left to choose from: ${titleLevel} found IT by their title (title-level records), ${unsureLeft} unsure`);
+}
+
 async function catalog(since) {
   const insights = await TorInsight.find({ 'metadata.processedAt': { $gte: since }, 'metadata.origin': { $ne: 'demo' } }).lean();
-  const extracted = insights.filter((i) => !i.metadata.excluded && !i.metadata.awaitingFullText);
+  const extracted = insights.filter((i) => !i.metadata.excluded && !i.metadata.awaitingFullText && !i.metadata.titleOnly);
+  // Past projects known from their title only, until extracted (ADR 0028)
+  const titleLevel = insights.filter((i) => i.metadata.titleOnly).length;
   console.log('\nCLASSIFY AND EXTRACT');
   console.log(
     `  ${insights.length} result(s): ${extracted.length} extracted, ` +
       `${insights.filter((i) => i.metadata.excluded).length} excluded (not IT), ` +
-      `${insights.filter((i) => i.metadata.awaitingFullText).length} IT waiting for the full text`,
+      `${insights.filter((i) => i.metadata.awaitingFullText).length} IT waiting for the full text` +
+      (titleLevel ? `, ${titleLevel} past project(s) at title level` : ''),
   );
   for (const insight of extracted) {
     console.log(`    ${insight.projectId} score ${insight.metadata.confidenceScore ?? '-'} · ${String(insight.identification?.titleTh ?? '').slice(0, 80)}`);
@@ -129,6 +165,7 @@ async function main() {
     await jobs(since);
     await feed(since);
     await screen(since);
+    await pastProjects(since);
     await catalog(since);
   } finally {
     await disconnectDatabase();

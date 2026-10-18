@@ -148,6 +148,8 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
         toAmount(facts.referencePrice),
         stated.referencePriceTHB,
       ),
+      // The signed price, from data.go.th; never in the TOR (ADR 0028)
+      agreedPriceTHB: feedAmount(tor.contract?.agreedPriceTHB),
       submissionDeadline: feedFirst(
         tor.submissionDeadline ?? null,
         'submissionDeadline',
@@ -221,5 +223,32 @@ export function buildExcluded({ tor, classification, run }) {
       checks: [],
       excluded: { reason: classification.reason, quote: classification.quote ?? null },
     }),
+  };
+}
+
+/**
+ * A past project known only from its data.go.th row and its title (ADR 0028):
+ * identification, prices and the category the title screen gave, every other
+ * section empty and nothing quoted. It counts in benchmarks and is never shown
+ * as a summary. Full extraction replaces it once the project's documents are
+ * read: the documents make a different fingerprint, so extraction treats it as
+ * a changed source.
+ *
+ * @param {object} input.tor - The Tor, with its data.go.th contract
+ * @param {{ category: string|null }} input.screen - Its title screen verdict
+ */
+export function buildTitleLevel({ tor, screen, run }) {
+  return {
+    projectId: tor.projectId,
+    identification: identity(tor, tor.agency, { category: screen.category ?? null, department: tor.subAgency || null }),
+    facts: {
+      ...links(tor),
+      budgetTHB: feedAmount(tor.budgetTHB),
+      referencePriceTHB: feedAmount(tor.referencePriceTHB),
+      agreedPriceTHB: feedAmount(tor.contract?.agreedPriceTHB),
+      procurementMethod: tor.procurementMethod || null,
+      postedDate: feedDate(tor.announceDate),
+    },
+    metadata: runMetadata(run, { confidenceScore: null, checks: [], titleOnly: true }),
   };
 }
