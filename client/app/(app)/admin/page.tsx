@@ -12,10 +12,7 @@ import {
   adminUpdateReview,
   type AdminOperations,
   type ApiError,
-  type PipelineFailureItem,
   type PipelineRecordDiagnostics,
-  type PipelineRunItem,
-  type PipelineStageSnapshot,
   type ReviewItem,
   type SourceHealth,
   type UpdateReviewPayload,
@@ -1629,8 +1626,10 @@ function RecordInspectorModal({
                       type="button"
                       disabled={retrying}
                       onClick={async () => {
+                        const stepToRetry = record.activeFailure?.step;
+                        if (!stepToRetry) return;
                         setRetrying(true);
-                        await onRetryStep(record.projectId, record.activeFailure!.step);
+                        await onRetryStep(record.projectId, stepToRetry);
                         setRetrying(false);
                       }}
                       className={`${btn.primary} h-7 px-3 text-[11px]`}
@@ -1643,9 +1642,12 @@ function RecordInspectorModal({
                     </button>
                     <button
                       type="button"
-                      onClick={() =>
-                        onDismissFailure(record.projectId, record.activeFailure!.step)
-                      }
+                      onClick={() => {
+                        const stepToDismiss = record.activeFailure?.step;
+                        if (stepToDismiss) {
+                          onDismissFailure(record.projectId, stepToDismiss);
+                        }
+                      }}
                       className={`${btn.secondary} h-7 px-3 text-[11px] text-risk`}
                     >
                       {lang === "th" ? "ละเว้นข้อผิดพลาดนี้ (Dismiss)" : "Dismiss Failure"}
@@ -1779,9 +1781,10 @@ function RecordInspectorModal({
                     <div className="flex items-center justify-between border-b border-line pb-1">
                       <span className="text-ink-3">OCR Score:</span>
                       <span className="font-bold text-ink">
-                        {(record.stages.ocr?.confidence ?? record.ocr?.confidence) != null
-                          ? `${Math.round((record.stages.ocr?.confidence ?? record.ocr?.confidence!) * 100)}%`
-                          : "—"}
+                        {(() => {
+                          const ocrConf = record.stages.ocr?.confidence ?? record.ocr?.confidence;
+                          return ocrConf != null ? `${Math.round(ocrConf * 100)}%` : "—";
+                        })()}
                       </span>
                     </div>
                     <div className="flex items-center justify-between border-b border-line pb-1">
