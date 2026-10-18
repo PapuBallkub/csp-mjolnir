@@ -165,6 +165,8 @@ export default function AdminPage() {
   );
 }
 
+export type AdminJob = "overview" | "review" | "failures" | "history";
+
 function AdminDashboard({
   ops,
   lang,
@@ -177,6 +179,8 @@ function AdminDashboard({
   isRefreshing: boolean;
 }) {
   const { sources: scraperSources, reviewQueue, stats: pipelineStats, recentLogs } = ops;
+  const [activeJob, setActiveJob] = useState<AdminJob>("overview");
+  const [jobNavOpen, setJobNavOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(reviewQueue[0]?.docId ?? null);
   const [handled, setHandled] = useState<Record<string, string>>({});
   const [isPolling, setIsPolling] = useState(false);
@@ -389,12 +393,212 @@ function AdminDashboard({
     },
   ];
 
+  const ADMIN_JOBS: {
+    id: AdminJob;
+    icon: string;
+    label: { th: string; en: string };
+    description: { th: string; en: string };
+    badge?: number;
+    badgeTone?: "risk" | "amend" | "neutral";
+  }[] = [
+    {
+      id: "overview",
+      icon: "📊",
+      label: { th: "ภาพรวม & สแครปเปอร์", en: "Overview & Sources" },
+      description: { th: "ตัวชี้วัด, Funnel และสุขภาพแหล่งข้อมูล", en: "KPIs, funnel stages & scrapers" },
+    },
+    {
+      id: "review",
+      icon: "📋",
+      label: { th: "คิวตรวจทานเอกสาร", en: "Review Queue" },
+      description: { th: "ความมั่นใจ < 80% หรือจัดประเภทผิด", en: "Confidence < 80% or misclassified" },
+      badge: pendingCount > 0 ? pendingCount : undefined,
+      badgeTone: "amend",
+    },
+    {
+      id: "failures",
+      icon: "⚠️",
+      label: { th: "งานที่ติดขัดในระบบ", en: "Pipeline Failures" },
+      description: { th: "งานดาวน์โหลด, OCR, แยกข้อความ", en: "Stuck tasks & retry controls" },
+      badge: (ops.pipelineFailures?.length ?? 0) > 0 ? ops.pipelineFailures?.length : undefined,
+      badgeTone: "risk",
+    },
+    {
+      id: "history",
+      icon: "⏱️",
+      label: { th: "ประวัติงาน & บันทึก", en: "Runs & Audit Logs" },
+      description: { th: "รอบประมวลผลและ Audit Log", en: "Scheduled runs and activity logs" },
+      badge: (ops.pipelineRuns?.length ?? 0) > 0 ? ops.pipelineRuns?.length : undefined,
+      badgeTone: "neutral",
+    },
+  ];
+
+  const activeJobObj = ADMIN_JOBS.find((j) => j.id === activeJob) ?? ADMIN_JOBS[0];
+  const currentJobLabel = activeJobObj.label[lang];
+
+  const adminRail = (
+    <div className="flex flex-col gap-4">
+      {/* Jobs Selection Panel */}
+      <Panel className="overflow-hidden">
+        <div className="border-b border-line bg-surface-2 px-3.5 py-2.5">
+          <h2 className="text-[12px] font-semibold text-ink">
+            {lang === "th" ? "หน้าที่ผู้ดูแล (Admin Jobs)" : "Operational Jobs"}
+          </h2>
+        </div>
+
+        <nav className="flex flex-col p-1.5 gap-1" aria-label="Admin Navigation">
+          {ADMIN_JOBS.map((job) => {
+            const isActive = activeJob === job.id;
+            return (
+              <button
+                key={job.id}
+                type="button"
+                onClick={() => {
+                  setActiveJob(job.id);
+                  setJobNavOpen(false);
+                }}
+                aria-current={isActive ? "page" : undefined}
+                className={`flex w-full items-start justify-between rounded-[3px] px-3 py-2.5 text-left transition-all duration-150 cursor-pointer ${
+                  isActive
+                    ? "bg-ink text-surface shadow-xs font-semibold"
+                    : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                }`}
+              >
+                <div className="min-w-0 pr-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px]">{job.icon}</span>
+                    <span className="text-[13px] leading-tight font-medium">
+                      {job.label[lang]}
+                    </span>
+                  </div>
+                  <p
+                    className={`mt-0.5 text-[11px] leading-thai ${
+                      isActive ? "text-surface/80" : "text-ink-3"
+                    }`}
+                  >
+                    {job.description[lang]}
+                  </p>
+                </div>
+
+                {job.badge !== undefined && (
+                  <span
+                    className={`shrink-0 rounded-[2px] px-1.5 py-0.5 font-mono tnum text-[11px] font-medium ${
+                      isActive
+                        ? "bg-surface/20 text-surface"
+                        : job.badgeTone === "risk"
+                          ? "bg-risk-bg text-risk border border-risk-line"
+                          : job.badgeTone === "amend"
+                            ? "bg-amend-bg text-amend border border-amend-line"
+                            : "bg-surface-3 text-ink-3"
+                    }`}
+                  >
+                    {job.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </Panel>
+
+      {/* Quick Tools Panel */}
+      <Panel className="overflow-hidden">
+        <div className="border-b border-line bg-surface-2 px-3.5 py-2.5">
+          <h2 className="text-[12px] font-semibold text-ink">
+            {lang === "th" ? "จัดการรายโครงการ" : "Project Actions"}
+          </h2>
+        </div>
+
+        <div className="flex flex-col gap-3 p-3">
+          {/* Project Inspector Search Form */}
+          <div>
+            <Label>{lang === "th" ? "ตรวจสอบรายโครงการ" : "Inspect Record (FR-24)"}</Label>
+            <form onSubmit={handleQuickSearchSubmit} className="mt-1.5 relative flex items-center">
+              <input
+                type="text"
+                value={searchInspectorId}
+                onChange={(e) => setSearchInspectorId(e.target.value)}
+                placeholder={lang === "th" ? "รหัส 11 หลัก..." : "Project ID..."}
+                maxLength={11}
+                className={`${input} h-8 pr-7 text-[12px] w-full`}
+              />
+              <button
+                type="submit"
+                disabled={!searchInspectorId.trim()}
+                className="absolute right-1 text-ink-3 hover:text-ink disabled:opacity-30 p-1 cursor-pointer"
+                title={lang === "th" ? "ตรวจสอบสถานะรายโครงการ (Enter)" : "Inspect Record (Enter)"}
+              >
+                🔍
+              </button>
+            </form>
+          </div>
+
+          {/* Manual Add Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setAddProjectId("");
+              setAddError(null);
+              setIsAddModalOpen(true);
+            }}
+            className={`${btn.secondary} w-full justify-center text-[12px]`}
+          >
+            <span className="font-semibold mr-1">+</span>
+            <span>{lang === "th" ? "เพิ่มโครงการ e-GP" : "Add e-GP Project"}</span>
+          </button>
+        </div>
+      </Panel>
+
+      {/* System & Maintenance Status Panel */}
+      <Panel className="overflow-hidden p-3 text-[12px]">
+        <div className="flex items-center justify-between">
+          <span className="font-medium text-ink-2">
+            {lang === "th" ? "หน้าต่าง e-GP" : "e-GP Window"}
+          </span>
+          {inMaintenance ? (
+            <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-0.5 text-[10px] font-medium text-amend">
+              ⚠️ 00:00–04:00
+            </span>
+          ) : (
+            <span className="rounded-[2px] border border-open-line bg-open-bg px-1.5 py-0.5 text-[10px] font-medium text-open">
+              ✓ ปกติ
+            </span>
+          )}
+        </div>
+        <p className="mt-1 text-[11px] leading-thai text-ink-3">
+          {inMaintenance
+            ? lang === "th"
+              ? "กำลังอยู่ในช่วงบำรุงรักษาประจำวันของ e-GP"
+              : "Nightly e-GP maintenance active"
+            : lang === "th"
+              ? "ระบบเชื่อมต่อดึงข้อมูลได้ตามปกติ"
+              : "e-GP feeds operating normally"}
+        </p>
+
+        <div className="mt-3 pt-2.5 border-t border-line flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={isRefreshing || isPolling}
+            className="text-[11px] font-medium text-ink-2 hover:text-ink flex items-center gap-1 cursor-pointer"
+          >
+            <span className={isRefreshing ? "animate-spin inline-block" : ""}>↻</span>
+            <span>{lang === "th" ? "รีเฟรชข้อมูล" : "Refresh data"}</span>
+          </button>
+          <span className="text-[10px] text-ink-3 tnum font-mono">
+            {isRefreshing ? (lang === "th" ? "กำลังอัปเดต..." : "Updating...") : (lang === "th" ? "ข้อมูลล่าสุด" : "Latest")}
+          </span>
+        </div>
+      </Panel>
+    </div>
+  );
+
   return (
     <div className="mx-auto max-w-[1240px] px-4 py-6">
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-line pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="rounded-[2px] bg-ink text-surface px-1.5 py-0.5 text-[10px] uppercase font-semibold tracking-wider">
+            <span className="rounded-[2px] bg-ink text-surface px-1.5 py-0.5 text-[10px] uppercase font-semibold tracking-wider font-mono">
               ADMIN OPS
             </span>
             <span className="text-[11px] text-ink-3">
@@ -404,30 +608,15 @@ function AdminDashboard({
           <h1 className="mt-1.5 text-[24px] sm:text-[28px] leading-tight font-bold tracking-tight text-ink">
             {lang === "th" ? "สุขภาพระบบเก็บข้อมูลและการตรวจสอบข้อมูล" : "Pipeline Health & Data Integrity"}
           </h1>
+          <p className="mt-1 text-[13px] text-ink-2">
+            {lang === "th"
+              ? "ระบบติดตามการดึงข้อมูล e-GP ตรวจสอบความถูกต้องของการสกัดข้อความ และจัดการงานที่ติดขัด"
+              : "Operational telemetry, extraction verification queue, and automated failure recovery."}
+          </p>
         </div>
 
         {/* Action Toolbar */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Quick Project Inspector Search (FR-24) */}
-          <form onSubmit={handleQuickSearchSubmit} className="relative flex items-center">
-            <input
-              type="text"
-              value={searchInspectorId}
-              onChange={(e) => setSearchInspectorId(e.target.value)}
-              placeholder={lang === "th" ? "ตรวจรหัส 11 หลัก..." : "Inspect project ID..."}
-              maxLength={11}
-              className={`${input} h-9 w-44 sm:w-52 pr-8 text-[12px]`}
-            />
-            <button
-              type="submit"
-              disabled={!searchInspectorId.trim()}
-              className="absolute right-1 text-ink-3 hover:text-ink disabled:opacity-30 p-1.5 cursor-pointer"
-              title={lang === "th" ? "ตรวจสอบสถานะรายโครงการ (Enter)" : "Inspect Record (Enter)"}
-            >
-              🔍
-            </button>
-          </form>
-
           {/* Manual Add Button (FR-24) */}
           <button
             type="button"
@@ -455,37 +644,59 @@ function AdminDashboard({
             ) : (
               "↻"
             )}{" "}
-            <span className="hidden sm:inline">{lang === "th" ? "รีเฟรชสถานะ" : "Refresh"}</span>
+            <span className="hidden sm:inline">{lang === "th" ? "รีเฟรช" : "Refresh"}</span>
           </button>
         </div>
       </header>
 
-      {/* KPI Stats Strip */}
-      <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {stats.map((stat) => (
-          <Panel key={stat.label.en} className="px-3 py-2.5">
-            <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
-              {stat.value}
-            </p>
-            <p className="mt-1.5 text-[11px] leading-thai text-ink-3">{stat.label[lang]}</p>
-          </Panel>
-        ))}
-      </div>
+      {/* Semi-Sidebar Layout Matching /search */}
+      <div className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
+        {/* Mobile Job Switcher Button (lg:hidden) */}
+        <div className="lg:hidden">
+          <button
+            type="button"
+            onClick={() => setJobNavOpen(!jobNavOpen)}
+            aria-expanded={jobNavOpen}
+            className={`${btn.secondary} w-full justify-between`}
+          >
+            <span className="flex items-center gap-2">
+              <span className="text-ink-3">{lang === "th" ? "หน้าที่งาน:" : "Admin job:"}</span>
+              <span className="font-semibold text-ink flex items-center gap-1.5">
+                <span>{activeJobObj.icon}</span>
+                <span>{currentJobLabel}</span>
+              </span>
+            </span>
+            <span className="font-mono text-[11px] text-ink-3">{jobNavOpen ? "−" : "+"}</span>
+          </button>
+          {jobNavOpen ? <div className="mt-3">{adminRail}</div> : null}
+        </div>
 
-      {/* Pipeline Stage Funnel (FR-24) */}
-      <PipelineStageFunnel stageSnapshot={ops.stageSnapshot} lang={lang} />
+        {/* Desktop Semi-Sidebar Rail (hidden lg:block) */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-[76px] max-h-[calc(100vh-90px)] overflow-y-auto overscroll-contain pr-1.5 [scrollbar-width:thin] [scrollbar-color:var(--line)_transparent]">
+            {adminRail}
+          </div>
+        </aside>
 
-      {/* Stuck & Failed Tasks Table (FR-24) */}
-      <PipelineFailuresSection
-        failures={ops.pipelineFailures}
-        lang={lang}
-        onInspect={handleInspect}
-        onRetry={handleRetryStep}
-        onDismiss={handleDismissFailure}
-        retryingStep={retryingStep}
-        dismissingStep={dismissingStep}
-        actionMsg={pipelineActionMsg}
-      />
+        {/* Main Content Area */}
+        <main className="min-w-0">
+          {/* Job 1: Overview & Scrapers */}
+          {activeJob === "overview" && (
+            <div>
+              {/* KPI Stats Strip */}
+              <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                {stats.map((stat) => (
+                  <Panel key={stat.label.en} className="px-3 py-2.5">
+                    <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
+                      {stat.value}
+                    </p>
+                    <p className="mt-1.5 text-[11px] leading-thai text-ink-3">{stat.label[lang]}</p>
+                  </Panel>
+                ))}
+              </div>
+
+              {/* Pipeline Stage Funnel (FR-24) */}
+              <PipelineStageFunnel stageSnapshot={ops.stageSnapshot} lang={lang} />
 
       {/* Scrapers by Source */}
       <section className="mb-8">
@@ -622,167 +833,192 @@ function AdminDashboard({
           </table>
         </Panel>
       </section>
+            </div>
+          )}
 
-      {/* Recent Ingestion Execution Activity */}
-      {recentLogs && recentLogs.length > 0 ? (
-        <section className="mb-8">
-          <SectionHeading
-            right={
-              <span className="text-[11px] text-ink-3">
-                {recentLogs.length} {lang === "th" ? "รอบล่าสุด" : "recent runs"}
-              </span>
-            }
-          >
-            {lang === "th" ? "ประวัติการดึงข้อมูลล่าสุด" : "Recent ingestion activity"}
-          </SectionHeading>
+          {/* Job 2: Extraction Review Queue (FR-23, NFR-17) */}
+          {activeJob === "review" && (
+            <section>
+              <SectionHeading
+                right={
+                  <span className="text-[11px] text-ink-3">
+                    {pendingCount} {lang === "th" ? "รอดำเนินการ" : "pending"}
+                  </span>
+                }
+              >
+                {lang === "th" ? "คิวตรวจทานผลการอ่านเอกสาร" : "Extraction review queue"}
+              </SectionHeading>
 
-          <Panel className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-left">
-              <thead>
-                <tr className="border-b border-line bg-surface-2">
+              {/* Filter Pills & Search Bar */}
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap gap-1.5">
                   {[
-                    { text: lang === "th" ? "เวลาเริ่มต้น" : "Timestamp", right: false },
-                    { text: lang === "th" ? "แหล่งข้อมูล" : "Source", right: false },
-                    { text: lang === "th" ? "สถานะ" : "Status", right: false },
-                    { text: lang === "th" ? "เวลาที่ใช้" : "Duration", right: true },
-                    { text: lang === "th" ? "ค้นพบ / บันทึก" : "Discovered / Ingested", right: true },
-                    { text: lang === "th" ? "ผลการทำงาน" : "Details", right: false },
-                  ].map((column) => (
-                    <th
-                      key={column.text}
-                      className={`px-3 py-2 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
-                        column.right ? "text-right" : ""
+                    { id: "all", label: { th: `ทั้งหมด (${reviewQueue.length})`, en: `All (${reviewQueue.length})` } },
+                    { id: "pending", label: { th: `รอตรวจทาน (${pendingCount})`, en: `Pending (${pendingCount})` } },
+                    { id: "misclassified", label: { th: `ตรวจประเภท (${misclassifiedCount})`, en: `Misclassified (${misclassifiedCount})` } },
+                    { id: "reviewed", label: { th: "ตรวจทานแล้ว", en: "Reviewed" } },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setFilterTab(tab.id as typeof filterTab)}
+                      className={`rounded-[3px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                        filterTab === tab.id
+                          ? "bg-ink text-surface"
+                          : "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
                       }`}
                     >
-                      {column.text}
-                    </th>
+                      {tab.label[lang]}
+                    </button>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recentLogs.map((log) => (
-                  <tr
-                    key={log.id}
-                    className="border-b border-line align-middle last:border-b-0"
-                  >
-                    <td className="px-3 py-2 font-mono tnum text-[11px] text-ink-2 whitespace-nowrap">
-                      {log.startedAt}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[2px] text-[10px] text-ink font-medium">
-                        {log.source === "process3" ? "process3 (e-GP)" : "datago (data.go.th)"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`inline-flex rounded-[2px] border px-1.5 py-[2px] text-[10px] font-medium ${
-                          HEALTH[log.status]?.chip ?? "border-line bg-surface-2 text-ink-2"
-                        }`}
-                      >
-                        {HEALTH[log.status]?.label[lang] ?? log.status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono tnum text-[11px] text-ink-2">
-                      {log.durationMs > 1000
-                        ? `${(log.durationMs / 1000).toFixed(1)}s`
-                        : `${log.durationMs}ms`}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono tnum text-[11px] text-ink font-medium">
-                      {log.itemsDiscovered} / {log.itemsIngested}
-                    </td>
-                    <td className="px-3 py-2 text-[11px]">
-                      {log.error ? (
-                        <span className="text-risk">{log.error}</span>
-                      ) : (
-                        <span className="text-open">
-                          {lang === "th" ? "สำเร็จ เรียบร้อย" : "Completed successfully"}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Panel>
-        </section>
-      ) : null}
+                </div>
 
-      {/* Scheduled Job History (FR-24) */}
-      <PipelineRunsSection
-        runs={ops.pipelineRuns}
-        lang={lang}
-        showHistory={showJobHistory}
-        onToggleHistory={() => setShowJobHistory(!showJobHistory)}
-      />
+                <div className="w-full sm:w-72">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={lang === "th" ? "ค้นหาด้วยเลขโครงการ / ชื่อ..." : "Filter by project ID / title..."}
+                    className={`${input} text-[12px] h-8`}
+                  />
+                </div>
+              </div>
 
+              {filteredQueue.length === 0 ? (
+                <Panel className="p-6 text-center text-[13px] text-ink-3">
+                  {lang === "th" ? "ไม่พบรายการในเงื่อนไขที่เลือก" : "No items match the selected filter."}
+                </Panel>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {filteredQueue.map((item) => (
+                    <ReviewItemCard
+                      key={item.docId}
+                      item={item}
+                      lang={lang}
+                      isOpen={expanded === item.docId}
+                      onToggle={() => setExpanded(expanded === item.docId ? null : item.docId)}
+                      resolution={handled[item.docId] || null}
+                      onResolution={(text) => setHandled((prev) => ({ ...prev, [item.docId]: text }))}
+                      onSuccess={onRefresh}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
-      {/* Extraction Review Queue */}
-      <section>
-        <SectionHeading
-          right={
-            <span className="text-[11px] text-ink-3">
-              {pendingCount} {lang === "th" ? "รอดำเนินการ" : "pending"}
-            </span>
-          }
-        >
-          {lang === "th" ? "คิวตรวจทานผลการอ่านเอกสาร" : "Extraction review queue"}
-        </SectionHeading>
-
-        {/* Filter Pills & Search Bar */}
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              { id: "all", label: { th: `ทั้งหมด (${reviewQueue.length})`, en: `All (${reviewQueue.length})` } },
-              { id: "pending", label: { th: `รอตรวจทาน (${pendingCount})`, en: `Pending (${pendingCount})` } },
-              { id: "misclassified", label: { th: `ตรวจประเภท (${misclassifiedCount})`, en: `Misclassified (${misclassifiedCount})` } },
-              { id: "reviewed", label: { th: "ตรวจทานแล้ว", en: "Reviewed" } },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setFilterTab(tab.id as typeof filterTab)}
-                className={`rounded-[3px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
-                  filterTab === tab.id
-                    ? "bg-ink text-surface"
-                    : "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
-                }`}
-              >
-                {tab.label[lang]}
-              </button>
-            ))}
-          </div>
-
-          <div className="w-full sm:w-72">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={lang === "th" ? "ค้นหาด้วยเลขโครงการ / ชื่อ..." : "Filter by project ID / title..."}
-              className={`${input} text-[12px] h-8`}
+          {/* Job 3: Pipeline Failures & Stuck Items (FR-24) */}
+          {activeJob === "failures" && (
+            <PipelineFailuresSection
+              failures={ops.pipelineFailures}
+              lang={lang}
+              onInspect={handleInspect}
+              onRetry={handleRetryStep}
+              onDismiss={handleDismissFailure}
+              retryingStep={retryingStep}
+              dismissingStep={dismissingStep}
+              actionMsg={pipelineActionMsg}
             />
-          </div>
-        </div>
+          )}
 
-        {filteredQueue.length === 0 ? (
-          <Panel className="p-6 text-center text-[13px] text-ink-3">
-            {lang === "th" ? "ไม่พบรายการในเงื่อนไขที่เลือก" : "No items match the selected filter."}
-          </Panel>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {filteredQueue.map((item) => (
-              <ReviewItemCard
-                key={item.docId}
-                item={item}
+          {/* Job 4: Pipeline Runs & History (FR-24) */}
+          {activeJob === "history" && (
+            <div className="space-y-8">
+              {/* Scheduled Job History (FR-24) */}
+              <PipelineRunsSection
+                runs={ops.pipelineRuns}
                 lang={lang}
-                isOpen={expanded === item.docId}
-                onToggle={() => setExpanded(expanded === item.docId ? null : item.docId)}
-                resolution={handled[item.docId] || null}
-                onResolution={(text) => setHandled((prev) => ({ ...prev, [item.docId]: text }))}
+                showHistory={true}
+                onToggleHistory={() => setShowJobHistory(!showJobHistory)}
               />
-            ))}
-          </div>
-        )}
-      </section>
+
+              {/* Recent Ingestion Execution Activity */}
+              {recentLogs && recentLogs.length > 0 ? (
+                <section className="mb-8">
+                  <SectionHeading
+                    right={
+                      <span className="text-[11px] text-ink-3">
+                        {recentLogs.length} {lang === "th" ? "รอบล่าสุด" : "recent runs"}
+                      </span>
+                    }
+                  >
+                    {lang === "th" ? "ประวัติการดึงข้อมูลล่าสุด" : "Recent ingestion activity"}
+                  </SectionHeading>
+
+                  <Panel className="overflow-x-auto">
+                    <table className="w-full min-w-[720px] border-collapse text-left">
+                      <thead>
+                        <tr className="border-b border-line bg-surface-2">
+                          {[
+                            { text: lang === "th" ? "เวลาเริ่มต้น" : "Timestamp", right: false },
+                            { text: lang === "th" ? "แหล่งข้อมูล" : "Source", right: false },
+                            { text: lang === "th" ? "สถานะ" : "Status", right: false },
+                            { text: lang === "th" ? "เวลาที่ใช้" : "Duration", right: true },
+                            { text: lang === "th" ? "ค้นพบ / บันทึก" : "Discovered / Ingested", right: true },
+                            { text: lang === "th" ? "ผลการทำงาน" : "Details", right: false },
+                          ].map((column) => (
+                            <th
+                              key={column.text}
+                              className={`px-3 py-2 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
+                                column.right ? "text-right" : ""
+                              }`}
+                            >
+                              {column.text}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentLogs.map((log) => (
+                          <tr
+                            key={log.id}
+                            className="border-b border-line align-middle last:border-b-0"
+                          >
+                            <td className="px-3 py-2 font-mono tnum text-[11px] text-ink-2 whitespace-nowrap">
+                              {log.startedAt}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[2px] text-[10px] text-ink font-medium">
+                                {log.source === "process3" ? "process3 (e-GP)" : "datago (data.go.th)"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={`inline-flex rounded-[2px] border px-1.5 py-[2px] text-[10px] font-medium ${
+                                  HEALTH[log.status]?.chip ?? "border-line bg-surface-2 text-ink-2"
+                                }`}
+                              >
+                                {HEALTH[log.status]?.label[lang] ?? log.status}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono tnum text-[11px] text-ink-2">
+                              {log.durationMs > 1000
+                                ? `${(log.durationMs / 1000).toFixed(1)}s`
+                                : `${log.durationMs}ms`}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono tnum text-[11px] text-ink font-medium">
+                              {log.itemsDiscovered} / {log.itemsIngested}
+                            </td>
+                            <td className="px-3 py-2 text-[11px]">
+                              {log.error ? (
+                                <span className="text-risk">{log.error}</span>
+                              ) : (
+                                <span className="text-open">
+                                  {lang === "th" ? "สำเร็จ เรียบร้อย" : "Completed successfully"}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </Panel>
+                </section>
+              ) : null}
+            </div>
+          )}
+        </main>
+      </div>
 
       {/* Record Inspector Modal (FR-24) */}
       {inspectingProjectId && (
@@ -1350,6 +1586,7 @@ function ReviewItemCard({
   onToggle,
   resolution,
   onResolution,
+  onSuccess,
 }: {
   item: ReviewItem;
   lang: "th" | "en";
@@ -1357,6 +1594,7 @@ function ReviewItemCard({
   onToggle: () => void;
   resolution: string | null;
   onResolution: (text: string) => void;
+  onSuccess?: () => void;
 }) {
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
@@ -1367,52 +1605,79 @@ function ReviewItemCard({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [savedSuccess, setSavedSuccess] = useState<string | null>(null);
+
+  const [prevDocId, setPrevDocId] = useState(item.docId);
+  if (prevDocId !== item.docId) {
+    setPrevDocId(item.docId);
+    const initial: Record<string, string> = {};
+    for (const f of item.lowFields) {
+      initial[f.field] = f.value;
+    }
+    setFieldValues(initial);
+  }
 
   const handleSaveAndPublish = async () => {
     setIsSubmitting(true);
     setErrorMsg(null);
+    setSavedSuccess(null);
 
-    const fieldsPayload: UpdateReviewPayload["fields"] = {};
-    for (const [key, val] of Object.entries(fieldValues)) {
-      if (key.includes("ชื่อโครงการ") || key.includes("Project Title") || key === "title") {
-        fieldsPayload.title = val.trim();
-      } else if (key.includes("หน่วยงาน") || key.includes("Agency Name") || key === "agency") {
-        fieldsPayload.agency = val.trim();
-      } else if (
-        key.includes("ราคากลาง") ||
-        key.includes("Reference Price") ||
-        key.includes("Maximum Budget")
-      ) {
-        const num = Number(val.replace(/,/g, "").trim());
-        fieldsPayload.referencePriceTHB = Number.isFinite(num) ? num : null;
-      } else if (key.includes("งบประมาณ") || key.includes("Budget")) {
-        const num = Number(val.replace(/,/g, "").trim());
-        fieldsPayload.budgetTHB = Number.isFinite(num) ? num : null;
-      } else if (key.includes("Deadline")) {
-        fieldsPayload.submissionDeadline = val.trim() || null;
-      } else if (key.includes("Penalty")) {
-        fieldsPayload.penaltyClause = val.trim() || null;
-      } else if (key.includes("Tech")) {
-        fieldsPayload.requiredTechnologies = val.trim() || "";
+    try {
+      const fieldsPayload: UpdateReviewPayload["fields"] = {};
+      for (const [key, rawVal] of Object.entries(fieldValues)) {
+        const val = String(rawVal ?? "").trim();
+        if (key.includes("ชื่อโครงการ") || key.includes("Project Title") || key === "title") {
+          fieldsPayload.title = val;
+        } else if (key.includes("หน่วยงาน") || key.includes("Agency Name") || key === "agency") {
+          fieldsPayload.agency = val;
+        } else if (
+          key.includes("ราคากลาง") ||
+          key.includes("Reference Price") ||
+          key.includes("Maximum Budget")
+        ) {
+          const num = Number(val.replace(/,/g, ""));
+          fieldsPayload.referencePriceTHB = Number.isFinite(num) ? num : null;
+        } else if (key.includes("งบประมาณ") || key.includes("Budget")) {
+          const num = Number(val.replace(/,/g, ""));
+          fieldsPayload.budgetTHB = Number.isFinite(num) ? num : null;
+        } else if (key.includes("Deadline")) {
+          fieldsPayload.submissionDeadline = val || null;
+        } else if (key.includes("Penalty")) {
+          fieldsPayload.penaltyClause = val || null;
+        } else if (key.includes("Tech")) {
+          fieldsPayload.requiredTechnologies = val || "";
+        }
       }
-    }
 
-    const res = await adminUpdateReview(item.docId, {
-      action: "approve",
-      fields: fieldsPayload,
-    });
+      const res = await adminUpdateReview(item.docId, {
+        action: "approve",
+        fields: fieldsPayload,
+      });
 
-    setIsSubmitting(false);
-    if (res.ok) {
-      onResolution(lang === "th" ? "ตรวจทานและเผยแพร่แล้ว" : "Saved & Published");
-    } else {
-      setErrorMsg(res.error.message);
+      setIsSubmitting(false);
+      if (res.ok) {
+        const successNotice =
+          lang === "th"
+            ? "บันทึกและเผยแพร่ข้อมูลสำเร็จแล้ว (แสดงผลต่อสาธารณะ)"
+            : "Saved & Published successfully (publicly visible)";
+        setSavedSuccess(successNotice);
+        onResolution(lang === "th" ? "ตรวจทานและเผยแพร่แล้ว" : "Saved & Published");
+        onSuccess?.();
+      } else {
+        setErrorMsg(res.error.message);
+      }
+    } catch (err: unknown) {
+      setIsSubmitting(false);
+      setErrorMsg(
+        err instanceof Error ? err.message : lang === "th" ? "เกิดข้อผิดพลาดในการบันทึก" : "Failed to save review item"
+      );
     }
   };
 
   const handleReclassify = async () => {
     setIsSubmitting(true);
     setErrorMsg(null);
+    setSavedSuccess(null);
 
     const res = await adminUpdateReview(item.docId, {
       action: "reclassify",
@@ -1421,7 +1686,10 @@ function ReviewItemCard({
 
     setIsSubmitting(false);
     if (res.ok) {
-      onResolution(lang === "th" ? "จัดประเภทเป็นงานนอกขอบเขตแล้ว" : "Reclassified out of scope");
+      const msg = lang === "th" ? "จัดประเภทเป็นงานนอกขอบเขตแล้ว" : "Reclassified out of scope";
+      setSavedSuccess(msg);
+      onResolution(msg);
+      onSuccess?.();
     } else {
       setErrorMsg(res.error.message);
     }
@@ -1430,6 +1698,7 @@ function ReviewItemCard({
   const handleConfirmClassification = async () => {
     setIsSubmitting(true);
     setErrorMsg(null);
+    setSavedSuccess(null);
 
     const res = await adminUpdateReview(item.docId, {
       action: "confirm_classification",
@@ -1437,7 +1706,10 @@ function ReviewItemCard({
 
     setIsSubmitting(false);
     if (res.ok) {
-      onResolution(lang === "th" ? "ยืนยันการจัดประเภทแล้ว" : "Classification confirmed");
+      const msg = lang === "th" ? "ยืนยันการจัดประเภทแล้ว" : "Classification confirmed";
+      setSavedSuccess(msg);
+      onResolution(msg);
+      onSuccess?.();
     } else {
       setErrorMsg(res.error.message);
     }
@@ -1446,16 +1718,32 @@ function ReviewItemCard({
   const handleReExtract = async () => {
     setIsSubmitting(true);
     setErrorMsg(null);
+    setSavedSuccess(null);
 
     const res = await adminReExtract(item.docId);
 
     setIsSubmitting(false);
     if (res.ok) {
-      onResolution(lang === "th" ? "ส่งอ่านใหม่แล้ว" : "Re-queued");
+      const msg = lang === "th" ? "ส่งอ่านใหม่แล้ว" : "Re-queued";
+      setSavedSuccess(msg);
+      onResolution(msg);
+      onSuccess?.();
     } else {
       setErrorMsg(res.error.message);
     }
   };
+
+  const isReviewed =
+    item.reviewStatus === "approved" ||
+    Boolean(savedSuccess) ||
+    resolution?.includes("ตรวจทาน") ||
+    resolution?.includes("บันทึก") ||
+    resolution?.includes("Published");
+
+  const isExcluded =
+    item.reviewStatus === "rejected" ||
+    resolution?.includes("นอกขอบเขต") ||
+    resolution?.includes("scope");
 
   return (
     <Panel className="overflow-hidden">
@@ -1468,11 +1756,11 @@ function ReviewItemCard({
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-mono tnum text-[10px] text-ink-3">{item.docId}</span>
-            {item.reviewStatus === "approved" || resolution?.includes("บันทึก") || resolution?.includes("Published") ? (
+            {isReviewed ? (
               <span className="rounded-[2px] border border-open-line bg-open-bg px-1.5 py-[2px] text-[10px] font-medium text-open">
                 {lang === "th" ? "ตรวจทานแล้ว" : "Reviewed"}
               </span>
-            ) : item.reviewStatus === "rejected" || resolution?.includes("นอกขอบเขต") || resolution?.includes("scope") ? (
+            ) : isExcluded ? (
               <span className="rounded-[2px] border border-risk-line bg-risk-bg px-1.5 py-[2px] text-[10px] font-medium text-risk">
                 {lang === "th" ? "คัดออกนอกขอบเขต" : "Excluded"}
               </span>
@@ -1506,6 +1794,23 @@ function ReviewItemCard({
 
       {isOpen ? (
         <div className="border-t border-line bg-surface-2 px-3.5 py-3">
+          {savedSuccess ? (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[3px] border border-open-line bg-open-bg p-3 text-[13px] text-open">
+              <span className="flex items-center gap-2 font-medium">
+                <span className="text-[14px]">✓</span>
+                <span>{savedSuccess}</span>
+              </span>
+              <a
+                href={`/tor/${item.docId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[12px] font-medium underline hover:text-ink"
+              >
+                {lang === "th" ? "ดูหน้าประกาศบนเว็บ ↗" : "View on GIPDP ↗"}
+              </a>
+            </div>
+          ) : null}
+
           {errorMsg ? (
             <div className="mb-3 rounded-[3px] border border-risk-line bg-risk-bg p-2.5 text-[12px] text-risk">
               {errorMsg}
@@ -1578,17 +1883,21 @@ function ReviewItemCard({
               <div className="flex flex-wrap gap-2 pt-1">
                 <button
                   type="button"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || Boolean(savedSuccess)}
                   onClick={handleSaveAndPublish}
-                  className={btn.primary}
+                  className={savedSuccess ? btn.secondary : btn.primary}
                 >
                   {isSubmitting
                     ? lang === "th"
                       ? "กำลังบันทึก..."
                       : "Saving..."
-                    : lang === "th"
-                      ? "บันทึกและปล่อยให้ผู้ใช้เห็น"
-                      : "Save and publish"}
+                    : savedSuccess
+                      ? lang === "th"
+                        ? "✓ เผยแพร่แล้ว"
+                        : "✓ Published"
+                      : lang === "th"
+                        ? "บันทึกและปล่อยให้ผู้ใช้เห็น"
+                        : "Save and publish"}
                 </button>
                 <a
                   href={`/tor/${item.docId}`}

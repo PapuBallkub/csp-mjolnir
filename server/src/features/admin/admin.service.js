@@ -2,6 +2,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import { FeedPoll, IngestionLog, PipelineFailure, PipelineRun, TitleScreen, Tor, TorInsight } from '#models/index.js';
 import { runAddStep, runFetchStep } from '#pipeline/ingestion/ingest.js';
+import { ROUTINE_TYPES } from '#pipeline/ingestion/sources/process3.js';
 import { clearFailure } from '#pipeline/shared/failures.js';
 import { snapshot } from '#pipeline/jobs/run-job.js';
 import { withRunLock } from '#pipeline/shared/run-lock.js';
@@ -531,6 +532,7 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
     insight.metadata.reviewedAt = new Date();
     insight.metadata.excluded = null;
     insight.metadata.confidenceScore = Math.max(insight.metadata.confidenceScore || 0, 85);
+    insight.metadata.origin = 'pipeline';
     await TitleScreen.updateOne(
       { projectId },
       { $set: { verdict: 'pass', reason: 'Admin approved TOR and verified IT classification' } },
@@ -627,12 +629,22 @@ export async function reExtractTor(projectId) {
  * Triggers an on-demand polling execution of data ingestion sources.
  */
 export async function triggerIngestion({ source = 'all', limit = 2 } = {}) {
+  if (source === 'datago') {
+    return {
+      ok: true,
+      fetched: 0,
+      message:
+        'data.go.th เป็นคลังสัญญาจัดซื้อจัดจ้างย้อนหลัง (นำเข้าผ่าน CSV batch import สำหรับการเปรียบเทียบราคา FR-19 ไม่มีการเปิด polling แบบเรียลไทม์)',
+    };
+  }
+
   const documentsDir = process.env.DOCUMENTS_DIR || './data/documents';
   const total = await runFetchStep({
     query: 'คอมพิวเตอร์',
     limit,
     source,
     documentsDir,
+    types: ROUTINE_TYPES,
   });
   return {
     ok: true,
