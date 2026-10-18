@@ -13,38 +13,68 @@ This document provides a clear, mathematical, and field-by-field reference expla
 
 ---
 
-## 2. What Defines a "Comparable Project"?
+## 2. What Defines a "Comparable Project"? (The Two Core Questions)
 
-In government IT procurement, two projects are comparable when they share:
-1. **The same IT Category** (e.g. `software-development` is never benchmarked against hardware or networking).
-2. **The same System Archetype** (e.g. a Mobile Application is benchmarked against other Mobile Applications, not against a hospital enterprise ERP).
-3. **The same Economic Scale Tier** (e.g. a ฿500k simple utility is not benchmarked against a ฿50M enterprise platform).
+To find legitimate comparable peers, the matching engine must answer two distinct questions:
+
+1. **Question 1: Architectural Type (What kind of software is it?)**
+   - Answered by `overview.systemArchetype` (`mobile-app`, `web-portal`, `enterprise-erp`, `data-analytics`, `gis-mapping`, `infra-networking`, `other`) and `technicalRequirements.requiredTechnologies`.
+   - A mobile application is compared against other mobile applications, never against a CCTV hardware tender or a giant database warehouse.
+2. **Question 2: Engineering Scope & Complexity (How large and demanding is it?)**
+   - Answered by `overview.complexityTier` (`basic`, `standard`, `enterprise`).
+   - A simple 3-page registration form for a local district is never compared against a high-concurrency national citizen portal, even though both share the exact same architecture (`web-portal`) and stack (`React`, `PostgreSQL`).
 
 ### Why We Do NOT Match on the Specific Topic or `overview.objective`
-
-A common question is: *"Why don't we match projects that do the exact same thing, like 'Calories Tracking App'?"*
-
-1. **The "Zero-Peer" Trap:** In Thai government data, an agency might build a *"Calories Tracking Application"* once every few years. If we require the specific topic to match, the system finds 0 historical peers, leaving the user with no benchmark.
-2. **Identical Software Engineering Cost:** A ฿3M mobile app for tracking calories requires the exact same team structure, architecture, and deliverables (iOS/Android apps, user authentication, REST APIs, database, admin CMS, 180-day delivery, 1-year warranty) as a ฿3M mobile app for national park camping reservations. Their market prices are directly comparable.
-3. **`overview.objective` contains bureaucratic boilerplate:** Thai government objectives are heavily padded with generic slogans (*"เพื่อยกระดับประสิทธิภาพตามหลักธรรมาภิบาล"*). Matching on objectives causes false-positive similarity based on shared slogans rather than technical work.
+- **The "Zero-Peer" Trap:** In Thai government procurement, an agency tenders a *"Calories Tracking Application"* once every few years. Requiring domain business topic matches results in 0 historical peers.
+- **Identical Software Engineering Effort:** A ฿3M mobile app for tracking calories requires the exact same team structure, architecture, and deliverables (iOS/Android apps, user authentication, REST APIs, database, admin CMS, 180-day delivery, 1-year warranty) as a ฿3M mobile app for national park camping reservations. Their market prices are directly comparable.
+- **`overview.objective` contains bureaucratic boilerplate:** Thai government project objectives are heavily padded with generic slogans (*"เพื่อยกระดับประสิทธิภาพตามหลักธรรมาภิบาล"*). Matching on objectives causes false-positive similarity based on shared slogans rather than shared technical work.
 
 ---
 
-## 3. Summary of Data Fields Used
+## 3. The `overview.complexityTier` Specification
+
+During AI extraction (`server/src/pipeline/extraction/schema.js`), Gemini inspects the technical requirements of the TOR and assigns one of three standardized engineering tiers:
+
+```javascript
+export const COMPLEXITY_TIERS = [
+  'basic',       // Small / Departmental Workgroup Tool
+  'standard',    // Mid-sized Agency Operational System
+  'enterprise'   // Mission-Critical / High-Concurrency / Nationwide
+];
+```
+
+### Detailed Tier Breakdown:
+
+| Tier | Definition | What Gemini Inspects in the TOR | Real-World Thai Procurement Examples |
+|---|---|---|---|
+| **`basic`** | **Small / Internal Workgroup Tool** | • Internal use only (10–100 staff)<br>• Single module, simple CRUD operations, 1 database<br>• Standalone: no integrations with external databases<br>• Standard timeline (30–90 days), 1–2 developers | Department meeting room booking, online training evaluation survey, internal stationery inventory, informational brochure website. |
+| **`standard`** | **Agency-Wide Operational System** | • Serves an entire agency or department (hundreds to thousands of staff)<br>• Role-based access control (RBAC), approval workflows, audit logs<br>• 1–2 external API connections, data migration from legacy database<br>• Requires formal UAT, admin manuals, 180–240 day delivery | Provincial hospital equipment inventory, district land office queue management, municipal complaint management system with Line Notify. |
+| **`enterprise`** | **Nationwide / High-Concurrency Platform** | • Public-facing to millions of citizens OR mission-critical ministry core<br>• High Availability (99.9% SLA, load balancing, Disaster Recovery site)<br>• Strict cybersecurity audits (OWASP Top 10, penetration testing, PDPA compliance)<br>• Multiple integrations (DOPA citizen registry, ThaID, national payment gateways) | Mor Prom (หมอพร้อม), Pao Tang (เป๋าตัง), National Tax E-Filing System, Court of Justice Case Management Platform. |
+
+### What Sections of the TOR the AI Analyzes:
+1. **Target Users & Concurrency:** `overview.highLevelScope` and project background for internal staff vs nationwide citizen usage.
+2. **Deliverables Breadth:** `deliverables.system` and `deliverables.implementation` (single standalone app vs multi-platform ecosystem).
+3. **Integration Requirements:** `technicalRequirements` for connections to external government databases (DOPA, ThaID, e-GP, payment gateways).
+4. **Non-Functional & SLA:** High availability (HA), failover clusters, penetration testing, and 24/7 support clauses.
+
+---
+
+## 4. Summary of Data Fields Used
 
 All fields are read from the normalized [`TorInsight`](../../server/src/models/tor-insight.model.js) document:
 
 | Field Path | Data Type | Role in Matching | Why We Use It |
 |---|---|---|---|
 | `identification.category` | **`String`** | **Stage 1: Hard Filter** | Broad IT domain (e.g., `software-development`, `cloud-and-infrastructure`, `maintenance-and-support`). A web app is never compared against PC hardware. |
-| `facts.referencePriceTHB` *(or `budgetTHB`)* | **`Number`** | **Stage 1: Hard Bracket & Stage 2: Scale Score** | Enforces reasonable budget bounds ($[0.3\times, 3.0\times]$) and computes mathematical scale closeness. |
-| `overview.systemArchetype` | **`String`** *(enum)* | **Stage 2: Scope Score (Primary)** | Standardized deliverable architecture (`mobile-app`, `web-portal`, `enterprise-erp`, `data-analytics`, `gis-mapping`, `infra-networking`, `other`). Provides direct 100% match or penalty mismatch without regex guesswork. |
-| `overview.majorComponents` & `highLevelScope` | **`[String]`** / **`String`** | **Stage 2: Scope Overlap (Fallback)** | Curated domain keyword extraction used **only** when `systemArchetype` is missing (`null`) or `'other'` on legacy records. |
-| `technicalRequirements.requiredTechnologies` | **`[Object]`** *(List of `{name, version}`)* | **Stage 2: Tech Bonus Score** | Calculates technology overlap (e.g., React, PostgreSQL, Docker) using Jaccard similarity. |
+| `overview.systemArchetype` | **`String`** *(enum)* | **Stage 2: Architecture Score ($S_{\text{archetype}}$, 40%)** | Standardized deliverable architecture (`mobile-app`, `web-portal`, `enterprise-erp`, `data-analytics`, `gis-mapping`, `infra-networking`, `other`). Provides direct 100% match or penalty mismatch without regex guesswork. |
+| `overview.complexityTier` | **`String`** *(enum)* | **Stage 2: Scope Score ($S_{\text{complexity}}$, 35%)** | Engineering scale tier (`basic`, `standard`, `enterprise`). Same tier = 1.0, adjacent tier = 0.5, two tiers apart = 0.1. Replaces circular price brackets. |
+| `technicalRequirements.requiredTechnologies` | **`[Object]`** *(List of `{name, version}`)* | **Stage 2: Tech Bonus Score ($S_{\text{tech}}$, 25%)** | Calculates technology overlap (e.g., React, PostgreSQL, Docker) using Jaccard similarity. |
+| `overview.majorComponents` & `highLevelScope` | **`[String]`** / **`String`** | **Stage 2: Scope Fallback** | Curated domain keyword extraction used **only** when `systemArchetype` or `complexityTier` is missing on unclassified legacy records. |
+| `identification.titleTh` | **`String`** | **Display & Traceability Only** | Excluded from similarity scoring to eliminate administrative phrase noise. Populates the output `{ title, year, referencePriceTHB }` for user cards and citations. |
 
 ---
 
-## 4. How Data is Converted into Scores (Step-by-Step)
+## 5. How Data is Converted into Scores (Step-by-Step)
 
 The matching process runs in **two stages**:
 
@@ -52,115 +82,90 @@ The matching process runs in **two stages**:
 Target TOR 
    │
    ▼
-[ Stage 1: Database Query (MongoDB) ]
+[ Stage 1: Candidate Pool Query (MongoDB) ]
    ├── Exact match on category
-   ├── Budget within [0.3×, 3.0×] of target price
-   └── Exclude self & non-full-extraction records
-   │
+   ├── Candidate must be FULL_EXTRACTION (ADR 0028)
+   └── Exclude target projectId
+   │   (Note: NO price filter is applied!)
    ▼ (Candidates Pool)
 [ Stage 2: In-Memory Composite Scoring ]
-   ├── 1. Scale Proximity Score   (S_scale, weight = 45%)
-   ├── 2. Scope Keyword Score     (S_scope, weight = 35%)
-   └── 3. Tech Stack Score        (S_tech,  weight = 20%)
+   ├── 1. System Archetype Score  (S_archetype,  weight = 40%)
+   ├── 2. Complexity Tier Score   (S_complexity, weight = 35%)
+   └── 3. Tech Stack Score        (S_tech,       weight = 25%)
    │
    ▼
-Final Composite Score = (0.45 × S_scale) + (0.35 × S_scope) + (0.20 × S_tech)
+Final Composite Score = (0.40 × S_archetype) + (0.35 × S_complexity) + (0.25 × S_tech)
    │
    ▼
 Sort Descending ➔ Select Top 5 Comparable Projects
+   │
+   ▼
+Calculate Historical Median from Top Peers' Reference Prices
 ```
 
 ---
 
-### Step 1: Scale Proximity Score ($S_{\text{scale}}$, 45% Weight)
+### Step 1: System Archetype Score ($S_{\text{archetype}}$, 40% Weight)
 
-- **Input:** Two numbers: `targetPrice` and `candidatePrice`.
-- **Formula:**
-  $$S_{\text{scale}} = \frac{\min(\text{Price}_A, \text{Price}_B)}{\max(\text{Price}_A, \text{Price}_B)}$$
-
-#### Numerical Walkthrough
-Target Project has `referencePriceTHB = ฿10,000,000`:
-
-| Candidate | Candidate Price | Calculation | Scale Score ($S_{\text{scale}}$) |
-|---|---|---|---|
-| Project A | ฿10,000,000 | $\frac{10\text{M}}{10\text{M}}$ | **$1.00$ (100%)** |
-| Project B | ฿8,000,000 | $\frac{8\text{M}}{10\text{M}}$ | **$0.80$ (80%)** |
-| Project C | ฿5,000,000 | $\frac{5\text{M}}{10\text{M}}$ | **$0.50$ (50%)** |
-| Project D | ฿20,000,000 | $\frac{10\text{M}}{20\text{M}}$ | **$0.50$ (50%)** |
-| Project E | ฿3,000,000 | $\frac{3\text{M}}{10\text{M}}$ | **$0.30$ (30%)** |
-
-Both double the budget (20M) and half the budget (5M) yield a score of $0.50$.
-
----
-
-### Step 2: Scope Similarity Score ($S_{\text{scope}}$, 35% Weight)
-
-#### 1. Primary: Direct System Archetype Matching
 When `overview.systemArchetype` has been extracted by Gemini during ingestion:
 - **Same Archetype** (e.g. `mobile-app` vs `mobile-app`): **$1.00$ (100%)**
 - **Different Archetype** (e.g. `mobile-app` vs `enterprise-erp`): **$0.15$ (Mismatch penalty)**
 - **Hybrid Projects** (multiple archetypes): Jaccard overlap between archetype sets $\frac{|A \cap B|}{|A \cup B|}$.
 
-*Note: In the primary path, the AI's archetype is trusted directly; `titleTh` is NOT scanned.*
+---
 
-#### 2. Fallback: Keyword Token Matching (for legacy / unclassified records)
-If `overview.systemArchetype` is `null` or `'other'`:
-1. Combine `majorComponents` and `highLevelScope` into one lowercase string (`titleTh` is excluded to avoid administrative wording noise).
-2. Scan against domain archetype keywords (`mobile`, `app`, `แอปพลิเคชัน`, `erp`, `crm`, `gis`, `e-service`, `portal`, `database`, `cloud`, etc.).
-3. Form a **Set of tokens** for each project and compute Jaccard Similarity:
-   $$S_{\text{scope}} = \frac{|\text{Tokens}_A \cap \text{Tokens}_B|}{|\text{Tokens}_A \cup \text{Tokens}_B|}$$
+### Step 2: Complexity Scope Score ($S_{\text{complexity}}$, 35% Weight)
 
-- **Fallback Rule:** If neither project contains any recognized domain keywords, $S_{\text{scope}}$ defaults to **$0.50$ (Neutral)** so that neither project is unfairly disqualified.
+Compares Gemini's extracted `overview.complexityTier`:
+- **Same Tier** (`standard` vs `standard`, or `basic` vs `basic`): **$1.00$ (100%)**
+- **Adjacent Tier** (`basic` vs `standard`, or `standard` vs `enterprise`): **$0.50$ (50%)**
+- **Distant Tier** (`basic` vs `enterprise`): **$0.10$ (10% heavy penalty)**
+
+#### Fallback for Legacy Records:
+If `complexityTier` is missing (`null`), the algorithm checks keyword tokens from `majorComponents` and `highLevelScope`, or defaults to **$0.50$ (Neutral)** so that legacy projects are not unfairly disqualified.
 
 ---
 
-### Step 3: Technology Similarity Score ($S_{\text{tech}}$, 20% Weight)
+### Step 3: Technology Similarity Score ($S_{\text{tech}}$, 25% Weight)
 
 - **Input:** Two lists of technology objects: `technicalRequirements.requiredTechnologies` (e.g., `[{ name: "React" }, { name: "PostgreSQL" }]`).
 - **Formula:**
   Normalize names (lowercase, trimmed) and compute Jaccard similarity:
   $$S_{\text{tech}} = \frac{|\text{Tech}_A \cap \text{Tech}_B|}{|\text{Tech}_A \cup \text{Tech}_B|}$$
 
-#### Dynamic & Future-Proof:
-This function does **NOT** use a hardcoded list of technologies. Whatever Gemini extracts from the PDF is compared directly. If a brand new technology (e.g. "Super SAI") is required by both projects, they match 100%!
-
-#### Handling Missing Tech Stacks
-Many Thai government TORs leave technology unspecified or allow any open-source tool.
+#### Handling Missing Tech Stacks:
 - If **both** projects have an empty tech stack: score = **$0.50$ (Neutral)**.
 - If **one** has a tech stack and the other does not: score = **$0.20$ (Slight penalty)**.
 - If **both** have tech stacks: score = Jaccard ratio ($0.0 - 1.0$).
 
 ---
 
-### Step 4: Final Composite Ranking
+### Step 4: Final Composite Ranking & Median Price
 
-$$\text{Composite Score} = (S_{\text{scale}} \times 0.45) + (S_{\text{scope}} \times 0.35) + (S_{\text{tech}} \times 0.20)$$
+$$\text{Composite Score} = (S_{\text{archetype}} \times 0.40) + (S_{\text{complexity}} \times 0.35) + (S_{\text{tech}} \times 0.25)$$
 
-#### Tie-Breaking Rule:
-If two candidate projects tie on score, the algorithm picks the one whose reference price is closest to the target:
-$$\Delta\text{Price} = |\text{CandidatePrice} - \text{TargetPrice}|$$
-
-The top **5** candidates are selected.
+1. Sort candidate projects descending by `Composite Score`.
+2. Select the top **5** peers.
+3. **Only now, examine their reference prices**: Compute the **Historical Median** of the peers' reference prices.
+4. Calculate price deviation:
+   $$\text{Deviation} = \frac{\text{TargetPrice} - \text{Median}}{\text{Median}} \times 100\%$$
 
 ---
 
-## 5. Addressing Common Questions & Teammate Concerns
+## 6. Addressing Common Questions & Academic Defense
 
-### Q1: If we use the Historical Median, why is the $[0.3\times, 3.0\times]$ price bracket necessary?
-**Because the Median fails when projects come from different economic leagues.**
-- The median resists a single freak outlier in a group of peers (e.g. one ฿200M project among ฿5M peers).
-- However, if a target project is a small ฿500k app, and without a bracket the system picks ministry apps costing ฿10M, ฿25M, and ฿60M, the median is ฿25M. The system would falsely flag the ฿500k app as $-98\%$ underfunded!
-- The bracket ensures we only compare projects operating in the same economic tier.
+### Q1: Why do we select peers without looking at the price tag? (Eliminating Circular Reasoning)
+In software engineering and data science, testing whether a project's price is abnormal while filtering candidate peers by price creates a **circular dependency**:
+- If an agency inflates its price, a price filter biases the search toward other expensive projects, hiding the anomaly.
+- If an agency underfunds a project, a price filter biases the search toward cheaper projects.
+- By selecting peers **100% on technical specifications** (`systemArchetype` + `complexityTier` + `requiredTechnologies`), candidate selection is completely unbiased. The median price of those technical peers provides a clean, independent market benchmark.
 
-### Q2: Does searching around the budget $[0.3\times, 3.0\times]$ hide weird price anomalies?
-**No. In fact, it is specifically how anomalies are caught!**
-- The bracket spans a **10x price ratio** ($0.3\times$ to $3.0\times$, or $-70\%$ to $+200\%$).
-- Meanwhile, [ADR 0024](../decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md) defines "Market Normal" as **within $\pm 15\%$** of the median.
-- If an agency inflates a standard ฿3M mobile app to **฿10M**:
-  - The bracket finds peers at ฿3.0M, ฿3.2M, and ฿3.5M.
-  - Historical median = ฿3.2M.
-  - Price difference: $\Delta = \frac{10\text{M} - 3.2\text{M}}{3.2\text{M}} = \mathbf{+212.5\%}$!
-  - The system easily surfaces it as **"ราคาสูงกว่าค่ามัธยฐานในอดีต +212%"**.
+### Q2: Why is `systemArchetype` alone not enough? Why do we need `complexityTier`?
+Because technology and architecture alone do not indicate scale:
+- A simple 3-page registration form for a local district office is a `web-portal` using React and PostgreSQL.
+- The Ministry of Interior's national citizen platform is also a `web-portal` using React and PostgreSQL.
+- Both use the same architecture and stack, but the national platform requires 100x more engineering effort (high availability, load balancers, penetration testing, citizen identity integration).
+- `complexityTier` (`basic` vs `enterprise`) ensures that small workgroup tools are benchmarked against other workgroup tools, and nationwide platforms against other nationwide platforms.
 
 ### Q3: Why was sample size $N \ge 3$ chosen?
 In statistics, **3 is the smallest sample that provides a distinct middle value for a true median**:
@@ -172,17 +177,14 @@ In statistics, **3 is the smallest sample that provides a distinct middle value 
 ### Q4: Is `facts.deliveryPeriodDays` a hard filter?
 **No.** In the codebase (`similarity.service.js`), `deliveryPeriodDays` is **not** a filter or score. Thai government deadlines are frequently compressed simply to finish before the fiscal year ends (September 30), rather than reflecting actual development complexity. Making duration a hard filter would eliminate valid peers.
 
-### Q5: Why not use `eligibility.previousExperienceMinTHB`?
-`previousExperienceMinTHB` is the bidder's required past track record (ผลงาน). It is used for **User Profile Matchmaking (FR-12/13)**, but is not needed for project matching because:
-1. It is almost always set to 40%–50% of the budget anyway (redundant with `referencePriceTHB`).
-2. It is often null or unstated in smaller tenders.
-
 ---
 
-## 6. Implementation: AI-Extracted System Archetypes
+## 7. Schema Definition: Enums Extracted by Gemini
 
-Gemini's extraction schema (`server/src/pipeline/extraction/schema.js`) extracts a standardized `systemArchetype` enum directly during ingestion:
+Gemini's extraction schema (`server/src/pipeline/extraction/schema.js`) extracts two standardized enums directly during ingestion:
+
 ```javascript
+// 1. Deliverable Architecture
 export const SYSTEM_ARCHETYPES = [
   'mobile-app',         // Mobile applications (iOS / Android)
   'web-portal',         // Web portals, e-Services, public websites
@@ -192,8 +194,16 @@ export const SYSTEM_ARCHETYPES = [
   'infra-networking',   // Cloud setup, server migration, cabling, CCTV
   'other'
 ];
-```
-Stored in `TorInsight.overview.systemArchetype`.
 
-Then, the similarity engine in `similarity.service.js` compares archetypes directly (scoring 1.0 for match, 0.15 for mismatch), falling back to keyword heuristics only for legacy records where `systemArchetype` is not yet populated. This strictly fulfills:  
+// 2. Engineering Scope & Complexity
+export const COMPLEXITY_TIERS = [
+  'basic',              // Small / Departmental Workgroup Tool
+  'standard',           // Mid-sized Agency Operational System
+  'enterprise'          // Mission-Critical / High-Concurrency / Nationwide
+];
+```
+
+Stored in `TorInsight.overview.systemArchetype` and `TorInsight.overview.complexityTier`.
+
+Code similarity compares these enums directly (scoring 1.0 for match, 0.5 for adjacent tier, 0.1 for distant tier), strictly fulfilling:  
 > **"The AI picks the label; code does the comparing."**

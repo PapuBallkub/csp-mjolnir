@@ -161,6 +161,7 @@ A map from a field name inside `facts` to an `evidenceSchema` (§2.3). Every val
 | `majorComponents` | `[String]` | `[]` | List of primary modules, sub-systems, or architectural blocks to be built. |
 | `highLevelScope` | `String` | `null` | Plain-language summary of what is within the scope of work. |
 | `systemArchetype` | `String` | `null` | Classified deliverable architecture or archetype: `'mobile-app'`, `'web-portal'`, `'enterprise-erp'`, `'data-analytics'`, `'gis-mapping'`, `'infra-networking'`, or `'other'`. Used for comparable project matching (FR-19, ADR 0021). |
+| `complexityTier` | `String` | `null` | Classified engineering scope and complexity tier: `'basic'` (departmental/workgroup), `'standard'` (agency-wide/moderate), or `'enterprise'` (high-concurrency/nationwide/mission-critical). Used for comparable project matching (FR-19, ADR 0021). |
 
 ---
 
@@ -339,7 +340,8 @@ Tracks post-publishing changes and revisions to the procurement document:
       "Administrative Dashboard"
     ],
     "highLevelScope": "Design, develop, and deploy a secure data platform with high availability.",
-    "systemArchetype": "data-analytics"
+    "systemArchetype": "data-analytics",
+    "complexityTier": "enterprise"
   },
   "deliverables": {
     "system": [
