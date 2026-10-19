@@ -52,18 +52,15 @@ test('calculateTechSimilarity: Jaccard overlap on technology names', () => {
   assert.equal(calculateTechSimilarity(stackA, []), 0.2);
 });
 
-test('calculateScopeSimilarity: extracts keywords and calculates overlap', () => {
-  const torA = {
-    identification: { titleTh: 'จ้างพัฒนาระบบ Portal บริการประชาชน (e-Service)' },
-    overview: { majorComponents: ['ระบบยืนยันตัวตน', 'ระบบฐานข้อมูลกลาง'] },
-  };
-  const torB = {
-    identification: { titleTh: 'โครงการพัฒนาระบบ e-Service และ Portal ภาครัฐ' },
-    overview: { majorComponents: ['ฐานข้อมูลประชากร', 'โมบายแอปพลิเคชัน'] },
-  };
+test('calculateScopeSimilarity: matches canonical system archetypes directly', () => {
+  const torA = { overview: { systemArchetype: 'web-portal' } };
+  const torB = { overview: { systemArchetype: 'web-portal' } };
+  const torC = { overview: { systemArchetype: 'mobile-app' } };
+  const torNull = { overview: { systemArchetype: null } };
 
-  const score = calculateScopeSimilarity(torA, torB);
-  assert.ok(score > 0.4, 'Should identify overlapping domain tokens');
+  assert.equal(calculateScopeSimilarity(torA, torB), 1.0); // same archetype
+  assert.equal(calculateScopeSimilarity(torA, torC), 0.15); // different archetype
+  assert.equal(calculateScopeSimilarity(torA, torNull), 0.5); // neutral fallback
 });
 
 test('calculateComplexitySimilarity: computes step distances between tiers correctly', () => {
@@ -251,31 +248,14 @@ test('findComparableProjects: full extractions only, not title-level or waiting 
   assert.deepEqual(results.map((r) => r.projectId), ['FULL']);
 });
 
-test('getProjectArchetype: prioritizes AI-extracted systemArchetype over heuristic detection', () => {
-  // Direct AI extraction sets 'mobile-app'
-  const aiExtractedTor = {
-    overview: { systemArchetype: 'mobile-app' },
-    identification: { titleTh: 'โครงการพัฒนาระบบคลังข้อมูลกลาง' }, // title mentions data warehouse
-  };
-  assert.equal(getProjectArchetype(aiExtractedTor), 'mobile-app');
-
-  // titleTh is excluded from scoring: only having ERP in title returns 'other'
-  const titleOnlyTor = {
-    identification: { titleTh: 'จ้างพัฒนาระบบ ERP บริหารจัดการพัสดุและคลังสินค้า' },
-  };
-  assert.equal(getProjectArchetype(titleOnlyTor), 'other');
-
-  // Fallback heuristic: detects 'enterprise-erp' from majorComponents
-  const heuristicTor = {
-    overview: { majorComponents: ['ระบบ ERP บริหารจัดการพัสดุและคลังสินค้า'] },
-  };
-  assert.equal(getProjectArchetype(heuristicTor), 'enterprise-erp');
-
-  // Unknown components fall back to 'other'
-  const unknownTor = {
-    overview: { majorComponents: ['โครงการตามข้อตกลงพิเศษหน่วยงาน'] },
-  };
-  assert.equal(getProjectArchetype(unknownTor), 'other');
+test('getProjectArchetype: resolves canonical systemArchetype from overview', () => {
+  for (const arch of SYSTEM_ARCHETYPES) {
+    assert.equal(getProjectArchetype({ overview: { systemArchetype: arch } }), arch);
+  }
+  // Unknown or missing falls back to 'other'
+  assert.equal(getProjectArchetype({ overview: { systemArchetype: 'unknown-thing' } }), 'other');
+  assert.equal(getProjectArchetype({ overview: {} }), 'other');
+  assert.equal(getProjectArchetype({}), 'other');
 });
 
 test('calculateScopeSimilarity: matches identical system archetypes with high score, penalizes mismatches', () => {

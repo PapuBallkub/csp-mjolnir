@@ -160,8 +160,8 @@ A map from a field name inside `facts` to an `evidenceSchema` (§2.3). Every val
 | `objective` | `String` | `null` | High-level business and technical objectives of the project. |
 | `majorComponents` | `[String]` | `[]` | List of primary modules, sub-systems, or architectural blocks to be built. |
 | `highLevelScope` | `String` | `null` | Plain-language summary of what is within the scope of work. |
-| `systemArchetype` | `String` | `null` | Classified deliverable architecture or archetype: `'mobile-app'`, `'web-portal'`, `'enterprise-erp'`, `'data-analytics'`, `'gis-mapping'`, `'infra-networking'`, or `'other'`. Used for comparable project matching (FR-19, ADR 0021). |
-| `complexityTier` | `String` | `null` | Classified engineering scope and complexity tier: `'basic'` (departmental/workgroup), `'standard'` (agency-wide/moderate), or `'enterprise'` (high-concurrency/nationwide/mission-critical). Used for comparable project matching (FR-19, ADR 0021). |
+| `systemArchetype` | `String` | `null` | Classified deliverable architecture or archetype (grounded in DES & DGA ICT standards): `'mobile-app'`, `'web-portal'`, `'enterprise-erp'`, `'edoc-workflow'`, `'data-analytics'`, `'gis-mapping'`, `'cybersecurity'`, `'iot-telemetry'`, `'infra-networking'`, or `'other'`. Used for comparable project matching (FR-19, ADR 0021). |
+| `complexityTier` | `String` | `null` | Classified engineering scope and complexity tier (grounded in COCOMO II & DGA guidelines): `'basic'` (departmental/workgroup), `'standard'` (agency-wide/moderate), or `'enterprise'` (high-concurrency/nationwide/mission-critical). Used for comparable project matching (FR-19, ADR 0021). |
 
 ---
 

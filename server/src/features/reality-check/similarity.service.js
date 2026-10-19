@@ -13,85 +13,7 @@ import { COMPLEXITY_TIERS, SYSTEM_ARCHETYPES } from '#pipeline/extraction/index.
 export { COMPLEXITY_TIERS, SYSTEM_ARCHETYPES };
 
 /**
- * Synonymous Thai and English terms mapped to canonical system archetypes.
- * Used for heuristic detection when a TOR has not been AI-classified with systemArchetype.
- */
-export const ARCHETYPE_KEYWORDS = {
-  'mobile-app': [
-    'mobile',
-    'app',
-    'แอปพลิเคชัน',
-    'ios',
-    'android',
-    'สมาร์ตโฟน',
-    'มือถือ',
-  ],
-  'web-portal': [
-    'web',
-    'เว็บไซต์',
-    'portal',
-    'e-service',
-    'ระบบบริการ',
-    'เว็บพอร์ทัล',
-    'เว็บแอปพลิเคชัน',
-  ],
-  'enterprise-erp': [
-    'erp',
-    'crm',
-    'สารสนเทศ',
-    'บริหารจัดการ',
-    'คลัง',
-    'บัญชี',
-    'บุคคล',
-    'hr',
-    'พัสดุ',
-    'งบประมาณ',
-  ],
-  'data-analytics': [
-    'data',
-    'database',
-    'ฐานข้อมูล',
-    'analytics',
-    'ai',
-    'dashboard',
-    'คลังข้อมูล',
-    'บิ๊กดาต้า',
-    'ปัญญาประดิษฐ์',
-  ],
-  'gis-mapping': [
-    'gis',
-    'แผนที่',
-    'ภูมิสารสนเทศ',
-    'ผังเมือง',
-    'พิกัด',
-  ],
-  'infra-networking': [
-    'cloud',
-    'คลาวด์',
-    'network',
-    'cctv',
-    'security',
-    'ความมั่นคงปลอดภัย',
-    'cybersecurity',
-    'แม่ข่าย',
-    'server',
-    'lan',
-    'เครือข่าย',
-    'ศูนย์ข้อมูล',
-    'data center',
-    'คอมพิวเตอร์แม่ข่าย',
-    'บำรุงรักษา',
-    'คอมพิวเตอร์',
-    'iot',
-  ],
-};
-
-/** Flattened domain keywords for backward compatibility */
-export const DOMAIN_KEYWORDS = Object.values(ARCHETYPE_KEYWORDS).flat();
-
-/**
- * Resolves the system archetypes of a project.
- * Supports direct AI extraction and heuristic detection from title, components, and scope.
+ * Resolves the system archetypes of a project directly from AI extraction (ADR 0021).
  *
  * @param {object} tor
  * @returns {Set<string>}
@@ -99,7 +21,6 @@ export const DOMAIN_KEYWORDS = Object.values(ARCHETYPE_KEYWORDS).flat();
 export function getProjectArchetypes(tor) {
   const archetypes = new Set();
 
-  // 1. Direct from AI extraction
   const direct = tor?.overview?.systemArchetype || tor?.identification?.archetype;
   if (Array.isArray(direct)) {
     for (const a of direct) {
@@ -107,35 +28,6 @@ export function getProjectArchetypes(tor) {
     }
   } else if (typeof direct === 'string' && SYSTEM_ARCHETYPES.includes(direct)) {
     archetypes.add(direct);
-  }
-
-  // If AI already extracted a valid, non-'other' archetype, trust it directly!
-  // Scanning title/components with regex keywords is only a fallback for legacy records.
-  if (archetypes.size > 0 && !archetypes.has('other')) {
-    return archetypes;
-  }
-
-  // 2. Fallback heuristic scan from major components and high-level scope
-  // (Only runs if direct AI archetype is missing or 'other'; titleTh is excluded from scoring)
-  const components = (tor?.overview?.majorComponents ?? [])
-    .map((c) => String(c ?? '').toLowerCase())
-    .join(' ');
-  const scope = String(tor?.overview?.highLevelScope ?? '').toLowerCase();
-  const combined = `${components} ${scope}`.trim();
-
-  for (const [archetype, keywords] of Object.entries(ARCHETYPE_KEYWORDS)) {
-    for (const kw of keywords) {
-      if (kw.length <= 3) {
-        const regex = new RegExp(`(^|[^a-zA-Z0-9ก-๙])${kw}([^a-zA-Z0-9ก-๙]|$)`, 'i');
-        if (regex.test(combined)) {
-          archetypes.add(archetype);
-          break;
-        }
-      } else if (combined.includes(kw)) {
-        archetypes.add(archetype);
-        break;
-      }
-    }
   }
 
   if (archetypes.size === 0) {
@@ -265,35 +157,12 @@ export function calculateTechSimilarity(techsA = [], techsB = []) {
  * Extracts normalized domain keyword tokens from major components and high-level scope.
  * (titleTh is excluded from scoring to prevent administrative phrase noise)
  *
- * @param {object} tor
- * @returns {Set<string>}
- */
-export function extractScopeTokens(tor) {
-  const components = (tor?.overview?.majorComponents ?? [])
-    .map((c) => String(c ?? '').toLowerCase())
-    .join(' ');
-  const scope = String(tor?.overview?.highLevelScope ?? '').toLowerCase();
-  const combined = `${components} ${scope}`.trim();
-
-  const tokens = new Set();
-  for (const kw of DOMAIN_KEYWORDS) {
-    if (kw.length <= 3) {
-      const regex = new RegExp(`(^|[^a-zA-Z0-9ก-๙])${kw}([^a-zA-Z0-9ก-๙]|$)`, 'i');
-      if (regex.test(combined)) {
-        tokens.add(kw);
-      }
-    } else if (combined.includes(kw)) {
-      tokens.add(kw);
-    }
-  }
-  return tokens;
-}
-
 /**
- * Calculates similarity between two projects based on system archetype and scope.
- * 1. When both projects have identifiable archetypes:
- *    - Jaccard overlap on shared system archetypes
- * 2. When either has 'other', falls back to Jaccard overlap of domain tokens.
+ * Calculates similarity between two projects based on system archetype (ADR 0021).
+ * Matches the canonical system archetypes extracted by Gemini:
+ * - Same archetype: 1.00
+ * - Different archetypes: 0.15
+ * - Unspecified / 'other': neutral 0.50
  *
  * @param {object} torA
  * @param {object} torB
@@ -318,18 +187,8 @@ export function calculateScopeSimilarity(torA, torB) {
     return 0.15; // Different archetypes in same category
   }
 
-  const tokensA = extractScopeTokens(torA);
-  const tokensB = extractScopeTokens(torB);
-
-  if (tokensA.size === 0 && tokensB.size === 0) return 0.5;
-  if (tokensA.size === 0 || tokensB.size === 0) return 0.3;
-
-  let intersection = 0;
-  for (const t of tokensA) {
-    if (tokensB.has(t)) intersection += 1;
-  }
-  const union = new Set([...tokensA, ...tokensB]).size;
-  return union > 0 ? Number((intersection / union).toFixed(4)) : 0.5;
+  // If either or both have no specific archetype ('other'), return neutral 0.50
+  return 0.5;
 }
 
 /**

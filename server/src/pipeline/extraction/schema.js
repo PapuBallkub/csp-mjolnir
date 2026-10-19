@@ -39,8 +39,11 @@ export const SYSTEM_ARCHETYPES = [
   'mobile-app', // Mobile applications (iOS, Android, cross-platform)
   'web-portal', // Web portals, e-Services, public service websites, CMS
   'enterprise-erp', // ERP, CRM, HR, inventory, financial, workflow
+  'edoc-workflow', // e-Saraban, digital documents, approval routing, e-Meeting
   'data-analytics', // Data warehouse, BI dashboards, AI, big data, analytics
   'gis-mapping', // Map, GIS, geospatial, spatial analysis systems
+  'cybersecurity', // SOC, SIEM, security monitoring, pentesting, firewall
+  'iot-telemetry', // IoT sensors, SCADA, telemetry, smart city, smart meters
   'infra-networking', // Infrastructure, cloud, servers, cabling, CCTV, data center
   'other', // General or specialized IT systems
 ];
@@ -299,7 +302,7 @@ export const extractSchema = {
           enum: SYSTEM_ARCHETYPES,
           description:
             'The core deliverable architecture or archetype of the system: ' +
-            'mobile-app, web-portal, enterprise-erp, data-analytics, gis-mapping, infra-networking, or other.',
+            'mobile-app, web-portal, enterprise-erp, edoc-workflow, data-analytics, gis-mapping, cybersecurity, iot-telemetry, infra-networking, or other.',
         },
         complexityTier: {
           type: Type.STRING,

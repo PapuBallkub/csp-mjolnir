@@ -83,7 +83,7 @@ All benchmarking and analysis rely on fields already normalized by the extractio
 | Section in `TorInsight` | Field | Role & Justification |
 |---|---|---|
 | `identification` | `category` | **Primary Hard Filter.** Ensures comparisons remain within the same domain (`software-development`, `cloud-and-infrastructure`, `maintenance-and-support`). |
-| `overview` | `systemArchetype` | **Deliverable Architecture Matching ($S_{\text{archetype}}$, 40%).** Direct AI-extracted system archetype (`mobile-app`, `web-portal`, `enterprise-erp`, `data-analytics`, `gis-mapping`, `infra-networking`, `other`). |
+| `overview` | `systemArchetype` | **Deliverable Architecture Matching ($S_{\text{archetype}}$, 40%).** Direct AI-extracted system archetype (grounded in DES/DGA standards: `mobile-app`, `web-portal`, `enterprise-erp`, `edoc-workflow`, `data-analytics`, `gis-mapping`, `cybersecurity`, `iot-telemetry`, `infra-networking`, `other`). |
 | `overview` | `complexityTier` | **Engineering Scope Matching ($S_{\text{complexity}}$, 35%).** Standardized scale tier (`basic`, `standard`, `enterprise`). Replaces circular budget brackets to ensure peers operate at comparable technical complexity. |
 | `technicalRequirements` | `requiredTechnologies` | **Tech Overlap Bonus ($S_{\text{tech}}$, 25%).** Jaccard similarity of normalized technology names. Explicit versions are flagged as lock-spec signals. |
 | `identification` | `titleTh` | **Display & Traceability.** Administrative project title shown on output cards and audit trails; excluded from scoring to avoid phrase noise. |
@@ -122,7 +122,7 @@ $$S = 0.40 \cdot S_{\text{archetype}} + 0.35 \cdot S_{\text{complexity}} + 0.25 
   - Same tier (`standard` vs `standard`) = $1.00$
   - Adjacent tier (`basic` vs `standard`, or `standard` vs `enterprise`) = $0.50$
   - Distant tier (`basic` vs `enterprise`) = $0.10$
-  - Unclassified legacy records = keyword heuristics over `majorComponents` / `highLevelScope`, or neutral $0.50$.
+  - Unclassified or 'other' records = neutral $0.50$ baseline score.
 
 - **Technology Similarity ($S_{\text{tech}}$):**
   $$S_{\text{tech}} = \frac{|\text{Tech}_T \cap \text{Tech}_C|}{|\text{Tech}_T \cup \text{Tech}_C|}$$

@@ -20,6 +20,4 @@ export {
   COMPLEXITY_TIERS,
   calculateComplexitySimilarity,
   getProjectComplexityTier,
-  ARCHETYPE_KEYWORDS,
-  DOMAIN_KEYWORDS,
 } from './similarity.service.js';
