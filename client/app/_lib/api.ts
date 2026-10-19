@@ -195,8 +195,8 @@ export type ScraperSource = {
   uptime: number;
   lastRun: string;
   docsLast7Days: number;
-  /** One bar per day for the last 14 days, oldest first: true = run succeeded. */
-  history: boolean[];
+  /** One bar per run for the last 14 runs, oldest first: true = run succeeded, false = failed, null = no run recorded yet. */
+  history: (boolean | null)[];
   error?: string;
 };
 
@@ -216,7 +216,7 @@ export type ReviewItem = {
   title: string;
   agency: string;
   ingestedAt: string;
-  ocr: number;
+  ocr: number | null;
   extraction: number;
   reviewStatus?: "pending" | "approved" | "rejected";
   /** Fields the model itself was unsure about. */
@@ -349,6 +349,25 @@ export function adminTriggerIngest(source: string = "all") {
   return request<TriggerIngestResult>("/api/admin/ingest", {
     method: "POST",
     body: JSON.stringify({ source, limit: 2 }),
+  });
+}
+
+export type CheckSourceHealthResult = {
+  ok: boolean;
+  message: string;
+  results: Record<
+    string,
+    { status: "ok" | "degraded" | "failed"; latencyMs: number; message: string }
+  >;
+};
+
+/**
+ * Checks connectivity and measures response latency for external sources (FR-22).
+ */
+export function adminCheckSourceHealth(source: string = "all") {
+  return request<CheckSourceHealthResult>("/api/admin/health-check", {
+    method: "POST",
+    body: JSON.stringify({ source }),
   });
 }
 
@@ -485,6 +504,109 @@ export function adminAddPipelineRecord(projectId: string) {
     method: "POST",
     body: JSON.stringify({ projectId: projectId.trim() }),
   });
+}
+
+export type SuggestedProject = {
+  projectId: string;
+  title: string;
+  agency: string;
+  budgetTHB: number | null;
+  status: string;
+};
+
+/**
+ * Searches projects by partial ID or title for live autocompletion (FR-24).
+ */
+export function adminSuggestProjects(q: string) {
+  return request<SuggestedProject[]>(
+    `/api/admin/projects/suggest?q=${encodeURIComponent(q.trim())}`,
+  );
+}
+
+export type AdminTechnology = {
+  id: string;
+  name: string;
+  key: string;
+  category: string | null;
+  aliases: string[];
+  status: "confirmed" | "new" | "rejected";
+  firstSeenIn: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminTechnologiesResponse = {
+  items: AdminTechnology[];
+  total: number;
+  page: number;
+  totalPages: number;
+  pendingRequestsCount: number;
+};
+
+export type CreateAdminTechnologyPayload = {
+  name: string;
+  category?: string | null;
+  aliases?: string[];
+  status?: "confirmed" | "new" | "rejected";
+};
+
+export type UpdateAdminTechnologyPayload = {
+  name?: string;
+  category?: string | null;
+  aliases?: string[];
+  status?: "confirmed" | "new" | "rejected";
+};
+
+/**
+ * Lists technologies and standards vocabulary for admin directory and review queue.
+ */
+export function adminGetTechnologies(params?: {
+  status?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params?.status) query.set("status", params.status);
+  if (params?.search) query.set("search", params.search);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  const queryString = query.toString() ? `?${query.toString()}` : "";
+  return request<AdminTechnologiesResponse>(`/api/admin/technologies${queryString}`, {
+    cache: "no-store",
+  });
+}
+
+/**
+ * Creates a new technology or standard entry directly by admin.
+ */
+export function adminCreateTechnology(payload: CreateAdminTechnologyPayload) {
+  return request<AdminTechnology>("/api/admin/technologies", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Updates an existing technology or standard entry (edit, approve, reject).
+ */
+export function adminUpdateTechnology(id: string, payload: UpdateAdminTechnologyPayload) {
+  return request<AdminTechnology>(`/api/admin/technologies/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Deletes a technology entry.
+ */
+export function adminDeleteTechnology(id: string) {
+  return request<{ ok: boolean; id: string; message: string }>(
+    `/api/admin/technologies/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 

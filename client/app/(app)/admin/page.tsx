@@ -1,16 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   adminAddPipelineRecord,
+  adminCheckSourceHealth,
+  adminCreateTechnology,
+  adminDeleteTechnology,
   adminDismissPipelineFailure,
   adminGetPipelineRecord,
+  adminGetTechnologies,
   adminOperations,
   adminReExtract,
   adminRetryPipelineStep,
-  adminTriggerIngest,
+  adminSuggestProjects,
   adminUpdateReview,
+  adminUpdateTechnology,
   type AdminOperations,
+  type AdminTechnology,
   type ApiError,
   type PipelineFailureItem,
   type PipelineRecordDiagnostics,
@@ -18,6 +24,7 @@ import {
   type PipelineStageSnapshot,
   type ReviewItem,
   type SourceHealth,
+  type SuggestedProject,
   type UpdateReviewPayload,
 } from "../../_lib/api";
 import { useLang } from "../../_components/prefs";
@@ -51,7 +58,16 @@ function confidenceTone(value: number): string {
   return "bg-open";
 }
 
-function ConfidenceBar({ value, label }: { value: number; label: string }) {
+function ConfidenceBar({ value, label }: { value: number | null | undefined; label: string }) {
+  if (value == null) {
+    return (
+      <span className="flex items-center gap-2 whitespace-nowrap">
+        <span className="text-[10px] uppercase font-semibold tracking-[0.1em] text-ink-3">{label}</span>
+        <span className="relative h-[4px] w-16 overflow-hidden rounded-full bg-line" />
+        <span className="font-mono tnum text-[12px] text-ink-3">—</span>
+      </span>
+    );
+  }
   return (
     <span className="flex items-center gap-2 whitespace-nowrap">
       <span className="text-[10px] uppercase font-semibold tracking-[0.1em] text-ink-3">{label}</span>
@@ -165,7 +181,7 @@ export default function AdminPage() {
   );
 }
 
-export type AdminJob = "overview" | "review" | "failures" | "history";
+export type AdminJob = "overview" | "review" | "failures" | "history" | "technologies";
 
 function AdminDashboard({
   ops,
@@ -183,9 +199,8 @@ function AdminDashboard({
   const [jobNavOpen, setJobNavOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(reviewQueue[0]?.docId ?? null);
   const [handled, setHandled] = useState<Record<string, string>>({});
-  const [isPolling, setIsPolling] = useState(false);
-  const [pollingSource, setPollingSource] = useState<string | null>(null);
-  const [pollMessage, setPollMessage] = useState<string | null>(null);
+  const [checkingSourceIds, setCheckingSourceIds] = useState<string[]>([]);
+  const [checkMessage, setCheckMessage] = useState<string | null>(null);
 
   // Pipeline Monitoring & Diagnostics State (FR-24)
   const [retryingStep, setRetryingStep] = useState<string | null>(null);
@@ -194,7 +209,7 @@ function AdminDashboard({
     text: string;
     type: "success" | "error";
   } | null>(null);
-  const [showJobHistory, setShowJobHistory] = useState(false);
+
 
   // Record Diagnostic Inspector & Manual Addition State (FR-24)
   const [searchInspectorId, setSearchInspectorId] = useState("");
@@ -209,6 +224,233 @@ function AdminDashboard({
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
+  // Autocomplete suggestions for Project Inspector (FR-24)
+  const [suggestions, setSuggestions] = useState<SuggestedProject[]>([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Tech & Standards State
+  const [techList, setTechList] = useState<AdminTechnology[]>([]);
+  const [techPendingCount, setTechPendingCount] = useState(0);
+  const [techTotal, setTechTotal] = useState(0);
+  const [isTechLoading, setIsTechLoading] = useState(false);
+  const [techSearch, setTechSearch] = useState("");
+  const [techStatusFilter, setTechStatusFilter] = useState<string>("all");
+  const [techCategoryFilter, setTechCategoryFilter] = useState<string>("all");
+  const [techActionMsg, setTechActionMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  // Add / Edit Modal State
+  const [isTechModalOpen, setIsTechModalOpen] = useState(false);
+  const [editingTech, setEditingTech] = useState<AdminTechnology | null>(null);
+  const [techForm, setTechForm] = useState<{
+    name: string;
+    category: string;
+    aliases: string;
+    status: "confirmed" | "new" | "rejected";
+  }>({
+    name: "",
+    category: "Framework",
+    aliases: "",
+    status: "confirmed",
+  });
+  const [isSubmittingTech, setIsSubmittingTech] = useState(false);
+  const [techFormError, setTechFormError] = useState<string | null>(null);
+
+  // Debounced live suggestion search for Inspector
+  useEffect(() => {
+    const trimmed = searchInspectorId.trim();
+    if (!trimmed) return;
+
+    const timer = setTimeout(() => {
+      setIsSuggesting(true);
+      adminSuggestProjects(trimmed).then((res) => {
+        setIsSuggesting(false);
+        if (res.ok) {
+          setSuggestions(res.data);
+          setShowSuggestions(res.data.length > 0);
+        }
+      });
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchInspectorId]);
+
+  // Click outside to close suggestion dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Fetch technologies when filters or search change
+  const refreshTechnologies = useCallback(async () => {
+    setIsTechLoading(true);
+    const res = await adminGetTechnologies({
+      status: techStatusFilter,
+      search: techSearch,
+      limit: 100,
+    });
+    setIsTechLoading(false);
+    if (res.ok) {
+      setTechList(res.data.items);
+      setTechPendingCount(res.data.pendingRequestsCount);
+      setTechTotal(res.data.total);
+    }
+  }, [techStatusFilter, techSearch]);
+
+  useEffect(() => {
+    let cancelled = false;
+    adminGetTechnologies({
+      status: techStatusFilter,
+      search: techSearch,
+      limit: 100,
+    }).then((res) => {
+      if (cancelled) return;
+      if (res.ok) {
+        setTechList(res.data.items);
+        setTechPendingCount(res.data.pendingRequestsCount);
+        setTechTotal(res.data.total);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [techStatusFilter, techSearch]);
+
+  const handleApproveTech = async (id: string, name: string) => {
+    setTechActionMsg(null);
+    const res = await adminUpdateTechnology(id, { status: "confirmed" });
+    if (res.ok) {
+      setTechActionMsg({
+        text: lang === "th" ? `อนุมัติ ${name} เรียบร้อยแล้ว` : `Approved ${name} successfully.`,
+        type: "success",
+      });
+      refreshTechnologies();
+    } else {
+      setTechActionMsg({ text: res.error.message, type: "error" });
+    }
+  };
+
+  const handleRejectTech = async (id: string, name: string) => {
+    const confirmed = window.confirm(
+      lang === "th" ? `ยืนยันปฏิเสธคำขอ "${name}" หรือไม่?` : `Reject request for "${name}"?`,
+    );
+    if (!confirmed) return;
+    setTechActionMsg(null);
+    const res = await adminUpdateTechnology(id, { status: "rejected" });
+    if (res.ok) {
+      setTechActionMsg({
+        text: lang === "th" ? `ปฏิเสธคำขอ ${name} เรียบร้อยแล้ว` : `Rejected request for ${name}.`,
+        type: "success",
+      });
+      refreshTechnologies();
+    } else {
+      setTechActionMsg({ text: res.error.message, type: "error" });
+    }
+  };
+
+  const handleDeleteTech = async (id: string, name: string) => {
+    const confirmed = window.confirm(
+      lang === "th" ? `ยืนยันลบ "${name}" ออกจากระบบหรือไม่?` : `Delete "${name}" from system?`,
+    );
+    if (!confirmed) return;
+    setTechActionMsg(null);
+    const res = await adminDeleteTechnology(id);
+    if (res.ok) {
+      setTechActionMsg({
+        text: lang === "th" ? `ลบ ${name} ออกจากระบบแล้ว` : `Deleted ${name}.`,
+        type: "success",
+      });
+      refreshTechnologies();
+    } else {
+      setTechActionMsg({ text: res.error.message, type: "error" });
+    }
+  };
+
+  const handleOpenAddTech = () => {
+    setEditingTech(null);
+    setTechForm({
+      name: "",
+      category: "Framework",
+      aliases: "",
+      status: "confirmed",
+    });
+    setTechFormError(null);
+    setIsTechModalOpen(true);
+  };
+
+  const handleOpenEditTech = (tech: AdminTechnology) => {
+    setEditingTech(tech);
+    setTechForm({
+      name: tech.name,
+      category: tech.category || "Framework",
+      aliases: (tech.aliases || []).join(", "),
+      status: tech.status,
+    });
+    setTechFormError(null);
+    setIsTechModalOpen(true);
+  };
+
+  const handleSaveTech = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = techForm.name.trim();
+    if (!name) {
+      setTechFormError(lang === "th" ? "กรุณาระบุชื่อ" : "Name is required");
+      return;
+    }
+
+    const aliases = techForm.aliases
+      .split(",")
+      .map((a) => a.trim())
+      .filter(Boolean);
+
+    setIsSubmittingTech(true);
+    setTechFormError(null);
+
+    if (editingTech) {
+      const res = await adminUpdateTechnology(editingTech.id, {
+        name,
+        category: techForm.category,
+        aliases,
+        status: techForm.status,
+      });
+      setIsSubmittingTech(false);
+      if (res.ok) {
+        setIsTechModalOpen(false);
+        setTechActionMsg({
+          text: lang === "th" ? `บันทึกข้อมูล ${name} เรียบร้อยแล้ว` : `Updated ${name} successfully.`,
+          type: "success",
+        });
+        refreshTechnologies();
+      } else {
+        setTechFormError(res.error.message);
+      }
+    } else {
+      const res = await adminCreateTechnology({
+        name,
+        category: techForm.category,
+        aliases,
+        status: techForm.status,
+      });
+      setIsSubmittingTech(false);
+      if (res.ok) {
+        setIsTechModalOpen(false);
+        setTechActionMsg({
+          text: lang === "th" ? `เพิ่ม ${name} เข้าสู่คลังคำศัพท์เรียบร้อยแล้ว` : `Added ${name} successfully.`,
+          type: "success",
+        });
+        refreshTechnologies();
+      } else {
+        setTechFormError(res.error.message);
+      }
+    }
+  };
+
   const handleInspect = async (projectId: string) => {
     const cleanId = projectId.trim();
     if (!cleanId) return;
@@ -221,13 +463,6 @@ function AdminDashboard({
       setDiagnosticRecord(res.data.record);
     } else {
       setInspectorError(res.error.message);
-    }
-  };
-
-  const handleQuickSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchInspectorId.trim()) {
-      handleInspect(searchInspectorId.trim());
     }
   };
 
@@ -323,6 +558,9 @@ function AdminDashboard({
     (item) => !handled[item.docId] && item.reviewStatus !== "approved",
   ).length;
   const misclassifiedCount = reviewQueue.filter((item) => item.misclassified).length;
+  const reviewedCount = reviewQueue.filter(
+    (item) => Boolean(handled[item.docId]) || item.reviewStatus === "approved",
+  ).length;
 
   const filteredQueue = reviewQueue.filter((item) => {
     const isHandled = Boolean(handled[item.docId]) || item.reviewStatus === "approved";
@@ -345,28 +583,31 @@ function AdminDashboard({
     return bangkokHour >= 0 && bangkokHour < 4;
   })();
 
-  const handleTriggerPoll = async (sourceId: string = "all") => {
-    setIsPolling(true);
-    setPollingSource(sourceId);
-    setPollMessage(null);
-    const res = await adminTriggerIngest(sourceId);
-    setIsPolling(false);
-    setPollingSource(null);
+  const handleHealthCheck = async (sourceId: string = "all") => {
+    const targets = sourceId === "all" ? scraperSources.map((s) => s.id) : [sourceId];
+    setCheckingSourceIds(targets);
+    setCheckMessage(null);
+    const res = await adminCheckSourceHealth(sourceId);
+    setCheckingSourceIds([]);
     if (res.ok) {
-      const maintenanceNote = inMaintenance
-        ? lang === "th"
-          ? " (หมายเหตุ: ขณะนี้อยู่ในช่วงปิดปรับปรุง e-GP 00:00–04:00 น. อาจไม่พบประกาศใหม่)"
-          : " (Note: e-GP is currently in nightly maintenance 00:00–04:00)"
-        : "";
-      setPollMessage(
-        (lang === "th"
-          ? `ดึงข้อมูลสำเร็จ: ค้นพบ/อัปเดต ${res.data.fetched} ประกาศใหม่ (${sourceId === "all" ? "ทุกแหล่ง" : sourceId})`
-          : `Ingestion poll complete: discovered ${res.data.fetched} notice(s) for ${sourceId}`) +
-          maintenanceNote,
+      const summary = Object.entries(res.data.results)
+        .map(([id, r]) => {
+          const sName = id === "process3" ? "e-GP (RSS)" : id === "datago" ? "data.go.th" : id;
+          const statusText =
+            r.status === "ok"
+              ? lang === "th" ? "ปกติ" : "Healthy"
+              : r.status === "degraded"
+                ? lang === "th" ? "ล่าช้า" : "Degraded"
+                : lang === "th" ? "ขัดข้อง" : "Down";
+          return `${sName}: ${statusText} (${r.latencyMs}ms)`;
+        })
+        .join(" · ");
+      setCheckMessage(
+        (lang === "th" ? "ผลการตรวจสอบการเชื่อมต่อ: " : "Health check complete: ") + summary,
       );
       onRefresh();
     } else {
-      setPollMessage(res.error.message);
+      setCheckMessage(res.error.message);
     }
   };
 
@@ -380,7 +621,7 @@ function AdminDashboard({
       label: { th: "เอกสารเข้าวันนี้", en: "Ingested today" },
     },
     {
-      value: pendingCount,
+      value: pipelineStats.docsAwaitingReview ?? pendingCount,
       label: { th: "รอตรวจทาน", en: "Awaiting review" },
     },
     {
@@ -405,14 +646,17 @@ function AdminDashboard({
       id: "overview",
       icon: "📊",
       label: { th: "ภาพรวม & สแครปเปอร์", en: "Overview & Sources" },
-      description: { th: "ตัวชี้วัด, Funnel และสุขภาพแหล่งข้อมูล", en: "KPIs, funnel stages & scrapers" },
+      description: { th: "ตัวชี้วัด, Funnel และสุขภาพแหล่งข้อมูล", en: "KPIs, funnel stages & source health" },
     },
     {
       id: "review",
       icon: "📋",
       label: { th: "คิวตรวจทานเอกสาร", en: "Review Queue" },
       description: { th: "ความมั่นใจ < 80% หรือจัดประเภทผิด", en: "Confidence < 80% or misclassified" },
-      badge: pendingCount > 0 ? pendingCount : undefined,
+      badge:
+        (pipelineStats.docsAwaitingReview ?? pendingCount) > 0
+          ? (pipelineStats.docsAwaitingReview ?? pendingCount)
+          : undefined,
       badgeTone: "amend",
     },
     {
@@ -430,6 +674,14 @@ function AdminDashboard({
       description: { th: "รอบประมวลผลและ Audit Log", en: "Scheduled runs and activity logs" },
       badge: (ops.pipelineRuns?.length ?? 0) > 0 ? ops.pipelineRuns?.length : undefined,
       badgeTone: "neutral",
+    },
+    {
+      id: "technologies",
+      icon: "🏷️",
+      label: { th: "คลังเทคโนโลยี & มาตรฐาน", en: "Tech & Standards" },
+      description: { th: "จัดการคำขอและคลังคำศัพท์ระบบ", en: "Vocabulary directory & review" },
+      badge: techPendingCount > 0 ? techPendingCount : undefined,
+      badgeTone: "amend",
     },
   ];
 
@@ -501,54 +753,6 @@ function AdminDashboard({
         </nav>
       </Panel>
 
-      {/* Quick Tools Panel */}
-      <Panel className="overflow-hidden">
-        <div className="border-b border-line bg-surface-2 px-3.5 py-2.5">
-          <h2 className="text-[12px] font-semibold text-ink">
-            {lang === "th" ? "จัดการรายโครงการ" : "Project Actions"}
-          </h2>
-        </div>
-
-        <div className="flex flex-col gap-3 p-3">
-          {/* Project Inspector Search Form */}
-          <div>
-            <Label>{lang === "th" ? "ตรวจสอบรายโครงการ" : "Inspect Record (FR-24)"}</Label>
-            <form onSubmit={handleQuickSearchSubmit} className="mt-1.5 relative flex items-center">
-              <input
-                type="text"
-                value={searchInspectorId}
-                onChange={(e) => setSearchInspectorId(e.target.value)}
-                placeholder={lang === "th" ? "รหัส 11 หลัก..." : "Project ID..."}
-                maxLength={11}
-                className={`${input} h-8 pr-7 text-[12px] w-full`}
-              />
-              <button
-                type="submit"
-                disabled={!searchInspectorId.trim()}
-                className="absolute right-1 text-ink-3 hover:text-ink disabled:opacity-30 p-1 cursor-pointer"
-                title={lang === "th" ? "ตรวจสอบสถานะรายโครงการ (Enter)" : "Inspect Record (Enter)"}
-              >
-                🔍
-              </button>
-            </form>
-          </div>
-
-          {/* Manual Add Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setAddProjectId("");
-              setAddError(null);
-              setIsAddModalOpen(true);
-            }}
-            className={`${btn.secondary} w-full justify-center text-[12px]`}
-          >
-            <span className="font-semibold mr-1">+</span>
-            <span>{lang === "th" ? "เพิ่มโครงการ e-GP" : "Add e-GP Project"}</span>
-          </button>
-        </div>
-      </Panel>
-
       {/* System & Maintenance Status Panel */}
       <Panel className="overflow-hidden p-3 text-[12px]">
         <div className="flex items-center justify-between">
@@ -575,18 +779,16 @@ function AdminDashboard({
               : "e-GP feeds operating normally"}
         </p>
 
-        <div className="mt-3 pt-2.5 border-t border-line flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isRefreshing || isPolling}
-            className="text-[11px] font-medium text-ink-2 hover:text-ink flex items-center gap-1 cursor-pointer"
-          >
-            <span className={isRefreshing ? "animate-spin inline-block" : ""}>↻</span>
-            <span>{lang === "th" ? "รีเฟรชข้อมูล" : "Refresh data"}</span>
-          </button>
-          <span className="text-[10px] text-ink-3 tnum font-mono">
-            {isRefreshing ? (lang === "th" ? "กำลังอัปเดต..." : "Updating...") : (lang === "th" ? "ข้อมูลล่าสุด" : "Latest")}
+        <div className="mt-2.5 pt-2 border-t border-line flex items-center justify-between text-[11px] text-ink-3">
+          <span>{lang === "th" ? "สถานะการเชื่อมต่อ" : "Feed status"}</span>
+          <span className="font-mono text-[10px] text-ink-2">
+            {isRefreshing
+              ? lang === "th"
+                ? "กำลังอัปเดต..."
+                : "Updating..."
+              : lang === "th"
+              ? "เชื่อมต่อแล้ว"
+              : "Connected"}
           </span>
         </div>
       </Panel>
@@ -617,6 +819,100 @@ function AdminDashboard({
 
         {/* Action Toolbar */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Project Inspector Autocomplete Search (Leftmost) */}
+          <div ref={searchContainerRef} className="relative w-full sm:w-64 md:w-72">
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                value={searchInspectorId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSearchInspectorId(val);
+                  if (!val.trim()) {
+                    setSuggestions([]);
+                    setShowSuggestions(false);
+                  } else {
+                    setShowSuggestions(true);
+                  }
+                }}
+                onFocus={() => {
+                  if (suggestions.length > 0) setShowSuggestions(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (searchInspectorId.trim()) {
+                      handleInspect(searchInspectorId.trim());
+                      setShowSuggestions(false);
+                    }
+                  }
+                }}
+                placeholder={lang === "th" ? "ตรวจสอบโครงการ (รหัส/ชื่อ)..." : "Inspect project (ID/title)..."}
+                className={`${input} h-9 pr-7 text-[12px] w-full font-mono placeholder:font-sans`}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (searchInspectorId.trim()) {
+                    handleInspect(searchInspectorId.trim());
+                    setShowSuggestions(false);
+                  }
+                }}
+                disabled={!searchInspectorId.trim()}
+                className="absolute right-1 text-ink-3 hover:text-ink disabled:opacity-30 p-1.5 cursor-pointer"
+                title={lang === "th" ? "ตรวจสอบสถานะรายโครงการ (Enter)" : "Inspect Record (Enter)"}
+              >
+                {isSuggesting ? (
+                  <span className="animate-spin inline-block text-[11px]">↻</span>
+                ) : (
+                  "🔍"
+                )}
+              </button>
+            </div>
+
+            {/* Suggestions Dropdown Popover */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-[3px] border border-line bg-surface shadow-2xl text-[12px]">
+                <div className="px-2.5 py-1.5 text-[10px] uppercase font-semibold text-ink-3 bg-surface-2 border-b border-line flex justify-between items-center">
+                  <span>{lang === "th" ? "โครงการที่พบ" : "Matches"}</span>
+                  <span className="font-mono">{suggestions.length}</span>
+                </div>
+                <ul className="divide-y divide-line/40">
+                  {suggestions.map((p) => (
+                    <li key={p.projectId}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchInspectorId(p.projectId);
+                          setShowSuggestions(false);
+                          handleInspect(p.projectId);
+                        }}
+                        className="w-full text-left px-2.5 py-2 hover:bg-surface-2 transition-colors flex flex-col gap-0.5 cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-mono font-bold text-[11px] text-ink">
+                            {p.projectId}
+                          </span>
+                          <span className="text-[10px] px-1 py-0.2 rounded border border-line bg-surface-2 text-ink-3 font-mono">
+                            {p.status}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-ink-2 line-clamp-1 leading-snug">
+                          {p.title}
+                        </p>
+                        {p.agency && (
+                          <span className="text-[10px] text-ink-3 truncate">
+                            🏛️ {p.agency}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
           {/* Manual Add Button (FR-24) */}
           <button
             type="button"
@@ -635,7 +931,7 @@ function AdminDashboard({
           <button
             type="button"
             onClick={onRefresh}
-            disabled={isRefreshing || isPolling}
+            disabled={isRefreshing || checkingSourceIds.length > 0}
             className={`${btn.secondary} h-9 px-3 text-[12px]`}
             aria-label={lang === "th" ? "รีเฟรชสถานะ" : "Refresh status"}
           >
@@ -710,24 +1006,31 @@ function AdminDashboard({
               ) : null}
               <button
                 type="button"
-                onClick={() => handleTriggerPoll("all")}
-                disabled={isPolling || isRefreshing}
+                onClick={() => handleHealthCheck("all")}
+                disabled={checkingSourceIds.length > 0 || isRefreshing}
                 className={btn.primary}
               >
-                {isPolling && pollingSource === "all" ? (
-                  <span className="animate-spin inline-block mr-1">↻</span>
-                ) : null}
-                {lang === "th" ? "สั่งดึงข้อมูลทุกแหล่งเดี๋ยวนี้" : "Poll All Sources Now"}
+                {lang === "th" ? "ทดสอบการเชื่อมต่อทุกแหล่ง" : "Check All Sources"}
               </button>
             </div>
           }
         >
-          {lang === "th" ? "ตัวเก็บข้อมูลรายแหล่ง" : "Scrapers by source"}
+          {lang === "th" ? "สถานะการเชื่อมต่อแหล่งข้อมูล" : "Data sources & connectivity"}
         </SectionHeading>
 
-        {pollMessage ? (
-          <div className="mb-3 rounded-[3px] border border-open-line bg-open-bg px-3 py-2 text-[12px] text-open">
-            {pollMessage}
+        {checkMessage ? (
+          <div className="mb-3 flex items-center justify-between rounded-[3px] border border-open-line bg-open-bg px-3 py-2 text-[12px] text-ink">
+            <span className="flex items-center gap-2">
+              <span className="text-open">●</span>
+              {checkMessage}
+            </span>
+            <button
+              type="button"
+              onClick={() => setCheckMessage(null)}
+              className="text-ink-3 hover:text-ink text-[11px] ml-4 cursor-pointer"
+            >
+              ✕
+            </button>
           </div>
         ) : null}
 
@@ -795,14 +1098,25 @@ function AdminDashboard({
                       {source.history.map((succeeded, index) => (
                         <span
                           key={index}
-                          className={`w-[4px] rounded-[1px] ${
-                            succeeded ? "h-[12px] bg-open" : "h-[16px] bg-risk"
+                          className={`w-[4px] rounded-[1px] transition-all ${
+                            succeeded === null
+                              ? "h-[5px] bg-line/60"
+                              : succeeded
+                                ? "h-[12px] bg-open"
+                                : "h-[16px] bg-risk"
                           }`}
+                          title={
+                            succeeded === null
+                              ? (lang === "th" ? "ยังไม่มีรอบทำงาน" : "No run recorded yet")
+                              : succeeded
+                                ? (lang === "th" ? "สำเร็จ" : "Succeeded")
+                                : (lang === "th" ? "ล้มเหลว" : "Failed")
+                          }
                         />
                       ))}
                     </span>
                     <span className="sr-only">
-                      {source.history.filter(Boolean).length}/14 runs succeeded
+                      {source.history.filter((s) => s === true).length}/{source.history.filter((s) => s !== null).length} runs succeeded
                     </span>
                   </td>
                   <td className="px-3 py-2.5 text-right font-mono tnum text-[12px] text-ink">
@@ -817,14 +1131,14 @@ function AdminDashboard({
                   <td className="px-3 py-2.5 text-right">
                     <button
                       type="button"
-                      onClick={() => handleTriggerPoll(source.id)}
-                      disabled={isPolling || isRefreshing}
+                      onClick={() => handleHealthCheck(source.id)}
+                      disabled={checkingSourceIds.length > 0 || isRefreshing}
                       className={`${btn.secondary} text-[11px] py-1 px-2.5`}
                     >
-                      {isPolling && pollingSource === source.id ? (
+                      {checkingSourceIds.includes(source.id) ? (
                         <span className="animate-spin inline-block mr-1">↻</span>
                       ) : null}
-                      {lang === "th" ? "ดึงแหล่งนี้" : "Poll"}
+                      {lang === "th" ? "ทดสอบการเชื่อมต่อ" : "Check health"}
                     </button>
                   </td>
                 </tr>
@@ -856,7 +1170,7 @@ function AdminDashboard({
                     { id: "all", label: { th: `ทั้งหมด (${reviewQueue.length})`, en: `All (${reviewQueue.length})` } },
                     { id: "pending", label: { th: `รอตรวจทาน (${pendingCount})`, en: `Pending (${pendingCount})` } },
                     { id: "misclassified", label: { th: `ตรวจประเภท (${misclassifiedCount})`, en: `Misclassified (${misclassifiedCount})` } },
-                    { id: "reviewed", label: { th: "ตรวจทานแล้ว", en: "Reviewed" } },
+                    { id: "reviewed", label: { th: `ตรวจทานแล้ว (${reviewedCount})`, en: `Reviewed (${reviewedCount})` } },
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -928,8 +1242,6 @@ function AdminDashboard({
               <PipelineRunsSection
                 runs={ops.pipelineRuns}
                 lang={lang}
-                showHistory={true}
-                onToggleHistory={() => setShowJobHistory(!showJobHistory)}
               />
 
               {/* Recent Ingestion Execution Activity */}
@@ -1017,6 +1329,29 @@ function AdminDashboard({
               ) : null}
             </div>
           )}
+
+          {/* Job 5: Technology & Standards Management */}
+          {activeJob === "technologies" && (
+            <TechnologiesSection
+              technologies={techList}
+              isLoading={isTechLoading}
+              pendingCount={techPendingCount}
+              totalCount={techTotal}
+              search={techSearch}
+              onSearchChange={setTechSearch}
+              statusFilter={techStatusFilter}
+              onStatusFilterChange={setTechStatusFilter}
+              categoryFilter={techCategoryFilter}
+              onCategoryFilterChange={setTechCategoryFilter}
+              actionMsg={techActionMsg}
+              onApprove={handleApproveTech}
+              onReject={handleRejectTech}
+              onDelete={handleDeleteTech}
+              onOpenAdd={handleOpenAddTech}
+              onOpenEdit={handleOpenEditTech}
+              lang={lang}
+            />
+          )}
         </main>
       </div>
 
@@ -1071,6 +1406,24 @@ function AdminDashboard({
           onClose={() => {
             setIsAddModalOpen(false);
             setAddError(null);
+          }}
+        />
+      )}
+
+      {/* Technology Add / Edit Modal */}
+      {isTechModalOpen && (
+        <AddEditTechnologyModal
+          isOpen={isTechModalOpen}
+          editingTech={editingTech}
+          form={techForm}
+          onChangeForm={setTechForm}
+          onSubmit={handleSaveTech}
+          isLoading={isSubmittingTech}
+          error={techFormError}
+          lang={lang}
+          onClose={() => {
+            setIsTechModalOpen(false);
+            setTechFormError(null);
           }}
         />
       )}
@@ -1442,13 +1795,9 @@ function PipelineFailureRow({
 function PipelineRunsSection({
   runs,
   lang,
-  showHistory,
-  onToggleHistory,
 }: {
   runs?: PipelineRunItem[];
   lang: "th" | "en";
-  showHistory: boolean;
-  onToggleHistory: () => void;
 }) {
   if (!runs || runs.length === 0) return null;
 
@@ -1456,15 +1805,9 @@ function PipelineRunsSection({
     <section className="mb-8">
       <SectionHeading
         right={
-          <button
-            type="button"
-            onClick={onToggleHistory}
-            className={`${btn.secondary} text-[11px] py-0.5 px-2.5`}
-          >
-            {showHistory
-              ? lang === "th" ? "ซ่อนประวัติ" : "Hide history"
-              : lang === "th" ? `แสดงประวัติ (${runs.length})` : `Show history (${runs.length})`}
-          </button>
+          <span className="text-[11px] text-ink-3">
+            {runs.length} {lang === "th" ? "รอบล่าสุด" : "recent runs"}
+          </span>
         }
         sub={
           lang === "th"
@@ -1475,9 +1818,8 @@ function PipelineRunsSection({
         {lang === "th" ? "ประวัติการรัน Job อัตโนมัติ" : "Scheduled job execution history"}
       </SectionHeading>
 
-      {showHistory && (
-        <Panel className="overflow-x-auto shadow-xs">
-          <table className="w-full min-w-[760px] border-collapse text-left">
+      <Panel className="overflow-x-auto shadow-xs">
+        <table className="w-full min-w-[760px] border-collapse text-left">
             <thead>
               <tr className="border-b border-line bg-surface-2">
                 {[
@@ -1505,7 +1847,6 @@ function PipelineRunsSection({
             </tbody>
           </table>
         </Panel>
-      )}
     </section>
   );
 }
@@ -2593,4 +2934,596 @@ function AddRecordModal({
     </div>
   );
 }
+
+function TechnologiesSection({
+  technologies,
+  isLoading,
+  pendingCount,
+  totalCount,
+  search,
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  categoryFilter,
+  onCategoryFilterChange,
+  actionMsg,
+  onApprove,
+  onReject,
+  onDelete,
+  onOpenAdd,
+  onOpenEdit,
+  lang,
+}: {
+  technologies: AdminTechnology[];
+  isLoading: boolean;
+  pendingCount: number;
+  totalCount: number;
+  search: string;
+  onSearchChange: (val: string) => void;
+  statusFilter: string;
+  onStatusFilterChange: (val: string) => void;
+  categoryFilter: string;
+  onCategoryFilterChange: (val: string) => void;
+  actionMsg: { text: string; type: "success" | "error" } | null;
+  onApprove: (id: string, name: string) => void;
+  onReject: (id: string, name: string) => void;
+  onDelete: (id: string, name: string) => void;
+  onOpenAdd: () => void;
+  onOpenEdit: (tech: AdminTechnology) => void;
+  lang: "th" | "en";
+}) {
+  const CATEGORIES = [
+    { id: "all", label: { th: "ทุกหมวดหมู่", en: "All Categories" } },
+    { id: "Framework", label: { th: "Framework & Library", en: "Framework & Library" } },
+    { id: "Database", label: { th: "Database (ฐานข้อมูล)", en: "Database" } },
+    { id: "Language", label: { th: "Programming Language", en: "Programming Language" } },
+    { id: "Operating System", label: { th: "Operating System (ระบบปฏิบัติการ)", en: "Operating System" } },
+    { id: "Virtualization / Container", label: { th: "Virtualization & Container", en: "Virtualization & Container" } },
+    { id: "Cloud / Infrastructure", label: { th: "Cloud & Infrastructure", en: "Cloud & Infrastructure" } },
+    { id: "Standard / ISO", label: { th: "Standard & Certifications (ISO/CMMI)", en: "Standard & ISO" } },
+    { id: "Security / Network", label: { th: "Security & Network", en: "Security & Network" } },
+    { id: "Other", label: { th: "อื่น ๆ", en: "Other" } },
+  ];
+
+  const pendingItems = technologies.filter((t) => t.status === "new");
+
+  const filteredTech = technologies.filter((t) => {
+    if (categoryFilter !== "all") {
+      const catLower = (t.category || "").toLowerCase();
+      const targetLower = categoryFilter.toLowerCase();
+      if (!catLower.includes(targetLower)) return false;
+    }
+    return true;
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Header & Primary Actions */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[18px] font-bold text-ink">
+              {lang === "th"
+                ? "คลังเทคโนโลยีและมาตรฐาน (Tech & Standards Vocabulary)"
+                : "Technology & Standards Vocabulary"}
+            </h2>
+            {pendingCount > 0 && (
+              <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-0.5 text-[11px] font-semibold text-amend">
+                {lang === "th" ? `รออนุมัติ ${pendingCount} รายการ` : `${pendingCount} pending`}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-[13px] text-ink-2">
+            {lang === "th"
+              ? "จัดการคำศัพท์ที่ใช้ในการสกัดข้อมูล TOR ตรวจจับ Lock-spec และจับคู่ความสามารถของผู้ใช้ (Matching)"
+              : "Shared vocabulary for TOR extraction, lock-spec analysis, and contractor profile matching."}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onOpenAdd}
+          className={`${btn.primary} h-9 px-3.5 text-[12px] flex items-center gap-1.5 shrink-0`}
+        >
+          <span className="text-[14px] font-bold leading-none">+</span>
+          <span>{lang === "th" ? "เพิ่มเทคโนโลยี / มาตรฐาน" : "Add Tech / Standard"}</span>
+        </button>
+      </div>
+
+      {/* Action Notification Banner */}
+      {actionMsg && (
+        <div
+          className={`rounded-[3px] border p-3 text-[12px] animate-in fade-in flex items-center justify-between ${
+            actionMsg.type === "success"
+              ? "border-open-line bg-open-bg text-open"
+              : "border-risk-line bg-risk-bg text-risk"
+          }`}
+        >
+          <span>{actionMsg.text}</span>
+        </div>
+      )}
+
+      {/* Section 1: Pending User Requests (Review Queue) */}
+      {pendingItems.length > 0 && (
+        <Panel className="border-amend-line bg-amend-bg/10 overflow-hidden">
+          <div className="border-b border-amend-line/40 bg-amend-bg/30 px-4 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-[14px]">⏳</span>
+              <h3 className="text-[13px] font-bold text-ink">
+                {lang === "th" ? "คำขอใหม่รอการอนุมัติจากผู้ใช้" : "Pending Requests from Users"}
+              </h3>
+              <span className="rounded-full bg-amend text-surface text-[10px] font-bold px-2 py-0.2">
+                {pendingItems.length}
+              </span>
+            </div>
+            <span className="text-[11px] text-ink-3">
+              {lang === "th" ? "ตรวจทานและอนุมัติเข้าสู่ระบบ" : "Review and approve into vocabulary"}
+            </span>
+          </div>
+
+          <div className="divide-y divide-line/60">
+            {pendingItems.map((tech) => (
+              <div
+                key={tech.id}
+                className="p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-surface-2 transition-colors"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[14px] font-bold text-ink">{tech.name}</span>
+                    {tech.category && (
+                      <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-ink-2">
+                        {tech.category}
+                      </span>
+                    )}
+                    <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-0.5 text-[10px] font-medium text-amend">
+                      {lang === "th" ? "รออนุมัติ" : "Pending"}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 text-[11px] text-ink-3">
+                    <span>
+                      {lang === "th" ? "ที่มา: " : "Origin: "}
+                      <strong className="font-normal text-ink-2">
+                        {tech.firstSeenIn?.startsWith("user-request")
+                          ? lang === "th"
+                            ? "ผู้ใช้ขอเพิ่มจากหน้าโปรไฟล์"
+                            : "User request from profile"
+                          : tech.firstSeenIn || "User request"}
+                      </strong>
+                    </span>
+                    {tech.createdAt && (
+                      <span>
+                        {new Date(tech.createdAt).toLocaleDateString(
+                          lang === "th" ? "th-TH" : "en-US",
+                          { dateStyle: "medium" },
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onApprove(tech.id, tech.name)}
+                    className="cursor-pointer rounded-[3px] border border-open-line bg-open-bg px-2.5 py-1 text-[11px] font-medium text-open hover:bg-open hover:text-white transition-colors"
+                  >
+                    ✓ {lang === "th" ? "อนุมัติ" : "Approve"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenEdit(tech)}
+                    className="cursor-pointer rounded-[3px] border border-line bg-surface px-2.5 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
+                  >
+                    ✏️ {lang === "th" ? "แก้ไขก่อนอนุมัติ" : "Edit & Approve"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onReject(tech.id, tech.name)}
+                    className="cursor-pointer rounded-[3px] border border-risk-line bg-risk-bg px-2.5 py-1 text-[11px] font-medium text-risk hover:bg-risk hover:text-white transition-colors"
+                  >
+                    ✕ {lang === "th" ? "ปฏิเสธ" : "Reject"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      {/* Section 2: All Technologies Directory */}
+      <Panel className="overflow-hidden">
+        {/* Filter Toolbar */}
+        <div className="border-b border-line bg-surface-2 p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Search Input */}
+            <div className="relative min-w-[200px] sm:min-w-[240px]">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder={lang === "th" ? "ค้นหาชื่อ หรือคำพ้อง..." : "Search name or alias..."}
+                className={`${input} h-8 text-[12px] pr-7 w-full`}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => onSearchChange("")}
+                  className="absolute right-2 top-2 text-ink-3 hover:text-ink text-[12px] cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Category Select */}
+            <select
+              value={categoryFilter}
+              onChange={(e) => onCategoryFilterChange(e.target.value)}
+              className={`${input} h-8 text-[12px] cursor-pointer w-auto`}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label[lang]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Filter Pills */}
+          <div className="flex items-center gap-1.5 self-start md:self-auto">
+            {[
+              { id: "all", label: { th: "ทั้งหมด", en: "All" } },
+              { id: "confirmed", label: { th: "ยืนยันแล้ว", en: "Confirmed" } },
+              { id: "new", label: { th: "รออนุมัติ", en: "Pending" } },
+              { id: "rejected", label: { th: "ปฏิเสธ", en: "Rejected" } },
+            ].map((st) => (
+              <button
+                key={st.id}
+                type="button"
+                onClick={() => onStatusFilterChange(st.id)}
+                className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  statusFilter === st.id
+                    ? "border-ink bg-ink text-surface"
+                    : "border-line bg-surface text-ink-2 hover:border-ink hover:text-ink"
+                }`}
+              >
+                {st.label[lang]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Vocabulary Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[650px] border-collapse text-left text-[12px]">
+            <thead>
+              <tr className="border-b border-line bg-surface-2 text-[10px] uppercase font-semibold text-ink-3 tracking-wider">
+                <th className="px-3.5 py-2.5">{lang === "th" ? "ชื่อที่แสดง (Name)" : "Name"}</th>
+                <th className="px-3 py-2.5">{lang === "th" ? "หมวดหมู่" : "Category"}</th>
+                <th className="px-3 py-2.5">
+                  {lang === "th" ? "คำพ้อง / คำที่เขียนคล้ายกัน (Aliases)" : "Aliases"}
+                </th>
+                <th className="px-3 py-2.5">{lang === "th" ? "สถานะ" : "Status"}</th>
+                <th className="px-3 py-2.5 text-right">{lang === "th" ? "การจัดการ" : "Actions"}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line/60">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-ink-3">
+                    <span className="animate-spin inline-block text-[14px] mr-2">↻</span>
+                    {lang === "th" ? "กำลังโหลดข้อมูลคำศัพท์..." : "Loading vocabulary..."}
+                  </td>
+                </tr>
+              ) : filteredTech.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-ink-3">
+                    {lang === "th"
+                      ? "ไม่พบเทคโนโลยีหรือมาตรฐานที่ตรงกับเงื่อนไข"
+                      : "No matching technologies found."}
+                  </td>
+                </tr>
+              ) : (
+                filteredTech.map((tech) => (
+                  <tr key={tech.id} className="hover:bg-surface-2 transition-colors">
+                    <td className="px-3.5 py-2.5">
+                      <div className="font-semibold text-ink">{tech.name}</div>
+                      <div className="font-mono text-[10px] text-ink-3">{tech.key}</div>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {tech.category ? (
+                        <span className="inline-block rounded-[2px] border border-line bg-surface px-1.5 py-0.5 text-[11px] text-ink-2">
+                          {tech.category}
+                        </span>
+                      ) : (
+                        <span className="text-ink-3 text-[11px]">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 max-w-[280px]">
+                      {tech.aliases && tech.aliases.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {tech.aliases.map((alias) => (
+                            <span
+                              key={alias}
+                              className="inline-block rounded-[2px] bg-surface-2 border border-line/60 px-1.5 py-0.2 font-mono text-[10px] text-ink-2"
+                            >
+                              {alias}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-ink-3 text-[11px]">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {tech.status === "confirmed" ? (
+                        <span className="inline-flex items-center gap-1 rounded-[2px] border border-open-line bg-open-bg px-1.5 py-0.5 text-[10px] font-medium text-open">
+                          ✓ {lang === "th" ? "ยืนยันแล้ว" : "Confirmed"}
+                        </span>
+                      ) : tech.status === "rejected" ? (
+                        <span className="inline-flex items-center gap-1 rounded-[2px] border border-risk-line bg-risk-bg px-1.5 py-0.5 text-[10px] font-medium text-risk">
+                          ✕ {lang === "th" ? "ปฏิเสธ" : "Rejected"}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-0.5 text-[10px] font-medium text-amend">
+                          ⏳ {lang === "th" ? "รออนุมัติ" : "Pending"}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onOpenEdit(tech)}
+                          className="cursor-pointer rounded-[2px] border border-line bg-surface px-2 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
+                          title={lang === "th" ? "แก้ไขข้อมูล" : "Edit details"}
+                        >
+                          {lang === "th" ? "แก้ไข" : "Edit"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDelete(tech.id, tech.name)}
+                          className="cursor-pointer rounded-[2px] border border-line bg-surface px-2 py-1 text-[11px] font-medium text-risk hover:border-risk hover:bg-risk-bg transition-colors"
+                          title={lang === "th" ? "ลบรายการนี้" : "Delete entry"}
+                        >
+                          {lang === "th" ? "ลบ" : "Delete"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer info */}
+        <div className="border-t border-line bg-surface-2 px-3.5 py-2 text-[11px] text-ink-3 flex justify-between items-center">
+          <span>
+            {lang === "th"
+              ? `แสดงผล ${filteredTech.length} รายการ (จากทั้งหมด ${totalCount})`
+              : `Showing ${filteredTech.length} of ${totalCount}`}
+          </span>
+          <span className="font-mono text-[10px]">ADR 0014 Vocabulary</span>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function AddEditTechnologyModal({
+  isOpen,
+  editingTech,
+  form,
+  onChangeForm,
+  onSubmit,
+  isLoading,
+  error,
+  lang,
+  onClose,
+}: {
+  isOpen: boolean;
+  editingTech: AdminTechnology | null;
+  form: {
+    name: string;
+    category: string;
+    aliases: string;
+    status: "confirmed" | "new" | "rejected";
+  };
+  onChangeForm: React.Dispatch<
+    React.SetStateAction<{
+      name: string;
+      category: string;
+      aliases: string;
+      status: "confirmed" | "new" | "rejected";
+    }>
+  >;
+  onSubmit: (e: React.FormEvent) => void;
+  isLoading: boolean;
+  error: string | null;
+  lang: "th" | "en";
+  onClose: () => void;
+}) {
+  if (!isOpen) return null;
+
+  const CATEGORY_OPTIONS = [
+    "Framework",
+    "Database",
+    "Language",
+    "Operating System",
+    "Virtualization / Container",
+    "Cloud / Infrastructure",
+    "Standard / ISO",
+    "Security / Network",
+    "Tool / Library",
+    "GIS / Spatial",
+    "Other",
+  ];
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-150"
+    >
+      <div className="w-full max-w-md rounded-[4px] border border-line bg-surface p-6 shadow-2xl animate-in zoom-in-95 duration-150">
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-[16px] font-bold text-ink">
+              {editingTech
+                ? lang === "th"
+                  ? "แก้ไขเทคโนโลยี / มาตรฐาน"
+                  : "Edit Technology / Standard"
+                : lang === "th"
+                ? "เพิ่มเทคโนโลยี / มาตรฐานใหม่"
+                : "Add New Technology / Standard"}
+            </h3>
+            <p className="mt-1 text-[12px] text-ink-3">
+              {lang === "th"
+                ? "ข้อมูลคำศัพท์นี้จะถูกนำไปใช้จับคู่ (Match) และวิเคราะห์ Lock-spec โดยอัตโนมัติ"
+                : "Used by the system to match capabilities and detect lock-spec requirements."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-ink-3 hover:text-ink text-[16px] cursor-pointer"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={onSubmit} className="mt-4 space-y-3.5">
+          <div>
+            <label className="block text-[11px] font-medium text-ink-2 mb-1">
+              {lang === "th" ? "ชื่อเทคโนโลยี / ทักษะ / มาตรฐาน" : "Name"}{" "}
+              <span className="text-risk">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              autoFocus
+              value={form.name}
+              onChange={(e) => onChangeForm((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder={
+                lang === "th"
+                  ? "เช่น PostgreSQL, Flutter, ISO 29110"
+                  : "e.g. PostgreSQL, Flutter, ISO 29110"
+              }
+              className={`${input} text-[13px]`}
+              maxLength={100}
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-ink-2 mb-1">
+              {lang === "th" ? "หมวดหมู่ (Category)" : "Category"}
+            </label>
+            <select
+              value={form.category}
+              onChange={(e) => onChangeForm((prev) => ({ ...prev, category: e.target.value }))}
+              className={`${input} text-[13px] cursor-pointer`}
+            >
+              {CATEGORY_OPTIONS.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-ink-2 mb-1">
+              {lang === "th"
+                ? "คำพ้อง / รูปแบบการเขียนอื่น ๆ (Aliases)"
+                : "Aliases (comma-separated)"}
+            </label>
+            <input
+              type="text"
+              value={form.aliases}
+              onChange={(e) => onChangeForm((prev) => ({ ...prev, aliases: e.target.value }))}
+              placeholder={
+                lang === "th"
+                  ? "คั่นด้วยเครื่องหมายจุลภาค เช่น Postgres, PgSQL"
+                  : "e.g. Postgres, PgSQL, Postgres 14"
+              }
+              className={`${input} text-[13px] font-mono`}
+            />
+            <p className="mt-1 text-[10px] text-ink-3 leading-relaxed">
+              {lang === "th"
+                ? "คำเหล่านี้จะถูกตีความเป็นสิ่งเดียวกันกับชื่อหลักอัตโนมัติ"
+                : "These aliases will be canonicalized to the main name automatically."}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-ink-2 mb-1">
+              {lang === "th" ? "สถานะ (Status)" : "Status"}
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: "confirmed", label: { th: "✓ ยืนยันแล้ว", en: "Confirmed" } },
+                { id: "new", label: { th: "⏳ รอตรวจทาน", en: "Pending" } },
+                { id: "rejected", label: { th: "✕ ปฏิเสธ", en: "Rejected" } },
+              ].map((st) => (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() =>
+                    onChangeForm((prev) => ({
+                      ...prev,
+                      status: st.id as "confirmed" | "new" | "rejected",
+                    }))
+                  }
+                  className={`cursor-pointer rounded-[3px] border py-1.5 px-2 text-[11px] font-medium transition-colors ${
+                    form.status === st.id
+                      ? "border-ink bg-ink text-surface"
+                      : "border-line bg-surface text-ink-2 hover:border-ink"
+                  }`}
+                >
+                  {st.label[lang]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {error && (
+            <div className="rounded-[3px] border border-risk-line bg-risk-bg p-2.5 text-[12px] text-risk">
+              {error}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2 border-t border-line pt-3 mt-4">
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={onClose}
+              className={`${btn.secondary} h-9 px-3.5`}
+            >
+              {lang === "th" ? "ยกเลิก" : "Cancel"}
+            </button>
+            <button
+              type="submit"
+              disabled={!form.name.trim() || isLoading}
+              className={`${btn.primary} h-9 px-4`}
+            >
+              {isLoading ? (
+                <>
+                  <span className="animate-spin inline-block">↻</span>{" "}
+                  {lang === "th" ? "กำลังบันทึก..." : "Saving..."}
+                </>
+              ) : editingTech ? (
+                lang === "th" ? "บันทึกการแก้ไข" : "Save Changes"
+              ) : (
+                lang === "th" ? "+ เพิ่มรายการ" : "+ Add Entry"
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 

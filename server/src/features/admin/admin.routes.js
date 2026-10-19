@@ -4,11 +4,17 @@ import { requireAuth, requireRole } from '#features/auth/index.js';
 
 import {
   handleAddManualRecord,
+  handleCheckSourcesHealth,
+  handleCreateAdminTechnology,
+  handleDeleteAdminTechnology,
   handleDismissPipelineFailure,
+  handleGetAdminTechnologies,
   handleGetPipelineRecord,
   handleReExtract,
   handleRetryPipelineStep,
+  handleSuggestProjects,
   handleTriggerIngest,
+  handleUpdateAdminTechnology,
   handleUpdateReview,
   readOperations,
 } from './admin.controller.js';
@@ -43,6 +49,9 @@ adminRoutes.post('/review/:projectId/re-extract', handleReExtract);
 // Trigger on-demand ingestion poll across procurement feeds
 adminRoutes.post('/ingest', handleTriggerIngest);
 
+// Health check: test connectivity & latency for procurement sources (FR-22)
+adminRoutes.post('/health-check', handleCheckSourcesHealth);
+
 // Re-trigger / retry a failed pipeline step (FR-24)
 adminRoutes.post('/pipeline/retry', handleRetryPipelineStep);
 
@@ -54,5 +63,15 @@ adminRoutes.get('/pipeline/record/:projectId', handleGetPipelineRecord);
 
 // Manually add procurement record from e-GP reference (FR-24)
 adminRoutes.post('/pipeline/add', handleAddManualRecord);
+
+// Live project suggestion / autocomplete for Project Inspector (FR-24)
+adminRoutes.get('/projects/suggest', handleSuggestProjects);
+
+// Technology and standard vocabulary administration (directory, review, add, edit, delete)
+adminRoutes.get('/technologies', handleGetAdminTechnologies);
+adminRoutes.post('/technologies', handleCreateAdminTechnology);
+adminRoutes.patch('/technologies/:id', handleUpdateAdminTechnology);
+adminRoutes.delete('/technologies/:id', handleDeleteAdminTechnology);
+
 
 

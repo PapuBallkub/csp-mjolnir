@@ -1,8 +1,11 @@
 import fsSync from 'node:fs';
 import path from 'node:path';
-import { FeedPoll, IngestionLog, PipelineFailure, PipelineRun, TitleScreen, Tor, TorInsight } from '#models/index.js';
+import axios from 'axios';
+import { FeedPoll, IngestionLog, PipelineFailure, PipelineRun, Technology, TitleScreen, Tor, TorInsight } from '#models/index.js';
 import { runAddStep, runFetchStep } from '#pipeline/ingestion/ingest.js';
+import { STARTER_TECHNOLOGIES } from '#pipeline/extraction/references/technologies.js';
 import { ROUTINE_TYPES } from '#pipeline/ingestion/sources/process3.js';
+import { USER_AGENT } from '#pipeline/shared/user-agent.js';
 import { clearFailure } from '#pipeline/shared/failures.js';
 import { snapshot } from '#pipeline/jobs/run-job.js';
 import { withRunLock } from '#pipeline/shared/run-lock.js';
@@ -72,7 +75,7 @@ export async function getDynamicSources() {
       // 14-run history sparkline (oldest first)
       const history = [...recentLogs].reverse().map((l) => l.status !== 'failed');
       while (history.length < 14) {
-        history.unshift(true);
+        history.unshift(null);
       }
 
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -119,7 +122,13 @@ export async function getDynamicStats() {
       await Promise.all([
         Tor.countDocuments({ createdAt: { $gte: startOfToday } }),
         Tor.countDocuments(),
-        TorInsight.countDocuments({ 'metadata.reviewStatus': 'pending' }),
+        TorInsight.countDocuments({
+          $or: [
+            { 'metadata.reviewStatus': 'pending' },
+            { 'metadata.confidenceScore': { $lt: 80 } },
+            { 'metadata.excluded': { $ne: null } },
+          ],
+        }),
         Tor.countDocuments({
           isAmended: true,
           updatedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
@@ -157,11 +166,12 @@ export async function getDynamicStats() {
 
 /**
  * Builds the extraction review queue of unverified, low-confidence, or
- * misclassified documents awaiting administrative clearance (FR-23, NFR-17).
+ * misclassified documents awaiting administrative clearance (FR-23, NFR-17),
+ * as well as recently reviewed documents for auditability.
  */
 export async function getDynamicReviewQueue() {
   try {
-    let candidateInsights = await TorInsight.find({
+    const pendingInsights = await TorInsight.find({
       $or: [
         { 'metadata.reviewStatus': 'pending' },
         { 'metadata.confidenceScore': { $lt: 80 } },
@@ -169,14 +179,33 @@ export async function getDynamicReviewQueue() {
       ],
     })
       .sort({ updatedAt: -1 })
-      .limit(10);
+      .limit(50);
 
-    // If none are pending or < 80 in DB, pull real insights from MongoDB sorted by confidence ascending
-    // so the review queue features actual live projects matching the search page!
+    const reviewedInsights = await TorInsight.find({
+      $or: [
+        { 'metadata.reviewStatus': 'approved' },
+        { 'metadata.reviewedAt': { $ne: null } },
+      ],
+    })
+      .sort({ 'metadata.reviewedAt': -1, updatedAt: -1 })
+      .limit(30);
+
+    // Merge pending first, then reviewed (deduplicating by projectId)
+    const seen = new Set();
+    const candidateInsights = [];
+    for (const insight of [...pendingInsights, ...reviewedInsights]) {
+      if (!seen.has(insight.projectId)) {
+        seen.add(insight.projectId);
+        candidateInsights.push(insight);
+      }
+    }
+
+    // If none in DB, pull real insights from MongoDB sorted by confidence ascending
     if (candidateInsights.length === 0) {
-      candidateInsights = await TorInsight.find({})
+      const fallbackInsights = await TorInsight.find({})
         .sort({ 'metadata.confidenceScore': 1 })
         .limit(6);
+      candidateInsights.push(...fallbackInsights);
     }
 
     if (candidateInsights.length === 0) {
@@ -250,6 +279,16 @@ export async function getDynamicReviewQueue() {
         };
       }
 
+      const hasOcr =
+        Boolean(tor?.ocr?.processedAt) ||
+        tor?.pipelineStatus === 'ocr_done' ||
+        (tor?.ocr?.confidence != null && tor.ocr.confidence > 0);
+      const ocrScore = hasOcr
+        ? (tor?.ocr?.confidence != null && tor.ocr.confidence > 0
+            ? Number(tor.ocr.confidence.toFixed(2))
+            : 1.0)
+        : null;
+
       items.push({
         docId: insight.projectId,
         title: insight.identification?.titleTh || tor?.title || `Project ${insight.projectId}`,
@@ -257,7 +296,7 @@ export async function getDynamicReviewQueue() {
         ingestedAt: insight.metadata?.processedAt
           ? new Date(insight.metadata.processedAt).toISOString().slice(0, 16).replace('T', ' ')
           : new Date().toISOString().slice(0, 16).replace('T', ' '),
-        ocr: tor?.ocr?.confidence || 0.85,
+        ocr: ocrScore,
         extraction: score,
         reviewStatus: insight.metadata?.reviewStatus || 'pending',
         lowFields,
@@ -654,6 +693,116 @@ export async function triggerIngestion({ source = 'all', limit = 2 } = {}) {
 }
 
 /**
+ * Lightweight health check testing connectivity, response status, and latency
+ * for external procurement sources (e-GP process3 & data.go.th) (FR-22).
+ */
+export async function checkSourcesHealth({ source = 'all' } = {}) {
+  const targets = source === 'all' ? ['process3', 'datago'] : [source];
+  const results = {};
+
+  for (const sId of targets) {
+    const startedAt = new Date();
+
+    if (sId === 'datago') {
+      let ok = false;
+      let latencyMs = 0;
+      let errorMsg = null;
+      try {
+        const res = await axios.get(
+          'https://data.go.th/api/3/action/package_show?id=egp-contact-2568',
+          {
+            headers: { 'User-Agent': USER_AGENT },
+            timeout: 8000,
+          },
+        );
+        latencyMs = Date.now() - startedAt.getTime();
+        ok = res.status === 200 && Boolean(res.data?.success);
+      } catch (err) {
+        latencyMs = Date.now() - startedAt.getTime();
+        errorMsg = err.message;
+      }
+
+      const status = ok ? (latencyMs > 3000 ? 'degraded' : 'ok') : 'failed';
+      results.datago = {
+        status,
+        latencyMs,
+        message: ok ? `เชื่อมต่อ data.go.th สำเร็จ (${latencyMs}ms)` : (errorMsg || 'data.go.th ไม่ตอบสนอง'),
+      };
+
+      await IngestionLog.create({
+        source: 'datago',
+        status,
+        startedAt,
+        finishedAt: new Date(),
+        durationMs: latencyMs,
+        itemsDiscovered: 0,
+        itemsIngested: 0,
+        error: ok ? null : errorMsg,
+        metadata: { type: 'health_check' },
+      }).catch(() => {});
+    } else if (sId === 'process3') {
+      let ok = false;
+      let latencyMs = 0;
+      let errorMsg = null;
+
+      // In e-GP architecture (docs/data-sources/process3_gprocurement.md),
+      // process3.gprocurement.go.th is a front proxy that sends a 302 redirect
+      // to process.gprocurement.go.th. Testing process.gprocurement.go.th directly
+      // avoids the 8s proxy hang, with fallback to process3.
+      const endpoints = [
+        'https://process.gprocurement.go.th/EPROCRssFeedWeb/egpannouncerss.xml?anounceType=D0',
+        'https://process3.gprocurement.go.th/EPROCRssFeedWeb/egpannouncerss.xml?anounceType=D0',
+      ];
+
+      for (const url of endpoints) {
+        try {
+          const res = await axios.get(url, {
+            headers: { 'User-Agent': USER_AGENT },
+            timeout: 8000,
+            maxRedirects: 5,
+          });
+          latencyMs = Date.now() - startedAt.getTime();
+          if (res.status === 200) {
+            ok = true;
+            break;
+          }
+        } catch (err) {
+          latencyMs = Date.now() - startedAt.getTime();
+          errorMsg = err.message;
+        }
+      }
+
+      // Realistic threshold for Thai government e-GP infrastructure:
+      // Normal response time is 3–6s. Degraded only if > 8000ms.
+      const status = ok ? (latencyMs > 8000 ? 'degraded' : 'ok') : 'failed';
+      results.process3 = {
+        status,
+        latencyMs,
+        message: ok ? `เชื่อมต่อ e-GP สำเร็จ (${latencyMs}ms)` : (errorMsg || 'e-GP ไม่ตอบสนอง'),
+      };
+
+      await IngestionLog.create({
+        source: 'process3',
+        status,
+        startedAt,
+        finishedAt: new Date(),
+        durationMs: latencyMs,
+        itemsDiscovered: 0,
+        itemsIngested: 0,
+        error: ok ? null : errorMsg,
+        metadata: { type: 'health_check' },
+      }).catch(() => {});
+    }
+  }
+
+  return {
+    ok: true,
+    message: 'Health check completed',
+    results,
+  };
+}
+
+/**
  * Resets a stuck/failed pipeline step and queues it for execution (FR-24).
  */
 export async function retryPipelineStep(projectId, step) {
@@ -815,7 +964,11 @@ export async function getPipelineRecordDiagnostics(projectId) {
         ocr: {
           done: isOcrDone,
           usedOcr: Boolean(tor?.ocr?.usedOcr),
-          confidence: tor?.ocr?.confidence ?? null,
+          confidence: isOcrDone
+            ? (tor?.ocr?.confidence != null && tor.ocr.confidence > 0
+                ? Number(tor.ocr.confidence.toFixed(2))
+                : 1.0)
+            : null,
           error: failure?.step === 'ocr' ? failure.lastError : null,
         },
         extracted: {
@@ -938,4 +1091,253 @@ export async function addManualProcurementRecord({ projectId }) {
     message: `Project ${cleanId} successfully added and package downloaded.`,
   };
 }
+
+/**
+ * Searches projects by partial ID or title for live autocompletion (Inspector).
+ */
+export async function suggestProjects(q) {
+  if (!q || typeof q !== 'string') return [];
+  const trimmed = q.trim();
+  if (trimmed.length < 1) return [];
+
+  const isNumeric = /^\d+$/.test(trimmed);
+  let filter;
+  if (isNumeric) {
+    filter = { projectId: { $regex: trimmed, $options: 'i' } };
+  } else {
+    filter = {
+      $or: [
+        { projectId: { $regex: trimmed, $options: 'i' } },
+        { title: { $regex: trimmed, $options: 'i' } },
+      ],
+    };
+  }
+
+  try {
+    const results = await Tor.find(
+      filter,
+      { projectId: 1, title: 1, agency: 1, budgetTHB: 1, status: 1 },
+    )
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .lean();
+
+    return results.map((r) => ({
+      projectId: r.projectId,
+      title: r.title,
+      agency: r.agency || '',
+      budgetTHB: r.budgetTHB || null,
+      status: r.status || 'Draft',
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Lists technologies and standards vocabulary for admin inspection, review, and editing.
+ */
+export async function getAdminTechnologies({ status, search, page = 1, limit = 50 } = {}) {
+  try {
+    const totalCount = await Technology.countDocuments();
+    if (totalCount === 0 && STARTER_TECHNOLOGIES?.length > 0) {
+      const seedDocs = STARTER_TECHNOLOGIES.map((t) => ({
+        name: t.name,
+        key: t.name.toLowerCase().replace(/\s+/g, ' '),
+        category: t.category,
+        aliases: t.aliases ? t.aliases.map((a) => a.toLowerCase().trim()) : [],
+        status: 'confirmed',
+        firstSeenIn: 'starter-seed',
+      }));
+      await Technology.insertMany(seedDocs, { ordered: false }).catch(() => {});
+    }
+
+    const query = {};
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    if (search && search.trim()) {
+      const s = search.trim();
+      query.$or = [
+        { name: { $regex: s, $options: 'i' } },
+        { category: { $regex: s, $options: 'i' } },
+        { aliases: { $regex: s, $options: 'i' } },
+      ];
+    }
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [items, total, pendingRequestsCount] = await Promise.all([
+      Technology.find(query)
+        .sort({ status: 1, updatedAt: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Technology.countDocuments(query),
+      Technology.countDocuments({ status: 'new' }),
+    ]);
+
+    return {
+      items: items.map((t) => ({
+        id: t._id.toString(),
+        name: t.name,
+        key: t.key,
+        category: t.category,
+        aliases: t.aliases || [],
+        status: t.status,
+        firstSeenIn: t.firstSeenIn,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+      })),
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum) || 1,
+      pendingRequestsCount,
+    };
+  } catch {
+    return {
+      items: [],
+      total: 0,
+      page: 1,
+      totalPages: 1,
+      pendingRequestsCount: 0,
+    };
+  }
+}
+
+/**
+ * Creates a new technology or standard entry directly by admin.
+ */
+export async function createAdminTechnology({ name, category, aliases = [], status = 'confirmed' }) {
+  const trimmed = name?.trim();
+  if (!trimmed) {
+    const error = new Error('Name is required');
+    error.status = 400;
+    throw error;
+  }
+  if (trimmed.length > 100) {
+    const error = new Error('Name cannot exceed 100 characters');
+    error.status = 400;
+    throw error;
+  }
+
+  const key = trimmed.toLowerCase().replace(/\s+/g, ' ');
+  const normalizedAliases = Array.isArray(aliases)
+    ? Array.from(new Set(aliases.map((a) => (typeof a === 'string' ? a.trim().toLowerCase() : '')).filter(Boolean)))
+    : [];
+
+  const existing = await Technology.findOne({
+    $or: [{ key }, { name: new RegExp(`^${trimmed}$`, 'i') }],
+  });
+  if (existing) {
+    const error = new Error(`Technology or standard '${trimmed}' already exists`);
+    error.status = 409;
+    throw error;
+  }
+
+  const validStatus = ['confirmed', 'new', 'rejected'].includes(status) ? status : 'confirmed';
+
+  const created = await Technology.create({
+    name: trimmed,
+    key,
+    category: category?.trim() || null,
+    aliases: normalizedAliases,
+    status: validStatus,
+    firstSeenIn: 'admin-created',
+  });
+
+  return {
+    id: created._id.toString(),
+    name: created.name,
+    key: created.key,
+    category: created.category,
+    aliases: created.aliases,
+    status: created.status,
+    firstSeenIn: created.firstSeenIn,
+    createdAt: created.createdAt,
+    updatedAt: created.updatedAt,
+  };
+}
+
+/**
+ * Updates an existing technology or standard (name, category, aliases, status).
+ */
+export async function updateAdminTechnology(id, { name, category, aliases, status }) {
+  const tech = await Technology.findById(id);
+  if (!tech) {
+    const error = new Error('Technology not found');
+    error.status = 404;
+    throw error;
+  }
+
+  if (name !== undefined) {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      const error = new Error('Name cannot be empty');
+      error.status = 400;
+      throw error;
+    }
+    const key = trimmed.toLowerCase().replace(/\s+/g, ' ');
+    const clash = await Technology.findOne({
+      _id: { $ne: tech._id },
+      $or: [{ key }, { name: new RegExp(`^${trimmed}$`, 'i') }],
+    });
+    if (clash) {
+      const error = new Error(`Technology '${trimmed}' already exists with different ID`);
+      error.status = 409;
+      throw error;
+    }
+    tech.name = trimmed;
+    tech.key = key;
+  }
+
+  if (category !== undefined) {
+    tech.category = category ? category.trim() : null;
+  }
+
+  if (aliases !== undefined) {
+    tech.aliases = Array.isArray(aliases)
+      ? Array.from(new Set(aliases.map((a) => (typeof a === 'string' ? a.trim().toLowerCase() : '')).filter(Boolean)))
+      : [];
+  }
+
+  if (status !== undefined) {
+    if (!['confirmed', 'new', 'rejected'].includes(status)) {
+      const error = new Error("Status must be 'confirmed', 'new', or 'rejected'");
+      error.status = 400;
+      throw error;
+    }
+    tech.status = status;
+  }
+
+  await tech.save();
+
+  return {
+    id: tech._id.toString(),
+    name: tech.name,
+    key: tech.key,
+    category: tech.category,
+    aliases: tech.aliases,
+    status: tech.status,
+    firstSeenIn: tech.firstSeenIn,
+    createdAt: tech.createdAt,
+    updatedAt: tech.updatedAt,
+  };
+}
+
+/**
+ * Deletes a technology entry.
+ */
+export async function deleteAdminTechnology(id) {
+  const tech = await Technology.findByIdAndDelete(id);
+  if (!tech) {
+    const error = new Error('Technology not found');
+    error.status = 404;
+    throw error;
+  }
+  return { ok: true, id, message: `Technology '${tech.name}' deleted successfully` };
+}
+
 

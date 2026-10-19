@@ -371,3 +371,21 @@ test('FR-23: an admin can confirm classification or trigger re-extraction', asyn
   assert.equal(confirmed.metadata.reviewStatus, 'approved');
   assert.equal(confirmed.metadata.excluded, null);
 });
+
+test('FR-22: POST /api/admin/health-check tests external sources connectivity and latency', async () => {
+  const adminCookie = await signUp('health-checker-admin', { role: 'admin' });
+  const response = await fetch(`${baseUrl}/api/admin/health-check`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    body: JSON.stringify({ source: 'all' }),
+  });
+
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.ok, true);
+  assert.ok(data.results.process3);
+  assert.ok(data.results.datago);
+  assert.ok(['ok', 'degraded', 'failed'].includes(data.results.process3.status));
+  assert.ok(['ok', 'degraded', 'failed'].includes(data.results.datago.status));
+});
+
