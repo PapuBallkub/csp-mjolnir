@@ -8,41 +8,48 @@
  */
 
 import { TorInsight } from '#models/index.js';
+import { COMPLEXITY_TIERS, SYSTEM_ARCHETYPES } from '#pipeline/extraction/index.js';
 
-/** Domain keywords commonly found in Thai government IT procurement */
-export const DOMAIN_KEYWORDS = [
-  'erp',
-  'crm',
-  'gis',
-  'e-service',
-  'portal',
-  'mobile',
-  'app',
-  'แอปพลิเคชัน',
-  'เว็บไซต์',
-  'ฐานข้อมูล',
-  'database',
-  'cloud',
-  'คลาวด์',
-  'data center',
-  'ศูนย์ข้อมูล',
-  'security',
-  'ความมั่นคงปลอดภัย',
-  'cybersecurity',
-  'ai',
-  'analytics',
-  'iot',
-  'network',
-  'เครือข่าย',
-  'cctv',
-  'สารสนเทศ',
-  'บริหารจัดการ',
-  'บำรุงรักษา',
-  'คอมพิวเตอร์',
-  'แม่ข่าย',
-  'server',
-  'lan',
-];
+export { COMPLEXITY_TIERS, SYSTEM_ARCHETYPES };
+
+/**
+ * Resolves the system archetypes of a project directly from AI extraction (ADR 0021).
+ *
+ * @param {object} tor
+ * @returns {Set<string>}
+ */
+export function getProjectArchetypes(tor) {
+  const archetypes = new Set();
+
+  const direct = tor?.overview?.systemArchetype || tor?.identification?.archetype;
+  if (Array.isArray(direct)) {
+    for (const a of direct) {
+      if (SYSTEM_ARCHETYPES.includes(a)) archetypes.add(a);
+    }
+  } else if (typeof direct === 'string' && SYSTEM_ARCHETYPES.includes(direct)) {
+    archetypes.add(direct);
+  }
+
+  if (archetypes.size === 0) {
+    archetypes.add('other');
+  }
+
+  return archetypes;
+}
+
+/**
+ * Resolves the primary system archetype of a project.
+ *
+ * @param {object} tor
+ * @returns {string}
+ */
+export function getProjectArchetype(tor) {
+  const set = getProjectArchetypes(tor);
+  for (const a of set) {
+    if (a !== 'other') return a;
+  }
+  return 'other';
+}
 
 /**
  * Calculates Thai fiscal year in Buddhist Era (พ.ศ.).
@@ -147,77 +154,114 @@ export function calculateTechSimilarity(techsA = [], techsB = []) {
 }
 
 /**
- * Extracts normalized domain keyword tokens from title and major components.
+ * Extracts normalized domain keyword tokens from major components and high-level scope.
+ * (titleTh is excluded from scoring to prevent administrative phrase noise)
  *
- * @param {object} tor
- * @returns {Set<string>}
- */
-export function extractScopeTokens(tor) {
-  const title = String(tor?.identification?.titleTh ?? '').toLowerCase();
-  const components = (tor?.overview?.majorComponents ?? [])
-    .map((c) => String(c ?? '').toLowerCase())
-    .join(' ');
-  const combined = `${title} ${components}`;
-
-  const tokens = new Set();
-  for (const kw of DOMAIN_KEYWORDS) {
-    if (combined.includes(kw)) {
-      tokens.add(kw);
-    }
-  }
-  return tokens;
-}
-
 /**
- * Calculates Jaccard overlap of domain scope keywords.
- * S_scope = |ScopeA ∩ ScopeB| / |ScopeA ∪ ScopeB| in [0, 1].
+ * Calculates similarity between two projects based on system archetype (ADR 0021).
+ * Matches the canonical system archetypes extracted by Gemini:
+ * - Same archetype: 1.00
+ * - Different archetypes: 0.15
+ * - Unspecified / 'other': neutral 0.50
  *
  * @param {object} torA
  * @param {object} torB
  * @returns {number}
  */
 export function calculateScopeSimilarity(torA, torB) {
-  const tokensA = extractScopeTokens(torA);
-  const tokensB = extractScopeTokens(torB);
+  const archsA = getProjectArchetypes(torA);
+  const archsB = getProjectArchetypes(torB);
 
-  if (tokensA.size === 0 && tokensB.size === 0) return 0.5;
-  if (tokensA.size === 0 || tokensB.size === 0) return 0.3;
+  const nonOtherA = [...archsA].filter((a) => a !== 'other');
+  const nonOtherB = [...archsB].filter((a) => a !== 'other');
 
-  let intersection = 0;
-  for (const t of tokensA) {
-    if (tokensB.has(t)) intersection += 1;
+  if (nonOtherA.length > 0 && nonOtherB.length > 0) {
+    let intersection = 0;
+    for (const a of nonOtherA) {
+      if (archsB.has(a)) intersection += 1;
+    }
+    const union = new Set([...nonOtherA, ...nonOtherB]).size;
+    if (intersection > 0) {
+      return Number((intersection / union).toFixed(4));
+    }
+    return 0.15; // Different archetypes in same category
   }
-  const union = new Set([...tokensA, ...tokensB]).size;
-  return union > 0 ? intersection / union : 0.5;
+
+  // If either or both have no specific archetype ('other'), return neutral 0.50
+  return 0.5;
+}
+
+/**
+ * Resolves the complexity tier of a project (FR-19 & ADR 0021).
+ *
+ * @param {object} tor
+ * @returns {string|null}
+ */
+export function getProjectComplexityTier(tor) {
+  const tier = tor?.overview?.complexityTier;
+  if (typeof tier === 'string' && COMPLEXITY_TIERS.includes(tier)) {
+    return tier;
+  }
+  return null;
+}
+
+/**
+ * Calculates complexity tier similarity between two projects (ADR 0021 & docs).
+ * - Same tier (e.g. standard & standard): 1.00
+ * - 1 tier apart (adjacent, e.g. basic & standard, or standard & enterprise): 0.50
+ * - 2 tiers apart (distant, e.g. basic & enterprise): 0.10
+ * - Unspecified / null (legacy fallback): neutral 0.50
+ *
+ * @param {object} torA
+ * @param {object} torB
+ * @returns {number}
+ */
+export function calculateComplexitySimilarity(torA, torB) {
+  const tierA = getProjectComplexityTier(torA);
+  const tierB = getProjectComplexityTier(torB);
+
+  if (!tierA || !tierB) {
+    return 0.5; // neutral fallback for legacy records
+  }
+
+  const idxA = COMPLEXITY_TIERS.indexOf(tierA);
+  const idxB = COMPLEXITY_TIERS.indexOf(tierB);
+  const distance = Math.abs(idxA - idxB);
+
+  if (distance === 0) return 1.0;
+  if (distance === 1) return 0.5;
+  return 0.1;
 }
 
 /**
  * Computes composite similarity score between target TOR and a candidate TOR.
- * S = 0.45 * Scale + 0.35 * Scope + 0.20 * Tech
+ * S = 0.40 * Archetype + 0.35 * Complexity + 0.25 * Tech
+ *
+ * Peers are selected 100% on technical specifications without inspecting price.
  *
  * @param {object} targetTor
  * @param {object} candidateTor
- * @returns {{ score: number, breakdown: { scaleSim: number, scopeSim: number, techSim: number } }}
+ * @returns {{ score: number, breakdown: { archetypeSim: number, complexitySim: number, techSim: number, scopeSim: number, scaleSim: number } }}
  */
 export function calculateCompositeSimilarity(targetTor, candidateTor) {
-  const targetPrice = getProjectPrice(targetTor);
-  const candPrice = getProjectPrice(candidateTor);
-
-  const scaleSim = calculateScaleProximity(targetPrice, candPrice);
-  const scopeSim = calculateScopeSimilarity(targetTor, candidateTor);
+  const archetypeSim = calculateScopeSimilarity(targetTor, candidateTor);
+  const complexitySim = calculateComplexitySimilarity(targetTor, candidateTor);
   const techSim = calculateTechSimilarity(
     targetTor?.technicalRequirements?.requiredTechnologies,
     candidateTor?.technicalRequirements?.requiredTechnologies,
   );
 
-  const score = Number((scaleSim * 0.45 + scopeSim * 0.35 + techSim * 0.2).toFixed(4));
+  const score = Number((archetypeSim * 0.40 + complexitySim * 0.35 + techSim * 0.25).toFixed(4));
 
   return {
     score,
     breakdown: {
-      scaleSim: Number(scaleSim.toFixed(4)),
-      scopeSim: Number(scopeSim.toFixed(4)),
+      archetypeSim: Number(archetypeSim.toFixed(4)),
+      complexitySim: Number(complexitySim.toFixed(4)),
       techSim: Number(techSim.toFixed(4)),
+      // Backwards-compatibility aliases:
+      scopeSim: Number(archetypeSim.toFixed(4)),
+      scaleSim: Number(complexitySim.toFixed(4)),
     },
   };
 }
@@ -225,13 +269,14 @@ export function calculateCompositeSimilarity(targetTor, candidateTor) {
 /**
  * FR-19: Finds and ranks comparable historical projects for a target TOR.
  *
+ * Non-circular matching: Candidates are chosen strictly from technical specifications
+ * (Category -> Archetype -> Complexity Tier -> Tech Stack). The circular budget bracket
+ * filter is eliminated so price anomalies remain detectable without peer corruption.
+ *
  * @param {object} targetTor - A TorInsight document or plain object
  * @param {object} [options]
  * @param {number} [options.limit=5] - Number of comparable projects to return
- * @param {number} [options.minPriceFactor=0.3] - Lower bound bracket multiplier
- * @param {number} [options.maxPriceFactor=3.0] - Upper bound bracket multiplier
- * @param {Array<object>} [options.candidatesPool=null] - Optional in-memory candidates
- *   pool (used for unit tests or offline runs)
+ * @param {Array<object>} [options.candidatesPool=null] - Optional in-memory candidates pool
  * @returns {Promise<Array<{
  *   projectId: string,
  *   title: string,
@@ -245,8 +290,6 @@ export function calculateCompositeSimilarity(targetTor, candidateTor) {
 export async function findComparableProjects(targetTor, options = {}) {
   const {
     limit = 5,
-    minPriceFactor = 0.3,
-    maxPriceFactor = 3.0,
     candidatesPool = null,
   } = options;
 
@@ -258,29 +301,24 @@ export async function findComparableProjects(targetTor, options = {}) {
     return [];
   }
 
-  const minPrice = targetPrice * minPriceFactor;
-  const maxPrice = targetPrice * maxPriceFactor;
-
   let candidates = [];
 
   if (Array.isArray(candidatesPool)) {
-    // In-memory pool filtering
     candidates = candidatesPool.filter((cand) => {
       if (cand.projectId === targetTor.projectId) return false;
       if (!isFullExtraction(cand)) return false;
       if (cand.identification?.category !== targetCategory) return false;
       const price = getProjectPrice(cand);
-      return price !== null && price >= minPrice && price <= maxPrice;
+      return price !== null && price > 0;
     });
   } else {
-    // Stage 1: Query MongoDB using the compound index
     candidates = await TorInsight.find({
       projectId: { $ne: targetTor.projectId },
       ...FULL_EXTRACTION,
       'identification.category': targetCategory,
       $or: [
-        { 'facts.referencePriceTHB': { $gte: minPrice, $lte: maxPrice } },
-        { 'facts.budgetTHB': { $gte: minPrice, $lte: maxPrice } },
+        { 'facts.referencePriceTHB': { $gt: 0 } },
+        { 'facts.budgetTHB': { $gt: 0 } },
       ],
     })
       .select({
@@ -297,7 +335,7 @@ export async function findComparableProjects(targetTor, options = {}) {
     return [];
   }
 
-  // Stage 2: In-memory composite similarity scoring
+  // In-memory composite similarity scoring based 100% on technical specifications
   const ranked = candidates.map((candidate) => {
     const { score, breakdown } = calculateCompositeSimilarity(targetTor, candidate);
     const candPrice = getProjectPrice(candidate) ?? 0;
@@ -318,7 +356,7 @@ export async function findComparableProjects(targetTor, options = {}) {
     };
   });
 
-  // Sort descending by score, tie-break by proximity of reference price
+  // Sort descending by technical specification score, tie-break by proximity of reference price
   ranked.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     const diffA = Math.abs(a.referencePriceTHB - targetPrice);

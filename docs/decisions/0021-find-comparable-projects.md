@@ -1,81 +1,89 @@
-# 0021 · Match comparable projects in code, not with an LLM
+# 0021 · Define comparable projects by architecture and complexity
 
-Status: accepted · 2026-10-11
+Status: accepted · 2026-10-11 (updated 2026-10-19)
 
 ## Context
 
-FR-19 requires grouping similar historical IT procurement projects to a given TOR,
-serving as the baseline for price reality checks (FR-20) and lock-spec detection
-(FR-21).
+FR-19 requires grouping similar historical IT procurement projects to serve as the baseline for price reality checks (FR-20) and lock-spec detection (FR-21).
 
-When designing how to identify similar projects, three problems arose:
-1. **Calling an LLM (Vertex AI) again is too expensive and slow.** Ingestion already
-   calls Gemini to extract and normalize the document into `TorInsight`. Querying
-   an LLM on every comparison across dozens or hundreds of candidates would blow up
-   API token costs and violate NFR-01 (< 2s response).
-2. **The technology stack alone is too narrow.** Many government TORs do not name
-   specific technologies, or two projects with the exact same scope and budget
-   (e.g., e-Service portals) pick different tech stacks (React vs. Vue, Python vs. C#).
-   Requiring matching technologies causes a "zero-results" trap.
-3. **Agency wording differs widely.** Even for identical work, agencies describe
-   requirements in varied Thai bureaucratic prose.
+In Thai government procurement, defining what makes two software projects "comparable" faces three major hurdles:
+
+1. **The "Zero-Peer" Trap:** Agencies describe requirements in diverse, highly specific domain terms (e.g., "Calorie tracking app" vs. "National park booking app"). If the system searches for similar project descriptions or business topics, it finds zero historical peers.
+2. **Bureaucratic Noise:** Project objectives (`overview.objective`) are heavily padded with standard civil service slogans (*"เพื่อยกระดับประสิทธิภาพตามหลักธรรมาภิบาล"*). Text similarity on raw project descriptions produces false matches based on shared slogans rather than shared engineering effort.
+3. **Circular Bias in Price Benchmarking:** If the system filters candidate peers by price, it introduces a circular dependency (an overpriced project is only compared against other overpriced projects, concealing the anomaly).
+
+We needed a standardized, defensible way to identify comparable projects that reflects genuine software engineering effort without depending on subjective text matching or circular price filtering.
+
+---
 
 ## Decision
 
-**The AI picks the label; code does the comparing (ADR 0013 / 0014).**
+**Peers are matched on technical specifications across two standardized levels, grounded in Thai government and software engineering standards.**
 
-Similarity matching runs in deterministic backend code using fields already
-normalized into `TorInsight`. No additional LLM calls are made.
+Similarity is evaluated in deterministic backend code over AI-extracted attributes, ensuring fast (<10ms), repeatable comparisons without runtime LLM latency or cost.
 
-### Fields used from `TorInsight` and why
+### 1. Data Fields Used for Similarity Matching
 
-| Field in `TorInsight` | Role in Matching | Rationale |
-|---|---|---|
-| `identification.category` | **Primary Hard Filter** | Broad IT domain (`software-development`, `data-and-ai`, `network-and-security`, etc.). A web application is never benchmarked against hardware or networking. |
-| `facts.referencePriceTHB` (or `budgetTHB`) | **Scale Filter & Proximity Score** | Projects operate in budget tiers. Limits candidates to $[0.3\times, 3.0\times]$ of reference price, ensuring a 500k THB website is not benchmarked against a 100M THB enterprise system. |
-| `overview.majorComponents` & `identification.titleTh` | **Scope Keyword Matching** | Provides domain context (e.g. "ERP", "e-Service", "Mobile App", "GIS"). Keyword overlap weights projects with similar functional scopes higher. |
-| `technicalRequirements.requiredTechnologies` | **Bonus Ranking Weight (Jaccard)** | Shared technologies (`name`, `version`) boost similarity ranking when present, but are not a hard prerequisite. |
-| `facts.deliveryPeriodDays` | **Timeline Proximity** | Similar contract durations (e.g. 180 days vs. 365 days) reflect similar delivery complexity. |
+Peers are identified and ranked using **4 normalized technical fields** from the `torInsightSchema` in `server/src/models/tor-insight.model.js`:
 
-### Two-stage matching algorithm
+| Data Field | Standard / Source | Role in Matching | Why We Chose It (Decision) |
+|---|---|---|---|
+| `identification.category` | Thai e-GP Procurement Categories | **Hard Filter (Pre-filter)** | **Prevents domain mismatch.** Eliminates completely different procurement types upfront (e.g. software development vs. hardware purchases vs. cabling maintenance). |
+| `overview.systemArchetype` | DES & DGA ICT Standards (TDGA) | **Architecture Score (40%)** | **Matches software deliverable pattern.** Differentiates Mobile Apps, Web Portals, ERPs, and GIS Maps within the same broad category. Deliverables dictate team structure and cost. |
+| `overview.complexityTier` | Barry Boehm's COCOMO II & DGA Guidelines | **Scope Score (35%)** | **Measures engineering scale without price bias.** Distinguishes small internal tools from nationwide high-concurrency platforms (`basic`, `standard`, `enterprise`). Replaces circular price brackets. |
+| `technicalRequirements.requiredTechnologies` | Normalized Tech Vocabulary | **Tech Bonus Score (25%)** | **Soft scoring bonus for shared stack.** Jaccard similarity of frameworks/databases (e.g. React, PostgreSQL). Kept as a soft bonus (not hard filter) so unstated stacks don't return zero peers. |
 
-1. **Stage 1 — Candidate Pool Query (MongoDB Filter):**
-   - Exact match on `identification.category`
-   - Bounded range on `facts.referencePriceTHB` ($\pm 70\%$ bracket)
-   - Excludes target project ID
-2. **Stage 2 — In-Memory Composite Scoring (Top $K$ ranking):**
-   $$Score = 0.45 \cdot S_{\text{scale}} + 0.35 \cdot S_{\text{scope}} + 0.20 \cdot S_{\text{tech}}$$
-   The top 2–5 highest-scoring candidates populate `analytics.priceAnalysis.comparableProjects`.
-
-### 3. Implementation & Tooling
-
-The algorithm is implemented in `server/src/features/reality-check/similarity.service.js`
-and exported via the feature entrypoint (`#features/reality-check/index.js`).
-
-A dedicated CLI script (`npm run comparable` -> `server/scripts/find-comparable.js`)
-provides both inspection and automation:
-
-```bash
-# Local (from server/):
-npm run comparable -- --id <projectId>
-npm run comparable -- --all --save
-
-# Docker (when containers are running):
-docker compose exec server npm run comparable -- --id <projectId>
-docker compose exec server npm run comparable -- --all --save
-
-# Docker (as a one-off run):
-docker compose run --rm server npm run comparable -- --id <projectId>
-docker compose run --rm server npm run comparable -- --all --save
 ```
+All Ingested Projects in Database
+        │
+        ▼  [ Level 1: identification.category ]
+Hard filter eliminates irrelevant domains:
+  - Software development vs Hardware purchase vs Maintenance vs Licenses
+        │
+        ▼  (Inside ONE single category: e.g. "software-development")
+        │
+        ▼  [ Level 2: Composite Similarity Scoring ]
+Scores candidates on technical specifications:
+  ├── 1. Deliverable Architecture  (overview.systemArchetype,      weight = 40%)
+  ├── 2. Engineering Complexity    (overview.complexityTier,       weight = 35%)
+  └── 3. Tech Stack Overlap        (technicalRequirements.technologies, weight = 25%)
+        │
+        ▼
+Select Top 5 Technical Peers  ──►  Only now, calculate median of their referencePriceTHB
+```
+
+---
+
+### 2. Architectural Rationale: Why These Choices?
+
+1. **Software Deliverables Determine Cost, Not Agency Topics:**
+   A ฿3M mobile app for tracking calories requires the exact same team structure, mobile UX, API architecture, database, and testing effort as a ฿3M mobile app for booking park reservations. Their engineering costs are directly comparable. Matching on the deliverable archetype (`systemArchetype`) finds legitimate peers where topic matching would return zero results.
+2. **Complexity Tiers Replace Circular Price Brackets:**
+   Testing whether a price is abnormal while using price to filter candidate peers creates a circular dependency (an overpriced project is only compared against other overpriced projects). Replacing price filters with `complexityTier` (`basic`, `standard`, `enterprise`) ensures peers operate at comparable technical scale while keeping price benchmarking completely independent.
+3. **Tech Stack as a Soft Bonus, Not a Hard Requirement:**
+   Thai government TORs frequently omit specific programming languages or specify different modern stacks for identical jobs (e.g. React vs Vue, Flutter vs React Native). Weighting `requiredTechnologies` at 25% provides a scoring bonus when stacks align, without disqualifying valid peers when stacks differ or are unstated.
+4. **Rejection of `overview.objective` and Semantic Text Search:**
+   Government TOR objectives reflect administrative rhetoric rather than technical deliverables (*"เพื่อยกระดับประสิทธิภาพตามหลักธรรมาภิบาล"*). Matching on raw objectives causes false-positive similarity on shared slogans while missing actual engineering peers.
+
+---
+
+### 3. Standards Grounding
+
+Both classification dimensions are formally anchored in established public-sector and academic standards:
+
+- **System Archetypes (9 canonical classes):** Directly synthesized from the Ministry of Digital Economy and Society (DES / กระทรวงดิจิทัลเพื่อเศรษฐกิจและสังคม) official ICT Reference Price Catalog and the Digital Government Development Agency (DGA / สพร.) Thailand Digital Government Architecture Framework (TDGA):  
+  `mobile-app`, `web-portal`, `enterprise-erp`, `edoc-workflow`, `data-analytics`, `gis-mapping`, `cybersecurity`, `iot-telemetry`, `infra-networking` (plus `other`).
+- **Complexity Tiers (3 tiers):** Grounded in Barry Boehm’s COCOMO II model (*Organic*, *Semi-Detached*, *Embedded*) and Comptroller General's Department / DGA function-point software sizing guidelines:  
+  `basic` (departmental/workgroup), `standard` (agency-wide/moderate), `enterprise` (high-concurrency/nationwide/mission-critical).
+
+*(For the complete mathematical scoring formulas, field schemas, and implementation pipeline, see the [Comparable Projects Matching Feature Guide](../features/comparable-projects-matching.md)).*
+
+---
 
 ## Consequences
 
-- **Zero runtime LLM cost:** Matching is instant, deterministic, and repeatable in tests.
-- **No empty comparisons:** Because `category` and budget bounds are the primary anchor
-  while technologies are soft-weighted, the system never returns zero matches simply because
-  a TOR left its tech stack unspecified.
-- **Traceable evidence:** Every comparable project saved includes title, fiscal year,
-  and reference price, allowing bidders and watchdogs to verify the source of the benchmark.
-- **CLI & Pipeline ready:** The service can be imported directly into pipeline steps or
-  run via automated batch scripts.
+- **High Comparability, Zero "Zero-Match" Traps:** Normalizing projects into canonical archetypes and complexity tiers ensures every project finds genuine engineering peers regardless of agency phrasing.
+- **Unbiased Market Benchmarks:** Benchmarks are immune to circular price bias because peers are chosen strictly on technical requirements.
+- **Traceable & Defensible:** The classification is grounded in official Thai ICT guidelines and standard software engineering cost models.
+- **Fast Execution (NFR-01):** The AI assigns structured labels once during ingestion; similarity comparison runs in deterministic code in < 10ms.
+

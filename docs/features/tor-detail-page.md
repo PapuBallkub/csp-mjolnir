@@ -199,6 +199,7 @@ This information should answer:
 
 #### Display
 
+- System archetype / architecture badge (e.g. `Mobile Application`, `Web Portal`, `Enterprise ERP`, `Data & Analytics`, `GIS Mapping`)
 - Project objective
 - Main problem or purpose
 - Overall requested solution/service

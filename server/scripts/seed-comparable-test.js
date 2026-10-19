@@ -42,6 +42,8 @@ export const TEST_HISTORICAL_PROJECTS = [
         'การจัดการระบบป้องกันไวรัส',
       ],
       highLevelScope: 'บำรุงรักษาเครื่องแม่ข่ายและคอมพิวเตอร์สำนักงานตลอดระยะเวลา 12 เดือน',
+      systemArchetype: 'infra-networking',
+      complexityTier: 'standard',
     },
     technicalRequirements: {
       requiredTechnologies: [
@@ -72,6 +74,8 @@ export const TEST_HISTORICAL_PROJECTS = [
         'Preventive Maintenance คอมพิวเตอร์และ Server',
         'ดูแลระบบเครือข่าย LAN และอุปกรณ์ต่อพ่วง',
       ],
+      systemArchetype: 'infra-networking',
+      complexityTier: 'standard',
     },
     technicalRequirements: {
       requiredTechnologies: [
@@ -107,6 +111,8 @@ export const TEST_HISTORICAL_PROJECTS = [
         'ระบบเชื่อมต่อ API และฐานข้อมูล',
       ],
       highLevelScope: 'ออกแบบ พัฒนา และติดตั้งระบบสารสนเทศพร้อมระบบ AI Chatbot',
+      systemArchetype: 'data-analytics',
+      complexityTier: 'standard',
     },
     technicalRequirements: {
       requiredTechnologies: [
@@ -137,6 +143,8 @@ export const TEST_HISTORICAL_PROJECTS = [
         'ระบบ Dashboard สารสนเทศ',
         'ระบบจัดการเนื้อหา CMS',
       ],
+      systemArchetype: 'web-portal',
+      complexityTier: 'standard',
     },
     technicalRequirements: {
       requiredTechnologies: [
@@ -170,6 +178,8 @@ export const TEST_HISTORICAL_PROJECTS = [
         'ระบบบริหารจัดการเครือข่าย SD-WAN Controller',
         'อุปกรณ์ Switch กระจายสัญญาณ',
       ],
+      systemArchetype: 'infra-networking',
+      complexityTier: 'enterprise',
     },
     technicalRequirements: {
       requiredTechnologies: [

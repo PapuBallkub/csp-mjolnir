@@ -30,6 +30,34 @@ export const PROJECT_CATEGORIES = [
   'other-it',
 ];
 
+/**
+ * System archetypes for comparable project grouping (FR-19 & ADR 0021).
+ * AI classifies the core deliverable architecture so code can compare
+ * projects without fragile keyword regex.
+ */
+export const SYSTEM_ARCHETYPES = [
+  'mobile-app', // Mobile applications (iOS, Android, cross-platform)
+  'web-portal', // Web portals, e-Services, public service websites, CMS
+  'enterprise-erp', // ERP, CRM, HR, inventory, financial, workflow
+  'edoc-workflow', // e-Saraban, digital documents, approval routing, e-Meeting
+  'data-analytics', // Data warehouse, BI dashboards, AI, big data, analytics
+  'gis-mapping', // Map, GIS, geospatial, spatial analysis systems
+  'cybersecurity', // SOC, SIEM, security monitoring, pentesting, firewall
+  'iot-telemetry', // IoT sensors, SCADA, telemetry, smart city, smart meters
+  'infra-networking', // Infrastructure, cloud, servers, cabling, CCTV, data center
+  'other', // General or specialized IT systems
+];
+
+/**
+ * Engineering scope & complexity tiers (FR-19 & ADR 0021).
+ * Used to match projects of similar scale without circular price bracket filtering.
+ */
+export const COMPLEXITY_TIERS = [
+  'basic', // Small / Departmental Workgroup Tool
+  'standard', // Mid-sized Agency Operational System
+  'enterprise', // Mission-Critical / High-Concurrency / Nationwide
+];
+
 const QUOTE =
   'Copied exactly from the document: the same words, the same digits (Thai or Arabic) and the ' +
   'same spacing. One sentence or less.';
@@ -267,8 +295,27 @@ export const extractSchema = {
         objective: text('What the agency wants to achieve, in one or two sentences.'),
         majorComponents: list('The main parts of the system or work, one short Thai phrase each.'),
         highLevelScope: text('What is in the scope of work, in two or three sentences.'),
+        systemArchetype: {
+          type: Type.STRING,
+          nullable: true,
+          format: 'enum',
+          enum: SYSTEM_ARCHETYPES,
+          description:
+            'The core deliverable architecture or archetype of the system: ' +
+            'mobile-app, web-portal, enterprise-erp, edoc-workflow, data-analytics, gis-mapping, cybersecurity, iot-telemetry, infra-networking, or other.',
+        },
+        complexityTier: {
+          type: Type.STRING,
+          nullable: true,
+          format: 'enum',
+          enum: COMPLEXITY_TIERS,
+          description:
+            'The engineering scope and complexity tier: basic (small workgroup/department, 30-90 days, simple CRUD), ' +
+            'standard (agency-wide, RBAC, workflows, 1-2 APIs, 180-240 days), or enterprise (nationwide citizen-facing ' +
+            'or mission-critical, HA/DR, pentesting, DOPA/ThaID/payment integrations).',
+        },
       },
-      required: ['objective', 'majorComponents', 'highLevelScope'],
+      required: ['objective', 'majorComponents', 'highLevelScope', 'systemArchetype', 'complexityTier'],
     },
     deliverables: {
       type: Type.OBJECT,

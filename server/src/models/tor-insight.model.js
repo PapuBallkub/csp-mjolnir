@@ -145,6 +145,8 @@ const torInsightSchema = new mongoose.Schema(
       objective: { type: String, default: null, trim: true },
       majorComponents: [{ type: String, trim: true }],
       highLevelScope: { type: String, default: null, trim: true },
+      systemArchetype: { type: String, default: null, trim: true, index: true },
+      complexityTier: { type: String, default: null, trim: true, index: true },
     },
 
     // 4.4 Contractor Deliverables
