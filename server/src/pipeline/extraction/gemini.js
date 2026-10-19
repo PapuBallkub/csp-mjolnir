@@ -56,13 +56,15 @@ export function createGeminiClient({ project, location }) {
 }
 
 /**
- * Rate limits (429) and server errors (5xx) are worth waiting out. Anything
- * else, such as a bad request or a missing permission, fails the same way
- * every time, so retrying only wastes time.
+ * Rate limits (429), cancellations (499) and server errors (5xx) are worth
+ * waiting out. Vertex answers 499, Google's CANCELLED, now and then when it
+ * drops a request on its side; the same request goes through on another try.
+ * Anything else, such as a bad request or a missing permission, fails the
+ * same way every time, so retrying only wastes time.
  */
 export function isRetryable(error) {
   const status = error?.status;
-  return status === 429 || (Number.isInteger(status) && status >= 500 && status < 600);
+  return status === 429 || status === 499 || (Number.isInteger(status) && status >= 500 && status < 600);
 }
 
 const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

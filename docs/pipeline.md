@@ -74,7 +74,7 @@ The pipeline runs as three **jobs** on a fixed schedule
 |---|---|---|
 | 08:00, 17:05 | `poll` | The national feed, then process |
 | 18:00 | `sweep` | Every agency in `ingestion/data/egp-agencies.json` (267), then process |
-| 22:00 | `process` | Refresh the comparisons, choose tonight's past projects to read in full, then screen, download, OCR, classify and extract whatever is waiting, through the night |
+| 22:00 | `process` | Watch draft and open IT TORs for changed packages (it only logs, for now), refresh the comparisons, choose tonight's past projects to read in full, then screen, download, OCR, classify and extract whatever is waiting, through the night |
 
 Each job takes no new work after its time box, 5 minutes before the next job,
 and leaves a `PipelineRun` record and a log file in
@@ -219,7 +219,8 @@ Then `npm run screen -- --past` screens their titles, and the night's
 `HISTORY_PER_NIGHT` (20), from the past projects not read yet:
 1. **What the open TORs need, soonest deadline first.** Each open IT TOR
    gets the past projects its comparison would rank highest (the same
-   category, 0.3× to 3× its price, then the comparison's own score) until it
+   category, 0.3× to 3× its price, then the comparison's own score, then the
+   closest price, since many projects not read yet tie on the score) until it
    has `HISTORY_ENOUGH_RELATED` (5) related ones. Then the next TOR's turn
    comes. Once every open TOR has 5, the soonest goes on to 10, and so on.
    Related: any project read in full that is in its comparison, past or new,
@@ -227,7 +228,9 @@ Then `npm run screen -- --past` screens their titles, and the night's
 2. **The newest,** only when no open TOR has a candidate left.
 
 Past projects the title screen found `it` come first. `Unsure` ones, mostly
-hardware, come only after every `it` one that fits.
+hardware, come only after every `it` one that fits. Only e-bidding projects
+are chosen: e-GP keeps no documents for selection (คัดเลือก) or consultant
+projects.
 
 It only marks them: `Tor.historyRequestedAt`, and `Tor.historyRequestedFor`
 for the TOR it was chosen for. Download, OCR and extraction then take them
@@ -239,6 +242,26 @@ chosen on a night the 22:00 job doesn't run.
 ```
 npm run ingest -- --step history --dry-run    # show tonight's choice, change nothing
 npm run ingest -- --step history
+```
+
+### `npm run ingest -- --step recheck --dry-run`
+**Asks e-GP whether the packages of draft and open IT TORs have changed.** The
+feed has never announced a changed invitation (`D2`: none in 613 polls), so
+nothing else would tell us. It takes the TORs read in full and found IT,
+with a package downloaded: drafts, and open ones whose bids haven't closed.
+For each, it asks e-GP's announcement and price services which package is
+current (one small JSON request each, no download), and what the amendment
+service (`infoProcureDocAnnounZipAdj`) answers.
+
+**It only watches for now:** it logs a package we don't have, or any answer
+from the amendment service, and changes nothing. Without `--dry-run` it asks
+nothing. A week of it shows where e-GP puts an amendment, before the recheck
+acts on one. The `process` job runs it first, about 3 requests per TOR (67
+TORs took 3½ minutes). It stops at the time box, or when 3 TORs in a row get
+no answer.
+
+```
+npm run ingest -- --step recheck --dry-run
 ```
 
 ### `npm run ingest:download`
@@ -329,14 +352,14 @@ npm run ingest:ocr -- --id 69109028093
 | `--agencies <codes>` | sweep | every agency in the list | Sweep only these, e.g. `0307,A004` |
 | `--days <n>` | sweep | `1` | How many days back a full list is asked again, day by day: 0 to 7 |
 | `--types <codes>` | fetch, sweep | fetch: every type; sweep: every type but `15` | e-GP feed only: only these announcement codes, e.g. `D0,B0` |
-| `--until <time>` | sweep, download, ocr | none | The time box: no new work after this time, e.g. `2026-10-14T07:55:00+07:00`. The project in hand finishes. Jobs set it for you; `screen` and `extract` take it too. |
+| `--until <time>` | sweep, recheck, download, ocr | none | The time box: no new work after this time, e.g. `2026-10-14T07:55:00+07:00`. The project in hand finishes. Jobs set it for you; `screen` and `extract` take it too. |
 | `--skip-screen` | download | off | Download new projects without waiting for the title screen |
-| `--dry-run` | history | off | Show tonight's past projects, ask for none |
+| `--dry-run` | history, recheck | off | History: show tonight's past projects, ask for none. Recheck: watch only, which is all it does for now. |
 | `--query`, `-q` | fetch | none | Keep only new projects whose title has this text. None by default: the title screen and classify decide what is IT |
 | `--limit`, `-l` | fetch | none | At most this many **new** projects; updates to projects already in the database are never limited |
 | `--source` | fetch | `process3` | The e-GP feed, the only source now (`all` means the same). `datago` was removed. |
 | `--skip-ocr` | `ingest` | off | Stop after download |
-| `--step`, `-s` | `ingest` | `all` | `fetch`, `sweep`, `history`, `download`, `ocr`, `add` or `all` (fetch, download and OCR). The `ingest:*` scripts set this for you. |
+| `--step`, `-s` | `ingest` | `all` | `fetch`, `sweep`, `history`, `recheck`, `download`, `ocr`, `add` or `all` (fetch, download and OCR). The `ingest:*` scripts set this for you. |
 | `--retry-failed` | download, ocr | off | Also try the TORs that gave up after repeated failures |
 
 ## Settings
@@ -349,7 +372,7 @@ These are optional, in `server/.env`:
 | `OCR_MAX_PAGES` | `150` | Scanned pages to OCR per document |
 | `OCR_SECONDS_PER_PAGE` | `10` | OCR time budget per page. A document gets pages × this. |
 | `PIPELINE_MAX_ATTEMPTS` | `3` | Failures before a step leaves a TOR out. Ingestion and extraction both use it. |
-| `EGP_FEED_BURST` | `230` | Requests the sweep sends before a 10-minute pause. e-GP refuses the 240th in a row ([0027](decisions/0027-run-the-pipeline-on-a-schedule.md)). |
+| `EGP_FEED_BURST` | `230` | Requests to e-GP in a row before a 10-minute pause. e-GP refuses the 240th in a row ([0027](decisions/0027-run-the-pipeline-on-a-schedule.md)). The count is kept in the database (`RequestStreak`), so the steps of a job, each its own process, count as one run, as e-GP sees them; 10 quiet minutes start it again. The sweep also pauses on its own at the same count, to stop at its time box instead of pausing past it. Any other step may run past its time box by one pause. |
 | `EGP_PACKAGE_MAX_MB` | `200` | The largest e-GP package downloaded. e-GP sends no size first, so a bigger one is found by downloading up to the limit, and the project then gives up at once. To fetch one by hand, raise this and run `ingest:download -- --id <projectId> --retry-failed`. |
 | `EXTRACTIONS_DIR` | `server/data/extractions` | Where Gemini's answers are saved, for `extract --recheck` |
 | `HISTORY_PER_NIGHT` | `20` | Past projects chosen each night to be read in full ([0028](decisions/0028-past-projects-from-data-go-th.md)). Those chosen earlier and not downloaded yet count against it; `0` turns it off. |

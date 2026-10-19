@@ -148,7 +148,45 @@ const LOOKUPS = {
     url: (projectId) => `${PROCESS5}/egp-doc-price-estimate-service/dpe-common/infoDocPriceestZipHis?projectId=${projectId}`,
     read: (data) => ({ zipId: data?.zipFileId ?? null, name: data?.zipFileName || null }),
   },
+  // Probably a changed invitation's package: "not found" for a project never
+  // amended, untested on an amended one. Read as the announcement's is, a guess
+  // the recheck's watch mode is there to check.
+  adjustment: {
+    url: (projectId) => `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZipAdj?itemNo=&projectId=${projectId}`,
+    read: (data) => ({ zipId: data?.zipId ?? null, name: data?.buildName1 || null }),
+  },
 };
+
+/**
+ * Asks e-GP which package of one kind a project has now, without
+ * downloading it: one small JSON request.
+ *
+ * @param {object} params
+ * @param {'announcement' | 'price' | 'adjustment'} params.kind
+ * @param {string} params.projectId
+ * @param {Function} [params.pace] - Waits before the request (NFR-03); replaced in tests
+ * @returns {Promise<
+ *   | { failed: { success: false, error: string, transient: boolean } }
+ *   | { none: true }
+ *   | { zipId: string, name: string|null, data: object }>}
+ *   `data` is e-GP's answer as it came.
+ */
+export async function lookupPackage({ kind, projectId, pace = paceRequest }) {
+  const lookup = LOOKUPS[kind];
+  let data;
+  try {
+    const url = lookup.url(projectId);
+    await pace(url);
+    ({ data } = await axios.get(url, { headers: EGP_SERVICE_HEADERS, timeout: 10000 }));
+  } catch (err) {
+    return {
+      failed: { success: false, error: `e-GP did not answer for project ${projectId}: ${err.message}`, transient: isOutage(err) },
+    };
+  }
+  const { zipId, name } = lookup.read(data?.data);
+  if (!zipId) return { none: true };
+  return { zipId, name, data: data.data };
+}
 
 /**
  * Asks e-GP for a project's current package of one kind, and downloads it
@@ -159,22 +197,11 @@ const LOOKUPS = {
  *   | { zipId: string, name: string, entries: { name: string, data: Buffer }[] }>}
  */
 async function fetchPackage({ kind, projectId, knownZipIds, maxSizeBytes, pace }) {
-  const lookup = LOOKUPS[kind];
-  let zipId;
-  let name;
-  try {
-    const url = lookup.url(projectId);
-    await pace(url);
-    const { data } = await axios.get(url, { headers: EGP_SERVICE_HEADERS, timeout: 10000 });
-    ({ zipId, name } = lookup.read(data?.data));
-  } catch (err) {
-    return {
-      failed: { success: false, error: `e-GP did not answer for project ${projectId}: ${err.message}`, transient: isOutage(err) },
-    };
-  }
-  if (!zipId) return { none: true };
+  const found = await lookupPackage({ kind, projectId, pace });
+  if (found.failed || found.none) return found;
+  const { zipId } = found;
   if (knownZipIds.includes(zipId)) return { unchanged: true, zipId };
-  name ??= `${projectId}_${kind}.zip`;
+  const name = found.name ?? `${projectId}_${kind}.zip`;
 
   let buffer;
   try {

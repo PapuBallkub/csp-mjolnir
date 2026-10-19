@@ -11,16 +11,22 @@
  * for more, ENOUGH_RELATED at a time. Related: a project read in full that its
  * comparison would list (same category, within its price band), past or new,
  * or a past one already chosen for it and not read yet. Candidates are ranked
- * by the comparison's own score (technologies are unknown until read). Those
- * the title screen found IT come first; unsure ones, mostly hardware, only
- * after them. A night no open TOR has a candidate left for goes to the
- * newest, IT first.
+ * by the comparison's own score, then by how close their price is: a past
+ * project not read yet is known only by its title and prices, and the score
+ * weighs what a full read finds, such as technologies, so on its own it may
+ * not tell candidates apart. Those the title screen found IT come first;
+ * unsure ones, mostly hardware, only after them. A night no open TOR has a
+ * candidate left for goes to the newest, IT first.
+ *
+ * Only e-bidding projects can be chosen: e-GP keeps no documents for the
+ * others, so a pick would give up at once and waste a night's place.
  */
 
 import { FULL_EXTRACTION, calculateCompositeSimilarity, getProjectPrice } from '#features/reality-check/index.js';
 import { TitleScreen, Tor, TorInsight } from '#models/index.js';
 import { feedAmount, feedDate } from '../../extraction/convert.js';
 import { loadGivenUp } from '../../shared/failures.js';
+import { WITH_EGP_DOCUMENTS } from '../sources/datago-contracts.js';
 
 const fromEnv = (name, fallback) => {
   const parsed = Number.parseInt(process.env[name] ?? '', 10);
@@ -80,14 +86,15 @@ async function unsettledFor() {
 }
 
 /**
- * The past projects that can be chosen: not asked for before. IT ones by
- * their title-level record; unsure ones, which have none, by the same fields
- * from their project and screen.
+ * The past projects that can be chosen: e-bidding ones, not asked for before.
+ * IT ones by their title-level record; unsure ones, which have none, by the
+ * same fields from their project and screen.
  */
 async function candidates() {
   const asked = new Set(await Tor.distinct('projectId', { historyRequestedAt: { $ne: null } }));
+  const readable = new Set(await Tor.distinct('projectId', { source: 'datago', procurementMethod: WITH_EGP_DOCUMENTS }));
   const it = (await TorInsight.find({ 'metadata.titleOnly': true }, { projectId: 1, identification: 1, facts: 1 }).lean())
-    .filter((candidate) => !asked.has(candidate.projectId));
+    .filter((candidate) => readable.has(candidate.projectId) && !asked.has(candidate.projectId));
 
   const unsureScreens = await TitleScreen.find({ verdict: 'unsure' }, { projectId: 1, category: 1 }).lean();
   const ids = unsureScreens.map((screen) => screen.projectId);
@@ -95,7 +102,7 @@ async function candidates() {
   const category = new Map(unsureScreens.map((screen) => [screen.projectId, screen.category ?? null]));
   const unsure = (
     await Tor.find(
-      { projectId: { $in: ids }, source: 'datago', historyRequestedAt: null },
+      { projectId: { $in: ids }, source: 'datago', procurementMethod: WITH_EGP_DOCUMENTS, historyRequestedAt: null },
       { projectId: 1, title: 1, referencePriceTHB: 1, budgetTHB: 1, announceDate: 1 },
     ).lean()
   )
@@ -172,11 +179,20 @@ export async function selectPastProjects({ perNight = HISTORY_PER_NIGHT, enough 
 
   // Each TOR's candidates, closest first and IT before unsure, worked out once
   const queues = new Map();
-  const ranked = (target, pool, verdict) =>
-    pool
+  // Score first, then the closest price, then the project ID: never the order
+  // the database happens to return them in
+  const ranked = (target, pool, verdict) => {
+    const price = getProjectPrice(target);
+    return pool
       .filter((candidate) => comparable(target, candidate))
-      .map((candidate) => ({ candidate, verdict, score: calculateCompositeSimilarity(target, candidate).score }))
-      .sort((a, b) => b.score - a.score);
+      .map((candidate) => ({
+        candidate,
+        verdict,
+        score: calculateCompositeSimilarity(target, candidate).score,
+        gap: Math.abs(getProjectPrice(candidate) - price),
+      }))
+      .sort((a, b) => b.score - a.score || a.gap - b.gap || a.candidate.projectId.localeCompare(b.candidate.projectId));
+  };
   const nextFor = (target) => {
     if (!queues.has(target.projectId)) {
       queues.set(target.projectId, [...ranked(target, it, 'it'), ...ranked(target, unsure, 'unsure')]);

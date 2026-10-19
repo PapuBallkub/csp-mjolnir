@@ -37,7 +37,22 @@ const PAST = {
   b2: { projectId: '68000000007', category: 'data-and-ai', price: 3_000_000, posted: '2025-05-10' },
   other: { projectId: '68000000008', category: 'network-and-security', price: 1_000_000, posted: '2025-07-10' },
   u1: { projectId: '68000000009', category: 'software-development', price: 1_000_000, posted: '2025-10-01', unsure: true },
+  // As close as a1 and u1, and the newest, but bought by selection or a
+  // consultant's call: e-GP keeps no documents for them, so never chosen
+  sel: { projectId: '68000000010', category: 'software-development', price: 1_000_000, posted: '2025-10-05', method: 'คัดเลือก' },
+  con: {
+    projectId: '68000000011',
+    category: 'software-development',
+    price: 1_000_000,
+    posted: '2025-10-06',
+    unsure: true,
+    method: 'จ้างที่ปรึกษาโดยวิธีประกาศเชิญชวนทั่วไป',
+  },
 };
+const E_BIDDING = 'ประกวดราคาอิเล็กทรอนิกส์ (e-bidding)';
+// Stored in reverse, so within a category the dearest come first: the order the
+// database returns them in can't pass for the ranking
+const STORED = Object.values(PAST).reverse();
 const NAME = new Map(Object.entries(PAST).map(([name, { projectId }]) => [projectId, name]));
 const names = (rows) => rows.map((row) => NAME.get(row.projectId));
 const like = (key) => `like ${OPEN[key].projectId}`;
@@ -57,11 +72,12 @@ beforeEach(async () => {
       submissionDeadline: deadline,
       pipelineStatus: 'ocr_done',
     })),
-    ...Object.values(PAST).map(({ projectId, price }) => ({
+    ...STORED.map(({ projectId, price, method }) => ({
       projectId,
       source: 'datago',
       title: TITLE,
       agency: 'กรมตัวอย่าง',
+      procurementMethod: method ?? E_BIDDING,
       status: 'Awarded',
       referencePriceTHB: price,
       contract: { winnerName: 'บริษัท ผู้ชนะ จำกัด' },
@@ -76,7 +92,7 @@ beforeEach(async () => {
       facts: { referencePriceTHB: price },
       metadata: { excluded: null },
     })),
-    ...Object.values(PAST)
+    ...STORED
       .filter((past) => !past.unsure)
       .map(({ projectId, category, price, posted }) => ({
         projectId,
@@ -86,7 +102,7 @@ beforeEach(async () => {
       })),
   ]);
   await TitleScreen.collection.insertMany(
-    Object.values(PAST).map(({ projectId, category, unsure }) => ({ projectId, title: TITLE, verdict: unsure ? 'unsure' : 'it', category })),
+    STORED.map(({ projectId, category, unsure }) => ({ projectId, title: TITLE, verdict: unsure ? 'unsure' : 'it', category })),
   );
 });
 
@@ -141,6 +157,15 @@ test("selection: unsure past projects come only after every IT one in the TOR's 
   // u1 is as close in price as a1, but unsure; far is outside the band
   assert.deepEqual(names(chosen), ['a1', 'a2', 'a3', 'a4', 'u1']);
   assert.deepEqual(chosen.map((pick) => pick.verdict), ['it', 'it', 'it', 'it', 'unsure']);
+});
+
+test('selection: only e-bidding projects, the only ones e-GP keeps documents for', async () => {
+  const { chosen } = await selectPastProjects({ perNight: 50, enough: 10, now: NOW });
+
+  // Neither the closest nor the newest: not for a TOR, and not to fill the night
+  assert.ok(chosen.length > 0);
+  assert.ok(!names(chosen).includes('sel'), 'a selection-method project');
+  assert.ok(!names(chosen).includes('con'), 'a consultant project');
 });
 
 test('selection: projects read in full, and those chosen and not read yet, count as related', async () => {

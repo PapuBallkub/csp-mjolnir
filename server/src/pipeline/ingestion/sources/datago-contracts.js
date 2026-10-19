@@ -155,14 +155,23 @@ export function mergeContracts(rows) {
 }
 
 /**
- * Whether a project was announced publicly, so e-GP has its documents. A
- * direct purchase (เฉพาะเจาะจง, 76% of rows) never had a public TOR, and an
- * e-market buy is from a catalogue.
+ * Whether a project was announced publicly. A direct purchase (เฉพาะเจาะจง,
+ * 76% of rows) never had a public TOR, and an e-market buy is from a
+ * catalogue. Not every one announced has documents on e-GP, though: see
+ * WITH_EGP_DOCUMENTS.
  */
 export function isPubliclyAnnounced(method) {
   const name = text(method);
   return Boolean(name) && !/เฉพาะเจาะจง|ตลาดอิเล็กทรอนิกส์|e-market/i.test(name);
 }
+
+/**
+ * The procurement methods e-GP keeps an announcement package for: e-bidding
+ * only. Of the past projects chosen on 2026-10-18, all 13 e-bidding ones had
+ * a package, and all 7 selection (คัดเลือก) and consultant ones had none.
+ * A regular expression, so a database query can use it too.
+ */
+export const WITH_EGP_DOCUMENTS = /e-bidding/i;
 
 // Loose on purpose: the title screen decides after this, and an IT project
 // with an oddly worded title shouldn't be lost before it gets there

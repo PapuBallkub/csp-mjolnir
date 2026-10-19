@@ -50,8 +50,8 @@ test('readGeminiConfig names every missing setting and defaults the region to gl
   );
 });
 
-test('isRetryable waits out rate limits and server errors, nothing else', () => {
-  for (const status of [429, 500, 503]) assert.equal(isRetryable(apiError(status)), true);
+test('isRetryable waits out rate limits, cancellations and server errors, nothing else', () => {
+  for (const status of [429, 499, 500, 503]) assert.equal(isRetryable(apiError(status)), true);
   for (const status of [400, 403, 404]) assert.equal(isRetryable(apiError(status)), false);
   assert.equal(isRetryable(new Error('no status')), false);
 });
