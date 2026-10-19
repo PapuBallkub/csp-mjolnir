@@ -195,9 +195,20 @@ export type ScraperSource = {
   uptime: number;
   lastRun: string;
   docsLast7Days: number;
-  /** One bar per day for the last 14 days, oldest first: true = run succeeded. */
-  history: boolean[];
+  /** One bar per run for the last 14 runs, oldest first: true = run succeeded, false = failed, null = no run recorded yet. */
+  history: (boolean | null)[];
   error?: string;
+};
+
+export type IngestionExecutionLog = {
+  id: string;
+  source: string;
+  status: "ok" | "degraded" | "failed";
+  startedAt: string;
+  durationMs: number;
+  itemsDiscovered: number;
+  itemsIngested: number;
+  error?: string | null;
 };
 
 export type ReviewItem = {
@@ -205,19 +216,61 @@ export type ReviewItem = {
   title: string;
   agency: string;
   ingestedAt: string;
-  ocr: number;
+  ocr: number | null;
   extraction: number;
+  reviewStatus?: "pending" | "approved" | "rejected";
   /** Fields the model itself was unsure about. */
   lowFields: { field: string; value: string; confidence: number }[];
   /** Set when the classifier's IT/non-IT call looks wrong. */
   misclassified?: { predicted: string; likely: string };
 };
 
+export type PipelineFailureItem = {
+  projectId: string;
+  projectTitle: string;
+  agency: string;
+  step: "download" | "ocr" | "extract";
+  attempts: number;
+  lastError: string;
+  lastTransient: boolean;
+  firstFailedAt: string;
+  lastFailedAt: string;
+};
+
+export type PipelineStageSnapshot = {
+  stages: Record<string, number>;
+  screens: Record<string, number>;
+  insights: Record<string, number>;
+};
+
+export type PipelineRunStep = {
+  name: string;
+  exitCode: number | null;
+  startedAt: string | null;
+  ms: number;
+};
+
+export type PipelineRunItem = {
+  id: string;
+  job: "poll" | "sweep" | "process";
+  outcome: "running" | "done" | "timed-out" | "skipped" | "failed";
+  startedAt: string;
+  finishedAt?: string | null;
+  durationMs: number;
+  steps: PipelineRunStep[];
+  error?: string | null;
+};
+
 export type AdminOperations = {
   sources: ScraperSource[];
   reviewQueue: ReviewItem[];
+  recentLogs?: IngestionExecutionLog[];
+  pipelineFailures?: PipelineFailureItem[];
+  stageSnapshot?: PipelineStageSnapshot;
+  pipelineRuns?: PipelineRunItem[];
   stats: {
     docsIngestedToday: number;
+    totalIndexedTors?: number;
     docsAwaitingReview: number;
     avgOcrConfidence: number;
     avgExtractionConfidence: number;
@@ -236,6 +289,327 @@ export type AdminOperations = {
 export function adminOperations() {
   return request<AdminOperations>("/api/admin/operations", { cache: "no-store" });
 }
+
+export type UpdateReviewPayload = {
+  action: "approve" | "reclassify" | "confirm_classification";
+  reclassifyReason?: string;
+  fields?: {
+    title?: string;
+    agency?: string;
+    referencePriceTHB?: number | null;
+    budgetTHB?: number | null;
+    submissionDeadline?: string | null;
+    penaltyClause?: string | null;
+    requiredTechnologies?: string;
+  };
+};
+
+export type UpdateReviewResult = {
+  ok: boolean;
+  projectId: string;
+  reviewStatus: string;
+  reviewedAt?: string;
+};
+
+export type ReExtractResult = {
+  ok: boolean;
+  projectId: string;
+  status: string;
+};
+
+/**
+ * Manually edit extracted data, approve, or reclassify a TOR in the review queue (FR-23).
+ */
+export function adminUpdateReview(projectId: string, payload: UpdateReviewPayload) {
+  return request<UpdateReviewResult>(`/api/admin/review/${encodeURIComponent(projectId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Re-queue a TOR for AI extraction (FR-23).
+ */
+export function adminReExtract(projectId: string) {
+  return request<ReExtractResult>(`/api/admin/review/${encodeURIComponent(projectId)}/re-extract`, {
+    method: "POST",
+  });
+}
+
+export type TriggerIngestResult = {
+  ok: boolean;
+  fetched: number;
+  message: string;
+};
+
+/**
+ * Triggers an on-demand polling run across procurement sources.
+ */
+export function adminTriggerIngest(source: string = "all") {
+  return request<TriggerIngestResult>("/api/admin/ingest", {
+    method: "POST",
+    body: JSON.stringify({ source, limit: 2 }),
+  });
+}
+
+export type CheckSourceHealthResult = {
+  ok: boolean;
+  message: string;
+  results: Record<
+    string,
+    { status: "ok" | "degraded" | "failed"; latencyMs: number; message: string }
+  >;
+};
+
+/**
+ * Checks connectivity and measures response latency for external sources (FR-22).
+ */
+export function adminCheckSourceHealth(source: string = "all") {
+  return request<CheckSourceHealthResult>("/api/admin/health-check", {
+    method: "POST",
+    body: JSON.stringify({ source }),
+  });
+}
+
+export type RetryPipelineStepResult = {
+  ok: boolean;
+  projectId: string;
+  step: string;
+  status: string;
+  message: string;
+};
+
+export type DismissPipelineFailureResult = {
+  ok: boolean;
+  projectId: string;
+  step: string;
+  status: string;
+  message: string;
+};
+
+/**
+ * Re-triggers / retries a stuck or failed pipeline step (FR-24).
+ */
+export function adminRetryPipelineStep(projectId: string, step: string) {
+  return request<RetryPipelineStepResult>("/api/admin/pipeline/retry", {
+    method: "POST",
+    body: JSON.stringify({ projectId, step }),
+  });
+}
+
+/**
+ * Permanently dismisses a failed pipeline step and marks the document excluded (FR-24).
+ */
+export function adminDismissPipelineFailure(projectId: string, step: string, reason?: string) {
+  return request<DismissPipelineFailureResult>("/api/admin/pipeline/dismiss", {
+    method: "POST",
+    body: JSON.stringify({ projectId, step, reason }),
+  });
+}
+
+export type PipelineStageDetail = {
+  done: boolean;
+  timestamp?: string | null;
+  usedOcr?: boolean;
+  confidence?: number | null;
+  status?: string;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  error?: string | null;
+};
+
+export type PipelineRecordDiagnostics = {
+  projectId: string;
+  title: string;
+  agency: string;
+  budgetTHB: number | null;
+  referencePriceTHB: number | null;
+  submissionDeadline: string | null;
+  status: string;
+  isAmended: boolean;
+  pipelineStatus: string;
+  source: string;
+  announceDate: string | null;
+  stages: {
+    fetched: PipelineStageDetail;
+    downloaded: PipelineStageDetail;
+    ocr: PipelineStageDetail;
+    extracted: PipelineStageDetail;
+    reviewed: PipelineStageDetail;
+  };
+  document?: {
+    fileName: string;
+    pages: number;
+    sizeBytes: number;
+    documentType: string;
+    sourceUrl?: string;
+  } | null;
+  ocr?: {
+    usedOcr?: boolean;
+    confidence?: number | null;
+  } | null;
+  activeFailure?: {
+    step: string;
+    attempts: number;
+    lastError: string;
+    lastTransient: boolean;
+    firstFailedAt: string;
+    lastFailedAt: string;
+  } | null;
+  insight?: {
+    confidence: number | null;
+    reviewStatus: string;
+    excluded?: { reason: string; dismissedAt: string } | null;
+    extractedTechnologies: string[];
+    lockSpecRisk: string;
+  } | null;
+  titleScreen?: {
+    category?: string | null;
+    verdict?: string;
+    isItRelated?: boolean;
+    reason?: string;
+    screenedAt?: string;
+  } | null;
+};
+
+export type GetPipelineRecordResult = {
+  ok: boolean;
+  record: PipelineRecordDiagnostics;
+};
+
+export type AddPipelineRecordResult = {
+  ok: boolean;
+  projectId: string;
+  title: string;
+  agency: string;
+  status: string;
+  pipelineStatus: string;
+  message: string;
+};
+
+/**
+ * Retrieves full lifecycle diagnostics for an individual procurement record (FR-24).
+ */
+export function adminGetPipelineRecord(projectId: string) {
+  return request<GetPipelineRecordResult>(
+    `/api/admin/pipeline/record/${encodeURIComponent(projectId.trim())}`,
+  );
+}
+
+/**
+ * Manually adds an 11-digit e-GP project ID and initiates download of its packages (FR-24).
+ */
+export function adminAddPipelineRecord(projectId: string) {
+  return request<AddPipelineRecordResult>("/api/admin/pipeline/add", {
+    method: "POST",
+    body: JSON.stringify({ projectId: projectId.trim() }),
+  });
+}
+
+export type SuggestedProject = {
+  projectId: string;
+  title: string;
+  agency: string;
+  budgetTHB: number | null;
+  status: string;
+};
+
+/**
+ * Searches projects by partial ID or title for live autocompletion (FR-24).
+ */
+export function adminSuggestProjects(q: string) {
+  return request<SuggestedProject[]>(
+    `/api/admin/projects/suggest?q=${encodeURIComponent(q.trim())}`,
+  );
+}
+
+export type AdminTechnology = {
+  id: string;
+  name: string;
+  key: string;
+  category: string | null;
+  aliases: string[];
+  status: "confirmed" | "new" | "rejected";
+  firstSeenIn: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminTechnologiesResponse = {
+  items: AdminTechnology[];
+  total: number;
+  page: number;
+  totalPages: number;
+  pendingRequestsCount: number;
+};
+
+export type CreateAdminTechnologyPayload = {
+  name: string;
+  category?: string | null;
+  aliases?: string[];
+  status?: "confirmed" | "new" | "rejected";
+};
+
+export type UpdateAdminTechnologyPayload = {
+  name?: string;
+  category?: string | null;
+  aliases?: string[];
+  status?: "confirmed" | "new" | "rejected";
+};
+
+/**
+ * Lists technologies and standards vocabulary for admin directory and review queue.
+ */
+export function adminGetTechnologies(params?: {
+  status?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params?.status) query.set("status", params.status);
+  if (params?.search) query.set("search", params.search);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  const queryString = query.toString() ? `?${query.toString()}` : "";
+  return request<AdminTechnologiesResponse>(`/api/admin/technologies${queryString}`, {
+    cache: "no-store",
+  });
+}
+
+/**
+ * Creates a new technology or standard entry directly by admin.
+ */
+export function adminCreateTechnology(payload: CreateAdminTechnologyPayload) {
+  return request<AdminTechnology>("/api/admin/technologies", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Updates an existing technology or standard entry (edit, approve, reject).
+ */
+export function adminUpdateTechnology(id: string, payload: UpdateAdminTechnologyPayload) {
+  return request<AdminTechnology>(`/api/admin/technologies/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Deletes a technology entry.
+ */
+export function adminDeleteTechnology(id: string) {
+  return request<{ ok: boolean; id: string; message: string }>(
+    `/api/admin/technologies/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
+
 
 /* ------------------------------------------------------------------ */
 /*  TOR & Insight (FR-10, FR-11, FR-13, FR-15, FR-16, FR-19, FR-20)   */

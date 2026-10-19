@@ -161,6 +161,9 @@ The stack is Next.js on the front, Node.js with Express on the back.
 - **FR-22** A dashboard of ingestion uptime, polling health and feed request
   failures.
 - **FR-23** Admins can edit extracted data and reclassify misclassified TORs.
+- **FR-24** Admins can investigate pipeline failures, inspect individual record
+  processing status, manually initiate or retry pipeline operations, and ingest
+  additional procurement data.
 
 ## Non-functional requirements
 
@@ -255,6 +258,7 @@ SRS's `FR-07` is field extraction. Translate before looking one up.
 | FR13 | FR-20, FR-21 | Lock-spec flag |
 | FR14 | FR-22 | Ingestion health dashboard |
 | FR15 | FR-23, NFR-17 | Confidence review, correction, reclassification |
+| — | FR-24 | Pipeline monitoring, retry, recovery, and manual ingestion |
 
 | Story | SRS | About |
 | :--- | :--- | :--- |

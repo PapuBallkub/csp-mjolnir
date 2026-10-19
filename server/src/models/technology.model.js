@@ -22,7 +22,7 @@ const technologySchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ['confirmed', 'new'],
+      enum: ['confirmed', 'new', 'rejected'],
       default: 'new',
       index: true,
     },

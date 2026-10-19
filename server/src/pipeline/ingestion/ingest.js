@@ -40,7 +40,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { FeedPoll, TitleScreen, Tor, TorInsight } from '#models/index.js';
+import { FeedPoll, IngestionLog, TitleScreen, Tor, TorInsight } from '#models/index.js';
 import { EGP_ANNOUNCEMENT_CODES, classifyAnnouncement } from '../shared/announcement-codes.js';
 import { MAX_ATTEMPTS, clearFailure, isTooBig, loadGivenUp, recordFailure } from '../shared/failures.js';
 import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
@@ -182,36 +182,69 @@ const pdfHashOf = (tor) => tor.document?.contentHash ?? null;
 /**
  * Service 1: Fetch metadata from procurement sources and pre-filter IT relevance.
  */
-export async function runFetchStep({ query, limit, dept = null, types = null, documentsDir }) {
+export async function runFetchStep({ query, limit, dept = null, types = null, documentsDir, source = 'all' }) {
   console.log('\n[Service 1: FETCH] Discovering announcements & pre-filtering IT...');
+
+  if (source !== 'all' && source !== 'process3') {
+    return 0;
+  }
 
   // One agency's feed (--dept) shows its last 7 days; the national one, the latest 20 of each type
   const scope = [dept && `agency ${dept}`, types && `types ${types.join(', ')}`].filter(Boolean).join(', ');
   console.log(`  -> Querying e-GP RSS Feed (process3.gprocurement.go.th)${scope ? `: ${scope}` : ''}...`);
   const startedAt = new Date();
-  const p3Result = await fetchFromProcess3({
-    query,
-    limit: limit ?? Infinity,
-    documentsDir,
-    downloadAttachments: false,
-    deptId: dept ?? '',
-    types,
-    now: startedAt,
-  });
-  await recordPoll({ deptId: dept ?? '', startedAt, result: p3Result });
-  console.log(`     Discovered: ${p3Result.discovered} new project(s); ${p3Result.updated} followed project(s) updated`);
-  if (p3Result.closed) {
-    console.warn(`     ${FEED_HOURS}, so nothing was requested. Run again after 17:01.`);
-  } else {
-    reportSourceErrors(p3Result.errors);
-    if (p3Result.rateLimited) {
-      console.warn('     e-GP asked us to slow down (HTTP 429): the rest of this poll waits for the next run.');
+  try {
+    const p3Result = await fetchFromProcess3({
+      query,
+      limit: limit ?? Infinity,
+      documentsDir,
+      downloadAttachments: false,
+      deptId: dept ?? '',
+      types,
+      now: startedAt,
+    });
+    await recordPoll({ deptId: dept ?? '', startedAt, result: p3Result });
+    console.log(`     Discovered: ${p3Result.discovered} new project(s); ${p3Result.updated} followed project(s) updated`);
+    if (p3Result.closed) {
+      console.warn(`     ${FEED_HOURS}, so nothing was requested. Run again after 17:01.`);
+    } else {
+      reportSourceErrors(p3Result.errors);
+      if (p3Result.rateLimited) {
+        console.warn('     e-GP asked us to slow down (HTTP 429): the rest of this poll waits for the next run.');
+      }
+      if (p3Result.unreachable) {
+        console.warn('     e-GP RSS DID NOT ANSWER: no new announcements were fetched from it this run.');
+      }
     }
-    if (p3Result.unreachable) {
-      console.warn('     e-GP RSS DID NOT ANSWER: no new announcements were fetched from it this run.');
-    }
+
+    const status =
+      p3Result.unreachable ? 'failed' : p3Result.errors.length > 0 ? (p3Result.fetched > 0 ? 'degraded' : 'failed') : 'ok';
+    await IngestionLog.create({
+      source: 'process3',
+      status,
+      startedAt,
+      finishedAt: new Date(),
+      durationMs: Date.now() - startedAt.getTime(),
+      itemsDiscovered: p3Result.discovered ?? p3Result.fetched,
+      itemsIngested: p3Result.fetched,
+      error: p3Result.unreachable ? 'e-GP RSS did not answer' : p3Result.errors.length ? p3Result.errors.join('; ') : null,
+      metadata: { query, limit },
+    }).catch((err) => console.warn('Could not record IngestionLog for process3:', err.message));
+
+    return p3Result.fetched;
+  } catch (err) {
+    console.warn('Process3 fetch error:', err.message);
+    await IngestionLog.create({
+      source: 'process3',
+      status: 'failed',
+      startedAt,
+      finishedAt: new Date(),
+      durationMs: Date.now() - startedAt.getTime(),
+      error: err.message,
+      metadata: { query, limit },
+    }).catch(() => {});
+    throw err;
   }
-  return p3Result.fetched;
 }
 
 /** Prints every error a source reported. A count alone once hid a dead feed. */

@@ -17,6 +17,7 @@ export { User } from './user.model.js';
 export { Tor } from './tor.model.js';
 export { TorInsight } from './tor-insight.model.js';
 export { Technology } from './technology.model.js';
+export { IngestionLog } from './ingestion-log.model.js';
 export { PipelineLock } from './pipeline-lock.model.js';
 export { PipelineFailure } from './pipeline-failure.model.js';
 export { TitleScreen } from './title-screen.model.js';
