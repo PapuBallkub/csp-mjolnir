@@ -4,11 +4,14 @@ import {
   calculateScaleProximity,
   calculateTechSimilarity,
   calculateScopeSimilarity,
+  calculateComplexitySimilarity,
   calculateCompositeSimilarity,
   getFiscalYear,
   getProjectPrice,
   getProjectArchetype,
+  getProjectComplexityTier,
   SYSTEM_ARCHETYPES,
+  COMPLEXITY_TIERS,
   findComparableProjects,
 } from '#features/reality-check/index.js';
 
@@ -63,6 +66,29 @@ test('calculateScopeSimilarity: extracts keywords and calculates overlap', () =>
   assert.ok(score > 0.4, 'Should identify overlapping domain tokens');
 });
 
+test('calculateComplexitySimilarity: computes step distances between tiers correctly', () => {
+  const torBasic = { overview: { complexityTier: 'basic' } };
+  const torStandard = { overview: { complexityTier: 'standard' } };
+  const torEnterprise = { overview: { complexityTier: 'enterprise' } };
+  const torNull = { overview: { complexityTier: null } };
+
+  // Identical -> 1.0
+  assert.equal(calculateComplexitySimilarity(torBasic, torBasic), 1.0);
+  assert.equal(calculateComplexitySimilarity(torStandard, torStandard), 1.0);
+  assert.equal(calculateComplexitySimilarity(torEnterprise, torEnterprise), 1.0);
+
+  // Adjacent (1 step apart) -> 0.5
+  assert.equal(calculateComplexitySimilarity(torBasic, torStandard), 0.5);
+  assert.equal(calculateComplexitySimilarity(torStandard, torEnterprise), 0.5);
+
+  // Distant (2 steps apart) -> 0.1
+  assert.equal(calculateComplexitySimilarity(torBasic, torEnterprise), 0.1);
+
+  // Null fallback -> neutral 0.5
+  assert.equal(calculateComplexitySimilarity(torBasic, torNull), 0.5);
+  assert.equal(calculateComplexitySimilarity(torNull, torEnterprise), 0.5);
+});
+
 test('findComparableProjects: filters and ranks candidate projects properly', async () => {
   const targetTor = {
     projectId: 'TARGET_001',
@@ -76,6 +102,8 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
     },
     overview: {
       majorComponents: ['ระบบ e-Service', 'ระบบฐานข้อมูล'],
+      systemArchetype: 'web-portal',
+      complexityTier: 'standard',
     },
     technicalRequirements: {
       requiredTechnologies: [{ name: 'PostgreSQL' }, { name: 'React' }],
@@ -83,7 +111,7 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
   };
 
   const pool = [
-    // Candidate 1: Same category, identical price, high scope/tech match -> Best match
+    // Candidate 1: Same category, identical archetype & tier, full tech match -> Best match
     {
       projectId: 'CAND_BEST',
       identification: {
@@ -94,12 +122,16 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
         referencePriceTHB: 10000000,
         postedDate: '2025-06-01',
       },
-      overview: { majorComponents: ['ระบบ e-Service', 'ฐานข้อมูล'] },
+      overview: {
+        majorComponents: ['ระบบ e-Service', 'ฐานข้อมูล'],
+        systemArchetype: 'web-portal',
+        complexityTier: 'standard',
+      },
       technicalRequirements: {
         requiredTechnologies: [{ name: 'PostgreSQL' }, { name: 'React' }],
       },
     },
-    // Candidate 2: Same category, 15M THB (within 0.3x - 3.0x), partial tech match
+    // Candidate 2: Same category & archetype, adjacent tier (basic), partial tech match
     {
       projectId: 'CAND_GOOD',
       identification: {
@@ -110,23 +142,16 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
         referencePriceTHB: 15000000,
         postedDate: '2024-03-01',
       },
-      overview: { majorComponents: ['ระบบ e-Service'] },
+      overview: {
+        majorComponents: ['ระบบ e-Service'],
+        systemArchetype: 'web-portal',
+        complexityTier: 'basic',
+      },
       technicalRequirements: {
         requiredTechnologies: [{ name: 'PostgreSQL' }],
       },
     },
-    // Candidate 3: Same category, but price is 100M (outside 0.3x - 3.0x of 10M) -> Should be filtered out
-    {
-      projectId: 'CAND_OUT_OF_SCALE',
-      identification: {
-        category: 'software-development',
-        titleTh: 'พัฒนาระบบแกนหลักขนาดใหญ่',
-      },
-      facts: {
-        referencePriceTHB: 100000000, // 100M
-      },
-    },
-    // Candidate 4: Different category (network-and-security) -> Should be filtered out
+    // Candidate 3: Different category (network-and-security) -> Should be filtered out
     {
       projectId: 'CAND_WRONG_CAT',
       identification: {
@@ -137,7 +162,7 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
         referencePriceTHB: 10000000,
       },
     },
-    // Candidate 5: Target itself -> Should be filtered out
+    // Candidate 4: Target itself -> Should be filtered out
     {
       projectId: 'TARGET_001',
       identification: {
@@ -151,7 +176,7 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
 
   const results = await findComparableProjects(targetTor, { candidatesPool: pool });
 
-  assert.equal(results.length, 2, 'Should only return the 2 valid candidates');
+  assert.equal(results.length, 2, 'Should only return the 2 valid candidates in category');
   assert.equal(results[0].projectId, 'CAND_BEST', 'Highest scoring candidate must rank first');
   assert.equal(results[1].projectId, 'CAND_GOOD');
 
@@ -182,6 +207,8 @@ test('findComparableProjects: matches realistic project 69109062251 (maintenance
         'การซ่อมแซมแก้ไขเมื่อเกิดปัญหาขัดข้อง',
         'โปรแกรมป้องกันไวรัส',
       ],
+      systemArchetype: 'infra-networking',
+      complexityTier: 'standard',
     },
     technicalRequirements: {
       requiredTechnologies: [
@@ -197,7 +224,7 @@ test('findComparableProjects: matches realistic project 69109062251 (maintenance
 
   assert.equal(results.length, 2, 'Should find both maintenance-and-support projects');
   assert.ok(results[0].score > 0.8, 'Top score should be high (>80%)');
-  assert.ok(results[1].score > 0.7, 'Second score should also be high');
+  assert.ok(results[1].score > 0.7, 'Second score should also be high (>70%)');
 });
 
 test('findComparableProjects: full extractions only, not title-level or waiting records (ADR 0028)', async () => {
@@ -263,59 +290,80 @@ test('calculateScopeSimilarity: matches identical system archetypes with high sc
   assert.equal(calculateScopeSimilarity(mobileTorA, erpTor), 0.15);
 });
 
-test('findComparableProjects: adaptive bracket widens when candidates < 3', async () => {
+test('findComparableProjects: matches peers on technical specifications without circular price filtering (ADR 0021)', async () => {
   const target = {
-    projectId: 'TARGET_EXPAND',
-    identification: { category: 'data-and-ai', titleTh: 'ระบบประมวลผลข้อมูล AI' },
-    facts: { referencePriceTHB: 10000000 }, // 10M
-    overview: { systemArchetype: 'data-analytics' },
+    projectId: 'TARGET_NORMAL',
+    identification: { category: 'software-development', titleTh: 'ระบบจองคิวออนไลน์ประชาชน' },
+    facts: { referencePriceTHB: 500000 }, // ฿500k normal baseline
+    overview: { systemArchetype: 'web-portal', complexityTier: 'basic' },
+    technicalRequirements: { requiredTechnologies: [{ name: 'React' }, { name: 'Node.js' }] },
   };
 
   const pool = [
-    // 1 candidate within [0.3x, 3.0x] (3M - 30M)
+    // Candidate 1: Same archetype (web-portal), same complexityTier (basic), same tech (React, Node.js),
+    // but ฿5,000,000 (10x price!). Under old circular logic, [0.3x, 3.0x] hid this.
+    // Under ADR 0021 non-circular logic, it is matched as comparable peer so the price outlier is detected!
     {
-      projectId: 'CAND_1',
-      identification: { category: 'data-and-ai', titleTh: 'ระบบวิเคราะห์ข้อมูล 1' },
-      facts: { referencePriceTHB: 12000000 },
-      overview: { systemArchetype: 'data-analytics' },
+      projectId: 'CAND_10X_ANOMALY',
+      identification: { category: 'software-development', titleTh: 'ระบบจองคิวออนไลน์หน่วยงานพิเศษ' },
+      facts: { referencePriceTHB: 5000000 }, // 10x higher price!
+      overview: { systemArchetype: 'web-portal', complexityTier: 'basic' },
+      technicalRequirements: { requiredTechnologies: [{ name: 'React' }, { name: 'Node.js' }] },
     },
-    // 2 candidates outside [0.3x, 3.0x], but within adaptive [0.15x, 6.0x] (1.5M - 60M)
+    // Candidate 2: Different archetype (enterprise-erp), distant tier (enterprise), ฿500k price.
+    // Under old circular logic, price match made this comparable. Under ADR 0021, technical specs reject it.
     {
-      projectId: 'CAND_2',
-      identification: { category: 'data-and-ai', titleTh: 'ระบบวิเคราะห์ข้อมูล 2' },
-      facts: { referencePriceTHB: 2000000 }, // 2M (0.2x)
-      overview: { systemArchetype: 'data-analytics' },
-    },
-    {
-      projectId: 'CAND_3',
-      identification: { category: 'data-and-ai', titleTh: 'ระบบวิเคราะห์ข้อมูล 3' },
-      facts: { referencePriceTHB: 40000000 }, // 40M (4.0x)
-      overview: { systemArchetype: 'data-analytics' },
-    },
-    // 1 candidate way out of scale (80M > 6.0x)
-    {
-      projectId: 'CAND_WAY_OUT',
-      identification: { category: 'data-and-ai', titleTh: 'ระบบวิเคราะห์ข้อมูล 4' },
-      facts: { referencePriceTHB: 80000000 },
+      projectId: 'CAND_WRONG_SPECS',
+      identification: { category: 'software-development', titleTh: 'ระบบ ERP องค์กร' },
+      facts: { referencePriceTHB: 500000 },
+      overview: { systemArchetype: 'enterprise-erp', complexityTier: 'enterprise' },
+      technicalRequirements: { requiredTechnologies: [{ name: 'SAP' }] },
     },
   ];
 
-  // With adaptive: false, only CAND_1 matches
-  const strictResults = await findComparableProjects(target, {
-    candidatesPool: pool,
-    adaptive: false,
-  });
-  assert.equal(strictResults.length, 1);
-  assert.equal(strictResults[0].projectId, 'CAND_1');
+  const results = await findComparableProjects(target, { candidatesPool: pool });
 
-  // With default adaptive: true, count < 3 expands bracket to include CAND_2 and CAND_3
-  const adaptiveResults = await findComparableProjects(target, {
-    candidatesPool: pool,
-    adaptive: true,
-  });
-  assert.equal(adaptiveResults.length, 3);
-  assert.deepEqual(
-    adaptiveResults.map((r) => r.projectId).sort(),
-    ['CAND_1', 'CAND_2', 'CAND_3'],
-  );
+  assert.equal(results.length, 2);
+  // Candidate 1 ranks first because technical specs match (100% archetype, 100% complexity, 100% tech -> score 1.0)
+  assert.equal(results[0].projectId, 'CAND_10X_ANOMALY');
+  assert.equal(results[0].score, 1.0);
+  // Candidate 2 ranks second with low technical score
+  assert.equal(results[1].projectId, 'CAND_WRONG_SPECS');
+  assert.ok(results[1].score < 0.35);
+});
+
+test('findComparableProjects: tie-breaks by price distance when technical scores are identical', async () => {
+  const target = {
+    projectId: 'TARGET_TIE',
+    identification: { category: 'software-development', titleTh: 'ระบบบริการข้อมูล' },
+    facts: { referencePriceTHB: 5000000 }, // 5M
+    overview: { systemArchetype: 'web-portal', complexityTier: 'standard' },
+    technicalRequirements: { requiredTechnologies: [{ name: 'PostgreSQL' }] },
+  };
+
+  const pool = [
+    // Candidate A: 5.2M (diff = 0.2M)
+    {
+      projectId: 'CAND_CLOSER_PRICE',
+      identification: { category: 'software-development', titleTh: 'ระบบบริการ ก' },
+      facts: { referencePriceTHB: 5200000 },
+      overview: { systemArchetype: 'web-portal', complexityTier: 'standard' },
+      technicalRequirements: { requiredTechnologies: [{ name: 'PostgreSQL' }] },
+    },
+    // Candidate B: 7.0M (diff = 2.0M)
+    {
+      projectId: 'CAND_FARTHER_PRICE',
+      identification: { category: 'software-development', titleTh: 'ระบบบริการ ข' },
+      facts: { referencePriceTHB: 7000000 },
+      overview: { systemArchetype: 'web-portal', complexityTier: 'standard' },
+      technicalRequirements: { requiredTechnologies: [{ name: 'PostgreSQL' }] },
+    },
+  ];
+
+  const results = await findComparableProjects(target, { candidatesPool: pool });
+
+  assert.equal(results.length, 2);
+  // Both have identical score (1.0), so closer price (5.2M vs 5.0M) must rank first
+  assert.equal(results[0].projectId, 'CAND_CLOSER_PRICE');
+  assert.equal(results[1].projectId, 'CAND_FARTHER_PRICE');
 });

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { Type } from '@google/genai';
 
 import { STANDARD_CONDITION_KEYS } from '#models/standard-conditions.js';
-import { PROJECT_CATEGORIES, SYSTEM_ARCHETYPES, classifySchema, extractSchema, screenSchema } from '#pipeline/extraction/schema.js';
+import { COMPLEXITY_TIERS, PROJECT_CATEGORIES, SYSTEM_ARCHETYPES, classifySchema, extractSchema, screenSchema } from '#pipeline/extraction/schema.js';
 
 // Visits every object schema in the tree, with a readable path for messages.
 function* objects(schema, at = '$') {
@@ -60,4 +60,10 @@ test('extractSchema: systemArchetype enum matches SYSTEM_ARCHETYPES', () => {
   const { systemArchetype } = extractSchema.properties.overview.properties;
   assert.deepEqual(systemArchetype.enum, SYSTEM_ARCHETYPES);
   assert.equal(systemArchetype.nullable, true);
+});
+
+test('extractSchema: complexityTier enum matches COMPLEXITY_TIERS', () => {
+  const { complexityTier } = extractSchema.properties.overview.properties;
+  assert.deepEqual(complexityTier.enum, COMPLEXITY_TIERS);
+  assert.equal(complexityTier.nullable, true);
 });

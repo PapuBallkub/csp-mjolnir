@@ -45,6 +45,16 @@ export const SYSTEM_ARCHETYPES = [
   'other', // General or specialized IT systems
 ];
 
+/**
+ * Engineering scope & complexity tiers (FR-19 & ADR 0021).
+ * Used to match projects of similar scale without circular price bracket filtering.
+ */
+export const COMPLEXITY_TIERS = [
+  'basic', // Small / Departmental Workgroup Tool
+  'standard', // Mid-sized Agency Operational System
+  'enterprise', // Mission-Critical / High-Concurrency / Nationwide
+];
+
 const QUOTE =
   'Copied exactly from the document: the same words, the same digits (Thai or Arabic) and the ' +
   'same spacing. One sentence or less.';
@@ -291,8 +301,18 @@ export const extractSchema = {
             'The core deliverable architecture or archetype of the system: ' +
             'mobile-app, web-portal, enterprise-erp, data-analytics, gis-mapping, infra-networking, or other.',
         },
+        complexityTier: {
+          type: Type.STRING,
+          nullable: true,
+          format: 'enum',
+          enum: COMPLEXITY_TIERS,
+          description:
+            'The engineering scope and complexity tier: basic (small workgroup/department, 30-90 days, simple CRUD), ' +
+            'standard (agency-wide, RBAC, workflows, 1-2 APIs, 180-240 days), or enterprise (nationwide citizen-facing ' +
+            'or mission-critical, HA/DR, pentesting, DOPA/ThaID/payment integrations).',
+        },
       },
-      required: ['objective', 'majorComponents', 'highLevelScope', 'systemArchetype'],
+      required: ['objective', 'majorComponents', 'highLevelScope', 'systemArchetype', 'complexityTier'],
     },
     deliverables: {
       type: Type.OBJECT,

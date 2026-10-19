@@ -85,7 +85,7 @@ async function inspectOne(projectId, { limit, save }) {
   const results = await findComparableProjects(tor, { limit });
 
   if (results.length === 0) {
-    console.log(`No comparable projects found matching category "${category}" within budget bracket.`);
+    console.log(`No comparable projects found matching category "${category}".`);
     return;
   }
 
@@ -96,8 +96,8 @@ async function inspectOne(projectId, { limit, save }) {
       `    ID:     ${item.projectId} (FY: ${item.year})\n` +
       `    Price:  ${formatTHB(item.referencePriceTHB)}\n` +
       `    Score:  ${(item.score * 100).toFixed(1)}% ` +
-      `(Scale: ${(item.breakdown.scaleSim * 100).toFixed(0)}%, ` +
-      `Scope: ${(item.breakdown.scopeSim * 100).toFixed(0)}%, ` +
+      `(Archetype: ${(item.breakdown.archetypeSim * 100).toFixed(0)}%, ` +
+      `Complexity: ${(item.breakdown.complexitySim * 100).toFixed(0)}%, ` +
       `Tech: ${(item.breakdown.techSim * 100).toFixed(0)}%)\n`
     );
   });

@@ -8,9 +8,9 @@
  */
 
 import { TorInsight } from '#models/index.js';
-import { SYSTEM_ARCHETYPES } from '#pipeline/extraction/index.js';
+import { COMPLEXITY_TIERS, SYSTEM_ARCHETYPES } from '#pipeline/extraction/index.js';
 
-export { SYSTEM_ARCHETYPES };
+export { COMPLEXITY_TIERS, SYSTEM_ARCHETYPES };
 
 /**
  * Synonymous Thai and English terms mapped to canonical system archetypes.
@@ -125,7 +125,13 @@ export function getProjectArchetypes(tor) {
 
   for (const [archetype, keywords] of Object.entries(ARCHETYPE_KEYWORDS)) {
     for (const kw of keywords) {
-      if (combined.includes(kw)) {
+      if (kw.length <= 3) {
+        const regex = new RegExp(`(^|[^a-zA-Z0-9ก-๙])${kw}([^a-zA-Z0-9ก-๙]|$)`, 'i');
+        if (regex.test(combined)) {
+          archetypes.add(archetype);
+          break;
+        }
+      } else if (combined.includes(kw)) {
         archetypes.add(archetype);
         break;
       }
@@ -271,7 +277,12 @@ export function extractScopeTokens(tor) {
 
   const tokens = new Set();
   for (const kw of DOMAIN_KEYWORDS) {
-    if (combined.includes(kw)) {
+    if (kw.length <= 3) {
+      const regex = new RegExp(`(^|[^a-zA-Z0-9ก-๙])${kw}([^a-zA-Z0-9ก-๙]|$)`, 'i');
+      if (regex.test(combined)) {
+        tokens.add(kw);
+      }
+    } else if (combined.includes(kw)) {
       tokens.add(kw);
     }
   }
@@ -322,32 +333,76 @@ export function calculateScopeSimilarity(torA, torB) {
 }
 
 /**
+ * Resolves the complexity tier of a project (FR-19 & ADR 0021).
+ *
+ * @param {object} tor
+ * @returns {string|null}
+ */
+export function getProjectComplexityTier(tor) {
+  const tier = tor?.overview?.complexityTier;
+  if (typeof tier === 'string' && COMPLEXITY_TIERS.includes(tier)) {
+    return tier;
+  }
+  return null;
+}
+
+/**
+ * Calculates complexity tier similarity between two projects (ADR 0021 & docs).
+ * - Same tier (e.g. standard & standard): 1.00
+ * - 1 tier apart (adjacent, e.g. basic & standard, or standard & enterprise): 0.50
+ * - 2 tiers apart (distant, e.g. basic & enterprise): 0.10
+ * - Unspecified / null (legacy fallback): neutral 0.50
+ *
+ * @param {object} torA
+ * @param {object} torB
+ * @returns {number}
+ */
+export function calculateComplexitySimilarity(torA, torB) {
+  const tierA = getProjectComplexityTier(torA);
+  const tierB = getProjectComplexityTier(torB);
+
+  if (!tierA || !tierB) {
+    return 0.5; // neutral fallback for legacy records
+  }
+
+  const idxA = COMPLEXITY_TIERS.indexOf(tierA);
+  const idxB = COMPLEXITY_TIERS.indexOf(tierB);
+  const distance = Math.abs(idxA - idxB);
+
+  if (distance === 0) return 1.0;
+  if (distance === 1) return 0.5;
+  return 0.1;
+}
+
+/**
  * Computes composite similarity score between target TOR and a candidate TOR.
- * S = 0.45 * Scale + 0.35 * Scope + 0.20 * Tech
+ * S = 0.40 * Archetype + 0.35 * Complexity + 0.25 * Tech
+ *
+ * Peers are selected 100% on technical specifications without inspecting price.
  *
  * @param {object} targetTor
  * @param {object} candidateTor
- * @returns {{ score: number, breakdown: { scaleSim: number, scopeSim: number, techSim: number } }}
+ * @returns {{ score: number, breakdown: { archetypeSim: number, complexitySim: number, techSim: number, scopeSim: number, scaleSim: number } }}
  */
 export function calculateCompositeSimilarity(targetTor, candidateTor) {
-  const targetPrice = getProjectPrice(targetTor);
-  const candPrice = getProjectPrice(candidateTor);
-
-  const scaleSim = calculateScaleProximity(targetPrice, candPrice);
-  const scopeSim = calculateScopeSimilarity(targetTor, candidateTor);
+  const archetypeSim = calculateScopeSimilarity(targetTor, candidateTor);
+  const complexitySim = calculateComplexitySimilarity(targetTor, candidateTor);
   const techSim = calculateTechSimilarity(
     targetTor?.technicalRequirements?.requiredTechnologies,
     candidateTor?.technicalRequirements?.requiredTechnologies,
   );
 
-  const score = Number((scaleSim * 0.45 + scopeSim * 0.35 + techSim * 0.2).toFixed(4));
+  const score = Number((archetypeSim * 0.40 + complexitySim * 0.35 + techSim * 0.25).toFixed(4));
 
   return {
     score,
     breakdown: {
-      scaleSim: Number(scaleSim.toFixed(4)),
-      scopeSim: Number(scopeSim.toFixed(4)),
+      archetypeSim: Number(archetypeSim.toFixed(4)),
+      complexitySim: Number(complexitySim.toFixed(4)),
       techSim: Number(techSim.toFixed(4)),
+      // Backwards-compatibility aliases:
+      scopeSim: Number(archetypeSim.toFixed(4)),
+      scaleSim: Number(complexitySim.toFixed(4)),
     },
   };
 }
@@ -355,16 +410,14 @@ export function calculateCompositeSimilarity(targetTor, candidateTor) {
 /**
  * FR-19: Finds and ranks comparable historical projects for a target TOR.
  *
+ * Non-circular matching: Candidates are chosen strictly from technical specifications
+ * (Category -> Archetype -> Complexity Tier -> Tech Stack). The circular budget bracket
+ * filter is eliminated so price anomalies remain detectable without peer corruption.
+ *
  * @param {object} targetTor - A TorInsight document or plain object
  * @param {object} [options]
  * @param {number} [options.limit=5] - Number of comparable projects to return
- * @param {number} [options.minPriceFactor=0.3] - Lower bound bracket multiplier
- * @param {number} [options.maxPriceFactor=3.0] - Upper bound bracket multiplier
- * @param {boolean} [options.adaptive=true] - Whether to expand bracket if < 3 candidates
- * @param {number} [options.adaptiveMinPriceFactor=0.15] - Adaptive lower bound multiplier
- * @param {number} [options.adaptiveMaxPriceFactor=6.0] - Adaptive upper bound multiplier
- * @param {Array<object>} [options.candidatesPool=null] - Optional in-memory candidates
- *   pool (used for unit tests or offline runs)
+ * @param {Array<object>} [options.candidatesPool=null] - Optional in-memory candidates pool
  * @returns {Promise<Array<{
  *   projectId: string,
  *   title: string,
@@ -378,11 +431,6 @@ export function calculateCompositeSimilarity(targetTor, candidateTor) {
 export async function findComparableProjects(targetTor, options = {}) {
   const {
     limit = 5,
-    minPriceFactor = 0.3,
-    maxPriceFactor = 3.0,
-    adaptive = true,
-    adaptiveMinPriceFactor = 0.15,
-    adaptiveMaxPriceFactor = 6.0,
     candidatesPool = null,
   } = options;
 
@@ -394,67 +442,41 @@ export async function findComparableProjects(targetTor, options = {}) {
     return [];
   }
 
-  const filterPool = (pool, minF, maxF) => {
-    const minP = targetPrice * minF;
-    const maxP = targetPrice * maxF;
-    return pool.filter((cand) => {
+  let candidates = [];
+
+  if (Array.isArray(candidatesPool)) {
+    candidates = candidatesPool.filter((cand) => {
       if (cand.projectId === targetTor.projectId) return false;
       if (!isFullExtraction(cand)) return false;
       if (cand.identification?.category !== targetCategory) return false;
       const price = getProjectPrice(cand);
-      return price !== null && price >= minP && price <= maxP;
+      return price !== null && price > 0;
     });
-  };
-
-  let candidates = [];
-
-  if (Array.isArray(candidatesPool)) {
-    // In-memory pool filtering
-    candidates = filterPool(candidatesPool, minPriceFactor, maxPriceFactor);
-    if (adaptive && candidates.length < 3) {
-      const expanded = filterPool(candidatesPool, adaptiveMinPriceFactor, adaptiveMaxPriceFactor);
-      if (expanded.length > candidates.length) {
-        candidates = expanded;
-      }
-    }
   } else {
-    // Stage 1: Query MongoDB using the compound index
-    const queryMongo = async (minF, maxF) => {
-      const minP = targetPrice * minF;
-      const maxP = targetPrice * maxF;
-      return TorInsight.find({
-        projectId: { $ne: targetTor.projectId },
-        ...FULL_EXTRACTION,
-        'identification.category': targetCategory,
-        $or: [
-          { 'facts.referencePriceTHB': { $gte: minP, $lte: maxP } },
-          { 'facts.budgetTHB': { $gte: minP, $lte: maxP } },
-        ],
+    candidates = await TorInsight.find({
+      projectId: { $ne: targetTor.projectId },
+      ...FULL_EXTRACTION,
+      'identification.category': targetCategory,
+      $or: [
+        { 'facts.referencePriceTHB': { $gt: 0 } },
+        { 'facts.budgetTHB': { $gt: 0 } },
+      ],
+    })
+      .select({
+        projectId: 1,
+        identification: 1,
+        facts: 1,
+        overview: 1,
+        technicalRequirements: 1,
       })
-        .select({
-          projectId: 1,
-          identification: 1,
-          facts: 1,
-          overview: 1,
-          technicalRequirements: 1,
-        })
-        .lean();
-    };
-
-    candidates = await queryMongo(minPriceFactor, maxPriceFactor);
-    if (adaptive && candidates.length < 3) {
-      const expanded = await queryMongo(adaptiveMinPriceFactor, adaptiveMaxPriceFactor);
-      if (expanded.length > candidates.length) {
-        candidates = expanded;
-      }
-    }
+      .lean();
   }
 
   if (candidates.length === 0) {
     return [];
   }
 
-  // Stage 2: In-memory composite similarity scoring
+  // In-memory composite similarity scoring based 100% on technical specifications
   const ranked = candidates.map((candidate) => {
     const { score, breakdown } = calculateCompositeSimilarity(targetTor, candidate);
     const candPrice = getProjectPrice(candidate) ?? 0;
@@ -475,7 +497,7 @@ export async function findComparableProjects(targetTor, options = {}) {
     };
   });
 
-  // Sort descending by score, tie-break by proximity of reference price
+  // Sort descending by technical specification score, tie-break by proximity of reference price
   ranked.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     const diffA = Math.abs(a.referencePriceTHB - targetPrice);

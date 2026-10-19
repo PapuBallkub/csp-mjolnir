@@ -17,6 +17,9 @@ export {
   FULL_EXTRACTION,
   isFullExtraction,
   SYSTEM_ARCHETYPES,
+  COMPLEXITY_TIERS,
+  calculateComplexitySimilarity,
+  getProjectComplexityTier,
   ARCHETYPE_KEYWORDS,
   DOMAIN_KEYWORDS,
 } from './similarity.service.js';
