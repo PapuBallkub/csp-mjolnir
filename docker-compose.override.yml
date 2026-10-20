@@ -14,6 +14,11 @@ services:
   # here and a failure there mean the same thing.
   mongo:
     image: mongo:8
+    # As in CI: on a kernel 6.19 or newer (a WSL2 or Docker Desktop update can
+    # bring one), mongod refuses to start with the TCMalloc MongoDB 8 ships.
+    # This puts it on per-thread caches, which work on any kernel.
+    environment:
+      GLIBC_TUNABLES: glibc.pthread.rseq=1
     # Bound to loopback on purpose. Published as "27017:27017" this database
     # would accept connections from everyone else on the cafe wifi, and it runs
     # without authentication.

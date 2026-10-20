@@ -45,6 +45,15 @@ jobs:
     services:
       mongodb:
         image: mongo:8
+        # The runner's kernel (6.19 or newer) and the TCMalloc that MongoDB 8
+        # ships don't get along, so mongod refuses to start on it ("Linux
+        # kernel versions 6.19 and newer has a known incompatibility"). Letting
+        # glibc keep rseq puts TCMalloc on per-thread caches, which work: a
+        # little slower, nothing a test notices. Drop this once the runners
+        # are on kernel 7.0.14 or newer, which fixes it (MongoDB's production
+        # notes).
+        env:
+          GLIBC_TUNABLES: glibc.pthread.rseq=1
         ports:
           - 27017:27017
         options: >-
