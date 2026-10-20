@@ -8,11 +8,12 @@
  *
  *   poll     the national feed, then process
  *   sweep    every agency in egp-agencies.json, then process
- *   process  refresh comparable projects, choose past projects to read in
- *            full tonight (ADR 0028), then screen the new titles, download
- *            what passed, read it, classify it, and extract the IT ones
- *            (ADR 0018, 0026). poll and sweep process the same way, without
- *            the first two.
+ *   process  watch draft and open IT TORs for changed packages (watch mode:
+ *            it only logs), refresh comparable projects, choose past projects
+ *            to read in full tonight (ADR 0028), then screen the new titles,
+ *            download what passed, read it, classify it, and extract the IT
+ *            ones (ADR 0018, 0026). poll and sweep process the same way,
+ *            without the first three.
  *
  * Usage:
  *   npm run job -- poll
@@ -55,6 +56,8 @@ export const STEPS = {
   extract: { name: 'extract', script: 'extraction/extract.js', args: [] },
   // Past projects to read in full tonight (ADR 0028)
   history: { name: 'ingest history', script: 'ingestion/ingest.js', args: ['--step', 'history'] },
+  // Changed packages the feed doesn't announce; watch mode logs them, changes nothing
+  recheck: { name: 'ingest recheck (watch)', script: 'ingestion/ingest.js', args: ['--step', 'recheck', '--dry-run'] },
   // Comparable projects for every full extraction (ADR 0021, 0022), the team's nightly batch
   comparisons: { name: 'comparisons', script: '../../scripts/find-comparable.js', args: ['--all', '--save'] },
 };
@@ -66,9 +69,10 @@ const PROCESS = ['screen', 'download', 'ocr', 'extract', 'ocr', 'extract'];
 export const JOBS = {
   poll: ['fetch', ...PROCESS],
   sweep: ['sweep', ...PROCESS],
-  // The night: comparisons first, so a long night of OCR can't crowd them out,
-  // then the past projects chosen for tonight join what's waiting (ADR 0028)
-  process: ['comparisons', 'history', ...PROCESS],
+  // The night: the recheck first, a few minutes of requests; then comparisons,
+  // so a long night of OCR can't crowd them out; then the past projects chosen
+  // for tonight join what's waiting (ADR 0028)
+  process: ['recheck', 'comparisons', 'history', ...PROCESS],
 };
 
 // How long a job waits for the one before it, and how often it looks

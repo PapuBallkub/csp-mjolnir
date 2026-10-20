@@ -25,6 +25,9 @@
  *   # Choose tonight's past projects to read in full (ADR 0028); --dry-run only shows them
  *   node src/pipeline/ingestion/ingest.js --step history --dry-run
  *
+ *   # Ask e-GP whether draft and open IT TORs' packages changed; watch mode only for now
+ *   node src/pipeline/ingestion/ingest.js --step recheck --dry-run
+ *
  *   # Every agency in data/egp-agencies.json (ADR 0027), within a time box
  *   node src/pipeline/ingestion/ingest.js --step sweep --until 2026-10-14T21:55:00+07:00
  *
@@ -41,18 +44,19 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { FeedPoll, IngestionLog, TitleScreen, Tor, TorInsight } from '#models/index.js';
+import { FULL_EXTRACTION } from '#features/reality-check/index.js';
 import { EGP_ANNOUNCEMENT_CODES, classifyAnnouncement } from '../shared/announcement-codes.js';
 import { MAX_ATTEMPTS, clearFailure, isTooBig, loadGivenUp, recordFailure } from '../shared/failures.js';
 import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
 import { deriveStatus } from '../shared/status-engine.js';
 import { WORKABLE } from '../shared/workable.js';
-import { paceRequest } from '../shared/request-pacer.js';
+import { EGP_BURST, EGP_PAUSE_MS, paceRequest } from '../shared/request-pacer.js';
 import { isPastDeadline, parseUntil } from '../shared/deadline.js';
 import { requestPastProjects, selectPastProjects } from './lib/past-requests.js';
 import { FEED_HOURS, ROUTINE_TYPES, fetchFromProcess3, procurementKindOf } from './sources/process3.js';
 import { isDraftAnnouncement, readPostedDate, readTitle } from './lib/egp-package.js';
 import { PREVIEW_PAGES, extractText, isPreviewRead } from './lib/ocr.js';
-import { downloadEgpPackage, downloadEgpPricePackage } from './lib/tor-downloader.js';
+import { downloadEgpPackage, downloadEgpPricePackage, lookupPackage } from './lib/tor-downloader.js';
 
 const DOCUMENTS_DIR =
   process.env.DOCUMENTS_DIR ||
@@ -71,7 +75,7 @@ function parseCliArgs() {
   let types = null; // e-GP feed only: these announcement codes, e.g. D0,B0
   let until = null; // the time box: no new work after it (ADR 0027)
   let skipScreen = false; // download new projects without waiting for the title screen
-  let dryRun = false; // history: show tonight's choice, ask for nothing
+  let dryRun = false; // history: show tonight's choice, ask for nothing; recheck: watch only
   let agencies = null; // sweep only these agency codes, e.g. 0307,A004
   let days = 1; // sweep: how many days back a full list is asked again, day by day
 
@@ -316,12 +320,12 @@ const MAX_DEAD_AGENCIES_IN_A_ROW = 2;
 
 // e-GP refuses the 240th request (HTTP 429), whatever the pace: at one a
 // second and at one every 3 seconds alike, then again after each 10-minute
-// pause, 7 times in one night (2026-10-14). So the sweep asks at NFR-03's
-// one a second and pauses before the limit, instead of waiting to be refused.
-// EGP_FEED_BURST changes how many requests go out between pauses.
-const parsedBurst = Number.parseInt(process.env.EGP_FEED_BURST ?? '', 10);
-export const FEED_BURST = parsedBurst > 0 ? parsedBurst : 230;
-export const FEED_PAUSE_MS = 10 * 60 * 1000;
+// pause, 7 times in one night (2026-10-14). The shared pacer pauses before the
+// limit for every step. The sweep also pauses on its own, at the same count:
+// it can then stop at the time box instead of pausing past it, and count its
+// pauses. EGP_FEED_BURST changes how many requests go out between pauses.
+export const FEED_BURST = EGP_BURST;
+export const FEED_PAUSE_MS = EGP_PAUSE_MS;
 
 // A sweep that e-GP refuses this many times in a row, even after pausing, stops
 const MAX_REFUSALS_IN_A_ROW = 3;
@@ -771,6 +775,103 @@ export async function runHistoryStep({ dryRun = false, now = new Date(), select 
   return asked;
 }
 
+/**
+ * The TORs a change could still matter for: IT ones read in full, with a
+ * package downloaded, still to come or open. A draft until it becomes an
+ * invitation, an open one until its bids close. Soonest deadline first;
+ * drafts, which seldom state a bid date, after.
+ */
+export async function recheckCandidates(now = new Date()) {
+  const extracted = await TorInsight.distinct('projectId', FULL_EXTRACTION);
+  const tors = await Tor.find(
+    {
+      ...WORKABLE,
+      projectId: { $in: extracted },
+      'packages.0': { $exists: true },
+      $or: [{ status: 'Draft' }, { submissionDeadline: null }, { submissionDeadline: { $gte: now } }],
+    },
+    { projectId: 1, status: 1, submissionDeadline: 1, 'packages.zipId': 1, 'packages.kind': 1 },
+  ).lean();
+  const deadline = (tor) => (tor.submissionDeadline ? new Date(tor.submissionDeadline).getTime() : Infinity);
+  return tors.sort((a, b) => deadline(a) - deadline(b) || a.projectId.localeCompare(b.projectId));
+}
+
+// A recheck stops when this many TORs in a row get no answer at all: e-GP is
+// down, and the rest would only wait out their timeouts
+const MAX_SILENT_IN_A_ROW = 3;
+
+/**
+ * The recheck, in watch mode only for now. The feed has never announced a
+ * changed invitation (D2: none in 613 polls), so nothing tells us when a TOR
+ * changes. For each recheckCandidates TOR, this asks e-GP which announcement
+ * and price packages it has now, and what its amendment service answers,
+ * then says what differs from the packages we downloaded. It changes
+ * nothing: a week of it shows where e-GP puts an amendment, before the
+ * recheck acts on one.
+ *
+ * @param {Function} [options.lookup] - lookupPackage; replaced in tests
+ * @returns {Promise<object|null>} The counts; null when not asked to watch
+ */
+export async function runRecheckStep({ dryRun = false, until = null, now = new Date(), lookup = lookupPackage } = {}) {
+  console.log('\n[RECHECK] Asking e-GP for the current packages of draft and open IT TORs...');
+  if (!dryRun) {
+    console.warn('  -> The recheck only watches for now: run it with --dry-run. Nothing was asked.');
+    return null;
+  }
+  const tors = await recheckCandidates(now);
+  console.log(`  -> ${tors.length} TOR(s) to watch. Watch mode: nothing is changed.`);
+
+  const totals = { checked: 0, drafts: 0, open: 0, newAnnouncement: 0, newPrice: 0, amendmentAnswers: 0, failed: 0, stoppedBy: null };
+  let silentInARow = 0;
+  for (const [index, tor] of tors.entries()) {
+    if (isPastDeadline(until)) {
+      totals.stoppedBy = 'time';
+      console.log(`  -> Time box over: ${tors.length - index} TOR(s) left for the next run.`);
+      break;
+    }
+    totals.checked++;
+    if (tor.status === 'Draft') totals.drafts++;
+    else totals.open++;
+
+    const known = (kind) => (tor.packages ?? []).filter((pkg) => (pkg.kind ?? 'announcement') === kind).map((pkg) => pkg.zipId);
+    const notes = [];
+    let answered = 0;
+    for (const kind of ['announcement', 'price', 'adjustment']) {
+      const found = await lookup({ kind, projectId: tor.projectId });
+      if (found.failed) {
+        totals.failed++;
+        notes.push(`${kind}: ${found.failed.error}`);
+        continue;
+      }
+      answered++;
+      if (found.none) continue;
+      if (kind === 'adjustment') {
+        totals.amendmentAnswers++;
+        notes.push(`AMENDMENT SERVICE ANSWERED ${JSON.stringify(found.data).slice(0, 300)}`);
+      } else if (!known(kind).includes(found.zipId)) {
+        if (kind === 'announcement') totals.newAnnouncement++;
+        else totals.newPrice++;
+        notes.push(`NEW ${kind} package ${found.name ?? found.zipId} (we have ${known(kind).length})`);
+      }
+    }
+    if (notes.length) console.log(`     ${tor.projectId} ${tor.status}: ${notes.join(' · ')}`);
+
+    silentInARow = answered === 0 ? silentInARow + 1 : 0;
+    if (silentInARow >= MAX_SILENT_IN_A_ROW) {
+      totals.stoppedBy = 'no-answer';
+      console.warn(`  -> e-GP did not answer for ${silentInARow} TORs in a row: recheck stopped.`);
+      break;
+    }
+  }
+
+  console.log(
+    `  -> Watched ${totals.checked} TOR(s) (${totals.drafts} draft, ${totals.open} open): ` +
+      `${totals.newAnnouncement} new announcement package(s), ${totals.newPrice} new price package(s), ` +
+      `${totals.amendmentAnswers} answer(s) from the amendment service, ${totals.failed} lookup(s) unanswered. Nothing changed.`,
+  );
+  return totals;
+}
+
 // The title screen lets a new project through unless it's clearly not IT, and
 // lets a sample of those through too (ADR 0026)
 const PASSES_SCREEN = { $or: [{ verdict: { $in: ['it', 'unsure'] } }, { audit: true }] };
@@ -1120,6 +1221,12 @@ async function runSteps(args) {
   // Tonight's past projects to read in full (ADR 0028)
   if (args.step === 'history') {
     await runHistoryStep({ dryRun: args.dryRun });
+    return;
+  }
+
+  // Changed packages the feed doesn't announce: watch mode only, for now
+  if (args.step === 'recheck') {
+    await runRecheckStep({ dryRun: args.dryRun, until: args.until });
     return;
   }
 

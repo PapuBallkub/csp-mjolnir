@@ -41,7 +41,7 @@ and `"ไม่พบข้อมูลตามเงื่อนไขที�
 | Request | What we saw |
 |---|---|
 | `/egp-approval-service/apv-common/infoProcureDocAnnounZipTemp?projectId=` | The same as `infoProcureDocAnnounZip` for a draft |
-| `/egp-approval-service/apv-common/infoProcureDocAnnounZipAdj?itemNo=&projectId=` | Probably amendments: "not found" for a project never amended. Untested on an amended one. |
+| `/egp-approval-service/apv-common/infoProcureDocAnnounZipAdj?itemNo=&projectId=` | Probably amendments: "not found" for a project never amended. Untested on an amended one. The recheck asks it for every draft and open IT TOR, in watch mode (`ingest --step recheck --dry-run`): "not found" for all 67 on 2026-10-20. |
 | `/egp-aann23-service/pb/announce-history-doc/get-procure-announ-history-doc?announceType=&projectId=&seqNo=` | Announcement history: `data: null` for every call so far |
 
 ### Not called

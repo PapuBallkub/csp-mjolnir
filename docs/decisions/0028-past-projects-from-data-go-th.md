@@ -105,8 +105,16 @@ history`, in the 22:00 `process` job). It chooses up to `HISTORY_PER_NIGHT`
   chosen for that TOR and not read yet counts too, so a TOR isn't given more
   while its picks wait. One found not IT once read, or one that gave up,
   stops counting, and the TOR's turn comes again.
-- **Candidates are ranked by the comparison's own score.** Those found `it`
-  come first, and `unsure` ones only after every `it` one in the band.
+- **Candidates are ranked by the comparison's own score, then by the closest
+  price.** A past project not read yet has only a title and prices, and the
+  score weighs what a full read finds, such as technologies, so many
+  candidates tie on it. Those found `it` come first, and `unsure` ones only
+  after every `it` one in the band.
+- **Only e-bidding projects are candidates.** Selection (คัดเลือก) and
+  consultant projects were announced publicly too, but e-GP keeps no
+  announcement package for them. On the first real night (2026-10-18), all 7
+  of those chosen had none, and all 13 e-bidding ones had one. That's 1,225
+  of the 6,642 imported.
 - **The newest,** IT first, only on a night when no open TOR has a candidate
   left.
 
@@ -151,8 +159,7 @@ The same job refreshes the comparisons first (`find-comparable --all
   `unsure`, all equipment. So, at 95% confidence, it misses under 0.75% of
   them, about 800 at most, against 2,239 found.
 - **Reading them all takes months, and isn't the aim.** At 20 a night, the IT
-  ones alone take about 110 nights. A pick found not IT, or with no package,
-  still uses a place. Nights count only when the 22:00 job runs: with no
+  ones alone take about 110 nights. A pick found not IT still uses a place. Nights count only when the 22:00 job runs: with no
   hosting yet, only when someone's `npm run schedule` is running then. The
   aim is related past projects for the TORs open now.
 - **TORs closing later wait.** On 2026-10-16 there were 76 open IT TORs to

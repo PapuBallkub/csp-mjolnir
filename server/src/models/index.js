@@ -23,3 +23,4 @@ export { PipelineFailure } from './pipeline-failure.model.js';
 export { TitleScreen } from './title-screen.model.js';
 export { FeedPoll } from './feed-poll.model.js';
 export { PipelineRun } from './pipeline-run.model.js';
+export { RequestStreak } from './request-streak.model.js';

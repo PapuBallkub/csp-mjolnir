@@ -164,7 +164,7 @@ The pipeline runs by itself at fixed times, in Bangkok time:
 | 08:00 | poll | The national list, then processing | Before the feed closes at 08:30 |
 | 17:05 | poll | The national list, then processing | The feed reopens at 17:01 |
 | 18:00 | sweep | All 267 agencies, then processing | Catches what the national list missed |
-| 22:00 | process | Update the price comparisons, pick tonight's 20 past projects, then download, read and summarise whatever is waiting | Through the night, until 07:55 |
+| 22:00 | process | Check whether draft and open IT TORs' documents changed (it only notes it, for now), update the price comparisons, pick tonight's 20 past projects, then download, read and summarise whatever is waiting | Through the night, until 07:55 |
 
 "Processing" is stages 2 to 9 above. Each run stops taking new work 5
 minutes before the next one starts, and only one runs at a time.
@@ -204,6 +204,7 @@ Run from anywhere else, npm says it "could not read package.json".
 | Import past IT contracts from data.go.th, once | `npm run history:import -- --dry-run` to see the counts, then without `--dry-run` |
 | Sort those past projects' titles with Gemini | `npm run screen -- --past --limit 200` (costs Gemini; run by hand only) |
 | See which past projects tonight's run would read in full | `npm run ingest -- --step history --dry-run` |
+| See whether draft and open TORs' documents changed on e-GP | `npm run ingest -- --step recheck --dry-run` (about 3½ minutes; changes nothing) |
 
 **`npm run schedule` keeps running until you stop it.** It waits for the
 next time in the table, starts that run, and waits again. A window that seems
@@ -237,6 +238,9 @@ step it took.
 | An agency's list has exactly 20 items | It may hold more; some can be cut off. Normal for busy agencies. |
 | "the source did not answer; not counted" | e-GP or Gemini was briefly down. It's tried again next run. |
 | "pausing 10 min, before e-GP's limit" | Planned: the sweep rests every 230 requests. Normal. |
+| "230 requests in a row to gprocurement.go.th: pausing 10 min" | The same rest, in another step: e-GP counts a whole run's requests together. Normal. |
+| "NEW announcement package" in the recheck | e-GP has a newer package for that TOR than the one we read: a changed TOR, or its next stage. Only noted for now. |
+| "AMENDMENT SERVICE ANSWERED" in the recheck | e-GP's amendment service had something for that TOR, which we've never seen before. Tell the team: it shows where amendments are kept. |
 | "e-GP asked us to slow down (HTTP 429)", then a 10-minute pause | e-GP refused us anyway. The sweep waits and carries on. Fine now and then. |
 | The sweep stopped after 3 refusals in a row | e-GP is limiting us harder than usual. The next sweep starts again; if it happens every night, lower `EGP_FEED_BURST`. |
 | "asked again by day: … cut off" | An agency posted more than 20 of one kind in one day; some of that day is missing. Rare. |

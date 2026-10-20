@@ -46,7 +46,8 @@ test('JOBS: every job processes in the same order, screen before download', () =
   assert.deepEqual(JOBS.poll, ['fetch', ...processing]);
   assert.deepEqual(JOBS.sweep, ['sweep', ...processing]);
   // The night refreshes comparisons first, then asks for past projects before download takes them (ADR 0028)
-  assert.deepEqual(JOBS.process, ['comparisons', 'history', ...processing]);
+  assert.deepEqual(JOBS.process, ['recheck', 'comparisons', 'history', ...processing]);
+  assert.ok(STEPS.recheck.args.includes('--dry-run'), 'the recheck only watches for now');
   assert.ok(STEPS.history.args.includes('history'));
   assert.ok(!STEPS.fetch.args.join(' ').includes('15'), 'the poll leaves out 15, which always times out');
 });
