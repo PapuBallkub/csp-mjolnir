@@ -19,6 +19,9 @@
  *   node src/pipeline/ingestion/ingest.js --step ocr
  *   node src/pipeline/ingestion/ingest.js --step ocr --id 67109111284
  *
+ *   # One kind of work only, as the scheduled jobs run it (ADR 0030): new, changed, past
+ *   node src/pipeline/ingestion/ingest.js --step download --queue new
+ *
  *   # Try again the TORs that gave up after repeated failures
  *   node src/pipeline/ingestion/ingest.js --retry-failed
  *
@@ -50,6 +53,7 @@ import { MAX_ATTEMPTS, clearFailure, isTooBig, loadGivenUp, recordFailure } from
 import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
 import { deriveStatus } from '../shared/status-engine.js';
 import { WORKABLE } from '../shared/workable.js';
+import { inQueues, parseQueues, soonestFirst } from '../shared/queues.js';
 import { EGP_BURST, EGP_PAUSE_MS, paceRequest } from '../shared/request-pacer.js';
 import { isPastDeadline, parseUntil } from '../shared/deadline.js';
 import { requestPastProjects, selectPastProjects } from './lib/past-requests.js';
@@ -78,6 +82,7 @@ function parseCliArgs() {
   let dryRun = false; // history: show tonight's choice, ask for nothing; recheck: watch only
   let agencies = null; // sweep only these agency codes, e.g. 0307,A004
   let days = 1; // sweep: how many days back a full list is asked again, day by day
+  let queues = null; // download, ocr: only these kinds of work (ADR 0030); null is all
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -126,6 +131,10 @@ function parseCliArgs() {
       days = Number.parseInt(argv[++i], 10);
     } else if (arg === '--agencies' && i + 1 < argv.length) {
       agencies = argv[++i].split(',').map((code) => code.trim().toUpperCase()).filter(Boolean);
+    } else if (arg === '--queue' && i + 1 < argv.length) {
+      queues = parseQueues(argv[++i]);
+    } else if (arg.startsWith('--queue=')) {
+      queues = parseQueues(arg.slice('--queue='.length));
     }
   }
 
@@ -152,7 +161,7 @@ function parseCliArgs() {
   // An agency list reaches back 7 days at most (manual 4.2)
   if (!(days >= 0 && days <= 7)) throw new Error(`--days takes 0 to 7; got "${days}"`);
 
-  return { step, id, query, limit, source, skipOcr, retryFailed, dept, types, until, skipScreen, agencies, days, dryRun };
+  return { step, id, query, limit, source, skipOcr, retryFailed, dept, types, until, skipScreen, agencies, days, dryRun, queues };
 }
 
 /**
@@ -882,7 +891,8 @@ const PASSES_SCREEN = { $or: [{ verdict: { $in: ['it', 'unsure'] } }, { audit: t
  * before packages were kept. A package already downloaded isn't again.
  *
  * A new project waits for the title screen (ADR 0026), unless `screened` is
- * false (--skip-screen).
+ * false (--skip-screen). `queues` narrows it to some kinds of work (ADR 0030);
+ * within them, the soonest deadline goes first.
  *
  * @param {Function} [options.download] - downloadEgpPackage; replaced in tests
  */
@@ -892,10 +902,11 @@ export async function runDownloadStep({
   retryFailed = false,
   screened = true,
   until = null,
+  queues = null,
   download = downloadEgpPackage,
   downloadPrice = downloadEgpPricePackage,
 }) {
-  console.log('\n[Service 2: DOWNLOAD] Downloading e-GP document packages...');
+  console.log(`\n[Service 2: DOWNLOAD] Downloading e-GP document packages${queues ? ` (${queues.join(', ')})` : ''}...`);
   await fs.mkdir(documentsDir, { recursive: true });
 
   // Only TORs still to come or open: a cancelled or awarded one isn't a job,
@@ -920,11 +931,13 @@ export async function runDownloadStep({
   };
   if (id) {
     queryFilter = { projectId: id };
-  } else if (screened) {
-    await reportScreen();
+  } else {
+    queryFilter = inQueues(queryFilter, queues, 'download');
+    // The screen gates new projects only
+    if (screened && (!queues || queues.includes('new'))) await reportScreen();
   }
 
-  let candidates = await Tor.find(queryFilter);
+  let candidates = soonestFirst(await Tor.find(queryFilter));
 
   // A project we don't have isn't made up here: a placeholder had no title,
   // no agency and the status engine's default "Open". ingest:add reads it from e-GP.
@@ -1040,12 +1053,14 @@ async function reportScreen() {
  *    no longer than that, is read whole.
  * 2. Full: a preview that classify found to be IT is read whole, so
  *    extraction can follow.
- * With --id, one TOR is read whole, whatever its state.
+ * With --id, one TOR is read whole, whatever its state. `queues` narrows it to
+ * some kinds of work (ADR 0030); within each pass, the soonest deadline goes
+ * first.
  *
  * @param {Function} [options.ocr] - extractText; replaced in tests
  */
-export async function runOcrStep({ id, documentsDir, retryFailed = false, until = null, ocr = extractText }) {
-  console.log('\n[Service 3: OCR] Extracting text & running OCR on PDF documents...');
+export async function runOcrStep({ id, documentsDir, retryFailed = false, until = null, queues = null, ocr = extractText }) {
+  console.log(`\n[Service 3: OCR] Extracting text & running OCR on PDF documents${queues ? ` (${queues.join(', ')})` : ''}...`);
 
   let previews = [];
   let fullReads = [];
@@ -1071,21 +1086,31 @@ export async function runOcrStep({ id, documentsDir, retryFailed = false, until 
     // is all classify needs to drop one
     const readable = { $or: [WORKABLE, { historyRequestedAt: { $ne: null } }] };
     const downloaded = { pipelineStatus: 'downloaded', 'document.storagePath': { $ne: null } };
-    previews = await Tor.find({ $and: [readable, { ...downloaded, projectId: { $nin: extracted } }] });
+    previews = soonestFirst(
+      await Tor.find(inQueues({ $and: [readable, { ...downloaded, projectId: { $nin: extracted } }] }, queues, 'read')),
+    );
 
     // Extraction says which previews are IT; ingestion only reads that (ADR 0013)
     const waiting = await TorInsight.distinct('projectId', { 'metadata.awaitingFullText': true });
-    fullReads = await Tor.find({
-      $and: [
-        readable,
-        {
-          $or: [
-            { pipelineStatus: 'ocr_preview', projectId: { $in: waiting } },
-            { ...downloaded, projectId: { $in: extracted } },
-          ],
-        },
-      ],
-    });
+    fullReads = soonestFirst(
+      await Tor.find(
+        inQueues(
+          {
+            $and: [
+              readable,
+              {
+                $or: [
+                  { pipelineStatus: 'ocr_preview', projectId: { $in: waiting } },
+                  { ...downloaded, projectId: { $in: extracted } },
+                ],
+              },
+            ],
+          },
+          queues,
+          'read',
+        ),
+      ),
+    );
   }
 
   previews = await withoutGivenUp(previews, { step: 'ocr', id, retryFailed, inputKeyOf: pdfHashOf });
@@ -1183,6 +1208,7 @@ async function main() {
   console.log(`Document Dir    : ${DOCUMENTS_DIR}`);
   console.log(`Skip OCR        : ${args.skipOcr}`);
   console.log(`Retry failed    : ${args.retryFailed}`);
+  if (args.queues) console.log(`Queues          : ${args.queues.join(', ')}`);
   console.log('='.repeat(70));
 
   await connectDatabase();
@@ -1256,11 +1282,13 @@ async function runSteps(args) {
       retryFailed: args.retryFailed,
       screened: !args.skipScreen,
       until: args.until,
+      queues: args.queues,
     });
   }
 
   if ((isAll && !args.skipOcr) || args.step === 'ocr') {
     await runOcrStep({
+      queues: args.queues,
       id: args.id,
       documentsDir: DOCUMENTS_DIR,
       retryFailed: args.retryFailed,

@@ -1,6 +1,6 @@
 # 0028 · Past projects from data.go.th, as ordinary projects
 
-Status: proposed · 2026-10-15
+Status: proposed · 2026-10-15 · amended by [0030](0030-run-the-night-in-priority-waves.md): past projects are read in the night's last wave, between two comparison runs
 
 ## Context
 
@@ -131,8 +131,10 @@ result replaces the title-level record. Projects chosen earlier and
 not downloaded yet count against the night's number. A past project e-GP has
 no package for gives up at once: an awarded project won't get one later.
 
-The same job refreshes the comparisons first (`find-comparable --all
---save`), so that a long night of OCR can't crowd them out.
+The same job refreshes the comparisons (`find-comparable --all --save`)
+right before choosing, and again once tonight's past projects are read
+([0030](0030-run-the-night-in-priority-waves.md)). Past projects are the
+night's last wave: new TORs and changes go first.
 
 ## Changes to the records
 

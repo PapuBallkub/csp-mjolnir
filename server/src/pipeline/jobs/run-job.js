@@ -6,14 +6,16 @@
  * 0016). Whatever starts the job, the local scheduler (npm run schedule),
  * cron or Cloud Scheduler, the job is the same.
  *
- *   poll     the national feed, then process
- *   sweep    every agency in egp-agencies.json, then process
- *   process  watch draft and open IT TORs for changed packages (watch mode:
- *            it only logs), refresh comparable projects, choose past projects
- *            to read in full tonight (ADR 0028), then screen the new titles,
- *            download what passed, read it, classify it, and extract the IT
- *            ones (ADR 0018, 0026). poll and sweep process the same way,
- *            without the first three.
+ *   poll     the national feed, then new TORs, then changed ones
+ *   sweep    every agency in egp-agencies.json, then the same
+ *   process  the night, in four waves (ADR 0030): check draft and open IT
+ *            TORs for changed packages (watch mode: it only logs, for now)
+ *            and download the changed ones; new TORs; read the changed
+ *            ones; then the price comparison and tonight's past projects
+ *            (ADR 0028)
+ *
+ * Each kind of work is screened (new titles only), downloaded, previewed,
+ * classified, read whole if IT, and extracted (ADR 0018, 0026).
  *
  * Usage:
  *   npm run job -- poll
@@ -35,6 +37,7 @@ import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { PipelineRun, TitleScreen, Tor, TorInsight } from '#models/index.js';
 import { ROUTINE_TYPES } from '../ingestion/sources/process3.js';
 import { isPastDeadline, parseUntil } from '../shared/deadline.js';
+import { QUEUES } from '../shared/queues.js';
 import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
 import { bangkokTime, untilFor } from './schedule.js';
 
@@ -43,7 +46,7 @@ const SERVER_DIR = path.resolve(PIPELINE_DIR, '../..');
 const LOGS_DIR = process.env.LOGS_DIR || path.join(SERVER_DIR, 'data/logs');
 
 // Each step is a command that also runs by hand (docs/pipeline.md)
-export const STEPS = {
+const COMMANDS = {
   fetch: {
     name: 'ingest fetch',
     script: 'ingestion/ingest.js',
@@ -62,17 +65,44 @@ export const STEPS = {
   comparisons: { name: 'comparisons', script: '../../scripts/find-comparable.js', args: ['--all', '--save'] },
 };
 
-// Screen the new titles, download what passed, preview it, classify the
-// previews, read the IT ones whole, and extract them: npm run pipeline's order
-const PROCESS = ['screen', 'download', 'ocr', 'extract', 'ocr', 'extract'];
+// Download, OCR and extract also run one kind of work at a time (ADR 0030):
+// download:new, ocr:changed, extract:past and so on
+export const STEPS = {
+  ...COMMANDS,
+  ...Object.fromEntries(
+    ['download', 'ocr', 'extract'].flatMap((key) =>
+      QUEUES.map((queue) => [
+        `${key}:${queue}`,
+        { ...COMMANDS[key], name: `${COMMANDS[key].name} (${queue})`, args: [...COMMANDS[key].args, '--queue', queue] },
+      ]),
+    ),
+  ),
+};
+
+// Preview what was downloaded, classify the previews, read the IT ones whole,
+// and extract them: npm run pipeline's order
+const read = (queue) => [`ocr:${queue}`, `extract:${queue}`, `ocr:${queue}`, `extract:${queue}`];
+// New titles are screened first; a changed TOR passed the screen long ago
+const NEW = ['screen', 'download:new', ...read('new')];
+const CHANGED = ['download:changed', ...read('changed')];
 
 export const JOBS = {
-  poll: ['fetch', ...PROCESS],
-  sweep: ['sweep', ...PROCESS],
-  // The night: the recheck first, a few minutes of requests; then comparisons,
-  // so a long night of OCR can't crowd them out; then the past projects chosen
-  // for tonight join what's waiting (ADR 0028)
-  process: ['recheck', 'comparisons', 'history', ...PROCESS],
+  poll: ['fetch', ...NEW, ...CHANGED],
+  sweep: ['sweep', ...NEW, ...CHANGED],
+  // The night, in waves (ADR 0030), so what a short night cuts is what can wait:
+  // 1. the check: the recheck and the changed packages' downloads, requests
+  //    only, so a moved deadline shows by morning however the night ends;
+  // 2. new TORs;
+  // 3. reading the changed ones;
+  // 4. the price comparison: comparisons, so history counts each TOR's related
+  //    projects right; tonight's past projects; comparisons again, so they're
+  //    in the lists by morning (ADR 0028)
+  process: [
+    'recheck', 'download:changed',
+    ...NEW,
+    ...read('changed'),
+    'comparisons', 'history', 'download:past', ...read('past'), 'comparisons',
+  ],
 };
 
 // How long a job waits for the one before it, and how often it looks

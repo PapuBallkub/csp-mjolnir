@@ -39,10 +39,11 @@ const READS = {
 
 let documentsDir;
 const calls = [];
+let wave = null; // the queue the step is running for, as the night's jobs run it (ADR 0030)
 
 async function fakeOcr(pdfPath, options) {
   const id = path.basename(pdfPath).slice(0, 11);
-  calls.push({ id, options });
+  calls.push({ id, options, wave });
   const limited = Boolean(options.maxPages);
   return { text: `ข้อความ ${id} ${limited ? 'บางหน้า' : 'ทั้งเล่ม'}`, confidence: 0.9, ...READS[id](limited) };
 }
@@ -81,7 +82,10 @@ before(async () => {
     tor(ID.cancelled, { status: 'Cancelled' }),
     tor(ID.itPreview, { pipelineStatus: 'ocr_preview', ocr: { rawText: 'บางหน้า', preview: true, pagesRead: 6 } }),
     tor(ID.notItPreview, { pipelineStatus: 'ocr_preview', ocr: { rawText: 'บางหน้า', preview: true, pagesRead: 6 } }),
-    tor(ID.itChanged),
+    // Its new package's TOR differs from the one extracted: a new version
+    tor(ID.itChanged, {
+      document: { fileName: `${ID.itChanged}_TOR.pdf`, storagePath: path.join(documentsDir, `${ID.itChanged}_TOR.pdf`), version: 2 },
+    }),
     // Awarded and never in the feed, but asked for: one with its title-level
     // record, one whose preview classify has found IT since
     tor(ID.pastRequested, PAST),
@@ -100,7 +104,9 @@ before(async () => {
     { projectId: ID.pastItPreview, metadata: { awaitingFullText: true } },
   ]);
 
-  await runOcrStep({ documentsDir, ocr: fakeOcr });
+  // One kind of work at a time, as the night's waves do: by the end, every
+  // TOR is read just as one run without --queue would
+  for (wave of ['new', 'changed', 'past']) await runOcrStep({ documentsDir, ocr: fakeOcr, queues: [wave] });
 });
 
 after(async () => {
@@ -164,4 +170,12 @@ test('OCR step: a past project asked for is previewed first, like any scan (ADR 
   assert.equal(it.pipelineStatus, 'ocr_done');
   assert.deepEqual([it.ocr.preview, it.ocr.pagesRead], [false, 30]);
   assert.deepEqual(calls.find((call) => call.id === ID.pastItPreview).options, {});
+});
+
+test('OCR step: --queue reads one kind of work at a time, in the waves of the night (ADR 0030)', () => {
+  const readIn = (queue) => [...new Set(calls.filter((call) => call.wave === queue).map((call) => call.id))].sort();
+
+  assert.deepEqual(readIn('new'), [ID.longScan, ID.shortScan, ID.digital, ID.itPreview].sort());
+  assert.deepEqual(readIn('changed'), [ID.itChanged], 'its document was replaced');
+  assert.deepEqual(readIn('past'), [ID.pastRequested, ID.pastItPreview].sort());
 });
