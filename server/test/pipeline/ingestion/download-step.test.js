@@ -236,6 +236,48 @@ test('download step: a past project e-GP has no package for gives up at once (AD
   assert.equal((await failureOf()).attempts, 1);
 });
 
+test('download step: --queue takes one kind of work, soonest deadline first (ADR 0030)', async () => {
+  // PROJECT is new; one more new, closing sooner; one at a new stage; one past project
+  const sooner = '55555000011';
+  const atNewStage = '55555000012';
+  const past = '55555000013';
+  await screened(sooner, 'it');
+  await Tor.updateOne({ projectId: PROJECT }, { submissionDeadline: new Date('2026-11-20') });
+  await Tor.create([
+    {
+      projectId: sooner,
+      source: 'process3',
+      title: 'จ้างพัฒนาระบบ',
+      pipelineStatus: 'fetched',
+      submissionDeadline: new Date('2026-11-02'),
+      announcementHistory: [{ code: 'D0', type: 'invitation', publishedAt: new Date('2026-10-07') }],
+    },
+    {
+      projectId: atNewStage,
+      source: 'process3',
+      title: 'จ้างบำรุงรักษาระบบ',
+      pipelineStatus: 'ocr_done',
+      packageCheckNeeded: true,
+      priceCheckedAt: new Date(),
+      announcementHistory: [{ code: 'D0', type: 'invitation', publishedAt: new Date('2026-10-07') }],
+    },
+    pastProject(past, new Date()),
+  ]);
+  const get = egpHasNoFile();
+  const asked = () => [...new Set(get.mock.calls.map((call) => call.arguments[0].match(/projectId=(\d+)/)?.[1]))];
+
+  await runDownloadStep({ documentsDir, queues: ['changed'] });
+  assert.deepEqual(asked(), [atNewStage]);
+
+  get.mock.resetCalls();
+  await runDownloadStep({ documentsDir, queues: ['new'] });
+  assert.deepEqual(asked(), [sooner, PROJECT], 'the soonest deadline first');
+
+  get.mock.resetCalls();
+  await runDownloadStep({ documentsDir, queues: ['past'] });
+  assert.deepEqual(asked(), [past]);
+});
+
 test('download step: a TOR the e-GP feed never announced is never downloaded', async () => {
   await Tor.deleteMany({});
   // What the removed data.go.th fallback left behind: "Open" only by default

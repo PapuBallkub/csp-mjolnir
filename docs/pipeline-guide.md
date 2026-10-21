@@ -164,10 +164,20 @@ The pipeline runs by itself at fixed times, in Bangkok time:
 | 08:00 | poll | The national list, then processing | Before the feed closes at 08:30 |
 | 17:05 | poll | The national list, then processing | The feed reopens at 17:01 |
 | 18:00 | sweep | All 267 agencies, then processing | Catches what the national list missed |
-| 22:00 | process | Check whether draft and open IT TORs' documents changed (it only notes it, for now), update the price comparisons, pick tonight's 20 past projects, then download, read and summarise whatever is waiting | Through the night, until 07:55 |
+| 22:00 | process | The night: check whether draft and open IT TORs' documents changed (it only notes it, for now), then new projects, then changed ones, then the price comparisons and tonight's 20 past projects | Through the night, until 07:55 |
 
-"Processing" is stages 2 to 9 above. Each run stops taking new work 5
-minutes before the next one starts, and only one runs at a time.
+"Processing" is stages 2 to 9 above, done for new projects first, then for
+changed ones. **The night goes in that order of what matters most:**
+1. **Check:** ask e-GP whether open and draft TORs' documents changed, and
+   download the changed ones. A few minutes, so a moved deadline shows by
+   morning.
+2. **New projects:** a day late is a day of their bid window lost.
+3. **Changed projects:** read them again.
+4. **Price comparisons:** past projects can wait a night.
+
+So if the laptop has to be unplugged early, what's left undone is what can
+wait. Each run stops taking new work 5 minutes before the next one starts,
+and only one runs at a time.
 
 ## Running it
 
