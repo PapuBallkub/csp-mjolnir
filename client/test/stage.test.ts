@@ -21,7 +21,10 @@ test("a changed invitation says so in the badge, so the Amended flag isn't repea
 });
 
 test("a signed contract is the last word, and Closed says it is inferred", () => {
-  assert.equal(stageOf({ status: "Awarded", latestAnnouncement: announced("W0"), contractSigned: true }).label.th, "ลงนามสัญญาแล้ว");
+  const signed = stageOf({ status: "Awarded", latestAnnouncement: announced("W0"), contractSigned: true });
+  assert.equal(signed.label.th, "ลงนามสัญญาแล้ว");
+  // The one stage e-GP's own pages don't show: the badge says where it comes from
+  assert.match(signed.hint?.th ?? "", /data\.go\.th/);
 
   const closed = stageOf({ status: "Closed", latestAnnouncement: announced("D0") });
   assert.equal(closed.label.th, "ปิดรับข้อเสนอแล้ว");
