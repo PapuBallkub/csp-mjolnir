@@ -368,6 +368,54 @@ test('FR-23: an admin can manually edit extracted fields and approve a TOR (Save
   assert.equal(updatedTor.budgetTHB, 1800000);
 });
 
+test('FR-23: invalid numeric inputs for referencePriceTHB or budgetTHB return 400 and do not erase data', async () => {
+  const adminCookie = await signUp('numeric-val-admin', { role: 'admin' });
+  const projId = `TEST-${runId}-NUMVAL`;
+
+  await Tor.create({
+    projectId: projId,
+    title: 'โครงการทดสอบการตรวจสอบตัวเลข',
+    agency: 'สำนักการคลัง',
+    source: 'process3',
+    status: 'Open',
+    referencePriceTHB: 2500000,
+    budgetTHB: 3000000,
+  });
+
+  await TorInsight.create({
+    projectId: projId,
+    identification: {
+      titleTh: 'โครงการทดสอบการตรวจสอบตัวเลข',
+      agency: 'สำนักการคลัง',
+      status: 'Open',
+    },
+    facts: {
+      referencePriceTHB: 2500000,
+      budgetTHB: 3000000,
+    },
+  });
+
+  // Sending string into referencePriceTHB should fail with 400
+  const badRes = await fetch(`${baseUrl}/api/admin/review/${projId}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    body: JSON.stringify({
+      action: 'approve',
+      fields: { referencePriceTHB: 'invalid-string' },
+    }),
+  });
+
+  assert.equal(badRes.status, 400);
+  const badData = await badRes.json();
+  assert.match(badData.error.message, /referencePriceTHB/);
+
+  // Verify that the existing data was NOT erased or set to null
+  const unchangedTor = await Tor.findOne({ projectId: projId });
+  assert.equal(unchangedTor.referencePriceTHB, 2500000);
+  const unchangedInsight = await TorInsight.findOne({ projectId: projId });
+  assert.equal(unchangedInsight.facts.referencePriceTHB, 2500000);
+});
+
 test('FR-23: an admin can reclassify a misclassified TOR as out-of-scope non-IT', async () => {
   const adminCookie = await signUp('reclassify-admin', { role: 'admin' });
   const projId = `TEST-${runId}-003`;

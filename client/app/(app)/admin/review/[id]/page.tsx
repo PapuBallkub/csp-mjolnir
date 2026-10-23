@@ -20,6 +20,24 @@ function confidenceTone(value: number): string {
   return "bg-open text-white";
 }
 
+function parseNumberInput(val: string): { valid: boolean; value: number | null } {
+  const trimmed = val.replace(/,/g, "").trim();
+  if (!trimmed) return { valid: true, value: null };
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return { valid: false, value: null };
+  const num = Number(trimmed);
+  if (!Number.isFinite(num) || num < 0) return { valid: false, value: null };
+  return { valid: true, value: num };
+}
+
+function parseIntegerInput(val: string): { valid: boolean; value: number | null } {
+  const trimmed = val.replace(/,/g, "").trim();
+  if (!trimmed) return { valid: true, value: null };
+  if (!/^\d+$/.test(trimmed)) return { valid: false, value: null };
+  const num = Number(trimmed);
+  if (!Number.isSafeInteger(num) || num < 0) return { valid: false, value: null };
+  return { valid: true, value: num };
+}
+
 export default function DedicatedReviewPage({
   params,
 }: {
@@ -56,6 +74,19 @@ export default function DedicatedReviewPage({
   const [previousExperienceMinTHB, setPreviousExperienceMinTHB] = useState("");
 
   const [requiredTechnologies, setRequiredTechnologies] = useState("");
+
+  const refPriceCheck = parseNumberInput(referencePriceTHB);
+  const budgetCheck = parseNumberInput(budgetTHB);
+  const durationCheck = parseIntegerInput(contractDurationDays);
+  const warrantyCheck = parseNumberInput(warrantyYears);
+  const minExpCheck = parseNumberInput(previousExperienceMinTHB);
+
+  const hasValidationErrors =
+    !refPriceCheck.valid ||
+    !budgetCheck.valid ||
+    !durationCheck.valid ||
+    !warrantyCheck.valid ||
+    !minExpCheck.valid;
 
   // Action status states
   const [isSaving, setIsSaving] = useState(false);
@@ -135,6 +166,52 @@ export default function DedicatedReviewPage({
 
   async function handleSaveAndPublish(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!refPriceCheck.valid) {
+      setErrorMessage(
+        lang === "th"
+          ? "ราคากลาง (Reference Price) ไม่ถูกต้อง: ต้องระบุเป็นตัวเลขเท่านั้น เช่น 1,500,000 หรือ 1500000"
+          : "Invalid Reference Price: must be a valid non-negative number",
+      );
+      return;
+    }
+
+    if (!budgetCheck.valid) {
+      setErrorMessage(
+        lang === "th"
+          ? "งบประมาณ (Approved Budget) ไม่ถูกต้อง: ต้องระบุเป็นตัวเลขเท่านั้น เช่น 1,800,000 หรือ 1800000"
+          : "Invalid Approved Budget: must be a valid non-negative number",
+      );
+      return;
+    }
+
+    if (!durationCheck.valid) {
+      setErrorMessage(
+        lang === "th"
+          ? "ระยะเวลาสัญญา (Contract Duration) ไม่ถูกต้อง: ต้องระบุเป็นจำนวนวัน (ตัวเลขจำนวนเต็มบวก)"
+          : "Invalid Contract Duration: must be positive integer days",
+      );
+      return;
+    }
+
+    if (!warrantyCheck.valid) {
+      setErrorMessage(
+        lang === "th"
+          ? "ระยะเวลารับประกัน (Warranty Period) ไม่ถูกต้อง: ต้องระบุเป็นตัวเลขจำนวนปี"
+          : "Invalid Warranty: must be a valid number",
+      );
+      return;
+    }
+
+    if (!minExpCheck.valid) {
+      setErrorMessage(
+        lang === "th"
+          ? "มูลค่าผลงานขั้นต่ำ (Min Experience THB) ไม่ถูกต้อง: ต้องระบุเป็นตัวเลขเท่านั้น"
+          : "Invalid Min Experience THB: must be a valid number",
+      );
+      return;
+    }
+
     setIsSaving(true);
     setSaveSuccess(false);
     setErrorMessage(null);
@@ -142,22 +219,16 @@ export default function DedicatedReviewPage({
     const payload: UpdateReviewPayload = {
       action: "approve",
       fields: {
-        title,
-        agency,
-        budgetTHB: budgetTHB ? Number(budgetTHB.replace(/,/g, "")) : null,
-        referencePriceTHB: referencePriceTHB
-          ? Number(referencePriceTHB.replace(/,/g, ""))
-          : null,
+        title: title.trim(),
+        agency: agency.trim(),
+        budgetTHB: budgetCheck.value,
+        referencePriceTHB: refPriceCheck.value,
         submissionDeadline: submissionDeadline || null,
         objective: objective.trim() || null,
         systemArchetype: systemArchetype.trim() || null,
         complexityTier: complexityTier.trim() || null,
-        contractDurationDays: contractDurationDays
-          ? Number(contractDurationDays.replace(/,/g, ""))
-          : null,
-        warrantyYears: warrantyYears
-          ? Number(warrantyYears.replace(/,/g, ""))
-          : null,
+        contractDurationDays: durationCheck.value,
+        warrantyYears: warrantyCheck.value,
         penaltyClause: penaltyClause.trim() || null,
         paymentTerms: paymentTerms.trim() || null,
         companyRequirements: companyRequirements
@@ -165,9 +236,7 @@ export default function DedicatedReviewPage({
           .map((s) => s.trim())
           .filter(Boolean),
         previousExperience: previousExperience.trim() || null,
-        previousExperienceMinTHB: previousExperienceMinTHB
-          ? Number(previousExperienceMinTHB.replace(/,/g, ""))
-          : null,
+        previousExperienceMinTHB: minExpCheck.value,
         requiredTechnologies: requiredTechnologies.trim() || "",
       },
     };
@@ -451,8 +520,15 @@ export default function DedicatedReviewPage({
                 value={referencePriceTHB}
                 onChange={(e) => setReferencePriceTHB(e.target.value)}
                 placeholder="เช่น 1,500,000"
-                className={input}
+                className={`${input} ${!refPriceCheck.valid ? "!border-risk text-risk" : ""}`}
               />
+              {!refPriceCheck.valid && (
+                <p className="mt-1 text-[11px] font-medium text-risk">
+                  {lang === "th"
+                    ? "⚠️ ข้อมูลไม่ถูกต้อง: ต้องเป็นตัวเลขเท่านั้น (เช่น 1,500,000 หรือ 1500000)"
+                    : "⚠️ Invalid format: numbers only (e.g. 1,500,000)"}
+                </p>
+              )}
             </div>
 
             <div>
@@ -463,8 +539,15 @@ export default function DedicatedReviewPage({
                 value={budgetTHB}
                 onChange={(e) => setBudgetTHB(e.target.value)}
                 placeholder="เช่น 1,800,000"
-                className={input}
+                className={`${input} ${!budgetCheck.valid ? "!border-risk text-risk" : ""}`}
               />
+              {!budgetCheck.valid && (
+                <p className="mt-1 text-[11px] font-medium text-risk">
+                  {lang === "th"
+                    ? "⚠️ ข้อมูลไม่ถูกต้อง: ต้องเป็นตัวเลขเท่านั้น (เช่น 1,800,000 หรือ 1800000)"
+                    : "⚠️ Invalid format: numbers only (e.g. 1,800,000)"}
+                </p>
+              )}
             </div>
 
             <div>
@@ -548,24 +631,38 @@ export default function DedicatedReviewPage({
               <Label htmlFor="field-duration">{lang === "th" ? "ระยะเวลาสัญญา (วัน / Contract Duration Days)" : "Contract Duration (Days)"}</Label>
               <input
                 id="field-duration"
-                type="number"
+                type="text"
                 value={contractDurationDays}
                 onChange={(e) => setContractDurationDays(e.target.value)}
                 placeholder="เช่น 180"
-                className={input}
+                className={`${input} ${!durationCheck.valid ? "!border-risk text-risk" : ""}`}
               />
+              {!durationCheck.valid && (
+                <p className="mt-1 text-[11px] font-medium text-risk">
+                  {lang === "th"
+                    ? "⚠️ ต้องระบุเป็นจำนวนวัน (ตัวเลขจำนวนเต็มบวก)"
+                    : "⚠️ Must be positive integer days"}
+                </p>
+              )}
             </div>
 
             <div>
               <Label htmlFor="field-warranty">{lang === "th" ? "ระยะเวลารับประกัน (ปี / Warranty Years)" : "Warranty (Years)"}</Label>
               <input
                 id="field-warranty"
-                type="number"
+                type="text"
                 value={warrantyYears}
                 onChange={(e) => setWarrantyYears(e.target.value)}
                 placeholder="เช่น 1 หรือ 2"
-                className={input}
+                className={`${input} ${!warrantyCheck.valid ? "!border-risk text-risk" : ""}`}
               />
+              {!warrantyCheck.valid && (
+                <p className="mt-1 text-[11px] font-medium text-risk">
+                  {lang === "th"
+                    ? "⚠️ ต้องระบุเป็นตัวเลขจำนวนปี"
+                    : "⚠️ Must be a valid number of years"}
+                </p>
+              )}
             </div>
 
             <div className="sm:col-span-2">
@@ -642,8 +739,15 @@ export default function DedicatedReviewPage({
                   value={previousExperienceMinTHB}
                   onChange={(e) => setPreviousExperienceMinTHB(e.target.value)}
                   placeholder="เช่น 2,500,000"
-                  className={input}
+                  className={`${input} ${!minExpCheck.valid ? "!border-risk text-risk" : ""}`}
                 />
+                {!minExpCheck.valid && (
+                  <p className="mt-1 text-[11px] font-medium text-risk">
+                    {lang === "th"
+                      ? "⚠️ ข้อมูลไม่ถูกต้อง: ต้องเป็นตัวเลขเท่านั้น"
+                      : "⚠️ Invalid format: numbers only"}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -711,7 +815,7 @@ export default function DedicatedReviewPage({
 
               <button
                 type="submit"
-                disabled={isSaving}
+                disabled={isSaving || hasValidationErrors}
                 className={`${btn.primary} min-w-[160px]`}
               >
                 {isSaving

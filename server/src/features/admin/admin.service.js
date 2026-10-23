@@ -1,6 +1,7 @@
 import fsSync from 'node:fs';
 import path from 'node:path';
 import axios from 'axios';
+import { badRequest, notFound } from '#common/errors/http-error.js';
 import { FeedPoll, IngestionLog, PipelineFailure, PipelineRun, RequestStreak, Technology, TitleScreen, Tor, TorInsight } from '#models/index.js';
 import { runAddStep, runDownloadStep, runFetchStep, runOcrStep } from '#pipeline/ingestion/ingest.js';
 import { EGP_BURST, EGP_PAUSE_MS } from '#pipeline/shared/request-pacer.js';
@@ -358,9 +359,7 @@ export async function getDynamicReviewQueue() {
  */
 export async function getTorReviewItem(projectId) {
   if (!projectId || typeof projectId !== 'string' || !projectId.trim()) {
-    const error = new Error('projectId is required');
-    error.status = 400;
-    throw error;
+    throw badRequest('projectId is required');
   }
 
   const cleanId = projectId.trim();
@@ -370,9 +369,7 @@ export async function getTorReviewItem(projectId) {
   ]);
 
   if (!tor && !insight) {
-    const error = new Error(`TOR document ${cleanId} not found`);
-    error.status = 404;
-    throw error;
+    throw notFound(`TOR document ${cleanId} not found`);
   }
 
   const score = insight?.metadata?.confidenceScore
@@ -609,24 +606,40 @@ export async function getOperations() {
   };
 }
 
+function validateAndParseNumeric(val, fieldName) {
+  if (val === null || val === undefined || val === '') return null;
+  const str = typeof val === 'string' ? val.replace(/,/g, '').trim() : String(val).trim();
+  if (str === '') return null;
+  const num = Number(str);
+  if (!Number.isFinite(num) || num < 0) {
+    throw badRequest(`ฟิลด์ ${fieldName} ต้องเป็นตัวเลขที่ถูกต้องและไม่ติดลบ (Invalid number for ${fieldName})`);
+  }
+  return num;
+}
+
+function validateAndParseDate(val, fieldName) {
+  if (val === null || val === undefined || val === '') return null;
+  const d = new Date(val);
+  if (isNaN(d.getTime())) {
+    throw badRequest(`ฟิลด์ ${fieldName} ต้องเป็นรูปแบบวันที่ที่ถูกต้อง (Invalid date format for ${fieldName})`);
+  }
+  return d;
+}
+
 /**
  * Allows platform administrators to manually edit extracted data or
  * reclassify misclassified TORs to maintain dataset integrity (FR-23).
  */
 export async function updateTorReview(projectId, { action, fields = {}, reclassifyReason } = {}, user = null) {
   if (!projectId) {
-    const error = new Error('projectId is required');
-    error.status = 400;
-    throw error;
+    throw badRequest('projectId is required');
   }
 
   let insight = await TorInsight.findOne({ projectId });
   const tor = await Tor.findOne({ projectId });
 
   if (!insight && !tor) {
-    const error = new Error(`TOR document ${projectId} not found`);
-    error.status = 404;
-    throw error;
+    throw notFound(`TOR document ${projectId} not found`);
   }
 
   if (!insight) {
@@ -670,27 +683,19 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
     }
 
     if (fields.referencePriceTHB !== undefined) {
-      const num =
-        fields.referencePriceTHB === null || fields.referencePriceTHB === ''
-          ? null
-          : Number(String(fields.referencePriceTHB).replace(/,/g, ''));
-      insight.facts.referencePriceTHB = Number.isFinite(num) ? num : null;
-      if (tor) tor.referencePriceTHB = insight.facts.referencePriceTHB;
+      const num = validateAndParseNumeric(fields.referencePriceTHB, 'ราคากลาง (referencePriceTHB)');
+      insight.facts.referencePriceTHB = num;
+      if (tor) tor.referencePriceTHB = num;
     }
 
     if (fields.budgetTHB !== undefined) {
-      const num =
-        fields.budgetTHB === null || fields.budgetTHB === ''
-          ? null
-          : Number(String(fields.budgetTHB).replace(/,/g, ''));
-      insight.facts.budgetTHB = Number.isFinite(num) ? num : null;
-      if (tor) tor.budgetTHB = insight.facts.budgetTHB;
+      const num = validateAndParseNumeric(fields.budgetTHB, 'งบประมาณ (budgetTHB)');
+      insight.facts.budgetTHB = num;
+      if (tor) tor.budgetTHB = num;
     }
 
     if (fields.submissionDeadline !== undefined) {
-      insight.facts.submissionDeadline = fields.submissionDeadline
-        ? new Date(fields.submissionDeadline)
-        : null;
+      insight.facts.submissionDeadline = validateAndParseDate(fields.submissionDeadline, 'submissionDeadline');
     }
 
     if (fields.penaltyClause !== undefined) {
@@ -727,19 +732,11 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
     }
 
     if (fields.contractDurationDays !== undefined) {
-      const num =
-        fields.contractDurationDays === null || fields.contractDurationDays === ''
-          ? null
-          : Number(String(fields.contractDurationDays).replace(/,/g, ''));
-      insight.facts.contractDurationDays = Number.isFinite(num) ? num : null;
+      insight.facts.contractDurationDays = validateAndParseNumeric(fields.contractDurationDays, 'contractDurationDays');
     }
 
     if (fields.warrantyYears !== undefined) {
-      const num =
-        fields.warrantyYears === null || fields.warrantyYears === ''
-          ? null
-          : Number(String(fields.warrantyYears).replace(/,/g, ''));
-      insight.facts.warrantyYears = Number.isFinite(num) ? num : null;
+      insight.facts.warrantyYears = validateAndParseNumeric(fields.warrantyYears, 'warrantyYears');
     }
 
     if (fields.companyRequirements !== undefined) {
@@ -764,11 +761,7 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
     }
 
     if (fields.previousExperienceMinTHB !== undefined) {
-      const num =
-        fields.previousExperienceMinTHB === null || fields.previousExperienceMinTHB === ''
-          ? null
-          : Number(String(fields.previousExperienceMinTHB).replace(/,/g, ''));
-      insight.eligibility.previousExperienceMinTHB = Number.isFinite(num) ? num : null;
+      insight.eligibility.previousExperienceMinTHB = validateAndParseNumeric(fields.previousExperienceMinTHB, 'previousExperienceMinTHB');
     }
 
     if (fields.paymentTerms !== undefined) {
