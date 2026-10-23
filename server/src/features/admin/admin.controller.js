@@ -7,6 +7,7 @@ import {
   getAdminTechnologies,
   getOperations,
   getPipelineRecordDiagnostics,
+  getTorReviewItem,
   reExtractTor,
   retryAllPipelineFailures,
   retryPipelineStep,
@@ -21,6 +22,21 @@ export async function readOperations(req, res, next) {
     const data = await getOperations();
     res.json(data);
   } catch (err) {
+    next(err);
+  }
+}
+
+export async function handleGetReviewItem(req, res, next) {
+  try {
+    const { projectId } = req.params;
+    const result = await getTorReviewItem(projectId);
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({
+        error: { message: err.message },
+      });
+    }
     next(err);
   }
 }

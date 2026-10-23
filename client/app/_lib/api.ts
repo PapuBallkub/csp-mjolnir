@@ -357,6 +357,24 @@ export function adminUpdateReview(projectId: string, payload: UpdateReviewPayloa
   });
 }
 
+export type GetReviewItemResult = {
+  ok: boolean;
+  item: ReviewItem & {
+    budgetTHB?: number | null;
+    referencePriceTHB?: number | null;
+    submissionDeadline?: string | null;
+  };
+};
+
+/**
+ * Retrieves a single normalized review item for the dedicated review workspace (FR-23).
+ */
+export function adminGetReviewItem(projectId: string) {
+  return request<GetReviewItemResult>(`/api/admin/review/${encodeURIComponent(projectId)}`, {
+    cache: "no-store",
+  });
+}
+
 /**
  * Re-queue a TOR for AI extraction (FR-23).
  */

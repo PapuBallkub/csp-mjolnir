@@ -354,6 +354,117 @@ export async function getDynamicReviewQueue() {
 }
 
 /**
+ * Retrieves a single normalized TOR document for detailed admin review (FR-23).
+ */
+export async function getTorReviewItem(projectId) {
+  if (!projectId || typeof projectId !== 'string' || !projectId.trim()) {
+    const error = new Error('projectId is required');
+    error.status = 400;
+    throw error;
+  }
+
+  const cleanId = projectId.trim();
+  const [tor, insight] = await Promise.all([
+    Tor.findOne({ projectId: cleanId }),
+    TorInsight.findOne({ projectId: cleanId }),
+  ]);
+
+  if (!tor && !insight) {
+    const error = new Error(`TOR document ${cleanId} not found`);
+    error.status = 404;
+    throw error;
+  }
+
+  const score = insight?.metadata?.confidenceScore
+    ? insight.metadata.confidenceScore / 100
+    : 0.85;
+
+  const lowFields = [];
+  lowFields.push({
+    field: 'ชื่อโครงการ (Project Title)',
+    value: insight?.identification?.titleTh || tor?.title || `Project ${cleanId}`,
+    confidence: score,
+  });
+  lowFields.push({
+    field: 'หน่วยงาน (Agency Name)',
+    value: insight?.identification?.agency || tor?.agency || '',
+    confidence: score,
+  });
+  if (insight?.facts?.referencePriceTHB != null) {
+    lowFields.push({
+      field: 'ราคากลาง (Reference Price)',
+      value: Number(insight.facts.referencePriceTHB).toLocaleString(),
+      confidence: score,
+    });
+  }
+  if (insight?.facts?.budgetTHB != null) {
+    lowFields.push({
+      field: 'งบประมาณ (Budget)',
+      value: Number(insight.facts.budgetTHB).toLocaleString(),
+      confidence: score,
+    });
+  }
+
+  const details = {
+    objective: insight?.overview?.objective || null,
+    systemArchetype: insight?.overview?.systemArchetype || null,
+    complexityTier: insight?.overview?.complexityTier || null,
+    contractDurationDays: insight?.facts?.contractDurationDays ?? null,
+    warrantyYears: insight?.facts?.warrantyYears ?? null,
+    penaltyClause: insight?.facts?.penaltyClause || null,
+    companyRequirements: insight?.eligibility?.companyRequirements || [],
+    previousExperience: insight?.eligibility?.previousExperience || null,
+    previousExperienceMinTHB: insight?.eligibility?.previousExperienceMinTHB ?? null,
+    paymentTerms: insight?.contractConditions?.paymentTerms || null,
+    requiredTechnologies: insight?.technicalRequirements?.requiredTechnologies?.length
+      ? insight.technicalRequirements.requiredTechnologies
+          .map((t) => t.name + (t.version ? ` ${t.version}` : ''))
+          .join(', ')
+      : '',
+  };
+
+  const hasOcr =
+    Boolean(tor?.ocr?.processedAt) ||
+    tor?.pipelineStatus === 'ocr_done' ||
+    (tor?.ocr?.confidence != null && tor.ocr.confidence > 0);
+  const ocrScore = hasOcr
+    ? (tor?.ocr?.confidence != null && tor.ocr.confidence > 0
+        ? Number(tor.ocr.confidence.toFixed(2))
+        : 1.0)
+    : null;
+
+  return {
+    ok: true,
+    item: {
+      docId: cleanId,
+      title: insight?.identification?.titleTh || tor?.title || `Project ${cleanId}`,
+      agency: insight?.identification?.agency || tor?.agency || '',
+      budgetTHB: tor?.budgetTHB ?? insight?.facts?.budgetTHB ?? null,
+      referencePriceTHB: tor?.referencePriceTHB ?? insight?.facts?.referencePriceTHB ?? null,
+      submissionDeadline: tor?.submissionDeadline
+        ? new Date(tor.submissionDeadline).toISOString().slice(0, 10)
+        : insight?.facts?.submissionDeadline
+        ? new Date(insight.facts.submissionDeadline).toISOString().slice(0, 10)
+        : null,
+      ingestedAt: insight?.metadata?.processedAt
+        ? new Date(insight.metadata.processedAt).toISOString().slice(0, 16).replace('T', ' ')
+        : new Date().toISOString().slice(0, 16).replace('T', ' '),
+      ocr: ocrScore,
+      extraction: score,
+      reviewStatus: insight?.metadata?.reviewStatus || 'pending',
+      lowFields,
+      details,
+      misclassified: insight?.metadata?.excluded
+        ? {
+            predicted: insight.identification?.category || 'IT / software',
+            likely: insight.metadata.excluded.reason || 'Civil works — out of scope',
+          }
+        : undefined,
+    },
+  };
+}
+
+/**
  * Retrieves stuck or failed pipeline tasks with project details (FR-24).
  */
 export async function getPipelineFailures() {

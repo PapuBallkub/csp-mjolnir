@@ -10,6 +10,7 @@ import {
   handleDismissPipelineFailure,
   handleGetAdminTechnologies,
   handleGetPipelineRecord,
+  handleGetReviewItem,
   handleReExtract,
   handleRetryAllPipelineFailures,
   handleRetryPipelineStep,
@@ -40,6 +41,9 @@ adminRoutes.use(requireAuth, requireRole('admin'));
 // No rate limit: an admin refreshing a dashboard is the intended use, and a
 // limiter here would eventually hide a pipeline failure behind a 429.
 adminRoutes.get('/operations', readOperations);
+
+// Get single review item for dedicated review workspace (FR-23)
+adminRoutes.get('/review/:projectId', handleGetReviewItem);
 
 // Review actions: manually edit extracted fields, approve, or reclassify (FR-23)
 adminRoutes.patch('/review/:projectId', handleUpdateReview);

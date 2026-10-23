@@ -209,6 +209,90 @@ test('FR-23: non-admin cannot access review mutation endpoints', async () => {
     headers: { 'content-type': 'application/json', cookie: userCookie },
   });
   assert.equal(reRes.status, 403);
+
+  const getRes = await fetch(`${baseUrl}/api/admin/review/${projId}`, {
+    headers: { cookie: userCookie },
+  });
+  assert.equal(getRes.status, 403);
+});
+
+test('FR-23: GET /api/admin/review/:projectId retrieves single review item for dedicated editor', async () => {
+  const adminCookie = await signUp('get-review-admin', { role: 'admin' });
+  const projId = `TEST-${runId}-GETREV1`;
+
+  // 404 when not found
+  const notFoundRes = await fetch(`${baseUrl}/api/admin/review/${projId}-MISSING`, {
+    headers: { cookie: adminCookie },
+  });
+  assert.equal(notFoundRes.status, 404);
+
+  // Seed Tor and TorInsight
+  await Tor.create({
+    projectId: projId,
+    title: 'โครงการระบบความปลอดภัยข้อมูล',
+    agency: 'สำนักยุทธศาสตร์',
+    source: 'process3',
+    status: 'Open',
+    budgetTHB: 5000000,
+    referencePriceTHB: 4800000,
+    submissionDeadline: new Date('2026-11-15'),
+  });
+
+  await TorInsight.create({
+    projectId: projId,
+    identification: {
+      titleTh: 'โครงการระบบความปลอดภัยข้อมูล',
+      agency: 'สำนักยุทธศาสตร์',
+      status: 'Open',
+    },
+    overview: {
+      objective: 'ยกระดับการป้องกันภัยไซเบอร์',
+      systemArchetype: 'Security & Infrastructure',
+      complexityTier: 'Tier 2',
+    },
+    facts: {
+      budgetTHB: 5000000,
+      referencePriceTHB: 4800000,
+      contractDurationDays: 180,
+      warrantyYears: 1,
+      penaltyClause: '0.1% ต่อวัน',
+    },
+    eligibility: {
+      companyRequirements: ['ขึ้นทะเบียนผู้ประกอบการ'],
+      previousExperience: 'มีผลงานความปลอดภัยไซเบอร์',
+      previousExperienceMinTHB: 2000000,
+    },
+    contractConditions: {
+      paymentTerms: 'จ่าย 3 งวด',
+    },
+    technicalRequirements: {
+      requiredTechnologies: [{ name: 'Firewall', version: 'v2' }, { name: 'Linux', version: null }],
+    },
+    metadata: {
+      origin: 'pipeline',
+      reviewStatus: 'pending',
+      confidenceScore: 78,
+    },
+  });
+
+  const res = await fetch(`${baseUrl}/api/admin/review/${projId}`, {
+    headers: { cookie: adminCookie },
+  });
+  assert.equal(res.status, 200);
+
+  const data = await res.json();
+  assert.equal(data.ok, true);
+  assert.ok(data.item);
+  assert.equal(data.item.docId, projId);
+  assert.equal(data.item.title, 'โครงการระบบความปลอดภัยข้อมูล');
+  assert.equal(data.item.agency, 'สำนักยุทธศาสตร์');
+  assert.equal(data.item.details.objective, 'ยกระดับการป้องกันภัยไซเบอร์');
+  assert.equal(data.item.details.systemArchetype, 'Security & Infrastructure');
+  assert.equal(data.item.details.contractDurationDays, 180);
+  assert.equal(data.item.details.warrantyYears, 1);
+  assert.equal(data.item.details.previousExperienceMinTHB, 2000000);
+  assert.equal(data.item.details.paymentTerms, 'จ่าย 3 งวด');
+  assert.match(data.item.details.requiredTechnologies, /Firewall/);
 });
 
 test('FR-23: an admin can manually edit extracted fields and approve a TOR (Save & Publish)', async () => {
