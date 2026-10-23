@@ -8,6 +8,7 @@ import {
   getOperations,
   getPipelineRecordDiagnostics,
   reExtractTor,
+  retryAllPipelineFailures,
   retryPipelineStep,
   suggestProjects,
   triggerIngestion,
@@ -81,7 +82,7 @@ export async function handleCheckSourcesHealth(req, res, next) {
 
 export async function handleRetryPipelineStep(req, res, next) {
   try {
-    const { projectId, step } = req.body || {};
+    const { projectId, step, runNow = false } = req.body || {};
     if (!projectId || !step) {
       return res.status(400).json({
         error: { message: 'projectId and step (download, ocr, extract) are required' },
@@ -95,7 +96,7 @@ export async function handleRetryPipelineStep(req, res, next) {
       });
     }
 
-    const result = await retryPipelineStep(projectId, step);
+    const result = await retryPipelineStep(projectId, step, { runNow: Boolean(runNow) });
     res.json(result);
   } catch (err) {
     if (err.name === 'RunLockHeldError' || err.code === 'RUN_LOCK_HELD') {
@@ -106,6 +107,23 @@ export async function handleRetryPipelineStep(req, res, next) {
         },
       });
     }
+    next(err);
+  }
+}
+
+export async function handleRetryAllPipelineFailures(req, res, next) {
+  try {
+    const { step = 'all', transientOnly = true } = req.body || {};
+    const validSteps = ['download', 'ocr', 'extract', 'all'];
+    if (step && !validSteps.includes(step)) {
+      return res.status(400).json({
+        error: { message: `step must be one of: ${validSteps.join(', ')}` },
+      });
+    }
+
+    const result = await retryAllPipelineFailures({ step, transientOnly: Boolean(transientOnly) });
+    res.json(result);
+  } catch (err) {
     next(err);
   }
 }

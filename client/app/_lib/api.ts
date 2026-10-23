@@ -211,6 +211,20 @@ export type IngestionExecutionLog = {
   error?: string | null;
 };
 
+export type ReviewItemDetails = {
+  objective?: string | null;
+  systemArchetype?: string | null;
+  complexityTier?: string | null;
+  contractDurationDays?: number | null;
+  warrantyYears?: number | null;
+  penaltyClause?: string | null;
+  companyRequirements?: string[];
+  previousExperience?: string | null;
+  previousExperienceMinTHB?: number | null;
+  paymentTerms?: string | null;
+  requiredTechnologies?: string;
+};
+
 export type ReviewItem = {
   docId: string;
   title: string;
@@ -221,6 +235,7 @@ export type ReviewItem = {
   reviewStatus?: "pending" | "approved" | "rejected";
   /** Fields the model itself was unsure about. */
   lowFields: { field: string; value: string; confidence: number }[];
+  details?: ReviewItemDetails;
   /** Set when the classifier's IT/non-IT call looks wrong. */
   misclassified?: { predicted: string; likely: string };
 };
@@ -275,6 +290,12 @@ export type AdminOperations = {
     avgOcrConfidence: number;
     avgExtractionConfidence: number;
     amendmentsDetected7d: number;
+    requestStreak?: {
+      inARow: number;
+      limit: number;
+      lastAt: string | null;
+      cooldownRemainingMs: number;
+    };
   };
 };
 
@@ -301,6 +322,15 @@ export type UpdateReviewPayload = {
     submissionDeadline?: string | null;
     penaltyClause?: string | null;
     requiredTechnologies?: string;
+    objective?: string | null;
+    systemArchetype?: string | null;
+    complexityTier?: string | null;
+    contractDurationDays?: number | null;
+    warrantyYears?: number | null;
+    companyRequirements?: string[] | string;
+    previousExperience?: string | null;
+    previousExperienceMinTHB?: number | null;
+    paymentTerms?: string | null;
   };
 };
 
@@ -376,6 +406,13 @@ export type RetryPipelineStepResult = {
   projectId: string;
   step: string;
   status: string;
+  executedImmediately?: boolean;
+  message: string;
+};
+
+export type RetryAllFailuresResult = {
+  ok: boolean;
+  clearedCount: number;
   message: string;
 };
 
@@ -389,11 +426,26 @@ export type DismissPipelineFailureResult = {
 
 /**
  * Re-triggers / retries a stuck or failed pipeline step (FR-24).
+ * If runNow is true, the step runner is invoked on-demand immediately.
  */
-export function adminRetryPipelineStep(projectId: string, step: string) {
+export function adminRetryPipelineStep(projectId: string, step: string, runNow: boolean = false) {
+  const payload: { projectId: string; step: string; runNow?: boolean } = { projectId, step };
+  if (runNow) {
+    payload.runNow = true;
+  }
   return request<RetryPipelineStepResult>("/api/admin/pipeline/retry", {
     method: "POST",
-    body: JSON.stringify({ projectId, step }),
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Bulk retries all transient or step-specific failures in one click (FR-24).
+ */
+export function adminRetryAllPipelineFailures(options: { step?: string; transientOnly?: boolean } = {}) {
+  return request<RetryAllFailuresResult>("/api/admin/pipeline/retry-all", {
+    method: "POST",
+    body: JSON.stringify(options),
   });
 }
 
@@ -427,6 +479,7 @@ export type PipelineRecordDiagnostics = {
   submissionDeadline: string | null;
   status: string;
   isAmended: boolean;
+  wavePriority?: string;
   pipelineStatus: string;
   source: string;
   announceDate: string | null;

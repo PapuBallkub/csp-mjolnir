@@ -1,8 +1,9 @@
 import fsSync from 'node:fs';
 import path from 'node:path';
 import axios from 'axios';
-import { FeedPoll, IngestionLog, PipelineFailure, PipelineRun, Technology, TitleScreen, Tor, TorInsight } from '#models/index.js';
-import { runAddStep, runFetchStep } from '#pipeline/ingestion/ingest.js';
+import { FeedPoll, IngestionLog, PipelineFailure, PipelineRun, RequestStreak, Technology, TitleScreen, Tor, TorInsight } from '#models/index.js';
+import { runAddStep, runDownloadStep, runFetchStep, runOcrStep } from '#pipeline/ingestion/ingest.js';
+import { EGP_BURST, EGP_PAUSE_MS } from '#pipeline/shared/request-pacer.js';
 import { STARTER_TECHNOLOGIES } from '#pipeline/extraction/references/technologies.js';
 import { ROUTINE_TYPES } from '#pipeline/ingestion/sources/process3.js';
 import { USER_AGENT } from '#pipeline/shared/user-agent.js';
@@ -118,7 +119,7 @@ export async function getDynamicStats() {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
-    const [todayCount, totalTorCount, awaitingReviewCount, sevenDaysAmendedCount] =
+    const [todayCount, totalTorCount, awaitingReviewCount, sevenDaysAmendedCount, egpStreak] =
       await Promise.all([
         Tor.countDocuments({ createdAt: { $gte: startOfToday } }),
         Tor.countDocuments(),
@@ -133,6 +134,7 @@ export async function getDynamicStats() {
           isAmended: true,
           updatedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
         }),
+        RequestStreak.findById('gprocurement.go.th').lean().catch(() => null),
       ]);
 
     const ocrAgg = await Tor.aggregate([
@@ -151,6 +153,17 @@ export async function getDynamicStats() {
         ? Number((extAgg[0].avg / 100).toFixed(2))
         : 0.91;
 
+    const requestStreak = egpStreak
+      ? {
+          inARow: egpStreak.inARow || 0,
+          limit: EGP_BURST,
+          lastAt: egpStreak.lastAt ? new Date(egpStreak.lastAt).toISOString() : null,
+          cooldownRemainingMs: egpStreak.lastAt
+            ? Math.max(0, EGP_PAUSE_MS - (Date.now() - new Date(egpStreak.lastAt).getTime()))
+            : 0,
+        }
+      : { inARow: 0, limit: EGP_BURST, lastAt: null, cooldownRemainingMs: 0 };
+
     return {
       docsIngestedToday: todayCount,
       totalIndexedTors: totalTorCount,
@@ -158,6 +171,7 @@ export async function getDynamicStats() {
       avgOcrConfidence: avgOcr,
       avgExtractionConfidence: avgExt,
       amendmentsDetected7d: sevenDaysAmendedCount,
+      requestStreak,
     };
   } catch {
     return pipelineStats;
@@ -289,6 +303,24 @@ export async function getDynamicReviewQueue() {
             : 1.0)
         : null;
 
+      const details = {
+        objective: insight.overview?.objective || null,
+        systemArchetype: insight.overview?.systemArchetype || null,
+        complexityTier: insight.overview?.complexityTier || null,
+        contractDurationDays: insight.facts?.contractDurationDays ?? null,
+        warrantyYears: insight.facts?.warrantyYears ?? null,
+        penaltyClause: insight.facts?.penaltyClause || null,
+        companyRequirements: insight.eligibility?.companyRequirements || [],
+        previousExperience: insight.eligibility?.previousExperience || null,
+        previousExperienceMinTHB: insight.eligibility?.previousExperienceMinTHB ?? null,
+        paymentTerms: insight.contractConditions?.paymentTerms || null,
+        requiredTechnologies: insight.technicalRequirements?.requiredTechnologies?.length
+          ? insight.technicalRequirements.requiredTechnologies
+              .map((t) => t.name + (t.version ? ` ${t.version}` : ''))
+              .join(', ')
+          : '',
+      };
+
       items.push({
         docId: insight.projectId,
         title: insight.identification?.titleTh || tor?.title || `Project ${insight.projectId}`,
@@ -300,6 +332,7 @@ export async function getDynamicReviewQueue() {
         extraction: score,
         reviewStatus: insight.metadata?.reviewStatus || 'pending',
         lowFields,
+        details,
         ...(misclassified ? { misclassified } : {}),
       });
     }
@@ -565,6 +598,74 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
       insight.technicalRequirements.requiredTechnologies = techList;
     }
 
+    // Extended Review & Facts Fields (FR-23 / FR-24)
+    insight.overview = insight.overview || {};
+    insight.eligibility = insight.eligibility || {};
+    insight.contractConditions = insight.contractConditions || {};
+
+    if (fields.objective !== undefined) {
+      insight.overview.objective = fields.objective ? String(fields.objective).trim() : null;
+    }
+
+    if (fields.systemArchetype !== undefined) {
+      insight.overview.systemArchetype = fields.systemArchetype ? String(fields.systemArchetype).trim() : null;
+    }
+
+    if (fields.complexityTier !== undefined) {
+      insight.overview.complexityTier = fields.complexityTier ? String(fields.complexityTier).trim() : null;
+    }
+
+    if (fields.contractDurationDays !== undefined) {
+      const num =
+        fields.contractDurationDays === null || fields.contractDurationDays === ''
+          ? null
+          : Number(String(fields.contractDurationDays).replace(/,/g, ''));
+      insight.facts.contractDurationDays = Number.isFinite(num) ? num : null;
+    }
+
+    if (fields.warrantyYears !== undefined) {
+      const num =
+        fields.warrantyYears === null || fields.warrantyYears === ''
+          ? null
+          : Number(String(fields.warrantyYears).replace(/,/g, ''));
+      insight.facts.warrantyYears = Number.isFinite(num) ? num : null;
+    }
+
+    if (fields.companyRequirements !== undefined) {
+      if (Array.isArray(fields.companyRequirements)) {
+        insight.eligibility.companyRequirements = fields.companyRequirements
+          .map((r) => String(r).trim())
+          .filter(Boolean);
+      } else if (fields.companyRequirements === null || fields.companyRequirements === '') {
+        insight.eligibility.companyRequirements = [];
+      } else {
+        insight.eligibility.companyRequirements = String(fields.companyRequirements)
+          .split(/\r?\n/)
+          .map((r) => r.trim())
+          .filter(Boolean);
+      }
+    }
+
+    if (fields.previousExperience !== undefined) {
+      insight.eligibility.previousExperience = fields.previousExperience
+        ? String(fields.previousExperience).trim()
+        : null;
+    }
+
+    if (fields.previousExperienceMinTHB !== undefined) {
+      const num =
+        fields.previousExperienceMinTHB === null || fields.previousExperienceMinTHB === ''
+          ? null
+          : Number(String(fields.previousExperienceMinTHB).replace(/,/g, ''));
+      insight.eligibility.previousExperienceMinTHB = Number.isFinite(num) ? num : null;
+    }
+
+    if (fields.paymentTerms !== undefined) {
+      insight.contractConditions.paymentTerms = fields.paymentTerms
+        ? String(fields.paymentTerms).trim()
+        : null;
+    }
+
     insight.identification.category = 'IT / software';
     insight.metadata.reviewStatus = 'approved';
     insight.metadata.reviewedBy = userId;
@@ -805,7 +906,7 @@ export async function checkSourcesHealth({ source = 'all' } = {}) {
 /**
  * Resets a stuck/failed pipeline step and queues it for execution (FR-24).
  */
-export async function retryPipelineStep(projectId, step) {
+export async function retryPipelineStep(projectId, step, { runNow = false } = {}) {
   if (!projectId) {
     const error = new Error('projectId is required');
     error.status = 400;
@@ -845,12 +946,91 @@ export async function retryPipelineStep(projectId, step) {
     );
   }
 
+  let executedImmediately = false;
+  if (runNow) {
+    const documentsDir = process.env.DOCUMENTS_DIR || './data/documents';
+    if (step === 'download') {
+      await runDownloadStep({ id: projectId, documentsDir });
+      executedImmediately = true;
+    } else if (step === 'ocr') {
+      await runOcrStep({ id: projectId, documentsDir });
+      executedImmediately = true;
+    } else if (step === 'extract') {
+      await reExtractTor(projectId);
+      executedImmediately = true;
+    }
+  }
+
   return {
     ok: true,
     projectId,
     step,
-    status: 're-queued',
-    message: `Failure cleared and project ${projectId} re-queued for ${step}`,
+    status: executedImmediately ? 'executed' : 're-queued',
+    executedImmediately,
+    message: executedImmediately
+      ? `Step ${step} executed immediately for project ${projectId}`
+      : `Failure cleared and project ${projectId} re-queued for ${step}`,
+  };
+}
+
+/**
+ * Clears and re-queues all transient or matching pipeline failures in bulk (FR-24).
+ */
+export async function retryAllPipelineFailures({ step = 'all', transientOnly = true } = {}) {
+  const query = {};
+  const validSteps = ['download', 'ocr', 'extract'];
+  if (step && step !== 'all') {
+    if (!validSteps.includes(step)) {
+      const error = new Error(`Invalid step: ${step}. Must be one of: ${validSteps.join(', ')} or 'all'`);
+      error.status = 400;
+      throw error;
+    }
+    query.step = step;
+  }
+  if (transientOnly) {
+    query.lastTransient = true;
+  }
+
+  const failures = await PipelineFailure.find(query);
+  if (!failures || failures.length === 0) {
+    return {
+      ok: true,
+      clearedCount: 0,
+      message: 'No matching failures to retry',
+    };
+  }
+
+  let count = 0;
+  for (const failure of failures) {
+    await clearFailure({ projectId: failure.projectId, step: failure.step });
+
+    const tor = await Tor.findOne({ projectId: failure.projectId });
+    if (tor) {
+      if (failure.step === 'download') {
+        tor.pipelineStatus = 'fetched';
+        await tor.save();
+      } else if (failure.step === 'ocr') {
+        tor.pipelineStatus = 'downloaded';
+        await tor.save();
+      }
+    }
+
+    if (failure.step === 'extract') {
+      await TorInsight.updateOne(
+        { projectId: failure.projectId },
+        {
+          $set: { 'metadata.reviewStatus': 'pending' },
+          $unset: { 'metadata.excluded': 1 },
+        },
+      );
+    }
+    count++;
+  }
+
+  return {
+    ok: true,
+    clearedCount: count,
+    message: `Cleared and re-queued ${count} failure(s)`,
   };
 }
 
@@ -944,6 +1124,17 @@ export async function getPipelineRecordDiagnostics(projectId) {
     insight?.metadata?.reviewStatus === 'approved' || insight?.metadata?.checked,
   );
 
+  let wavePriority = 'Wave 2 (New Active IT)';
+  if (tor?.historyRequestedAt) {
+    wavePriority = 'Wave 4 (Past Reference)';
+  } else if (tor?.packageCheckNeeded || (tor?.document?.version && tor.document.version > 1)) {
+    wavePriority = 'Wave 1/3 (Changed Package / Amendment)';
+  } else if (tor?.status === 'Draft' || tor?.status === 'Open') {
+    wavePriority = 'Wave 2 (New Active IT)';
+  } else if (['Awarded', 'Cancelled', 'Closed'].includes(tor?.status)) {
+    wavePriority = 'Completed / Inactive';
+  }
+
   return {
     ok: true,
     record: {
@@ -955,6 +1146,7 @@ export async function getPipelineRecordDiagnostics(projectId) {
       submissionDeadline: tor?.submissionDeadline ?? insight?.facts?.submissionDeadline ?? null,
       status: tor?.status || 'Draft',
       isAmended: Boolean(tor?.isAmended),
+      wavePriority,
       pipelineStatus,
       source: tor?.source || 'process3',
       announceDate: tor?.announceDate || null,

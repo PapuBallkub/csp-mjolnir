@@ -6,6 +6,7 @@ import {
   adminDismissPipelineFailure,
   adminGetPipelineRecord,
   adminOperations,
+  adminRetryAllPipelineFailures,
   adminRetryPipelineStep,
 } from "../app/_lib/api.ts";
 
@@ -254,4 +255,58 @@ test("adminAddPipelineRecord handles 409 conflict when duplicate project", async
   assert.equal(res.error.status, 409);
   assert.match(res.error.message, /already exists/);
 });
+
+test("adminRetryPipelineStep posts runNow: true when requested", async () => {
+  const calls = stubFetch(
+    json(200, {
+      ok: true,
+      projectId: "68049205582",
+      step: "extract",
+      status: "executed",
+      executedImmediately: true,
+      message: "Step extract executed immediately for project 68049205582",
+    }),
+  );
+
+  const result = await adminRetryPipelineStep("68049205582", "extract", true);
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+
+  assert.equal(result.data.status, "executed");
+  assert.equal(result.data.executedImmediately, true);
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/admin/pipeline/retry");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(
+    calls[0].init.body,
+    JSON.stringify({ projectId: "68049205582", step: "extract", runNow: true }),
+  );
+});
+
+test("adminRetryAllPipelineFailures posts options to /api/admin/pipeline/retry-all", async () => {
+  const calls = stubFetch(
+    json(200, {
+      ok: true,
+      clearedCount: 5,
+      message: "Cleared and re-queued 5 failure(s)",
+    }),
+  );
+
+  const result = await adminRetryAllPipelineFailures({ transientOnly: true, step: "ocr" });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+
+  assert.equal(result.data.clearedCount, 5);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/admin/pipeline/retry-all");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(
+    calls[0].init.body,
+    JSON.stringify({ transientOnly: true, step: "ocr" }),
+  );
+});
+
 

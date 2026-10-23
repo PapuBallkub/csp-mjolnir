@@ -11,6 +11,7 @@ import {
   handleGetAdminTechnologies,
   handleGetPipelineRecord,
   handleReExtract,
+  handleRetryAllPipelineFailures,
   handleRetryPipelineStep,
   handleSuggestProjects,
   handleTriggerIngest,
@@ -54,6 +55,9 @@ adminRoutes.post('/health-check', handleCheckSourcesHealth);
 
 // Re-trigger / retry a failed pipeline step (FR-24)
 adminRoutes.post('/pipeline/retry', handleRetryPipelineStep);
+
+// Bulk retry all transient pipeline failures (FR-24)
+adminRoutes.post('/pipeline/retry-all', handleRetryAllPipelineFailures);
 
 // Dismiss a permanent pipeline failure (FR-24)
 adminRoutes.post('/pipeline/dismiss', handleDismissPipelineFailure);

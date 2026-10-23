@@ -11,6 +11,7 @@ import {
   adminGetTechnologies,
   adminOperations,
   adminReExtract,
+  adminRetryAllPipelineFailures,
   adminRetryPipelineStep,
   adminSuggestProjects,
   adminUpdateReview,
@@ -204,6 +205,7 @@ function AdminDashboard({
 
   // Pipeline Monitoring & Diagnostics State (FR-24)
   const [retryingStep, setRetryingStep] = useState<string | null>(null);
+  const [retryingAll, setRetryingAll] = useState(false);
   const [dismissingStep, setDismissingStep] = useState<string | null>(null);
   const [pipelineActionMsg, setPipelineActionMsg] = useState<{
     text: string;
@@ -498,19 +500,45 @@ function AdminDashboard({
     }
   };
 
-  const handleRetryStep = async (projectId: string, step: string) => {
+  const handleRetryStep = async (projectId: string, step: string, runNow: boolean = false) => {
     const key = `${projectId}-${step}`;
     setRetryingStep(key);
     setPipelineActionMsg(null);
-    const res = await adminRetryPipelineStep(projectId, step);
+    const res = await adminRetryPipelineStep(projectId, step, runNow);
     setRetryingStep(null);
     if (res.ok) {
       setPipelineActionMsg({
         type: "success",
         text:
           lang === "th"
-            ? `รีเซ็ตและส่งโครงการ ${projectId} ขั้นตอน (${step}) เข้าคิวประมวลผลใหม่เรียบร้อยแล้ว`
-            : `Re-queued project ${projectId} for ${step} processing.`,
+            ? runNow
+              ? `สั่งรันขั้นตอน (${step}) สำหรับโครงการ ${projectId} ทันทีเรียบร้อยแล้ว`
+              : `รีเซ็ตและส่งโครงการ ${projectId} ขั้นตอน (${step}) เข้าคิวประมวลผลใหม่เรียบร้อยแล้ว`
+            : runNow
+              ? `Executed step ${step} immediately for project ${projectId}.`
+              : `Re-queued project ${projectId} for ${step} processing.`,
+      });
+      onRefresh();
+    } else {
+      setPipelineActionMsg({
+        type: "error",
+        text: res.error.message,
+      });
+    }
+  };
+
+  const handleRetryAllTransient = async () => {
+    setRetryingAll(true);
+    setPipelineActionMsg(null);
+    const res = await adminRetryAllPipelineFailures({ transientOnly: true });
+    setRetryingAll(false);
+    if (res.ok) {
+      setPipelineActionMsg({
+        type: "success",
+        text:
+          lang === "th"
+            ? `ส่งข้อผิดพลาดชั่วคราวทั้งหมด (${res.data.clearedCount} รายการ) กลับเข้าคิวประมวลผลแล้ว`
+            : `Bulk re-queued ${res.data.clearedCount} transient failure(s).`,
       });
       onRefresh();
     } else {
@@ -632,6 +660,25 @@ function AdminDashboard({
       value: `${Math.round(pipelineStats.avgExtractionConfidence * 100)}%`,
       label: { th: "ความมั่นใจการสกัดข้อมูล", en: "Avg extraction confidence" },
     },
+    ...(pipelineStats.requestStreak &&
+    (pipelineStats.requestStreak.inARow >= 180 ||
+      pipelineStats.requestStreak.cooldownRemainingMs > 0)
+      ? [
+          {
+            value: `${pipelineStats.requestStreak.inARow} / ${pipelineStats.requestStreak.limit}`,
+            label: {
+              th:
+                pipelineStats.requestStreak.cooldownRemainingMs > 0
+                  ? `e-GP Pacer (คูลดาวน์ ${Math.ceil(pipelineStats.requestStreak.cooldownRemainingMs / 60000)}น.)`
+                  : "e-GP ใกล้ถึงขีดจำกัด (Burst)",
+              en:
+                pipelineStats.requestStreak.cooldownRemainingMs > 0
+                  ? `e-GP Pacer (Cooldown ${Math.ceil(pipelineStats.requestStreak.cooldownRemainingMs / 60000)}m)`
+                  : "e-GP Request Streak (Near limit)",
+            },
+          },
+        ]
+      : []),
   ];
 
   const ADMIN_JOBS: {
@@ -751,46 +798,6 @@ function AdminDashboard({
             );
           })}
         </nav>
-      </Panel>
-
-      {/* System & Maintenance Status Panel */}
-      <Panel className="overflow-hidden p-3 text-[12px]">
-        <div className="flex items-center justify-between">
-          <span className="font-medium text-ink-2">
-            {lang === "th" ? "หน้าต่าง e-GP" : "e-GP Window"}
-          </span>
-          {inMaintenance ? (
-            <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-0.5 text-[10px] font-medium text-amend">
-              ⚠️ 00:00–04:00
-            </span>
-          ) : (
-            <span className="rounded-[2px] border border-open-line bg-open-bg px-1.5 py-0.5 text-[10px] font-medium text-open">
-              ✓ ปกติ
-            </span>
-          )}
-        </div>
-        <p className="mt-1 text-[11px] leading-thai text-ink-3">
-          {inMaintenance
-            ? lang === "th"
-              ? "กำลังอยู่ในช่วงบำรุงรักษาประจำวันของ e-GP"
-              : "Nightly e-GP maintenance active"
-            : lang === "th"
-              ? "ระบบเชื่อมต่อดึงข้อมูลได้ตามปกติ"
-              : "e-GP feeds operating normally"}
-        </p>
-
-        <div className="mt-2.5 pt-2 border-t border-line flex items-center justify-between text-[11px] text-ink-3">
-          <span>{lang === "th" ? "สถานะการเชื่อมต่อ" : "Feed status"}</span>
-          <span className="font-mono text-[10px] text-ink-2">
-            {isRefreshing
-              ? lang === "th"
-                ? "กำลังอัปเดต..."
-                : "Updating..."
-              : lang === "th"
-              ? "เชื่อมต่อแล้ว"
-              : "Connected"}
-          </span>
-        </div>
       </Panel>
     </div>
   );
@@ -1228,8 +1235,10 @@ function AdminDashboard({
               lang={lang}
               onInspect={handleInspect}
               onRetry={handleRetryStep}
+              onRetryAllTransient={handleRetryAllTransient}
               onDismiss={handleDismissFailure}
               retryingStep={retryingStep}
+              retryingAll={retryingAll}
               dismissingStep={dismissingStep}
               actionMsg={pipelineActionMsg}
             />
@@ -1555,17 +1564,21 @@ function PipelineFailuresSection({
   lang,
   onInspect,
   onRetry,
+  onRetryAllTransient,
   onDismiss,
   retryingStep,
+  retryingAll,
   dismissingStep,
   actionMsg,
 }: {
   failures?: PipelineFailureItem[];
   lang: "th" | "en";
   onInspect: (projectId: string) => void;
-  onRetry: (projectId: string, step: string) => Promise<void>;
+  onRetry: (projectId: string, step: string, runNow?: boolean) => Promise<void>;
+  onRetryAllTransient?: () => Promise<void>;
   onDismiss: (projectId: string, step: string) => Promise<void>;
   retryingStep: string | null;
+  retryingAll?: boolean;
   dismissingStep: string | null;
   actionMsg: { text: string; type: "success" | "error" } | null;
 }) {
@@ -1576,9 +1589,27 @@ function PipelineFailuresSection({
       <SectionHeading
         right={
           failureCount > 0 ? (
-            <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] text-risk font-semibold">
-              {failureCount} {lang === "th" ? "รายการที่ติดขัด" : "stuck task(s)"}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] text-risk font-semibold">
+                {failureCount} {lang === "th" ? "รายการที่ติดขัด" : "stuck task(s)"}
+              </span>
+              {onRetryAllTransient ? (
+                <button
+                  type="button"
+                  onClick={onRetryAllTransient}
+                  disabled={retryingAll}
+                  className={`${btn.primary} text-[11px] py-1 px-2.5 cursor-pointer`}
+                  title={lang === "th" ? "เคลียร์และส่งรายการชั่วคราวทั้งหมดกลับเข้าคิว" : "Bulk retry all transient failures"}
+                >
+                  {retryingAll ? (
+                    <span className="animate-spin inline-block mr-1">↻</span>
+                  ) : (
+                    "⚡ "
+                  )}
+                  {lang === "th" ? "เริ่มใหม่ทั้งหมด (Transient)" : "Retry All Transient"}
+                </button>
+              ) : null}
+            </div>
           ) : null
         }
         sub={
@@ -1672,7 +1703,7 @@ function PipelineFailureRow({
   failure: PipelineFailureItem;
   lang: "th" | "en";
   onInspect: (projectId: string) => void;
-  onRetry: (projectId: string, step: string) => Promise<void>;
+  onRetry: (projectId: string, step: string, runNow?: boolean) => Promise<void>;
   onDismiss: (projectId: string, step: string) => Promise<void>;
   isRetrying: boolean;
   isDismissing: boolean;
@@ -1762,17 +1793,28 @@ function PipelineFailureRow({
         <div className="flex items-center justify-end gap-1.5">
           <button
             type="button"
-            onClick={() => onRetry(failure.projectId, failure.step)}
+            onClick={() => onRetry(failure.projectId, failure.step, false)}
             disabled={isRetrying || isDismissing}
-            className={`${btn.primary} text-[11px] py-1 px-2.5`}
-            aria-label={`Retry ${failure.step} for ${failure.projectId}`}
+            className={`${btn.secondary} text-[11px] py-1 px-2.5`}
+            aria-label={`Re-queue ${failure.step} for ${failure.projectId}`}
+            title={lang === "th" ? "เคลียร์ข้อผิดพลาดและเข้าคิวรอรอบเวลา" : "Clear error and re-queue for next scheduled run"}
           >
             {isRetrying ? (
               <span className="animate-spin inline-block mr-1">↻</span>
             ) : (
               "↻ "
             )}
-            {lang === "th" ? "ลองใหม่" : "Retry"}
+            {lang === "th" ? "เข้าคิวใหม่" : "Re-queue"}
+          </button>
+          <button
+            type="button"
+            onClick={() => onRetry(failure.projectId, failure.step, true)}
+            disabled={isRetrying || isDismissing}
+            className={`${btn.primary} text-[11px] py-1 px-2.5`}
+            aria-label={`Run now ${failure.step} for ${failure.projectId}`}
+            title={lang === "th" ? "สั่งรันขั้นตอนทันทีไม่ต้องรอรอบเวลา" : "Execute step immediately on-demand"}
+          >
+            ⚡ {lang === "th" ? "รันทันที" : "Run Now"}
           </button>
           <button
             type="button"
@@ -1780,6 +1822,7 @@ function PipelineFailureRow({
             disabled={isRetrying || isDismissing}
             className={`${btn.ghost} text-[11px] py-1 px-2 text-ink-3 hover:text-risk`}
             aria-label={`Dismiss failure for ${failure.projectId}`}
+            title={lang === "th" ? "ยกเว้นข้อผิดพลาดนี้อย่างถาวร" : "Dismiss failure permanently"}
           >
             {isDismissing ? (
               <span className="animate-spin inline-block mr-1">↻</span>
@@ -1920,6 +1963,47 @@ function PipelineRunRow({
   );
 }
 
+function getReviewInitialValues(item: ReviewItem): Record<string, string> {
+  const initial: Record<string, string> = {
+    title: item.title || "",
+    agency: item.agency || "",
+    referencePriceTHB: "",
+    budgetTHB: "",
+    submissionDeadline: "",
+    penaltyClause: item.details?.penaltyClause || "",
+    requiredTechnologies: item.details?.requiredTechnologies || "",
+    objective: item.details?.objective || "",
+    systemArchetype: item.details?.systemArchetype || "",
+    complexityTier: item.details?.complexityTier || "",
+    contractDurationDays:
+      item.details?.contractDurationDays != null
+        ? String(item.details.contractDurationDays)
+        : "",
+    warrantyYears:
+      item.details?.warrantyYears != null ? String(item.details.warrantyYears) : "",
+    companyRequirements: Array.isArray(item.details?.companyRequirements)
+      ? item.details.companyRequirements.join("\n")
+      : "",
+    previousExperience: item.details?.previousExperience || "",
+    previousExperienceMinTHB:
+      item.details?.previousExperienceMinTHB != null
+        ? String(item.details.previousExperienceMinTHB)
+        : "",
+    paymentTerms: item.details?.paymentTerms || "",
+  };
+  for (const f of item.lowFields) {
+    initial[f.field] = f.value;
+    if (f.field.includes("ชื่อโครงการ") || f.field.includes("Project Title")) initial.title = f.value;
+    else if (f.field.includes("หน่วยงาน") || f.field.includes("Agency Name")) initial.agency = f.value;
+    else if (f.field.includes("ราคากลาง") || f.field.includes("Reference Price")) initial.referencePriceTHB = f.value;
+    else if (f.field.includes("งบประมาณ") || f.field.includes("Budget")) initial.budgetTHB = f.value;
+    else if (f.field.includes("Deadline")) initial.submissionDeadline = f.value;
+    else if (f.field.includes("Penalty")) initial.penaltyClause = f.value;
+    else if (f.field.includes("Tech")) initial.requiredTechnologies = f.value;
+  }
+  return initial;
+}
+
 function ReviewItemCard({
   item,
   lang,
@@ -1937,13 +2021,10 @@ function ReviewItemCard({
   onResolution: (text: string) => void;
   onSuccess?: () => void;
 }) {
-  const [fieldValues, setFieldValues] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = {};
-    for (const f of item.lowFields) {
-      initial[f.field] = f.value;
-    }
-    return initial;
-  });
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>(() =>
+    getReviewInitialValues(item),
+  );
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(() => item.lowFields.length === 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [savedSuccess, setSavedSuccess] = useState<string | null>(null);
@@ -1951,11 +2032,8 @@ function ReviewItemCard({
   const [prevDocId, setPrevDocId] = useState(item.docId);
   if (prevDocId !== item.docId) {
     setPrevDocId(item.docId);
-    const initial: Record<string, string> = {};
-    for (const f of item.lowFields) {
-      initial[f.field] = f.value;
-    }
-    setFieldValues(initial);
+    setFieldValues(getReviewInitialValues(item));
+    setIsAdvancedOpen(item.lowFields.length === 0);
   }
 
   const handleSaveAndPublish = async () => {
@@ -1964,31 +2042,35 @@ function ReviewItemCard({
     setSavedSuccess(null);
 
     try {
-      const fieldsPayload: UpdateReviewPayload["fields"] = {};
-      for (const [key, rawVal] of Object.entries(fieldValues)) {
-        const val = String(rawVal ?? "").trim();
-        if (key.includes("ชื่อโครงการ") || key.includes("Project Title") || key === "title") {
-          fieldsPayload.title = val;
-        } else if (key.includes("หน่วยงาน") || key.includes("Agency Name") || key === "agency") {
-          fieldsPayload.agency = val;
-        } else if (
-          key.includes("ราคากลาง") ||
-          key.includes("Reference Price") ||
-          key.includes("Maximum Budget")
-        ) {
-          const num = Number(val.replace(/,/g, ""));
-          fieldsPayload.referencePriceTHB = Number.isFinite(num) ? num : null;
-        } else if (key.includes("งบประมาณ") || key.includes("Budget")) {
-          const num = Number(val.replace(/,/g, ""));
-          fieldsPayload.budgetTHB = Number.isFinite(num) ? num : null;
-        } else if (key.includes("Deadline")) {
-          fieldsPayload.submissionDeadline = val || null;
-        } else if (key.includes("Penalty")) {
-          fieldsPayload.penaltyClause = val || null;
-        } else if (key.includes("Tech")) {
-          fieldsPayload.requiredTechnologies = val || "";
-        }
-      }
+      const parseNum = (v?: string): number | null => {
+        if (!v || !v.trim()) return null;
+        const n = Number(v.replace(/,/g, ""));
+        return Number.isFinite(n) ? n : null;
+      };
+
+      const fieldsPayload: UpdateReviewPayload["fields"] = {
+        title: (fieldValues.title || item.title).trim(),
+        agency: (fieldValues.agency || item.agency).trim(),
+        referencePriceTHB: parseNum(fieldValues.referencePriceTHB),
+        budgetTHB: parseNum(fieldValues.budgetTHB),
+        submissionDeadline: fieldValues.submissionDeadline?.trim() || null,
+        penaltyClause: fieldValues.penaltyClause?.trim() || null,
+        requiredTechnologies: fieldValues.requiredTechnologies?.trim() || "",
+        objective: fieldValues.objective?.trim() || null,
+        systemArchetype: fieldValues.systemArchetype?.trim() || null,
+        complexityTier: fieldValues.complexityTier?.trim() || null,
+        contractDurationDays: parseNum(fieldValues.contractDurationDays),
+        warrantyYears: parseNum(fieldValues.warrantyYears),
+        companyRequirements: fieldValues.companyRequirements
+          ? fieldValues.companyRequirements
+              .split(/\r?\n/)
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [],
+        previousExperience: fieldValues.previousExperience?.trim() || null,
+        previousExperienceMinTHB: parseNum(fieldValues.previousExperienceMinTHB),
+        paymentTerms: fieldValues.paymentTerms?.trim() || null,
+      };
 
       const res = await adminUpdateReview(item.docId, {
         action: "approve",
@@ -2197,8 +2279,8 @@ function ReviewItemCard({
             <div className="flex flex-col gap-3">
               <Label>
                 {lang === "th"
-                  ? "ฟิลด์ที่ความมั่นใจต่ำ — แก้ไขได้ที่นี่"
-                  : "Low-confidence fields — correct them here"}
+                  ? "ฟิลด์ที่ความมั่นใจต่ำ — แก้ไขด่วนได้ที่นี่"
+                  : "Low-confidence fields — quick edit"}
               </Label>
               {item.lowFields.map((field) => (
                 <div
@@ -2221,52 +2303,319 @@ function ReviewItemCard({
                   </span>
                 </div>
               ))}
-              <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  type="button"
-                  disabled={isSubmitting || Boolean(savedSuccess)}
-                  onClick={handleSaveAndPublish}
-                  className={savedSuccess ? btn.secondary : btn.primary}
-                >
-                  {isSubmitting
-                    ? lang === "th"
-                      ? "กำลังบันทึก..."
-                      : "Saving..."
-                    : savedSuccess
-                      ? lang === "th"
-                        ? "✓ เผยแพร่แล้ว"
-                        : "✓ Published"
-                      : lang === "th"
-                        ? "บันทึกและปล่อยให้ผู้ใช้เห็น"
-                        : "Save and publish"}
-                </button>
-                <a
-                  href={`/tor/${item.docId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={btn.secondary}
-                >
-                  {lang === "th" ? "ดูหน้าประกาศบนเว็บ" : "View on GIPDP"} ↗
-                </a>
-                <a
-                  href={`https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${item.docId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={btn.secondary}
-                >
-                  {lang === "th" ? "เปิดไฟล์ต้นฉบับเทียบ" : "Open source file"} ↗
-                </a>
-                <button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={handleReExtract}
-                  className={btn.ghost}
-                >
-                  {lang === "th" ? "สั่งให้อ่านเอกสารใหม่" : "Re-run extraction"}
-                </button>
-              </div>
             </div>
           ) : null}
+
+          {/* Advanced Facts & Requirements Editor (FR-23 / FR-24) */}
+          <div className="mt-3.5 rounded-[3px] border border-line bg-surface p-3.5">
+            <button
+              type="button"
+              onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+              className="flex w-full items-center justify-between text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] font-semibold text-ink">
+                  {lang === "th"
+                    ? "แก้ไขข้อเท็จจริงและข้อกำหนดโครงการฉบับเต็ม (All Extracted Facts & Requirements)"
+                    : "Complete Project Facts & Requirements Editor"}
+                </span>
+                <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[10px] text-ink-3 font-mono">
+                  FR-23 / FR-24
+                </span>
+              </div>
+              <span className="text-[12px] text-ink-3">
+                {isAdvancedOpen ? (lang === "th" ? "▲ ย่อ" : "▲ Hide") : (lang === "th" ? "▼ ขยายแก้ไข" : "▼ Expand")}
+              </span>
+            </button>
+
+            {isAdvancedOpen && (
+              <div className="mt-3.5 space-y-4 border-t border-line/60 pt-3.5">
+                {/* 1. Core Info & Budget */}
+                <div>
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-2">
+                    {lang === "th" ? "1. ข้อมูลพื้นฐานโครงการ (Core Info & Budget)" : "1. Core Information & Budget"}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        {lang === "th" ? "ชื่อโครงการ (Project Title)" : "Project Title"}
+                      </label>
+                      <input
+                        value={fieldValues.title ?? ""}
+                        onChange={(e) => setFieldValues((prev) => ({ ...prev, title: e.target.value }))}
+                        className={`${input} w-full text-[12px]`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        {lang === "th" ? "หน่วยงานเจ้าของโครงการ (Agency)" : "Agency Name"}
+                      </label>
+                      <input
+                        value={fieldValues.agency ?? ""}
+                        onChange={(e) => setFieldValues((prev) => ({ ...prev, agency: e.target.value }))}
+                        className={`${input} w-full text-[12px]`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        {lang === "th" ? "วันสิ้นสุดรับซอง (Submission Deadline: YYYY-MM-DD)" : "Submission Deadline (YYYY-MM-DD)"}
+                      </label>
+                      <input
+                        value={fieldValues.submissionDeadline ?? ""}
+                        onChange={(e) => setFieldValues((prev) => ({ ...prev, submissionDeadline: e.target.value }))}
+                        placeholder="2026-11-30"
+                        className={`${input} w-full text-[12px]`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        {lang === "th" ? "ราคากลาง (Reference Price THB)" : "Reference Price (THB)"}
+                      </label>
+                      <input
+                        value={fieldValues.referencePriceTHB ?? ""}
+                        onChange={(e) => setFieldValues((prev) => ({ ...prev, referencePriceTHB: e.target.value }))}
+                        placeholder="1,500,000"
+                        className={`${input} w-full text-[12px] font-mono`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        {lang === "th" ? "งบประมาณ (Budget THB)" : "Budget (THB)"}
+                      </label>
+                      <input
+                        value={fieldValues.budgetTHB ?? ""}
+                        onChange={(e) => setFieldValues((prev) => ({ ...prev, budgetTHB: e.target.value }))}
+                        placeholder="1,500,000"
+                        className={`${input} w-full text-[12px] font-mono`}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Overview & Architecture */}
+                <div>
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-2">
+                    {lang === "th" ? "2. ขอบเขตและสถาปัตยกรรมระบบ (Overview & Architecture)" : "2. Scope & Architecture"}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        {lang === "th" ? "วัตถุประสงค์และขอบเขตหลัก (Project Objective)" : "Objective & High-level Scope"}
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={fieldValues.objective ?? ""}
+                        onChange={(e) => setFieldValues((prev) => ({ ...prev, objective: e.target.value }))}
+                        className={`${input} w-full text-[12px] resize-y`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        {lang === "th" ? "สถาปัตยกรรมระบบ (System Archetype)" : "System Archetype"}
+                      </label>
+                      <input
+                        list="archetypes-list"
+                        value={fieldValues.systemArchetype ?? ""}
+                        onChange={(e) => setFieldValues((prev) => ({ ...prev, systemArchetype: e.target.value }))}
+                        placeholder="Web Application"
+                        className={`${input} w-full text-[12px]`}
+                      />
+                      <datalist id="archetypes-list">
+                        <option value="Web Application" />
+                        <option value="Mobile Application" />
+                        <option value="Enterprise Software / ERP" />
+                        <option value="Infrastructure / Network / Cloud" />
+                        <option value="Data Warehouse / Analytics" />
+                        <option value="Database & Storage" />
+                        <option value="Hardware Procurement" />
+                        <option value="Maintenance & Support" />
+                      </datalist>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        {lang === "th" ? "ระดับความซับซ้อน (Complexity Tier)" : "Complexity Tier"}
+                      </label>
+                      <select
+                        value={fieldValues.complexityTier ?? ""}
+                        onChange={(e) => setFieldValues((prev) => ({ ...prev, complexityTier: e.target.value }))}
+                        className={`${input} w-full text-[12px] bg-surface`}
+                      >
+                        <option value="">— {lang === "th" ? "ไม่ได้ระบุ" : "Not specified"} —</option>
+                        <option value="Low">Low (ความซับซ้อนต่ำ)</option>
+                        <option value="Medium">Medium (ความซับซ้อนปานกลาง)</option>
+                        <option value="High">High (ความซับซ้อนสูง)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Contract & Commercial */}
+                <div>
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-2">
+                    {lang === "th" ? "3. เงื่อนไขสัญญาและพาณิชย์ (Contract & Commercial)" : "3. Contract & Commercial Conditions"}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        {lang === "th" ? "ระยะเวลาสัญญา (วัน) (Duration Days)" : "Contract Duration (Days)"}
+                      </label>
+                      <input
+                        type="number"
+                        value={fieldValues.contractDurationDays ?? ""}
+                        onChange={(e) => setFieldValues((prev) => ({ ...prev, contractDurationDays: e.target.value }))}
+                        placeholder="180"
+                        className={`${input} w-full text-[12px] font-mono`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        {lang === "th" ? "ระยะเวลารับประกัน (ปี) (Warranty Years)" : "Warranty Period (Years)"}
+                      </label>
+                      <input
+                        type="number"
+                        value={fieldValues.warrantyYears ?? ""}
+                        onChange={(e) => setFieldValues((prev) => ({ ...prev, warrantyYears: e.target.value }))}
+                        placeholder="1"
+                        className={`${input} w-full text-[12px] font-mono`}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        {lang === "th" ? "เงื่อนไขค่าปรับล่าช้า (Penalty Clause)" : "Penalty Clause"}
+                      </label>
+                      <input
+                        value={fieldValues.penaltyClause ?? ""}
+                        onChange={(e) => setFieldValues((prev) => ({ ...prev, penaltyClause: e.target.value }))}
+                        placeholder="ปรับร้อยละ 0.20 ของมูลค่าสัญญาต่อวัน"
+                        className={`${input} w-full text-[12px]`}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        {lang === "th" ? "เงื่อนไขการชำระเงิน (Payment Terms)" : "Payment Terms"}
+                      </label>
+                      <input
+                        value={fieldValues.paymentTerms ?? ""}
+                        onChange={(e) => setFieldValues((prev) => ({ ...prev, paymentTerms: e.target.value }))}
+                        placeholder="แบ่งจ่าย 3 งวดตามการส่งมอบงาน"
+                        className={`${input} w-full text-[12px]`}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Vendor Qualifications */}
+                <div>
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-2">
+                    {lang === "th" ? "4. คุณสมบัติผู้ยื่นข้อเสนอและผลงาน (Vendor Eligibility)" : "4. Vendor Eligibility & Qualifications"}
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        {lang === "th" ? "คุณสมบัติเฉพาะของบริษัท (บรรทัดละ 1 ข้อ)" : "Company Requirements (one per line)"}
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={fieldValues.companyRequirements ?? ""}
+                        onChange={(e) => setFieldValues((prev) => ({ ...prev, companyRequirements: e.target.value }))}
+                        placeholder="เป็นนิติบุคคลผู้มีอาชีพรับจ้างงานที่ประกวดราคา&#10;มีทุนจดทะเบียนไม่ต่ำกว่า 5 ล้านบาท"
+                        className={`${input} w-full text-[12px] font-mono resize-y`}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                          {lang === "th" ? "รายละเอียดผลงานที่เคยมี (Previous Experience)" : "Previous Experience Description"}
+                        </label>
+                        <input
+                          value={fieldValues.previousExperience ?? ""}
+                          onChange={(e) => setFieldValues((prev) => ({ ...prev, previousExperience: e.target.value }))}
+                          placeholder="เคยมีผลงานพัฒนาซอฟต์แวร์กับหน่วยงานรัฐ"
+                          className={`${input} w-full text-[12px]`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                          {lang === "th" ? "มูลค่าผลงานขั้นต่ำ (บาท) (Min Experience THB)" : "Min Experience Value (THB)"}
+                        </label>
+                        <input
+                          value={fieldValues.previousExperienceMinTHB ?? ""}
+                          onChange={(e) => setFieldValues((prev) => ({ ...prev, previousExperienceMinTHB: e.target.value }))}
+                          placeholder="1,000,000"
+                          className={`${input} w-full text-[12px] font-mono`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Tech Stack */}
+                <div>
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-2">
+                    {lang === "th" ? "5. สแตกเทคโนโลยีที่ระบุ (Tech Stack)" : "5. Required Technology Stack"}
+                  </h4>
+                  <div>
+                    <input
+                      value={fieldValues.requiredTechnologies ?? ""}
+                      onChange={(e) => setFieldValues((prev) => ({ ...prev, requiredTechnologies: e.target.value }))}
+                      placeholder="PostgreSQL, React, Node.js, Docker, Kubernetes"
+                      className={`${input} w-full text-[12px]`}
+                    />
+                    <p className="mt-1 text-[11px] text-ink-3">
+                      {lang === "th"
+                        ? "ระบุเทคโนโลยีคั่นด้วยเครื่องหมายจุลภาค (,)"
+                        : "Separate technologies with commas (,)"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2 pt-1">
+            <button
+              type="button"
+              disabled={isSubmitting || Boolean(savedSuccess)}
+              onClick={handleSaveAndPublish}
+              className={savedSuccess ? btn.secondary : btn.primary}
+            >
+              {isSubmitting
+                ? lang === "th"
+                  ? "กำลังบันทึก..."
+                  : "Saving..."
+                : savedSuccess
+                  ? lang === "th"
+                    ? "✓ เผยแพร่แล้ว"
+                    : "✓ Published"
+                  : lang === "th"
+                    ? "บันทึกและปล่อยให้ผู้ใช้เห็น"
+                    : "Save and publish"}
+            </button>
+            <a
+              href={`/tor/${item.docId}`}
+              target="_blank"
+              rel="noreferrer"
+              className={btn.secondary}
+            >
+              {lang === "th" ? "ดูหน้าประกาศบนเว็บ" : "View on GIPDP"} ↗
+            </a>
+            <a
+              href={`https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${item.docId}`}
+              target="_blank"
+              rel="noreferrer"
+              className={btn.secondary}
+            >
+              {lang === "th" ? "เปิดไฟล์ต้นฉบับเทียบ" : "Open source file"} ↗
+            </a>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={handleReExtract}
+              className={btn.ghost}
+            >
+              {lang === "th" ? "สั่งให้อ่านเอกสารใหม่" : "Re-run extraction"}
+            </button>
+          </div>
         </div>
       ) : null}
     </Panel>
@@ -2363,6 +2712,11 @@ function RecordInspectorModal({
                     <span className="rounded-[2px] border border-line-2 bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-ink">
                       Stage: {record.pipelineStatus}
                     </span>
+                    {record.wavePriority ? (
+                      <span className="rounded-[2px] border border-line-2 bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-ink">
+                        🌊 {record.wavePriority}
+                      </span>
+                    ) : null}
                   </>
                 ) : null}
               </div>
