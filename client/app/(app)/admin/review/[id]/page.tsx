@@ -7,7 +7,9 @@ import {
   adminGetReviewItem,
   adminReExtract,
   adminUpdateReview,
+  getTechnologies,
   type GetReviewItemResult,
+  type TechnologyItem,
   type UpdateReviewPayload,
 } from "../../../../_lib/api";
 import { useLang } from "../../../../_components/prefs";
@@ -18,6 +20,32 @@ function confidenceTone(value: number): string {
   if (value < 0.7) return "bg-risk text-white";
   if (value < 0.85) return "bg-amend text-ink";
   return "bg-open text-white";
+}
+
+function FieldConfidenceBadge({
+  confidence,
+  lang,
+}: {
+  confidence: number;
+  lang: "th" | "en";
+}) {
+  const pct = Math.round(confidence <= 1 ? confidence * 100 : confidence);
+  const tone =
+    pct >= 85
+      ? "border-open-line bg-open-bg text-open"
+      : pct >= 70
+      ? "border-amend-line bg-amend-bg text-amend"
+      : "border-risk-line bg-risk-bg text-risk";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[10px] font-mono font-medium ${tone}`}
+      title={lang === "th" ? `ความมั่นใจ AI: ${pct}%` : `AI Confidence: ${pct}%`}
+    >
+      <span>LLM</span>
+      <span>{pct}%</span>
+    </span>
+  );
 }
 
 function parseNumberInput(val: string): { valid: boolean; value: number | null } {
@@ -73,7 +101,11 @@ export default function DedicatedReviewPage({
   const [previousExperience, setPreviousExperience] = useState("");
   const [previousExperienceMinTHB, setPreviousExperienceMinTHB] = useState("");
 
-  const [requiredTechnologies, setRequiredTechnologies] = useState("");
+  // Tech stack dynamic selector states
+  const [selectedTechs, setSelectedTechs] = useState<string[]>([]);
+  const [availableTechs, setAvailableTechs] = useState<TechnologyItem[]>([]);
+  const [searchTech, setSearchTech] = useState("");
+  const [isTechSearchFocused, setIsTechSearchFocused] = useState(false);
 
   const refPriceCheck = parseNumberInput(referencePriceTHB);
   const budgetCheck = parseNumberInput(budgetTHB);
@@ -97,6 +129,53 @@ export default function DedicatedReviewPage({
   const [showReclassifyModal, setShowReclassifyModal] = useState(false);
   const [reclassifyReason, setReclassifyReason] = useState("");
   const [isReclassifying, setIsReclassifying] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getTechnologies().then((res) => {
+      if (cancelled) return;
+      if (res.ok && res.data.technologies) {
+        setAvailableTechs(res.data.technologies);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleTech = (name: string) => {
+    setSelectedTechs((prev) =>
+      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
+    );
+  };
+
+  const removeTech = (name: string) => {
+    setSelectedTechs((prev) => prev.filter((t) => t !== name));
+  };
+
+  const addCustomTech = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (!selectedTechs.some((t) => t.toLowerCase() === trimmed.toLowerCase())) {
+      setSelectedTechs((prev) => [...prev, trimmed]);
+    }
+  };
+
+  const filteredSuggestions = searchTech.trim()
+    ? availableTechs
+        .filter((t) =>
+          t.name.toLowerCase().includes(searchTech.trim().toLowerCase())
+        )
+        .slice(0, 15)
+    : availableTechs.slice(0, 10);
+
+  const getFieldScore = (fieldName: string, fallback: number = 0.85): number => {
+    if (!data?.lowFields?.length) return data?.extraction ?? fallback;
+    const match = data.lowFields.find((f) =>
+      f.field.toLowerCase().includes(fieldName.toLowerCase())
+    );
+    return match?.confidence ?? (data?.extraction ?? fallback);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -154,7 +233,12 @@ export default function DedicatedReviewPage({
           : "",
       );
 
-      setRequiredTechnologies(item.details?.requiredTechnologies || "");
+      const rawTech = item.details?.requiredTechnologies || "";
+      const parsedTechs = rawTech
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      setSelectedTechs(parsedTechs);
       setLoading(false);
     }
 
@@ -237,7 +321,7 @@ export default function DedicatedReviewPage({
           .filter(Boolean),
         previousExperience: previousExperience.trim() || null,
         previousExperienceMinTHB: minExpCheck.value,
-        requiredTechnologies: requiredTechnologies.trim() || "",
+        requiredTechnologies: selectedTechs.join(", "),
       },
     };
 
@@ -474,7 +558,7 @@ export default function DedicatedReviewPage({
       </Panel>
 
       {/* Main Form */}
-      <form onSubmit={handleSaveAndPublish} className="flex flex-col gap-6">
+      <form onSubmit={handleSaveAndPublish} className="flex flex-col gap-6 pb-28">
         {/* Section 1: Core Info & Budget */}
         <Panel className="p-5">
           <SectionHeading
@@ -489,7 +573,10 @@ export default function DedicatedReviewPage({
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Label htmlFor="field-title">{lang === "th" ? "ชื่อโครงการ (Project Title)" : "Project Title"} *</Label>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="field-title">{lang === "th" ? "ชื่อโครงการ (Project Title)" : "Project Title"} *</Label>
+                <FieldConfidenceBadge confidence={getFieldScore("Title")} lang={lang} />
+              </div>
               <input
                 id="field-title"
                 type="text"
@@ -501,7 +588,10 @@ export default function DedicatedReviewPage({
             </div>
 
             <div className="sm:col-span-2">
-              <Label htmlFor="field-agency">{lang === "th" ? "หน่วยงานเจ้าของโครงการ (Agency Name)" : "Agency Name"} *</Label>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="field-agency">{lang === "th" ? "หน่วยงานเจ้าของโครงการ (Agency Name)" : "Agency Name"} *</Label>
+                <FieldConfidenceBadge confidence={getFieldScore("Agency")} lang={lang} />
+              </div>
               <input
                 id="field-agency"
                 type="text"
@@ -513,7 +603,10 @@ export default function DedicatedReviewPage({
             </div>
 
             <div>
-              <Label htmlFor="field-ref-price">{lang === "th" ? "ราคากลาง (Reference Price THB)" : "Reference Price (THB)"}</Label>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="field-ref-price">{lang === "th" ? "ราคากลาง (Reference Price THB)" : "Reference Price (THB)"}</Label>
+                <FieldConfidenceBadge confidence={getFieldScore("Reference Price")} lang={lang} />
+              </div>
               <input
                 id="field-ref-price"
                 type="text"
@@ -532,7 +625,10 @@ export default function DedicatedReviewPage({
             </div>
 
             <div>
-              <Label htmlFor="field-budget">{lang === "th" ? "งบประมาณ (Approved Budget THB)" : "Budget (THB)"}</Label>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="field-budget">{lang === "th" ? "งบประมาณ (Approved Budget THB)" : "Budget (THB)"}</Label>
+                <FieldConfidenceBadge confidence={getFieldScore("Budget")} lang={lang} />
+              </div>
               <input
                 id="field-budget"
                 type="text"
@@ -551,7 +647,10 @@ export default function DedicatedReviewPage({
             </div>
 
             <div>
-              <Label htmlFor="field-deadline">{lang === "th" ? "กำหนดวันยื่นข้อเสนอ (Submission Deadline)" : "Submission Deadline"}</Label>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="field-deadline">{lang === "th" ? "กำหนดวันยื่นข้อเสนอ (Submission Deadline)" : "Submission Deadline"}</Label>
+                <FieldConfidenceBadge confidence={getFieldScore("Deadline", 0.75)} lang={lang} />
+              </div>
               <input
                 id="field-deadline"
                 type="date"
@@ -577,7 +676,10 @@ export default function DedicatedReviewPage({
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Label htmlFor="field-objective">{lang === "th" ? "วัตถุประสงค์โครงการ (Project Objective)" : "Objective"}</Label>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="field-objective">{lang === "th" ? "วัตถุประสงค์โครงการ (Project Objective)" : "Objective"}</Label>
+                <FieldConfidenceBadge confidence={getFieldScore("Objective")} lang={lang} />
+              </div>
               <textarea
                 id="field-objective"
                 rows={3}
@@ -589,7 +691,10 @@ export default function DedicatedReviewPage({
             </div>
 
             <div>
-              <Label htmlFor="field-archetype">{lang === "th" ? "หมวดหมู่สถาปัตยกรรมระบบ (System Archetype)" : "System Archetype"}</Label>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="field-archetype">{lang === "th" ? "หมวดหมู่สถาปัตยกรรมระบบ (System Archetype)" : "System Archetype"}</Label>
+                <FieldConfidenceBadge confidence={getFieldScore("Archetype")} lang={lang} />
+              </div>
               <input
                 id="field-archetype"
                 type="text"
@@ -601,7 +706,10 @@ export default function DedicatedReviewPage({
             </div>
 
             <div>
-              <Label htmlFor="field-tier">{lang === "th" ? "ระดับความซับซ้อน (Complexity Tier)" : "Complexity Tier"}</Label>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="field-tier">{lang === "th" ? "ระดับความซับซ้อน (Complexity Tier)" : "Complexity Tier"}</Label>
+                <FieldConfidenceBadge confidence={getFieldScore("Tier")} lang={lang} />
+              </div>
               <input
                 id="field-tier"
                 type="text"
@@ -628,7 +736,10 @@ export default function DedicatedReviewPage({
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="field-duration">{lang === "th" ? "ระยะเวลาสัญญา (วัน / Contract Duration Days)" : "Contract Duration (Days)"}</Label>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="field-duration">{lang === "th" ? "ระยะเวลาสัญญา (วัน / Contract Duration Days)" : "Contract Duration (Days)"}</Label>
+                <FieldConfidenceBadge confidence={getFieldScore("Duration", 0.80)} lang={lang} />
+              </div>
               <input
                 id="field-duration"
                 type="text"
@@ -647,7 +758,10 @@ export default function DedicatedReviewPage({
             </div>
 
             <div>
-              <Label htmlFor="field-warranty">{lang === "th" ? "ระยะเวลารับประกัน (ปี / Warranty Years)" : "Warranty (Years)"}</Label>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="field-warranty">{lang === "th" ? "ระยะเวลารับประกัน (ปี / Warranty Years)" : "Warranty (Years)"}</Label>
+                <FieldConfidenceBadge confidence={getFieldScore("Warranty", 0.80)} lang={lang} />
+              </div>
               <input
                 id="field-warranty"
                 type="text"
@@ -666,7 +780,10 @@ export default function DedicatedReviewPage({
             </div>
 
             <div className="sm:col-span-2">
-              <Label htmlFor="field-penalty">{lang === "th" ? "เงื่อนไขค่าปรับ (Penalty Clause)" : "Penalty Clause"}</Label>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="field-penalty">{lang === "th" ? "เงื่อนไขค่าปรับ (Penalty Clause)" : "Penalty Clause"}</Label>
+                <FieldConfidenceBadge confidence={getFieldScore("Penalty", 0.80)} lang={lang} />
+              </div>
               <input
                 id="field-penalty"
                 type="text"
@@ -678,7 +795,10 @@ export default function DedicatedReviewPage({
             </div>
 
             <div className="sm:col-span-2">
-              <Label htmlFor="field-payment">{lang === "th" ? "เงื่อนไขและงวดการจ่ายเงิน (Payment Terms)" : "Payment Terms"}</Label>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="field-payment">{lang === "th" ? "เงื่อนไขและงวดการจ่ายเงิน (Payment Terms)" : "Payment Terms"}</Label>
+                <FieldConfidenceBadge confidence={getFieldScore("Payment")} lang={lang} />
+              </div>
               <textarea
                 id="field-payment"
                 rows={2}
@@ -705,9 +825,12 @@ export default function DedicatedReviewPage({
 
           <div className="mt-4 flex flex-col gap-4">
             <div>
-              <Label htmlFor="field-comp-req">
-                {lang === "th" ? "คุณสมบัติบริษัท (Company Requirements - บรรทัดละ 1 ข้อ)" : "Company Requirements (One per line)"}
-              </Label>
+              <div className="mb-1 flex items-center justify-between">
+                <Label htmlFor="field-comp-req">
+                  {lang === "th" ? "คุณสมบัติบริษัท (Company Requirements - บรรทัดละ 1 ข้อ)" : "Company Requirements (One per line)"}
+                </Label>
+                <FieldConfidenceBadge confidence={getFieldScore("Company")} lang={lang} />
+              </div>
               <textarea
                 id="field-comp-req"
                 rows={4}
@@ -720,7 +843,10 @@ export default function DedicatedReviewPage({
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="sm:col-span-2">
-                <Label htmlFor="field-prev-exp">{lang === "th" ? "ผลงานและประสบการณ์ที่ต้องมี (Previous Experience)" : "Required Experience"}</Label>
+                <div className="mb-1 flex items-center justify-between">
+                  <Label htmlFor="field-prev-exp">{lang === "th" ? "ผลงานและประสบการณ์ที่ต้องมี (Previous Experience)" : "Required Experience"}</Label>
+                  <FieldConfidenceBadge confidence={getFieldScore("Experience")} lang={lang} />
+                </div>
                 <input
                   id="field-prev-exp"
                   type="text"
@@ -732,7 +858,10 @@ export default function DedicatedReviewPage({
               </div>
 
               <div>
-                <Label htmlFor="field-min-exp">{lang === "th" ? "มูลค่าผลงานขั้นต่ำ (THB)" : "Min Experience Value (THB)"}</Label>
+                <div className="mb-1 flex items-center justify-between">
+                  <Label htmlFor="field-min-exp">{lang === "th" ? "มูลค่าผลงานขั้นต่ำ (THB)" : "Min Experience Value (THB)"}</Label>
+                  <FieldConfidenceBadge confidence={getFieldScore("MinExp")} lang={lang} />
+                </div>
                 <input
                   id="field-min-exp"
                   type="text"
@@ -758,40 +887,254 @@ export default function DedicatedReviewPage({
           <SectionHeading
             sub={
               lang === "th"
-                ? "เทคโนโลยี ภาษา ฐานข้อมูล และเครื่องมือที่กำหนดใน TOR (คั่นด้วยเครื่องหมายจุลภาค ,)"
-                : "Comma-separated technologies, frameworks, and databases"
+                ? "เลือก ค้นหา หรือเพิ่มเทคโนโลยี สแต็ก ภาษา ฐานข้อมูล และเครื่องมือที่กำหนดใน TOR"
+                : "Select, search, or add technologies, frameworks, and databases required in the TOR"
             }
           >
             {lang === "th" ? "5. สเปกเทคโนโลยีและเครื่องมือ (Required Technologies)" : "5. Required Tech Stack"}
           </SectionHeading>
 
           <div className="mt-4">
-            <Label htmlFor="field-tech">{lang === "th" ? "เทคโนโลยีที่กำหนด (Required Technologies List)" : "Technologies"}</Label>
-            <input
-              id="field-tech"
-              type="text"
-              value={requiredTechnologies}
-              onChange={(e) => setRequiredTechnologies(e.target.value)}
-              placeholder="เช่น Node.js, PostgreSQL, Docker, Kubernetes, NGINX Plus"
-              className={input}
-            />
+            <div className="mb-1 flex items-center justify-between">
+              <Label htmlFor="tech-search-input">
+                {lang === "th" ? "เทคโนโลยีที่กำหนด (Required Technologies)" : "Required Technologies"}
+              </Label>
+              <FieldConfidenceBadge confidence={getFieldScore("Technologies")} lang={lang} />
+            </div>
 
-            {requiredTechnologies.trim() && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {requiredTechnologies
-                  .split(",")
-                  .map((t) => t.trim())
-                  .filter(Boolean)
-                  .map((tech, idx) => (
+            {/* Selected tech chips */}
+            {selectedTechs.length > 0 ? (
+              <div className="mb-3.5 rounded-[4px] border border-line bg-surface-2/40 p-3 shadow-[inset_0_1px_1px_rgba(0,0,0,0.02)]">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[12px] font-semibold text-ink">
+                    {lang === "th"
+                      ? `เทคโนโลยีที่ระบุแล้ว (${selectedTechs.length})`
+                      : `Selected Technologies (${selectedTechs.length})`}
+                  </span>
+                  <span className="text-[11px] text-ink-3">
+                    {lang === "th" ? "คลิก ✕ เพื่อนำออก" : "Click ✕ to remove"}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedTechs.map((tech) => (
                     <span
-                      key={idx}
-                      className="rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] font-mono text-ink"
+                      key={tech}
+                      className="group inline-flex items-center gap-1.5 rounded-[3px] border border-ink/80 bg-ink px-2.5 py-1 font-mono text-[11px] font-medium text-surface transition-colors"
                     >
-                      {tech}
+                      <span>{tech}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeTech(tech)}
+                        title={lang === "th" ? `ลบ ${tech}` : `Remove ${tech}`}
+                        className="cursor-pointer text-[11px] opacity-70 hover:opacity-100 hover:text-red-400"
+                        aria-label={`Remove ${tech}`}
+                      >
+                        ✕
+                      </button>
                     </span>
                   ))}
+                </div>
               </div>
+            ) : (
+              <p className="mb-3 text-[12px] text-ink-3 italic">
+                {lang === "th"
+                  ? "ยังไม่ได้ระบุเทคโนโลยี (สามารถค้นหาเพื่อเลือก หรือพิมพ์เพิ่มด้านล่าง)"
+                  : "No technologies specified yet (search or type to add below)"}
+              </p>
             )}
+
+            {/* Search and Autocomplete Input */}
+            <div className="relative max-w-lg">
+              <div className="relative flex items-center">
+                <span className="pointer-events-none absolute left-3 text-ink-3">
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </span>
+                <input
+                  id="tech-search-input"
+                  type="text"
+                  value={searchTech}
+                  onChange={(e) => setSearchTech(e.target.value)}
+                  onFocus={() => setIsTechSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setIsTechSearchFocused(false), 220)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (filteredSuggestions.length > 0) {
+                        toggleTech(filteredSuggestions[0].name);
+                        setSearchTech("");
+                      } else if (searchTech.trim()) {
+                        addCustomTech(searchTech.trim());
+                        setSearchTech("");
+                      }
+                    } else if (e.key === "Escape") {
+                      setIsTechSearchFocused(false);
+                    }
+                  }}
+                  placeholder={
+                    lang === "th"
+                      ? "ค้นหาเทคโนโลยี (เช่น Docker, PostgreSQL, React, Windows)... หรือพิมพ์แล้วกด Enter"
+                      : "Search technologies (e.g. Docker, PostgreSQL, React)... or type and press Enter"
+                  }
+                  className={`${input} pl-8.5 pr-8 text-[12px]`}
+                />
+                {searchTech && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTech("")}
+                    className="absolute right-2.5 text-[14px] text-ink-3 hover:text-ink cursor-pointer"
+                    aria-label="Clear"
+                  >
+                    &times;
+                  </button>
+                )}
+              </div>
+
+              {/* Suggestions dropdown */}
+              {isTechSearchFocused && (
+                <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-60 overflow-y-auto rounded-[3px] border border-line bg-surface shadow-xl">
+                  {filteredSuggestions.length > 0 ? (
+                    <ul className="py-1">
+                      {filteredSuggestions.map((item) => {
+                        const isSelected = selectedTechs.includes(item.name);
+                        return (
+                          <li key={item.name}>
+                            <button
+                              type="button"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                toggleTech(item.name);
+                                setSearchTech("");
+                              }}
+                              className="flex w-full items-center justify-between px-3 py-1.5 text-left text-[12px] font-mono hover:bg-surface-2 transition-colors cursor-pointer"
+                            >
+                              <span className="flex items-center gap-2">
+                                <span className={isSelected ? "font-semibold text-ink" : "text-ink-2"}>
+                                  {item.name}
+                                </span>
+                                {item.category && (
+                                  <span className="rounded bg-surface-3 px-1.5 py-0.2 text-[10px] text-ink-3">
+                                    {item.category}
+                                  </span>
+                                )}
+                              </span>
+                              <span
+                                className={`text-[11px] ${
+                                  isSelected ? "font-bold text-open" : "text-ink-3"
+                                }`}
+                              >
+                                {isSelected
+                                  ? lang === "th"
+                                    ? "✓ เลือกแล้ว"
+                                    : "✓ Selected"
+                                  : lang === "th"
+                                  ? "+ เพิ่ม"
+                                  : "+ Add"}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : searchTech.trim() ? (
+                    <div className="p-3">
+                      <p className="text-[12px] text-ink-3 mb-2">
+                        {lang === "th"
+                          ? `ไม่พบ "${searchTech.trim()}" ในฐานข้อมูลระบบ`
+                          : `"${searchTech.trim()}" not found in database vocabulary`}
+                      </p>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          addCustomTech(searchTech.trim());
+                          setSearchTech("");
+                        }}
+                        className="flex w-full items-center justify-between rounded-[2px] bg-surface-2 px-2.5 py-1.5 text-left text-[12px] text-ink transition-colors hover:bg-surface-3 cursor-pointer"
+                      >
+                        <span className="font-mono text-ink">
+                          + {lang === "th" ? `เพิ่ม "${searchTech.trim()}"` : `Add "${searchTech.trim()}"`}
+                        </span>
+                        <span className="text-[10px] text-ink-3">
+                          {lang === "th" ? "กำหนดเป็นเทคโนโลยีใหม่" : "New tech entry"}
+                        </span>
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {searchTech.trim() &&
+                    filteredSuggestions.length > 0 &&
+                    !filteredSuggestions.some(
+                      (s) => s.name.toLowerCase() === searchTech.trim().toLowerCase()
+                    ) && (
+                      <div className="border-t border-line/60 p-2">
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            addCustomTech(searchTech.trim());
+                            setSearchTech("");
+                          }}
+                          className="flex w-full items-center justify-between rounded-[2px] bg-surface-2 px-2.5 py-1 text-left text-[11px] text-ink transition-colors hover:bg-surface-3 cursor-pointer"
+                        >
+                          <span className="font-mono text-ink">
+                            + {lang === "th" ? `เพิ่ม "${searchTech.trim()}" (กำหนดเอง)` : `Add "${searchTech.trim()}" (custom)`}
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                </div>
+              )}
+            </div>
+
+            {/* Common quick tags */}
+            <div className="mt-3">
+              <span className="text-[11px] text-ink-3 block mb-1.5">
+                {lang === "th" ? "เทคโนโลยีที่พบบ่อย (คลิกเพื่อเลือกทันที):" : "Frequently used technologies:"}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  "Node.js",
+                  "Python",
+                  "Java",
+                  "Go",
+                  "React",
+                  "Vue.js",
+                  "PostgreSQL",
+                  "MySQL",
+                  "Oracle",
+                  "Docker",
+                  "Kubernetes",
+                  "NGINX Plus",
+                  "Redis",
+                  "Linux",
+                  "Windows Server",
+                ].map((name) => {
+                  const on = selectedTechs.includes(name);
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => toggleTech(name)}
+                      className={`cursor-pointer rounded-[2px] border px-2 py-0.5 text-[11px] font-mono transition-colors ${
+                        on
+                          ? "border-open-line bg-open-bg text-open font-semibold"
+                          : "border-line bg-surface-2 text-ink-2 hover:border-line-2 hover:text-ink"
+                      }`}
+                    >
+                      {on ? "✓ " : "+ "}
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </Panel>
 

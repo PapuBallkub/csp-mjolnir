@@ -170,24 +170,7 @@ export function ReviewItemCard({
             </div>
           ) : null}
 
-          {item.lowFields.length > 0 ? (
-            <div className="mt-3">
-              <span className="text-[11px] font-medium text-ink-3 block mb-1.5">
-                {lang === "th" ? "ฟิลด์ที่ค่าความมั่นใจต่ำ (Low-confidence fields):" : "Low-confidence fields:"}
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {item.lowFields.map((f) => (
-                  <span
-                    key={f.field}
-                    className="inline-flex items-center gap-1 rounded-[2px] border border-amend-line bg-amend-bg px-2 py-0.5 text-[11px] text-amend"
-                  >
-                    <span className="font-mono font-medium">{f.field}</span>
-                    <span className="text-[10px] opacity-75">({f.confidence}%)</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
+
 
           {errorMsg ? (
             <div className="mt-3 rounded-[3px] border border-risk-line bg-risk-bg p-2 text-[12px] text-risk">

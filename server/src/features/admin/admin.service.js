@@ -376,31 +376,23 @@ export async function getTorReviewItem(projectId) {
     ? insight.metadata.confidenceScore / 100
     : 0.85;
 
-  const lowFields = [];
-  lowFields.push({
-    field: 'ชื่อโครงการ (Project Title)',
-    value: insight?.identification?.titleTh || tor?.title || `Project ${cleanId}`,
-    confidence: score,
-  });
-  lowFields.push({
-    field: 'หน่วยงาน (Agency Name)',
-    value: insight?.identification?.agency || tor?.agency || '',
-    confidence: score,
-  });
-  if (insight?.facts?.referencePriceTHB != null) {
-    lowFields.push({
-      field: 'ราคากลาง (Reference Price)',
-      value: Number(insight.facts.referencePriceTHB).toLocaleString(),
-      confidence: score,
-    });
-  }
-  if (insight?.facts?.budgetTHB != null) {
-    lowFields.push({
-      field: 'งบประมาณ (Budget)',
-      value: Number(insight.facts.budgetTHB).toLocaleString(),
-      confidence: score,
-    });
-  }
+  const lowFields = [
+    { field: 'Title', confidence: score },
+    { field: 'Agency', confidence: score },
+    { field: 'Reference Price', confidence: score },
+    { field: 'Budget', confidence: score },
+    { field: 'Deadline', confidence: Math.max(0.4, Number((score - 0.1).toFixed(2))) },
+    { field: 'Objective', confidence: score },
+    { field: 'Archetype', confidence: score },
+    { field: 'Tier', confidence: score },
+    { field: 'Duration', confidence: Math.max(0.45, Number((score - 0.05).toFixed(2))) },
+    { field: 'Warranty', confidence: Math.max(0.45, Number((score - 0.05).toFixed(2))) },
+    { field: 'Penalty', confidence: Math.max(0.45, Number((score - 0.05).toFixed(2))) },
+    { field: 'Company', confidence: score },
+    { field: 'Experience', confidence: score },
+    { field: 'MinExp', confidence: score },
+    { field: 'Technologies', confidence: score },
+  ];
 
   const details = {
     objective: insight?.overview?.objective || null,
@@ -705,13 +697,13 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
     }
 
     if (fields.requiredTechnologies !== undefined) {
-      const raw = String(fields.requiredTechnologies || '');
-      const techList = raw
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((name) => ({ name, version: null }));
-      insight.technicalRequirements.requiredTechnologies = techList;
+      const techNames = Array.isArray(fields.requiredTechnologies)
+        ? fields.requiredTechnologies.map((s) => String(s).trim()).filter(Boolean)
+        : String(fields.requiredTechnologies || '')
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+      insight.technicalRequirements.requiredTechnologies = techNames.map((name) => ({ name, version: null }));
     }
 
     // Extended Review & Facts Fields (FR-23 / FR-24)
