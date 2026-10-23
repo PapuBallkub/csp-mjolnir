@@ -36,6 +36,12 @@ const STATUS_OF_CODE: Record<AnnouncementCode, TorStatus | null> = {
 };
 
 const CONTRACT_SIGNED: Bi = { th: "ลงนามสัญญาแล้ว", en: "Contract signed" };
+// The one stage e-GP's own pages don't show: it comes from the contract records
+// the government publishes on data.go.th (ADR 0028), so the badge says where
+const CONTRACT_SIGNED_HINT: Bi = {
+  th: "จากข้อมูลสัญญาที่รัฐเผยแพร่ใน data.go.th",
+  en: "From the contract records the government publishes on data.go.th",
+};
 
 /**
  * The status filter's groups: one per badge colour, named the way the badges
@@ -98,7 +104,7 @@ type StageInput = {
  * 4. Otherwise, the status.
  */
 export function stageOf({ status, latestAnnouncement, contractSigned }: StageInput): Stage {
-  if (contractSigned) return { label: CONTRACT_SIGNED, saysChanged: false };
+  if (contractSigned) return { label: CONTRACT_SIGNED, hint: CONTRACT_SIGNED_HINT, saysChanged: false };
   if (status === "Closed") return { label: STAGE_BY_STATUS.Closed, hint: HINTS.Closed, saysChanged: false };
 
   const code = latestAnnouncement?.code;

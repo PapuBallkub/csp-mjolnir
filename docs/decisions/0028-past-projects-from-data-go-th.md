@@ -169,9 +169,14 @@ night's last wave: new TORs and changes go first.
   have 5 related projects, or close, so a TOR closing in two weeks may close
   before its turn. A TOR in a busy category may already have 5 from other
   projects read in full, and then gives its turn away at once.
-- **The catalog shows every status by default,** so extracted past projects
-  would appear under Awarded. Defaulting `/search` to Draft and Open is a
-  frontend change.
+- **The catalog starts with Draft and Open,** what can still be bid on. Past
+  projects read in full appear under Awarded, one click away under Status.
+  On 2026-10-23: 140 TORs in all, 68 Draft or Open, and all 32 Awarded ones
+  from data.go.th.
+- **data.go.th is cited at the one fact only it gives:** a signed contract.
+  The badge "ลงนามสัญญาแล้ว" says where that comes from. A record-level
+  "from data.go.th" tag was left out: the dataset copies e-GP's own records,
+  and the page already links e-GP, which stays the authority.
 - **The agreed price of a project we follow from the feed** needs its winner
   page (`W0`), not read yet; data.go.th gives it only for FY2568.
 - **Whether price-based comparables are fair** (a school's system against a

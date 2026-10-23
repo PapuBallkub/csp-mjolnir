@@ -21,6 +21,7 @@ import { CatalogRow, CatalogRowSkeleton } from "../../_components/catalog-row";
 import { formatThaiDate } from "../../_components/deadline";
 import { isDead, RiskMeter } from "../../_components/verdict";
 import { STATUS_GROUPS, announcementLabel } from "../../_lib/stage";
+import { DEFAULT_STATUSES, STATUSES, showsEveryStatus, statusChanges } from "../../_lib/catalog";
 import {
   btn,
   Chip,
@@ -60,8 +61,6 @@ const DEADLINE_BANDS: { id: string; label: Bi; days?: number }[] = [
   { id: "14", label: { th: "ยื่นข้อเสนอภายใน 14 วัน", en: "Bids due within 14 days" }, days: 14 },
   { id: "30", label: { th: "ยื่นข้อเสนอภายใน 30 วัน", en: "Bids due within 30 days" }, days: 30 },
 ];
-
-const STATUSES: TorStatus[] = ["Draft", "Open", "Awarded", "Closed", "Cancelled"];
 
 const SORTS: { id: Sort; label: Bi }[] = [
   { id: "newest", label: { th: "ประกาศล่าสุด", en: "Newest" } },
@@ -275,7 +274,7 @@ function BrowsePageContent() {
     }
   }
   const [query, setQuery] = useState("");
-  const [statuses, setStatuses] = useState<TorStatus[]>([]);
+  const [statuses, setStatuses] = useState<TorStatus[]>(DEFAULT_STATUSES);
   const [amendedOnly, setAmendedOnly] = useState(false);
   const [techFilter, setTechFilter] = useState<string[]>([]);
   const [agencyFilter, setAgencyFilter] = useState<string[]>([]);
@@ -289,8 +288,9 @@ function BrowsePageContent() {
 
   const debouncedQuery = useDebounced(query, 300);
 
+  // Filters set away from where the catalog starts
   const activeCount =
-    statuses.length +
+    statusChanges(statuses) +
     (amendedOnly ? 1 : 0) +
     techFilter.length +
     agencyFilter.length +
@@ -300,7 +300,7 @@ function BrowsePageContent() {
 
   function clearAll() {
     setQuery("");
-    setStatuses([]);
+    setStatuses(DEFAULT_STATUSES);
     setAmendedOnly(false);
     setTechFilter([]);
     setAgencyFilter([]);
@@ -448,6 +448,15 @@ function BrowsePageContent() {
             count={facets?.ok ? facets.data.statuses[status] : undefined}
           />
         ))}
+        {!showsEveryStatus(statuses) ? (
+          <button
+            type="button"
+            onClick={() => setStatuses(STATUSES)}
+            className="self-start text-[11px] leading-thai text-ink-2 underline underline-offset-2 hover:text-ink"
+          >
+            {lang === "th" ? "แสดงทุกสถานะ รวมโครงการในอดีต" : "Show every status, past projects too"}
+          </button>
+        ) : null}
         <div className="mt-0.5 border-t border-line pt-2.5">
           <Check
             checked={amendedOnly}
@@ -656,7 +665,28 @@ function BrowsePageContent() {
     if (!shown) return skeleton;
 
     if (current && current.total === 0) {
-      return activeCount === 0 && !debouncedQuery.trim() ? (
+      const searched = Boolean(debouncedQuery.trim());
+      const otherFilters = activeCount - statusChanges(statuses);
+      // Where the catalog starts: nothing to bid on now, though past projects may be there
+      if (!searched && activeCount === 0) {
+        return (
+          <EmptyState
+            headline={lang === "th" ? "ตอนนี้ไม่มีประกาศที่ยังยื่นได้" : "Nothing open or coming up right now"}
+            body={
+              lang === "th"
+                ? "หน้านี้เริ่มต้นแสดงเฉพาะร่างประกาศและประกาศเชิญชวนที่ยังเปิดรับข้อเสนอ โครงการที่ปิดรับแล้ว ได้ผู้ชนะแล้ว หรือยกเลิก ดูได้จากตัวกรองสถานะ"
+                : "The catalog starts with drafts and invitations still taking bids. Closed, awarded and cancelled projects are under Status."
+            }
+            action={
+              <button type="button" onClick={() => setStatuses(STATUSES)} className={btn.secondary}>
+                {lang === "th" ? "แสดงทุกสถานะ" : "Show every status"}
+              </button>
+            }
+          />
+        );
+      }
+      // Every status and no other filter: nothing has been published at all
+      return !searched && otherFilters === 0 && showsEveryStatus(statuses) ? (
         <EmptyState
           headline={lang === "th" ? "ยังไม่มีประกาศในระบบ" : "No postings yet"}
           body={
