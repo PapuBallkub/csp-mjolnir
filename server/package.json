@@ -32,6 +32,7 @@
     "job": "node src/pipeline/jobs/run-job.js",
     "schedule": "node scripts/run-schedule.js",
     "report": "node scripts/pipeline-report.js",
+    "rollback": "node scripts/rollback.js",
     "seed": "node scripts/seed.js",
     "seed:comparable": "node scripts/seed-comparable-test.js",
     "comparable": "node scripts/find-comparable.js"

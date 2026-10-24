@@ -554,3 +554,26 @@ up to 3 times (see [Running a command again](#running-a-command-again)).
 `server/data/extractions/<projectId>.json`. It holds Gemini's own answers,
 with the quote and page behind every value. Check these against the PDF.
 `--recheck` rebuilds from them too.
+
+### Versions, and `npm run rollback`
+**A summary a change replaces is kept,** in `TorInsightVersion`
+([0031](decisions/0031-keep-the-summary-a-change-replaces.md)). That happens
+when download applies a new TOR file, OCR reads changed text, extraction makes
+a summary again (`--outdated`, `--force`, `--recheck`), or an admin corrects
+it in the review queue. Each is kept once, with the reason, the TOR's file
+and facts it went with, and its OCR text, so it can be brought back.
+`metadata.version` counts them. A title-level record, a preview and a record
+found not IT keep none.
+
+```
+npm run rollback -- --id 69099707497                     # its versions
+npm run rollback -- --id 69099707497 --to 2 --dry-run    # what bringing version 2 back would do
+npm run rollback -- --id 69099707497 --to 2              # bring it back
+```
+
+A rollback keeps the current summary first, then puts version N back, with
+the TOR's file, OCR text and facts it went with. Its source matches again, so
+the next extraction leaves it alone. With a pipeline run going, it does
+nothing and says so. Admins can do the same from the API:
+`GET /api/admin/review/:projectId/versions` and
+`POST /api/admin/review/:projectId/rollback` with `{ "version": 2 }`.

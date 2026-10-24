@@ -11,9 +11,11 @@ import {
   handleGetAdminTechnologies,
   handleGetPipelineRecord,
   handleGetReviewItem,
+  handleListVersions,
   handleReExtract,
   handleRetryAllPipelineFailures,
   handleRetryPipelineStep,
+  handleRollback,
   handleSuggestProjects,
   handleTriggerIngest,
   handleUpdateAdminTechnology,
@@ -50,6 +52,10 @@ adminRoutes.patch('/review/:projectId', handleUpdateReview);
 
 // Queue a document for re-extraction
 adminRoutes.post('/review/:projectId/re-extract', handleReExtract);
+
+// The summaries a change replaced, and bringing one back (NFR-07, ADR 0031)
+adminRoutes.get('/review/:projectId/versions', handleListVersions);
+adminRoutes.post('/review/:projectId/rollback', handleRollback);
 
 // Trigger on-demand ingestion poll across procurement feeds
 adminRoutes.post('/ingest', handleTriggerIngest);
