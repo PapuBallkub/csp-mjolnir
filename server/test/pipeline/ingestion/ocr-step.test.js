@@ -6,7 +6,7 @@ import { after, before, test } from 'node:test';
 import mongoose from 'mongoose';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { Tor, TorInsight } from '#models/index.js';
+import { Tor, TorInsight, TorInsightVersion } from '#models/index.js';
 import { runOcrStep } from '#pipeline/ingestion/ingest.js';
 
 // A database of its own: the OCR step takes every waiting TOR, and the other
@@ -85,6 +85,7 @@ before(async () => {
     // Its new package's TOR differs from the one extracted: a new version
     tor(ID.itChanged, {
       document: { fileName: `${ID.itChanged}_TOR.pdf`, storagePath: path.join(documentsDir, `${ID.itChanged}_TOR.pdf`), version: 2 },
+      ocr: { rawText: 'ข้อความ TOR ฉบับก่อน', preview: false },
     }),
     // Awarded and never in the feed, but asked for: one with its title-level
     // record, one whose preview classify has found IT since
@@ -170,6 +171,14 @@ test('OCR step: a past project asked for is previewed first, like any scan (ADR 
   assert.equal(it.pipelineStatus, 'ocr_done');
   assert.deepEqual([it.ocr.preview, it.ocr.pagesRead], [false, 30]);
   assert.deepEqual(calls.find((call) => call.id === ID.pastItPreview).options, {});
+});
+
+test('OCR step: changed text keeps the summary built from the old text first; one with no summary keeps nothing (ADR 0031)', async () => {
+  const kept = await TorInsightVersion.find({}).lean();
+
+  assert.deepEqual(kept.map((v) => v.projectId), [ID.itChanged], 'previews waiting for their text have no summary to keep');
+  assert.equal(kept[0].reason, 'source-changed');
+  assert.equal(kept[0].ocrText, 'ข้อความ TOR ฉบับก่อน');
 });
 
 test('OCR step: --queue reads one kind of work at a time, in the waves of the night (ADR 0030)', () => {

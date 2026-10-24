@@ -105,7 +105,7 @@ async function recheck(tors, existing, args) {
       };
       const { insight, review } = await buildFromAnswers(tor, saved, { run, dryRun: args.dryRun });
       await fs.writeFile(reviewPath(tor.projectId), JSON.stringify({ insight, ...review }, null, 2));
-      if (!args.dryRun) await saveInsight(insight);
+      if (!args.dryRun) await saveInsight(insight, { reason: 'rebuilt' });
       counts.rebuilt++;
       const { confidenceScore, checks, excluded } = insight.metadata;
       console.log(

@@ -7,13 +7,16 @@ import {
   getAdminTechnologies,
   getOperations,
   getPipelineRecordDiagnostics,
+  getTorVersions,
   reExtractTor,
   retryPipelineStep,
+  rollbackTorVersion,
   suggestProjects,
   triggerIngestion,
   updateAdminTechnology,
   updateTorReview,
 } from './admin.service.js';
+import { HttpError } from '#common/errors/http-error.js';
 
 export async function readOperations(req, res, next) {
   try {
@@ -46,6 +49,29 @@ export async function handleUpdateReview(req, res, next) {
     res.json(result);
   } catch (err) {
     next(err);
+  }
+}
+
+// A service error carrying a status (400, 404, 409) answers with it: the error
+// handler reads a status from an HttpError only
+const asHttp = (err) =>
+  err instanceof HttpError || !Number.isInteger(err?.status) ? err : new HttpError(err.status, err.message);
+
+/** A TOR's kept summary versions, newest first (NFR-07, ADR 0031). */
+export async function handleListVersions(req, res, next) {
+  try {
+    res.json(await getTorVersions(req.params.projectId));
+  } catch (err) {
+    next(asHttp(err));
+  }
+}
+
+/** Brings an older version back: `{ version }` (NFR-07, ADR 0031). */
+export async function handleRollback(req, res, next) {
+  try {
+    res.json(await rollbackTorVersion(req.params.projectId, req.body?.version, req.user));
+  } catch (err) {
+    next(asHttp(err));
   }
 }
 

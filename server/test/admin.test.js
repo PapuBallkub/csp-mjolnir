@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { IngestionLog, TitleScreen, Tor, TorInsight, User } from '#models/index.js';
+import { IngestionLog, TitleScreen, Tor, TorInsight, TorInsightVersion, User } from '#models/index.js';
 
 import { createApp } from '../src/app.js';
 
@@ -41,6 +41,7 @@ after(async () => {
   await User.deleteMany({ email: new RegExp(`-${runId}@example\\.test$`) });
   await IngestionLog.deleteMany({ source: new RegExp(`^test-`) });
   await TorInsight.deleteMany({ projectId: new RegExp(`^TEST-${runId}`) });
+  await TorInsightVersion.deleteMany({ projectId: new RegExp(`^TEST-${runId}`) });
   await Tor.deleteMany({ projectId: new RegExp(`^TEST-${runId}`) });
   await TitleScreen.deleteMany({ projectId: new RegExp(`^TEST-${runId}`) });
 
@@ -229,6 +230,7 @@ test('FR-23: an admin can manually edit extracted fields and approve a TOR (Save
     identification: {
       titleTh: 'โครงการทดสอบการแก้ไขข้อมูลโดย Admin',
       agency: 'สำนักการแพทย์',
+      category: 'software-development',
       status: 'Open',
     },
     facts: {
@@ -269,7 +271,8 @@ test('FR-23: an admin can manually edit extracted fields and approve a TOR (Save
   const updatedInsight = await TorInsight.findOne({ projectId: projId });
   assert.equal(updatedInsight.identification.titleTh, 'โครงการพัฒนาระบบเทคโนโลยีสารสนเทศทางการแพทย์ (แก้ไขแล้ว)');
   assert.equal(updatedInsight.identification.agency, 'สำนักการแพทย์ กรุงเทพมหานคร');
-  assert.equal(updatedInsight.identification.category, 'IT / software');
+  // The extracted category stays: the comparison groups by it
+  assert.equal(updatedInsight.identification.category, 'software-development');
   assert.equal(updatedInsight.facts.referencePriceTHB, 1500000);
   assert.equal(updatedInsight.facts.budgetTHB, 1800000);
   assert.equal(updatedInsight.facts.penaltyClause, 'ร้อยละ 0.20 ต่อวัน');
@@ -282,6 +285,108 @@ test('FR-23: an admin can manually edit extracted fields and approve a TOR (Save
   assert.equal(updatedTor.agency, 'สำนักการแพทย์ กรุงเทพมหานคร');
   assert.equal(updatedTor.referencePriceTHB, 1500000);
   assert.equal(updatedTor.budgetTHB, 1800000);
+
+  // The summary as it was before the edit is kept, with who changed it (ADR 0031)
+  const admin = await User.findOne({ email: emailFor('review-admin') }).lean();
+  const kept = await TorInsightVersion.findOne({ projectId: projId }).lean();
+  assert.equal(kept.version, 1);
+  assert.equal(kept.reason, 'corrected');
+  assert.equal(String(kept.supersededBy), String(admin._id));
+  assert.equal(kept.insight.facts.referencePriceTHB, 1000000);
+  assert.equal(kept.tor.agency, 'สำนักการแพทย์', "the Tor's facts as they were too");
+  assert.equal(updatedInsight.metadata.version, 2);
+});
+
+test('FR-23: approving with no field changed keeps no version', async () => {
+  const adminCookie = await signUp('approve-only-admin', { role: 'admin' });
+  const projId = `TEST-${runId}-005`;
+  await TorInsight.create({
+    projectId: projId,
+    identification: { titleTh: 'ระบบลงทะเบียนออนไลน์', agency: 'สำนักทะเบียน', category: 'software-development', status: 'Open' },
+    facts: { referencePriceTHB: 2_000_000 },
+    metadata: { origin: 'pipeline', reviewStatus: 'pending', confidenceScore: 82 },
+  });
+
+  const res = await fetch(`${baseUrl}/api/admin/review/${projId}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    // The form sends the fields as they are
+    body: JSON.stringify({ action: 'approve', fields: { title: 'ระบบลงทะเบียนออนไลน์', referencePriceTHB: 2_000_000 } }),
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(await TorInsightVersion.countDocuments({ projectId: projId }), 0);
+  assert.equal((await TorInsight.findOne({ projectId: projId }).lean()).metadata.version, 1);
+});
+
+test('FR-23: a reclassify keeps the summary; confirming brings its category back', async () => {
+  const adminCookie = await signUp('category-admin', { role: 'admin' });
+  const projId = `TEST-${runId}-006`;
+  await TorInsight.create({
+    projectId: projId,
+    identification: { titleTh: 'ระบบคลังข้อมูลสุขภาพ', agency: 'กรมการแพทย์', category: 'data-and-ai', status: 'Open' },
+    metadata: { origin: 'pipeline', reviewStatus: 'pending', confidenceScore: 78 },
+  });
+  const review = (body) =>
+    fetch(`${baseUrl}/api/admin/review/${projId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: adminCookie },
+      body: JSON.stringify(body),
+    });
+
+  assert.equal((await review({ action: 'reclassify', reclassifyReason: 'Hardware only' })).status, 200);
+  const kept = await TorInsightVersion.findOne({ projectId: projId }).lean();
+  assert.equal(kept.reason, 'corrected');
+  assert.equal(kept.insight.identification.category, 'data-and-ai');
+
+  assert.equal((await review({ action: 'confirm_classification' })).status, 200);
+  const confirmed = await TorInsight.findOne({ projectId: projId }).lean();
+  assert.equal(confirmed.identification.category, 'data-and-ai', 'not "IT / software"');
+  assert.equal(confirmed.metadata.excluded, null);
+});
+
+test('NFR-07: an admin can list a TOR\'s versions and bring one back; nobody else can', async () => {
+  const adminCookie = await signUp('rollback-admin', { role: 'admin' });
+  const userCookie = await signUp('rollback-user');
+  const projId = `TEST-${runId}-007`;
+  await Tor.create({ projectId: projId, title: 'ระบบแจ้งเตือนน้ำท่วม', agency: 'สำนักการระบายน้ำ', source: 'process3', status: 'Open', referencePriceTHB: 3_000_000 });
+  await TorInsight.create({
+    projectId: projId,
+    identification: { titleTh: 'ระบบแจ้งเตือนน้ำท่วม', agency: 'สำนักการระบายน้ำ', category: 'software-development', status: 'Open' },
+    facts: { referencePriceTHB: 3_000_000 },
+    metadata: { origin: 'pipeline', reviewStatus: 'pending', confidenceScore: 81 },
+  });
+  const send = (method, path, cookie, body) =>
+    fetch(`${baseUrl}/api/admin/review/${projId}${path}`, {
+      method,
+      headers: { 'content-type': 'application/json', cookie },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+  // A wrong correction: the price typed with an extra zero
+  await send('PATCH', '', adminCookie, { action: 'approve', fields: { referencePriceTHB: 30_000_000 } });
+  assert.equal((await Tor.findOne({ projectId: projId }).lean()).referencePriceTHB, 30_000_000);
+
+  assert.equal((await send('GET', '/versions', userCookie)).status, 403);
+  assert.equal((await send('POST', '/rollback', userCookie, { version: 1 })).status, 403);
+
+  const listed = await (await send('GET', '/versions', adminCookie)).json();
+  assert.equal(listed.current, 2);
+  assert.deepEqual(listed.versions.map((v) => [v.version, v.reason]), [[1, 'corrected']]);
+
+  const rolled = await send('POST', '/rollback', adminCookie, { version: 1 });
+  assert.equal(rolled.status, 200);
+  assert.equal((await rolled.json()).version, 3);
+
+  const insight = await TorInsight.findOne({ projectId: projId }).lean();
+  assert.equal(insight.facts.referencePriceTHB, 3_000_000, 'the summary as it was');
+  assert.equal(insight.metadata.version, 3);
+  assert.equal((await Tor.findOne({ projectId: projId }).lean()).referencePriceTHB, 3_000_000, 'and the Tor too');
+  const after = await (await send('GET', '/versions', adminCookie)).json();
+  assert.deepEqual(after.versions.map((v) => [v.version, v.reason]), [[2, 'rollback'], [1, 'corrected']], 'the rollback can be undone too');
+
+  assert.equal((await send('POST', '/rollback', adminCookie, { version: 9 })).status, 404);
+  assert.equal((await send('POST', '/rollback', adminCookie, { version: 'latest' })).status, 400);
 });
 
 test('FR-23: an admin can reclassify a misclassified TOR as out-of-scope non-IT', async () => {
@@ -355,7 +460,8 @@ test('FR-23: an admin can confirm classification or trigger re-extraction', asyn
   const reQueued = await TorInsight.findOne({ projectId: projId });
   assert.equal(reQueued.metadata.reviewStatus, 'pending');
 
-  // Confirm classification (restores category to IT / software and clears excluded)
+  // Confirm classification: clears excluded; with no version holding an earlier
+  // category, the category is left unstated rather than made up
   const confRes = await fetch(`${baseUrl}/api/admin/review/${projId}`, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json', cookie: adminCookie },
@@ -367,7 +473,7 @@ test('FR-23: an admin can confirm classification or trigger re-extraction', asyn
   assert.equal(confData.reviewStatus, 'approved');
 
   const confirmed = await TorInsight.findOne({ projectId: projId });
-  assert.equal(confirmed.identification.category, 'IT / software');
+  assert.equal(confirmed.identification.category, null);
   assert.equal(confirmed.metadata.reviewStatus, 'approved');
   assert.equal(confirmed.metadata.excluded, null);
 });

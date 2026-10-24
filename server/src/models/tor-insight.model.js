@@ -272,6 +272,10 @@ const torInsightSchema = new mongoose.Schema(
       // nothing quoted. Counted in benchmarks; never shown as a summary,
       // reviewed or used as a detailed comparable. Full extraction replaces it.
       titleOnly: { type: Boolean, default: false, index: true },
+      // Which version of this TOR's summary this is: 1, then one more each
+      // time a summary is replaced. The ones it replaced are kept in
+      // TorInsightVersion (ADR 0031).
+      version: { type: Number, default: 1, min: 1 },
     },
   },
   { timestamps: true },
