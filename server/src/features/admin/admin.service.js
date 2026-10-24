@@ -1,14 +1,26 @@
 import fsSync from 'node:fs';
 import path from 'node:path';
 import axios from 'axios';
-import { FeedPoll, IngestionLog, PipelineFailure, PipelineRun, Technology, TitleScreen, Tor, TorInsight } from '#models/index.js';
+import {
+  FeedPoll,
+  IngestionLog,
+  PipelineFailure,
+  PipelineRun,
+  Technology,
+  TitleScreen,
+  Tor,
+  TorInsight,
+  TorInsightVersion,
+} from '#models/index.js';
+import { isFullExtraction } from '#features/reality-check/index.js';
+import { keepVersion, listVersions, nextVersion, rollbackTor } from '#pipeline/shared/insight-versions.js';
 import { runAddStep, runFetchStep } from '#pipeline/ingestion/ingest.js';
 import { STARTER_TECHNOLOGIES } from '#pipeline/extraction/references/technologies.js';
 import { ROUTINE_TYPES } from '#pipeline/ingestion/sources/process3.js';
 import { USER_AGENT } from '#pipeline/shared/user-agent.js';
 import { clearFailure } from '#pipeline/shared/failures.js';
 import { snapshot } from '#pipeline/jobs/run-job.js';
-import { withRunLock } from '#pipeline/shared/run-lock.js';
+import { RunLockHeldError, withRunLock } from '#pipeline/shared/run-lock.js';
 import {
   defaultPipelineFailures,
   defaultPipelineRuns,
@@ -485,13 +497,18 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
     throw error;
   }
 
+  // As they were before the edit: what a 'corrected' version keeps (ADR 0031)
+  const before = insight ? insight.toObject({ flattenMaps: true }) : null;
+  const torBefore = tor ? tor.toObject({ flattenMaps: true }) : null;
+
   if (!insight) {
     insight = new TorInsight({
       projectId,
       identification: {
         titleTh: tor?.title || `Project ${projectId}`,
         agency: tor?.agency || 'สำนักการระบายน้ำ',
-        category: 'IT / software',
+        // Not stated anywhere yet: the comparison groups by the extracted category
+        category: null,
         status: tor?.status || 'Open',
       },
       facts: {
@@ -565,7 +582,9 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
       insight.technicalRequirements.requiredTechnologies = techList;
     }
 
-    insight.identification.category = 'IT / software';
+    // The extracted category stays: the comparison and the past-project
+    // selection group by it. One an earlier reclassify set aside comes back.
+    if (insight.identification.category === 'non-IT') insight.identification.category = await categoryBefore(projectId);
     insight.metadata.reviewStatus = 'approved';
     insight.metadata.reviewedBy = userId;
     insight.metadata.reviewedAt = new Date();
@@ -590,7 +609,7 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
       { $set: { verdict: 'fail', reason: reclassifyReason || 'Civil works — out of scope' } },
     ).catch(() => {});
   } else if (action === 'confirm_classification') {
-    insight.identification.category = 'IT / software';
+    if (insight.identification.category === 'non-IT') insight.identification.category = await categoryBefore(projectId);
     insight.metadata.excluded = null;
     insight.metadata.reviewStatus = 'approved';
     insight.metadata.reviewedBy = userId;
@@ -606,6 +625,14 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
     throw error;
   }
 
+  // A summary the edit changed is kept as it was first, so a wrong correction
+  // can be rolled back and the AI's own answer isn't lost (ADR 0031). Approving
+  // or rejecting alone changes no content, and keeps none.
+  if (before && contentChanged(before, insight.toObject({ flattenMaps: true }))) {
+    await keepVersion(projectId, { reason: 'corrected', by: userId, current: before, tor: torBefore });
+    if (isFullExtraction(before)) insight.metadata.version = await nextVersion(projectId);
+  }
+
   await insight.save();
   if (tor) await tor.save();
 
@@ -615,6 +642,55 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
     reviewStatus: insight.metadata.reviewStatus,
     reviewedAt: insight.metadata.reviewedAt,
   };
+}
+
+/** A TOR's kept versions, newest first, for choosing one to roll back to (NFR-07). */
+export async function getTorVersions(projectId) {
+  if (!projectId) {
+    const error = new Error('projectId is required');
+    error.status = 400;
+    throw error;
+  }
+  return listVersions(projectId);
+}
+
+/**
+ * Brings an older version of a TOR's summary back, the same as `npm run
+ * rollback` (NFR-07, ADR 0031). It waits for no pipeline run: with one going,
+ * it refuses (409), since the run could overwrite what it puts back.
+ */
+export async function rollbackTorVersion(projectId, version, user = null) {
+  const to = Number(version);
+  if (!projectId || !Number.isInteger(to) || to < 1) {
+    const error = new Error('projectId and a version number (1 or more) are required');
+    error.status = 400;
+    throw error;
+  }
+  const by = user?._id || user?.id || null;
+  try {
+    return await withRunLock('extraction', () => withRunLock('ingestion', () => rollbackTor(projectId, { to, by })));
+  } catch (err) {
+    if (err instanceof RunLockHeldError) err.status = 409;
+    throw err;
+  }
+}
+
+/** Whether a review-queue action changed the summary itself, not only its review status. */
+function contentChanged(before, after) {
+  const content = (record) =>
+    JSON.stringify([record.identification, record.facts, record.technicalRequirements, record.metadata?.excluded ?? null]);
+  return content(before) !== content(after);
+}
+
+/** The category a TOR had before a reclassify set it to 'non-IT': from its latest version with a real one. */
+async function categoryBefore(projectId) {
+  const kept = await TorInsightVersion.findOne(
+    { projectId, 'insight.identification.category': { $nin: [null, '', 'non-IT', 'IT / software'] } },
+    { 'insight.identification.category': 1 },
+  )
+    .sort({ version: -1 })
+    .lean();
+  return kept?.insight?.identification?.category ?? null;
 }
 
 /**

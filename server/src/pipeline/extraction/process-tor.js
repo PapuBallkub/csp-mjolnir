@@ -10,6 +10,7 @@
  */
 
 import { TorInsight } from '#models/index.js';
+import { keepVersion, nextVersion, reasonFor } from '../shared/insight-versions.js';
 import { buildAwaitingFullText, buildExcluded, buildInsight } from './assemble.js';
 import { QUOTED_LISTS, keepGroundedItems, runChecks } from './checks.js';
 import { generateJson } from './gemini.js';
@@ -191,9 +192,20 @@ export async function buildFromAnswers(
  * the model first, so nothing the schema rejects is ever stored. `analytics`
  * is left alone: price and lock-spec analysis write it, and re-extracting
  * mustn't wipe their results.
+ *
+ * The summary it replaces is kept as a version first (ADR 0031), and the new
+ * one is numbered after it. `reason` says why, when the caller knows better
+ * than what the two were built from (extract --recheck: 'rebuilt').
  */
-export async function saveInsight(insight) {
-  const document = new TorInsight(insight);
+export async function saveInsight(insight, { reason } = {}) {
+  const current = await TorInsight.findOne({ projectId: insight.projectId }).lean();
+  if (current) {
+    await keepVersion(insight.projectId, { reason: reason ?? reasonFor(current, insight), current });
+  }
+  const document = new TorInsight({
+    ...insight,
+    metadata: { ...insight.metadata, version: await nextVersion(insight.projectId) },
+  });
   await document.validate();
 
   const fields = document.toObject({ flattenMaps: true });

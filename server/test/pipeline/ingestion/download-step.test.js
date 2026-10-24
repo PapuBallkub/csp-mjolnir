@@ -9,7 +9,7 @@ import axios, { AxiosError } from 'axios';
 import mongoose from 'mongoose';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { PipelineFailure, TitleScreen, Tor } from '#models/index.js';
+import { PipelineFailure, TitleScreen, Tor, TorInsight, TorInsightVersion } from '#models/index.js';
 import { applyPackage, applyPricePackage, readTorParts, runAddStep, runDownloadStep } from '#pipeline/ingestion/ingest.js';
 import { isPreviewRead } from '#pipeline/ingestion/lib/ocr.js';
 import { downloadEgpPackage, downloadEgpPricePackage } from '#pipeline/ingestion/lib/tor-downloader.js';
@@ -416,6 +416,32 @@ test('download step: a new package with a changed TOR sends it back to OCR, as a
   const tor = await torOf();
   assert.equal(tor.pipelineStatus, 'downloaded');
   assert.equal(tor.document.version, 2);
+});
+
+test('download step: a summary built from a TOR file a new package replaces is kept first, with that file and its text (ADR 0031)', async () => {
+  egpServes({ current: 'zip-d0', zips: { 'zip-d0': await invitation('%PDF-1.4 the TOR, first') } });
+  await run();
+  await Tor.updateOne({ projectId: PROJECT }, { pipelineStatus: 'ocr_done', packageCheckNeeded: true, 'ocr.rawText': 'ข้อความ TOR ฉบับแรก' });
+  const before = await torOf();
+  await TorInsight.create({
+    projectId: PROJECT,
+    identification: { titleTh: 'จ้างพัฒนาระบบคอมพิวเตอร์', agency: 'กรมตัวอย่าง', status: 'Open' },
+    facts: { referencePriceTHB: 1_000_000 },
+    metadata: { excluded: null },
+  });
+
+  egpServes({ current: 'zip-d2', zips: { 'zip-d2': await invitation('%PDF-1.4 the TOR, changed') } });
+  await run();
+
+  const kept = await TorInsightVersion.findOne({ projectId: PROJECT }).lean();
+  assert.equal(kept.reason, 'source-changed');
+  assert.equal(kept.insight.facts.referencePriceTHB, 1_000_000);
+  assert.equal(kept.tor.document.contentHash, before.document.contentHash, 'the file it was built from, not the new one');
+  assert.equal(kept.ocrText, 'ข้อความ TOR ฉบับแรก');
+  assert.notEqual((await torOf()).document.contentHash, before.document.contentHash);
+
+  await TorInsight.deleteMany({});
+  await TorInsightVersion.deleteMany({});
 });
 
 test("applyPackage: a package that doesn't state a fact leaves the last one standing, and never replaces the feed's agency", () => {

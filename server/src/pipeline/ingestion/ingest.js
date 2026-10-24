@@ -54,6 +54,7 @@ import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
 import { deriveStatus } from '../shared/status-engine.js';
 import { WORKABLE } from '../shared/workable.js';
 import { inQueues, parseQueues, soonestFirst } from '../shared/queues.js';
+import { keepVersion } from '../shared/insight-versions.js';
 import { EGP_BURST, EGP_PAUSE_MS, paceRequest } from '../shared/request-pacer.js';
 import { isPastDeadline, parseUntil } from '../shared/deadline.js';
 import { requestPastProjects, selectPastProjects } from './lib/past-requests.js';
@@ -993,6 +994,11 @@ export async function runDownloadStep({
       tor.packageCheckNeeded = false;
       console.log(`        Package unchanged (${result.zipId})`);
     } else {
+      // A summary built from the TOR file this package replaces is kept first,
+      // with the file and text it was built from: they're lost after (ADR 0031)
+      if (result.tor.contentHash !== (tor.document?.contentHash ?? null)) {
+        await keepVersion(tor.projectId, { reason: 'source-changed', tor });
+      }
       const { torChanged } = applyPackage(tor, result);
       // A new TOR is read again; one whose bytes didn't change keeps its text
       if (torChanged || tor.pipelineStatus === 'fetched') tor.pipelineStatus = 'downloaded';
@@ -1154,6 +1160,11 @@ export async function runOcrStep({ id, documentsDir, retryFailed = false, until 
 
     try {
       const ocrResult = await readTorParts(parts, preview ? { maxPages: PREVIEW_PAGES } : {}, ocr);
+      // Text that changes takes the summary built from the old with it: that
+      // summary is kept first, unless download already kept it (ADR 0031)
+      if (tor.ocr?.rawText && tor.ocr.rawText !== ocrResult.text) {
+        await keepVersion(tor.projectId, { reason: 'source-changed', tor });
+      }
       // A short scan or a digital PDF was read whole even on the preview pass
       const isPreview = preview && isPreviewRead(ocrResult);
       tor.ocr = {
