@@ -30,3 +30,15 @@ export {
   formatPriceInterpretation,
   calculatePriceBenchmarks,
 } from './benchmark.service.js';
+
+export {
+  SEVERITY_POINTS,
+  RISK_THRESHOLDS,
+  detectVendorLockin,
+  detectQualificationBarriers,
+  detectPersonnelBarriers,
+  detectSpecificationTailoring,
+  calculateLockSpecScore,
+  formatLockSpecVerdict,
+  analyzeLockSpec,
+} from './lock-spec.service.js';
