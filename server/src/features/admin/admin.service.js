@@ -244,60 +244,18 @@ export async function getDynamicReviewQueue() {
     for (const insight of candidateInsights) {
       const tor = await Tor.findOne({ projectId: insight.projectId });
 
-      const lowFields = [];
       const score = insight.metadata?.confidenceScore
         ? insight.metadata.confidenceScore / 100
         : 0.85;
 
-      lowFields.push({
-        field: 'ชื่อโครงการ (Project Title)',
-        value: insight.identification?.titleTh || tor?.title || `Project ${insight.projectId}`,
-        confidence: score,
-      });
-
-      lowFields.push({
-        field: 'หน่วยงาน (Agency Name)',
-        value: insight.identification?.agency || tor?.agency || '',
-        confidence: score,
-      });
-
-      if (insight.facts?.referencePriceTHB != null) {
-        lowFields.push({
-          field: 'ราคากลาง (Reference Price)',
-          value: Number(insight.facts.referencePriceTHB).toLocaleString(),
-          confidence: score,
-        });
-      }
-      if (insight.facts?.budgetTHB != null) {
-        lowFields.push({
-          field: 'งบประมาณ (Budget)',
-          value: Number(insight.facts.budgetTHB).toLocaleString(),
-          confidence: score,
-        });
-      }
-      if (insight.facts?.submissionDeadline) {
-        lowFields.push({
-          field: 'Submission Deadline',
-          value: new Date(insight.facts.submissionDeadline).toISOString().slice(0, 10),
-          confidence: Math.max(0.4, Number((score - 0.1).toFixed(2))),
-        });
-      }
-      if (insight.facts?.penaltyClause) {
-        lowFields.push({
-          field: 'Penalty Clause',
-          value: insight.facts.penaltyClause,
-          confidence: Math.max(0.45, Number((score - 0.05).toFixed(2))),
-        });
-      }
-      if (insight.technicalRequirements?.requiredTechnologies?.length) {
-        lowFields.push({
-          field: 'Required Tech Stack',
-          value: insight.technicalRequirements.requiredTechnologies
-            .map((t) => t.name + (t.version ? ` ${t.version}` : ''))
-            .join(', '),
-          confidence: score,
-        });
-      }
+      const lowFields = (insight.metadata?.checks || []).map((c) => ({
+        field: c.field || c.check,
+        value:
+          typeof c.detail === 'object' && c.detail !== null
+            ? JSON.stringify(c.detail)
+            : String(c.detail || c.check),
+        confidence: c.severity === 'critical' ? 0.5 : 0.75,
+      }));
 
       let misclassified = undefined;
       if (insight.metadata?.excluded) {
@@ -389,40 +347,115 @@ export async function getTorReviewItem(projectId) {
     ? insight.metadata.confidenceScore / 100
     : 0.85;
 
-  const lowFields = [
-    { field: 'Title', confidence: score },
-    { field: 'Agency', confidence: score },
-    { field: 'Reference Price', confidence: score },
-    { field: 'Budget', confidence: score },
-    { field: 'Deadline', confidence: Math.max(0.4, Number((score - 0.1).toFixed(2))) },
-    { field: 'Objective', confidence: score },
-    { field: 'Archetype', confidence: score },
-    { field: 'Tier', confidence: score },
-    { field: 'Duration', confidence: Math.max(0.45, Number((score - 0.05).toFixed(2))) },
-    { field: 'Warranty', confidence: Math.max(0.45, Number((score - 0.05).toFixed(2))) },
-    { field: 'Penalty', confidence: Math.max(0.45, Number((score - 0.05).toFixed(2))) },
-    { field: 'Company', confidence: score },
-    { field: 'Experience', confidence: score },
-    { field: 'MinExp', confidence: score },
-    { field: 'Technologies', confidence: score },
-  ];
+  const lowFields = (insight?.metadata?.checks || []).map((c) => ({
+    field: c.field || c.check,
+    value:
+      typeof c.detail === 'object' && c.detail !== null
+        ? JSON.stringify(c.detail)
+        : String(c.detail || c.check),
+    confidence: c.severity === 'critical' ? 0.5 : 0.75,
+  }));
 
   const details = {
-    objective: insight?.overview?.objective || null,
-    systemArchetype: insight?.overview?.systemArchetype || null,
-    complexityTier: insight?.overview?.complexityTier || null,
+    // 1. Identification
+    titleEn: insight?.identification?.titleEn || null,
+    department: insight?.identification?.department || null,
+    category: insight?.identification?.category || null,
+    status: insight?.identification?.status || tor?.status || 'Open',
+
+    // 2. Key Facts
+    budgetTHB: tor?.budgetTHB ?? insight?.facts?.budgetTHB ?? null,
+    referencePriceTHB: tor?.referencePriceTHB ?? insight?.facts?.referencePriceTHB ?? null,
+    submissionDeadline: tor?.submissionDeadline
+      ? new Date(tor.submissionDeadline).toISOString().slice(0, 10)
+      : insight?.facts?.submissionDeadline
+      ? new Date(insight.facts.submissionDeadline).toISOString().slice(0, 10)
+      : null,
+    commentDeadline: insight?.facts?.commentDeadline
+      ? new Date(insight.facts.commentDeadline).toISOString().slice(0, 10)
+      : null,
+    deliveryPeriodDays: insight?.facts?.deliveryPeriodDays ?? null,
+    procurementMethod: insight?.facts?.procurementMethod || null,
     contractDurationDays: insight?.facts?.contractDurationDays ?? null,
     warrantyYears: insight?.facts?.warrantyYears ?? null,
     penaltyClause: insight?.facts?.penaltyClause || null,
-    companyRequirements: insight?.eligibility?.companyRequirements || [],
-    previousExperience: insight?.eligibility?.previousExperience || null,
-    previousExperienceMinTHB: insight?.eligibility?.previousExperienceMinTHB ?? null,
-    paymentTerms: insight?.contractConditions?.paymentTerms || null,
+    postedDate: insight?.facts?.postedDate
+      ? new Date(insight.facts.postedDate).toISOString().slice(0, 10)
+      : null,
+
+    // 3. Project Overview
+    objective: insight?.overview?.objective || null,
+    systemArchetype: insight?.overview?.systemArchetype || null,
+    complexityTier: insight?.overview?.complexityTier || null,
+    majorComponents: insight?.overview?.majorComponents || [],
+    highLevelScope: insight?.overview?.highLevelScope || null,
+
+    // 4. Deliverables
+    deliverables: {
+      system: insight?.deliverables?.system || [],
+      implementation: insight?.deliverables?.implementation || [],
+      validation: insight?.deliverables?.validation || [],
+      supportingWork: insight?.deliverables?.supportingWork || [],
+    },
+
+    // 5. Technical Requirements
     requiredTechnologies: insight?.technicalRequirements?.requiredTechnologies?.length
       ? insight.technicalRequirements.requiredTechnologies
           .map((t) => t.name + (t.version ? ` ${t.version}` : ''))
           .join(', ')
       : '',
+    technologiesList: insight?.technicalRequirements?.requiredTechnologies || [],
+    requiredCapabilities: insight?.technicalRequirements?.requiredCapabilities || [],
+    infrastructureSpecifications: insight?.technicalRequirements?.infrastructureSpecifications || [],
+    technicalConstraints: insight?.technicalRequirements?.technicalConstraints || [],
+
+    // 6. Integration Environment
+    integrationEnvironment: {
+      existingSystems: insight?.integrationEnvironment?.existingSystems || [],
+      interfacesAndApis: insight?.integrationEnvironment?.interfacesAndApis || [],
+      dataMigrationNotes: insight?.integrationEnvironment?.dataMigrationNotes || null,
+      deploymentLocation: insight?.integrationEnvironment?.deploymentLocation || null,
+    },
+
+    // 7. Operational Requirements
+    operationalRequirements: {
+      installationAndConfig: insight?.operationalRequirements?.installationAndConfig || [],
+      training: insight?.operationalRequirements?.training || [],
+      technicalSupportAndSla: insight?.operationalRequirements?.technicalSupportAndSla || null,
+      maintenance: insight?.operationalRequirements?.maintenance || [],
+    },
+
+    // 8. Bid Eligibility & Qualifications
+    companyRequirements: insight?.eligibility?.companyRequirements || [],
+    requiredCertifications: insight?.eligibility?.requiredCertifications || [],
+    manufacturerAuthorizations: insight?.eligibility?.manufacturerAuthorizations || [],
+    personnelQualifications: insight?.eligibility?.personnelQualifications || [],
+    previousExperience: insight?.eligibility?.previousExperience || null,
+    previousExperienceMinTHB: insight?.eligibility?.previousExperienceMinTHB ?? null,
+
+    // 9. Contract & Commercial Conditions
+    paymentTerms: insight?.contractConditions?.paymentTerms || null,
+    deliveryConditions: insight?.contractConditions?.deliveryConditions || null,
+    evaluationMethod: insight?.contractConditions?.evaluationMethod || null,
+
+    // 10. Amendment Information
+    amendmentInfo: {
+      isAmended: Boolean(insight?.amendmentInfo?.isAmended),
+      lastAmendedDate: insight?.amendmentInfo?.lastAmendedDate
+        ? new Date(insight.amendmentInfo.lastAmendedDate).toISOString().slice(0, 10)
+        : null,
+      amendmentSummary: insight?.amendmentInfo?.amendmentSummary || '',
+      changedSections: insight?.amendmentInfo?.changedSections || [],
+    },
+
+    // 11. Traceability & Grounding
+    evidence: insight?.evidence
+      ? Object.fromEntries(
+          insight.evidence instanceof Map ? insight.evidence.entries() : Object.entries(insight.evidence),
+        )
+      : {},
+    checks: insight?.metadata?.checks || [],
+    version: insight?.metadata?.version || 1,
   };
 
   const hasOcr =
@@ -503,7 +536,7 @@ export async function getPipelineFailures() {
       };
     });
   } catch {
-    return defaultPipelineFailures;
+    return [];
   }
 }
 
@@ -513,9 +546,19 @@ export async function getPipelineFailures() {
 export async function getPipelineStageSnapshot() {
   try {
     const live = await snapshot();
-    return live || defaultStageSnapshot;
+    return (
+      live || {
+        stages: { fetched: 0, downloaded: 0, ocr_preview: 0, ocr_done: 0 },
+        screens: { pass: 0, not_it: 0 },
+        insights: { extracted: 0, excluded: 0, 'awaiting full text': 0 },
+      }
+    );
   } catch {
-    return defaultStageSnapshot;
+    return {
+      stages: { fetched: 0, downloaded: 0, ocr_preview: 0, ocr_done: 0 },
+      screens: { pass: 0, not_it: 0 },
+      insights: { extracted: 0, excluded: 0, 'awaiting full text': 0 },
+    };
   }
 }
 
@@ -529,7 +572,7 @@ export async function getRecentPipelineRuns() {
       .limit(10)
       .lean();
 
-    if (!runs || runs.length === 0) return defaultPipelineRuns;
+    if (!runs || runs.length === 0) return [];
 
     return runs.map((r) => {
       const started = r.startedAt ? new Date(r.startedAt) : null;
@@ -556,7 +599,7 @@ export async function getRecentPipelineRuns() {
       };
     });
   } catch {
-    return defaultPipelineRuns;
+    return [];
   }
 }
 
@@ -676,12 +719,17 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
   const userId = user?._id || user?.id || null;
 
   if (action === 'approve') {
+    // 1. Identification
     if (fields.title !== undefined) {
       const title = String(fields.title || '').trim();
       if (title) {
         insight.identification.titleTh = title;
         if (tor) tor.title = title;
       }
+    }
+
+    if (fields.titleEn !== undefined) {
+      insight.identification.titleEn = fields.titleEn ? String(fields.titleEn).trim() : null;
     }
 
     if (fields.agency !== undefined) {
@@ -692,6 +740,21 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
       }
     }
 
+    if (fields.department !== undefined) {
+      insight.identification.department = fields.department ? String(fields.department).trim() : null;
+    }
+
+    if (fields.category !== undefined && fields.category) {
+      insight.identification.category = String(fields.category).trim();
+    }
+
+    if (fields.status !== undefined && fields.status) {
+      const s = String(fields.status).trim();
+      insight.identification.status = s;
+      if (tor) tor.status = s;
+    }
+
+    // 2. Key Facts
     if (fields.referencePriceTHB !== undefined) {
       const num = validateAndParseNumeric(fields.referencePriceTHB, 'ราคากลาง (referencePriceTHB)');
       insight.facts.referencePriceTHB = num;
@@ -706,39 +769,19 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
 
     if (fields.submissionDeadline !== undefined) {
       insight.facts.submissionDeadline = validateAndParseDate(fields.submissionDeadline, 'submissionDeadline');
+      if (tor && insight.facts.submissionDeadline) tor.submissionDeadline = insight.facts.submissionDeadline;
     }
 
-    if (fields.penaltyClause !== undefined) {
-      insight.facts.penaltyClause = fields.penaltyClause
-        ? String(fields.penaltyClause).trim()
-        : null;
+    if (fields.commentDeadline !== undefined) {
+      insight.facts.commentDeadline = validateAndParseDate(fields.commentDeadline, 'commentDeadline');
     }
 
-    if (fields.requiredTechnologies !== undefined) {
-      const techNames = Array.isArray(fields.requiredTechnologies)
-        ? fields.requiredTechnologies.map((s) => String(s).trim()).filter(Boolean)
-        : String(fields.requiredTechnologies || '')
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean);
-      insight.technicalRequirements.requiredTechnologies = techNames.map((name) => ({ name, version: null }));
+    if (fields.deliveryPeriodDays !== undefined) {
+      insight.facts.deliveryPeriodDays = validateAndParseNumeric(fields.deliveryPeriodDays, 'deliveryPeriodDays');
     }
 
-    // Extended Review & Facts Fields (FR-23 / FR-24)
-    insight.overview = insight.overview || {};
-    insight.eligibility = insight.eligibility || {};
-    insight.contractConditions = insight.contractConditions || {};
-
-    if (fields.objective !== undefined) {
-      insight.overview.objective = fields.objective ? String(fields.objective).trim() : null;
-    }
-
-    if (fields.systemArchetype !== undefined) {
-      insight.overview.systemArchetype = fields.systemArchetype ? String(fields.systemArchetype).trim() : null;
-    }
-
-    if (fields.complexityTier !== undefined) {
-      insight.overview.complexityTier = fields.complexityTier ? String(fields.complexityTier).trim() : null;
+    if (fields.procurementMethod !== undefined) {
+      insight.facts.procurementMethod = fields.procurementMethod ? String(fields.procurementMethod).trim() : null;
     }
 
     if (fields.contractDurationDays !== undefined) {
@@ -749,40 +792,259 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
       insight.facts.warrantyYears = validateAndParseNumeric(fields.warrantyYears, 'warrantyYears');
     }
 
-    if (fields.companyRequirements !== undefined) {
-      if (Array.isArray(fields.companyRequirements)) {
-        insight.eligibility.companyRequirements = fields.companyRequirements
-          .map((r) => String(r).trim())
-          .filter(Boolean);
-      } else if (fields.companyRequirements === null || fields.companyRequirements === '') {
-        insight.eligibility.companyRequirements = [];
-      } else {
-        insight.eligibility.companyRequirements = String(fields.companyRequirements)
-          .split(/\r?\n/)
-          .map((r) => r.trim())
-          .filter(Boolean);
+    if (fields.penaltyClause !== undefined) {
+      insight.facts.penaltyClause = fields.penaltyClause
+        ? String(fields.penaltyClause).trim()
+        : null;
+    }
+
+    if (fields.postedDate !== undefined) {
+      insight.facts.postedDate = validateAndParseDate(fields.postedDate, 'postedDate');
+    }
+
+    // 3. Overview
+    if (
+      fields.objective !== undefined ||
+      fields.systemArchetype !== undefined ||
+      fields.complexityTier !== undefined ||
+      fields.majorComponents !== undefined ||
+      fields.highLevelScope !== undefined
+    ) {
+      insight.overview = insight.overview || {};
+      if (fields.objective !== undefined) {
+        insight.overview.objective = fields.objective ? String(fields.objective).trim() : null;
+      }
+      if (fields.systemArchetype !== undefined) {
+        insight.overview.systemArchetype = fields.systemArchetype ? String(fields.systemArchetype).trim() : null;
+      }
+      if (fields.complexityTier !== undefined) {
+        insight.overview.complexityTier = fields.complexityTier ? String(fields.complexityTier).trim() : null;
+      }
+      if (fields.majorComponents !== undefined) {
+        insight.overview.majorComponents = Array.isArray(fields.majorComponents)
+          ? fields.majorComponents.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
+      if (fields.highLevelScope !== undefined) {
+        insight.overview.highLevelScope = fields.highLevelScope ? String(fields.highLevelScope).trim() : null;
       }
     }
 
-    if (fields.previousExperience !== undefined) {
-      insight.eligibility.previousExperience = fields.previousExperience
-        ? String(fields.previousExperience).trim()
-        : null;
+    // 4. Deliverables
+    if (fields.deliverables !== undefined && typeof fields.deliverables === 'object') {
+      insight.deliverables = insight.deliverables || {};
+      const d = fields.deliverables;
+      if (d.system !== undefined) {
+        insight.deliverables.system = Array.isArray(d.system)
+          ? d.system.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
+      if (d.implementation !== undefined) {
+        insight.deliverables.implementation = Array.isArray(d.implementation)
+          ? d.implementation.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
+      if (d.validation !== undefined) {
+        insight.deliverables.validation = Array.isArray(d.validation)
+          ? d.validation.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
+      if (d.supportingWork !== undefined) {
+        insight.deliverables.supportingWork = Array.isArray(d.supportingWork)
+          ? d.supportingWork.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
     }
 
-    if (fields.previousExperienceMinTHB !== undefined) {
-      insight.eligibility.previousExperienceMinTHB = validateAndParseNumeric(fields.previousExperienceMinTHB, 'previousExperienceMinTHB');
+    // 5. Technical Requirements
+    if (
+      fields.technologiesList !== undefined ||
+      fields.requiredTechnologies !== undefined ||
+      fields.requiredCapabilities !== undefined ||
+      fields.infrastructureSpecifications !== undefined ||
+      fields.technicalConstraints !== undefined
+    ) {
+      insight.technicalRequirements = insight.technicalRequirements || {};
+      if (fields.technologiesList !== undefined && Array.isArray(fields.technologiesList)) {
+        insight.technicalRequirements.requiredTechnologies = fields.technologiesList
+          .filter((t) => t && t.name)
+          .map((t) => ({ name: String(t.name).trim(), version: t.version ? String(t.version).trim() : null }));
+      } else if (fields.requiredTechnologies !== undefined) {
+        const techNames = Array.isArray(fields.requiredTechnologies)
+          ? fields.requiredTechnologies.map((s) => String(s).trim()).filter(Boolean)
+          : String(fields.requiredTechnologies || '')
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+        insight.technicalRequirements.requiredTechnologies = techNames.map((name) => ({ name, version: null }));
+      }
+      if (fields.requiredCapabilities !== undefined) {
+        insight.technicalRequirements.requiredCapabilities = Array.isArray(fields.requiredCapabilities)
+          ? fields.requiredCapabilities.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
+      if (fields.infrastructureSpecifications !== undefined) {
+        insight.technicalRequirements.infrastructureSpecifications = Array.isArray(fields.infrastructureSpecifications)
+          ? fields.infrastructureSpecifications
+              .filter((item) => item && (item.key || item.spec))
+              .map((item) => ({ key: String(item.key || '').trim(), spec: String(item.spec || '').trim() }))
+          : [];
+      }
+      if (fields.technicalConstraints !== undefined) {
+        insight.technicalRequirements.technicalConstraints = Array.isArray(fields.technicalConstraints)
+          ? fields.technicalConstraints
+              .filter((item) => item && (item.metric || item.value))
+              .map((item) => ({ metric: String(item.metric || '').trim(), value: String(item.value || '').trim() }))
+          : [];
+      }
     }
 
-    if (fields.paymentTerms !== undefined) {
-      insight.contractConditions.paymentTerms = fields.paymentTerms
-        ? String(fields.paymentTerms).trim()
-        : null;
+    // 6. Integration Environment
+    if (fields.integrationEnvironment !== undefined && typeof fields.integrationEnvironment === 'object') {
+      insight.integrationEnvironment = insight.integrationEnvironment || {};
+      const ie = fields.integrationEnvironment;
+      if (ie.existingSystems !== undefined) {
+        insight.integrationEnvironment.existingSystems = Array.isArray(ie.existingSystems)
+          ? ie.existingSystems.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
+      if (ie.interfacesAndApis !== undefined) {
+        insight.integrationEnvironment.interfacesAndApis = Array.isArray(ie.interfacesAndApis)
+          ? ie.interfacesAndApis.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
+      if (ie.dataMigrationNotes !== undefined) {
+        insight.integrationEnvironment.dataMigrationNotes = ie.dataMigrationNotes
+          ? String(ie.dataMigrationNotes).trim()
+          : null;
+      }
+      if (ie.deploymentLocation !== undefined) {
+        insight.integrationEnvironment.deploymentLocation = ie.deploymentLocation
+          ? String(ie.deploymentLocation).trim()
+          : null;
+      }
+    }
+
+    // 7. Operational Requirements
+    if (fields.operationalRequirements !== undefined && typeof fields.operationalRequirements === 'object') {
+      insight.operationalRequirements = insight.operationalRequirements || {};
+      const op = fields.operationalRequirements;
+      if (op.installationAndConfig !== undefined) {
+        insight.operationalRequirements.installationAndConfig = Array.isArray(op.installationAndConfig)
+          ? op.installationAndConfig.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
+      if (op.training !== undefined) {
+        insight.operationalRequirements.training = Array.isArray(op.training)
+          ? op.training.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
+      if (op.technicalSupportAndSla !== undefined) {
+        insight.operationalRequirements.technicalSupportAndSla = op.technicalSupportAndSla
+          ? String(op.technicalSupportAndSla).trim()
+          : null;
+      }
+      if (op.maintenance !== undefined) {
+        insight.operationalRequirements.maintenance = Array.isArray(op.maintenance)
+          ? op.maintenance.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
+    }
+
+    // 8. Eligibility
+    if (
+      fields.companyRequirements !== undefined ||
+      fields.requiredCertifications !== undefined ||
+      fields.manufacturerAuthorizations !== undefined ||
+      fields.personnelQualifications !== undefined ||
+      fields.previousExperience !== undefined ||
+      fields.previousExperienceMinTHB !== undefined
+    ) {
+      insight.eligibility = insight.eligibility || {};
+      if (fields.companyRequirements !== undefined) {
+        if (Array.isArray(fields.companyRequirements)) {
+          insight.eligibility.companyRequirements = fields.companyRequirements
+            .map((r) => String(r).trim())
+            .filter(Boolean);
+        } else if (fields.companyRequirements === null || fields.companyRequirements === '') {
+          insight.eligibility.companyRequirements = [];
+        } else {
+          insight.eligibility.companyRequirements = String(fields.companyRequirements)
+            .split(/\r?\n/)
+            .map((r) => r.trim())
+            .filter(Boolean);
+        }
+      }
+      if (fields.requiredCertifications !== undefined) {
+        insight.eligibility.requiredCertifications = Array.isArray(fields.requiredCertifications)
+          ? fields.requiredCertifications.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
+      if (fields.manufacturerAuthorizations !== undefined) {
+        insight.eligibility.manufacturerAuthorizations = Array.isArray(fields.manufacturerAuthorizations)
+          ? fields.manufacturerAuthorizations.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
+      if (fields.personnelQualifications !== undefined) {
+        insight.eligibility.personnelQualifications = Array.isArray(fields.personnelQualifications)
+          ? fields.personnelQualifications.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
+      if (fields.previousExperience !== undefined) {
+        insight.eligibility.previousExperience = fields.previousExperience
+          ? String(fields.previousExperience).trim()
+          : null;
+      }
+      if (fields.previousExperienceMinTHB !== undefined) {
+        insight.eligibility.previousExperienceMinTHB = validateAndParseNumeric(fields.previousExperienceMinTHB, 'previousExperienceMinTHB');
+      }
+    }
+
+    // 9. Contract Conditions
+    if (
+      fields.paymentTerms !== undefined ||
+      fields.deliveryConditions !== undefined ||
+      fields.evaluationMethod !== undefined
+    ) {
+      insight.contractConditions = insight.contractConditions || {};
+      if (fields.paymentTerms !== undefined) {
+        insight.contractConditions.paymentTerms = fields.paymentTerms
+          ? String(fields.paymentTerms).trim()
+          : null;
+      }
+      if (fields.deliveryConditions !== undefined) {
+        insight.contractConditions.deliveryConditions = fields.deliveryConditions
+          ? String(fields.deliveryConditions).trim()
+          : null;
+      }
+      if (fields.evaluationMethod !== undefined) {
+        insight.contractConditions.evaluationMethod = fields.evaluationMethod
+          ? String(fields.evaluationMethod).trim()
+          : null;
+      }
+    }
+
+    // 10. Amendment Info
+    if (fields.amendmentInfo !== undefined && typeof fields.amendmentInfo === 'object') {
+      insight.amendmentInfo = insight.amendmentInfo || {};
+      if (fields.amendmentInfo.isAmended !== undefined) {
+        insight.amendmentInfo.isAmended = Boolean(fields.amendmentInfo.isAmended);
+      }
+      if (fields.amendmentInfo.amendmentSummary !== undefined) {
+        insight.amendmentInfo.amendmentSummary = String(fields.amendmentInfo.amendmentSummary || '').trim();
+      }
+      if (fields.amendmentInfo.changedSections !== undefined) {
+        insight.amendmentInfo.changedSections = Array.isArray(fields.amendmentInfo.changedSections)
+          ? fields.amendmentInfo.changedSections.map((s) => String(s).trim()).filter(Boolean)
+          : [];
+      }
     }
 
     // The extracted category stays: the comparison and the past-project
     // selection group by it. One an earlier reclassify set aside comes back.
-    if (insight.identification.category === 'non-IT') insight.identification.category = await categoryBefore(projectId);
+    if (!fields.category && insight.identification.category === 'non-IT') {
+      insight.identification.category = await categoryBefore(projectId);
+    }
     insight.metadata.reviewStatus = 'approved';
     insight.metadata.reviewedBy = userId;
     insight.metadata.reviewedAt = new Date();
@@ -807,7 +1069,9 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
       { $set: { verdict: 'fail', reason: reclassifyReason || 'Civil works — out of scope' } },
     ).catch(() => {});
   } else if (action === 'confirm_classification') {
-    if (insight.identification.category === 'non-IT') insight.identification.category = await categoryBefore(projectId);
+    if (!fields.category && insight.identification.category === 'non-IT') {
+      insight.identification.category = await categoryBefore(projectId);
+    }
     insight.metadata.excluded = null;
     insight.metadata.reviewStatus = 'approved';
     insight.metadata.reviewedBy = userId;
@@ -876,7 +1140,19 @@ export async function rollbackTorVersion(projectId, version, user = null) {
 /** Whether a review-queue action changed the summary itself, not only its review status. */
 function contentChanged(before, after) {
   const content = (record) =>
-    JSON.stringify([record.identification, record.facts, record.technicalRequirements, record.metadata?.excluded ?? null]);
+    JSON.stringify([
+      record.identification,
+      record.facts,
+      record.overview,
+      record.deliverables,
+      record.technicalRequirements,
+      record.integrationEnvironment,
+      record.operationalRequirements,
+      record.eligibility,
+      record.contractConditions,
+      record.amendmentInfo,
+      record.metadata?.excluded ?? null,
+    ]);
   return content(before) !== content(after);
 }
 

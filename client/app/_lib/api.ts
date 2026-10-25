@@ -211,18 +211,109 @@ export type IngestionExecutionLog = {
   error?: string | null;
 };
 
+export type ReviewItemDeliverables = {
+  system?: string[];
+  implementation?: string[];
+  validation?: string[];
+  supportingWork?: string[];
+};
+
+export type ReviewItemTech = {
+  name: string;
+  version?: string;
+};
+
+export type ReviewItemInfraSpec = {
+  item: string;
+  specification: string;
+};
+
+export type ReviewItemConstraint = {
+  metric: string;
+  value: string;
+};
+
+export type ReviewItemIntegration = {
+  existingSystems?: string[];
+  interfacesAndApis?: string[];
+  dataMigrationNotes?: string | null;
+  deploymentLocation?: string | null;
+};
+
+export type ReviewItemOperations = {
+  installationAndConfig?: string[];
+  training?: string[];
+  technicalSupportAndSla?: string | null;
+  maintenance?: string[];
+};
+
+export type ReviewItemAmendment = {
+  isAmended?: boolean;
+  amendmentSummary?: string;
+  changedSections?: string[];
+};
+
 export type ReviewItemDetails = {
-  objective?: string | null;
-  systemArchetype?: string | null;
-  complexityTier?: string | null;
+  // 1. Identification
+  titleEn?: string | null;
+  department?: string | null;
+  category?: string | null;
+  status?: string | null;
+
+  // 2. Key Facts
+  budgetTHB?: number | null;
+  referencePriceTHB?: number | null;
+  submissionDeadline?: string | null;
+  commentDeadline?: string | null;
+  deliveryPeriodDays?: number | null;
+  procurementMethod?: string | null;
   contractDurationDays?: number | null;
   warrantyYears?: number | null;
   penaltyClause?: string | null;
+  postedDate?: string | null;
+
+  // 3. Project Overview
+  objective?: string | null;
+  systemArchetype?: string | null;
+  complexityTier?: string | null;
+  majorComponents?: string[];
+  highLevelScope?: string | null;
+
+  // 4. Deliverables
+  deliverables?: ReviewItemDeliverables;
+
+  // 5. Technical Requirements
+  requiredTechnologies?: string;
+  technologiesList?: ReviewItemTech[];
+  requiredCapabilities?: string[];
+  infrastructureSpecifications?: ReviewItemInfraSpec[];
+  technicalConstraints?: ReviewItemConstraint[];
+
+  // 6. Integration Environment
+  integrationEnvironment?: ReviewItemIntegration;
+
+  // 7. Operational Requirements
+  operationalRequirements?: ReviewItemOperations;
+
+  // 8. Eligibility
   companyRequirements?: string[];
+  requiredCertifications?: string[];
+  manufacturerAuthorizations?: string[];
+  personnelQualifications?: string[];
   previousExperience?: string | null;
   previousExperienceMinTHB?: number | null;
+
+  // 9. Contract Conditions
   paymentTerms?: string | null;
-  requiredTechnologies?: string;
+  deliveryConditions?: string | null;
+  evaluationMethod?: string | null;
+
+  // 10. Amendment Info
+  amendmentInfo?: ReviewItemAmendment;
+
+  evidence?: Record<string, unknown>;
+  checks?: Array<{ check: string; severity?: string; field?: string; detail?: unknown }>;
+  version?: number;
 };
 
 export type ReviewItem = {
@@ -315,22 +406,64 @@ export type UpdateReviewPayload = {
   action: "approve" | "reclassify" | "confirm_classification";
   reclassifyReason?: string;
   fields?: {
+    // 1. Identification
     title?: string;
+    titleEn?: string | null;
     agency?: string;
-    referencePriceTHB?: number | null;
+    department?: string | null;
+    category?: string | null;
+    status?: string | null;
+
+    // 2. Key Facts
     budgetTHB?: number | null;
+    referencePriceTHB?: number | null;
     submissionDeadline?: string | null;
+    commentDeadline?: string | null;
+    deliveryPeriodDays?: number | null;
+    procurementMethod?: string | null;
+    contractDurationDays?: number | null;
+    warrantyYears?: number | null;
     penaltyClause?: string | null;
-    requiredTechnologies?: string;
+    postedDate?: string | null;
+
+    // 3. Project Overview
     objective?: string | null;
     systemArchetype?: string | null;
     complexityTier?: string | null;
-    contractDurationDays?: number | null;
-    warrantyYears?: number | null;
+    majorComponents?: string[];
+    highLevelScope?: string | null;
+
+    // 4. Deliverables
+    deliverables?: ReviewItemDeliverables;
+
+    // 5. Technical Requirements
+    requiredTechnologies?: string;
+    technologiesList?: ReviewItemTech[];
+    requiredCapabilities?: string[];
+    infrastructureSpecifications?: ReviewItemInfraSpec[];
+    technicalConstraints?: ReviewItemConstraint[];
+
+    // 6. Integration Environment
+    integrationEnvironment?: ReviewItemIntegration;
+
+    // 7. Operational Requirements
+    operationalRequirements?: ReviewItemOperations;
+
+    // 8. Eligibility
     companyRequirements?: string[] | string;
+    requiredCertifications?: string[];
+    manufacturerAuthorizations?: string[];
+    personnelQualifications?: string[];
     previousExperience?: string | null;
     previousExperienceMinTHB?: number | null;
+
+    // 9. Contract Conditions
     paymentTerms?: string | null;
+    deliveryConditions?: string | null;
+    evaluationMethod?: string | null;
+
+    // 10. Amendment Info
+    amendmentInfo?: ReviewItemAmendment;
   };
 };
 
@@ -381,6 +514,46 @@ export function adminGetReviewItem(projectId: string) {
 export function adminReExtract(projectId: string) {
   return request<ReExtractResult>(`/api/admin/review/${encodeURIComponent(projectId)}/re-extract`, {
     method: "POST",
+  });
+}
+
+export type TorVersionItem = {
+  version: number;
+  reason: string;
+  supersededAt: string;
+  supersededBy?: string | null;
+  promptVersion?: string;
+  modelName?: string;
+  confidenceScore?: number;
+  reviewStatus?: string;
+  keptText?: boolean;
+};
+
+export type ListVersionsResult = {
+  projectId: string;
+  current: number | null;
+  versions: TorVersionItem[];
+};
+
+export type RollbackVersionResult = {
+  ok: boolean;
+  projectId: string;
+  restoredVersion: number;
+  currentVersion: number;
+};
+
+/** Lists past snapshots of a TOR's summary (NFR-07, ADR 0031). */
+export function adminGetTorVersions(projectId: string) {
+  return request<ListVersionsResult>(`/api/admin/review/${encodeURIComponent(projectId)}/versions`, {
+    cache: "no-store",
+  });
+}
+
+/** Restores an older version of a TOR's summary (NFR-07, ADR 0031). */
+export function adminRollbackTorVersion(projectId: string, version: number) {
+  return request<RollbackVersionResult>(`/api/admin/review/${encodeURIComponent(projectId)}/rollback`, {
+    method: "POST",
+    body: JSON.stringify({ version }),
   });
 }
 
