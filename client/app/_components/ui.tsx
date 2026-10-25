@@ -16,13 +16,15 @@ export function Panel({
   children,
   className = "",
   as: Tag = "div",
+  id,
 }: {
   children: ReactNode;
   className?: string;
   as?: "div" | "section" | "aside" | "article";
+  id?: string;
 }) {
   return (
-    <Tag className={`rounded-[3px] border border-line bg-surface ${className}`}>{children}</Tag>
+    <Tag id={id} className={`rounded-[3px] border border-line bg-surface ${className}`}>{children}</Tag>
   );
 }
 

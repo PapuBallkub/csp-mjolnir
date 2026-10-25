@@ -643,6 +643,9 @@ export default function DedicatedReviewPage({
     const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", `#${id}`);
+      }
     }
   };
 
@@ -695,8 +698,8 @@ export default function DedicatedReviewPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      {/* Top Bar Header */}
-      <div className="sticky top-0 z-30 mb-6 flex flex-col gap-3 rounded-[3px] border border-line bg-surface/95 px-5 py-3.5 backdrop-blur shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      {/* Top Bar Header (offset below App Shell header at 53px) */}
+      <div className="sticky top-[53px] z-20 mb-6 flex flex-col gap-3 rounded-[3px] border border-line bg-surface/95 px-5 py-3.5 backdrop-blur shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/admin?tab=review"
@@ -803,7 +806,7 @@ export default function DedicatedReviewPage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
         {/* Sticky Sidebar Navigation (10 Sections) */}
         <div className="lg:col-span-1">
-          <div className="sticky top-20 flex flex-col gap-1 rounded-[3px] border border-line bg-surface p-2 shadow-xs">
+          <div className="sticky top-[125px] flex flex-col gap-1 rounded-[3px] border border-line bg-surface p-2 shadow-xs">
             <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-3">
               {lang === "th" ? "หัวข้อข้อมูล TOR ทั้ง 10 ส่วน" : "10 TOR Sections"}
             </span>
@@ -829,7 +832,7 @@ export default function DedicatedReviewPage({
           <form id="review-form" onSubmit={handleSaveAndPublish} className="flex flex-col gap-6">
 
             {/* SECTION 1: Identification & Classification */}
-            <Panel id="sec-identification" className="p-5">
+            <Panel id="sec-identification" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
                   {lang === "th" ? "1. ข้อมูลทั่วไปและการจัดประเภท (Identification & Classification)" : "1. Project Identification & Scope"}
@@ -937,7 +940,7 @@ export default function DedicatedReviewPage({
             </Panel>
 
             {/* SECTION 2: Key Facts & Deadlines */}
-            <Panel id="sec-keyfacts" className="p-5">
+            <Panel id="sec-keyfacts" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
                   {lang === "th" ? "2. ข้อมูลสำคัญ ราคา และกำหนดการ (Key Facts & Deadlines)" : "2. Procurement Facts & Deadlines"}
@@ -1098,7 +1101,7 @@ export default function DedicatedReviewPage({
             </Panel>
 
             {/* SECTION 3: Project Overview & Scope */}
-            <Panel id="sec-overview" className="p-5">
+            <Panel id="sec-overview" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
                   {lang === "th" ? "3. ภาพรวมโครงการและขอบเขตงาน (Project Overview & Scope)" : "3. Project Overview & Scope"}
@@ -1187,7 +1190,7 @@ export default function DedicatedReviewPage({
             </Panel>
 
             {/* SECTION 4: Contractor Deliverables */}
-            <Panel id="sec-deliverables" className="p-5">
+            <Panel id="sec-deliverables" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
                   {lang === "th" ? "4. ขอบเขตงานส่งมอบของผู้รับจ้าง (Contractor Deliverables)" : "4. Contractor Deliverables"}
@@ -1237,7 +1240,7 @@ export default function DedicatedReviewPage({
             </Panel>
 
             {/* SECTION 5: Technical Requirements */}
-            <Panel id="sec-tech" className="p-5">
+            <Panel id="sec-tech" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
                   {lang === "th" ? "5. ข้อกำหนดด้านเทคโนโลยีและมาตรฐาน (Technical Requirements)" : "5. Technical Requirements & Stack"}
@@ -1383,7 +1386,7 @@ export default function DedicatedReviewPage({
             </Panel>
 
             {/* SECTION 6: Integration Environment */}
-            <Panel id="sec-integration" className="p-5">
+            <Panel id="sec-integration" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
                   {lang === "th" ? "6. ระบบเดิมและสภาพแวดล้อมที่ต้องเชื่อมต่อ (Integration Environment)" : "6. Integration & Existing Environment"}
@@ -1439,7 +1442,7 @@ export default function DedicatedReviewPage({
             </Panel>
 
             {/* SECTION 7: Operational Requirements */}
-            <Panel id="sec-ops" className="p-5">
+            <Panel id="sec-ops" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
                   {lang === "th" ? "7. การติดตั้งและบำรุงรักษา (Implementation & Operational Requirements)" : "7. Operations, Training & SLA"}
@@ -1492,7 +1495,7 @@ export default function DedicatedReviewPage({
             </Panel>
 
             {/* SECTION 8: Bid Eligibility & Qualifications */}
-            <Panel id="sec-eligibility" className="p-5">
+            <Panel id="sec-eligibility" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
                   {lang === "th" ? "8. คุณสมบัติผู้ยื่นข้อเสนอ (Bid Eligibility & Qualifications)" : "8. Bidder Qualifications & Certifications"}
@@ -1577,7 +1580,7 @@ export default function DedicatedReviewPage({
             </Panel>
 
             {/* SECTION 9: Contract & Commercial Conditions */}
-            <Panel id="sec-contract" className="p-5">
+            <Panel id="sec-contract" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
                   {lang === "th" ? "9. เงื่อนไขสัญญาและการชำระเงิน (Contract & Payment Conditions)" : "9. Contract Terms & Payment"}
@@ -1630,7 +1633,7 @@ export default function DedicatedReviewPage({
             </Panel>
 
             {/* SECTION 10: Amendment History & Tracking */}
-            <Panel id="sec-amendments" className="p-5">
+            <Panel id="sec-amendments" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
                   {lang === "th" ? "10. ข้อมูลการแก้ไขประกาศ (Amendment History & Tracking)" : "10. Amendment Information"}
