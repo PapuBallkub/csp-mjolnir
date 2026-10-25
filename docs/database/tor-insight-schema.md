@@ -48,6 +48,7 @@ Used within `analytics.priceAnalysis.comparableProjects` to list historical refe
 | `title` | `String` | Yes | — | Title of the historical comparable government IT project | `"โครงการพัฒนาระบบคลังข้อมูลกลาง BMA Phase 1"` |
 | `year` | `Number` | Yes | — | Fiscal year of the historical project | `2024` or `2567` |
 | `referencePriceTHB` | `Number` | Yes | — | Approved reference price (ราคากลาง) of that project in Thai Baht (THB) | `15000000` |
+| `agreedPriceTHB` | `Number` | No | `null` | Historical agreed contract price (ราคาตามสัญญา) shown as bidder context | `13800000` |
 
 ### 2.3 `evidenceSchema`
 Used as the values of the `evidence` map (§3.2b): where an extracted value came from.

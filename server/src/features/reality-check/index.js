@@ -21,3 +21,12 @@ export {
   calculateComplexitySimilarity,
   getProjectComplexityTier,
 } from './similarity.service.js';
+
+export {
+  calculateHistoricalMedian,
+  calculateHistoricalAverage,
+  calculatePriceDeviations,
+  assessPriceReliability,
+  formatPriceInterpretation,
+  calculatePriceBenchmarks,
+} from './benchmark.service.js';

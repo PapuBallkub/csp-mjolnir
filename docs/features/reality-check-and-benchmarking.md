@@ -193,7 +193,7 @@ The system explicitly reports the sample size ($N$) alongside reliability indica
 
 | Sample Size ($N$) | Reliability | Interpretation & System Behavior |
 |---|---|---|
-| **$N = 0$** | `none` | **No benchmark available.**<br>Copy: *"ไม่พบโครงการเปรียบเทียบในหมวดหมู่และช่วงงบประมาณเดียวกัน"*<br>Metrics (`historicalMedianTHB`, `diffPercentage`) remain `null`. |
+| **$N = 0$** | `none` | **No benchmark available.**<br>Copy: *"ไม่พบโครงการเปรียบเทียบที่มีลักษณะงานใกล้เคียงกัน"*<br>Metrics (`historicalMedianTHB`, `diffPercentage`) remain `null`. |
 | **$1 \le N < 3$** | `low` | **Low sample size advisory.**<br>Calculations displayed with an advisory disclaimer.<br>Copy: *"คำนวณจากโครงการเปรียบเทียบจำนวน {N} โครงการ ข้อมูลอาจยังไม่สะท้อนแนวโน้มตลาดทั้งหมด (เบี่ยงเบน {Δ}%)"* |
 | **$3 \le N \le 5$** | `sufficient` | **Standard confidence.**<br>Full Reality Check classification and verdict assigned. |
 
