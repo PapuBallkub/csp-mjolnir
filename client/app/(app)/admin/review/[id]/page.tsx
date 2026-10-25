@@ -705,7 +705,16 @@ export default function DedicatedReviewPage({
   if (authError) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-12">
-        <SignInPrompt />
+        <SignInPrompt
+          next={`/admin/review/${projectId}`}
+          headline={lang === "th" ? "ส่วนนี้สำหรับผู้ดูแลระบบ" : "This area is for administrators"}
+          body={
+            lang === "th"
+              ? "เข้าสู่ระบบด้วยบัญชีผู้ดูแลเพื่อตรวจทานและแก้ไขข้อมูล TOR"
+              : "Sign in with an administrator account to review and edit TOR details."
+          }
+          cta={lang === "th" ? "เข้าสู่ระบบ" : "Sign in"}
+        />
       </div>
     );
   }
@@ -1352,7 +1361,7 @@ export default function DedicatedReviewPage({
                             const isSelected = selectedTechs.includes(tech.name);
                             return (
                               <button
-                                key={tech.id}
+                                key={tech.name}
                                 type="button"
                                 onMouseDown={() => toggleTech(tech.name)}
                                 className={`flex w-full items-center justify-between px-3 py-2 text-left text-[12px] hover:bg-surface-2 cursor-pointer ${
