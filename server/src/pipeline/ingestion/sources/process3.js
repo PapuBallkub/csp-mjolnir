@@ -29,6 +29,7 @@ const BASE_URL =
 const REQUEST_TIMEOUT_MS = 20000;
 
 import {
+  AMENDMENT_CODES,
   EGP_ANNOUNCEMENT_CODES,
   FETCHABLE_CODES,
   classifyAnnouncement,
@@ -389,6 +390,19 @@ export async function fetchFromProcess3({
 
         const update = { $set: updatePayload };
         if (isNewAnnouncement) update.$push = { announcementHistory: announcement };
+        // A changed invitation of a TOR we follow: the agency's own statement
+        // of a change. Download fills in what changed when the package comes (ADR 0032)
+        if (isNewAnnouncement && existing && AMENDMENT_CODES.includes(annType.code)) {
+          const receivedAt = announcement.receivedAt;
+          update.$push.amendments = {
+            source: 'feed',
+            date: announcement.publishedAt,
+            headline: updatePayload.title,
+            detectedAt: receivedAt,
+            previousCheckAt: existing.packagesCheckedAt ?? null,
+          };
+          updatePayload.lastChangeAt = receivedAt;
+        }
 
         const updatedTor = await Tor.findOneAndUpdate(
           { projectId: String(torId) },

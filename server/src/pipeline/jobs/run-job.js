@@ -9,10 +9,9 @@
  *   poll     the national feed, then new TORs, then changed ones
  *   sweep    every agency in egp-agencies.json, then the same
  *   process  the night, in four waves (ADR 0030): check draft and open IT
- *            TORs for changed packages (watch mode: it only logs, for now)
- *            and download the changed ones; new TORs; read the changed
- *            ones; then the price comparison and tonight's past projects
- *            (ADR 0028)
+ *            TORs for changed packages and download the changed ones
+ *            (ADR 0032); new TORs; read the changed ones; then the price
+ *            comparison and tonight's past projects (ADR 0028)
  *
  * Each kind of work is screened (new titles only), downloaded, previewed,
  * classified, read whole if IT, and extracted (ADR 0018, 0026).
@@ -59,8 +58,8 @@ const COMMANDS = {
   extract: { name: 'extract', script: 'extraction/extract.js', args: [] },
   // Past projects to read in full tonight (ADR 0028)
   history: { name: 'ingest history', script: 'ingestion/ingest.js', args: ['--step', 'history'] },
-  // Changed packages the feed doesn't announce; watch mode logs them, changes nothing
-  recheck: { name: 'ingest recheck (watch)', script: 'ingestion/ingest.js', args: ['--step', 'recheck', '--dry-run'] },
+  // Changed packages the feed doesn't announce, flagged for the download after it (ADR 0032)
+  recheck: { name: 'ingest recheck', script: 'ingestion/ingest.js', args: ['--step', 'recheck'] },
   // Comparable projects for every full extraction (ADR 0021, 0022), the team's nightly batch
   comparisons: { name: 'comparisons', script: '../../scripts/find-comparable.js', args: ['--all', '--save'] },
 };

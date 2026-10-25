@@ -42,6 +42,7 @@ export async function getWatchlist(userId, now = new Date()) {
               isAmended: 1,
               status: 1,
               contract: 1,
+              lastChangeAt: 1,
             },
           },
         ],
@@ -76,6 +77,8 @@ export async function getWatchlist(userId, now = new Date()) {
 
     return {
       ...toPublic(merged, now),
+      // Changed since it was saved when this is later than savedAt (FR-17, ADR 0032)
+      lastChangeAt: rawTor?.lastChangeAt ?? null,
       savedAt: savedAtMap.get(insight.projectId),
     };
   });

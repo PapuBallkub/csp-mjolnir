@@ -92,22 +92,28 @@ Stores extraction output, pipeline flags, and confidence scores from OCR process
 
 ---
 
-### 2.4 `amendments` (Array of Amendment Records)
-Tracks watchdog audit trail when government revisions occur (FR09, FR10, FR11).
+### 2.4 `amendments` (Array of Change Records)
+Each change to the TOR we know of, oldest first ([0032](../decisions/0032-record-what-changed-in-a-tor.md), FR-16): one the agency announced (a `D2`), or a new package in the same stage that the platform found. A draft becoming an invitation is the next stage, not a change; the stage is read from each package's announcement ("ร่าง" on a draft), not from the feed.
 
 | Field | Type | Default | Description | Example |
 |---|---|---|---|---|
-| `round` | `String` | `""` | Amendment sequence / revision title | `"ครั้งที่ 2"` |
-| `date` | `Date` | `Date.now` | Date when the amendment was detected or announced | `"2026-09-20T00:00:00.000Z"` |
-| `headline` | `String` | `""` | Brief summary of what was amended | `"แก้ไขกำหนดเวลายื่นข้อเสนอ และปรับลดสเปกขั้นต่ำ"` |
-| `contentHash` | `String` | `null` | SHA-256 hash of the newly uploaded amended PDF | `"a3f5b8..."` |
-| `changes` | `Array` | `[]` | List of granular diffs (see below) | `[...]` |
+| `source` | `String` (`feed` / `package`) | `"package"` | `feed`: e-GP announced a changed invitation, the agency's own statement. `package`: we found a new package and say so | `"package"` |
+| `round` | `String` | `""` | The amendment's number, when the documents state it | `"ครั้งที่ 2"` |
+| `date` | `Date` | `null` | The date the agency's notice or documents state. Null when neither says: never invented | `"2026-10-24T17:00:00.000Z"` |
+| `headline` | `String` | `""` | The feed item's title, for a `feed` change | `"ประกวดราคาจ้างพัฒนาระบบ…"` |
+| `detectedAt` | `Date` | `null` | When we found it | `"2026-10-25T15:05:00.000Z"` |
+| `previousCheckAt` | `Date` | `null` | The last check before that found nothing new: a found change happened between the two | `"2026-10-24T15:05:00.000Z"` |
+| `zipId`, `previousZipId` | `String` | `null` | The package it came with and the one it replaced: both originals | `"91440371…"` |
+| `contentHash` | `String` | `null` | The new TOR file's hash, when the TOR file changed | `"a3f5b8..."` |
+| `insightVersion` | `Number` | `null` | The summary version it replaced (`TorInsightVersion`, [0031](../decisions/0031-keep-the-summary-a-change-replaces.md)) | `1` |
+| `diff` | `String` (`none` / `facts` / `complete`) | `"none"` | How much of what changed is said: the package's facts, then the summary's own values once extracted again | `"complete"` |
+| `rolledBack` | `Boolean` | `false` | A rollback undid it (NFR-07): kept, not shown | `false` |
+| `changes` | `Array` | `[]` | What changed (below) | `[...]` |
 
-#### Granular `changes` Schema:
-- `kind` (`String`, enum: `['added', 'removed', 'changed']`, default: `'changed'`): Nature of the change.
-- `field` (`String`): Field or section path changed (e.g., `"facts.submissionDeadline"`).
-- `before` (`String`): Previous value before amendment.
-- `after` (`String`): New value after amendment.
+#### `changes`
+- `kind` (`String`, enum: `['added', 'removed', 'changed']`): Nature of the change.
+- `field` (`String`): What changed: `document` (the TOR file, by package name), or a summary path such as `facts.submissionDeadline` or `technicalRequirements.requiredTechnologies`.
+- `before`, `after` (`String`): The values, as ISO dates and plain numbers; one item of a list. Only values that can be compared get a row: numbers, dates and lists of known items. Free text gets none, since two extractions word it differently.
 
 ---
 
@@ -131,8 +137,10 @@ Tracks watchdog audit trail when government revisions occur (FR09, FR10, FR11).
 | `egpUrl` | `String` | No | `""` | Direct link to e-GP search page for this project | `"https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=68049205582"` |
 | `announceType` | `String` | No | `""` | The latest e-GP announcement code seen: `15` reference price, `B0` draft TOR, `D0` invitation, `D2` invitation changed, `D1` invitation cancelled, `W0`/`W2` winner announced/changed, `W1` winner cancelled ([0017](../decisions/0017-read-the-egp-feed-as-egp-defines-it.md)) | `"D0"` |
 | `status` | `String` | Indexed | `'Open'` | Current procurement status (`'Draft'`, `'Open'`, `'Awarded'`, `'Closed'`, `'Cancelled'`) | `"Awarded"` |
-| `isAmended` | `Boolean` | Indexed | `false` | Whether this TOR has been amended/revised | `false` |
-| `packageCheckNeeded` | `Boolean` | Indexed | `false` | Set by fetch when the feed announces a new draft, invitation, change or price (`B0`, `D0`, `D2`, `15`) for a project already downloaded; download then asks e-GP for its current packages ([0020](../decisions/0020-read-the-whole-egp-package.md)) | `false` |
+| `isAmended` | `Boolean` | Indexed | `false` | Whether e-GP announced a changed invitation (`D2`). A change only the platform found leaves it false: see `amendments` | `false` |
+| `lastChangeAt` | `Date` | Indexed | `null` | When the latest change still standing was found: for sorting, and the watchlist's "changed since you saved" ([0032](../decisions/0032-record-what-changed-in-a-tor.md)) | `"2026-10-25T15:05:00.000Z"` |
+| `packagesCheckedAt` | `Date` | No | `null` | The recheck's last look that found nothing new: a change found later happened after it ([0032](../decisions/0032-record-what-changed-in-a-tor.md)) | `"2026-10-24T15:05:00.000Z"` |
+| `packageCheckNeeded` | `Boolean` | Indexed | `false` | Set by fetch when the feed announces a new draft, invitation, change or price (`B0`, `D0`, `D2`, `15`) for a project already downloaded, and by the recheck when e-GP has a package we lack; download then asks e-GP for its current packages ([0020](../decisions/0020-read-the-whole-egp-package.md), [0032](../decisions/0032-record-what-changed-in-a-tor.md)) | `false` |
 | `priceCheckedAt` | `Date` | No | `null` | When e-GP was last asked for the price package, found or not. Null: download asks once ([0023](../decisions/0023-read-the-budget-from-the-price-form.md)) | `"2026-10-11T12:05:00.000Z"` |
 | `historyRequestedFor` | `String` | No | `null` | The open TOR's project ID a past project was chosen for, as related to it; null when chosen as the newest. While it isn't read, it counts toward that TOR's related projects ([0028](../decisions/0028-past-projects-from-data-go-th.md)). | `"69099353888"` |
 | `historyRequestedAt` | `Date` | Indexed | `null` | When a past project (`source: 'datago'`) was chosen to be read in full. Download and OCR then take it although it's awarded ([0028](../decisions/0028-past-projects-from-data-go-th.md)). Null for every other project. | `"2026-10-15T15:00:00.000Z"` |

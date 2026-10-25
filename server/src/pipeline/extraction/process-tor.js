@@ -10,6 +10,8 @@
  */
 
 import { TorInsight } from '#models/index.js';
+import { isFullExtraction } from '#features/reality-check/index.js';
+import { completeChange } from '../shared/amendments.js';
 import { keepVersion, nextVersion, reasonFor } from '../shared/insight-versions.js';
 import { buildAwaitingFullText, buildExcluded, buildInsight } from './assemble.js';
 import { QUOTED_LISTS, keepGroundedItems, runChecks } from './checks.js';
@@ -199,9 +201,8 @@ export async function buildFromAnswers(
  */
 export async function saveInsight(insight, { reason } = {}) {
   const current = await TorInsight.findOne({ projectId: insight.projectId }).lean();
-  if (current) {
-    await keepVersion(insight.projectId, { reason: reason ?? reasonFor(current, insight), current });
-  }
+  const why = current ? (reason ?? reasonFor(current, insight)) : null;
+  if (current) await keepVersion(insight.projectId, { reason: why, current });
   const document = new TorInsight({
     ...insight,
     metadata: { ...insight.metadata, version: await nextVersion(insight.projectId) },
@@ -212,4 +213,11 @@ export async function saveInsight(insight, { reason } = {}) {
   for (const key of ['_id', 'createdAt', 'updatedAt', 'analytics']) delete fields[key];
 
   await TorInsight.updateOne({ projectId: insight.projectId }, { $set: fields }, { upsert: true });
+
+  // A summary made again because its TOR changed completes that change's
+  // record with what the summary itself says now (ADR 0032). A prompt update
+  // isn't the agency's change, so it adds nothing there.
+  if (why === 'source-changed' && isFullExtraction(current) && isFullExtraction(insight)) {
+    await completeChange(insight.projectId, current.metadata?.version ?? 1, current, insight);
+  }
 }

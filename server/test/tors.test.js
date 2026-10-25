@@ -113,6 +113,21 @@ before(async () => {
         { code: 'D0', type: 'invitation', publishedAt: new Date('2026-10-01') },
         { code: 'D2', type: 'amendment', publishedAt: new Date('2026-10-06') },
       ],
+      // What changed (ADR 0032): one the agency announced, and one a rollback undid
+      lastChangeAt: new Date('2026-10-06T18:00:00+07:00'),
+      amendments: [
+        {
+          source: 'feed',
+          date: new Date('2026-10-06'),
+          detectedAt: new Date('2026-10-06T18:00:00+07:00'),
+          zipId: 'zip-d2',
+          previousZipId: 'zip-d0',
+          insightVersion: 1,
+          diff: 'facts',
+          changes: [{ kind: 'changed', field: 'facts.referencePriceTHB', before: '3000000', after: '3100000' }],
+        },
+        { source: 'package', detectedAt: new Date('2026-10-07T22:05:00+07:00'), insightVersion: 2, rolledBack: true, diff: 'facts' },
+      ],
     },
   ]);
 
@@ -413,6 +428,24 @@ test('each TOR says which e-GP stage it reached last, and whether a contract is 
   // An insight without a Tor has neither
   const orphan = await getTorByProjectId('99999000002', PILOT);
   assert.deepEqual([orphan.latestAnnouncement, orphan.contractSigned], [null, false]);
+});
+
+test('what changed in a TOR: the detail lists its changes, the list says when it last changed (ADR 0032)', async () => {
+  const detail = await getTorByProjectId(LIVE.changed, PILOT);
+  assert.deepEqual(
+    detail.amendments.map((change) => [change.source, change.zipId, change.previousZipId, change.changes.length]),
+    [['feed', 'zip-d2', 'zip-d0', 1]],
+    'one rolled back is not shown',
+  );
+  assert.equal(detail.amendments[0].insightVersion, undefined, 'nothing internal');
+  assert.equal(detail.amendmentInfo.lastAmendedDate.toISOString().slice(0, 10), '2026-10-06', 'read live from the Tor');
+  assert.deepEqual(detail.amendmentInfo.changedSections, ['facts.referencePriceTHB']);
+
+  const listed = (await listTors({ q: 'ทดสอบสถานะสด', limit: 50 }, PILOT)).tors;
+  const changed = listed.find((tor) => tor.projectId === LIVE.changed);
+  assert.equal(new Date(changed.lastChangeAt).toISOString(), new Date('2026-10-06T18:00:00+07:00').toISOString());
+  assert.deepEqual([changed.latestChange.source, changed.latestChange.fields], ['feed', ['facts.referencePriceTHB']]);
+  assert.equal(listed.find((tor) => tor.projectId === LIVE.cancelled).latestChange, null, 'nothing changed in it');
 });
 
 test("the Tor's facts from the documents show without another extraction: list, filters, detail (ADR 0020)", async () => {
