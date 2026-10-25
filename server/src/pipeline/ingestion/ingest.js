@@ -28,8 +28,9 @@
  *   # Choose tonight's past projects to read in full (ADR 0028); --dry-run only shows them
  *   node src/pipeline/ingestion/ingest.js --step history --dry-run
  *
- *   # Ask e-GP whether draft and open IT TORs' packages changed; watch mode only for now
- *   node src/pipeline/ingestion/ingest.js --step recheck --dry-run
+ *   # Ask e-GP whether draft and open IT TORs' packages changed, and flag those for download
+ *   # (ADR 0032); --dry-run only says what it finds
+ *   node src/pipeline/ingestion/ingest.js --step recheck
  *
  *   # Every agency in data/egp-agencies.json (ADR 0027), within a time box
  *   node src/pipeline/ingestion/ingest.js --step sweep --until 2026-10-14T21:55:00+07:00
@@ -54,7 +55,8 @@ import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
 import { deriveStatus } from '../shared/status-engine.js';
 import { WORKABLE } from '../shared/workable.js';
 import { inQueues, parseQueues, soonestFirst } from '../shared/queues.js';
-import { keepVersion } from '../shared/insight-versions.js';
+import { keepVersion, summaryVersion } from '../shared/insight-versions.js';
+import { factChanges, lastPackage, noteNewPackage, recordChange, torFacts } from '../shared/amendments.js';
 import { EGP_BURST, EGP_PAUSE_MS, paceRequest } from '../shared/request-pacer.js';
 import { isPastDeadline, parseUntil } from '../shared/deadline.js';
 import { requestPastProjects, selectPastProjects } from './lib/past-requests.js';
@@ -811,27 +813,30 @@ export async function recheckCandidates(now = new Date()) {
 const MAX_SILENT_IN_A_ROW = 3;
 
 /**
- * The recheck, in watch mode only for now. The feed has never announced a
- * changed invitation (D2: none in 613 polls), so nothing tells us when a TOR
+ * The recheck (ADR 0032). The feed has never announced a changed invitation
+ * (D2: none in over a thousand polls), so nothing else tells us when a TOR
  * changes. For each recheckCandidates TOR, this asks e-GP which announcement
- * and price packages it has now, and what its amendment service answers,
- * then says what differs from the packages we downloaded. It changes
- * nothing: a week of it shows where e-GP puts an amendment, before the
- * recheck acts on one.
+ * and price packages it has now:
+ * - one we don't have: the TOR is flagged (packageCheckNeeded), and the
+ *   night's first wave downloads it, where download judges whether it's a
+ *   change or only the next stage (ADR 0030);
+ * - nothing new: packagesCheckedAt says when, so a change found later is
+ *   dated as after it.
+ * What e-GP's amendment service answers is only logged: nothing has shown
+ * where it keeps amendments yet. With dryRun, it only watches and changes
+ * nothing.
  *
  * @param {Function} [options.lookup] - lookupPackage; replaced in tests
- * @returns {Promise<object|null>} The counts; null when not asked to watch
+ * @returns {Promise<object>} The counts
  */
 export async function runRecheckStep({ dryRun = false, until = null, now = new Date(), lookup = lookupPackage } = {}) {
   console.log('\n[RECHECK] Asking e-GP for the current packages of draft and open IT TORs...');
-  if (!dryRun) {
-    console.warn('  -> The recheck only watches for now: run it with --dry-run. Nothing was asked.');
-    return null;
-  }
   const tors = await recheckCandidates(now);
-  console.log(`  -> ${tors.length} TOR(s) to watch. Watch mode: nothing is changed.`);
+  console.log(`  -> ${tors.length} TOR(s) to check.${dryRun ? ' Watch mode: nothing is changed.' : ''}`);
 
-  const totals = { checked: 0, drafts: 0, open: 0, newAnnouncement: 0, newPrice: 0, amendmentAnswers: 0, failed: 0, stoppedBy: null };
+  const totals = {
+    checked: 0, drafts: 0, open: 0, newAnnouncement: 0, newPrice: 0, flagged: 0, amendmentAnswers: 0, failed: 0, stoppedBy: null,
+  };
   let silentInARow = 0;
   for (const [index, tor] of tors.entries()) {
     if (isPastDeadline(until)) {
@@ -846,10 +851,13 @@ export async function runRecheckStep({ dryRun = false, until = null, now = new D
     const known = (kind) => (tor.packages ?? []).filter((pkg) => (pkg.kind ?? 'announcement') === kind).map((pkg) => pkg.zipId);
     const notes = [];
     let answered = 0;
+    let unanswered = 0;
+    let fresh = false;
     for (const kind of ['announcement', 'price', 'adjustment']) {
       const found = await lookup({ kind, projectId: tor.projectId });
       if (found.failed) {
         totals.failed++;
+        if (kind !== 'adjustment') unanswered++;
         notes.push(`${kind}: ${found.failed.error}`);
         continue;
       }
@@ -859,12 +867,23 @@ export async function runRecheckStep({ dryRun = false, until = null, now = new D
         totals.amendmentAnswers++;
         notes.push(`AMENDMENT SERVICE ANSWERED ${JSON.stringify(found.data).slice(0, 300)}`);
       } else if (!known(kind).includes(found.zipId)) {
+        fresh = true;
         if (kind === 'announcement') totals.newAnnouncement++;
         else totals.newPrice++;
         notes.push(`NEW ${kind} package ${found.name ?? found.zipId} (we have ${known(kind).length})`);
       }
     }
     if (notes.length) console.log(`     ${tor.projectId} ${tor.status}: ${notes.join(' · ')}`);
+
+    if (!dryRun) {
+      if (fresh) {
+        // Download takes it in the night's first wave, and judges it there
+        await Tor.updateOne({ projectId: tor.projectId }, { $set: { packageCheckNeeded: true } });
+        totals.flagged++;
+      } else if (unanswered === 0) {
+        await Tor.updateOne({ projectId: tor.projectId }, { $set: { packagesCheckedAt: now } });
+      }
+    }
 
     silentInARow = answered === 0 ? silentInARow + 1 : 0;
     if (silentInARow >= MAX_SILENT_IN_A_ROW) {
@@ -875,9 +894,10 @@ export async function runRecheckStep({ dryRun = false, until = null, now = new D
   }
 
   console.log(
-    `  -> Watched ${totals.checked} TOR(s) (${totals.drafts} draft, ${totals.open} open): ` +
+    `  -> Checked ${totals.checked} TOR(s) (${totals.drafts} draft, ${totals.open} open): ` +
       `${totals.newAnnouncement} new announcement package(s), ${totals.newPrice} new price package(s), ` +
-      `${totals.amendmentAnswers} answer(s) from the amendment service, ${totals.failed} lookup(s) unanswered. Nothing changed.`,
+      `${totals.amendmentAnswers} answer(s) from the amendment service, ${totals.failed} lookup(s) unanswered. ` +
+      (dryRun ? 'Nothing changed.' : `${totals.flagged} flagged for download.`),
   );
   return totals;
 }
@@ -963,6 +983,8 @@ export async function runDownloadStep({
       break;
     }
     const tor = candidates[i];
+    // One TOR's changes in one run go in one entry (ADR 0032)
+    const now = new Date();
     console.log(`     [${i + 1}/${candidates.length}] Project ${tor.projectId}...`);
 
     // Before the announcement's package clears the flag: a new stage may bring a new price too
@@ -994,6 +1016,10 @@ export async function runDownloadStep({
       tor.packageCheckNeeded = false;
       console.log(`        Package unchanged (${result.zipId})`);
     } else {
+      // What the package replaces, to judge whether it's a change (ADR 0032)
+      const previous = lastPackage(tor, 'announcement');
+      const factsBefore = torFacts(tor).facts;
+      const insightVersion = await summaryVersion(tor.projectId);
       // A summary built from the TOR file this package replaces is kept first,
       // with the file and text it was built from: they're lost after (ADR 0031)
       if (result.tor.contentHash !== (tor.document?.contentHash ?? null)) {
@@ -1008,6 +1034,18 @@ export async function runDownloadStep({
       for (const problem of result.package.problems) console.warn(`        ! ${problem}`);
       const more = result.tor.parts.length > 1 ? ` + ${result.tor.parts.length - 1} more part(s)` : '';
       console.log(`        TOR: ${result.tor.fileName}${more}${torChanged ? '' : ' (unchanged, not read again)'}`);
+
+      const { verdict, entry } = noteNewPackage(tor, {
+        previous,
+        pkg: result.package,
+        torChanged,
+        factsBefore,
+        insightVersion,
+        now,
+      });
+      if (entry) console.log(`        CHANGED (${entry.source}): ${entry.changes.map((row) => row.field).join(', ') || 'as the feed announced'}`);
+      else if (verdict === 'next-stage') console.log('        Next stage: the draft became an invitation, not a change');
+      else if (verdict === 'unknown') console.warn("        ! A new package whose stage couldn't be read: not counted as a change");
     }
 
     if (checkPrice) {
@@ -1025,10 +1063,18 @@ export async function runDownloadStep({
         if (price.none) console.log('        Price package: none in e-GP');
         else if (price.unchanged) console.log(`        Price package unchanged (${price.zipId})`);
         else {
+          const previousPrice = lastPackage(tor, 'price');
+          const priceBefore = torFacts(tor).facts;
           const { problems } = applyPricePackage(tor, price.package);
           const { budgetTHB } = price.package.facts;
           console.log(`        Price form: ${budgetTHB ? `budget ${budgetTHB.value.toLocaleString()}` : 'no budget read'}`);
           for (const problem of problems) console.warn(`        ! ${problem}`);
+          // A price form replacing another, with a different budget or ราคากลาง, is a change too (ADR 0032)
+          const rows = previousPrice ? factChanges(priceBefore, tor) : [];
+          if (rows.length > 0) {
+            recordChange(tor, { rows, now, insightVersion: (await summaryVersion(tor.projectId)) ?? undefined });
+            console.log(`        CHANGED: ${rows.map((row) => row.field).join(', ')}`);
+          }
         }
       }
     }
@@ -1261,7 +1307,7 @@ async function runSteps(args) {
     return;
   }
 
-  // Changed packages the feed doesn't announce: watch mode only, for now
+  // Changed packages the feed doesn't announce, flagged for download (ADR 0032)
   if (args.step === 'recheck') {
     await runRecheckStep({ dryRun: args.dryRun, until: args.until });
     return;

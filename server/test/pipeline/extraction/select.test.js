@@ -19,12 +19,14 @@ const run = (existing, flags = {}) => {
   return `${action}:${reason}${warn ? ':warn' : ''}`;
 };
 
-test('sourceFingerprint changes with the PDF, an amendment document, or the OCR text', () => {
+test('sourceFingerprint changes with the TOR file or the OCR text, not with the record of a change', () => {
   const base = sourceFingerprint(tor);
   assert.equal(sourceFingerprint({ ...tor }), base, 'the same source gives the same fingerprint');
   assert.notEqual(sourceFingerprint({ ...tor, document: { contentHash: 'pdf-2' } }), base);
-  assert.notEqual(sourceFingerprint({ ...tor, amendments: [{ contentHash: 'amend-1' }] }), base);
   assert.notEqual(sourceFingerprint({ ...tor, ocr: { rawText: 'all 83 pages this time' } }), base);
+  // An amended TOR is a new file, which changes it already; writing the
+  // change down mustn't make the summary look out of date (ADR 0032)
+  assert.equal(sourceFingerprint({ ...tor, amendments: [{ contentHash: 'amend-1', changes: [] }] }), base);
 });
 
 // The D10 table, row by row
