@@ -7,10 +7,14 @@ import {
   getAdminTechnologies,
   getOperations,
   getPipelineRecordDiagnostics,
+  getPipelineTasks,
+  getTorReviewItem,
   getTorVersions,
   reExtractTor,
+  retryAllPipelineFailures,
   retryPipelineStep,
   rollbackTorVersion,
+  skipPipelineStep,
   suggestProjects,
   triggerIngestion,
   updateAdminTechnology,
@@ -23,6 +27,21 @@ export async function readOperations(req, res, next) {
     const data = await getOperations();
     res.json(data);
   } catch (err) {
+    next(err);
+  }
+}
+
+export async function handleGetReviewItem(req, res, next) {
+  try {
+    const { projectId } = req.params;
+    const result = await getTorReviewItem(projectId);
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({
+        error: { message: err.message },
+      });
+    }
     next(err);
   }
 }
@@ -107,7 +126,7 @@ export async function handleCheckSourcesHealth(req, res, next) {
 
 export async function handleRetryPipelineStep(req, res, next) {
   try {
-    const { projectId, step } = req.body || {};
+    const { projectId, step, runNow = false } = req.body || {};
     if (!projectId || !step) {
       return res.status(400).json({
         error: { message: 'projectId and step (download, ocr, extract) are required' },
@@ -121,7 +140,7 @@ export async function handleRetryPipelineStep(req, res, next) {
       });
     }
 
-    const result = await retryPipelineStep(projectId, step);
+    const result = await retryPipelineStep(projectId, step, { runNow: Boolean(runNow) });
     res.json(result);
   } catch (err) {
     if (err.name === 'RunLockHeldError' || err.code === 'RUN_LOCK_HELD') {
@@ -132,6 +151,23 @@ export async function handleRetryPipelineStep(req, res, next) {
         },
       });
     }
+    next(err);
+  }
+}
+
+export async function handleRetryAllPipelineFailures(req, res, next) {
+  try {
+    const { step = 'all', transientOnly = true } = req.body || {};
+    const validSteps = ['download', 'ocr', 'extract', 'all'];
+    if (step && !validSteps.includes(step)) {
+      return res.status(400).json({
+        error: { message: `step must be one of: ${validSteps.join(', ')}` },
+      });
+    }
+
+    const result = await retryAllPipelineFailures({ step, transientOnly: Boolean(transientOnly) });
+    res.json(result);
+  } catch (err) {
     next(err);
   }
 }
@@ -248,6 +284,32 @@ export async function handleDeleteAdminTechnology(req, res, next) {
   try {
     const { id } = req.params;
     const result = await deleteAdminTechnology(id);
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: { message: err.message } });
+    }
+    next(err);
+  }
+}
+
+export async function handleGetPipelineTasks(req, res, next) {
+  try {
+    const { phase = 'all', search = '', page = 1, limit = 25 } = req.query || {};
+    const result = await getPipelineTasks({ phase, search, page, limit });
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: { message: err.message } });
+    }
+    next(err);
+  }
+}
+
+export async function handleSkipPipelineStep(req, res, next) {
+  try {
+    const { projectId, step } = req.body || {};
+    const result = await skipPipelineStep(projectId, step);
     res.json(result);
   } catch (err) {
     if (err.status) {
