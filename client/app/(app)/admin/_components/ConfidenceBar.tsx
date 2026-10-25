@@ -25,22 +25,22 @@ export function ConfidenceBar({ value, label }: { value: number | null | undefin
   if (value == null) {
     return (
       <span className="flex items-center gap-2 whitespace-nowrap">
-        <span className="text-[10px] uppercase font-semibold tracking-[0.1em] text-ink-3">{label}</span>
-        <span className="relative h-[4px] w-16 overflow-hidden rounded-full bg-line" />
-        <span className="font-mono tnum text-[12px] text-ink-3">—</span>
+        <span className="w-7 shrink-0 text-[10px] uppercase font-semibold tracking-[0.1em] text-ink-3">{label}</span>
+        <span className="relative h-[4px] w-16 shrink-0 overflow-hidden rounded-full bg-line" />
+        <span className="w-9 shrink-0 text-left font-mono tnum text-[12px] text-ink-3">—</span>
       </span>
     );
   }
   return (
     <span className="flex items-center gap-2 whitespace-nowrap">
-      <span className="text-[10px] uppercase font-semibold tracking-[0.1em] text-ink-3">{label}</span>
-      <span className="relative h-[4px] w-16 overflow-hidden rounded-full bg-line">
+      <span className="w-7 shrink-0 text-[10px] uppercase font-semibold tracking-[0.1em] text-ink-3">{label}</span>
+      <span className="relative h-[4px] w-16 shrink-0 overflow-hidden rounded-full bg-line">
         <span
           className={`absolute inset-y-0 left-0 rounded-full ${confidenceTone(value)}`}
           style={{ width: `${value * 100}%` }}
         />
       </span>
-      <span className="font-mono tnum text-[12px] text-ink">{Math.round(value * 100)}%</span>
+      <span className="w-9 shrink-0 text-left font-mono tnum text-[12px] text-ink">{Math.round(value * 100)}%</span>
     </span>
   );
 }

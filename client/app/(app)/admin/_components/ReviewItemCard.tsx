@@ -101,8 +101,9 @@ export function ReviewItemCard({
     resolution?.includes("scope");
 
   return (
-    <Panel className="overflow-hidden">
-      <div className="flex w-full flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
+    <Panel className="overflow-hidden p-4">
+      <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        {/* Left column: ID, Status Badges, Title, Agency, Misclassified notice */}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono tnum text-[11px] font-semibold text-ink-3">{item.docId}</span>
@@ -170,8 +171,6 @@ export function ReviewItemCard({
             </div>
           ) : null}
 
-
-
           {errorMsg ? (
             <div className="mt-3 rounded-[3px] border border-risk-line bg-risk-bg p-2 text-[12px] text-risk">
               {errorMsg}
@@ -183,49 +182,50 @@ export function ReviewItemCard({
               {savedSuccess}
             </div>
           ) : null}
-        </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-3 sm:w-56">
-          <div className="flex w-full flex-col gap-1.5">
-            <ConfidenceBar value={item.ocr} label="OCR" />
-            <ConfidenceBar value={item.extraction} label="LLM" />
-          </div>
-
-          <div className="flex w-full flex-col gap-2 pt-1">
+          {/* Action buttons under title, agency, and timestamp with no separator line */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <Link
               href={`/admin/review/${item.docId}`}
-              className={`${btn.primary} w-full text-center text-[12px] font-medium justify-center py-2`}
+              className={`${btn.primary} text-[12px] h-8 px-3 flex items-center gap-1.5`}
             >
-              {lang === "th" ? "🔍 ตรวจทานและแก้ไขข้อมูล" : "🔍 Review & Edit Facts"} ↗
+              <span>{lang === "th" ? "🔍 ตรวจทานและแก้ไขข้อมูล" : "🔍 Review & Edit Facts"}</span>
+              <span className="text-[10px] opacity-75">↗</span>
             </Link>
-            <div className="flex gap-1.5 w-full">
-              <a
-                href={`/tor/${item.docId}`}
-                target="_blank"
-                rel="noreferrer"
-                className={`${btn.secondary} flex-1 text-center text-[11px] py-1 justify-center`}
-              >
-                {lang === "th" ? "ดูหน้าเว็บ" : "GIPDP"} ↗
-              </a>
-              <a
-                href={`https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${item.docId}`}
-                target="_blank"
-                rel="noreferrer"
-                className={`${btn.secondary} flex-1 text-center text-[11px] py-1 justify-center`}
-              >
-                {lang === "th" ? "e-GP" : "e-GP"} ↗
-              </a>
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={handleReExtract}
-                title={lang === "th" ? "สั่งอ่านเอกสารใหม่" : "Re-queue extraction"}
-                className={`${btn.ghost} text-[11px] px-2 py-1`}
-              >
-                ↻
-              </button>
-            </div>
+            <a
+              href={`/tor/${item.docId}`}
+              target="_blank"
+              rel="noreferrer"
+              className={`${btn.secondary} text-[11px] h-8 px-2.5 whitespace-nowrap flex items-center gap-1`}
+            >
+              <span>{lang === "th" ? "ดูหน้าเว็บ" : "GIPDP"}</span>
+              <span className="text-[10px] opacity-70">↗</span>
+            </a>
+            <a
+              href={`https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${item.docId}`}
+              target="_blank"
+              rel="noreferrer"
+              className={`${btn.secondary} text-[11px] h-8 px-2.5 whitespace-nowrap flex items-center gap-1`}
+            >
+              <span>e-GP</span>
+              <span className="text-[10px] opacity-70">↗</span>
+            </a>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={handleReExtract}
+              title={lang === "th" ? "สั่งอ่านเอกสารใหม่" : "Re-queue extraction"}
+              className={`${btn.ghost} h-8 w-8 p-0 shrink-0 text-[13px] flex items-center justify-center`}
+            >
+              ↻
+            </button>
           </div>
+        </div>
+
+        {/* Right column: OCR & LLM confidence bars */}
+        <div className="flex shrink-0 flex-col items-end gap-1.5 sm:w-56">
+          <ConfidenceBar value={item.ocr} label="OCR" />
+          <ConfidenceBar value={item.extraction} label="LLM" />
         </div>
       </div>
     </Panel>

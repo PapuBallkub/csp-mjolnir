@@ -177,6 +177,9 @@ export const btn = {
 export const input =
   "h-9 w-full rounded-[3px] border border-line-2 bg-surface px-2.5 text-[13px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none";
 
+export const textarea =
+  "w-full rounded-[3px] border border-line-2 bg-surface p-2.5 text-[13px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none resize-y leading-relaxed transition-colors";
+
 /** Key-value row used in the detail sidebar and admin tables. */
 export function Fact({
   label,

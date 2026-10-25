@@ -5,16 +5,25 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   adminGetReviewItem,
+  adminGetTorVersions,
   adminReExtract,
+  adminRollbackTorVersion,
   adminUpdateReview,
   getTechnologies,
   type GetReviewItemResult,
   type TechnologyItem,
+  type TorVersionItem,
   type UpdateReviewPayload,
 } from "../../../../_lib/api";
 import { useLang } from "../../../../_components/prefs";
 import { SignInPrompt } from "../../../../_components/sign-in-prompt";
-import { btn, EmptyState, input, Label, Panel, SectionHeading } from "../../../../_components/ui";
+import { btn, EmptyState, input, Label, Panel, SectionHeading, textarea } from "../../../../_components/ui";
+import {
+  DynamicListEditor,
+  EvidenceGroundingDrawer,
+  KeyValueListEditor,
+  VersionHistoryDrawer,
+} from "./ReviewEditorComponents";
 
 function confidenceTone(value: number): string {
   if (value < 0.7) return "bg-risk text-white";
@@ -81,35 +90,87 @@ export default function DedicatedReviewPage({
 
   const [data, setData] = useState<GetReviewItemResult["item"] | null>(null);
 
-  // Form states
+  // 1. Identification
   const [title, setTitle] = useState("");
+  const [titleEn, setTitleEn] = useState("");
   const [agency, setAgency] = useState("");
+  const [department, setDepartment] = useState("");
+  const [category, setCategory] = useState("software-development");
+  const [status, setStatus] = useState("Open");
+
+  // 2. Key Facts
   const [budgetTHB, setBudgetTHB] = useState("");
   const [referencePriceTHB, setReferencePriceTHB] = useState("");
   const [submissionDeadline, setSubmissionDeadline] = useState("");
-
-  const [objective, setObjective] = useState("");
-  const [systemArchetype, setSystemArchetype] = useState("");
-  const [complexityTier, setComplexityTier] = useState("");
-
+  const [commentDeadline, setCommentDeadline] = useState("");
+  const [deliveryPeriodDays, setDeliveryPeriodDays] = useState("");
+  const [procurementMethod, setProcurementMethod] = useState("");
   const [contractDurationDays, setContractDurationDays] = useState("");
   const [warrantyYears, setWarrantyYears] = useState("");
   const [penaltyClause, setPenaltyClause] = useState("");
-  const [paymentTerms, setPaymentTerms] = useState("");
+  const [postedDate, setPostedDate] = useState("");
 
-  const [companyRequirements, setCompanyRequirements] = useState("");
-  const [previousExperience, setPreviousExperience] = useState("");
-  const [previousExperienceMinTHB, setPreviousExperienceMinTHB] = useState("");
+  // 3. Project Overview
+  const [objective, setObjective] = useState("");
+  const [systemArchetype, setSystemArchetype] = useState("");
+  const [complexityTier, setComplexityTier] = useState("");
+  const [highLevelScope, setHighLevelScope] = useState("");
+  const [majorComponents, setMajorComponents] = useState<string[]>([]);
 
-  // Tech stack dynamic selector states
+  // 4. Contractor Deliverables
+  const [deliverablesSystem, setDeliverablesSystem] = useState<string[]>([]);
+  const [deliverablesImplementation, setDeliverablesImplementation] = useState<string[]>([]);
+  const [deliverablesValidation, setDeliverablesValidation] = useState<string[]>([]);
+  const [deliverablesSupportingWork, setDeliverablesSupportingWork] = useState<string[]>([]);
+
+  // 5. Technical Requirements
   const [selectedTechs, setSelectedTechs] = useState<string[]>([]);
+  const [techVersions, setTechVersions] = useState<Record<string, string>>({});
+  const [customTechInput, setCustomTechInput] = useState("");
+  const [customTechVersion, setCustomTechVersion] = useState("");
   const [availableTechs, setAvailableTechs] = useState<TechnologyItem[]>([]);
   const [searchTech, setSearchTech] = useState("");
   const [isTechSearchFocused, setIsTechSearchFocused] = useState(false);
 
+  const [requiredCapabilities, setRequiredCapabilities] = useState<string[]>([]);
+  const [infrastructureSpecs, setInfrastructureSpecs] = useState<Array<{ key: string; value: string }>>([]);
+  const [technicalConstraints, setTechnicalConstraints] = useState<Array<{ key: string; value: string }>>([]);
+
+  // 6. Integration Environment
+  const [existingSystems, setExistingSystems] = useState<string[]>([]);
+  const [interfacesAndApis, setInterfacesAndApis] = useState<string[]>([]);
+  const [dataMigrationNotes, setDataMigrationNotes] = useState("");
+  const [deploymentLocation, setDeploymentLocation] = useState("");
+
+  // 7. Operational Requirements
+  const [installationAndConfig, setInstallationAndConfig] = useState<string[]>([]);
+  const [training, setTraining] = useState<string[]>([]);
+  const [technicalSupportAndSla, setTechnicalSupportAndSla] = useState("");
+  const [maintenance, setMaintenance] = useState<string[]>([]);
+
+  // 8. Bid Eligibility
+  const [companyReqs, setCompanyReqs] = useState<string[]>([]);
+  const [requiredCertifications, setRequiredCertifications] = useState<string[]>([]);
+  const [manufacturerAuthorizations, setManufacturerAuthorizations] = useState<string[]>([]);
+  const [personnelQualifications, setPersonnelQualifications] = useState<string[]>([]);
+  const [previousExperience, setPreviousExperience] = useState("");
+  const [previousExperienceMinTHB, setPreviousExperienceMinTHB] = useState("");
+
+  // 9. Contract Conditions
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [deliveryConditions, setDeliveryConditions] = useState("");
+  const [evaluationMethod, setEvaluationMethod] = useState("");
+
+  // 10. Amendment Info
+  const [isAmended, setIsAmended] = useState(false);
+  const [amendmentSummary, setAmendmentSummary] = useState("");
+  const [changedSections, setChangedSections] = useState<string[]>([]);
+
+  // Validation Checks
   const refPriceCheck = parseNumberInput(referencePriceTHB);
   const budgetCheck = parseNumberInput(budgetTHB);
   const durationCheck = parseIntegerInput(contractDurationDays);
+  const deliveryPeriodCheck = parseIntegerInput(deliveryPeriodDays);
   const warrantyCheck = parseNumberInput(warrantyYears);
   const minExpCheck = parseNumberInput(previousExperienceMinTHB);
 
@@ -117,6 +178,7 @@ export default function DedicatedReviewPage({
     !refPriceCheck.valid ||
     !budgetCheck.valid ||
     !durationCheck.valid ||
+    !deliveryPeriodCheck.valid ||
     !warrantyCheck.valid ||
     !minExpCheck.valid;
 
@@ -129,6 +191,18 @@ export default function DedicatedReviewPage({
   const [showReclassifyModal, setShowReclassifyModal] = useState(false);
   const [reclassifyReason, setReclassifyReason] = useState("");
   const [isReclassifying, setIsReclassifying] = useState(false);
+
+  // Version history drawer states (NFR-07, ADR 0031)
+  const [showVersionDrawer, setShowVersionDrawer] = useState(false);
+  const [versionsList, setVersionsList] = useState<TorVersionItem[]>([]);
+  const [currentVersion, setCurrentVersion] = useState<number | null>(null);
+  const [isRollingBack, setIsRollingBack] = useState(false);
+
+  // Evidence grounding drawer states (NFR-17)
+  const [showEvidenceDrawer, setShowEvidenceDrawer] = useState(false);
+
+  // Active section scroll tracking
+  const [activeSection, setActiveSection] = useState("sec-identification");
 
   useEffect(() => {
     let cancelled = false;
@@ -143,6 +217,31 @@ export default function DedicatedReviewPage({
     };
   }, []);
 
+  const loadVersions = async () => {
+    const res = await adminGetTorVersions(projectId);
+    if (res.ok) {
+      setVersionsList(res.data.versions);
+      setCurrentVersion(res.data.current);
+    }
+  };
+
+  const handleRollback = async (version: number) => {
+    if (!confirm(lang === "th" ? `ยืนยันการย้อนกลับเนื้อหา TOR เป็นเวอร์ชัน v${version}?` : `Rollback TOR content to version v${version}?`)) {
+      return;
+    }
+    setIsRollingBack(true);
+    setErrorMessage(null);
+    const res = await adminRollbackTorVersion(projectId, version);
+    setIsRollingBack(false);
+    if (res.ok) {
+      setShowVersionDrawer(false);
+      // Reload review item to reflect rolled-back fields
+      window.location.reload();
+    } else {
+      setErrorMessage(res.error?.message || "Rollback failed");
+    }
+  };
+
   const toggleTech = (name: string) => {
     setSelectedTechs((prev) =>
       prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
@@ -151,23 +250,26 @@ export default function DedicatedReviewPage({
 
   const removeTech = (name: string) => {
     setSelectedTechs((prev) => prev.filter((t) => t !== name));
+    setTechVersions((prev) => {
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
   };
 
-  const addCustomTech = (name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    if (!selectedTechs.some((t) => t.toLowerCase() === trimmed.toLowerCase())) {
-      setSelectedTechs((prev) => [...prev, trimmed]);
+  const handleAddCustomTech = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = customTechInput.trim();
+    if (!name) return;
+    if (!selectedTechs.some((t) => t.toLowerCase() === name.toLowerCase())) {
+      setSelectedTechs((prev) => [...prev, name]);
+      if (customTechVersion.trim()) {
+        setTechVersions((prev) => ({ ...prev, [name]: customTechVersion.trim() }));
+      }
     }
+    setCustomTechInput("");
+    setCustomTechVersion("");
   };
-
-  const filteredSuggestions = searchTech.trim()
-    ? availableTechs
-        .filter((t) =>
-          t.name.toLowerCase().includes(searchTech.trim().toLowerCase())
-        )
-        .slice(0, 15)
-    : availableTechs.slice(0, 10);
 
   const getFieldScore = (fieldName: string, fallback: number = 0.85): number => {
     if (!data?.lowFields?.length) return data?.extraction ?? fallback;
@@ -183,8 +285,16 @@ export default function DedicatedReviewPage({
       setLoading(true);
       setErrorMessage(null);
 
-      const res = await adminGetReviewItem(projectId);
+      const [res, verRes] = await Promise.all([
+        adminGetReviewItem(projectId),
+        adminGetTorVersions(projectId),
+      ]);
       if (cancelled) return;
+
+      if (verRes.ok) {
+        setVersionsList(verRes.data.versions);
+        setCurrentVersion(verRes.data.current);
+      }
 
       if (!res.ok) {
         if (res.error?.status === 401 || res.error?.status === 403) {
@@ -198,47 +308,121 @@ export default function DedicatedReviewPage({
 
       const item = res.data.item;
       setData(item);
+      const det = item.details || {};
 
-      // Populate form
+      // 1. Identification
       setTitle(item.title || "");
+      setTitleEn(det.titleEn || "");
       setAgency(item.agency || "");
+      setDepartment(det.department || "");
+      setCategory(det.category || "software-development");
+      setStatus(det.status || "Open");
+
+      // 2. Key Facts
       setBudgetTHB(item.budgetTHB != null ? String(item.budgetTHB) : "");
       setReferencePriceTHB(item.referencePriceTHB != null ? String(item.referencePriceTHB) : "");
       setSubmissionDeadline(item.submissionDeadline || "");
-
-      setObjective(item.details?.objective || "");
-      setSystemArchetype(item.details?.systemArchetype || "");
-      setComplexityTier(item.details?.complexityTier || "");
-
+      setCommentDeadline(det.commentDeadline || "");
+      setDeliveryPeriodDays(det.deliveryPeriodDays != null ? String(det.deliveryPeriodDays) : "");
+      setProcurementMethod(det.procurementMethod || "");
       setContractDurationDays(
-        item.details?.contractDurationDays != null
-          ? String(item.details?.contractDurationDays)
-          : "",
+        det.contractDurationDays != null ? String(det.contractDurationDays) : ""
       );
-      setWarrantyYears(
-        item.details?.warrantyYears != null ? String(item.details?.warrantyYears) : "",
-      );
-      setPenaltyClause(item.details?.penaltyClause || "");
-      setPaymentTerms(item.details?.paymentTerms || "");
+      setWarrantyYears(det.warrantyYears != null ? String(det.warrantyYears) : "");
+      setPenaltyClause(det.penaltyClause || "");
+      setPostedDate(det.postedDate || "");
 
-      setCompanyRequirements(
-        Array.isArray(item.details?.companyRequirements)
-          ? item.details.companyRequirements.join("\n")
-          : "",
+      // 3. Project Overview
+      setObjective(det.objective || "");
+      setSystemArchetype(det.systemArchetype || "");
+      setComplexityTier(det.complexityTier || "");
+      setHighLevelScope(det.highLevelScope || "");
+      setMajorComponents(det.majorComponents || []);
+
+      // 4. Deliverables
+      setDeliverablesSystem(det.deliverables?.system || []);
+      setDeliverablesImplementation(det.deliverables?.implementation || []);
+      setDeliverablesValidation(det.deliverables?.validation || []);
+      setDeliverablesSupportingWork(det.deliverables?.supportingWork || []);
+
+      // 5. Technical Requirements
+      const initialTechVersions: Record<string, string> = {};
+      const techList: string[] = [];
+      if (det.technologiesList && Array.isArray(det.technologiesList)) {
+        det.technologiesList.forEach((t) => {
+          if (t?.name) {
+            techList.push(t.name);
+            if (t.version) initialTechVersions[t.name] = t.version;
+          }
+        });
+      } else if (det.requiredTechnologies) {
+        det.requiredTechnologies
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .forEach((t) => techList.push(t));
+      }
+      setSelectedTechs(techList);
+      setTechVersions(initialTechVersions);
+
+      setRequiredCapabilities(det.requiredCapabilities || []);
+      setInfrastructureSpecs(
+        (det.infrastructureSpecifications || []).map((s) => ({
+          key: s.item,
+          value: s.specification,
+        }))
       );
-      setPreviousExperience(item.details?.previousExperience || "");
+      setTechnicalConstraints(
+        (det.technicalConstraints || []).map((c) => ({
+          key: c.metric,
+          value: c.value,
+        }))
+      );
+
+      // 6. Integration Environment
+      setExistingSystems(det.integrationEnvironment?.existingSystems || []);
+      setInterfacesAndApis(det.integrationEnvironment?.interfacesAndApis || []);
+      setDataMigrationNotes(det.integrationEnvironment?.dataMigrationNotes || "");
+      setDeploymentLocation(det.integrationEnvironment?.deploymentLocation || "");
+
+      // 7. Operational Requirements
+      setInstallationAndConfig(det.operationalRequirements?.installationAndConfig || []);
+      setTraining(det.operationalRequirements?.training || []);
+      setTechnicalSupportAndSla(det.operationalRequirements?.technicalSupportAndSla || "");
+      setMaintenance(det.operationalRequirements?.maintenance || []);
+
+      // 8. Eligibility
+      if (Array.isArray(det.companyRequirements)) {
+        setCompanyReqs(det.companyRequirements);
+      } else if (det.companyRequirements) {
+        setCompanyReqs(
+          String(det.companyRequirements)
+            .split("\n")
+            .map((s) => s.trim().replace(/^[-*•\d.]+\s*/, ""))
+            .filter(Boolean)
+        );
+      } else {
+        setCompanyReqs([]);
+      }
+      setRequiredCertifications(det.requiredCertifications || []);
+      setManufacturerAuthorizations(det.manufacturerAuthorizations || []);
+      setPersonnelQualifications(det.personnelQualifications || []);
+      setPreviousExperience(det.previousExperience || "");
       setPreviousExperienceMinTHB(
-        item.details?.previousExperienceMinTHB != null
-          ? String(item.details?.previousExperienceMinTHB)
-          : "",
+        det.previousExperienceMinTHB != null ? String(det.previousExperienceMinTHB) : ""
       );
 
-      const rawTech = item.details?.requiredTechnologies || "";
-      const parsedTechs = rawTech
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      setSelectedTechs(parsedTechs);
+      // 9. Contract Conditions
+      setPaymentTerms(det.paymentTerms || "");
+      setDeliveryConditions(det.deliveryConditions || "");
+      setEvaluationMethod(det.evaluationMethod || "");
+
+      // 10. Amendment Info
+      setIsAmended(Boolean(det.amendmentInfo?.isAmended));
+      setAmendmentSummary(det.amendmentInfo?.amendmentSummary || "");
+      setChangedSections(det.amendmentInfo?.changedSections || []);
+
+      setCurrentVersion(det.version || 1);
       setLoading(false);
     }
 
@@ -255,7 +439,7 @@ export default function DedicatedReviewPage({
       setErrorMessage(
         lang === "th"
           ? "ราคากลาง (Reference Price) ไม่ถูกต้อง: ต้องระบุเป็นตัวเลขเท่านั้น เช่น 1,500,000 หรือ 1500000"
-          : "Invalid Reference Price: must be a valid non-negative number",
+          : "Invalid Reference Price: must be a valid non-negative number"
       );
       return;
     }
@@ -264,7 +448,7 @@ export default function DedicatedReviewPage({
       setErrorMessage(
         lang === "th"
           ? "งบประมาณ (Approved Budget) ไม่ถูกต้อง: ต้องระบุเป็นตัวเลขเท่านั้น เช่น 1,800,000 หรือ 1800000"
-          : "Invalid Approved Budget: must be a valid non-negative number",
+          : "Invalid Approved Budget: must be a valid non-negative number"
       );
       return;
     }
@@ -273,7 +457,16 @@ export default function DedicatedReviewPage({
       setErrorMessage(
         lang === "th"
           ? "ระยะเวลาสัญญา (Contract Duration) ไม่ถูกต้อง: ต้องระบุเป็นจำนวนวัน (ตัวเลขจำนวนเต็มบวก)"
-          : "Invalid Contract Duration: must be positive integer days",
+          : "Invalid Contract Duration: must be positive integer days"
+      );
+      return;
+    }
+
+    if (!deliveryPeriodCheck.valid) {
+      setErrorMessage(
+        lang === "th"
+          ? "ระยะเวลาส่งมอบ (Delivery Period) ไม่ถูกต้อง: ต้องระบุเป็นจำนวนวัน (ตัวเลขจำนวนเต็มบวก)"
+          : "Invalid Delivery Period: must be positive integer days"
       );
       return;
     }
@@ -281,8 +474,8 @@ export default function DedicatedReviewPage({
     if (!warrantyCheck.valid) {
       setErrorMessage(
         lang === "th"
-          ? "ระยะเวลารับประกัน (Warranty Period) ไม่ถูกต้อง: ต้องระบุเป็นตัวเลขจำนวนปี"
-          : "Invalid Warranty: must be a valid number",
+          ? "ระยะเวลารับประกัน (Warranty Period) ไม่ถูกต้อง: ต้องระบุเป็นตัวเลขปี เช่น 1 หรือ 2"
+          : "Invalid Warranty Period: must be a valid number of years"
       );
       return;
     }
@@ -290,58 +483,146 @@ export default function DedicatedReviewPage({
     if (!minExpCheck.valid) {
       setErrorMessage(
         lang === "th"
-          ? "มูลค่าผลงานขั้นต่ำ (Min Experience THB) ไม่ถูกต้อง: ต้องระบุเป็นตัวเลขเท่านั้น"
-          : "Invalid Min Experience THB: must be a valid number",
+          ? "มูลค่าผลงานขั้นต่ำ (Minimum Experience Value) ไม่ถูกต้อง: ต้องระบุเป็นตัวเลข เช่น 5,000,000"
+          : "Invalid Minimum Experience Value: must be a valid non-negative number"
       );
       return;
     }
 
     setIsSaving(true);
-    setSaveSuccess(false);
     setErrorMessage(null);
+    setSaveSuccess(false);
 
-    const payload: UpdateReviewPayload = {
-      action: "approve",
-      fields: {
-        title: title.trim(),
-        agency: agency.trim(),
-        budgetTHB: budgetCheck.value,
-        referencePriceTHB: refPriceCheck.value,
-        submissionDeadline: submissionDeadline || null,
-        objective: objective.trim() || null,
-        systemArchetype: systemArchetype.trim() || null,
-        complexityTier: complexityTier.trim() || null,
-        contractDurationDays: durationCheck.value,
-        warrantyYears: warrantyCheck.value,
-        penaltyClause: penaltyClause.trim() || null,
-        paymentTerms: paymentTerms.trim() || null,
-        companyRequirements: companyRequirements
-          .split("\n")
-          .map((s) => s.trim())
-          .filter(Boolean),
-        previousExperience: previousExperience.trim() || null,
-        previousExperienceMinTHB: minExpCheck.value,
-        requiredTechnologies: selectedTechs.join(", "),
-      },
-    };
+    try {
+      const payload: UpdateReviewPayload = {
+        action: "approve",
+        fields: {
+          // 1. Identification
+          title: title.trim(),
+          titleEn: titleEn.trim() || null,
+          agency: agency.trim(),
+          department: department.trim() || null,
+          category: category || null,
+          status: status || null,
 
-    const res = await adminUpdateReview(projectId, payload);
-    setIsSaving(false);
+          // 2. Key Facts
+          budgetTHB: budgetCheck.value,
+          referencePriceTHB: refPriceCheck.value,
+          submissionDeadline: submissionDeadline.trim() || null,
+          commentDeadline: commentDeadline.trim() || null,
+          deliveryPeriodDays: deliveryPeriodCheck.value,
+          procurementMethod: procurementMethod.trim() || null,
+          contractDurationDays: durationCheck.value,
+          warrantyYears: warrantyCheck.value,
+          penaltyClause: penaltyClause.trim() || null,
+          postedDate: postedDate.trim() || null,
 
-    if (!res.ok) {
-      setErrorMessage(res.error?.message || "Failed to save and publish");
-      return;
+          // 3. Overview
+          objective: objective.trim() || null,
+          systemArchetype: systemArchetype.trim() || null,
+          complexityTier: complexityTier.trim() || null,
+          majorComponents: majorComponents.filter(Boolean),
+          highLevelScope: highLevelScope.trim() || null,
+
+          // 4. Deliverables
+          deliverables: {
+            system: deliverablesSystem.filter(Boolean),
+            implementation: deliverablesImplementation.filter(Boolean),
+            validation: deliverablesValidation.filter(Boolean),
+            supportingWork: deliverablesSupportingWork.filter(Boolean),
+          },
+
+          // 5. Technical Requirements
+          requiredTechnologies: selectedTechs.join(", "),
+          technologiesList: selectedTechs.map((name) => ({
+            name,
+            version: techVersions[name] || undefined,
+          })),
+          requiredCapabilities: requiredCapabilities.filter(Boolean),
+          infrastructureSpecifications: infrastructureSpecs
+            .filter((it) => it.key || it.value)
+            .map((it) => ({ item: it.key, specification: it.value })),
+          technicalConstraints: technicalConstraints
+            .filter((it) => it.key || it.value)
+            .map((it) => ({ metric: it.key, value: it.value })),
+
+          // 6. Integration Environment
+          integrationEnvironment: {
+            existingSystems: existingSystems.filter(Boolean),
+            interfacesAndApis: interfacesAndApis.filter(Boolean),
+            dataMigrationNotes: dataMigrationNotes.trim() || null,
+            deploymentLocation: deploymentLocation.trim() || null,
+          },
+
+          // 7. Operational Requirements
+          operationalRequirements: {
+            installationAndConfig: installationAndConfig.filter(Boolean),
+            training: training.filter(Boolean),
+            technicalSupportAndSla: technicalSupportAndSla.trim() || null,
+            maintenance: maintenance.filter(Boolean),
+          },
+
+          // 8. Eligibility
+          companyRequirements: companyReqs.filter(Boolean),
+          requiredCertifications: requiredCertifications.filter(Boolean),
+          manufacturerAuthorizations: manufacturerAuthorizations.filter(Boolean),
+          personnelQualifications: personnelQualifications.filter(Boolean),
+          previousExperience: previousExperience.trim() || null,
+          previousExperienceMinTHB: minExpCheck.value,
+
+          // 9. Contract Conditions
+          paymentTerms: paymentTerms.trim() || null,
+          deliveryConditions: deliveryConditions.trim() || null,
+          evaluationMethod: evaluationMethod.trim() || null,
+
+          // 10. Amendment Info
+          amendmentInfo: {
+            isAmended,
+            amendmentSummary: amendmentSummary.trim(),
+            changedSections: changedSections.filter(Boolean),
+          },
+        },
+      };
+
+      const res = await adminUpdateReview(projectId, payload);
+      setIsSaving(false);
+
+      if (res.ok) {
+        setSaveSuccess(true);
+        loadVersions();
+        setTimeout(() => setSaveSuccess(false), 5000);
+      } else {
+        setErrorMessage(res.error?.message || "Failed to update review record");
+      }
+    } catch (err: unknown) {
+      setIsSaving(false);
+      setErrorMessage(err instanceof Error ? err.message : "An unexpected error occurred");
     }
-
-    setSaveSuccess(true);
-    setTimeout(() => {
-      router.push("/admin?job=review");
-    }, 1500);
   }
 
-  async function handleReExtract() {
+  async function handleReclassifySubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsReclassifying(true);
+    setErrorMessage(null);
+
+    const res = await adminUpdateReview(projectId, {
+      action: "reclassify",
+      reclassifyReason: reclassifyReason.trim() || "Civil works — out of scope",
+    });
+
+    setIsReclassifying(false);
+    if (res.ok) {
+      setShowReclassifyModal(false);
+      router.push("/admin?tab=review");
+    } else {
+      setErrorMessage(res.error?.message || "Failed to reclassify TOR");
+    }
+  }
+
+  async function handleReExtractTrigger() {
     setIsReExtracting(true);
     setReExtractNotice(null);
+    setErrorMessage(null);
 
     const res = await adminReExtract(projectId);
     setIsReExtracting(false);
@@ -349,888 +630,1146 @@ export default function DedicatedReviewPage({
     if (res.ok) {
       setReExtractNotice(
         lang === "th"
-          ? "สั่งให้อ่านเอกสารใหม่เรียบร้อยแล้ว กำลังประมวลผลในรอบถัดไป"
-          : "Re-extraction queued successfully",
+          ? "ส่งเอกสารกลับเข้าคิว AI Extraction เรียบร้อยแล้ว ระบบจะอ่านข้อมูลใหม่ในรอบถัดไป"
+          : "TOR has been re-queued for AI extraction. It will be re-processed shortly."
       );
     } else {
       setErrorMessage(res.error?.message || "Failed to trigger re-extraction");
     }
   }
 
-  async function handleReclassify(e: React.FormEvent) {
-    e.preventDefault();
-    if (!reclassifyReason.trim()) return;
-
-    setIsReclassifying(true);
-    setErrorMessage(null);
-
-    const res = await adminUpdateReview(projectId, {
-      action: "reclassify",
-      reclassifyReason: reclassifyReason.trim(),
-    });
-    setIsReclassifying(false);
-
-    if (!res.ok) {
-      setErrorMessage(res.error?.message || "Failed to reclassify project");
-      return;
+  const scrollToSection = (id: string) => {
+    setActiveSection(id);
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
+  };
 
-    setShowReclassifyModal(false);
-    router.push("/admin?job=review");
-  }
+  const sectionsList = [
+    { id: "sec-identification", labelTh: "1. ข้อมูลทั่วไปและการจัดประเภท", labelEn: "1. Identification" },
+    { id: "sec-keyfacts", labelTh: "2. ข้อมูลสำคัญและราคา", labelEn: "2. Key Facts" },
+    { id: "sec-overview", labelTh: "3. ภาพรวมและขอบเขต", labelEn: "3. Overview" },
+    { id: "sec-deliverables", labelTh: "4. ขอบเขตงานส่งมอบ", labelEn: "4. Deliverables" },
+    { id: "sec-tech", labelTh: "5. ข้อกำหนดเทคโนโลยี", labelEn: "5. Tech Stack" },
+    { id: "sec-integration", labelTh: "6. ระบบเดิมและสภาพแวดล้อม", labelEn: "6. Integration" },
+    { id: "sec-ops", labelTh: "7. การติดตั้งและบำรุงรักษา", labelEn: "7. Operations" },
+    { id: "sec-eligibility", labelTh: "8. คุณสมบัติผู้ยื่นข้อเสนอ", labelEn: "8. Eligibility" },
+    { id: "sec-contract", labelTh: "9. เงื่อนไขสัญญา", labelEn: "9. Contract Terms" },
+    { id: "sec-amendments", labelTh: "10. ประวัติการแก้ไข", labelEn: "10. Amendments" },
+  ];
 
   if (authError) {
     return (
-      <div className="mx-auto max-w-[900px] px-4 py-16">
-        <SignInPrompt
-          next="/admin?job=review"
-          headline={lang === "th" ? "ต้องใช้สิทธิ์ผู้ดูแลระบบ" : "Administrator access required"}
-          body={
-            lang === "th"
-              ? "หน้าตรวจสอบและแก้ไขข้อมูล (Review Workspace) จำกัดเฉพาะผู้ดูแลระบบเท่านั้น"
-              : "Review Workspace is restricted to team administrators."
-          }
-          cta={lang === "th" ? "เข้าสู่ระบบ" : "Sign in"}
-        />
+      <div className="mx-auto max-w-4xl px-4 py-12">
+        <SignInPrompt />
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-[1100px] px-4 py-12">
-        <div className="flex items-center gap-3 text-ink-3 text-[14px]">
-          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink" />
-          <span>{lang === "th" ? "กำลังโหลดข้อมูลโครงการ..." : "Loading project for review..."}</span>
-        </div>
+      <div className="mx-auto max-w-5xl px-4 py-12 text-center text-ink-3">
+        <p className="animate-pulse text-[14px]">
+          {lang === "th" ? "กำลังโหลดข้อมูล TOR สำหรับการตรวจทาน..." : "Loading TOR review workspace..."}
+        </p>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-[1100px] px-4 py-12">
+      <div className="mx-auto max-w-4xl px-4 py-12">
         <EmptyState
-          headline={lang === "th" ? "ไม่พบเอกสารโครงการนี้" : "Project not found"}
-          body={errorMessage || (lang === "th" ? "อาจถูกลบหรือไม่มีอยู่ในระบบ" : "May have been deleted or missing.")}
+          headline={lang === "th" ? "ไม่พบเอกสาร TOR" : "TOR Document Not Found"}
+          body={lang === "th" ? `ไม่พบข้อมูลสำหรับรหัสโครงการ ${projectId}` : `No review item found for project ${projectId}`}
+          action={
+            <Link href="/admin?tab=review" className={btn.secondary}>
+              {lang === "th" ? "กลับไปหน้าคิวตรวจทาน" : "Back to Review Queue"}
+            </Link>
+          }
         />
-        <div className="mt-4">
-          <Link href="/admin?job=review" className={btn.secondary}>
-            ← {lang === "th" ? "กลับหน้ารายการคิวตรวจทาน" : "Back to Review Queue"}
-          </Link>
-        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-6 pb-28">
-      {/* Top Breadcrumb & Quick Actions */}
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-line pb-3">
-        <div className="flex items-center gap-2 text-[12px] text-ink-3">
-          <Link href="/admin?job=review" className="hover:text-ink hover:underline">
-            ← {lang === "th" ? "กลับหน้ารายการคิวตรวจทาน" : "Back to Review Queue"}
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      {/* Top Bar Header */}
+      <div className="sticky top-0 z-30 mb-6 flex flex-col gap-3 rounded-[3px] border border-line bg-surface/95 px-5 py-3.5 backdrop-blur shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/admin?tab=review"
+            className="text-[12px] font-medium text-ink-3 hover:text-ink transition-colors flex items-center gap-1"
+          >
+            <span>←</span>
+            <span>{lang === "th" ? "กลับไปคิวตรวจทาน" : "Back to Review Queue"}</span>
           </Link>
-          <span>/</span>
-          <span className="font-mono text-ink-2">Doc #{projectId}</span>
+          <span className="text-line-2">|</span>
+          <span className="font-mono text-[12px] font-bold text-ink">{projectId}</span>
+          <span className={`rounded-[2px] px-2 py-0.5 text-[11px] font-medium font-mono ${confidenceTone(data.extraction)}`}>
+            {Math.round(data.extraction * 100)}% Confidence
+          </span>
+          {currentVersion ? (
+            <button
+              type="button"
+              onClick={() => setShowVersionDrawer(true)}
+              className="rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] font-mono text-ink-2 hover:border-ink hover:text-ink transition-colors cursor-pointer"
+              title={lang === "th" ? "ดูประวัติเวอร์ชันและย้อนกลับ" : "View version history and rollback"}
+            >
+              v{currentVersion} ↗
+            </button>
+          ) : null}
         </div>
 
-        <div className="flex items-center gap-2">
-          <a
-            href={`https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${projectId}`}
-            target="_blank"
-            rel="noreferrer"
-            className={`${btn.secondary} text-[11px] py-1 px-2.5`}
-          >
-            📄 {lang === "th" ? "เปิดเทียบไฟล์ต้นฉบับ e-GP" : "View e-GP source"} ↗
-          </a>
+        <div className="flex flex-wrap items-center gap-2">
+          {data.details?.evidence ? (
+            <button
+              type="button"
+              onClick={() => setShowEvidenceDrawer(true)}
+              className={`${btn.secondary} text-[11px] h-8 px-2.5 flex items-center gap-1`}
+            >
+              <span>📄</span>
+              <span>{lang === "th" ? "หลักฐานอ้างอิง TOR" : "Grounding Evidence"}</span>
+            </button>
+          ) : null}
           <a
             href={`/tor/${projectId}`}
             target="_blank"
             rel="noreferrer"
-            className={`${btn.secondary} text-[11px] py-1 px-2.5`}
+            className={`${btn.secondary} text-[11px] h-8 px-2.5 flex items-center gap-1`}
           >
-            🌐 {lang === "th" ? "ดูหน้าประกาศบนเว็บ GIPDP" : "View on GIPDP"} ↗
+            <span>{lang === "th" ? "ดูหน้าสาธารณะ" : "Public View"}</span>
+            <span className="text-[10px] opacity-75">↗</span>
           </a>
           <button
             type="button"
             disabled={isReExtracting}
-            onClick={handleReExtract}
-            className={`${btn.ghost} text-[11px] py-1 px-2.5`}
+            onClick={handleReExtractTrigger}
+            className={`${btn.secondary} text-[11px] h-8 px-2.5 text-ink-2`}
           >
             {isReExtracting
               ? lang === "th"
-                ? "กำลังสั่ง..."
+                ? "กำลังส่งอ่าน..."
                 : "Queueing..."
               : lang === "th"
-              ? "⚡ สั่งให้อ่านใหม่"
-              : "Re-run extraction"}
+                ? "ส่งอ่านใหม่"
+                : "Re-extract"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowReclassifyModal(true)}
+            className="rounded-[3px] border border-risk-line bg-risk-bg px-2.5 h-8 text-[11px] font-medium text-risk hover:opacity-85 transition-opacity cursor-pointer"
+          >
+            {lang === "th" ? "คัดออกนอกขอบเขต" : "Reclassify"}
+          </button>
+          <button
+            type="submit"
+            form="review-form"
+            disabled={isSaving || hasValidationErrors}
+            className={`${btn.primary} text-[12px] h-8 px-4 font-semibold`}
+          >
+            {isSaving
+              ? lang === "th"
+                ? "กำลังบันทึก..."
+                : "Saving..."
+              : lang === "th"
+                ? "บันทึกและอนุมัติ (Approve & Publish)"
+                : "Approve & Publish"}
           </button>
         </div>
       </div>
 
-      {/* Header Banner */}
-      <Panel className="p-5 mb-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-[2px] border border-line-2 bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-ink">
-                {projectId}
-              </span>
-              <span
-                className={`rounded-[2px] px-1.5 py-0.5 text-[11px] font-semibold ${
-                  data.reviewStatus === "approved"
-                    ? "bg-open-bg text-open border border-open-line"
-                    : data.reviewStatus === "rejected"
-                    ? "bg-risk-bg text-risk border border-risk-line"
-                    : "bg-surface-2 text-ink-2 border border-line-2"
+      {/* Notifications */}
+      {errorMessage && (
+        <div className="mb-4 rounded-[3px] border border-risk-line bg-risk-bg p-3 text-[13px] text-risk">
+          {errorMessage}
+        </div>
+      )}
+      {saveSuccess && (
+        <div className="mb-4 rounded-[3px] border border-open-line bg-open-bg p-3 text-[13px] text-open">
+          {lang === "th"
+            ? "✓ บันทึกการแก้ไขและอนุมัติข้อมูลเรียบร้อยแล้ว ข้อมูลจะแสดงผลบนหน้า TOR ทันที"
+            : "✓ Changes saved and TOR approved successfully. The public page is updated."}
+        </div>
+      )}
+      {reExtractNotice && (
+        <div className="mb-4 rounded-[3px] border border-amend-line bg-amend-bg p-3 text-[13px] text-amend">
+          {reExtractNotice}
+        </div>
+      )}
+
+      {/* Main Workspace Layout */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+        {/* Sticky Sidebar Navigation (10 Sections) */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-20 flex flex-col gap-1 rounded-[3px] border border-line bg-surface p-2 shadow-xs">
+            <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-3">
+              {lang === "th" ? "หัวข้อข้อมูล TOR ทั้ง 10 ส่วน" : "10 TOR Sections"}
+            </span>
+            {sectionsList.map((sec) => (
+              <button
+                key={sec.id}
+                type="button"
+                onClick={() => scrollToSection(sec.id)}
+                className={`text-left px-3 py-2 text-[12px] rounded-[2px] transition-colors cursor-pointer truncate ${
+                  activeSection === sec.id
+                    ? "bg-surface-2 font-semibold text-ink border-l-2 border-ink"
+                    : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                 }`}
               >
-                {data.reviewStatus === "approved"
-                  ? lang === "th"
-                    ? "✓ อนุมัติและเผยแพร่แล้ว"
-                    : "Approved"
-                  : data.reviewStatus === "rejected"
-                  ? lang === "th"
-                    ? "✕ ปฏิเสธ (ไม่ใช่ IT)"
-                    : "Rejected (Non-IT)"
-                  : lang === "th"
-                  ? "⏳ รอตรวจทาน (Pending Review)"
-                  : "Pending Review"}
-              </span>
-              {data.misclassified && (
-                <span className="rounded-[2px] border border-risk-line bg-risk-bg px-1.5 py-0.5 text-[11px] text-risk font-medium">
-                  ⚠️ {lang === "th" ? "อาจจำแนกหมวดหมู่ผิด" : "Suspected Misclassification"}
-                </span>
-              )}
-            </div>
-
-            <h1 className="mt-2 text-[18px] sm:text-[20px] font-semibold text-ink leading-tight">
-              {data.title}
-            </h1>
-            <p className="mt-1 text-[13px] text-ink-2">{data.agency}</p>
-          </div>
-
-          <div className="flex items-center gap-4 self-start border-t border-line sm:border-t-0 sm:border-l sm:pl-4 pt-3 sm:pt-0">
-            <div className="text-right">
-              <span className="text-[10px] uppercase tracking-wider text-ink-3 block">
-                {lang === "th" ? "ความมั่นใจการสกัด" : "Extraction Confidence"}
-              </span>
-              <span
-                className={`inline-block mt-0.5 rounded-[2px] px-2 py-0.5 text-[13px] font-mono font-semibold ${confidenceTone(
-                  data.extraction,
-                )}`}
-              >
-                {Math.round(data.extraction * 100)}%
-              </span>
-            </div>
-
-            {data.ocr != null && (
-              <div className="text-right">
-                <span className="text-[10px] uppercase tracking-wider text-ink-3 block">
-                  {lang === "th" ? "คะแนน OCR" : "OCR Score"}
-                </span>
-                <span className="inline-block mt-0.5 font-mono text-[13px] font-semibold text-ink">
-                  {Math.round(data.ocr * 100)}%
-                </span>
-              </div>
-            )}
+                {lang === "th" ? sec.labelTh : sec.labelEn}
+              </button>
+            ))}
           </div>
         </div>
 
-        {reExtractNotice && (
-          <div className="mt-4 rounded-[2px] border border-open-line bg-open-bg p-2.5 text-[12px] text-open">
-            ✓ {reExtractNotice}
-          </div>
-        )}
+        {/* Content Form Editor */}
+        <div className="lg:col-span-3">
+          <form id="review-form" onSubmit={handleSaveAndPublish} className="flex flex-col gap-6">
 
-        {errorMessage && (
-          <div className="mt-4 rounded-[2px] border border-risk-line bg-risk-bg p-2.5 text-[12px] text-risk">
-            ⚠️ {errorMessage}
-          </div>
-        )}
-
-        {saveSuccess && (
-          <div className="mt-4 rounded-[2px] border border-open-line bg-open-bg p-2.5 text-[12px] text-open font-medium">
-            ✓ {lang === "th" ? "บันทึกและเผยแพร่ข้อมูลสำเร็จ! กำลังกลับหน้ารายการ..." : "Successfully saved and published! Returning..."}
-          </div>
-        )}
-      </Panel>
-
-      {/* Main Form */}
-      <form onSubmit={handleSaveAndPublish} className="flex flex-col gap-6 pb-28">
-        {/* Section 1: Core Info & Budget */}
-        <Panel className="p-5">
-          <SectionHeading
-            sub={
-              lang === "th"
-                ? "ข้อมูลโครงการพื้นฐานที่ใช้ในการแสดงผลและจัดทำดัชนีสืบค้น"
-                : "Essential procurement facts for indexing and public display"
-            }
-          >
-            {lang === "th" ? "1. ข้อมูลโครงการและงบประมาณ (Core Details & Budget)" : "1. Core Details & Budget"}
-          </SectionHeading>
-
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="field-title">{lang === "th" ? "ชื่อโครงการ (Project Title)" : "Project Title"} *</Label>
-                <FieldConfidenceBadge confidence={getFieldScore("Title")} lang={lang} />
-              </div>
-              <input
-                id="field-title"
-                type="text"
-                required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className={input}
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="field-agency">{lang === "th" ? "หน่วยงานเจ้าของโครงการ (Agency Name)" : "Agency Name"} *</Label>
-                <FieldConfidenceBadge confidence={getFieldScore("Agency")} lang={lang} />
-              </div>
-              <input
-                id="field-agency"
-                type="text"
-                required
-                value={agency}
-                onChange={(e) => setAgency(e.target.value)}
-                className={input}
-              />
-            </div>
-
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="field-ref-price">{lang === "th" ? "ราคากลาง (Reference Price THB)" : "Reference Price (THB)"}</Label>
-                <FieldConfidenceBadge confidence={getFieldScore("Reference Price")} lang={lang} />
-              </div>
-              <input
-                id="field-ref-price"
-                type="text"
-                value={referencePriceTHB}
-                onChange={(e) => setReferencePriceTHB(e.target.value)}
-                placeholder="เช่น 1,500,000"
-                className={`${input} ${!refPriceCheck.valid ? "!border-risk text-risk" : ""}`}
-              />
-              {!refPriceCheck.valid && (
-                <p className="mt-1 text-[11px] font-medium text-risk">
-                  {lang === "th"
-                    ? "⚠️ ข้อมูลไม่ถูกต้อง: ต้องเป็นตัวเลขเท่านั้น (เช่น 1,500,000 หรือ 1500000)"
-                    : "⚠️ Invalid format: numbers only (e.g. 1,500,000)"}
+            {/* SECTION 1: Identification & Classification */}
+            <Panel id="sec-identification" className="p-5">
+              <div className="border-b border-line pb-3">
+                <SectionHeading>
+                  {lang === "th" ? "1. ข้อมูลทั่วไปและการจัดประเภท (Identification & Classification)" : "1. Project Identification & Scope"}
+                </SectionHeading>
+                <p className="text-[12px] text-ink-3 mt-1">
+                  {lang === "th" ? "ชื่อโครงการ หน่วยงาน และประเภทงานตามประกาศทางการ" : "Project identity, procuring agency, and procurement categorization"}
                 </p>
-              )}
-            </div>
-
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="field-budget">{lang === "th" ? "งบประมาณ (Approved Budget THB)" : "Budget (THB)"}</Label>
-                <FieldConfidenceBadge confidence={getFieldScore("Budget")} lang={lang} />
               </div>
-              <input
-                id="field-budget"
-                type="text"
-                value={budgetTHB}
-                onChange={(e) => setBudgetTHB(e.target.value)}
-                placeholder="เช่น 1,800,000"
-                className={`${input} ${!budgetCheck.valid ? "!border-risk text-risk" : ""}`}
-              />
-              {!budgetCheck.valid && (
-                <p className="mt-1 text-[11px] font-medium text-risk">
-                  {lang === "th"
-                    ? "⚠️ ข้อมูลไม่ถูกต้อง: ต้องเป็นตัวเลขเท่านั้น (เช่น 1,800,000 หรือ 1800000)"
-                    : "⚠️ Invalid format: numbers only (e.g. 1,800,000)"}
-                </p>
-              )}
-            </div>
 
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="field-deadline">{lang === "th" ? "กำหนดวันยื่นข้อเสนอ (Submission Deadline)" : "Submission Deadline"}</Label>
-                <FieldConfidenceBadge confidence={getFieldScore("Deadline", 0.75)} lang={lang} />
-              </div>
-              <input
-                id="field-deadline"
-                type="date"
-                value={submissionDeadline}
-                onChange={(e) => setSubmissionDeadline(e.target.value)}
-                className={input}
-              />
-            </div>
-          </div>
-        </Panel>
-
-        {/* Section 2: Scope & System Architecture */}
-        <Panel className="p-5">
-          <SectionHeading
-            sub={
-              lang === "th"
-                ? "วัตถุประสงค์ ประเภทสถาปัตยกรรม และระดับความซับซ้อนของระบบ"
-                : "Objective, system archetype, and structural tier"
-            }
-          >
-            {lang === "th" ? "2. ขอบเขตงานและสถาปัตยกรรม (Scope & System Architecture)" : "2. Scope & Architecture"}
-          </SectionHeading>
-
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="field-objective">{lang === "th" ? "วัตถุประสงค์โครงการ (Project Objective)" : "Objective"}</Label>
-                <FieldConfidenceBadge confidence={getFieldScore("Objective")} lang={lang} />
-              </div>
-              <textarea
-                id="field-objective"
-                rows={3}
-                value={objective}
-                onChange={(e) => setObjective(e.target.value)}
-                placeholder={lang === "th" ? "สรุปเป้าหมายหลักและขอบเขตงาน..." : "Brief project objective..."}
-                className={input}
-              />
-            </div>
-
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="field-archetype">{lang === "th" ? "หมวดหมู่สถาปัตยกรรมระบบ (System Archetype)" : "System Archetype"}</Label>
-                <FieldConfidenceBadge confidence={getFieldScore("Archetype")} lang={lang} />
-              </div>
-              <input
-                id="field-archetype"
-                type="text"
-                value={systemArchetype}
-                onChange={(e) => setSystemArchetype(e.target.value)}
-                placeholder="เช่น Web Application, Data Warehouse, Infrastructure"
-                className={input}
-              />
-            </div>
-
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="field-tier">{lang === "th" ? "ระดับความซับซ้อน (Complexity Tier)" : "Complexity Tier"}</Label>
-                <FieldConfidenceBadge confidence={getFieldScore("Tier")} lang={lang} />
-              </div>
-              <input
-                id="field-tier"
-                type="text"
-                value={complexityTier}
-                onChange={(e) => setComplexityTier(e.target.value)}
-                placeholder="เช่น Low, Medium, High, Enterprise Tier 2"
-                className={input}
-              />
-            </div>
-          </div>
-        </Panel>
-
-        {/* Section 3: Contract & Commercial Conditions */}
-        <Panel className="p-5">
-          <SectionHeading
-            sub={
-              lang === "th"
-                ? "ระยะเวลาส่งมอบ รับประกัน อัตราค่าปรับ และเงื่อนไขการจ่ายเงิน"
-                : "Duration, warranty, penalty clauses, and milestones"
-            }
-          >
-            {lang === "th" ? "3. เงื่อนไขสัญญาและพาณิชย์ (Contract & Commercial Conditions)" : "3. Contract & Commercial"}
-          </SectionHeading>
-
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="field-duration">{lang === "th" ? "ระยะเวลาสัญญา (วัน / Contract Duration Days)" : "Contract Duration (Days)"}</Label>
-                <FieldConfidenceBadge confidence={getFieldScore("Duration", 0.80)} lang={lang} />
-              </div>
-              <input
-                id="field-duration"
-                type="text"
-                value={contractDurationDays}
-                onChange={(e) => setContractDurationDays(e.target.value)}
-                placeholder="เช่น 180"
-                className={`${input} ${!durationCheck.valid ? "!border-risk text-risk" : ""}`}
-              />
-              {!durationCheck.valid && (
-                <p className="mt-1 text-[11px] font-medium text-risk">
-                  {lang === "th"
-                    ? "⚠️ ต้องระบุเป็นจำนวนวัน (ตัวเลขจำนวนเต็มบวก)"
-                    : "⚠️ Must be positive integer days"}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="field-warranty">{lang === "th" ? "ระยะเวลารับประกัน (ปี / Warranty Years)" : "Warranty (Years)"}</Label>
-                <FieldConfidenceBadge confidence={getFieldScore("Warranty", 0.80)} lang={lang} />
-              </div>
-              <input
-                id="field-warranty"
-                type="text"
-                value={warrantyYears}
-                onChange={(e) => setWarrantyYears(e.target.value)}
-                placeholder="เช่น 1 หรือ 2"
-                className={`${input} ${!warrantyCheck.valid ? "!border-risk text-risk" : ""}`}
-              />
-              {!warrantyCheck.valid && (
-                <p className="mt-1 text-[11px] font-medium text-risk">
-                  {lang === "th"
-                    ? "⚠️ ต้องระบุเป็นตัวเลขจำนวนปี"
-                    : "⚠️ Must be a valid number of years"}
-                </p>
-              )}
-            </div>
-
-            <div className="sm:col-span-2">
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="field-penalty">{lang === "th" ? "เงื่อนไขค่าปรับ (Penalty Clause)" : "Penalty Clause"}</Label>
-                <FieldConfidenceBadge confidence={getFieldScore("Penalty", 0.80)} lang={lang} />
-              </div>
-              <input
-                id="field-penalty"
-                type="text"
-                value={penaltyClause}
-                onChange={(e) => setPenaltyClause(e.target.value)}
-                placeholder="เช่น ร้อยละ 0.20 ต่อวันของมูลค่าสัญญา"
-                className={input}
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="field-payment">{lang === "th" ? "เงื่อนไขและงวดการจ่ายเงิน (Payment Terms)" : "Payment Terms"}</Label>
-                <FieldConfidenceBadge confidence={getFieldScore("Payment")} lang={lang} />
-              </div>
-              <textarea
-                id="field-payment"
-                rows={2}
-                value={paymentTerms}
-                onChange={(e) => setPaymentTerms(e.target.value)}
-                placeholder="เช่น แบ่งจ่าย 4 งวดตามผลงาน..."
-                className={input}
-              />
-            </div>
-          </div>
-        </Panel>
-
-        {/* Section 4: Vendor Eligibility */}
-        <Panel className="p-5">
-          <SectionHeading
-            sub={
-              lang === "th"
-                ? "เกณฑ์คุณสมบัตินิติบุคคล ผลงาน และมูลค่าผลงานขั้นต่ำที่กำหนดใน TOR"
-                : "Legal qualifications, experience, and required baseline revenue"
-            }
-          >
-            {lang === "th" ? "4. คุณสมบัติผู้ยื่นข้อเสนอ (Vendor Eligibility Criteria)" : "4. Vendor Eligibility"}
-          </SectionHeading>
-
-          <div className="mt-4 flex flex-col gap-4">
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <Label htmlFor="field-comp-req">
-                  {lang === "th" ? "คุณสมบัติบริษัท (Company Requirements - บรรทัดละ 1 ข้อ)" : "Company Requirements (One per line)"}
-                </Label>
-                <FieldConfidenceBadge confidence={getFieldScore("Company")} lang={lang} />
-              </div>
-              <textarea
-                id="field-comp-req"
-                rows={4}
-                value={companyRequirements}
-                onChange={(e) => setCompanyRequirements(e.target.value)}
-                placeholder={"- นิติบุคคลจดทะเบียนในประเทศไทย\n- ทุนจดทะเบียนไม่น้อยกว่า 5,000,000 บาท\n- มีมาตรฐาน ISO/IEC 29110"}
-                className={input}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="sm:col-span-2">
-                <div className="mb-1 flex items-center justify-between">
-                  <Label htmlFor="field-prev-exp">{lang === "th" ? "ผลงานและประสบการณ์ที่ต้องมี (Previous Experience)" : "Required Experience"}</Label>
-                  <FieldConfidenceBadge confidence={getFieldScore("Experience")} lang={lang} />
+              <div className="mt-4 flex flex-col gap-4">
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <Label htmlFor="field-title">{lang === "th" ? "ชื่อโครงการ (ภาษาไทย)" : "Project Title (Thai)"}</Label>
+                    <FieldConfidenceBadge confidence={getFieldScore("Title")} lang={lang} />
+                  </div>
+                  <input
+                    id="field-title"
+                    type="text"
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className={input}
+                  />
                 </div>
-                <input
-                  id="field-prev-exp"
-                  type="text"
-                  value={previousExperience}
-                  onChange={(e) => setPreviousExperience(e.target.value)}
-                  placeholder="เช่น มีผลงานพัฒนาระบบคลาวด์ภาครัฐ..."
-                  className={input}
-                />
-              </div>
 
-              <div>
-                <div className="mb-1 flex items-center justify-between">
-                  <Label htmlFor="field-min-exp">{lang === "th" ? "มูลค่าผลงานขั้นต่ำ (THB)" : "Min Experience Value (THB)"}</Label>
-                  <FieldConfidenceBadge confidence={getFieldScore("MinExp")} lang={lang} />
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <Label htmlFor="field-title-en">{lang === "th" ? "ชื่อโครงการ (ภาษาอังกฤษ / Title EN)" : "Project Title (English)"}</Label>
+                  </div>
+                  <input
+                    id="field-title-en"
+                    type="text"
+                    value={titleEn}
+                    onChange={(e) => setTitleEn(e.target.value)}
+                    placeholder="e.g. Bangkok Smart Traffic Data Infrastructure Development"
+                    className={input}
+                  />
                 </div>
-                <input
-                  id="field-min-exp"
-                  type="text"
-                  value={previousExperienceMinTHB}
-                  onChange={(e) => setPreviousExperienceMinTHB(e.target.value)}
-                  placeholder="เช่น 2,500,000"
-                  className={`${input} ${!minExpCheck.valid ? "!border-risk text-risk" : ""}`}
-                />
-                {!minExpCheck.valid && (
-                  <p className="mt-1 text-[11px] font-medium text-risk">
-                    {lang === "th"
-                      ? "⚠️ ข้อมูลไม่ถูกต้อง: ต้องเป็นตัวเลขเท่านั้น"
-                      : "⚠️ Invalid format: numbers only"}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </Panel>
 
-        {/* Section 5: Technical Stack */}
-        <Panel className="p-5">
-          <SectionHeading
-            sub={
-              lang === "th"
-                ? "เลือก ค้นหา หรือเพิ่มเทคโนโลยี สแต็ก ภาษา ฐานข้อมูล และเครื่องมือที่กำหนดใน TOR"
-                : "Select, search, or add technologies, frameworks, and databases required in the TOR"
-            }
-          >
-            {lang === "th" ? "5. สเปกเทคโนโลยีและเครื่องมือ (Required Technologies)" : "5. Required Tech Stack"}
-          </SectionHeading>
-
-          <div className="mt-4">
-            <div className="mb-1 flex items-center justify-between">
-              <Label htmlFor="tech-search-input">
-                {lang === "th" ? "เทคโนโลยีที่กำหนด (Required Technologies)" : "Required Technologies"}
-              </Label>
-              <FieldConfidenceBadge confidence={getFieldScore("Technologies")} lang={lang} />
-            </div>
-
-            {/* Selected tech chips */}
-            {selectedTechs.length > 0 ? (
-              <div className="mb-3.5 rounded-[4px] border border-line bg-surface-2/40 p-3 shadow-[inset_0_1px_1px_rgba(0,0,0,0.02)]">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[12px] font-semibold text-ink">
-                    {lang === "th"
-                      ? `เทคโนโลยีที่ระบุแล้ว (${selectedTechs.length})`
-                      : `Selected Technologies (${selectedTechs.length})`}
-                  </span>
-                  <span className="text-[11px] text-ink-3">
-                    {lang === "th" ? "คลิก ✕ เพื่อนำออก" : "Click ✕ to remove"}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedTechs.map((tech) => (
-                    <span
-                      key={tech}
-                      className="group inline-flex items-center gap-1.5 rounded-[3px] border border-ink/80 bg-ink px-2.5 py-1 font-mono text-[11px] font-medium text-surface transition-colors"
-                    >
-                      <span>{tech}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeTech(tech)}
-                        title={lang === "th" ? `ลบ ${tech}` : `Remove ${tech}`}
-                        className="cursor-pointer text-[11px] opacity-70 hover:opacity-100 hover:text-red-400"
-                        aria-label={`Remove ${tech}`}
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="mb-3 text-[12px] text-ink-3 italic">
-                {lang === "th"
-                  ? "ยังไม่ได้ระบุเทคโนโลยี (สามารถค้นหาเพื่อเลือก หรือพิมพ์เพิ่มด้านล่าง)"
-                  : "No technologies specified yet (search or type to add below)"}
-              </p>
-            )}
-
-            {/* Search and Autocomplete Input */}
-            <div className="relative max-w-lg">
-              <div className="relative flex items-center">
-                <span className="pointer-events-none absolute left-3 text-ink-3">
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <Label htmlFor="field-agency">{lang === "th" ? "หน่วยงานผู้จัดซื้อ (Agency Name)" : "Procuring Organization"}</Label>
+                      <FieldConfidenceBadge confidence={getFieldScore("Agency")} lang={lang} />
+                    </div>
+                    <input
+                      id="field-agency"
+                      type="text"
+                      required
+                      value={agency}
+                      onChange={(e) => setAgency(e.target.value)}
+                      className={input}
                     />
-                  </svg>
-                </span>
-                <input
-                  id="tech-search-input"
-                  type="text"
-                  value={searchTech}
-                  onChange={(e) => setSearchTech(e.target.value)}
-                  onFocus={() => setIsTechSearchFocused(true)}
-                  onBlur={() => setTimeout(() => setIsTechSearchFocused(false), 220)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (filteredSuggestions.length > 0) {
-                        toggleTech(filteredSuggestions[0].name);
-                        setSearchTech("");
-                      } else if (searchTech.trim()) {
-                        addCustomTech(searchTech.trim());
-                        setSearchTech("");
-                      }
-                    } else if (e.key === "Escape") {
-                      setIsTechSearchFocused(false);
-                    }
-                  }}
-                  placeholder={
-                    lang === "th"
-                      ? "ค้นหาเทคโนโลยี (เช่น Docker, PostgreSQL, React, Windows)... หรือพิมพ์แล้วกด Enter"
-                      : "Search technologies (e.g. Docker, PostgreSQL, React)... or type and press Enter"
-                  }
-                  className={`${input} pl-8.5 pr-8 text-[12px]`}
-                />
-                {searchTech && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchTech("")}
-                    className="absolute right-2.5 text-[14px] text-ink-3 hover:text-ink cursor-pointer"
-                    aria-label="Clear"
-                  >
-                    &times;
-                  </button>
-                )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="field-dept">{lang === "th" ? "สำนัก / กอง / ฝ่ายที่รับผิดชอบ (Department)" : "Department / Division"}</Label>
+                    <input
+                      id="field-dept"
+                      type="text"
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      placeholder="เช่น กองสารสนเทศระบายน้ำ"
+                      className={`${input} mt-1`}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="field-category">{lang === "th" ? "หมวดหมู่งานไอที (Procurement Category)" : "IT Category"}</Label>
+                    <select
+                      id="field-category"
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className={`${input} mt-1 cursor-pointer`}
+                    >
+                      <option value="software-development">พัฒนาซอฟต์แวร์ / ระบบสารสนเทศ (Software Development)</option>
+                      <option value="hardware-infrastructure">โครงสร้างพื้นฐานฮาร์ดแวร์ / เครือข่าย (Hardware & Infra)</option>
+                      <option value="cloud-and-datacenter">ระบบคลาวด์และศูนย์ข้อมูล (Cloud & Data Center)</option>
+                      <option value="data-and-ai">ระบบข้อมูล ปัญญาประดิษฐ์ และวิเคราะห์ (Data & AI)</option>
+                      <option value="cybersecurity">ความมั่นคงปลอดภัยไซเบอร์ (Cybersecurity)</option>
+                      <option value="maintenance-and-support">บำรุงรักษาและสนับสนุนระบบ (Maintenance & Support)</option>
+                      <option value="non-IT">งานนอกขอบเขต / ไม่ใช่งานไอที (Out of Scope / Non-IT)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="field-status">{lang === "th" ? "สถานะการจัดซื้อ (Procurement Status)" : "Procurement Status"}</Label>
+                    <select
+                      id="field-status"
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                      className={`${input} mt-1 cursor-pointer`}
+                    >
+                      <option value="Draft">ร่างประกาศ (Draft)</option>
+                      <option value="Open">เปิดรับซอง / ยื่นข้อเสนอ (Open)</option>
+                      <option value="Awarded">ประกาศผู้ชนะแล้ว (Awarded)</option>
+                      <option value="Closed">สิ้นสุดการยื่นข้อเสนอ (Closed)</option>
+                      <option value="Cancelled">ยกเลิกประกาศ (Cancelled)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </Panel>
+
+            {/* SECTION 2: Key Facts & Deadlines */}
+            <Panel id="sec-keyfacts" className="p-5">
+              <div className="border-b border-line pb-3">
+                <SectionHeading>
+                  {lang === "th" ? "2. ข้อมูลสำคัญ ราคา และกำหนดการ (Key Facts & Deadlines)" : "2. Procurement Facts & Deadlines"}
+                </SectionHeading>
+                <p className="text-[12px] text-ink-3 mt-1">
+                  {lang === "th" ? "งบประมาณ ราคากลาง กำหนดส่งมอบ และเงื่อนไขค่าปรับ" : "Budget, reference price, deadlines, and penalty terms"}
+                </p>
               </div>
 
-              {/* Suggestions dropdown */}
-              {isTechSearchFocused && (
-                <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-60 overflow-y-auto rounded-[3px] border border-line bg-surface shadow-xl">
-                  {filteredSuggestions.length > 0 ? (
-                    <ul className="py-1">
-                      {filteredSuggestions.map((item) => {
-                        const isSelected = selectedTechs.includes(item.name);
-                        return (
-                          <li key={item.name}>
-                            <button
-                              type="button"
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                toggleTech(item.name);
-                                setSearchTech("");
-                              }}
-                              className="flex w-full items-center justify-between px-3 py-1.5 text-left text-[12px] font-mono hover:bg-surface-2 transition-colors cursor-pointer"
-                            >
-                              <span className="flex items-center gap-2">
-                                <span className={isSelected ? "font-semibold text-ink" : "text-ink-2"}>
-                                  {item.name}
-                                </span>
-                                {item.category && (
-                                  <span className="rounded bg-surface-3 px-1.5 py-0.2 text-[10px] text-ink-3">
-                                    {item.category}
-                                  </span>
-                                )}
-                              </span>
-                              <span
-                                className={`text-[11px] ${
-                                  isSelected ? "font-bold text-open" : "text-ink-3"
+              <div className="mt-4 flex flex-col gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <Label htmlFor="field-budget">{lang === "th" ? "งบประมาณ (Approved Budget - บาท)" : "Approved Budget (THB)"}</Label>
+                      <FieldConfidenceBadge confidence={getFieldScore("Budget")} lang={lang} />
+                    </div>
+                    <input
+                      id="field-budget"
+                      type="text"
+                      value={budgetTHB}
+                      onChange={(e) => setBudgetTHB(e.target.value)}
+                      placeholder="เช่น 1,800,000"
+                      className={`${input} ${!budgetCheck.valid ? "border-risk focus:border-risk" : ""}`}
+                    />
+                    {!budgetCheck.valid ? (
+                      <p className="mt-1 text-[11px] text-risk">
+                        {lang === "th" ? "โปรดระบุเป็นตัวเลขเท่านั้น (เช่น 1,500,000 หรือ 1500000)" : "Must be a valid positive number"}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <Label htmlFor="field-ref-price">{lang === "th" ? "ราคากลาง (Reference Price - บาท)" : "Reference Price (THB)"}</Label>
+                      <FieldConfidenceBadge confidence={getFieldScore("Reference")} lang={lang} />
+                    </div>
+                    <input
+                      id="field-ref-price"
+                      type="text"
+                      value={referencePriceTHB}
+                      onChange={(e) => setReferencePriceTHB(e.target.value)}
+                      placeholder="เช่น 1,750,000"
+                      className={`${input} ${!refPriceCheck.valid ? "border-risk focus:border-risk" : ""}`}
+                    />
+                    {!refPriceCheck.valid ? (
+                      <p className="mt-1 text-[11px] text-risk">
+                        {lang === "th" ? "โปรดระบุเป็นตัวเลขเท่านั้น (เช่น 1,500,000 หรือ 1500000)" : "Must be a valid positive number"}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <Label htmlFor="field-deadline">{lang === "th" ? "วันสิ้นสุดรับซอง (Submission Deadline)" : "Submission Deadline"}</Label>
+                      <FieldConfidenceBadge confidence={getFieldScore("Deadline")} lang={lang} />
+                    </div>
+                    <input
+                      id="field-deadline"
+                      type="date"
+                      value={submissionDeadline}
+                      onChange={(e) => setSubmissionDeadline(e.target.value)}
+                      className={input}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="field-comment-deadline">{lang === "th" ? "วันสิ้นสุดวิจารณ์ (Comment Deadline)" : "Public Hearing Deadline"}</Label>
+                    <input
+                      id="field-comment-deadline"
+                      type="date"
+                      value={commentDeadline}
+                      onChange={(e) => setCommentDeadline(e.target.value)}
+                      className={`${input} mt-1`}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="field-posted-date">{lang === "th" ? "วันที่ประกาศ (Posted Date)" : "Posted Date"}</Label>
+                    <input
+                      id="field-posted-date"
+                      type="date"
+                      value={postedDate}
+                      onChange={(e) => setPostedDate(e.target.value)}
+                      className={`${input} mt-1`}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="field-duration">{lang === "th" ? "ระยะเวลาสัญญา (Contract Duration - วัน)" : "Contract Duration (Days)"}</Label>
+                    <input
+                      id="field-duration"
+                      type="text"
+                      value={contractDurationDays}
+                      onChange={(e) => setContractDurationDays(e.target.value)}
+                      placeholder="เช่น 180"
+                      className={`${input} mt-1 ${!durationCheck.valid ? "border-risk focus:border-risk" : ""}`}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="field-delivery-period">{lang === "th" ? "ระยะเวลาส่งมอบงาน (Delivery Period - วัน)" : "Delivery Period (Days)"}</Label>
+                    <input
+                      id="field-delivery-period"
+                      type="text"
+                      value={deliveryPeriodDays}
+                      onChange={(e) => setDeliveryPeriodDays(e.target.value)}
+                      placeholder="เช่น 120"
+                      className={`${input} mt-1 ${!deliveryPeriodCheck.valid ? "border-risk focus:border-risk" : ""}`}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="field-warranty">{lang === "th" ? "ระยะเวลารับประกัน (Warranty - ปี)" : "Warranty Period (Years)"}</Label>
+                    <input
+                      id="field-warranty"
+                      type="text"
+                      value={warrantyYears}
+                      onChange={(e) => setWarrantyYears(e.target.value)}
+                      placeholder="เช่น 1 หรือ 2"
+                      className={`${input} mt-1 ${!warrantyCheck.valid ? "border-risk focus:border-risk" : ""}`}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="field-method">{lang === "th" ? "วิธีการจัดซื้อจัดจ้าง (Procurement Method)" : "Procurement Method"}</Label>
+                    <input
+                      id="field-method"
+                      type="text"
+                      value={procurementMethod}
+                      onChange={(e) => setProcurementMethod(e.target.value)}
+                      placeholder="เช่น ประกวดราคาอิเล็กทรอนิกส์ (e-bidding) หรือ วิธีคัดเลือก"
+                      className={`${input} mt-1`}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <Label htmlFor="field-penalty">{lang === "th" ? "เงื่อนไขค่าปรับล่าช้า (Penalty Clause)" : "Penalty Clause"}</Label>
+                      <FieldConfidenceBadge confidence={getFieldScore("Penalty")} lang={lang} />
+                    </div>
+                    <input
+                      id="field-penalty"
+                      type="text"
+                      value={penaltyClause}
+                      onChange={(e) => setPenaltyClause(e.target.value)}
+                      placeholder="เช่น ร้อยละ 0.20 ต่อวันของมูลค่าสัญญา"
+                      className={input}
+                    />
+                  </div>
+                </div>
+              </div>
+            </Panel>
+
+            {/* SECTION 3: Project Overview & Scope */}
+            <Panel id="sec-overview" className="p-5">
+              <div className="border-b border-line pb-3">
+                <SectionHeading>
+                  {lang === "th" ? "3. ภาพรวมโครงการและขอบเขตงาน (Project Overview & Scope)" : "3. Project Overview & Scope"}
+                </SectionHeading>
+                <p className="text-[12px] text-ink-3 mt-1">
+                  {lang === "th" ? "วัตถุประสงค์ สถาปัตยกรรมระบบ และขอบเขตงานภาพรวม" : "Objective, architecture archetype, and high-level scope"}
+                </p>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-4">
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <Label htmlFor="field-objective">{lang === "th" ? "วัตถุประสงค์โครงการ (Project Objective)" : "Project Objective"}</Label>
+                    <FieldConfidenceBadge confidence={getFieldScore("Objective")} lang={lang} />
+                  </div>
+                  <textarea
+                    id="field-objective"
+                    rows={4}
+                    value={objective}
+                    onChange={(e) => setObjective(e.target.value)}
+                    placeholder={lang === "th" ? "ระบุวัตถุประสงค์หลักของโครงการตามที่ระบุในเอกสาร TOR..." : "Specify project objectives..."}
+                    className={`${textarea} min-h-[100px]`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="field-archetype">{lang === "th" ? "รูปแบบสถาปัตยกรรมระบบ (System Archetype)" : "System Archetype"}</Label>
+                    <select
+                      id="field-archetype"
+                      value={systemArchetype}
+                      onChange={(e) => setSystemArchetype(e.target.value)}
+                      className={`${input} mt-1 cursor-pointer`}
+                    >
+                      <option value="">{lang === "th" ? "-- เลือกสถาปัตยกรรมระบบ --" : "-- Select System Archetype --"}</option>
+                      <option value="Web Application">Web Application</option>
+                      <option value="Mobile Application">Mobile Application</option>
+                      <option value="Enterprise Resource Planning">Enterprise Resource Planning (ERP)</option>
+                      <option value="Data Warehouse & AI Analytics">Data Warehouse & AI Analytics</option>
+                      <option value="Cloud Infrastructure">Cloud Infrastructure & Migration</option>
+                      <option value="Network & Security">Network & Security Infrastructure</option>
+                      <option value="Maintenance & Support">Maintenance & Technical Support</option>
+                      <option value="Hardware & Appliances">Hardware & System Appliances</option>
+                      <option value="Other IT System">Other IT System</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="field-tier">{lang === "th" ? "ระดับความซับซ้อนของระบบ (Complexity Tier)" : "Complexity Tier"}</Label>
+                    <select
+                      id="field-tier"
+                      value={complexityTier}
+                      onChange={(e) => setComplexityTier(e.target.value)}
+                      className={`${input} mt-1 cursor-pointer`}
+                    >
+                      <option value="">{lang === "th" ? "-- เลือกระดับความซับซ้อน --" : "-- Select Complexity Tier --"}</option>
+                      <option value="Tier 1 - Standard / Low Complexity">Tier 1 - Standard / Low Complexity</option>
+                      <option value="Tier 2 - Moderate / Mid-Range">Tier 2 - Moderate / Mid-Range</option>
+                      <option value="Tier 3 - Complex / Enterprise">Tier 3 - Complex / Enterprise</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="field-scope">{lang === "th" ? "ขอบเขตงานภาพรวม (High-Level Scope)" : "High-Level Scope"}</Label>
+                  <textarea
+                    id="field-scope"
+                    rows={3}
+                    value={highLevelScope}
+                    onChange={(e) => setHighLevelScope(e.target.value)}
+                    placeholder={lang === "th" ? "สรุปขอบเขตงานภาพรวมที่ผู้รับจ้างต้องดำเนินการ..." : "High-level summary of contractor obligations..."}
+                    className={`${textarea} mt-1 min-h-[90px]`}
+                  />
+                </div>
+
+                <DynamicListEditor
+                  label={lang === "th" ? "องค์ประกอบหลักของระบบ (Major Components)" : "Major System Components"}
+                  items={majorComponents}
+                  onChange={setMajorComponents}
+                  placeholder={lang === "th" ? "เช่น ระบบประมวลผลข้อมูลกลาง (Central API)" : "e.g. Central Processing Engine"}
+                  addLabel={lang === "th" ? "เพิ่มองค์ประกอบระบบ" : "Add Component"}
+                  emptyHint={lang === "th" ? "ยังไม่ได้ระบุองค์ประกอบหลัก (คลิก + เพื่อเพิ่ม)" : "No major components listed"}
+                  lang={lang}
+                />
+              </div>
+            </Panel>
+
+            {/* SECTION 4: Contractor Deliverables */}
+            <Panel id="sec-deliverables" className="p-5">
+              <div className="border-b border-line pb-3">
+                <SectionHeading>
+                  {lang === "th" ? "4. ขอบเขตงานส่งมอบของผู้รับจ้าง (Contractor Deliverables)" : "4. Contractor Deliverables"}
+                </SectionHeading>
+                <p className="text-[12px] text-ink-3 mt-1">
+                  {lang === "th" ? "รายการสิ่งส่งมอบ 4 ด้าน: งานระบบ, งานติดตั้ง, การทดสอบ, และเอกสาร/งานสนับสนุน" : "Deliverables split across system, implementation, validation, and support"}
+                </p>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-5">
+                <DynamicListEditor
+                  label={lang === "th" ? "4.1 สิ่งส่งมอบด้านระบบซอฟต์แวร์/ฮาร์ดแวร์ (System Deliverables)" : "4.1 System Deliverables"}
+                  items={deliverablesSystem}
+                  onChange={setDeliverablesSystem}
+                  placeholder={lang === "th" ? "เช่น ซอร์สโค้ดและโปรแกรมระบบบริหารจัดการข้อมูล..." : "e.g. Software source code and deployed web app..."}
+                  addLabel={lang === "th" ? "เพิ่มสิ่งส่งมอบด้านระบบ" : "Add System Deliverable"}
+                  lang={lang}
+                />
+
+                <DynamicListEditor
+                  label={lang === "th" ? "4.2 สิ่งส่งมอบด้านการติดตั้งและปรับแต่ง (Implementation Deliverables)" : "4.2 Implementation Deliverables"}
+                  items={deliverablesImplementation}
+                  onChange={setDeliverablesImplementation}
+                  placeholder={lang === "th" ? "เช่น รายงานผลการติดตั้งและปรับแต่งค่าความปลอดภัยเซิร์ฟเวอร์..." : "e.g. Server installation & hardening report..."}
+                  addLabel={lang === "th" ? "เพิ่มสิ่งส่งมอบด้านการติดตั้ง" : "Add Implementation Deliverable"}
+                  lang={lang}
+                />
+
+                <DynamicListEditor
+                  label={lang === "th" ? "4.3 สิ่งส่งมอบด้านการทดสอบและตรวจรับ (Validation Deliverables)" : "4.3 Validation Deliverables"}
+                  items={deliverablesValidation}
+                  onChange={setDeliverablesValidation}
+                  placeholder={lang === "th" ? "เช่น รายงานผลการทดสอบเจาะระบบ (Penetration Test Report)..." : "e.g. User Acceptance & Pentest report..."}
+                  addLabel={lang === "th" ? "เพิ่มสิ่งส่งมอบด้านการทดสอบ" : "Add Validation Deliverable"}
+                  lang={lang}
+                />
+
+                <DynamicListEditor
+                  label={lang === "th" ? "4.4 เอกสารและงานสนับสนุน (Supporting Work Deliverables)" : "4.4 Supporting Work Deliverables"}
+                  items={deliverablesSupportingWork}
+                  onChange={setDeliverablesSupportingWork}
+                  placeholder={lang === "th" ? "เช่น คู่มือการใช้งานสำหรับผู้ดูแลระบบและผู้ใช้งานทั่วไป..." : "e.g. Admin & user manuals, SLA documentation..."}
+                  addLabel={lang === "th" ? "เพิ่มเอกสาร/งานสนับสนุน" : "Add Supporting Work"}
+                  lang={lang}
+                />
+              </div>
+            </Panel>
+
+            {/* SECTION 5: Technical Requirements */}
+            <Panel id="sec-tech" className="p-5">
+              <div className="border-b border-line pb-3">
+                <SectionHeading>
+                  {lang === "th" ? "5. ข้อกำหนดด้านเทคโนโลยีและมาตรฐาน (Technical Requirements)" : "5. Technical Requirements & Stack"}
+                </SectionHeading>
+                <p className="text-[12px] text-ink-3 mt-1">
+                  {lang === "th" ? "เทคโนโลยีที่กำหนด คุณลักษณะฮาร์ดแวร์/ซอฟต์แวร์ และเกณฑ์ทางเทคนิค" : "Required tech stack, hardware/software specs, and constraints"}
+                </p>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-5">
+                {/* Tech Stack Selector */}
+                <div>
+                  <Label>
+                    {lang === "th" ? "เทคโนโลยีที่กำหนดใน TOR (Required Technologies)" : "Required Tech Stack"}
+                  </Label>
+                  <p className="text-[12px] text-ink-3 mt-0.5">
+                    {lang === "th" ? "เลือกจากคลังเทคโนโลยีมาตรฐาน หรือเพิ่มเทคโนโลยีพร้อมระบุเวอร์ชัน" : "Select from vocabulary or add custom technologies with version"}
+                  </p>
+
+                  {/* Selected Tags */}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedTechs.map((name) => {
+                      const ver = techVersions[name];
+                      return (
+                        <div
+                          key={name}
+                          className="inline-flex items-center gap-1.5 rounded-[3px] border border-line bg-surface-2 px-2.5 py-1 text-[12px]"
+                        >
+                          <span className="font-medium text-ink">{name}</span>
+                          {ver ? (
+                            <span className="rounded-[2px] bg-ink/10 px-1 py-0.2 text-[10px] font-mono text-ink-2">
+                              {ver}
+                            </span>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => removeTech(name)}
+                            title={lang === "th" ? "ลบ" : "Remove"}
+                            className="text-ink-3 hover:text-risk cursor-pointer ml-1"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Autocomplete Search Bar */}
+                  <div className="relative mt-3">
+                    <input
+                      type="text"
+                      value={searchTech}
+                      onFocus={() => setIsTechSearchFocused(true)}
+                      onBlur={() => setTimeout(() => setIsTechSearchFocused(false), 200)}
+                      onChange={(e) => setSearchTech(e.target.value)}
+                      placeholder={lang === "th" ? "พิมพ์เพื่อค้นหาเทคโนโลยีในคลัง..." : "Type to search vocabulary..."}
+                      className={input}
+                    />
+
+                    {isTechSearchFocused && (
+                      <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-[3px] border border-line bg-surface shadow-lg">
+                        {availableTechs
+                          .filter((t) =>
+                            !searchTech.trim() ||
+                            t.name.toLowerCase().includes(searchTech.trim().toLowerCase())
+                          )
+                          .slice(0, 15)
+                          .map((tech) => {
+                            const isSelected = selectedTechs.includes(tech.name);
+                            return (
+                              <button
+                                key={tech.id}
+                                type="button"
+                                onMouseDown={() => toggleTech(tech.name)}
+                                className={`flex w-full items-center justify-between px-3 py-2 text-left text-[12px] hover:bg-surface-2 cursor-pointer ${
+                                  isSelected ? "bg-open-bg/40 font-semibold text-open" : "text-ink"
                                 }`}
                               >
-                                {isSelected
-                                  ? lang === "th"
-                                    ? "✓ เลือกแล้ว"
-                                    : "✓ Selected"
-                                  : lang === "th"
-                                  ? "+ เพิ่ม"
-                                  : "+ Add"}
-                              </span>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : searchTech.trim() ? (
-                    <div className="p-3">
-                      <p className="text-[12px] text-ink-3 mb-2">
-                        {lang === "th"
-                          ? `ไม่พบ "${searchTech.trim()}" ในฐานข้อมูลระบบ`
-                          : `"${searchTech.trim()}" not found in database vocabulary`}
-                      </p>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          addCustomTech(searchTech.trim());
-                          setSearchTech("");
-                        }}
-                        className="flex w-full items-center justify-between rounded-[2px] bg-surface-2 px-2.5 py-1.5 text-left text-[12px] text-ink transition-colors hover:bg-surface-3 cursor-pointer"
-                      >
-                        <span className="font-mono text-ink">
-                          + {lang === "th" ? `เพิ่ม "${searchTech.trim()}"` : `Add "${searchTech.trim()}"`}
-                        </span>
-                        <span className="text-[10px] text-ink-3">
-                          {lang === "th" ? "กำหนดเป็นเทคโนโลยีใหม่" : "New tech entry"}
-                        </span>
-                      </button>
-                    </div>
-                  ) : null}
-
-                  {searchTech.trim() &&
-                    filteredSuggestions.length > 0 &&
-                    !filteredSuggestions.some(
-                      (s) => s.name.toLowerCase() === searchTech.trim().toLowerCase()
-                    ) && (
-                      <div className="border-t border-line/60 p-2">
-                        <button
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            addCustomTech(searchTech.trim());
-                            setSearchTech("");
-                          }}
-                          className="flex w-full items-center justify-between rounded-[2px] bg-surface-2 px-2.5 py-1 text-left text-[11px] text-ink transition-colors hover:bg-surface-3 cursor-pointer"
-                        >
-                          <span className="font-mono text-ink">
-                            + {lang === "th" ? `เพิ่ม "${searchTech.trim()}" (กำหนดเอง)` : `Add "${searchTech.trim()}" (custom)`}
-                          </span>
-                        </button>
+                                <span>{tech.name}</span>
+                                <span className="font-mono text-[10px] text-ink-3 uppercase">{tech.category}</span>
+                              </button>
+                            );
+                          })}
                       </div>
                     )}
-                </div>
-              )}
-            </div>
+                  </div>
 
-            {/* Common quick tags */}
-            <div className="mt-3">
-              <span className="text-[11px] text-ink-3 block mb-1.5">
-                {lang === "th" ? "เทคโนโลยีที่พบบ่อย (คลิกเพื่อเลือกทันที):" : "Frequently used technologies:"}
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  "Node.js",
-                  "Python",
-                  "Java",
-                  "Go",
-                  "React",
-                  "Vue.js",
-                  "PostgreSQL",
-                  "MySQL",
-                  "Oracle",
-                  "Docker",
-                  "Kubernetes",
-                  "NGINX Plus",
-                  "Redis",
-                  "Linux",
-                  "Windows Server",
-                ].map((name) => {
-                  const on = selectedTechs.includes(name);
-                  return (
+                  {/* Add Custom Tech with Version */}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      value={customTechInput}
+                      onChange={(e) => setCustomTechInput(e.target.value)}
+                      placeholder={lang === "th" ? "ชื่อเทคโนโลยีเพิ่มเติม..." : "Custom tech name..."}
+                      className={`${input} flex-1 sm:max-w-[200px]`}
+                    />
+                    <input
+                      type="text"
+                      value={customTechVersion}
+                      onChange={(e) => setCustomTechVersion(e.target.value)}
+                      placeholder={lang === "th" ? "เวอร์ชัน (ถ้ามี) เช่น 2019" : "Version (e.g. 2019)"}
+                      className={`${input} flex-1 sm:max-w-[140px]`}
+                    />
                     <button
-                      key={name}
                       type="button"
-                      onClick={() => toggleTech(name)}
-                      className={`cursor-pointer rounded-[2px] border px-2 py-0.5 text-[11px] font-mono transition-colors ${
-                        on
-                          ? "border-open-line bg-open-bg text-open font-semibold"
-                          : "border-line bg-surface-2 text-ink-2 hover:border-line-2 hover:text-ink"
-                      }`}
+                      onClick={handleAddCustomTech}
+                      className={`${btn.secondary} text-[12px] h-9 px-3`}
                     >
-                      {on ? "✓ " : "+ "}
-                      {name}
+                      {lang === "th" ? "+ เพิ่มเทคโนโลยีนี้" : "+ Add Custom Tech"}
                     </button>
-                  );
-                })}
+                  </div>
+                </div>
+
+                <DynamicListEditor
+                  label={lang === "th" ? "สมรรถนะและความสามารถทางเทคนิคที่ต้องมี (Required Capabilities)" : "Required Technical Capabilities"}
+                  items={requiredCapabilities}
+                  onChange={setRequiredCapabilities}
+                  placeholder={lang === "th" ? "เช่น รองรับการเชื่อมต่อพร้อมกันไม่น้อยกว่า 1,000 คน (Concurrent Users)" : "e.g. Support min 1,000 concurrent users"}
+                  addLabel={lang === "th" ? "เพิ่มสมรรถนะเทคนิค" : "Add Capability"}
+                  lang={lang}
+                />
+
+                <KeyValueListEditor
+                  label={lang === "th" ? "คุณลักษณะเฉพาะด้านโครงสร้างพื้นฐาน (Infrastructure Specifications)" : "Infrastructure Specifications"}
+                  items={infrastructureSpecs}
+                  onChange={setInfrastructureSpecs}
+                  keyLabel={lang === "th" ? "รายการ / ฮาร์ดแวร์" : "Item / Component"}
+                  valueLabel={lang === "th" ? "คุณลักษณะที่กำหนด (Spec)" : "Required Specification"}
+                  addLabel={lang === "th" ? "เพิ่มคุณลักษณะอุปกรณ์" : "Add Hardware Spec"}
+                  lang={lang}
+                />
+
+                <KeyValueListEditor
+                  label={lang === "th" ? "ข้อจำกัดและตัวชี้วัดทางเทคนิค (Technical Constraints)" : "Technical Constraints & Metrics"}
+                  items={technicalConstraints}
+                  onChange={setTechnicalConstraints}
+                  keyLabel={lang === "th" ? "ตัวชี้วัด (Metric)" : "Metric"}
+                  valueLabel={lang === "th" ? "เกณฑ์ที่กำหนด (Target Value)" : "Target Value"}
+                  addLabel={lang === "th" ? "เพิ่มเกณฑ์ทางเทคนิค" : "Add Constraint"}
+                  lang={lang}
+                />
               </div>
-            </div>
-          </div>
-        </Panel>
+            </Panel>
 
-        {/* Sticky Action Footer */}
-        <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-line bg-surface/95 backdrop-blur-sm p-4 shadow-lg">
-          <div className="mx-auto flex max-w-[1100px] items-center justify-between gap-4">
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowReclassifyModal(true)}
-                className="text-[12px] font-medium text-risk hover:underline"
-              >
-                ✕ {lang === "th" ? "ระบุว่าไม่ใช่ IT (Reclassify Non-IT)" : "Reclassify as Non-IT"}
-              </button>
-            </div>
+            {/* SECTION 6: Integration Environment */}
+            <Panel id="sec-integration" className="p-5">
+              <div className="border-b border-line pb-3">
+                <SectionHeading>
+                  {lang === "th" ? "6. ระบบเดิมและสภาพแวดล้อมที่ต้องเชื่อมต่อ (Integration Environment)" : "6. Integration & Existing Environment"}
+                </SectionHeading>
+                <p className="text-[12px] text-ink-3 mt-1">
+                  {lang === "th" ? "ระบบเดิมของหน่วยงาน อินเทอร์เฟซ API การถ่ายโอนข้อมูล และสถานที่ติดตั้ง" : "Existing systems, API integration, data migration, and deployment location"}
+                </p>
+              </div>
 
-            <div className="flex items-center gap-3">
-              <Link href="/admin?job=review" className={btn.secondary}>
-                {lang === "th" ? "ยกเลิก / กลับ" : "Cancel"}
+              <div className="mt-4 flex flex-col gap-4">
+                <DynamicListEditor
+                  label={lang === "th" ? "ระบบเดิมที่ต้องเชื่อมต่อ (Existing Systems)" : "Existing Systems to Integrate"}
+                  items={existingSystems}
+                  onChange={setExistingSystems}
+                  placeholder={lang === "th" ? "เช่น ระบบทะเบียนราษฎร์ กรมการปกครอง (DOPA)" : "e.g. DOPA Resident Database"}
+                  addLabel={lang === "th" ? "เพิ่มระบบเดิม" : "Add Existing System"}
+                  lang={lang}
+                />
+
+                <DynamicListEditor
+                  label={lang === "th" ? "อินเทอร์เฟซและบริการ API (Interfaces & APIs)" : "Interfaces & APIs"}
+                  items={interfacesAndApis}
+                  onChange={setInterfacesAndApis}
+                  placeholder={lang === "th" ? "เช่น RESTful API ด้วย JSON Web Token (JWT)" : "e.g. REST API with JWT Auth"}
+                  addLabel={lang === "th" ? "เพิ่ม API Interface" : "Add Interface"}
+                  lang={lang}
+                />
+
+                <div>
+                  <Label htmlFor="field-migration">{lang === "th" ? "ข้อมูลและเงื่อนไขการย้ายข้อมูล (Data Migration Notes)" : "Data Migration Notes"}</Label>
+                  <textarea
+                    id="field-migration"
+                    rows={3}
+                    value={dataMigrationNotes}
+                    onChange={(e) => setDataMigrationNotes(e.target.value)}
+                    placeholder={lang === "th" ? "ระบุรายละเอียดการถ่ายโอนข้อมูลจากฐานข้อมูลเดิม..." : "Specify data migration requirements..."}
+                    className={`${textarea} mt-1 min-h-[85px]`}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="field-deploy-loc">{lang === "th" ? "สถานที่และสภาพแวดล้อมการติดตั้ง (Deployment Location)" : "Deployment Location"}</Label>
+                  <input
+                    id="field-deploy-loc"
+                    type="text"
+                    value={deploymentLocation}
+                    onChange={(e) => setDeploymentLocation(e.target.value)}
+                    placeholder={lang === "th" ? "เช่น ศูนย์ข้อมูล กทม. ดินแดง หรือ ระบบคลาวด์กลางภาครัฐ (GDCC)" : "e.g. Government Data Center / GDCC Cloud"}
+                    className={`${input} mt-1`}
+                  />
+                </div>
+              </div>
+            </Panel>
+
+            {/* SECTION 7: Operational Requirements */}
+            <Panel id="sec-ops" className="p-5">
+              <div className="border-b border-line pb-3">
+                <SectionHeading>
+                  {lang === "th" ? "7. การติดตั้งและบำรุงรักษา (Implementation & Operational Requirements)" : "7. Operations, Training & SLA"}
+                </SectionHeading>
+                <p className="text-[12px] text-ink-3 mt-1">
+                  {lang === "th" ? "เงื่อนไขการติดตั้ง ฝึกอบรม ข้อตกลงระดับบริการ (SLA) และการบำรุงรักษา" : "Installation, training curriculum, SLA, and maintenance scope"}
+                </p>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-4">
+                <DynamicListEditor
+                  label={lang === "th" ? "ข้อกำหนดด้านการติดตั้งและปรับแต่ง (Installation & Configuration)" : "Installation & Configuration"}
+                  items={installationAndConfig}
+                  onChange={setInstallationAndConfig}
+                  placeholder={lang === "th" ? "เช่น ติดตั้งระบบปฏิบัติการและตั้งค่า Firewall ตามมาตรฐาน CIS Benchmark" : "e.g. Hardening and setup"}
+                  addLabel={lang === "th" ? "เพิ่มข้อกำหนดการติดตั้ง" : "Add Installation Requirement"}
+                  lang={lang}
+                />
+
+                <DynamicListEditor
+                  label={lang === "th" ? "การฝึกอบรมบุคลากร (Training Curriculum)" : "Training Curriculum"}
+                  items={training}
+                  onChange={setTraining}
+                  placeholder={lang === "th" ? "เช่น อบรมการใช้งานระบบสำหรับเจ้าหน้าที่ 2 รุ่น รุ่นละ 30 คน" : "e.g. 2 sessions of admin training for 30 staff"}
+                  addLabel={lang === "th" ? "เพิ่มหลักสูตรฝึกอบรม" : "Add Training"}
+                  lang={lang}
+                />
+
+                <div>
+                  <Label htmlFor="field-sla">{lang === "th" ? "ข้อตกลงระดับการให้บริการและการสนับสนุนเทคนิค (Technical Support & SLA)" : "Support & SLA Terms"}</Label>
+                  <textarea
+                    id="field-sla"
+                    rows={3}
+                    value={technicalSupportAndSla}
+                    onChange={(e) => setTechnicalSupportAndSla(e.target.value)}
+                    placeholder={lang === "th" ? "เช่น ให้บริการแก้ไขเหตุขัดข้องแบบ 24x7 และตอบสนองภายใน 2 ชั่วโมง" : "e.g. 24x7 incident response within 2 hours"}
+                    className={`${textarea} mt-1 min-h-[85px]`}
+                  />
+                </div>
+
+                <DynamicListEditor
+                  label={lang === "th" ? "การบำรุงรักษาระบบ (Maintenance Requirements)" : "Maintenance Requirements"}
+                  items={maintenance}
+                  onChange={setMaintenance}
+                  placeholder={lang === "th" ? "เช่น ตรวจสอบสถานะการทำงานเชิงป้องกัน (Preventive Maintenance) ทุก 3 เดือน" : "e.g. Quarterly preventive maintenance"}
+                  addLabel={lang === "th" ? "เพิ่มข้อกำหนดบำรุงรักษา" : "Add Maintenance Requirement"}
+                  lang={lang}
+                />
+              </div>
+            </Panel>
+
+            {/* SECTION 8: Bid Eligibility & Qualifications */}
+            <Panel id="sec-eligibility" className="p-5">
+              <div className="border-b border-line pb-3">
+                <SectionHeading>
+                  {lang === "th" ? "8. คุณสมบัติผู้ยื่นข้อเสนอ (Bid Eligibility & Qualifications)" : "8. Bidder Qualifications & Certifications"}
+                </SectionHeading>
+                <p className="text-[12px] text-ink-3 mt-1">
+                  {lang === "th" ? "คุณสมบัตินิติบุคคล หนังสือรับรอง มาตรฐาน ISO/CMMI และผลงานที่ผ่านมา" : "Company requirements, certifications, authorizations, and past experience"}
+                </p>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-4">
+                <DynamicListEditor
+                  label={lang === "th" ? "คุณสมบัติบริษัท/นิติบุคคล (Company Requirements)" : "Company Requirements"}
+                  items={companyReqs}
+                  onChange={setCompanyReqs}
+                  placeholder={lang === "th" ? "เช่น มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท" : "e.g. Registered capital not less than 5,000,000 THB"}
+                  addLabel={lang === "th" ? "เพิ่มคุณสมบัติบริษัท" : "Add Company Requirement"}
+                  confidenceBadge={<FieldConfidenceBadge confidence={getFieldScore("Company")} lang={lang} />}
+                  lang={lang}
+                />
+
+                <DynamicListEditor
+                  label={lang === "th" ? "มาตรฐานและใบรับรองที่กำหนด (Required Certifications)" : "Required Certifications"}
+                  items={requiredCertifications}
+                  onChange={setRequiredCertifications}
+                  placeholder={lang === "th" ? "เช่น ได้รับการรับรองมาตรฐาน ISO/IEC 29110 หรือ CMMI Level 3" : "e.g. ISO/IEC 29110 or CMMI Level 3"}
+                  addLabel={lang === "th" ? "เพิ่มใบรับรอง/มาตรฐาน" : "Add Certification"}
+                  lang={lang}
+                />
+
+                <DynamicListEditor
+                  label={lang === "th" ? "หนังสือแต่งตั้งตัวแทนจำหน่าย (Manufacturer Authorizations)" : "Manufacturer Authorizations (MAF)"}
+                  items={manufacturerAuthorizations}
+                  onChange={setManufacturerAuthorizations}
+                  placeholder={lang === "th" ? "เช่น มีหนังสือแต่งตั้งตัวแทนจำหน่ายอย่างเป็นทางการจากเจ้าของผลิตภัณฑ์" : "e.g. Official Manufacturer Authorization Letter"}
+                  addLabel={lang === "th" ? "เพิ่มหนังสือแต่งตั้ง" : "Add Authorization"}
+                  lang={lang}
+                />
+
+                <DynamicListEditor
+                  label={lang === "th" ? "คุณสมบัติบุคลากรประจำโครงการ (Personnel Qualifications)" : "Personnel Qualifications"}
+                  items={personnelQualifications}
+                  onChange={setPersonnelQualifications}
+                  placeholder={lang === "th" ? "เช่น ผู้จัดการโครงการต้องได้รับประกาศนียบัตร PMP และมีประสบการณ์ไม่น้อยกว่า 5 ปี" : "e.g. Project Manager certified PMP with 5+ yrs exp"}
+                  addLabel={lang === "th" ? "เพิ่มคุณสมบัติบุคลากร" : "Add Personnel Qualification"}
+                  lang={lang}
+                />
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="sm:col-span-2">
+                    <div className="mb-1 flex items-center justify-between">
+                      <Label htmlFor="field-prev-exp">{lang === "th" ? "ผลงานและประสบการณ์ที่ต้องมี (Previous Experience)" : "Required Experience"}</Label>
+                      <FieldConfidenceBadge confidence={getFieldScore("Experience")} lang={lang} />
+                    </div>
+                    <textarea
+                      id="field-prev-exp"
+                      rows={3}
+                      value={previousExperience}
+                      onChange={(e) => setPreviousExperience(e.target.value)}
+                      placeholder={lang === "th" ? "เช่น มีผลงานพัฒนาระบบเทคโนโลยีสารสนเทศที่มีลักษณะคล้ายคลึงกันในสัญญาเดียว..." : "e.g. Prior track record delivering similar government IT systems..."}
+                      className={`${textarea} min-h-[90px]`}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="field-min-exp">{lang === "th" ? "มูลค่าผลงานขั้นต่ำ (Min Value - บาท)" : "Min Experience Value (THB)"}</Label>
+                    <input
+                      id="field-min-exp"
+                      type="text"
+                      value={previousExperienceMinTHB}
+                      onChange={(e) => setPreviousExperienceMinTHB(e.target.value)}
+                      placeholder="เช่น 5,000,000"
+                      className={`${input} mt-1 ${!minExpCheck.valid ? "border-risk focus:border-risk" : ""}`}
+                    />
+                    {!minExpCheck.valid ? (
+                      <p className="mt-1 text-[11px] text-risk">
+                        {lang === "th" ? "โปรดระบุเป็นตัวเลขเท่านั้น" : "Must be a valid positive number"}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </Panel>
+
+            {/* SECTION 9: Contract & Commercial Conditions */}
+            <Panel id="sec-contract" className="p-5">
+              <div className="border-b border-line pb-3">
+                <SectionHeading>
+                  {lang === "th" ? "9. เงื่อนไขสัญญาและการชำระเงิน (Contract & Payment Conditions)" : "9. Contract Terms & Payment"}
+                </SectionHeading>
+                <p className="text-[12px] text-ink-3 mt-1">
+                  {lang === "th" ? "งวดการจ่ายเงิน เงื่อนไขการตรวจรับ และเกณฑ์การพิจารณาตัดสิน" : "Payment milestone schedule, delivery conditions, and evaluation criteria"}
+                </p>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-4">
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <Label htmlFor="field-payment">{lang === "th" ? "งวดการจ่ายเงิน (Payment Terms)" : "Payment Schedule & Terms"}</Label>
+                    <FieldConfidenceBadge confidence={getFieldScore("Payment")} lang={lang} />
+                  </div>
+                  <textarea
+                    id="field-payment"
+                    rows={3}
+                    value={paymentTerms}
+                    onChange={(e) => setPaymentTerms(e.target.value)}
+                    placeholder={lang === "th" ? "เช่น แบ่งจ่าย 4 งวดตามผลการตรวจรับมอบงาน..." : "e.g. 4 milestone payments upon deliverable acceptance..."}
+                    className={`${textarea} min-h-[90px]`}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="field-delivery-cond">{lang === "th" ? "เงื่อนไขการตรวจรับมอบงาน (Delivery Conditions)" : "Delivery Conditions"}</Label>
+                  <textarea
+                    id="field-delivery-cond"
+                    rows={3}
+                    value={deliveryConditions}
+                    onChange={(e) => setDeliveryConditions(e.target.value)}
+                    placeholder={lang === "th" ? "เช่น ตรวจรับภายใน 5 วันทำการหลังส่งมอบครบถ้วน..." : "e.g. Acceptance testing within 5 business days..."}
+                    className={`${textarea} mt-1 min-h-[85px]`}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="field-eval-method">{lang === "th" ? "เกณฑ์การพิจารณาคัดเลือก (Evaluation Method)" : "Evaluation Method"}</Label>
+                  <input
+                    id="field-eval-method"
+                    type="text"
+                    value={evaluationMethod}
+                    onChange={(e) => setEvaluationMethod(e.target.value)}
+                    placeholder={lang === "th" ? "เช่น เกณฑ์ราคา หรือ เกณฑ์ประสิทธิภาพต่อราคา (Price-Performance Ratio)" : "e.g. Price Criteria or Price-Performance"}
+                    className={`${input} mt-1`}
+                  />
+                </div>
+              </div>
+            </Panel>
+
+            {/* SECTION 10: Amendment History & Tracking */}
+            <Panel id="sec-amendments" className="p-5">
+              <div className="border-b border-line pb-3">
+                <SectionHeading>
+                  {lang === "th" ? "10. ข้อมูลการแก้ไขประกาศ (Amendment History & Tracking)" : "10. Amendment Information"}
+                </SectionHeading>
+                <p className="text-[12px] text-ink-3 mt-1">
+                  {lang === "th" ? "การเปลี่ยนแปลงหรือแก้ไขข้อกำหนด TOR หลังเผยแพร่ประกาศครั้งแรก (FR-16)" : "Post-publication TOR amendments, changes, and diffs (FR-16)"}
+                </p>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isAmended}
+                    onChange={(e) => setIsAmended(e.target.checked)}
+                    className="h-4 w-4 rounded border-line-2 accent-ink"
+                  />
+                  <span className="text-[13px] font-medium text-ink">
+                    {lang === "th" ? "ประกาศนี้มีการแก้ไข TOR (isAmended Flag)" : "This TOR has been amended (isAmended flag)"}
+                  </span>
+                </label>
+
+                {isAmended ? (
+                  <div className="flex flex-col gap-4 rounded-[3px] border border-amend-line bg-amend-bg/15 p-4 animate-in fade-in duration-200">
+                    <div>
+                      <Label htmlFor="field-amend-summary">{lang === "th" ? "สรุปสาระสำคัญที่มีการแก้ไข (Amendment Summary)" : "Amendment Summary"}</Label>
+                      <textarea
+                        id="field-amend-summary"
+                        rows={3}
+                        value={amendmentSummary}
+                        onChange={(e) => setAmendmentSummary(e.target.value)}
+                        placeholder={lang === "th" ? "เช่น ขยายเวลารับซองออกไป 7 วัน และปรับลดข้อกำหนดคุณสมบัติ ISO..." : "e.g. Extended submission deadline by 7 days..."}
+                        className={`${textarea} mt-1 min-h-[85px]`}
+                      />
+                    </div>
+
+                    <DynamicListEditor
+                      label={lang === "th" ? "ส่วนของเอกสารที่มีการแก้ไข (Changed Sections)" : "Changed Sections"}
+                      items={changedSections}
+                      onChange={setChangedSections}
+                      placeholder={lang === "th" ? "เช่น ข้อ 4.2 ขยายเวลารับซอง" : "e.g. Section 4.2 Extended deadline"}
+                      addLabel={lang === "th" ? "เพิ่มส่วนที่แก้ไข" : "Add Section"}
+                      lang={lang}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </Panel>
+
+            {/* Bottom Actions Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+              <Link href="/admin?tab=review" className={`${btn.secondary} text-[13px]`}>
+                {lang === "th" ? "← ยกเลิกและกลับไปคิวตรวจทาน" : "Cancel & Return"}
               </Link>
 
               <button
                 type="submit"
                 disabled={isSaving || hasValidationErrors}
-                className={`${btn.primary} min-w-[160px]`}
+                className={`${btn.primary} text-[13px] h-10 px-6 font-semibold`}
               >
                 {isSaving
                   ? lang === "th"
-                    ? "กำลังบันทึก..."
-                    : "Saving..."
-                  : saveSuccess
-                  ? lang === "th"
-                    ? "✓ เผยแพร่แล้ว"
-                    : "✓ Published"
+                    ? "กำลังบันทึกข้อมูล..."
+                    : "Saving Changes..."
                   : lang === "th"
-                  ? "💾 บันทึกและเผยแพร่"
-                  : "Save & Publish"}
+                    ? "บันทึกและอนุมัติ (Approve & Publish)"
+                    : "Approve & Publish"}
               </button>
             </div>
-          </div>
+          </form>
         </div>
-      </form>
+      </div>
+
+      {/* Version History Drawer Modal */}
+      <VersionHistoryDrawer
+        isOpen={showVersionDrawer}
+        onClose={() => setShowVersionDrawer(false)}
+        versions={versionsList}
+        currentVersion={currentVersion}
+        onRollback={handleRollback}
+        isRollingBack={isRollingBack}
+        lang={lang}
+      />
+
+      {/* Evidence Grounding Drawer Modal */}
+      <EvidenceGroundingDrawer
+        isOpen={showEvidenceDrawer}
+        onClose={() => setShowEvidenceDrawer(false)}
+        evidence={data.details?.evidence}
+        lang={lang}
+      />
 
       {/* Reclassify Modal */}
       {showReclassifyModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-        >
-          <div className="w-full max-w-[480px] rounded-[4px] border border-line bg-surface p-5 shadow-2xl">
-            <h3 className="text-[15px] font-semibold text-risk">
-              {lang === "th" ? "ยืนยันการระบุว่าไม่ใช่ IT" : "Confirm Reclassification as Non-IT"}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[1px] p-4">
+          <div className="w-full max-w-md rounded-[3px] border border-line bg-surface p-5 shadow-xl animate-in zoom-in-95 duration-150">
+            <h3 className="text-[15px] font-semibold text-ink">
+              {lang === "th" ? "ยืนยันการจัดประเภทใหม่เป็นงานนอกขอบเขต" : "Reclassify Out of Scope"}
             </h3>
-            <p className="mt-1.5 text-[12px] leading-thai text-ink-3">
+            <p className="mt-1 text-[12.5px] leading-thai text-ink-3">
               {lang === "th"
-                ? "โครงการนี้จะถูกทำเครื่องหมายเป็นงานนอกขอบเขต (Excluded) และไม่แสดงบนหน้าค้นหาสาธารณะ"
-                : "This document will be marked as out of scope and hidden from public catalog."}
+                ? "โครงการนี้จะถูกทำเครื่องหมายเป็นงานนอกขอบเขต (non-IT) และซ่อนจากหน้าสืบค้นสาธารณะ"
+                : "This TOR will be marked as out of scope (non-IT) and hidden from the public catalog."}
             </p>
 
-            <form onSubmit={handleReclassify} className="mt-4">
-              <Label htmlFor="reclassify-reason">
-                {lang === "th" ? "ระบุเหตุผล (Reason)" : "Reason"} *
-              </Label>
-              <input
-                id="reclassify-reason"
-                type="text"
-                required
-                autoFocus
-                value={reclassifyReason}
-                onChange={(e) => setReclassifyReason(e.target.value)}
-                placeholder="เช่น งานก่อสร้างปรับปรุงอาคาร, งานจัดสวน ไม่เกี่ยวกับซอฟต์แวร์"
-                className={input}
-              />
+            <form onSubmit={handleReclassifySubmit} className="mt-4 flex flex-col gap-3">
+              <div>
+                <Label htmlFor="modal-reclassify-reason">{lang === "th" ? "เหตุผลในการคัดออก" : "Reason"}</Label>
+                <input
+                  id="modal-reclassify-reason"
+                  type="text"
+                  required
+                  value={reclassifyReason}
+                  onChange={(e) => setReclassifyReason(e.target.value)}
+                  placeholder={lang === "th" ? "เช่น งานก่อสร้างปรับปรุงอาคาร ไม่ใช่งานไอที" : "e.g. Civil construction work"}
+                  className={`${input} mt-1`}
+                />
+              </div>
 
-              <div className="mt-5 flex items-center justify-end gap-2.5">
+              <div className="mt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  disabled={isReclassifying}
                   onClick={() => setShowReclassifyModal(false)}
-                  className={btn.ghost}
+                  className={btn.secondary}
                 >
                   {lang === "th" ? "ยกเลิก" : "Cancel"}
                 </button>
                 <button
                   type="submit"
-                  disabled={isReclassifying || !reclassifyReason.trim()}
-                  className="rounded-[2px] bg-risk px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-risk/90 disabled:opacity-50"
+                  disabled={isReclassifying}
+                  className="rounded-[3px] border border-risk-line bg-risk px-3.5 h-9 text-[13px] font-medium text-white hover:opacity-85 transition-opacity cursor-pointer disabled:opacity-50"
                 >
                   {isReclassifying
                     ? lang === "th"
                       ? "กำลังบันทึก..."
-                      : "Processing..."
+                      : "Saving..."
                     : lang === "th"
-                    ? "ยืนยันนำออก"
-                    : "Confirm Exclude"}
+                      ? "ยืนยันคัดออก"
+                      : "Confirm Reclassify"}
                 </button>
               </div>
             </form>
