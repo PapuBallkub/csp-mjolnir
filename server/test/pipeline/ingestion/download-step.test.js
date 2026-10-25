@@ -444,6 +444,88 @@ test('download step: a summary built from a TOR file a new package replaces is k
   await TorInsightVersion.deleteMany({});
 });
 
+/** The Tor after a first invitation is downloaded and read, ready for a second package. */
+async function downloadedOnce() {
+  egpServes({ current: 'zip-d0', zips: { 'zip-d0': await invitation('%PDF-1.4 the TOR, first') } });
+  await run();
+  await Tor.updateOne({ projectId: PROJECT }, { pipelineStatus: 'ocr_done', packageCheckNeeded: true, priceCheckedAt: new Date() });
+}
+const changesOf = async () => (await torOf()).amendments ?? [];
+
+test('download step: an invitation replaced by one with a different TOR is recorded as a change (ADR 0032)', async () => {
+  await downloadedOnce();
+  await TorInsight.create({
+    projectId: PROJECT,
+    identification: { titleTh: 'จ้างพัฒนาระบบคอมพิวเตอร์', agency: 'กรมตัวอย่าง', status: 'Open' },
+    metadata: { excluded: null },
+  });
+
+  egpServes({ current: 'zip-d2', zips: { 'zip-d2': await invitation('%PDF-1.4 the TOR, changed') } });
+  await run();
+
+  const [change] = await changesOf();
+  assert.equal(change.source, 'package', 'found by us, not announced');
+  assert.deepEqual([change.zipId, change.previousZipId], ['zip-d2', 'zip-d0'], 'both originals');
+  assert.deepEqual(change.changes.map((row) => [row.field, row.before, row.after]), [['document', `${PROJECT}_zip-d0.zip`, `${PROJECT}_zip-d2.zip`]]);
+  assert.equal(change.diff, 'facts');
+  assert.equal(change.insightVersion, 1, 'the summary it replaces, kept by PR D');
+  assert.ok((await torOf()).lastChangeAt);
+
+  await TorInsight.deleteMany({});
+  await TorInsightVersion.deleteMany({});
+});
+
+test('download step: a draft becoming an invitation is the next stage, read from the package, not a change', async () => {
+  await downloadedOnce();
+  const draft = await fs.readFile(path.join(import.meta.dirname, 'fixtures', 'egp-package', '69109028093-draft-announcement.txt'), 'utf8');
+  await Tor.updateOne({ projectId: PROJECT }, { 'packages.0.announcementText': draft });
+
+  egpServes({ current: 'zip-d0b', zips: { 'zip-d0b': await invitation('%PDF-1.4 the final TOR') } });
+  await run();
+
+  assert.deepEqual(await changesOf(), []);
+  assert.equal((await torOf()).lastChangeAt, null);
+});
+
+test('download step: a new package with the same TOR and facts is no change; one the feed announced is answered', async () => {
+  await downloadedOnce();
+  egpServes({ current: 'zip-d0b', zips: { 'zip-d0b': await invitation('%PDF-1.4 the TOR, first') } });
+  await run();
+  assert.deepEqual(await changesOf(), [], 'rebuilt, nothing in it changed');
+
+  // The feed announced a changed invitation (D2): the next package fills it in, whatever it holds
+  await Tor.updateOne(
+    { projectId: PROJECT },
+    { packageCheckNeeded: true, $push: { amendments: { source: 'feed', date: new Date('2026-10-25'), detectedAt: new Date() } } },
+  );
+  egpServes({ current: 'zip-d0c', zips: { 'zip-d0c': await invitation('%PDF-1.4 the TOR, first') } });
+  await run();
+  const [announced] = await changesOf();
+  assert.deepEqual([announced.source, announced.zipId], ['feed', 'zip-d0c']);
+});
+
+test('download step: a price form replacing another with a different budget is a change', async () => {
+  await downloadedOnce();
+  const prices = [
+    { zipId: 'price-1', budget: 1_000_000 },
+    { zipId: 'price-2', budget: 1_200_000 },
+  ];
+  const downloadPrice = async () => {
+    const { zipId, budget } = prices.shift();
+    const budgetTHB = { value: budget, quote: `วงเงินงบประมาณ ${budget.toLocaleString()} บาท`, document: 'price-form' };
+    return { success: true, package: { kind: 'price', zipId, name: `${zipId}.zip`, files: [], facts: { budgetTHB }, problems: [] } };
+  };
+  egpServes({ current: 'zip-d0', zips: {} });
+
+  await run({ downloadPrice });
+  assert.deepEqual(await changesOf(), [], 'the first price form is no change');
+
+  await Tor.updateOne({ projectId: PROJECT }, { packageCheckNeeded: true });
+  await run({ downloadPrice });
+  const [change] = await changesOf();
+  assert.deepEqual(change.changes.map((row) => [row.field, row.before, row.after]), [['facts.budgetTHB', '1000000', '1200000']]);
+});
+
 test("applyPackage: a package that doesn't state a fact leaves the last one standing, and never replaces the feed's agency", () => {
   const tor = new Tor({
     projectId: PROJECT,

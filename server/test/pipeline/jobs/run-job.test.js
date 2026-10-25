@@ -55,7 +55,7 @@ test('JOBS: every job processes in the same order, screen before download', () =
     ...read('changed'),
     'comparisons', 'history', 'download:past', ...read('past'), 'comparisons',
   ]);
-  assert.ok(STEPS.recheck.args.includes('--dry-run'), 'the recheck only watches for now');
+  assert.ok(!STEPS.recheck.args.includes('--dry-run'), 'the recheck flags changed packages for download (ADR 0032)');
   assert.ok(STEPS.history.args.includes('history'));
   assert.ok(!STEPS.fetch.args.join(' ').includes('15'), 'the poll leaves out 15, which always times out');
 });

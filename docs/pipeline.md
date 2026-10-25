@@ -82,7 +82,7 @@ runs out, what's left is what can wait
 
 | Wave | Steps | Queue |
 |---|---|---|
-| 1. Check | Watch draft and open IT TORs for changed packages (`recheck`, it only logs for now), then download the changed ones | `changed` |
+| 1. Check | Ask e-GP whether draft and open IT TORs' packages changed (`recheck`), then download the changed ones and record what changed | `changed` |
 | 2. New TORs | Screen the new titles, download what passed, preview, classify, read the IT ones whole, extract | `new` |
 | 3. Changes | Read and extract the changed ones | `changed` |
 | 4. Price | Refresh the comparisons, choose tonight's past projects, read them, refresh the comparisons again | `past` |
@@ -259,25 +259,43 @@ npm run ingest -- --step history --dry-run    # show tonight's choice, change no
 npm run ingest -- --step history
 ```
 
-### `npm run ingest -- --step recheck --dry-run`
-**Asks e-GP whether the packages of draft and open IT TORs have changed.** The
-feed has never announced a changed invitation (`D2`: none in 613 polls), so
-nothing else would tell us. It takes the TORs read in full and found IT,
-with a package downloaded: drafts, and open ones whose bids haven't closed.
-For each, it asks e-GP's announcement and price services which package is
-current (one small JSON request each, no download), and what the amendment
-service (`infoProcureDocAnnounZipAdj`) answers.
+### `npm run ingest -- --step recheck`
+**Asks e-GP whether the packages of draft and open IT TORs have changed**
+([0032](decisions/0032-record-what-changed-in-a-tor.md)). The feed has never
+announced a changed invitation (`D2`), so nothing else would tell us. It
+takes the TORs read in full and found IT, with a package downloaded: drafts,
+and open ones whose bids haven't closed. For each, it asks e-GP's
+announcement and price services which package is current (one small JSON
+request each, no download):
+- **one we don't have:** it flags the TOR (`packageCheckNeeded`), and the
+  download after it takes the package;
+- **nothing new:** it records when it looked (`packagesCheckedAt`), so a
+  change found later is dated as after it.
 
-**It only watches for now:** it logs a package we don't have, or any answer
-from the amendment service, and changes nothing. Without `--dry-run` it asks
-nothing. A week of it shows where e-GP puts an amendment, before the recheck
-acts on one. The `process` job runs it first, about 3 requests per TOR (67
-TORs took 3½ minutes). It stops at the time box, or when 3 TORs in a row get
-no answer.
+What e-GP's amendment service (`infoProcureDocAnnounZipAdj`) answers is only
+logged. The `process` job runs it first, about 3 requests per TOR (67 TORs
+took 3½ minutes). It stops at the time box, or when 3 TORs in a row get no
+answer. `--dry-run` only says what it finds.
 
 ```
-npm run ingest -- --step recheck --dry-run
+npm run ingest -- --step recheck
+npm run ingest -- --step recheck --dry-run    # say what's new, change nothing
 ```
+
+**Download decides whether a new package is a change.** It reads each
+package's own announcement, which says "ร่าง" on a draft, not the feed, which
+can lag by days:
+- **a draft becoming an invitation** is the next stage, and not recorded;
+- **an invitation replaced by another, or a draft by another,** with a
+  different TOR file or facts, is a change;
+- **a price form with a different budget or ราคากลาง** is a change too.
+
+A change goes into `Tor.amendments`, from the feed (a `D2`: the agency said
+so) or a package (we found it), with both packages, and what changed: the
+facts at download, and the summary's own dates, numbers, technologies and
+standard conditions once it's extracted again. Free text gets no rows, since
+two extractions word it differently. The log says `CHANGED`, `Next stage`,
+or that a package's stage couldn't be read (not counted).
 
 ### `npm run ingest:download`
 **Downloads each workable TOR's e-GP package** ([0020](decisions/0020-read-the-whole-egp-package.md)),
@@ -370,7 +388,7 @@ npm run ingest:ocr -- --id 69109028093
 | `--until <time>` | sweep, recheck, download, ocr | none | The time box: no new work after this time, e.g. `2026-10-14T07:55:00+07:00`. The project in hand finishes. Jobs set it for you; `screen` and `extract` take it too. |
 | `--skip-screen` | download | off | Download new projects without waiting for the title screen |
 | `--queue <queues>` | download, ocr | all | Only these kinds of work, e.g. `new` or `new,changed` ([0030](decisions/0030-run-the-night-in-priority-waves.md)): `new` (not read yet), `changed` (a new stage, or a replaced document), `past` (past projects asked for). The jobs run them one at a time; `extract` takes it too. |
-| `--dry-run` | history, recheck | off | History: show tonight's past projects, ask for none. Recheck: watch only, which is all it does for now. |
+| `--dry-run` | history, recheck | off | History: show tonight's past projects, ask for none. Recheck: say what's new, flag nothing. |
 | `--query`, `-q` | fetch | none | Keep only new projects whose title has this text. None by default: the title screen and classify decide what is IT |
 | `--limit`, `-l` | fetch | none | At most this many **new** projects; updates to projects already in the database are never limited |
 | `--source` | fetch | `process3` | The e-GP feed, the only source now (`all` means the same). `datago` was removed. |

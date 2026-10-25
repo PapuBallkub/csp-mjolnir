@@ -97,6 +97,31 @@ const LIVE_STATUS = [
                 null,
               ],
             },
+            // The latest change we know of and haven't rolled back (ADR 0032)
+            lastChangeAt: 1,
+            latestChange: {
+              $let: {
+                vars: { live: { $filter: { input: { $ifNull: ['$amendments', []] }, cond: { $ne: ['$$this.rolledBack', true] } } } },
+                in: {
+                  $cond: [
+                    { $gt: [{ $size: '$$live' }, 0] },
+                    {
+                      $let: {
+                        vars: { last: { $last: '$$live' } },
+                        in: {
+                          source: '$$last.source',
+                          date: '$$last.date',
+                          detectedAt: '$$last.detectedAt',
+                          previousCheckAt: '$$last.previousCheckAt',
+                          fields: { $setUnion: [{ $ifNull: ['$$last.changes.field', []] }, []] },
+                        },
+                      },
+                    },
+                    null,
+                  ],
+                },
+              },
+            },
           },
         },
       ],
@@ -113,19 +138,50 @@ const LIVE_STATUS = [
       'facts.budgetTHB': torPrice('budgetTHB', '$facts.budgetTHB'),
       'facts.referencePriceTHB': torPrice('referencePriceTHB', '$facts.referencePriceTHB'),
       'facts.submissionDeadline': { $ifNull: [torValue('submissionDeadline'), '$facts.submissionDeadline'] },
+      // A change's date and sections, read live, like the status (ADR 0031's Q5, 0032)
+      lastChangeAt: { $ifNull: [torValue('lastChangeAt'), null] },
+      latestChange: { $ifNull: [torValue('latestChange'), null] },
+      'amendmentInfo.lastAmendedDate': {
+        $ifNull: [torValue('latestChange.date'), { $ifNull: [torValue('latestChange.detectedAt'), '$amendmentInfo.lastAmendedDate'] }],
+      },
+      'amendmentInfo.changedSections': { $ifNull: [torValue('latestChange.fields'), '$amendmentInfo.changedSections'] },
     },
   },
   { $unset: '_tor' },
 ];
 
+/** A change as the public sees it: none rolled back, nothing internal (ADR 0032). */
+function publicChanges(tor) {
+  return (tor?.amendments ?? [])
+    .filter((entry) => !entry.rolledBack)
+    .map(({ source, round, date, headline, detectedAt, previousCheckAt, zipId, previousZipId, diff, changes = [] }) => ({
+      source,
+      round: round || null,
+      date: date ?? null,
+      headline: headline || null,
+      detectedAt: detectedAt ?? null,
+      previousCheckAt: previousCheckAt ?? null,
+      zipId: zipId ?? null,
+      previousZipId: previousZipId ?? null,
+      diff,
+      changes: changes.map(({ kind, field, before, after }) => ({ kind, field, before, after })),
+    }));
+}
+
 /** LIVE_STATUS for one insight already in hand, with its Tor. */
 function withLiveStatus(insight, tor) {
-  if (!tor) return { ...insight, contractSigned: false, latestAnnouncement: null };
+  if (!tor) return { ...insight, contractSigned: false, latestAnnouncement: null, lastChangeAt: null, latestChange: null };
   const history = tor.announcementHistory ?? [];
   const times = history.map((entry) => entry.publishedAt).filter(Boolean).map((date) => new Date(date).getTime());
+  const latest = (tor.amendments ?? []).filter((entry) => !entry.rolledBack).at(-1) ?? null;
+  const fields = latest ? [...new Set((latest.changes ?? []).map((row) => row.field))] : [];
   return {
     ...insight,
     contractSigned: hasSignedContract(tor.contract),
+    lastChangeAt: tor.lastChangeAt ?? null,
+    latestChange: latest
+      ? { source: latest.source, date: latest.date ?? null, detectedAt: latest.detectedAt ?? null, previousCheckAt: latest.previousCheckAt ?? null, fields }
+      : null,
     latestAnnouncement: history.length
       ? { code: tor.announceType, publishedAt: times.length ? new Date(Math.max(...times)) : null }
       : null,
@@ -140,7 +196,12 @@ function withLiveStatus(insight, tor) {
       referencePriceTHB: tor.referencePriceTHB > 0 ? tor.referencePriceTHB : (insight.facts?.referencePriceTHB ?? null),
       submissionDeadline: tor.submissionDeadline ?? insight.facts?.submissionDeadline ?? null,
     },
-    amendmentInfo: { ...insight.amendmentInfo, isAmended: tor.isAmended ?? insight.amendmentInfo?.isAmended },
+    amendmentInfo: {
+      ...insight.amendmentInfo,
+      isAmended: tor.isAmended ?? insight.amendmentInfo?.isAmended,
+      lastAmendedDate: latest ? (latest.date ?? latest.detectedAt ?? null) : (insight.amendmentInfo?.lastAmendedDate ?? null),
+      changedSections: latest ? fields : (insight.amendmentInfo?.changedSections ?? []),
+    },
   };
 }
 
@@ -341,8 +402,11 @@ export async function listTors(
     'analytics.priceAnalysis.diffPercentage': 1,
     'analytics.priceAnalysis.historicalMedianTHB': 1,
     'amendmentInfo.isAmended': 1,
+    'amendmentInfo.lastAmendedDate': 1,
     contractSigned: 1,
     latestAnnouncement: 1,
+    lastChangeAt: 1,
+    latestChange: 1,
     'metadata.origin': 1,
     'metadata.reviewStatus': 1,
     'metadata.confidenceScore': 1,
@@ -457,6 +521,8 @@ export async function getTorByProjectId(projectId, { showUnreviewed, now = new D
         'contract.amountTHB': 1,
         'ocr.truncated': 1,
         'ocr.usedOcr': 1,
+        amendments: 1,
+        lastChangeAt: 1,
       },
     ).lean(),
   ]);
@@ -467,6 +533,8 @@ export async function getTorByProjectId(projectId, { showUnreviewed, now = new D
     document: publicDocument(rawTor?.document),
     ocr: rawTor?.ocr || null,
     source: rawTor?.source || null,
+    // What changed in it, oldest first, with both originals (FR-16, ADR 0032)
+    amendments: publicChanges(rawTor),
   };
 }
 

@@ -38,6 +38,12 @@ export function torStateOf(tor) {
   };
 }
 
+/** The version number of a TOR's summary now, or null when it has none (only a title, a preview, or not IT). */
+export async function summaryVersion(projectId) {
+  const insight = await TorInsight.findOne({ projectId }, { metadata: 1 }).lean();
+  return insight && isFullExtraction(insight) ? (insight.metadata?.version ?? 1) : null;
+}
+
 /** The version number the next summary gets: one more than the last kept, or 1. */
 export async function nextVersion(projectId) {
   const last = await TorInsightVersion.findOne({ projectId }, { version: 1 }).sort({ version: -1 }).lean();
@@ -148,13 +154,29 @@ export async function rollbackTor(projectId, { to, by = null, dryRun = false, no
   const version = await nextVersion(projectId);
 
   // The Tor as the summary went with it
-  if (tor && target.tor) {
-    for (const key of TOR_FACTS) tor[key] = target.tor[key];
-    if (target.tor.document) tor.document = target.tor.document;
-    if (text !== null) {
-      tor.ocr = { ...target.tor.ocr, rawText: text };
-      if (target.tor.pipelineStatus) tor.pipelineStatus = target.tor.pipelineStatus;
+  if (tor) {
+    if (target.tor) {
+      for (const key of TOR_FACTS) tor[key] = target.tor[key];
+      if (target.tor.document) tor.document = target.tor.document;
+      if (text !== null) {
+        tor.ocr = { ...target.tor.ocr, rawText: text };
+        if (target.tor.pipelineStatus) tor.pipelineStatus = target.tor.pipelineStatus;
+      }
     }
+    // The changes that replaced this version or a later one are undone with
+    // it: kept, marked, and no longer shown (ADR 0032)
+    let undone = 0;
+    for (const entry of tor.amendments ?? []) {
+      if (!entry.rolledBack && entry.insightVersion != null && entry.insightVersion >= to) {
+        entry.rolledBack = true;
+        undone++;
+      }
+    }
+    if (undone > 0) {
+      const live = tor.amendments.filter((entry) => !entry.rolledBack && entry.detectedAt);
+      tor.lastChangeAt = live.length ? new Date(Math.max(...live.map((entry) => new Date(entry.detectedAt).getTime()))) : null;
+    }
+    result.changesUndone = undone;
     await tor.save();
   }
 

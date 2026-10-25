@@ -150,3 +150,60 @@ test('rollback brings back the summary, the file and the text it was built from,
   assert.equal(now, 3);
   assert.deepEqual(listed.map((v) => [v.version, v.reason, v.keptText]), [[2, 'rollback', false], [1, 'source-changed', true]]);
 });
+
+const withTechnologies = (insight, names) => ({
+  ...insight,
+  technicalRequirements: { requiredTechnologies: names.map((name) => ({ name, version: null })) },
+});
+
+test("a summary made again because its TOR changed completes that change's record; a prompt update adds nothing (ADR 0032)", async () => {
+  const found = new Date('2026-10-25T22:05:00+07:00');
+  await Tor.collection.insertOne({
+    projectId: ID,
+    amendments: [
+      { source: 'package', detectedAt: found, insightVersion: 1, diff: 'facts', changes: [{ kind: 'changed', field: 'document', before: 'a.zip', after: 'b.zip' }] },
+    ],
+  });
+  await saveInsight(withTechnologies(summary({ price: 1_000_000 }), ['PostgreSQL']));
+
+  await saveInsight(withTechnologies(summary({ price: 1_000_000, fingerprint: 'f2' }), ['PostgreSQL', 'NGINX Plus']));
+  let [change] = (await Tor.findOne({ projectId: ID }).lean()).amendments;
+  assert.equal(change.diff, 'complete');
+  assert.deepEqual(change.changes.map((row) => [row.field, row.after]), [
+    ['document', 'b.zip'],
+    ['technicalRequirements.requiredTechnologies', 'NGINX Plus'],
+  ]);
+
+  // A newer prompt on version 2 isn't the agency's change: an open record of version 2 stays as it is
+  await Tor.updateOne({ projectId: ID }, { $push: { amendments: { source: 'package', detectedAt: new Date(), insightVersion: 2, diff: 'facts', changes: [] } } });
+  await saveInsight(withTechnologies(summary({ price: 1_000_000, fingerprint: 'f2', prompt: 'extract-v6' }), ['PostgreSQL', 'NGINX Plus', 'Redis']));
+  [, change] = (await Tor.findOne({ projectId: ID }).lean()).amendments;
+  assert.deepEqual([change.diff, change.changes.length], ['facts', 0]);
+});
+
+test('a rollback undoes the changes that replaced the version it brings back, and only those', async () => {
+  const first = new Date('2026-10-20T22:05:00+07:00');
+  const second = new Date('2026-10-24T22:05:00+07:00');
+  await Tor.create({
+    projectId: ID,
+    source: 'process3',
+    title: 'จ้างพัฒนาระบบแจ้งเตือน',
+    status: 'Open',
+    lastChangeAt: second,
+    amendments: [
+      { source: 'package', detectedAt: first, insightVersion: 1, diff: 'complete' },
+      { source: 'package', detectedAt: second, insightVersion: 2, diff: 'complete' },
+    ],
+  });
+  await saveInsight(summary({ price: 1_000_000 }));
+  await saveInsight(summary({ price: 1_100_000, fingerprint: 'f2' }));
+  await saveInsight(summary({ price: 9_000_000, fingerprint: 'f3' })); // the second change, processed wrongly
+
+  const result = await rollbackTor(ID, { to: 2 });
+
+  const tor = await Tor.findOne({ projectId: ID }).lean();
+  assert.equal(result.changesUndone, 1);
+  assert.deepEqual(tor.amendments.map((entry) => entry.rolledBack), [false, true]);
+  assert.equal(tor.lastChangeAt.toISOString(), first.toISOString(), 'the latest change still standing');
+  assert.equal((await current()).facts.referencePriceTHB, 1_100_000);
+});
