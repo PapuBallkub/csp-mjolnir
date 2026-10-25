@@ -185,18 +185,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1">{children}</main>
 
-      {!pathname?.startsWith("/admin/review/") && (
-        <footer className="mt-auto border-t border-line bg-surface">
-          <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 text-[11px] text-ink-3">
-            <Wordmark className="opacity-60" />
-            <span className="leading-thai">
-              เครื่องมือค้นหาโครงการ ไม่ใช่ระบบยื่นข้อเสนอ · A discovery tool, not a bidding
-              assistant.
-            </span>
-            <span className="ml-auto font-mono">01219346 · Kasetsart University</span>
-          </div>
-        </footer>
-      )}
+      <footer className="mt-auto border-t border-line bg-surface">
+        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 text-[11px] text-ink-3">
+          <Wordmark className="opacity-60" />
+          <span className="leading-thai">
+            เครื่องมือค้นหาโครงการ ไม่ใช่ระบบยื่นข้อเสนอ · A discovery tool, not a bidding
+            assistant.
+          </span>
+          <span className="ml-auto font-mono">01219346 · Kasetsart University</span>
+        </div>
+      </footer>
     </div>
   );
 }

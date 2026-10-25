@@ -18,11 +18,11 @@ interface PhaseTabConfig {
 
 const PHASE_TABS: PhaseTabConfig[] = [
   { key: "all", label: { th: "ทั้งหมด", en: "All" } },
-  { key: "download", label: { th: "1. รอโหลด (Pending Download)", en: "1. Pending Download" } },
-  { key: "ocr", label: { th: "2. รอ OCR (Pending OCR)", en: "2. Pending OCR" } },
-  { key: "extract", label: { th: "3. รอสกัด AI (Pending Extract)", en: "3. Pending Extract" } },
-  { key: "extracted", label: { th: "4. สกัดสำเร็จ (Extracted)", en: "4. Extracted" } },
-  { key: "failed", label: { th: "5. ขัดข้อง/ล้มเหลว (Failed / Stuck)", en: "5. Failed / Stuck" } },
+  { key: "download", label: { th: "1. รอโหลด", en: "1. Pending Download" } },
+  { key: "ocr", label: { th: "2. รอ OCR", en: "2. Pending OCR" } },
+  { key: "extract", label: { th: "3. รอสกัด AI", en: "3. Pending AI Extract" } },
+  { key: "extracted", label: { th: "4. สกัดสำเร็จ", en: "4. Extracted" } },
+  { key: "failed", label: { th: "5. ขัดข้อง/ล้มเหลว", en: "5. Failed / Stuck" } },
 ];
 
 export function PipelineMonitoringSection({
@@ -455,15 +455,15 @@ function PipelineTaskRow({
           </span>
         ) : task.phase === "download" ? (
           <span className="inline-flex rounded-[2px] border border-line bg-surface-2 px-2 py-[2px] text-[10px] font-medium text-ink">
-            {lang === "th" ? "1. รอโหลด (Download)" : "1. Download"}
+            {lang === "th" ? "1. รอโหลด" : "1. Pending Download"}
           </span>
         ) : task.phase === "ocr" ? (
           <span className="inline-flex rounded-[2px] border border-line bg-surface-2 px-2 py-[2px] text-[10px] font-medium text-ink">
-            {lang === "th" ? "2. รอ OCR (OCR Phase)" : "2. OCR Processing"}
+            {lang === "th" ? "2. รอ OCR" : "2. OCR Processing"}
           </span>
         ) : task.phase === "extract" ? (
           <span className="inline-flex rounded-[2px] border border-amend-line bg-amend-bg px-2 py-[2px] text-[10px] font-medium text-amend">
-            {lang === "th" ? "3. รอสกัด AI (AI Extract)" : "3. AI Extracting"}
+            {lang === "th" ? "3. รอสกัด AI" : "3. AI Extracting"}
           </span>
         ) : (
           <span className="inline-flex rounded-[2px] border border-open-line bg-open-bg px-2 py-[2px] text-[10px] font-medium text-open">

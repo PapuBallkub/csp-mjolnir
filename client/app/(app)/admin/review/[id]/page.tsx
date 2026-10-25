@@ -75,6 +75,34 @@ function parseIntegerInput(val: string): { valid: boolean; value: number | null 
   return { valid: true, value: num };
 }
 
+function toDateInputValue(val: string | null | undefined): string {
+  if (!val) return "";
+  const match = val.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) return match[1];
+  try {
+    const d = new Date(val);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toISOString().slice(0, 10);
+    }
+  } catch {
+    // fallback
+  }
+  return val.slice(0, 10);
+}
+
+const SECTIONS_LIST = [
+  { id: "sec-identification", labelTh: "1. ข้อมูลทั่วไปและการจัดประเภท", labelEn: "1. Identification" },
+  { id: "sec-keyfacts", labelTh: "2. ข้อมูลสำคัญและราคา", labelEn: "2. Key Facts" },
+  { id: "sec-overview", labelTh: "3. ภาพรวมและขอบเขต", labelEn: "3. Overview" },
+  { id: "sec-deliverables", labelTh: "4. ขอบเขตงานส่งมอบ", labelEn: "4. Deliverables" },
+  { id: "sec-tech", labelTh: "5. ข้อกำหนดเทคโนโลยี", labelEn: "5. Tech Stack" },
+  { id: "sec-integration", labelTh: "6. ระบบเดิมและสภาพแวดล้อม", labelEn: "6. Integration" },
+  { id: "sec-ops", labelTh: "7. การติดตั้งและบำรุงรักษา", labelEn: "7. Operations" },
+  { id: "sec-eligibility", labelTh: "8. คุณสมบัติผู้ยื่นข้อเสนอ", labelEn: "8. Eligibility" },
+  { id: "sec-contract", labelTh: "9. เงื่อนไขสัญญา", labelEn: "9. Contract Terms" },
+  { id: "sec-amendments", labelTh: "10. ประวัติการแก้ไข", labelEn: "10. Amendments" },
+];
+
 export default function DedicatedReviewPage({
   params,
 }: {
@@ -321,8 +349,8 @@ export default function DedicatedReviewPage({
       // 2. Key Facts
       setBudgetTHB(item.budgetTHB != null ? String(item.budgetTHB) : "");
       setReferencePriceTHB(item.referencePriceTHB != null ? String(item.referencePriceTHB) : "");
-      setSubmissionDeadline(item.submissionDeadline || "");
-      setCommentDeadline(det.commentDeadline || "");
+      setSubmissionDeadline(toDateInputValue(item.submissionDeadline));
+      setCommentDeadline(toDateInputValue(det.commentDeadline));
       setDeliveryPeriodDays(det.deliveryPeriodDays != null ? String(det.deliveryPeriodDays) : "");
       setProcurementMethod(det.procurementMethod || "");
       setContractDurationDays(
@@ -330,7 +358,7 @@ export default function DedicatedReviewPage({
       );
       setWarrantyYears(det.warrantyYears != null ? String(det.warrantyYears) : "");
       setPenaltyClause(det.penaltyClause || "");
-      setPostedDate(det.postedDate || "");
+      setPostedDate(toDateInputValue(det.postedDate));
 
       // 3. Project Overview
       setObjective(det.objective || "");
@@ -613,7 +641,7 @@ export default function DedicatedReviewPage({
     setIsReclassifying(false);
     if (res.ok) {
       setShowReclassifyModal(false);
-      router.push("/admin?tab=review");
+      router.push("/admin?job=review");
     } else {
       setErrorMessage(res.error?.message || "Failed to reclassify TOR");
     }
@@ -649,18 +677,30 @@ export default function DedicatedReviewPage({
     }
   };
 
-  const sectionsList = [
-    { id: "sec-identification", labelTh: "1. ข้อมูลทั่วไปและการจัดประเภท", labelEn: "1. Identification" },
-    { id: "sec-keyfacts", labelTh: "2. ข้อมูลสำคัญและราคา", labelEn: "2. Key Facts" },
-    { id: "sec-overview", labelTh: "3. ภาพรวมและขอบเขต", labelEn: "3. Overview" },
-    { id: "sec-deliverables", labelTh: "4. ขอบเขตงานส่งมอบ", labelEn: "4. Deliverables" },
-    { id: "sec-tech", labelTh: "5. ข้อกำหนดเทคโนโลยี", labelEn: "5. Tech Stack" },
-    { id: "sec-integration", labelTh: "6. ระบบเดิมและสภาพแวดล้อม", labelEn: "6. Integration" },
-    { id: "sec-ops", labelTh: "7. การติดตั้งและบำรุงรักษา", labelEn: "7. Operations" },
-    { id: "sec-eligibility", labelTh: "8. คุณสมบัติผู้ยื่นข้อเสนอ", labelEn: "8. Eligibility" },
-    { id: "sec-contract", labelTh: "9. เงื่อนไขสัญญา", labelEn: "9. Contract Terms" },
-    { id: "sec-amendments", labelTh: "10. ประวัติการแก้ไข", labelEn: "10. Amendments" },
-  ];
+  useEffect(() => {
+    if (loading || !data) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting);
+        if (visible.length > 0) {
+          visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+          setActiveSection(visible[0].target.id);
+        }
+      },
+      {
+        rootMargin: "-120px 0px -60% 0px",
+        threshold: [0, 0.2],
+      }
+    );
+
+    SECTIONS_LIST.forEach((sec) => {
+      const el = document.getElementById(sec.id);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [loading, data]);
 
   if (authError) {
     return (
@@ -687,7 +727,7 @@ export default function DedicatedReviewPage({
           headline={lang === "th" ? "ไม่พบเอกสาร TOR" : "TOR Document Not Found"}
           body={lang === "th" ? `ไม่พบข้อมูลสำหรับรหัสโครงการ ${projectId}` : `No review item found for project ${projectId}`}
           action={
-            <Link href="/admin?tab=review" className={btn.secondary}>
+            <Link href="/admin?job=review" className={btn.secondary}>
               {lang === "th" ? "กลับไปหน้าคิวตรวจทาน" : "Back to Review Queue"}
             </Link>
           }
@@ -702,7 +742,7 @@ export default function DedicatedReviewPage({
       <div className="sticky top-[53px] z-20 mb-6 flex flex-col gap-3 rounded-[3px] border border-line bg-surface/95 px-5 py-3.5 backdrop-blur shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <Link
-            href="/admin?tab=review"
+            href="/admin?job=review"
             className="text-[12px] font-medium text-ink-3 hover:text-ink transition-colors flex items-center gap-1"
           >
             <span>←</span>
@@ -810,7 +850,7 @@ export default function DedicatedReviewPage({
             <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-3">
               {lang === "th" ? "หัวข้อข้อมูล TOR ทั้ง 10 ส่วน" : "10 TOR Sections"}
             </span>
-            {sectionsList.map((sec) => (
+            {SECTIONS_LIST.map((sec) => (
               <button
                 key={sec.id}
                 type="button"
@@ -835,7 +875,7 @@ export default function DedicatedReviewPage({
             <Panel id="sec-identification" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
-                  {lang === "th" ? "1. ข้อมูลทั่วไปและการจัดประเภท (Identification & Classification)" : "1. Project Identification & Scope"}
+                  {lang === "th" ? "1. ข้อมูลทั่วไปและการจัดประเภท" : "1. Project Identification & Scope"}
                 </SectionHeading>
                 <p className="text-[12px] text-ink-3 mt-1">
                   {lang === "th" ? "ชื่อโครงการ หน่วยงาน และประเภทงานตามประกาศทางการ" : "Project identity, procuring agency, and procurement categorization"}
@@ -860,7 +900,7 @@ export default function DedicatedReviewPage({
 
                 <div>
                   <div className="mb-1 flex items-center justify-between">
-                    <Label htmlFor="field-title-en">{lang === "th" ? "ชื่อโครงการ (ภาษาอังกฤษ / Title EN)" : "Project Title (English)"}</Label>
+                    <Label htmlFor="field-title-en">{lang === "th" ? "ชื่อโครงการ (ภาษาอังกฤษ)" : "Project Title (English)"}</Label>
                   </div>
                   <input
                     id="field-title-en"
@@ -875,7 +915,7 @@ export default function DedicatedReviewPage({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <div className="mb-1 flex items-center justify-between">
-                      <Label htmlFor="field-agency">{lang === "th" ? "หน่วยงานผู้จัดซื้อ (Agency Name)" : "Procuring Organization"}</Label>
+                      <Label htmlFor="field-agency">{lang === "th" ? "หน่วยงานผู้จัดซื้อ" : "Procuring Organization"}</Label>
                       <FieldConfidenceBadge confidence={getFieldScore("Agency")} lang={lang} />
                     </div>
                     <input
@@ -889,7 +929,7 @@ export default function DedicatedReviewPage({
                   </div>
 
                   <div>
-                    <Label htmlFor="field-dept">{lang === "th" ? "สำนัก / กอง / ฝ่ายที่รับผิดชอบ (Department)" : "Department / Division"}</Label>
+                    <Label htmlFor="field-dept">{lang === "th" ? "สำนัก / กอง / ฝ่ายที่รับผิดชอบ" : "Department / Division"}</Label>
                     <input
                       id="field-dept"
                       type="text"
@@ -903,36 +943,36 @@ export default function DedicatedReviewPage({
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <Label htmlFor="field-category">{lang === "th" ? "หมวดหมู่งานไอที (Procurement Category)" : "IT Category"}</Label>
+                    <Label htmlFor="field-category">{lang === "th" ? "หมวดหมู่งานไอที" : "IT Category"}</Label>
                     <select
                       id="field-category"
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
                       className={`${input} mt-1 cursor-pointer`}
                     >
-                      <option value="software-development">พัฒนาซอฟต์แวร์ / ระบบสารสนเทศ (Software Development)</option>
-                      <option value="hardware-infrastructure">โครงสร้างพื้นฐานฮาร์ดแวร์ / เครือข่าย (Hardware & Infra)</option>
-                      <option value="cloud-and-datacenter">ระบบคลาวด์และศูนย์ข้อมูล (Cloud & Data Center)</option>
-                      <option value="data-and-ai">ระบบข้อมูล ปัญญาประดิษฐ์ และวิเคราะห์ (Data & AI)</option>
-                      <option value="cybersecurity">ความมั่นคงปลอดภัยไซเบอร์ (Cybersecurity)</option>
-                      <option value="maintenance-and-support">บำรุงรักษาและสนับสนุนระบบ (Maintenance & Support)</option>
-                      <option value="non-IT">งานนอกขอบเขต / ไม่ใช่งานไอที (Out of Scope / Non-IT)</option>
+                      <option value="software-development">{lang === "th" ? "พัฒนาซอฟต์แวร์ / ระบบสารสนเทศ" : "Software Development"}</option>
+                      <option value="hardware-infrastructure">{lang === "th" ? "โครงสร้างพื้นฐานฮาร์ดแวร์และเครือข่าย" : "Hardware & Infra"}</option>
+                      <option value="cloud-and-datacenter">{lang === "th" ? "ระบบคลาวด์และศูนย์ข้อมูล" : "Cloud & Data Center"}</option>
+                      <option value="data-and-ai">{lang === "th" ? "ระบบข้อมูลและปัญญาประดิษฐ์ (AI)" : "Data & AI"}</option>
+                      <option value="cybersecurity">{lang === "th" ? "ความมั่นคงปลอดภัยไซเบอร์" : "Cybersecurity"}</option>
+                      <option value="maintenance-and-support">{lang === "th" ? "บำรุงรักษาและสนับสนุนระบบ" : "Maintenance & Support"}</option>
+                      <option value="non-IT">{lang === "th" ? "งานนอกขอบเขต / ไม่ใช่งานไอที" : "Out of Scope / Non-IT"}</option>
                     </select>
                   </div>
 
                   <div>
-                    <Label htmlFor="field-status">{lang === "th" ? "สถานะการจัดซื้อ (Procurement Status)" : "Procurement Status"}</Label>
+                    <Label htmlFor="field-status">{lang === "th" ? "สถานะการจัดซื้อ" : "Procurement Status"}</Label>
                     <select
                       id="field-status"
                       value={status}
                       onChange={(e) => setStatus(e.target.value)}
                       className={`${input} mt-1 cursor-pointer`}
                     >
-                      <option value="Draft">ร่างประกาศ (Draft)</option>
-                      <option value="Open">เปิดรับซอง / ยื่นข้อเสนอ (Open)</option>
-                      <option value="Awarded">ประกาศผู้ชนะแล้ว (Awarded)</option>
-                      <option value="Closed">สิ้นสุดการยื่นข้อเสนอ (Closed)</option>
-                      <option value="Cancelled">ยกเลิกประกาศ (Cancelled)</option>
+                      <option value="Draft">{lang === "th" ? "ร่างประกาศ" : "Draft"}</option>
+                      <option value="Open">{lang === "th" ? "เปิดรับซอง / ยื่นข้อเสนอ" : "Open"}</option>
+                      <option value="Awarded">{lang === "th" ? "ประกาศผู้ชนะแล้ว" : "Awarded"}</option>
+                      <option value="Closed">{lang === "th" ? "สิ้นสุดการยื่นข้อเสนอ" : "Closed"}</option>
+                      <option value="Cancelled">{lang === "th" ? "ยกเลิกประกาศ" : "Cancelled"}</option>
                     </select>
                   </div>
                 </div>
@@ -943,7 +983,7 @@ export default function DedicatedReviewPage({
             <Panel id="sec-keyfacts" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
-                  {lang === "th" ? "2. ข้อมูลสำคัญ ราคา และกำหนดการ (Key Facts & Deadlines)" : "2. Procurement Facts & Deadlines"}
+                  {lang === "th" ? "2. ข้อมูลสำคัญ ราคา และกำหนดการ" : "2. Procurement Facts & Deadlines"}
                 </SectionHeading>
                 <p className="text-[12px] text-ink-3 mt-1">
                   {lang === "th" ? "งบประมาณ ราคากลาง กำหนดส่งมอบ และเงื่อนไขค่าปรับ" : "Budget, reference price, deadlines, and penalty terms"}
@@ -954,7 +994,7 @@ export default function DedicatedReviewPage({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <div className="mb-1 flex items-center justify-between">
-                      <Label htmlFor="field-budget">{lang === "th" ? "งบประมาณ (Approved Budget - บาท)" : "Approved Budget (THB)"}</Label>
+                      <Label htmlFor="field-budget">{lang === "th" ? "งบประมาณ (บาท)" : "Approved Budget (THB)"}</Label>
                       <FieldConfidenceBadge confidence={getFieldScore("Budget")} lang={lang} />
                     </div>
                     <input
@@ -974,7 +1014,7 @@ export default function DedicatedReviewPage({
 
                   <div>
                     <div className="mb-1 flex items-center justify-between">
-                      <Label htmlFor="field-ref-price">{lang === "th" ? "ราคากลาง (Reference Price - บาท)" : "Reference Price (THB)"}</Label>
+                      <Label htmlFor="field-ref-price">{lang === "th" ? "ราคากลาง (บาท)" : "Reference Price (THB)"}</Label>
                       <FieldConfidenceBadge confidence={getFieldScore("Reference")} lang={lang} />
                     </div>
                     <input
@@ -996,7 +1036,7 @@ export default function DedicatedReviewPage({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div>
                     <div className="mb-1 flex items-center justify-between">
-                      <Label htmlFor="field-deadline">{lang === "th" ? "วันสิ้นสุดรับซอง (Submission Deadline)" : "Submission Deadline"}</Label>
+                      <Label htmlFor="field-deadline">{lang === "th" ? "วันสิ้นสุดรับซอง" : "Submission Deadline"}</Label>
                       <FieldConfidenceBadge confidence={getFieldScore("Deadline")} lang={lang} />
                     </div>
                     <input
@@ -1009,7 +1049,7 @@ export default function DedicatedReviewPage({
                   </div>
 
                   <div>
-                    <Label htmlFor="field-comment-deadline">{lang === "th" ? "วันสิ้นสุดวิจารณ์ (Comment Deadline)" : "Public Hearing Deadline"}</Label>
+                    <Label htmlFor="field-comment-deadline">{lang === "th" ? "วันสิ้นสุดวิจารณ์" : "Public Hearing Deadline"}</Label>
                     <input
                       id="field-comment-deadline"
                       type="date"
@@ -1020,7 +1060,7 @@ export default function DedicatedReviewPage({
                   </div>
 
                   <div>
-                    <Label htmlFor="field-posted-date">{lang === "th" ? "วันที่ประกาศ (Posted Date)" : "Posted Date"}</Label>
+                    <Label htmlFor="field-posted-date">{lang === "th" ? "วันที่ประกาศ" : "Posted Date"}</Label>
                     <input
                       id="field-posted-date"
                       type="date"
@@ -1033,7 +1073,7 @@ export default function DedicatedReviewPage({
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div>
-                    <Label htmlFor="field-duration">{lang === "th" ? "ระยะเวลาสัญญา (Contract Duration - วัน)" : "Contract Duration (Days)"}</Label>
+                    <Label htmlFor="field-duration">{lang === "th" ? "ระยะเวลาสัญญา (วัน)" : "Contract Duration (Days)"}</Label>
                     <input
                       id="field-duration"
                       type="text"
@@ -1045,7 +1085,7 @@ export default function DedicatedReviewPage({
                   </div>
 
                   <div>
-                    <Label htmlFor="field-delivery-period">{lang === "th" ? "ระยะเวลาส่งมอบงาน (Delivery Period - วัน)" : "Delivery Period (Days)"}</Label>
+                    <Label htmlFor="field-delivery-period">{lang === "th" ? "ระยะเวลาส่งมอบงาน (วัน)" : "Delivery Period (Days)"}</Label>
                     <input
                       id="field-delivery-period"
                       type="text"
@@ -1057,7 +1097,7 @@ export default function DedicatedReviewPage({
                   </div>
 
                   <div>
-                    <Label htmlFor="field-warranty">{lang === "th" ? "ระยะเวลารับประกัน (Warranty - ปี)" : "Warranty Period (Years)"}</Label>
+                    <Label htmlFor="field-warranty">{lang === "th" ? "ระยะเวลารับประกัน (ปี)" : "Warranty Period (Years)"}</Label>
                     <input
                       id="field-warranty"
                       type="text"
@@ -1071,7 +1111,7 @@ export default function DedicatedReviewPage({
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <Label htmlFor="field-method">{lang === "th" ? "วิธีการจัดซื้อจัดจ้าง (Procurement Method)" : "Procurement Method"}</Label>
+                    <Label htmlFor="field-method">{lang === "th" ? "วิธีการจัดซื้อจัดจ้าง" : "Procurement Method"}</Label>
                     <input
                       id="field-method"
                       type="text"
@@ -1084,7 +1124,7 @@ export default function DedicatedReviewPage({
 
                   <div>
                     <div className="mb-1 flex items-center justify-between">
-                      <Label htmlFor="field-penalty">{lang === "th" ? "เงื่อนไขค่าปรับล่าช้า (Penalty Clause)" : "Penalty Clause"}</Label>
+                      <Label htmlFor="field-penalty">{lang === "th" ? "เงื่อนไขค่าปรับล่าช้า" : "Penalty Clause"}</Label>
                       <FieldConfidenceBadge confidence={getFieldScore("Penalty")} lang={lang} />
                     </div>
                     <input
@@ -1104,7 +1144,7 @@ export default function DedicatedReviewPage({
             <Panel id="sec-overview" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
-                  {lang === "th" ? "3. ภาพรวมโครงการและขอบเขตงาน (Project Overview & Scope)" : "3. Project Overview & Scope"}
+                  {lang === "th" ? "3. ภาพรวมโครงการและขอบเขตงาน" : "3. Project Overview & Scope"}
                 </SectionHeading>
                 <p className="text-[12px] text-ink-3 mt-1">
                   {lang === "th" ? "วัตถุประสงค์ สถาปัตยกรรมระบบ และขอบเขตงานภาพรวม" : "Objective, architecture archetype, and high-level scope"}
@@ -1114,7 +1154,7 @@ export default function DedicatedReviewPage({
               <div className="mt-4 flex flex-col gap-4">
                 <div>
                   <div className="mb-1 flex items-center justify-between">
-                    <Label htmlFor="field-objective">{lang === "th" ? "วัตถุประสงค์โครงการ (Project Objective)" : "Project Objective"}</Label>
+                    <Label htmlFor="field-objective">{lang === "th" ? "วัตถุประสงค์โครงการ" : "Project Objective"}</Label>
                     <FieldConfidenceBadge confidence={getFieldScore("Objective")} lang={lang} />
                   </div>
                   <textarea
@@ -1129,7 +1169,7 @@ export default function DedicatedReviewPage({
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <Label htmlFor="field-archetype">{lang === "th" ? "รูปแบบสถาปัตยกรรมระบบ (System Archetype)" : "System Archetype"}</Label>
+                    <Label htmlFor="field-archetype">{lang === "th" ? "รูปแบบสถาปัตยกรรมระบบ" : "System Archetype"}</Label>
                     <select
                       id="field-archetype"
                       value={systemArchetype}
@@ -1150,7 +1190,7 @@ export default function DedicatedReviewPage({
                   </div>
 
                   <div>
-                    <Label htmlFor="field-tier">{lang === "th" ? "ระดับความซับซ้อนของระบบ (Complexity Tier)" : "Complexity Tier"}</Label>
+                    <Label htmlFor="field-tier">{lang === "th" ? "ระดับความซับซ้อนของระบบ" : "Complexity Tier"}</Label>
                     <select
                       id="field-tier"
                       value={complexityTier}
@@ -1166,7 +1206,7 @@ export default function DedicatedReviewPage({
                 </div>
 
                 <div>
-                  <Label htmlFor="field-scope">{lang === "th" ? "ขอบเขตงานภาพรวม (High-Level Scope)" : "High-Level Scope"}</Label>
+                  <Label htmlFor="field-scope">{lang === "th" ? "ขอบเขตงานภาพรวม" : "High-Level Scope"}</Label>
                   <textarea
                     id="field-scope"
                     rows={3}
@@ -1178,7 +1218,7 @@ export default function DedicatedReviewPage({
                 </div>
 
                 <DynamicListEditor
-                  label={lang === "th" ? "องค์ประกอบหลักของระบบ (Major Components)" : "Major System Components"}
+                  label={lang === "th" ? "องค์ประกอบหลักของระบบ" : "Major System Components"}
                   items={majorComponents}
                   onChange={setMajorComponents}
                   placeholder={lang === "th" ? "เช่น ระบบประมวลผลข้อมูลกลาง (Central API)" : "e.g. Central Processing Engine"}
@@ -1193,7 +1233,7 @@ export default function DedicatedReviewPage({
             <Panel id="sec-deliverables" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
-                  {lang === "th" ? "4. ขอบเขตงานส่งมอบของผู้รับจ้าง (Contractor Deliverables)" : "4. Contractor Deliverables"}
+                  {lang === "th" ? "4. ขอบเขตงานส่งมอบของผู้รับจ้าง" : "4. Contractor Deliverables"}
                 </SectionHeading>
                 <p className="text-[12px] text-ink-3 mt-1">
                   {lang === "th" ? "รายการสิ่งส่งมอบ 4 ด้าน: งานระบบ, งานติดตั้ง, การทดสอบ, และเอกสาร/งานสนับสนุน" : "Deliverables split across system, implementation, validation, and support"}
@@ -1202,7 +1242,7 @@ export default function DedicatedReviewPage({
 
               <div className="mt-4 flex flex-col gap-5">
                 <DynamicListEditor
-                  label={lang === "th" ? "4.1 สิ่งส่งมอบด้านระบบซอฟต์แวร์/ฮาร์ดแวร์ (System Deliverables)" : "4.1 System Deliverables"}
+                  label={lang === "th" ? "4.1 สิ่งส่งมอบด้านระบบซอฟต์แวร์/ฮาร์ดแวร์" : "4.1 System Deliverables"}
                   items={deliverablesSystem}
                   onChange={setDeliverablesSystem}
                   placeholder={lang === "th" ? "เช่น ซอร์สโค้ดและโปรแกรมระบบบริหารจัดการข้อมูล..." : "e.g. Software source code and deployed web app..."}
@@ -1211,7 +1251,7 @@ export default function DedicatedReviewPage({
                 />
 
                 <DynamicListEditor
-                  label={lang === "th" ? "4.2 สิ่งส่งมอบด้านการติดตั้งและปรับแต่ง (Implementation Deliverables)" : "4.2 Implementation Deliverables"}
+                  label={lang === "th" ? "4.2 สิ่งส่งมอบด้านการติดตั้งและปรับแต่ง" : "4.2 Implementation Deliverables"}
                   items={deliverablesImplementation}
                   onChange={setDeliverablesImplementation}
                   placeholder={lang === "th" ? "เช่น รายงานผลการติดตั้งและปรับแต่งค่าความปลอดภัยเซิร์ฟเวอร์..." : "e.g. Server installation & hardening report..."}
@@ -1220,7 +1260,7 @@ export default function DedicatedReviewPage({
                 />
 
                 <DynamicListEditor
-                  label={lang === "th" ? "4.3 สิ่งส่งมอบด้านการทดสอบและตรวจรับ (Validation Deliverables)" : "4.3 Validation Deliverables"}
+                  label={lang === "th" ? "4.3 สิ่งส่งมอบด้านการทดสอบและตรวจรับ" : "4.3 Validation Deliverables"}
                   items={deliverablesValidation}
                   onChange={setDeliverablesValidation}
                   placeholder={lang === "th" ? "เช่น รายงานผลการทดสอบเจาะระบบ (Penetration Test Report)..." : "e.g. User Acceptance & Pentest report..."}
@@ -1229,7 +1269,7 @@ export default function DedicatedReviewPage({
                 />
 
                 <DynamicListEditor
-                  label={lang === "th" ? "4.4 เอกสารและงานสนับสนุน (Supporting Work Deliverables)" : "4.4 Supporting Work Deliverables"}
+                  label={lang === "th" ? "4.4 เอกสารและงานสนับสนุน" : "4.4 Supporting Work Deliverables"}
                   items={deliverablesSupportingWork}
                   onChange={setDeliverablesSupportingWork}
                   placeholder={lang === "th" ? "เช่น คู่มือการใช้งานสำหรับผู้ดูแลระบบและผู้ใช้งานทั่วไป..." : "e.g. Admin & user manuals, SLA documentation..."}
@@ -1243,7 +1283,7 @@ export default function DedicatedReviewPage({
             <Panel id="sec-tech" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
-                  {lang === "th" ? "5. ข้อกำหนดด้านเทคโนโลยีและมาตรฐาน (Technical Requirements)" : "5. Technical Requirements & Stack"}
+                  {lang === "th" ? "5. ข้อกำหนดด้านเทคโนโลยีและมาตรฐาน" : "5. Technical Requirements & Stack"}
                 </SectionHeading>
                 <p className="text-[12px] text-ink-3 mt-1">
                   {lang === "th" ? "เทคโนโลยีที่กำหนด คุณลักษณะฮาร์ดแวร์/ซอฟต์แวร์ และเกณฑ์ทางเทคนิค" : "Required tech stack, hardware/software specs, and constraints"}
@@ -1254,7 +1294,7 @@ export default function DedicatedReviewPage({
                 {/* Tech Stack Selector */}
                 <div>
                   <Label>
-                    {lang === "th" ? "เทคโนโลยีที่กำหนดใน TOR (Required Technologies)" : "Required Tech Stack"}
+                    {lang === "th" ? "เทคโนโลยีที่กำหนดใน TOR" : "Required Tech Stack"}
                   </Label>
                   <p className="text-[12px] text-ink-3 mt-0.5">
                     {lang === "th" ? "เลือกจากคลังเทคโนโลยีมาตรฐาน หรือเพิ่มเทคโนโลยีพร้อมระบุเวอร์ชัน" : "Select from vocabulary or add custom technologies with version"}
@@ -1355,7 +1395,7 @@ export default function DedicatedReviewPage({
                 </div>
 
                 <DynamicListEditor
-                  label={lang === "th" ? "สมรรถนะและความสามารถทางเทคนิคที่ต้องมี (Required Capabilities)" : "Required Technical Capabilities"}
+                  label={lang === "th" ? "สมรรถนะและความสามารถทางเทคนิคที่ต้องมี" : "Required Technical Capabilities"}
                   items={requiredCapabilities}
                   onChange={setRequiredCapabilities}
                   placeholder={lang === "th" ? "เช่น รองรับการเชื่อมต่อพร้อมกันไม่น้อยกว่า 1,000 คน (Concurrent Users)" : "e.g. Support min 1,000 concurrent users"}
@@ -1364,7 +1404,7 @@ export default function DedicatedReviewPage({
                 />
 
                 <KeyValueListEditor
-                  label={lang === "th" ? "คุณลักษณะเฉพาะด้านโครงสร้างพื้นฐาน (Infrastructure Specifications)" : "Infrastructure Specifications"}
+                  label={lang === "th" ? "คุณลักษณะเฉพาะด้านโครงสร้างพื้นฐาน" : "Infrastructure Specifications"}
                   items={infrastructureSpecs}
                   onChange={setInfrastructureSpecs}
                   keyLabel={lang === "th" ? "รายการ / ฮาร์ดแวร์" : "Item / Component"}
@@ -1374,7 +1414,7 @@ export default function DedicatedReviewPage({
                 />
 
                 <KeyValueListEditor
-                  label={lang === "th" ? "ข้อจำกัดและตัวชี้วัดทางเทคนิค (Technical Constraints)" : "Technical Constraints & Metrics"}
+                  label={lang === "th" ? "ข้อจำกัดและตัวชี้วัดทางเทคนิค" : "Technical Constraints & Metrics"}
                   items={technicalConstraints}
                   onChange={setTechnicalConstraints}
                   keyLabel={lang === "th" ? "ตัวชี้วัด (Metric)" : "Metric"}
@@ -1389,7 +1429,7 @@ export default function DedicatedReviewPage({
             <Panel id="sec-integration" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
-                  {lang === "th" ? "6. ระบบเดิมและสภาพแวดล้อมที่ต้องเชื่อมต่อ (Integration Environment)" : "6. Integration & Existing Environment"}
+                  {lang === "th" ? "6. ระบบเดิมและสภาพแวดล้อมที่ต้องเชื่อมต่อ" : "6. Integration & Existing Environment"}
                 </SectionHeading>
                 <p className="text-[12px] text-ink-3 mt-1">
                   {lang === "th" ? "ระบบเดิมของหน่วยงาน อินเทอร์เฟซ API การถ่ายโอนข้อมูล และสถานที่ติดตั้ง" : "Existing systems, API integration, data migration, and deployment location"}
@@ -1398,7 +1438,7 @@ export default function DedicatedReviewPage({
 
               <div className="mt-4 flex flex-col gap-4">
                 <DynamicListEditor
-                  label={lang === "th" ? "ระบบเดิมที่ต้องเชื่อมต่อ (Existing Systems)" : "Existing Systems to Integrate"}
+                  label={lang === "th" ? "ระบบเดิมที่ต้องเชื่อมต่อ" : "Existing Systems to Integrate"}
                   items={existingSystems}
                   onChange={setExistingSystems}
                   placeholder={lang === "th" ? "เช่น ระบบทะเบียนราษฎร์ กรมการปกครอง (DOPA)" : "e.g. DOPA Resident Database"}
@@ -1407,7 +1447,7 @@ export default function DedicatedReviewPage({
                 />
 
                 <DynamicListEditor
-                  label={lang === "th" ? "อินเทอร์เฟซและบริการ API (Interfaces & APIs)" : "Interfaces & APIs"}
+                  label={lang === "th" ? "อินเทอร์เฟซและบริการ API" : "Interfaces & APIs"}
                   items={interfacesAndApis}
                   onChange={setInterfacesAndApis}
                   placeholder={lang === "th" ? "เช่น RESTful API ด้วย JSON Web Token (JWT)" : "e.g. REST API with JWT Auth"}
@@ -1416,7 +1456,7 @@ export default function DedicatedReviewPage({
                 />
 
                 <div>
-                  <Label htmlFor="field-migration">{lang === "th" ? "ข้อมูลและเงื่อนไขการย้ายข้อมูล (Data Migration Notes)" : "Data Migration Notes"}</Label>
+                  <Label htmlFor="field-migration">{lang === "th" ? "ข้อมูลและเงื่อนไขการย้ายข้อมูล" : "Data Migration Notes"}</Label>
                   <textarea
                     id="field-migration"
                     rows={3}
@@ -1428,7 +1468,7 @@ export default function DedicatedReviewPage({
                 </div>
 
                 <div>
-                  <Label htmlFor="field-deploy-loc">{lang === "th" ? "สถานที่และสภาพแวดล้อมการติดตั้ง (Deployment Location)" : "Deployment Location"}</Label>
+                  <Label htmlFor="field-deploy-loc">{lang === "th" ? "สถานที่และสภาพแวดล้อมการติดตั้ง" : "Deployment Location"}</Label>
                   <input
                     id="field-deploy-loc"
                     type="text"
@@ -1445,7 +1485,7 @@ export default function DedicatedReviewPage({
             <Panel id="sec-ops" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
-                  {lang === "th" ? "7. การติดตั้งและบำรุงรักษา (Implementation & Operational Requirements)" : "7. Operations, Training & SLA"}
+                  {lang === "th" ? "7. การติดตั้งและบำรุงรักษา" : "7. Operations, Training & SLA"}
                 </SectionHeading>
                 <p className="text-[12px] text-ink-3 mt-1">
                   {lang === "th" ? "เงื่อนไขการติดตั้ง ฝึกอบรม ข้อตกลงระดับบริการ (SLA) และการบำรุงรักษา" : "Installation, training curriculum, SLA, and maintenance scope"}
@@ -1454,7 +1494,7 @@ export default function DedicatedReviewPage({
 
               <div className="mt-4 flex flex-col gap-4">
                 <DynamicListEditor
-                  label={lang === "th" ? "ข้อกำหนดด้านการติดตั้งและปรับแต่ง (Installation & Configuration)" : "Installation & Configuration"}
+                  label={lang === "th" ? "ข้อกำหนดด้านการติดตั้งและปรับแต่ง" : "Installation & Configuration"}
                   items={installationAndConfig}
                   onChange={setInstallationAndConfig}
                   placeholder={lang === "th" ? "เช่น ติดตั้งระบบปฏิบัติการและตั้งค่า Firewall ตามมาตรฐาน CIS Benchmark" : "e.g. Hardening and setup"}
@@ -1463,7 +1503,7 @@ export default function DedicatedReviewPage({
                 />
 
                 <DynamicListEditor
-                  label={lang === "th" ? "การฝึกอบรมบุคลากร (Training Curriculum)" : "Training Curriculum"}
+                  label={lang === "th" ? "การฝึกอบรมบุคลากร" : "Training Curriculum"}
                   items={training}
                   onChange={setTraining}
                   placeholder={lang === "th" ? "เช่น อบรมการใช้งานระบบสำหรับเจ้าหน้าที่ 2 รุ่น รุ่นละ 30 คน" : "e.g. 2 sessions of admin training for 30 staff"}
@@ -1472,7 +1512,7 @@ export default function DedicatedReviewPage({
                 />
 
                 <div>
-                  <Label htmlFor="field-sla">{lang === "th" ? "ข้อตกลงระดับการให้บริการและการสนับสนุนเทคนิค (Technical Support & SLA)" : "Support & SLA Terms"}</Label>
+                  <Label htmlFor="field-sla">{lang === "th" ? "ข้อตกลงระดับการให้บริการและการสนับสนุนเทคนิค" : "Support & SLA Terms"}</Label>
                   <textarea
                     id="field-sla"
                     rows={3}
@@ -1484,7 +1524,7 @@ export default function DedicatedReviewPage({
                 </div>
 
                 <DynamicListEditor
-                  label={lang === "th" ? "การบำรุงรักษาระบบ (Maintenance Requirements)" : "Maintenance Requirements"}
+                  label={lang === "th" ? "การบำรุงรักษาระบบ" : "Maintenance Requirements"}
                   items={maintenance}
                   onChange={setMaintenance}
                   placeholder={lang === "th" ? "เช่น ตรวจสอบสถานะการทำงานเชิงป้องกัน (Preventive Maintenance) ทุก 3 เดือน" : "e.g. Quarterly preventive maintenance"}
@@ -1498,7 +1538,7 @@ export default function DedicatedReviewPage({
             <Panel id="sec-eligibility" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
-                  {lang === "th" ? "8. คุณสมบัติผู้ยื่นข้อเสนอ (Bid Eligibility & Qualifications)" : "8. Bidder Qualifications & Certifications"}
+                  {lang === "th" ? "8. คุณสมบัติผู้ยื่นข้อเสนอ" : "8. Bidder Qualifications & Certifications"}
                 </SectionHeading>
                 <p className="text-[12px] text-ink-3 mt-1">
                   {lang === "th" ? "คุณสมบัตินิติบุคคล หนังสือรับรอง มาตรฐาน ISO/CMMI และผลงานที่ผ่านมา" : "Company requirements, certifications, authorizations, and past experience"}
@@ -1507,7 +1547,7 @@ export default function DedicatedReviewPage({
 
               <div className="mt-4 flex flex-col gap-4">
                 <DynamicListEditor
-                  label={lang === "th" ? "คุณสมบัติบริษัท/นิติบุคคล (Company Requirements)" : "Company Requirements"}
+                  label={lang === "th" ? "คุณสมบัติบริษัท/นิติบุคคล" : "Company Requirements"}
                   items={companyReqs}
                   onChange={setCompanyReqs}
                   placeholder={lang === "th" ? "เช่น มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท" : "e.g. Registered capital not less than 5,000,000 THB"}
@@ -1517,7 +1557,7 @@ export default function DedicatedReviewPage({
                 />
 
                 <DynamicListEditor
-                  label={lang === "th" ? "มาตรฐานและใบรับรองที่กำหนด (Required Certifications)" : "Required Certifications"}
+                  label={lang === "th" ? "มาตรฐานและใบรับรองที่กำหนด" : "Required Certifications"}
                   items={requiredCertifications}
                   onChange={setRequiredCertifications}
                   placeholder={lang === "th" ? "เช่น ได้รับการรับรองมาตรฐาน ISO/IEC 29110 หรือ CMMI Level 3" : "e.g. ISO/IEC 29110 or CMMI Level 3"}
@@ -1526,7 +1566,7 @@ export default function DedicatedReviewPage({
                 />
 
                 <DynamicListEditor
-                  label={lang === "th" ? "หนังสือแต่งตั้งตัวแทนจำหน่าย (Manufacturer Authorizations)" : "Manufacturer Authorizations (MAF)"}
+                  label={lang === "th" ? "หนังสือแต่งตั้งตัวแทนจำหน่าย" : "Manufacturer Authorizations (MAF)"}
                   items={manufacturerAuthorizations}
                   onChange={setManufacturerAuthorizations}
                   placeholder={lang === "th" ? "เช่น มีหนังสือแต่งตั้งตัวแทนจำหน่ายอย่างเป็นทางการจากเจ้าของผลิตภัณฑ์" : "e.g. Official Manufacturer Authorization Letter"}
@@ -1535,7 +1575,7 @@ export default function DedicatedReviewPage({
                 />
 
                 <DynamicListEditor
-                  label={lang === "th" ? "คุณสมบัติบุคลากรประจำโครงการ (Personnel Qualifications)" : "Personnel Qualifications"}
+                  label={lang === "th" ? "คุณสมบัติบุคลากรประจำโครงการ" : "Personnel Qualifications"}
                   items={personnelQualifications}
                   onChange={setPersonnelQualifications}
                   placeholder={lang === "th" ? "เช่น ผู้จัดการโครงการต้องได้รับประกาศนียบัตร PMP และมีประสบการณ์ไม่น้อยกว่า 5 ปี" : "e.g. Project Manager certified PMP with 5+ yrs exp"}
@@ -1546,7 +1586,7 @@ export default function DedicatedReviewPage({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div className="sm:col-span-2">
                     <div className="mb-1 flex items-center justify-between">
-                      <Label htmlFor="field-prev-exp">{lang === "th" ? "ผลงานและประสบการณ์ที่ต้องมี (Previous Experience)" : "Required Experience"}</Label>
+                      <Label htmlFor="field-prev-exp">{lang === "th" ? "ผลงานและประสบการณ์ที่ต้องมี" : "Required Experience"}</Label>
                       <FieldConfidenceBadge confidence={getFieldScore("Experience")} lang={lang} />
                     </div>
                     <textarea
@@ -1560,7 +1600,7 @@ export default function DedicatedReviewPage({
                   </div>
 
                   <div>
-                    <Label htmlFor="field-min-exp">{lang === "th" ? "มูลค่าผลงานขั้นต่ำ (Min Value - บาท)" : "Min Experience Value (THB)"}</Label>
+                    <Label htmlFor="field-min-exp">{lang === "th" ? "มูลค่าผลงานขั้นต่ำ (บาท)" : "Min Experience Value (THB)"}</Label>
                     <input
                       id="field-min-exp"
                       type="text"
@@ -1583,7 +1623,7 @@ export default function DedicatedReviewPage({
             <Panel id="sec-contract" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
-                  {lang === "th" ? "9. เงื่อนไขสัญญาและการชำระเงิน (Contract & Payment Conditions)" : "9. Contract Terms & Payment"}
+                  {lang === "th" ? "9. เงื่อนไขสัญญาและการชำระเงิน" : "9. Contract Terms & Payment"}
                 </SectionHeading>
                 <p className="text-[12px] text-ink-3 mt-1">
                   {lang === "th" ? "งวดการจ่ายเงิน เงื่อนไขการตรวจรับ และเกณฑ์การพิจารณาตัดสิน" : "Payment milestone schedule, delivery conditions, and evaluation criteria"}
@@ -1593,7 +1633,7 @@ export default function DedicatedReviewPage({
               <div className="mt-4 flex flex-col gap-4">
                 <div>
                   <div className="mb-1 flex items-center justify-between">
-                    <Label htmlFor="field-payment">{lang === "th" ? "งวดการจ่ายเงิน (Payment Terms)" : "Payment Schedule & Terms"}</Label>
+                    <Label htmlFor="field-payment">{lang === "th" ? "งวดการจ่ายเงิน" : "Payment Schedule & Terms"}</Label>
                     <FieldConfidenceBadge confidence={getFieldScore("Payment")} lang={lang} />
                   </div>
                   <textarea
@@ -1607,7 +1647,7 @@ export default function DedicatedReviewPage({
                 </div>
 
                 <div>
-                  <Label htmlFor="field-delivery-cond">{lang === "th" ? "เงื่อนไขการตรวจรับมอบงาน (Delivery Conditions)" : "Delivery Conditions"}</Label>
+                  <Label htmlFor="field-delivery-cond">{lang === "th" ? "เงื่อนไขการตรวจรับมอบงาน" : "Delivery Conditions"}</Label>
                   <textarea
                     id="field-delivery-cond"
                     rows={3}
@@ -1619,7 +1659,7 @@ export default function DedicatedReviewPage({
                 </div>
 
                 <div>
-                  <Label htmlFor="field-eval-method">{lang === "th" ? "เกณฑ์การพิจารณาคัดเลือก (Evaluation Method)" : "Evaluation Method"}</Label>
+                  <Label htmlFor="field-eval-method">{lang === "th" ? "เกณฑ์การพิจารณาคัดเลือก" : "Evaluation Method"}</Label>
                   <input
                     id="field-eval-method"
                     type="text"
@@ -1636,7 +1676,7 @@ export default function DedicatedReviewPage({
             <Panel id="sec-amendments" className="p-5 scroll-mt-[135px]">
               <div className="border-b border-line pb-3">
                 <SectionHeading>
-                  {lang === "th" ? "10. ข้อมูลการแก้ไขประกาศ (Amendment History & Tracking)" : "10. Amendment Information"}
+                  {lang === "th" ? "10. ข้อมูลการแก้ไขประกาศ" : "10. Amendment Information"}
                 </SectionHeading>
                 <p className="text-[12px] text-ink-3 mt-1">
                   {lang === "th" ? "การเปลี่ยนแปลงหรือแก้ไขข้อกำหนด TOR หลังเผยแพร่ประกาศครั้งแรก (FR-16)" : "Post-publication TOR amendments, changes, and diffs (FR-16)"}
@@ -1652,14 +1692,14 @@ export default function DedicatedReviewPage({
                     className="h-4 w-4 rounded border-line-2 accent-ink"
                   />
                   <span className="text-[13px] font-medium text-ink">
-                    {lang === "th" ? "ประกาศนี้มีการแก้ไข TOR (isAmended Flag)" : "This TOR has been amended (isAmended flag)"}
+                    {lang === "th" ? "ประกาศนี้มีการแก้ไข TOR" : "This TOR has been amended (isAmended flag)"}
                   </span>
                 </label>
 
                 {isAmended ? (
                   <div className="flex flex-col gap-4 rounded-[3px] border border-amend-line bg-amend-bg/15 p-4 animate-in fade-in duration-200">
                     <div>
-                      <Label htmlFor="field-amend-summary">{lang === "th" ? "สรุปสาระสำคัญที่มีการแก้ไข (Amendment Summary)" : "Amendment Summary"}</Label>
+                      <Label htmlFor="field-amend-summary">{lang === "th" ? "สรุปสาระสำคัญที่มีการแก้ไข" : "Amendment Summary"}</Label>
                       <textarea
                         id="field-amend-summary"
                         rows={3}
@@ -1671,7 +1711,7 @@ export default function DedicatedReviewPage({
                     </div>
 
                     <DynamicListEditor
-                      label={lang === "th" ? "ส่วนของเอกสารที่มีการแก้ไข (Changed Sections)" : "Changed Sections"}
+                      label={lang === "th" ? "ส่วนของเอกสารที่มีการแก้ไข" : "Changed Sections"}
                       items={changedSections}
                       onChange={setChangedSections}
                       placeholder={lang === "th" ? "เช่น ข้อ 4.2 ขยายเวลารับซอง" : "e.g. Section 4.2 Extended deadline"}
@@ -1685,7 +1725,7 @@ export default function DedicatedReviewPage({
 
             {/* Bottom Actions Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-              <Link href="/admin?tab=review" className={`${btn.secondary} text-[13px]`}>
+              <Link href="/admin?job=review" className={`${btn.secondary} text-[13px]`}>
                 {lang === "th" ? "← ยกเลิกและกลับไปคิวตรวจทาน" : "Cancel & Return"}
               </Link>
 
@@ -1699,7 +1739,7 @@ export default function DedicatedReviewPage({
                     ? "กำลังบันทึกข้อมูล..."
                     : "Saving Changes..."
                   : lang === "th"
-                    ? "บันทึกและอนุมัติ (Approve & Publish)"
+                    ? "บันทึกและอนุมัติข้อมูล"
                     : "Approve & Publish"}
               </button>
             </div>

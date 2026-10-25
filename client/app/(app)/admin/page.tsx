@@ -152,7 +152,8 @@ function AdminDashboard({
 }) {
   const { sources: scraperSources, reviewQueue, stats: pipelineStats, recentLogs } = ops;
   const searchParams = useSearchParams();
-  const jobParam = searchParams.get("job");
+  const rawParam = searchParams.get("job") || searchParams.get("tab");
+  const jobParam = rawParam === "monitoring" ? "failures" : rawParam;
   const urlJob: AdminJob =
     jobParam === "review" ||
     jobParam === "failures" ||
