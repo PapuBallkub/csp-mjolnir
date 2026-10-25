@@ -791,4 +791,116 @@ test('FR-23 / FR-24: updateTorReview persists extended facts and exposes them in
   assert.equal(queueItem.details.paymentTerms, 'แบ่งจ่าย 5 งวดตามความคืบหน้ารายไตรมาส');
 });
 
+test('GET /api/admin/pipeline/tasks filters by phase and returns live count badges', async () => {
+  const adminCookie = await signUp('PipelineTasksAdmin', { role: 'admin' });
+  const pId1 = `TEST-${runId}-task-dl`;
+  const pId2 = `TEST-${runId}-task-ocr`;
+  const pId3 = `TEST-${runId}-task-failed`;
+
+  await Tor.create({
+    projectId: pId1,
+    title: 'Pending Download Job',
+    agency: 'สำนักงาน กสทช.',
+    pipelineStatus: 'fetched',
+    source: 'process3',
+  });
+
+  await Tor.create({
+    projectId: pId2,
+    title: 'OCR Processing Job',
+    agency: 'กรมการขนส่งทางบก',
+    pipelineStatus: 'ocr_preview',
+    source: 'process3',
+  });
+
+  await Tor.create({
+    projectId: pId3,
+    title: 'Stuck Job',
+    agency: 'กรุงเทพมหานคร',
+    pipelineStatus: 'downloaded',
+    source: 'process3',
+  });
+
+  await PipelineFailure.create({
+    projectId: pId3,
+    step: 'ocr',
+    lastError: 'OCR engine timed out',
+    attempts: 2,
+    lastTransient: true,
+    firstFailedAt: new Date(),
+    lastFailedAt: new Date(),
+  });
+
+  // Query OCR phase
+  const ocrRes = await fetch(`${baseUrl}/api/admin/pipeline/tasks?phase=ocr`, {
+    headers: { cookie: adminCookie },
+  });
+  assert.equal(ocrRes.status, 200);
+  const ocrData = await ocrRes.json();
+  assert.ok(ocrData.counts.ocr >= 1);
+  const foundOcr = ocrData.tasks.find((t) => t.projectId === pId2);
+  assert.ok(foundOcr, 'Task in ocr phase should be returned');
+  assert.equal(foundOcr.phase, 'ocr');
+
+  // Query Failed phase
+  const failedRes = await fetch(`${baseUrl}/api/admin/pipeline/tasks?phase=failed`, {
+    headers: { cookie: adminCookie },
+  });
+  assert.equal(failedRes.status, 200);
+  const failedData = await failedRes.json();
+  assert.ok(failedData.counts.failed >= 1);
+  const foundFailed = failedData.tasks.find((t) => t.projectId === pId3);
+  assert.ok(foundFailed, 'Failed task should be returned in failed phase');
+  assert.equal(foundFailed.phase, 'failed');
+  assert.equal(foundFailed.lastError, 'OCR engine timed out');
+  assert.equal(foundFailed.lastTransient, true);
+});
+
+test('POST /api/admin/pipeline/skip advances stuck project and clears failure', async () => {
+  const adminCookie = await signUp('PipelineSkipAdmin', { role: 'admin' });
+  const pId = `TEST-${runId}-skip-step`;
+
+  await Tor.create({
+    projectId: pId,
+    title: 'Stuck Download Task',
+    agency: 'กระทรวงดิจิทัลฯ',
+    pipelineStatus: 'fetched',
+    source: 'process3',
+  });
+
+  await PipelineFailure.create({
+    projectId: pId,
+    step: 'download',
+    lastError: 'PDF corrupted',
+    attempts: 3,
+    lastTransient: false,
+    firstFailedAt: new Date(),
+    lastFailedAt: new Date(),
+  });
+
+  // Advance past download step
+  const skipRes = await fetch(`${baseUrl}/api/admin/pipeline/skip`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      cookie: adminCookie,
+    },
+    body: JSON.stringify({ projectId: pId, step: 'download' }),
+  });
+
+  assert.equal(skipRes.status, 200);
+  const skipData = await skipRes.json();
+  assert.equal(skipData.ok, true);
+  assert.equal(skipData.nextStatus, 'downloaded');
+
+  // Verify Tor is advanced
+  const tor = await Tor.findOne({ projectId: pId });
+  assert.equal(tor.pipelineStatus, 'downloaded');
+
+  // Verify PipelineFailure is removed
+  const failure = await PipelineFailure.findOne({ projectId: pId });
+  assert.equal(failure, null);
+});
+
+
 

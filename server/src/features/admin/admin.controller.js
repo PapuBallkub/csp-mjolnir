@@ -7,12 +7,14 @@ import {
   getAdminTechnologies,
   getOperations,
   getPipelineRecordDiagnostics,
+  getPipelineTasks,
   getTorReviewItem,
   getTorVersions,
   reExtractTor,
   retryAllPipelineFailures,
   retryPipelineStep,
   rollbackTorVersion,
+  skipPipelineStep,
   suggestProjects,
   triggerIngestion,
   updateAdminTechnology,
@@ -282,6 +284,32 @@ export async function handleDeleteAdminTechnology(req, res, next) {
   try {
     const { id } = req.params;
     const result = await deleteAdminTechnology(id);
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: { message: err.message } });
+    }
+    next(err);
+  }
+}
+
+export async function handleGetPipelineTasks(req, res, next) {
+  try {
+    const { phase = 'all', search = '', page = 1, limit = 25 } = req.query || {};
+    const result = await getPipelineTasks({ phase, search, page, limit });
+    res.json(result);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: { message: err.message } });
+    }
+    next(err);
+  }
+}
+
+export async function handleSkipPipelineStep(req, res, next) {
+  try {
+    const { projectId, step } = req.body || {};
+    const result = await skipPipelineStep(projectId, step);
     res.json(result);
   } catch (err) {
     if (err.status) {

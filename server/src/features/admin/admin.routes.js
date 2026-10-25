@@ -10,12 +10,14 @@ import {
   handleDismissPipelineFailure,
   handleGetAdminTechnologies,
   handleGetPipelineRecord,
+  handleGetPipelineTasks,
   handleGetReviewItem,
   handleListVersions,
   handleReExtract,
   handleRetryAllPipelineFailures,
   handleRetryPipelineStep,
   handleRollback,
+  handleSkipPipelineStep,
   handleSuggestProjects,
   handleTriggerIngest,
   handleUpdateAdminTechnology,
@@ -68,6 +70,12 @@ adminRoutes.post('/pipeline/retry', handleRetryPipelineStep);
 
 // Bulk retry all transient pipeline failures (FR-24)
 adminRoutes.post('/pipeline/retry-all', handleRetryAllPipelineFailures);
+
+// Advance past a stuck pipeline step (FR-24)
+adminRoutes.post('/pipeline/skip', handleSkipPipelineStep);
+
+// Query pipeline tasks with phase filtering and search (FR-24)
+adminRoutes.get('/pipeline/tasks', handleGetPipelineTasks);
 
 // Dismiss a permanent pipeline failure (FR-24)
 adminRoutes.post('/pipeline/dismiss', handleDismissPipelineFailure);

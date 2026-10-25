@@ -25,7 +25,7 @@ import {
 import {
   HEALTH,
   PipelineStageFunnel,
-  PipelineFailuresSection,
+  PipelineMonitoringSection,
   PipelineRunsSection,
   ReviewItemCard,
   RecordInspectorModal,
@@ -692,9 +692,9 @@ function AdminDashboard({
     },
     {
       id: "failures",
-      icon: "⚠️",
-      label: { th: "งานที่ติดขัดในระบบ", en: "Pipeline Failures" },
-      description: { th: "งานดาวน์โหลด, OCR, แยกข้อความ", en: "Stuck tasks & retry controls" },
+      icon: "⚙️",
+      label: { th: "เฝ้าระวัง Pipeline", en: "Pipeline Monitoring" },
+      description: { th: "ตัวกรองทุกขั้นตอน & จัดการรายโครงการ", en: "Monitor stages, filters & step controls" },
       badge: (ops.pipelineFailures?.length ?? 0) > 0 ? ops.pipelineFailures?.length : undefined,
       badgeTone: "risk",
     },
@@ -1212,10 +1212,9 @@ function AdminDashboard({
             </section>
           )}
 
-          {/* Job 3: Pipeline Failures & Stuck Items (FR-24) */}
+          {/* Job 3: Pipeline Monitoring & Control (FR-24) */}
           {activeJob === "failures" && (
-            <PipelineFailuresSection
-              failures={ops.pipelineFailures}
+            <PipelineMonitoringSection
               lang={lang}
               onInspect={handleInspect}
               onRetry={handleRetryStep}

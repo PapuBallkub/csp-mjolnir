@@ -650,6 +650,71 @@ export function adminDismissPipelineFailure(projectId: string, step: string, rea
   });
 }
 
+export type PipelineTaskItem = {
+  projectId: string;
+  title: string;
+  agency: string;
+  pipelineStatus: string;
+  phase: 'download' | 'ocr' | 'extract' | 'extracted' | 'failed';
+  step: string;
+  lastError: string | null;
+  attempts: number;
+  lastTransient: boolean;
+  updatedAt: string;
+};
+
+export type GetPipelineTasksResult = {
+  tasks: PipelineTaskItem[];
+  total: number;
+  page: number;
+  limit: number;
+  counts: {
+    all: number;
+    download: number;
+    ocr: number;
+    extract: number;
+    extracted: number;
+    failed: number;
+  };
+};
+
+export type SkipPipelineStepResult = {
+  ok: boolean;
+  projectId: string;
+  step: string;
+  nextStatus: string;
+  message: string;
+};
+
+/**
+ * Queries pipeline tasks with filtering by phase (all, download, ocr, extract, extracted, failed) (FR-24).
+ */
+export function adminGetPipelineTasks(params: {
+  phase?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+} = {}) {
+  const query = new URLSearchParams();
+  if (params.phase) query.set("phase", params.phase);
+  if (params.search) query.set("search", params.search);
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
+
+  const qs = query.toString();
+  return request<GetPipelineTasksResult>(`/api/admin/pipeline/tasks${qs ? `?${qs}` : ""}`);
+}
+
+/**
+ * Advances a project past a stuck pipeline step (FR-24).
+ */
+export function adminSkipPipelineStep(projectId: string, step: string) {
+  return request<SkipPipelineStepResult>("/api/admin/pipeline/skip", {
+    method: "POST",
+    body: JSON.stringify({ projectId, step }),
+  });
+}
+
 export type PipelineStageDetail = {
   done: boolean;
   timestamp?: string | null;

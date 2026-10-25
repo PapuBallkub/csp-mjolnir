@@ -49,7 +49,7 @@ export function PipelineFailuresSection({
                   {retryingAll ? (
                     <span className="animate-spin inline-block mr-1">↻</span>
                   ) : (
-                    "⚡ "
+                    <span className="inline-block mr-1">↻</span>
                   )}
                   {lang === "th" ? "เริ่มใหม่ทั้งหมด (Transient)" : "Retry All Transient"}
                 </button>
@@ -259,7 +259,7 @@ export function PipelineFailureRow({
             aria-label={`Run now ${failure.step} for ${failure.projectId}`}
             title={lang === "th" ? "สั่งรันขั้นตอนทันทีไม่ต้องรอรอบเวลา" : "Execute step immediately on-demand"}
           >
-            ⚡ {lang === "th" ? "รันทันที" : "Run Now"}
+            {lang === "th" ? "รันทันที" : "Run Now"}
           </button>
           <button
             type="button"

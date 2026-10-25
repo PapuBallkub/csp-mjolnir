@@ -1981,4 +1981,229 @@ export async function deleteAdminTechnology(id) {
   return { ok: true, id, message: `Technology '${tech.name}' deleted successfully` };
 }
 
+/**
+ * Queries pipeline tasks with filtering by phase (all, download, ocr, extract, extracted, failed),
+ * search keyword, and pagination (FR-24).
+ */
+export async function getPipelineTasks({ phase = 'all', search = '', page = 1, limit = 25 } = {}) {
+  const p = Math.max(1, Number(page) || 1);
+  const lim = Math.max(1, Math.min(100, Number(limit) || 25));
+  const skip = (p - 1) * lim;
+  const q = String(search || '').trim();
+
+  // Load active failures map for lookup
+  const failures = await PipelineFailure.find().lean();
+  const failureMap = new Map(failures.map((f) => [f.projectId, f]));
+
+  // Live Counts for Phase Badges
+  const [downloadCount, ocrCount, extractCount, extractedCount, failedCount, totalTorCount] =
+    await Promise.all([
+      Tor.countDocuments({ pipelineStatus: 'fetched' }),
+      Tor.countDocuments({ pipelineStatus: { $in: ['downloaded', 'ocr_preview'] } }),
+      Tor.countDocuments({ pipelineStatus: 'ocr_done' }),
+      TorInsight.countDocuments({ 'metadata.origin': { $ne: 'demo' }, 'metadata.excluded': null }),
+      PipelineFailure.countDocuments(),
+      Tor.countDocuments(),
+    ]);
+
+  let tasks = [];
+  let total = 0;
+
+  if (phase === 'failed') {
+    let failureQuery = {};
+    if (q) {
+      const matchingTors = await Tor.find({
+        $or: [
+          { projectId: { $regex: q, $options: 'i' } },
+          { title: { $regex: q, $options: 'i' } },
+          { agency: { $regex: q, $options: 'i' } },
+        ],
+      })
+        .select('projectId')
+        .lean();
+      const projIds = matchingTors.map((t) => t.projectId);
+      failureQuery = {
+        $or: [
+          { projectId: { $regex: q, $options: 'i' } },
+          { projectId: { $in: projIds } },
+          { lastError: { $regex: q, $options: 'i' } },
+        ],
+      };
+    }
+
+    total = await PipelineFailure.countDocuments(failureQuery);
+    const failureRecords = await PipelineFailure.find(failureQuery)
+      .sort({ lastFailedAt: -1 })
+      .skip(skip)
+      .limit(lim)
+      .lean();
+
+    const torMap = new Map(
+      (
+        await Tor.find({ projectId: { $in: failureRecords.map((f) => f.projectId) } })
+          .select('projectId title agency pipelineStatus')
+          .lean()
+      ).map((t) => [t.projectId, t]),
+    );
+
+    tasks = failureRecords.map((f) => {
+      const tor = torMap.get(f.projectId);
+      return {
+        projectId: f.projectId,
+        title: tor?.title || `Project ${f.projectId}`,
+        agency: tor?.agency || '',
+        pipelineStatus: tor?.pipelineStatus || 'unknown',
+        phase: 'failed',
+        step: f.step,
+        lastError: f.lastError,
+        attempts: f.attempts,
+        lastTransient: Boolean(f.lastTransient),
+        updatedAt: f.lastFailedAt ? new Date(f.lastFailedAt).toISOString() : '-',
+      };
+    });
+  } else if (phase === 'extracted') {
+    const insightQuery = {
+      'metadata.origin': { $ne: 'demo' },
+      'metadata.excluded': null,
+    };
+    if (q) {
+      insightQuery.$or = [
+        { projectId: { $regex: q, $options: 'i' } },
+        { 'identification.titleTh': { $regex: q, $options: 'i' } },
+        { 'identification.agency': { $regex: q, $options: 'i' } },
+      ];
+    }
+    total = await TorInsight.countDocuments(insightQuery);
+    const insights = await TorInsight.find(insightQuery)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(lim)
+      .lean();
+
+    tasks = insights.map((ins) => ({
+      projectId: ins.projectId,
+      title: ins.identification?.titleTh || `Project ${ins.projectId}`,
+      agency: ins.identification?.agency || '',
+      pipelineStatus: 'ocr_done',
+      phase: 'extracted',
+      step: 'completed',
+      lastError: null,
+      attempts: 1,
+      lastTransient: false,
+      updatedAt: ins.updatedAt ? new Date(ins.updatedAt).toISOString() : '-',
+    }));
+  } else {
+    const torQuery = {};
+    if (phase === 'download') {
+      torQuery.pipelineStatus = 'fetched';
+    } else if (phase === 'ocr') {
+      torQuery.pipelineStatus = { $in: ['downloaded', 'ocr_preview'] };
+    } else if (phase === 'extract') {
+      torQuery.pipelineStatus = 'ocr_done';
+    }
+
+    if (q) {
+      torQuery.$or = [
+        { projectId: { $regex: q, $options: 'i' } },
+        { title: { $regex: q, $options: 'i' } },
+        { agency: { $regex: q, $options: 'i' } },
+      ];
+    }
+
+    total = await Tor.countDocuments(torQuery);
+    const tors = await Tor.find(torQuery)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(lim)
+      .lean();
+
+    // Check which tors have insights already extracted
+    const extractedIds = new Set(
+      (
+        await TorInsight.find({
+          projectId: { $in: tors.map((t) => t.projectId) },
+          'metadata.origin': { $ne: 'demo' },
+          'metadata.excluded': null,
+        })
+          .select('projectId')
+          .lean()
+      ).map((i) => i.projectId),
+    );
+
+    tasks = tors.map((t) => {
+      const failure = failureMap.get(t.projectId);
+      const isExtracted = extractedIds.has(t.projectId);
+      let calculatedPhase = 'download';
+      if (t.pipelineStatus === 'fetched') calculatedPhase = 'download';
+      else if (t.pipelineStatus === 'downloaded' || t.pipelineStatus === 'ocr_preview') calculatedPhase = 'ocr';
+      else if (isExtracted) calculatedPhase = 'extracted';
+      else if (t.pipelineStatus === 'ocr_done') calculatedPhase = 'extract';
+
+      return {
+        projectId: t.projectId,
+        title: t.title,
+        agency: t.agency,
+        pipelineStatus: t.pipelineStatus,
+        phase: failure ? 'failed' : calculatedPhase,
+        step: failure?.step || calculatedPhase,
+        lastError: failure?.lastError || null,
+        attempts: failure?.attempts || 0,
+        lastTransient: Boolean(failure?.lastTransient),
+        updatedAt: t.updatedAt ? new Date(t.updatedAt).toISOString() : '-',
+      };
+    });
+  }
+
+  return {
+    tasks,
+    total,
+    page: p,
+    limit: lim,
+    counts: {
+      all: totalTorCount,
+      download: downloadCount,
+      ocr: ocrCount,
+      extract: extractCount,
+      extracted: extractedCount,
+      failed: failedCount,
+    },
+  };
+}
+
+/**
+ * Advances a project past a stuck pipeline step (FR-24).
+ */
+export async function skipPipelineStep(projectId, step) {
+  if (!projectId || !step) {
+    const error = new Error('projectId and step are required');
+    error.status = 400;
+    throw error;
+  }
+
+  const tor = await Tor.findOne({ projectId });
+  if (!tor) {
+    const error = new Error(`TOR document ${projectId} not found`);
+    error.status = 404;
+    throw error;
+  }
+
+  if (step === 'download') {
+    tor.pipelineStatus = 'downloaded';
+  } else if (step === 'ocr') {
+    tor.pipelineStatus = 'ocr_done';
+  }
+
+  await tor.save();
+  await PipelineFailure.deleteMany({ projectId });
+
+  return {
+    ok: true,
+    projectId,
+    step,
+    nextStatus: tor.pipelineStatus,
+    message: `Project ${projectId} advanced past ${step} step`,
+  };
+}
+
+
 

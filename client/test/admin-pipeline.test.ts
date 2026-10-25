@@ -5,9 +5,11 @@ import {
   adminAddPipelineRecord,
   adminDismissPipelineFailure,
   adminGetPipelineRecord,
+  adminGetPipelineTasks,
   adminOperations,
   adminRetryAllPipelineFailures,
   adminRetryPipelineStep,
+  adminSkipPipelineStep,
 } from "../app/_lib/api.ts";
 
 const realFetch = globalThis.fetch;
@@ -308,5 +310,74 @@ test("adminRetryAllPipelineFailures posts options to /api/admin/pipeline/retry-a
     JSON.stringify({ transientOnly: true, step: "ocr" }),
   );
 });
+
+test("adminGetPipelineTasks queries /api/admin/pipeline/tasks with phase and search filters", async () => {
+  const mockResult = {
+    tasks: [
+      {
+        projectId: "68049205582",
+        title: "Test Project",
+        agency: "กรมทางหลวง",
+        pipelineStatus: "ocr_preview",
+        phase: "ocr",
+        step: "ocr",
+        lastError: null,
+        attempts: 1,
+        lastTransient: false,
+        updatedAt: "2026-04-12T10:00:00.000Z",
+      },
+    ],
+    total: 1,
+    page: 1,
+    limit: 20,
+    counts: {
+      all: 10,
+      download: 2,
+      ocr: 1,
+      extract: 3,
+      extracted: 3,
+      failed: 1,
+    },
+  };
+
+  const calls = stubFetch(json(200, mockResult));
+
+  const result = await adminGetPipelineTasks({ phase: "ocr", search: "680492", page: 1, limit: 20 });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+
+  assert.equal(result.data.tasks.length, 1);
+  assert.equal(result.data.counts.ocr, 1);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/admin/pipeline/tasks?phase=ocr&search=680492&page=1&limit=20");
+});
+
+test("adminSkipPipelineStep posts to /api/admin/pipeline/skip with projectId and step", async () => {
+  const calls = stubFetch(
+    json(200, {
+      ok: true,
+      projectId: "68049205582",
+      step: "ocr",
+      nextStatus: "ocr_done",
+      message: "Project 68049205582 advanced past ocr step",
+    }),
+  );
+
+  const result = await adminSkipPipelineStep("68049205582", "ocr");
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+
+  assert.equal(result.data.nextStatus, "ocr_done");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/admin/pipeline/skip");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(
+    calls[0].init.body,
+    JSON.stringify({ projectId: "68049205582", step: "ocr" }),
+  );
+});
+
 
 

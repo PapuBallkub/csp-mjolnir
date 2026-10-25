@@ -1,5 +1,6 @@
 export { ConfidenceBar, confidenceTone, HEALTH } from "./ConfidenceBar";
 export { PipelineStageFunnel } from "./PipelineStageFunnel";
+export { PipelineMonitoringSection } from "./PipelineMonitoringSection";
 export { PipelineFailuresSection, PipelineFailureRow } from "./PipelineFailuresSection";
 export { PipelineRunsSection, PipelineRunRow } from "./PipelineRunsSection";
 export { ReviewItemCard } from "./ReviewItemCard";
