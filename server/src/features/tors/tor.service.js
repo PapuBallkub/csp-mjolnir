@@ -1,5 +1,10 @@
+import fs from 'node:fs';
+import { Readable } from 'node:stream';
+import axios from 'axios';
+import AdmZip from 'adm-zip';
 import { env } from '#common/config/env.js';
 import { Tor, TorInsight } from '#models/index.js';
+import { USER_AGENT } from '#pipeline/shared/user-agent.js';
 
 /**
  * What the public may see (NFR-17). Never a non-IT TOR, and never a result a
@@ -552,3 +557,163 @@ function publicDocument(document) {
 function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+const PROCESS5 = 'https://process5.gprocurement.go.th';
+const MAX_PREVIEW_BYTES = 40 * 1024 * 1024; // 40MB
+const PREVIEW_TIMEOUT_MS = 15000;
+
+/**
+ * Streams the PDF document for a project on demand without persisting binary data to DB.
+ * 1. If downloaded file exists on disk (from OCR pipeline), stream it directly.
+ * 2. If direct e-GP template URL is available (e.g. egpUrl containing view-pdf-file), stream it.
+ * 3. Query e-GP process5 API on the fly for announcement or draft package:
+ *    - If templateId (buildName2) is present, stream view-pdf-file.
+ *    - If zipId is present, fetch zip in memory, extract the TOR PDF, and stream.
+ *
+ * @param {string} projectId - 11-digit e-GP project ID
+ * @param {object} [options]
+ * @param {number} [options.part=0] - For multi-part documents, which part (0-indexed)
+ * @returns {Promise<{ stream: import('stream').Readable, fileName: string, contentLength?: number } | null>}
+ */
+export async function getTorPdfStream(projectId, { part = 0 } = {}) {
+  if (!projectId || typeof projectId !== 'string') return null;
+  const id = projectId.trim();
+
+  const tor = await Tor.findOne({ projectId: id }).lean();
+  if (!tor) return null;
+
+  // 1. Check local file if downloaded by OCR pipeline
+  let localPath = tor.document?.storagePath;
+  let fileName = tor.document?.fileName || `${id}_TOR.pdf`;
+
+  if (part > 0 && Array.isArray(tor.document?.parts) && tor.document.parts[part]) {
+    localPath = tor.document.parts[part].storagePath;
+    fileName = tor.document.parts[part].fileName || fileName;
+  }
+
+  if (localPath && fs.existsSync(localPath)) {
+    try {
+      const stats = fs.statSync(localPath);
+      return {
+        stream: fs.createReadStream(localPath),
+        fileName,
+        contentLength: stats.size,
+      };
+    } catch {
+      // Fall through to network fetch if file read fails
+    }
+  }
+
+  // 2. Direct URL from e-GP template service or portal
+  const directUrl = tor.egpUrl || tor.announcementHistory?.[0]?.url;
+  if (directUrl && (directUrl.includes('view-pdf-file') || directUrl.endsWith('.pdf'))) {
+    try {
+      const resp = await axios.get(directUrl, {
+        headers: { 'User-Agent': USER_AGENT, Accept: 'application/pdf,*/*' },
+        responseType: 'stream',
+        timeout: PREVIEW_TIMEOUT_MS,
+      });
+      return {
+        stream: resp.data,
+        fileName: `${id}_announcement.pdf`,
+        contentLength: resp.headers['content-length'] ? Number(resp.headers['content-length']) : undefined,
+      };
+    } catch {
+      // Fall through to dynamic lookup
+    }
+  }
+
+  // 3. Dynamic lookup from e-GP process5 API
+  try {
+    const lookupUrls = [
+      `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZip?projectId=${id}`,
+      `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZipTemp?projectId=${id}`,
+    ];
+
+    let zipId = null;
+    let templateId = null;
+
+    for (const url of lookupUrls) {
+      try {
+        const { data } = await axios.get(url, {
+          headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
+          timeout: 8000,
+        });
+        if (data?.data?.buildName2) {
+          templateId = data.data.buildName2;
+        }
+        if (data?.data?.zipId) {
+          zipId = data.data.zipId;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    // A. If templateId is known, try rendering announcement PDF
+    if (templateId) {
+      try {
+        const resp = await axios.get(
+          `${PROCESS5}/egp-template-service/dwnt/view-pdf-file?templateId=${templateId}`,
+          {
+            headers: { 'User-Agent': USER_AGENT, Accept: 'application/pdf,*/*' },
+            responseType: 'stream',
+            timeout: PREVIEW_TIMEOUT_MS,
+          },
+        );
+        return {
+          stream: resp.data,
+          fileName: `${id}_announcement.pdf`,
+          contentLength: resp.headers['content-length'] ? Number(resp.headers['content-length']) : undefined,
+        };
+      } catch {
+        // Fall back to zip download
+      }
+    }
+
+    // B. If zipId is known, download zip in memory and extract TOR PDF
+    if (zipId) {
+      const resp = await axios.get(
+        `${PROCESS5}/egp-upload-service/v1/downloadFileTest?fileId=${zipId}`,
+        {
+          headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
+          responseType: 'arraybuffer',
+          timeout: PREVIEW_TIMEOUT_MS,
+          maxContentLength: MAX_PREVIEW_BYTES,
+        },
+      );
+
+      const buffer = Buffer.from(resp.data);
+      if (buffer.subarray(0, 4).toString('ascii').startsWith('%PDF')) {
+        return {
+          stream: Readable.from(buffer),
+          fileName: `${id}_document.pdf`,
+          contentLength: buffer.byteLength,
+        };
+      }
+
+      const zip = new AdmZip(buffer);
+      const entries = zip.getEntries().filter((e) => !e.isDirectory && /\.pdf$/i.test(e.entryName));
+      if (entries.length > 0) {
+        const torEntry =
+          entries.find((e) => /attach_tor|tor_/i.test(e.entryName)) ||
+          entries.find((e) => /annoudoc|doc_/i.test(e.entryName)) ||
+          entries.find((e) => !/bond|guarantee|bank|action_plan/i.test(e.entryName)) ||
+          entries[0];
+
+        const pdfData = torEntry.getData();
+        return {
+          stream: Readable.from(pdfData),
+          fileName: torEntry.name || `${id}_TOR.pdf`,
+          contentLength: pdfData.byteLength,
+        };
+      }
+    }
+  } catch {
+    // Upstream unavailable
+  }
+
+  return null;
+}
+

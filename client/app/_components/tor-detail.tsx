@@ -11,6 +11,7 @@ import { AmendedFlag, CompaniesOnlyBadge, isDead, LifecycleBadge } from "./verdi
 import { countdownText, daysLeft } from "./deadline";
 import { announcementLabel, deadlineOf, stageOf } from "../_lib/stage";
 import { AccentPanel, btn, Chip, Fact, Label, Panel, SectionHeading, Well } from "./ui";
+import { PdfPreviewModal } from "./PdfPreviewModal";
 
 function formatMoney(amount: number | null | undefined, lang: Lang = "th"): string {
   if (amount == null) return lang === "th" ? "ไม่ระบุใน TOR" : "Not specified in TOR";
@@ -50,7 +51,17 @@ function formatDateString(val: string | Date | null | undefined, lang: Lang): st
  * Says what a summary is, before anyone reads it (ADR 0015). Demo data is made
  * up; an AI summary nobody has checked may be wrong. A checked one needs no note.
  */
-function ReviewNotice({ review, webUrl, lang }: { review: TorInsightDetail["review"]; webUrl: string | null; lang: Lang }) {
+function ReviewNotice({
+  review,
+  webUrl,
+  lang,
+  onPreviewPdf,
+}: {
+  review: TorInsightDetail["review"];
+  webUrl: string | null;
+  lang: Lang;
+  onPreviewPdf?: () => void;
+}) {
   if (review.origin === "demo") {
     return (
       <p className="mt-3 max-w-4xl rounded-[3px] border border-amend-line bg-amend-bg px-3 py-2 text-[12.5px] leading-thai text-amend">
@@ -79,10 +90,20 @@ function ReviewNotice({ review, webUrl, lang }: { review: TorInsightDetail["revi
             : ` · ${review.failedChecks} point(s) flagged for a second look`
           : null}
         {" · "}
-        {lang === "th" ? "ตรวจสอบกับเอกสารต้นฉบับก่อนตัดสินใจ" : "Check against the original before deciding"}
+        {onPreviewPdf ? (
+          <button
+            type="button"
+            onClick={onPreviewPdf}
+            className="underline hover:text-ink font-medium cursor-pointer"
+          >
+            {lang === "th" ? "พรีวิวเอกสารต้นฉบับ (PDF)" : "Preview original TOR"}
+          </button>
+        ) : (
+          lang === "th" ? "ตรวจสอบกับเอกสารต้นฉบับก่อนตัดสินใจ" : "Check against the original before deciding"
+        )}
         {webUrl ? (
           <>
-            {" "}
+            {" · "}
             <a href={webUrl} target="_blank" rel="noreferrer" className="underline hover:text-ink">
               {lang === "th" ? "เปิดใน e-GP" : "Open on e-GP"}
             </a>
@@ -121,6 +142,7 @@ export function TorDetail({
   const isSaved = user?.watchlist?.includes(projectId) ?? false;
   const [toggleLoading, setToggleLoading] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   useEffect(() => {
     if (!showAuthModal) return;
@@ -295,7 +317,12 @@ export function TorDetail({
             {insight.companiesOnly ? <CompaniesOnlyBadge lang={lang} /> : null}
           </div>
 
-          <ReviewNotice review={insight.review} webUrl={officialEgpUrl} lang={lang} />
+          <ReviewNotice
+            review={insight.review}
+            webUrl={officialEgpUrl}
+            lang={lang}
+            onPreviewPdf={() => setIsPdfModalOpen(true)}
+          />
 
           {/* Verdict Strip */}
           <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[3px] border border-line bg-surface-2/60 p-2.5 sm:gap-6 sm:px-4">
@@ -526,32 +553,42 @@ export function TorDetail({
               </Fact>
             </div>
 
-            {/* Official e-GP Link */}
-            {officialEgpUrl ? (
-              <div className="mt-4 border-t border-line pt-3 pb-1">
+            {/* Document Actions (PDF Preview & Official e-GP Link) */}
+            <div className="mt-4 border-t border-line pt-3 pb-1 space-y-2">
+              <button
+                type="button"
+                onClick={() => setIsPdfModalOpen(true)}
+                className={`${btn.primary} flex w-full items-center justify-center gap-1.5 text-[12px] cursor-pointer`}
+              >
+                <span>📄</span>
+                <span>{lang === "th" ? "พรีวิวเอกสารต้นฉบับ (PDF)" : "Preview Original PDF"}</span>
+              </button>
+
+              {officialEgpUrl ? (
                 <a
                   href={officialEgpUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`${btn.primary} flex w-full items-center justify-center gap-1.5 text-[12px]`}
+                  className={`${btn.secondary} flex w-full items-center justify-center gap-1.5 text-[12px]`}
                 >
                   <span>{lang === "th" ? "เปิดดูบนระบบ e-GP ทางการ" : "Open on official e-GP"}</span>
                   <span>↗</span>
                 </a>
-                <p className="mt-1.5 text-center text-[11px] leading-relaxed text-ink-3">
-                  <span className="block">
-                    {lang === "th"
-                      ? "การยื่นข้อเสนอและการประมูลทางการทำผ่าน e-GP เท่านั้น"
-                      : "All official bids are submitted on e-GP."}
-                  </span>
-                  <span className="block text-[10.5px] text-ink-3/80">
-                    {lang === "th"
-                      ? "(ระบบ e-GP ปิดปรับปรุงประจำวัน 00:00–04:00 น.)"
-                      : "(Official portal maintenance 00:00–04:00 daily)"}
-                  </span>
-                </p>
-              </div>
-            ) : null}
+              ) : null}
+
+              <p className="mt-1.5 text-center text-[11px] leading-relaxed text-ink-3">
+                <span className="block">
+                  {lang === "th"
+                    ? "การยื่นข้อเสนอและการประมูลทางการทำผ่าน e-GP เท่านั้น"
+                    : "All official bids are submitted on e-GP."}
+                </span>
+                <span className="block text-[10.5px] text-ink-3/80">
+                  {lang === "th"
+                    ? "(ระบบ e-GP ปิดปรับปรุงประจำวัน 00:00–04:00 น.)"
+                    : "(Official portal maintenance 00:00–04:00 daily)"}
+                </span>
+              </p>
+            </div>
           </Panel>
 
           {/* Watchlist Action */}
@@ -1404,6 +1441,17 @@ export function TorDetail({
           </div>
         </div>
       ) : null}
+
+      {/* Original Document PDF Preview Modal */}
+      <PdfPreviewModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        projectId={projectId}
+        title={iden.titleTh}
+        agency={iden.agency}
+        officialEgpUrl={officialEgpUrl}
+        lang={lang}
+      />
     </article>
   );
 }

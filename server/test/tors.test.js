@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fsPromises from 'node:fs/promises';
+import path from 'node:path';
 import { after, before, test } from 'node:test';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
@@ -469,3 +471,46 @@ test("the Tor's facts from the documents show without another extraction: list, 
   assert.equal(cancelled.facts.referencePriceTHB, 3_000_000);
   assert.equal(cancelled.identification.agency, 'หน่วยงานทดสอบสถานะ');
 });
+
+test('GET /api/tors/:projectId/preview: streams local PDF on demand with application/pdf', async () => {
+  const previewProjectId = '99999000099';
+  const testPdfPath = path.join(import.meta.dirname, 'temp_test_tor.pdf');
+  await fsPromises.writeFile(testPdfPath, '%PDF-1.4 test binary stream');
+
+  await Tor.create({
+    projectId: previewProjectId,
+    source: 'process3',
+    title: 'ทดสอบพรีวิว PDF',
+    document: {
+      fileName: 'test_preview.pdf',
+      storagePath: testPdfPath,
+      sizeBytes: 25,
+      pages: 1,
+    },
+  });
+
+  try {
+    const res = await fetch(`${baseUrl}/api/tors/${previewProjectId}/preview`);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'application/pdf');
+    assert.ok(res.headers.get('content-disposition')?.includes('test_preview.pdf'));
+    const text = await res.text();
+    assert.equal(text, '%PDF-1.4 test binary stream');
+
+    // Also test alias /pdf
+    const aliasRes = await fetch(`${baseUrl}/api/tors/${previewProjectId}/pdf`);
+    assert.equal(aliasRes.status, 200);
+    assert.equal(aliasRes.headers.get('content-type'), 'application/pdf');
+  } finally {
+    await Tor.deleteOne({ projectId: previewProjectId });
+    await fsPromises.unlink(testPdfPath).catch(() => {});
+  }
+});
+
+test('GET /api/tors/:projectId/preview: returns 404 when project or document not found', async () => {
+  const res = await fetch(`${baseUrl}/api/tors/nonexistent_project/preview`);
+  assert.equal(res.status, 404);
+  const data = await res.json();
+  assert.ok(data.error?.message?.includes('not available'));
+});
+
