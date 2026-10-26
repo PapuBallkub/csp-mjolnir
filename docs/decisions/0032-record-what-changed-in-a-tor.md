@@ -47,6 +47,9 @@ draft says "ร่าง" in its heading (`isDraftAnnouncement`).
   - `feed`: e-GP announced it (a `D2`). Fetch opens the entry, and the next
     package fills it in.
   - `package`: the platform found it.
+- **Its stage:** `draft` or `invitation`, read from the package (a `D2` is
+  an invitation; a price form takes its announcement's), or null when it
+  couldn't be read. The page words the change by it.
 - **Its date:** the date the agency's notice or documents state, or none. A
   found change is dated as the window between `previousCheckAt` (the last
   look that found nothing) and `detectedAt`.
@@ -76,10 +79,13 @@ Changes that replaced the version brought back, or a later one, are marked
 `rolledBack`: kept, but not shown.
 
 **The API reads it live:**
-- **TOR detail:** the changes still standing, with both originals.
+- **TOR detail:** the changes still standing, with both originals. Each says
+  whether the summary on the page predates it (`rereadPending`): the feed
+  announced it and its package hasn't come, or it brought a new TOR file and
+  the summary it replaced is still the current one.
 - **Catalog:** `lastChangeAt` and the latest change's source and fields.
-- **Watchlist:** `lastChangeAt`, so "changed since you saved" is
-  `savedAt < lastChangeAt`.
+- **Watchlist:** the catalog's fields and `savedAt`, so "changed since you
+  saved" is `savedAt < lastChangeAt`.
 - **`amendmentInfo.lastAmendedDate` and `changedSections`** come from the
   `Tor`, as `isAmended` and the status already do.
 

@@ -1,6 +1,6 @@
 import { badRequest, notFound } from '#common/errors/http-error.js';
-import { Tor, TorInsight, User } from '#models/index.js';
-import { toPublic, visibilityFilter } from '#features/tors/tor.service.js';
+import { TorInsight, User } from '#models/index.js';
+import { LIVE_STATUS, toPublic, visibilityFilter } from '#features/tors/tor.service.js';
 
 const MAX_WATCHLIST_ITEMS = 200;
 
@@ -21,7 +21,8 @@ export async function getWatchlist(userId, now = new Date()) {
   const savedAtMap = new Map(items.map((i) => [i.projectId, i.savedAt]));
   const projectIds = items.map((i) => i.projectId);
 
-  // Query TorInsights that match projectIds and pass visibilityFilter
+  // Query TorInsights that match projectIds and pass visibilityFilter, with
+  // the live status, facts and latest change the catalog shows (ADR 0013, 0032)
   const insights = await TorInsight.aggregate([
     {
       $match: {
@@ -29,59 +30,14 @@ export async function getWatchlist(userId, now = new Date()) {
         ...visibilityFilter(),
       },
     },
-    // Join with Tor collection for real-time feed status (ADR 0013)
-    {
-      $lookup: {
-        from: Tor.collection.collectionName,
-        localField: 'projectId',
-        foreignField: 'projectId',
-        pipeline: [
-          {
-            $project: {
-              _id: 0,
-              isAmended: 1,
-              status: 1,
-              contract: 1,
-              lastChangeAt: 1,
-            },
-          },
-        ],
-        as: '_tor',
-      },
-    },
-    {
-      $addFields: {
-        _rawTor: { $arrayElemAt: ['$_tor', 0] },
-      },
-    },
-    {
-      $project: {
-        _tor: 0,
-      },
-    },
+    ...LIVE_STATUS,
   ]);
 
-  // Transform insights to public summaries and attach live status
-  const summaries = insights.map((insight) => {
-    const rawTor = insight._rawTor;
-    delete insight._rawTor;
-
-    const merged = {
-      ...insight,
-      identification: {
-        ...insight.identification,
-        status: rawTor?.status ?? insight.identification?.status,
-        isAmended: rawTor?.isAmended ?? insight.identification?.isAmended,
-      },
-    };
-
-    return {
-      ...toPublic(merged, now),
-      // Changed since it was saved when this is later than savedAt (FR-17, ADR 0032)
-      lastChangeAt: rawTor?.lastChangeAt ?? null,
-      savedAt: savedAtMap.get(insight.projectId),
-    };
-  });
+  // Changed since it was saved when lastChangeAt is later than savedAt (FR-17)
+  const summaries = insights.map((insight) => ({
+    ...toPublic(insight, now),
+    savedAt: savedAtMap.get(insight.projectId),
+  }));
 
   // Sort by savedAt descending (newest saved first)
   summaries.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());

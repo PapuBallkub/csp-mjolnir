@@ -396,6 +396,7 @@ export async function fetchFromProcess3({
           const receivedAt = announcement.receivedAt;
           update.$push.amendments = {
             source: 'feed',
+            stage: 'invitation', // a D2 changes an invitation
             date: announcement.publishedAt,
             headline: updatePayload.title,
             detectedAt: receivedAt,
