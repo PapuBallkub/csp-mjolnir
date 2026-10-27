@@ -562,13 +562,43 @@ const PROCESS5 = 'https://process5.gprocurement.go.th';
 const MAX_PREVIEW_BYTES = 40 * 1024 * 1024; // 40MB
 const PREVIEW_TIMEOUT_MS = 15000;
 
+// In-Memory LRU Cache for on-demand PDF previews (Max 20 entries, 30 min TTL)
+const PDF_CACHE_MAX_ENTRIES = 20;
+const PDF_CACHE_TTL_MS = 30 * 60 * 1000;
+const pdfPreviewCache = new Map();
+
+function getCachedPdf(key) {
+  const entry = pdfPreviewCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > PDF_CACHE_TTL_MS) {
+    pdfPreviewCache.delete(key);
+    return null;
+  }
+  // LRU bump: delete and re-insert at end of Map
+  pdfPreviewCache.delete(key);
+  entry.timestamp = Date.now();
+  pdfPreviewCache.set(key, entry);
+  return entry;
+}
+
+function setCachedPdf(key, buffer, fileName) {
+  if (pdfPreviewCache.size >= PDF_CACHE_MAX_ENTRIES) {
+    const oldestKey = pdfPreviewCache.keys().next().value;
+    if (oldestKey) pdfPreviewCache.delete(oldestKey);
+  }
+  pdfPreviewCache.set(key, {
+    buffer,
+    fileName,
+    timestamp: Date.now(),
+  });
+}
+
 /**
  * Streams the PDF document for a project on demand without persisting binary data to DB.
  * 1. If downloaded file exists on disk (from OCR pipeline), stream it directly.
- * 2. If direct e-GP template URL is available (e.g. egpUrl containing view-pdf-file), stream it.
- * 3. Query e-GP process5 API on the fly for announcement or draft package:
- *    - If templateId (buildName2) is present, stream view-pdf-file.
- *    - If zipId is present, fetch zip in memory, extract the TOR PDF, and stream.
+ * 2. If in-memory LRU cache has the buffer, stream it instantly in ~1ms.
+ * 3. If direct e-GP template URL is available, stream it.
+ * 4. Query e-GP process5 API on the fly, extract candidate PDFs, populate cache, and stream.
  *
  * @param {string} projectId - 11-digit e-GP project ID
  * @param {object} [options]
@@ -600,30 +630,43 @@ export async function getTorPdfStream(projectId, { part = 0 } = {}) {
         contentLength: stats.size,
       };
     } catch {
-      // Fall through to network fetch if file read fails
+      // Fall through to cache/network fetch if file read fails
     }
   }
 
-  // 2. Direct URL from e-GP template service or portal
+  // 2. Check In-Memory LRU Cache
+  const cacheKey = `${id}:${part}`;
+  const cached = getCachedPdf(cacheKey);
+  if (cached) {
+    return {
+      stream: Readable.from(cached.buffer),
+      fileName: cached.fileName,
+      contentLength: cached.buffer.byteLength,
+    };
+  }
+
+  // 3. Direct URL from e-GP template service or portal
   const directUrl = tor.egpUrl || tor.announcementHistory?.[0]?.url;
   if (directUrl && (directUrl.includes('view-pdf-file') || directUrl.endsWith('.pdf'))) {
     try {
       const resp = await axios.get(directUrl, {
         headers: { 'User-Agent': USER_AGENT, Accept: 'application/pdf,*/*' },
-        responseType: 'stream',
+        responseType: 'arraybuffer',
         timeout: PREVIEW_TIMEOUT_MS,
       });
+      const directBuffer = Buffer.from(resp.data);
+      setCachedPdf(cacheKey, directBuffer, `${id}_announcement.pdf`);
       return {
-        stream: resp.data,
+        stream: Readable.from(directBuffer),
         fileName: `${id}_announcement.pdf`,
-        contentLength: resp.headers['content-length'] ? Number(resp.headers['content-length']) : undefined,
+        contentLength: directBuffer.byteLength,
       };
     } catch {
       // Fall through to dynamic lookup
     }
   }
 
-  // 3. Dynamic lookup from e-GP process5 API
+  // 4. Dynamic lookup from e-GP process5 API
   try {
     const lookupUrls = [
       `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZip?projectId=${id}`,
@@ -651,63 +694,123 @@ export async function getTorPdfStream(projectId, { part = 0 } = {}) {
       }
     }
 
-    // A. If templateId is known, try rendering announcement PDF
+    // Blank bank guarantee forms and legal boilerplate e-GP includes in every package
+    const isJunkForm = (entryName) => {
+      const base = String(entryName).split(/[\\/]/).pop();
+      return (
+        /bond\.pdf$/i.test(base) ||
+        /^contract_\d+\.pdf$/i.test(base) ||
+        /^definition_\d+\.pdf$/i.test(base) ||
+        /^quotation\.pdf$/i.test(base) ||
+        /^bidding noltice\.pdf$/i.test(base) ||
+        /^bill_payment\.pdf$/i.test(base) ||
+        /^action_plan/i.test(base) ||
+        /^price adjustment/i.test(base)
+      );
+    };
+
+    // A. Priority 1: If zipId is known, download zip in memory and extract the real TOR specification PDF
+    if (zipId) {
+      try {
+        const resp = await axios.get(
+          `${PROCESS5}/egp-upload-service/v1/downloadFileTest?fileId=${zipId}`,
+          {
+            headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
+            responseType: 'arraybuffer',
+            timeout: PREVIEW_TIMEOUT_MS,
+            maxContentLength: MAX_PREVIEW_BYTES,
+          },
+        );
+
+        const buffer = Buffer.from(resp.data);
+        if (buffer.subarray(0, 4).toString('ascii').startsWith('%PDF')) {
+          setCachedPdf(cacheKey, buffer, `${id}_document.pdf`);
+          return {
+            stream: Readable.from(buffer),
+            fileName: `${id}_document.pdf`,
+            contentLength: buffer.byteLength,
+          };
+        }
+
+        const zip = new AdmZip(buffer);
+        const entries = zip
+          .getEntries()
+          .filter((e) => !e.isDirectory && /\.pdf$/i.test(e.entryName) && !isJunkForm(e.entryName));
+
+        if (entries.length > 0) {
+          // Categorize entries
+          const torCandidates = entries.filter((e) =>
+            /(^|[^a-z])tor([^a-z]|$)|ขอบเขต|คุณลักษณะ/i.test(e.entryName),
+          ).sort((a, b) => b.header.size - a.header.size);
+
+          const biddingCandidates = entries.filter((e) =>
+            /doc_/i.test(e.entryName),
+          ).sort((a, b) => b.header.size - a.header.size);
+
+          const announcementCandidates = entries.filter((e) =>
+            /annoudoc/i.test(e.entryName),
+          ).sort((a, b) => b.header.size - a.header.size);
+
+          const otherCandidates = entries.filter((e) =>
+            !torCandidates.includes(e) &&
+            !biddingCandidates.includes(e) &&
+            !announcementCandidates.includes(e),
+          ).sort((a, b) => b.header.size - a.header.size);
+
+          // Ordered list of useful documents
+          const sortedCandidates = [
+            ...torCandidates,
+            ...biddingCandidates,
+            ...announcementCandidates,
+            ...otherCandidates,
+          ];
+
+          // Warm cache for discovered candidate parts for instant sub-document tab switches
+          for (let i = 0; i < Math.min(sortedCandidates.length, 5); i++) {
+            const cand = sortedCandidates[i];
+            try {
+              const cBuf = cand.getData();
+              setCachedPdf(`${id}:${i}`, cBuf, cand.name || `${id}_document_${i}.pdf`);
+            } catch {
+              // Ignore single entry extraction failure
+            }
+          }
+
+          const selected = sortedCandidates[part] || sortedCandidates[0];
+          const pdfData = selected.getData();
+          setCachedPdf(cacheKey, pdfData, selected.name || `${id}_TOR.pdf`);
+
+          return {
+            stream: Readable.from(pdfData),
+            fileName: selected.name || `${id}_TOR.pdf`,
+            contentLength: pdfData.byteLength,
+          };
+        }
+      } catch {
+        // Fall through to template lookup if zip extraction fails
+      }
+    }
+
+    // B. Priority 2: Fall back to 2-page announcement letter template if no TOR file in ZIP
     if (templateId) {
       try {
         const resp = await axios.get(
           `${PROCESS5}/egp-template-service/dwnt/view-pdf-file?templateId=${templateId}`,
           {
             headers: { 'User-Agent': USER_AGENT, Accept: 'application/pdf,*/*' },
-            responseType: 'stream',
+            responseType: 'arraybuffer',
             timeout: PREVIEW_TIMEOUT_MS,
           },
         );
+        const templBuffer = Buffer.from(resp.data);
+        setCachedPdf(cacheKey, templBuffer, `${id}_announcement.pdf`);
         return {
-          stream: resp.data,
+          stream: Readable.from(templBuffer),
           fileName: `${id}_announcement.pdf`,
-          contentLength: resp.headers['content-length'] ? Number(resp.headers['content-length']) : undefined,
+          contentLength: templBuffer.byteLength,
         };
       } catch {
-        // Fall back to zip download
-      }
-    }
-
-    // B. If zipId is known, download zip in memory and extract TOR PDF
-    if (zipId) {
-      const resp = await axios.get(
-        `${PROCESS5}/egp-upload-service/v1/downloadFileTest?fileId=${zipId}`,
-        {
-          headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
-          responseType: 'arraybuffer',
-          timeout: PREVIEW_TIMEOUT_MS,
-          maxContentLength: MAX_PREVIEW_BYTES,
-        },
-      );
-
-      const buffer = Buffer.from(resp.data);
-      if (buffer.subarray(0, 4).toString('ascii').startsWith('%PDF')) {
-        return {
-          stream: Readable.from(buffer),
-          fileName: `${id}_document.pdf`,
-          contentLength: buffer.byteLength,
-        };
-      }
-
-      const zip = new AdmZip(buffer);
-      const entries = zip.getEntries().filter((e) => !e.isDirectory && /\.pdf$/i.test(e.entryName));
-      if (entries.length > 0) {
-        const torEntry =
-          entries.find((e) => /attach_tor|tor_/i.test(e.entryName)) ||
-          entries.find((e) => /annoudoc|doc_/i.test(e.entryName)) ||
-          entries.find((e) => !/bond|guarantee|bank|action_plan/i.test(e.entryName)) ||
-          entries[0];
-
-        const pdfData = torEntry.getData();
-        return {
-          stream: Readable.from(pdfData),
-          fileName: torEntry.name || `${id}_TOR.pdf`,
-          contentLength: pdfData.byteLength,
-        };
+        // Failed
       }
     }
   } catch {

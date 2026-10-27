@@ -26,8 +26,10 @@ export function PdfPreviewModal({
   const [loading, setLoading] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [part, setPart] = useState(0);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
-  const previewUrl = getTorPdfPreviewUrl(projectId);
+  const previewUrl = getTorPdfPreviewUrl(projectId, part);
 
   // Close on Escape & Lock body scroll
   useEffect(() => {
@@ -49,15 +51,17 @@ export function PdfPreviewModal({
     };
   }, [isOpen, onClose]);
 
-  // Preflight check via HEAD request to verify file is available and is a PDF
-  // This prevents rendering raw JSON 404 errors inside the iframe
+  // Single-fetch PDF as a Blob object URL to prevent iframe subframe navigation
+  // from polluting the browser's top-level session history (window.history)
   useEffect(() => {
     if (!isOpen) return;
 
     let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
 
-    fetch(previewUrl, { method: "HEAD", credentials: "include" })
-      .then((res) => {
+    fetch(previewUrl, { credentials: "include" })
+      .then(async (res) => {
         if (cancelled) return;
         if (!res.ok) {
           setLoadError(true);
@@ -70,8 +74,15 @@ export function PdfPreviewModal({
           setLoading(false);
           return;
         }
-        // Confirmed valid PDF stream
+        const blob = await res.blob();
+        if (cancelled) return;
+        const objectUrl = URL.createObjectURL(blob);
+        setBlobUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return objectUrl;
+        });
         setLoadError(false);
+        setLoading(false);
       })
       .catch(() => {
         if (!cancelled) {
@@ -84,6 +95,14 @@ export function PdfPreviewModal({
       cancelled = true;
     };
   }, [isOpen, previewUrl]);
+
+  // Revoke blob URL on modal close to release memory immediately
+  useEffect(() => {
+    if (!isOpen && blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+      setBlobUrl(null);
+    }
+  }, [isOpen, blobUrl]);
 
   const [prevProjectId, setPrevProjectId] = useState(projectId);
   if (prevProjectId !== projectId) {
@@ -228,6 +247,64 @@ export function PdfPreviewModal({
           </div>
         </div>
 
+        {/* Document Selection Subheader */}
+        <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-line bg-surface text-[12px] shrink-0 overflow-x-auto">
+          <span className="text-[11px] font-medium text-ink-3 mr-1 shrink-0">
+            {lang === "th" ? "เลือกเอกสาร:" : "Document:"}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (part !== 0) {
+                setPart(0);
+                setLoading(true);
+                setLoadError(false);
+              }
+            }}
+            className={`px-2.5 py-0.5 rounded-[2px] text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
+              part === 0
+                ? "bg-ink text-surface"
+                : "text-ink-2 hover:text-ink hover:bg-surface-2"
+            }`}
+          >
+            {lang === "th" ? "📄 ขอบเขตงาน (TOR หลัก)" : "📄 TOR Specifications"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (part !== 1) {
+                setPart(1);
+                setLoading(true);
+                setLoadError(false);
+              }
+            }}
+            className={`px-2.5 py-0.5 rounded-[2px] text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
+              part === 1
+                ? "bg-ink text-surface"
+                : "text-ink-2 hover:text-ink hover:bg-surface-2"
+            }`}
+          >
+            {lang === "th" ? "📋 เอกสารประกวดราคา" : "📋 Bidding Rules"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (part !== 2) {
+                setPart(2);
+                setLoading(true);
+                setLoadError(false);
+              }
+            }}
+            className={`px-2.5 py-0.5 rounded-[2px] text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
+              part === 2
+                ? "bg-ink text-surface"
+                : "text-ink-2 hover:text-ink hover:bg-surface-2"
+            }`}
+          >
+            {lang === "th" ? "✉️ ประกาศเชิญชวน" : "✉️ Announcement"}
+          </button>
+        </div>
+
         {/* Modal Body / PDF Viewer Frame */}
         <div className="relative flex-1 w-full bg-surface-2 min-h-0 overflow-hidden">
           {loading && !loadError ? (
@@ -275,13 +352,26 @@ export function PdfPreviewModal({
                 {agency ? <span>· {agency}</span> : null}
               </div>
 
-              <div className="flex items-center gap-2.5 mt-5">
+              <div className="flex flex-wrap items-center justify-center gap-2.5 mt-5">
+                {part > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPart(0);
+                      setLoading(true);
+                      setLoadError(false);
+                    }}
+                    className={`${btn.primary} h-8 px-3.5 text-[12px]`}
+                  >
+                    {lang === "th" ? "📄 กลับไปดูเอกสาร TOR หลัก" : "📄 View Main TOR"}
+                  </button>
+                ) : null}
                 {officialEgpUrl ? (
                   <a
                     href={officialEgpUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`${btn.primary} h-8 px-3.5 text-[12px] flex items-center gap-1.5`}
+                    className={`${part > 0 ? btn.secondary : btn.primary} h-8 px-3.5 text-[12px] flex items-center gap-1.5`}
                   >
                     <span>{lang === "th" ? "เปิดดูบนเว็บ e-GP ทางการ" : "Open on official e-GP"}</span>
                     <span className="text-[10px]">↗</span>
@@ -296,20 +386,18 @@ export function PdfPreviewModal({
                 </button>
               </div>
             </div>
-          ) : (
+          ) : blobUrl ? (
             <iframe
-              src={previewUrl}
+              key={blobUrl}
+              src={blobUrl}
               title={title || "PDF Preview"}
-              onLoad={() => setLoading(false)}
-              onError={() => {
-                setLoading(false);
-                setLoadError(true);
-              }}
               className="w-full h-full border-0 bg-surface-2"
             />
-          )}
+          ) : null}
         </div>
       </div>
     </div>
   );
 }
+
+export default PdfPreviewModal;
