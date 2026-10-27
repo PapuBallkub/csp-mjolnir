@@ -1,6 +1,7 @@
 import type { Lang, PriceVerdict, RiskLevel, ScopeSize, Status, Tor } from "../_data/tors";
 import { priceDeltaPct } from "../_data/tors";
-import type { TorInsightSummary, TorStatus } from "../_lib/api";
+import type { ChangeSource, TorInsightSummary, TorStatus } from "../_lib/api";
+import { CHANGE_SOURCE } from "../_lib/changes";
 import { stageOf, type Stage } from "../_lib/stage";
 
 // Re-export Status and keep backward-compat alias
@@ -437,16 +438,37 @@ export function LifecycleBadge({
   );
 }
 
-/** Overlaid on whichever status applies: a TOR can be amended while it stays Open. */
-export function AmendedFlag({ lang }: { lang: Lang }) {
-  const tone = TONE.amend;
+/**
+ * Overlaid on whichever status applies: the status says the stage, this says
+ * the document changed (ADR 0032). Two looks, told apart by glyph and words
+ * as well as colour: the agency announced it, or the platform found it,
+ * muted and dashed like Closed because it is an inference.
+ */
+export function ChangeMarker({ source, lang }: { source: ChangeSource; lang: Lang }) {
+  const { marker, hint } = CHANGE_SOURCE[source];
+  const colours =
+    source === "feed"
+      ? `${TONE.amend.bg} ${TONE.amend.border} ${TONE.amend.text}`
+      : "border-dashed border-closed-line bg-surface text-ink-2";
   return (
-    <span className={`${statusBadgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
+    <span className={`${statusBadgeBase} ${colours}`} title={say(hint, lang)}>
       <svg viewBox="0 0 10 10" className="h-3 w-3 shrink-0" aria-hidden="true">
-        <rect x="0" y="2.2" width="7" height="1.8" fill="currentColor" />
-        <rect x="3" y="6" width="7" height="1.8" fill="currentColor" />
+        {source === "feed" ? (
+          <>
+            <rect x="0" y="2.2" width="7" height="1.8" fill="currentColor" />
+            <rect x="3" y="6" width="7" height="1.8" fill="currentColor" />
+          </>
+        ) : (
+          // ≠: what e-GP has differs from what was saved
+          <>
+            <rect x="0.5" y="2.6" width="9" height="1.5" fill="currentColor" />
+            <rect x="0.5" y="5.9" width="9" height="1.5" fill="currentColor" />
+            <path d="M7 0.8 3 9.2" stroke="currentColor" strokeWidth="1.4" />
+          </>
+        )}
       </svg>
-      <span>{lang === "th" ? "แก้ไขแล้ว" : "Amended"}</span>
+      <span>{say(marker, lang)}</span>
+      <span className="sr-only"> ({say(hint, lang)})</span>
     </span>
   );
 }

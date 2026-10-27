@@ -76,7 +76,7 @@ const torText = (field, fallback) => ({
   $cond: [{ $gt: [{ $strLenCP: { $ifNull: [torValue(field), ''] } }, 0] }, torValue(field), fallback],
 });
 
-const LIVE_STATUS = [
+export const LIVE_STATUS = [
   {
     $lookup: {
       from: Tor.collection.collectionName,
@@ -155,12 +155,21 @@ const LIVE_STATUS = [
   { $unset: '_tor' },
 ];
 
-/** A change as the public sees it: none rolled back, nothing internal (ADR 0032). */
-function publicChanges(tor) {
+/**
+ * A change as the public sees it: none rolled back, nothing internal (ADR 0032).
+ * `rereadPending` says the summary on the page predates it: an announced
+ * change whose package hasn't come yet, or a new TOR file the summary it
+ * replaced is still standing for.
+ */
+function publicChanges(tor, summaryVersion) {
   return (tor?.amendments ?? [])
     .filter((entry) => !entry.rolledBack)
-    .map(({ source, round, date, headline, detectedAt, previousCheckAt, zipId, previousZipId, diff, changes = [] }) => ({
+    .map(({ source, stage, round, date, headline, detectedAt, previousCheckAt, zipId, previousZipId, insightVersion, diff, changes = [] }) => ({
       source,
+      stage: stage ?? null,
+      rereadPending:
+        (source === 'feed' && !zipId) ||
+        (changes.some((row) => row.field === 'document') && insightVersion != null && insightVersion === summaryVersion),
       round: round || null,
       date: date ?? null,
       headline: headline || null,
@@ -539,7 +548,7 @@ export async function getTorByProjectId(projectId, { showUnreviewed, now = new D
     ocr: rawTor?.ocr || null,
     source: rawTor?.source || null,
     // What changed in it, oldest first, with both originals (FR-16, ADR 0032)
-    amendments: publicChanges(rawTor),
+    amendments: publicChanges(rawTor, insight.metadata?.version ?? 1),
   };
 }
 

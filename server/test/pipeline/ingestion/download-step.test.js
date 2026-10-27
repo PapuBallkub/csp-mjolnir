@@ -465,6 +465,7 @@ test('download step: an invitation replaced by one with a different TOR is recor
 
   const [change] = await changesOf();
   assert.equal(change.source, 'package', 'found by us, not announced');
+  assert.equal(change.stage, 'invitation', 'read from the package, for the page to word it');
   assert.deepEqual([change.zipId, change.previousZipId], ['zip-d2', 'zip-d0'], 'both originals');
   assert.deepEqual(change.changes.map((row) => [row.field, row.before, row.after]), [['document', `${PROJECT}_zip-d0.zip`, `${PROJECT}_zip-d2.zip`]]);
   assert.equal(change.diff, 'facts');
@@ -524,6 +525,7 @@ test('download step: a price form replacing another with a different budget is a
   await run({ downloadPrice });
   const [change] = await changesOf();
   assert.deepEqual(change.changes.map((row) => [row.field, row.before, row.after]), [['facts.budgetTHB', '1000000', '1200000']]);
+  assert.equal(change.stage, 'invitation', 'the stage of the announcement the price came after');
 });
 
 test("applyPackage: a package that doesn't state a fact leaves the last one standing, and never replaces the feed's agency", () => {

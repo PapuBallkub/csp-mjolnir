@@ -80,3 +80,8 @@ export function getEgpAnnouncementUrl(projectId: string): string {
   return `https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${encodeURIComponent(String(projectId).trim())}`;
 }
 
+/** An e-GP package's own download, the original a change cites: the zip as e-GP serves it. */
+export function getEgpPackageUrl(zipId: string): string {
+  return `https://process5.gprocurement.go.th/egp-upload-service/v1/downloadFileTest?fileId=${encodeURIComponent(zipId)}`;
+}
+

@@ -132,6 +132,7 @@ const rowKey = (row) => `${row.field}|${row.before}|${row.after}`;
  * @param {object} change
  * @param {object[]} [change.rows] - what changed
  * @param {Date} change.now - the run's time: one run's changes go in one entry
+ * @param {string} [change.stage] - 'draft' or 'invitation': the stage that changed
  * @param {string} [change.zipId] - the package it came with
  * @param {string} [change.previousZipId] - the package it replaced
  * @param {number} [change.insightVersion] - the summary version it replaced (ADR 0031)
@@ -186,6 +187,7 @@ export function noteNewPackage(tor, { previous, pkg, torChanged, factsBefore, in
   const entry = recordChange(tor, {
     rows,
     now,
+    stage: stageOfPackage(pkg) ?? undefined,
     zipId: pkg.zipId,
     previousZipId: previous.zipId,
     contentHash: torChanged ? tor.document?.contentHash : undefined,

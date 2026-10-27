@@ -295,6 +295,9 @@ const torSchema = new mongoose.Schema(
       {
         // 'feed': e-GP announced it; 'package': we found it, and say so
         source: { type: String, enum: ['feed', 'package'], default: 'package' },
+        // The stage that changed, 'draft' or 'invitation', read from the
+        // package; null when it couldn't be. The page words the change by it
+        stage: { type: String, default: null },
         round: { type: String, default: '' }, // e.g. "ครั้งที่ 2"
         // The date the agency's notice or documents state. Null when neither
         // says: a found change is dated by previousCheckAt and detectedAt

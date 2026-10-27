@@ -120,6 +120,7 @@ before(async () => {
       amendments: [
         {
           source: 'feed',
+          stage: 'invitation',
           date: new Date('2026-10-06'),
           detectedAt: new Date('2026-10-06T18:00:00+07:00'),
           zipId: 'zip-d2',
@@ -448,6 +449,40 @@ test('what changed in a TOR: the detail lists its changes, the list says when it
   assert.equal(new Date(changed.lastChangeAt).toISOString(), new Date('2026-10-06T18:00:00+07:00').toISOString());
   assert.deepEqual([changed.latestChange.source, changed.latestChange.fields], ['feed', ['facts.referencePriceTHB']]);
   assert.equal(listed.find((tor) => tor.projectId === LIVE.cancelled).latestChange, null, 'nothing changed in it');
+});
+
+test('a change says which stage changed, and whether the summary on the page predates it', async () => {
+  const fileChanged = {
+    source: 'package',
+    stage: 'invitation',
+    detectedAt: new Date('2026-10-08T22:05:00+07:00'),
+    zipId: 'zip-d0b',
+    previousZipId: 'zip-d2',
+    insightVersion: 1,
+    diff: 'facts',
+    changes: [{ kind: 'changed', field: 'document', before: 'd2.zip', after: 'd0b.zip' }],
+  };
+  const announced = { source: 'feed', stage: 'invitation', date: new Date('2026-10-09'), detectedAt: new Date('2026-10-09T18:00:00+07:00') };
+  await Tor.updateOne({ projectId: LIVE.changed }, { $push: { amendments: { $each: [fileChanged, announced] } } });
+  try {
+    let { amendments } = await getTorByProjectId(LIVE.changed, PILOT);
+    assert.deepEqual(
+      amendments.map((change) => [change.source, change.stage, change.rereadPending]),
+      [
+        ['feed', 'invitation', false], // its package came, with the same TOR file
+        ['package', 'invitation', true], // a new TOR file, summary version 1 still standing
+        ['feed', 'invitation', true], // announced, its package not downloaded yet
+      ],
+    );
+
+    // Read again from the new file: summary version 2
+    await TorInsight.updateOne({ projectId: LIVE.changed }, { 'metadata.version': 2 });
+    ({ amendments } = await getTorByProjectId(LIVE.changed, PILOT));
+    assert.deepEqual(amendments.map((change) => change.rereadPending), [false, false, true]);
+  } finally {
+    await Tor.updateOne({ projectId: LIVE.changed }, { $pull: { amendments: { detectedAt: { $in: [fileChanged.detectedAt, announced.detectedAt] } } } });
+    await TorInsight.updateOne({ projectId: LIVE.changed }, { 'metadata.version': 1 });
+  }
 });
 
 test("the Tor's facts from the documents show without another extraction: list, filters, detail (ADR 0020)", async () => {
