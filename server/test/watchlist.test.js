@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { TorInsight, User } from '#models/index.js';
+import { Tor, TorInsight, User } from '#models/index.js';
 
 import { createApp } from '../src/app.js';
 
@@ -112,6 +112,36 @@ test('watchlist: adds a TOR to the watchlist and verifies retrieval', async () =
   const data = await getRes.json();
   assert.ok(data.savedIds.includes(sampleProjectId));
   assert.ok(data.tors.some((t) => t.projectId === sampleProjectId));
+});
+
+test('watchlist: a saved TOR says when it was saved and what changed last, as the catalog does (ADR 0032)', async () => {
+  const cookie = await registerAndGetCookie('wl-changed');
+  await send('PUT', `/api/watchlist/${sampleProjectId}`, { cookie });
+  const changedAt = new Date(Date.now() + 60_000);
+  await Tor.create({
+    projectId: sampleProjectId,
+    source: 'process3',
+    title: 'โครงการทดสอบ Watchlist',
+    status: 'Open',
+    lastChangeAt: changedAt,
+    amendments: [
+      {
+        source: 'package',
+        stage: 'invitation',
+        detectedAt: changedAt,
+        changes: [{ kind: 'changed', field: 'facts.referencePriceTHB', before: '1500000', after: '1400000' }],
+      },
+    ],
+  });
+  try {
+    const data = await (await send('GET', '/api/watchlist', { cookie })).json();
+    const saved = data.tors.find((t) => t.projectId === sampleProjectId);
+    assert.ok(new Date(saved.lastChangeAt) > new Date(saved.savedAt), 'changed since it was saved');
+    assert.deepEqual([saved.latestChange.source, saved.latestChange.fields], ['package', ['facts.referencePriceTHB']]);
+    assert.equal(saved.contractSigned, false);
+  } finally {
+    await Tor.deleteOne({ projectId: sampleProjectId });
+  }
 });
 
 test('watchlist: adding the same TOR twice is idempotent (no duplicate)', async () => {

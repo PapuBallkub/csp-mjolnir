@@ -56,7 +56,7 @@ import { deriveStatus } from '../shared/status-engine.js';
 import { WORKABLE } from '../shared/workable.js';
 import { inQueues, parseQueues, soonestFirst } from '../shared/queues.js';
 import { keepVersion, summaryVersion } from '../shared/insight-versions.js';
-import { factChanges, lastPackage, noteNewPackage, recordChange, torFacts } from '../shared/amendments.js';
+import { factChanges, lastPackage, noteNewPackage, recordChange, stageOfPackage, torFacts } from '../shared/amendments.js';
 import { EGP_BURST, EGP_PAUSE_MS, paceRequest } from '../shared/request-pacer.js';
 import { isPastDeadline, parseUntil } from '../shared/deadline.js';
 import { requestPastProjects, selectPastProjects } from './lib/past-requests.js';
@@ -1072,7 +1072,13 @@ export async function runDownloadStep({
           // A price form replacing another, with a different budget or ราคากลาง, is a change too (ADR 0032)
           const rows = previousPrice ? factChanges(priceBefore, tor) : [];
           if (rows.length > 0) {
-            recordChange(tor, { rows, now, insightVersion: (await summaryVersion(tor.projectId)) ?? undefined });
+            recordChange(tor, {
+              rows,
+              now,
+              // The stage the price belongs to: the announcement it came after
+              stage: stageOfPackage(lastPackage(tor, 'announcement')) ?? undefined,
+              insightVersion: (await summaryVersion(tor.projectId)) ?? undefined,
+            });
             console.log(`        CHANGED: ${rows.map((row) => row.field).join(', ')}`);
           }
         }

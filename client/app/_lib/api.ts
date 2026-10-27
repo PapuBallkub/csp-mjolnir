@@ -988,6 +988,53 @@ export type AnnouncementCode = "15" | "B0" | "D0" | "D2" | "D1" | "W0" | "W2" | 
 /** The stage e-GP announced last, when the feed announced the TOR at all. */
 export type LatestAnnouncement = { code: AnnouncementCode; publishedAt: string | null } | null;
 
+/**
+ * Where a change came from (ADR 0032): `feed`, the agency announced it on
+ * e-GP (a D2); `package`, the platform found a new package whose contents
+ * differ, an inference the page says is one.
+ */
+export type ChangeSource = "feed" | "package";
+
+/** One thing that changed. Dates are ISO strings and numbers plain ones: the page formats them. */
+export type ChangeRow = {
+  kind: "added" | "removed" | "changed";
+  field: string;
+  before: string | null;
+  after: string | null;
+};
+
+/** A change to the TOR, as the detail page lists it (FR-16). */
+export type TorChange = {
+  source: ChangeSource;
+  /** The stage that changed; null when it couldn't be read */
+  stage: "draft" | "invitation" | null;
+  /** The summary on the page predates this change: the new document isn't read yet */
+  rereadPending: boolean;
+  round: string | null;
+  /** The date the notice or the documents state; null when neither does */
+  date: string | null;
+  headline: string | null;
+  /** When the platform found it */
+  detectedAt: string | null;
+  /** The last check before that found nothing new: a found change happened between the two */
+  previousCheckAt: string | null;
+  /** The e-GP package it came with, and the one it replaced: both originals */
+  zipId: string | null;
+  previousZipId: string | null;
+  /** facts: the announcement's facts compared; complete: the summary too; none: nothing compared */
+  diff: "none" | "facts" | "complete";
+  changes: ChangeRow[];
+};
+
+/** The latest change, for a list row: what the change marker shows. */
+export type LatestChange = {
+  source: ChangeSource;
+  date: string | null;
+  detectedAt: string | null;
+  previousCheckAt: string | null;
+  fields: string[];
+} | null;
+
 export type TorInsightSummary = {
   projectId: string;
   identification: {
@@ -1020,6 +1067,9 @@ export type TorInsightSummary = {
   amendmentInfo?: {
     isAmended: boolean;
   };
+  /** When the latest change was found; null when none is known (ADR 0032) */
+  lastChangeAt?: string | null;
+  latestChange?: LatestChange;
   /** Only companies may bid ("เฉพาะนิติบุคคล") */
   companiesOnly: boolean;
   latestAnnouncement: LatestAnnouncement;
@@ -1112,6 +1162,10 @@ export type TorInsightDetail = {
     amendmentSummary: string;
     changedSections: string[];
   };
+  lastChangeAt?: string | null;
+  latestChange?: LatestChange;
+  /** Each change, oldest first; none rolled back (FR-16, ADR 0032) */
+  amendments?: TorChange[];
   companiesOnly: boolean;
   latestAnnouncement: LatestAnnouncement;
   /** data.go.th has the signed contract */
@@ -1225,8 +1279,11 @@ export function getTorInsight(projectId: string) {
 /*  Watchlist (FR-17)                                                 */
 /* ------------------------------------------------------------------ */
 
+/** A saved TOR: changed since it was saved when lastChangeAt is later than savedAt (FR-17) */
+export type WatchlistItem = TorInsightSummary & { savedAt: string };
+
 export type WatchlistResponse = {
-  tors: TorInsightSummary[];
+  tors: WatchlistItem[];
   savedIds: string[];
 };
 

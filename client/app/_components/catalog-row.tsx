@@ -9,8 +9,9 @@ import { useLang } from "./prefs";
 import { TorDeadline } from "./deadline";
 import { getFiscalYear } from "../_lib/format";
 import { stageOf } from "../_lib/stage";
+import { markerSource } from "../_lib/changes";
 import {
-  AmendedFlag,
+  ChangeMarker,
   CompaniesOnlyBadge,
   isDead,
   LifecycleBadge,
@@ -92,6 +93,7 @@ export function CatalogRow({
     latestAnnouncement: tor.latestAnnouncement,
     contractSigned: tor.contractSigned,
   });
+  const change = markerSource(tor, stage.saysChanged);
 
   return (
     <article
@@ -139,7 +141,7 @@ export function CatalogRow({
           {/* 3. Decision Signals & Status Badges */}
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             <LifecycleBadge status={iden.status} stage={stage} lang={lang} />
-            {tor.amendmentInfo?.isAmended && !stage.saysChanged ? <AmendedFlag lang={lang} /> : null}
+            {change ? <ChangeMarker source={change} lang={lang} /> : null}
             {analytics.lockSpec ? (
               <LockSpecBadge
                 level={riskLevel(analytics.lockSpec.riskScore)}
