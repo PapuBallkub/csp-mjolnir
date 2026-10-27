@@ -1,10 +1,10 @@
 # TOR Detail Page — Information Architecture & Content Specification
 
 **Feature:** TOR Detail Page  
-**Related Decision:** `0010 · Normalized TOR Detail Information`  
-**Related Functional Requirement:** `FR-04: The system shall normalize data ingested from all sources into a single database schema` \
-**Status:** Proposed  
-**Last Updated:** 2026-09-27
+**Related Decision:** `0010 · Normalized TOR Detail Information`, `0020 · Read the whole e-GP package`, `0029 · Admin review workspace`  
+**Related Functional Requirement:** `FR-04: The system shall normalize data ingested from all sources into a single database schema`, `FR-10: Explore TOR details without opening PDF`  
+**Status:** Accepted  
+**Last Updated:** 2026-10-27
 
 ## 1. Purpose
 
@@ -834,6 +834,7 @@ Where available:
 - Source document
 - Source portal
 - Original document URL
+- In-page document preview action (`[ดูเอกสาร PDF ต้นฉบับ]`)
 - Document version
 - Page number
 - Section number/title
@@ -850,6 +851,23 @@ Source:
 TOR.pdf
 Page 4 · Section 5.2.3
 ```
+
+#### In-Page Document Preview & Streaming Proxy (`PdfPreviewModal`)
+
+To ensure users can check facts against the authoritative government document without opening heavy external viewers or leaving the evaluation flow:
+
+1. **On-Demand Modal Viewer:** The page provides an integrated in-page modal (`PdfPreviewModal`) accessible from the header review badge and the verification section.
+2. **Sub-Document Parts:** Government e-GP packages typically bundle multiple documents into a single announcement package (ADR 0020). The viewer provides instant sub-document tab navigation across:
+   - **Part 0 (TOR Specifications):** The technical requirements, scope of work, and deliverable schedule.
+   - **Part 1 (Bidding Rules):** The formal bidding conditions and legal eligibility requirements (`doc_*.pdf`).
+   - **Part 2 (Announcement Letter):** The formal invitation notice stating ราคากลาง and submission dates (`annoudoc_*.pdf`).
+3. **Cascading Streaming Proxy (`GET /api/tors/:projectId/preview`):**
+   - Resolves local copies stored on disk (`tor.document.storagePath`) first (~1ms response time), ensuring availability even during e-GP network outages.
+   - Falls back to in-memory LRU cache and dynamic on-demand retrieval from process5 when local files are not yet downloaded (e.g. fresh notices or development environments).
+   - Serves documents with `Content-Type: application/pdf` and `Content-Disposition: inline`, bypassing external iframe embedding (CORS/X-Frame-Options) restrictions.
+4. **Session History Protection:** The client fetches the PDF stream as a Blob object URL in memory rather than directing the iframe directly to a URL. This prevents iframe subframe navigations from polluting the browser's top-level session history (`window.history`), preserving expected browser back-button behavior.
+5. **Memory Management:** Blob object URLs are revoked immediately upon modal closure or component unmount via active reference tracking, preventing client-side memory leaks.
+6. **Official e-GP Authority:** The preview header and empty states retain direct, prominent links to the official e-GP listing, reinforcing that official bidding and formal submissions happen exclusively on e-GP.
 
 #### Behavior
 
@@ -984,4 +1002,9 @@ the source document.
 The original TOR remains identifiable as the authoritative source for
 procurement requirements and contractual conditions.
 
+### AC-15 — In-Page Document Preview
+
+A user or administrator can view the original PDF document directly within an in-page modal. Where available, the modal allows switching between sub-document parts (TOR, bidding rules, announcement) and toggling fullscreen without losing the current page context or polluting browser history.
+
 ---
+
