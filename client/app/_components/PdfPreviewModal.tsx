@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getTorPdfPreviewUrl } from "../_lib/api";
 import { btn } from "./ui";
 
@@ -14,8 +14,12 @@ interface PdfPreviewModalProps {
   lang?: "th" | "en";
 }
 
-export function PdfPreviewModal({
-  isOpen,
+export function PdfPreviewModal(props: PdfPreviewModalProps) {
+  if (!props.isOpen) return null;
+  return <PdfPreviewModalContent key={props.projectId} {...props} />;
+}
+
+function PdfPreviewModalContent({
   onClose,
   projectId,
   title,
@@ -28,13 +32,12 @@ export function PdfPreviewModal({
   const [loadError, setLoadError] = useState(false);
   const [part, setPart] = useState(0);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const activeBlobUrlRef = useRef<string | null>(null);
 
   const previewUrl = getTorPdfPreviewUrl(projectId, part);
 
   // Close on Escape & Lock body scroll
   useEffect(() => {
-    if (!isOpen) return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose();
@@ -49,16 +52,12 @@ export function PdfPreviewModal({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = originalOverflow;
     };
-  }, [isOpen, onClose]);
+  }, [onClose]);
 
   // Single-fetch PDF as a Blob object URL to prevent iframe subframe navigation
   // from polluting the browser's top-level session history (window.history)
   useEffect(() => {
-    if (!isOpen) return;
-
     let cancelled = false;
-    setLoading(true);
-    setLoadError(false);
 
     fetch(previewUrl, { credentials: "include" })
       .then(async (res) => {
@@ -77,10 +76,11 @@ export function PdfPreviewModal({
         const blob = await res.blob();
         if (cancelled) return;
         const objectUrl = URL.createObjectURL(blob);
-        setBlobUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return objectUrl;
-        });
+        if (activeBlobUrlRef.current) {
+          URL.revokeObjectURL(activeBlobUrlRef.current);
+        }
+        activeBlobUrlRef.current = objectUrl;
+        setBlobUrl(objectUrl);
         setLoadError(false);
         setLoading(false);
       })
@@ -94,24 +94,17 @@ export function PdfPreviewModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, previewUrl]);
+  }, [previewUrl]);
 
-  // Revoke blob URL on modal close to release memory immediately
+  // Revoke active blob URL when component unmounts
   useEffect(() => {
-    if (!isOpen && blobUrl) {
-      URL.revokeObjectURL(blobUrl);
-      setBlobUrl(null);
-    }
-  }, [isOpen, blobUrl]);
-
-  const [prevProjectId, setPrevProjectId] = useState(projectId);
-  if (prevProjectId !== projectId) {
-    setPrevProjectId(projectId);
-    setLoading(true);
-    setLoadError(false);
-  }
-
-  if (!isOpen) return null;
+    return () => {
+      if (activeBlobUrlRef.current) {
+        URL.revokeObjectURL(activeBlobUrlRef.current);
+        activeBlobUrlRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div

@@ -526,7 +526,7 @@ export default function DedicatedReviewPage({
     };
   }, [projectId, applyItemToForm]);
 
-  function calculateDiffs(): EditDiffItem[] {
+  const diffs = useMemo<EditDiffItem[]>(() => {
     if (!data) return [];
     const det = data.details || {};
     const result: EditDiffItem[] = [];
@@ -622,10 +622,6 @@ export default function DedicatedReviewPage({
     check("10. Amendments", "changedSections", "ส่วนที่แก้ไข", "Changed Sections", (det.amendmentInfo?.changedSections || []).join("; "), changedSections.filter(Boolean).join("; "));
 
     return result;
-  }
-
-  const diffs = useMemo(() => {
-    return calculateDiffs();
   }, [
     data,
     title,
@@ -1326,8 +1322,7 @@ export default function DedicatedReviewPage({
               {lang === "th" ? "หัวข้อข้อมูล TOR ทั้ง 10 ส่วน" : "10 TOR Sections"}
             </span>
             {SECTIONS_LIST.map((sec) => {
-              const secPrefix = sec.labelEn.split(" ")[0];
-              const sectionDiffCount = diffs.filter((d) => d.section.startsWith(secPrefix)).length;
+              const sectionDiffCount = diffsBySection[sec.labelEn] || 0;
               return (
                 <button
                   key={sec.id}
