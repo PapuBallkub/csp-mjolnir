@@ -55,6 +55,7 @@ const technologySchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     version: { type: String, default: null, trim: true },
+    allowsEquivalent: { type: Boolean, default: null },
   },
   { _id: false },
 );

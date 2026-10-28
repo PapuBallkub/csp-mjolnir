@@ -4,17 +4,20 @@
  * Implements FR-21: Automated detection of lock-specification risk criteria,
  * qualification barriers, and non-accusatory evidence generation.
  *
- * Conforms to ADR 0014, ADR 0021, ADR 0030, and
- * docs/features/lock-spec-risk-detection.md.
+ * Grounded in Comptroller General's Circular ว 214 and Act B.E. 2560 Section 9.
+ * Conforms to ADR 0014, ADR 0021, ADR 0030, and docs/features/lock-spec-risk-detection.md.
  */
 
 import { getProjectPrice } from './similarity.service.js';
 
 /**
  * Severity point weights (ADR 0030)
+ * With 3 statutory categories from Circular ว 214:
+ * 1 violation (35 pts) => Medium Risk
+ * 2+ violations (>= 70 pts) => High Risk
  */
 export const SEVERITY_POINTS = {
-  high: 30,
+  high: 35,
   medium: 15,
   low: 5,
 };
@@ -40,6 +43,7 @@ function formatTHB(num) {
 /**
  * Detects Category 1: Vendor Lock-in & Reseller Letters.
  * Checks for Manufacturer Authorization Form (MAF) in software development tenders.
+ * Grounded in Circular ว 214 Clause 1.1 & 1.3.
  *
  * @param {object} tor
  * @returns {object|null}
@@ -64,9 +68,9 @@ export function detectVendorLockin(tor) {
       title: 'กำหนดหนังสือแต่งตั้งตัวแทนจำหน่าย (MAF) ในงานจ้างพัฒนาซอฟต์แวร์',
       category: 'Vendor Lock-in',
       requirementText: 'ผู้ยื่นข้อเสนอต้องแนบหนังสือแต่งตั้งตัวแทนจำหน่าย (Manufacturer Authorization) จากเจ้าของลิขสิทธิ์ซอฟต์แวร์',
-      normalBenchmark: 'งานจ้างพัฒนาซอฟต์แวร์ทั่วไปประเมินจากทักษะและผลงานของทีมพัฒนา ไม่กำหนดหนังสือตัวแทนจำหน่าย',
+      normalBenchmark: 'งานจ้างพัฒนาซอฟต์แวร์ทั่วไปประเมินจากทักษะและผลงานของทีมพัฒนา ไม่กำหนดหนังสือตัวแทนจำหน่าย (ว 214 ข้อ 1.3)',
       sourceExcerpt: evidence?.quote || rawQuote,
-      sourceLocation: evidence?.page != null ? `หน้า ${evidence.page}` : 'ข้อกำหนดคุณสมบัติผู้ยื่นข้อเสนอ',
+      sourceLocation: evidence?.page != null ? `หน้า ${evidence.page}` : 'หมวดคุณสมบัติเฉพาะของผู้ยื่นข้อเสนอ',
       severity: 'high',
     };
   }
@@ -76,7 +80,8 @@ export function detectVendorLockin(tor) {
 
 /**
  * Detects Category 2: Disproportionate Past Contract Experience.
- * Checks if minimum previous experience exceeds standard government ratios (50% / 80%).
+ * Checks if minimum previous experience exceeds the statutory ceiling (50%).
+ * Grounded in Circular ว 214 Clause 2.
  *
  * @param {object} tor
  * @param {number|null} targetPrice
@@ -95,33 +100,18 @@ export function detectQualificationBarriers(tor, targetPrice) {
     const ratioPct = (ratio * 100).toFixed(1);
     const evidence = tor?.evidence?.['eligibility.previousExperienceMinTHB'];
 
-    if (ratio > 0.8) {
-      return {
-        id: `FIND-${tor?.projectId || 'TOR'}-02`,
-        title: 'กำหนดมูลค่าผลงานขั้นต่ำเกิน 80% ของราคากลาง',
-        category: 'Qualification Barrier',
-        requirementText: `มีผลงานประเภทเดียวกันในสัญญาเดียวไม่น้อยกว่า ${formatTHB(minExp)} บาท (คิดเป็น ${ratioPct}% ของราคากลาง ${formatTHB(targetPrice)} บาท)`,
-        normalBenchmark: 'ตามระเบียบกระทรวงการคลังและแนวทางมาตรฐาน ผลงานขั้นต่ำไม่ควรเกิน 50% ของราคากลาง',
-        sourceExcerpt:
-          evidence?.quote ||
-          `มีผลงานประเภทเดียวกันในสัญญาเดียว วงเงินไม่น้อยกว่า ${formatTHB(minExp)} บาท`,
-        sourceLocation: evidence?.page != null ? `หน้า ${evidence.page}` : 'คุณสมบัติเฉพาะของผู้ยื่นข้อเสนอ',
-        severity: 'high',
-      };
-    }
-
     if (ratio > 0.5) {
       return {
         id: `FIND-${tor?.projectId || 'TOR'}-02`,
-        title: 'กำหนดมูลค่าผลงานขั้นต่ำสูงกว่าเกณฑ์มาตรฐาน 50% ของราคากลาง',
+        title: 'กำหนดมูลค่าผลงานขั้นต่ำเกินเกณฑ์ 50% ของราคากลาง',
         category: 'Qualification Barrier',
         requirementText: `มีผลงานประเภทเดียวกันในสัญญาเดียวไม่น้อยกว่า ${formatTHB(minExp)} บาท (คิดเป็น ${ratioPct}% ของราคากลาง ${formatTHB(targetPrice)} บาท)`,
-        normalBenchmark: 'ตามแนวทางมาตรฐานของกรมบัญชีกลาง ควรกำหนดผลงานขั้นต่ำไม่เกิน 50% ของวงเงินงบประมาณหรือราคากลาง',
+        normalBenchmark: 'ตามแนวทางมาตรฐานของกรมบัญชีกลาง (หนังสือเวียน ว 214 ข้อ 2) ผลงานขั้นต่ำต้องไม่เกิน 50% ของวงเงินงบประมาณหรือราคากลาง',
         sourceExcerpt:
           evidence?.quote ||
           `มีผลงานประเภทเดียวกันในสัญญาเดียว วงเงินไม่น้อยกว่า ${formatTHB(minExp)} บาท`,
-        sourceLocation: evidence?.page != null ? `หน้า ${evidence.page}` : 'คุณสมบัติเฉพาะของผู้ยื่นข้อเสนอ',
-        severity: 'medium',
+        sourceLocation: evidence?.page != null ? `หน้า ${evidence.page}` : 'หมวดคุณสมบัติเฉพาะของผู้ยื่นข้อเสนอ',
+        severity: 'high',
       };
     }
   }
@@ -130,68 +120,49 @@ export function detectQualificationBarriers(tor, targetPrice) {
 }
 
 /**
- * Detects Category 3: Disproportionate Certifications & Team Sizing.
- * Checks for heavy organizational frameworks (CMMI, ISO 27001) on small tenders (<= 5M THB).
- *
- * @param {object} tor
- * @param {number|null} targetPrice
- * @returns {object|null}
- */
-export function detectPersonnelBarriers(tor, targetPrice) {
-  const certs = tor?.eligibility?.requiredCertifications || [];
-  const certStr = certs.join(' ').toLowerCase();
-
-  const isSmallBudget = typeof targetPrice === 'number' && targetPrice <= 5_000_000;
-  const requiresHeavyCert =
-    certStr.includes('cmmi') ||
-    certStr.includes('iso 27001') ||
-    certStr.includes('iso27001') ||
-    certStr.includes('iso/iec 27001');
-
-  if (isSmallBudget && requiresHeavyCert) {
-    const matchedCert = certStr.includes('cmmi') ? 'CMMI' : 'ISO 27001';
-    const evidence = tor?.evidence?.['eligibility.requiredCertifications'];
-
-    return {
-      id: `FIND-${tor?.projectId || 'TOR'}-03`,
-      title: `กำหนดมาตรฐาน ${matchedCert} สำหรับโครงการงบประมาณไม่เกิน 5 ล้านบาท`,
-      category: 'Personnel Barrier',
-      requirementText: `ผู้ยื่นข้อเสนอต้องผ่านการรับรองมาตรฐาน ${matchedCert} สำหรับโครงการขนาดเล็ก`,
-      normalBenchmark: 'มาตรฐานระดับองค์กรนิยมกำหนดเฉพาะในโครงการขนาดใหญ่หรืองานโครงสร้างพื้นฐานสำคัญ (> 10 ล้านบาท)',
-      sourceExcerpt: evidence?.quote || `ผู้ยื่นข้อเสนอต้องได้รับรองมาตรฐาน ${matchedCert}`,
-      sourceLocation: evidence?.page != null ? `หน้า ${evidence.page}` : 'ข้อกำหนดด้านมาตรฐานและบุคลากร',
-      severity: 'medium',
-    };
-  }
-
-  return null;
-}
-
-/**
- * Detects Category 4: Specification Tailoring & Outdated Platform Lock.
- * Checks for exact locked proprietary runtime or legacy platform restrictions.
+ * Detects Category 3: Specification Tailoring & Outdated Platform Lock.
+ * Checks for exact locked proprietary runtime or legacy platform restrictions without "or equivalent".
+ * Grounded in Circular ว 214 Clause 3 and Act B.E. 2560 Section 9.
  *
  * @param {object} tor
  * @returns {object|null}
  */
 export function detectSpecificationTailoring(tor) {
   const technologies = tor?.technicalRequirements?.requiredTechnologies || [];
+  const evidence = tor?.evidence?.['technicalRequirements.requiredTechnologies'];
+  const quote = evidence?.quote || '';
+
+  // Verbatim quote check: did the document explicitly state "หรือเทียบเท่า" / "or equivalent"?
+  const quoteAllowsEquivalent = /เทียบเท่า|equivalent/i.test(quote);
 
   for (const tech of technologies) {
     const name = (tech?.name || '').toLowerCase();
     const version = (tech?.version || '').toLowerCase();
 
-    // Specific locked legacy/outdated server versions (e.g. Windows Server 2019 without alternative)
-    if (name.includes('windows server') && version && version.includes('2019')) {
-      const evidence = tor?.evidence?.['technicalRequirements.requiredTechnologies'];
+    // If equivalent is explicitly allowed by Vertex AI or the verbatim text quote,
+    // the agency complied with Circular ว 214 Clause 3!
+    const allowsEquivalent = tech?.allowsEquivalent ?? (quoteAllowsEquivalent ? true : null);
+    if (allowsEquivalent === true) {
+      continue;
+    }
+
+    // Specific locked proprietary or legacy platform versions without "หรือเทียบเท่า"
+    const isLockedPlatform =
+      (name.includes('windows server') ||
+        name.includes('red hat') ||
+        name.includes('rhel') ||
+        name.includes('oracle')) &&
+      Boolean(version);
+
+    if (isLockedPlatform) {
       return {
-        id: `FIND-${tor?.projectId || 'TOR'}-04`,
-        title: `ระบุเวอร์ชันระบบปฏิบัติการเฉพาะเจาะจง (${tech.name} ${tech.version})`,
+        id: `FIND-${tor?.projectId || 'TOR'}-03`,
+        title: `ระบุเวอร์ชันระบบปฏิบัติการเฉพาะเจาะจง (${tech.name} ${tech.version}) โดยไม่มีคำว่า "หรือเทียบเท่า"`,
         category: 'Specification Tailoring',
-        requirementText: `ระบบต้องทำงานเฉพาะบน ${tech.name} ${tech.version} โดยไม่เปิดให้ใช้เวอร์ชันปัจจุบันหรือระบบปฏิบัติการทางเลือก`,
-        normalBenchmark: 'ข้อกำหนดที่ดีควรกำหนดคุณสมบัติเชิงฟังก์ชัน และรองรับระบบปฏิบัติการมาตรฐานเปิดที่ยังไม่สิ้นสุดระยะสนับสนุน (End-of-Life)',
+        requirementText: `ระบบต้องทำงานเฉพาะบน ${tech.name} ${tech.version} โดยไม่ระบุข้อความ "หรือเทียบเท่า" ตามระเบียบ`,
+        normalBenchmark: 'ตามหนังสือเวียน ว 214 ข้อ 3 หากมีความจำเป็นต้องระบุยี่ห้อหรือรุ่น จะต้องระบุคำว่า "หรือเทียบเท่า" ไว้ด้วยเสมอ',
         sourceExcerpt: evidence?.quote || `ระบบต้องติดตั้งบน ${tech.name} ${tech.version}`,
-        sourceLocation: evidence?.page != null ? `หน้า ${evidence.page}` : 'ข้อกำหนดทางเทคนิค',
+        sourceLocation: evidence?.page != null ? `หน้า ${evidence.page}` : 'หมวดข้อกำหนดทางเทคนิค',
         severity: 'high',
       };
     }
@@ -254,18 +225,15 @@ export function analyzeLockSpec(tor) {
   const targetPrice = getProjectPrice(tor);
   const findings = [];
 
-  // Run all 4 rule detectors
+  // Run the 3 statutory rule detectors based on Circular ว 214
   const f1 = detectVendorLockin(tor);
   if (f1) findings.push(f1);
 
   const f2 = detectQualificationBarriers(tor, targetPrice);
   if (f2) findings.push(f2);
 
-  const f3 = detectPersonnelBarriers(tor, targetPrice);
+  const f3 = detectSpecificationTailoring(tor);
   if (f3) findings.push(f3);
-
-  const f4 = detectSpecificationTailoring(tor);
-  if (f4) findings.push(f4);
 
   const riskScore = calculateLockSpecScore(findings);
   const verdictText = formatLockSpecVerdict(riskScore, findings);

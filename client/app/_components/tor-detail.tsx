@@ -3,11 +3,18 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { TorInsightDetail } from "../_lib/api";
-import type { Lang } from "../_data/tors";
+import type { Lang, RiskLevel } from "../_data/tors";
 import { getEgpAnnouncementUrl, getFiscalYear } from "../_lib/format";
 import { useLang, useProfile } from "./prefs";
 import { useAuth } from "./auth";
-import { AmendedFlag, CompaniesOnlyBadge, isDead, LifecycleBadge } from "./verdict";
+import {
+  AmendedFlag,
+  CompaniesOnlyBadge,
+  InsightPriceBadge,
+  isDead,
+  LifecycleBadge,
+  LockSpecBadge,
+} from "./verdict";
 import { countdownText, daysLeft } from "./deadline";
 import { announcementLabel, deadlineOf, stageOf } from "../_lib/stage";
 import { AccentPanel, btn, Chip, Fact, Label, Panel, SectionHeading, Well } from "./ui";
@@ -139,6 +146,19 @@ function NotAnalysed({ heading, lang }: { heading: string; lang: Lang }) {
   );
 }
 
+function formatCategoryLabel(category: string, lang: Lang): string {
+  if (category === "Qualification Barrier") {
+    return lang === "th" ? "คุณสมบัติผู้ยื่นข้อเสนอ" : "Qualification Barrier";
+  }
+  if (category === "Specification Tailoring") {
+    return lang === "th" ? "กำหนดสเปกเจาะจง" : "Specification Tailoring";
+  }
+  if (category === "Vendor Lock-in") {
+    return lang === "th" ? "ผูกขาดผู้ขาย / MAF" : "Vendor Lock-in";
+  }
+  return category;
+}
+
 export function TorDetail({
   insight,
 }: {
@@ -216,12 +236,17 @@ export function TorDetail({
   // null: the analysis hasn't been run yet. Shown as such, never as a 0 that
   // reads like "measured, low risk" (ADR 0015)
   const lockScore = lockSpec?.riskScore ?? null;
+  const lockLevel: RiskLevel = lockScore === null ? "low" : lockScore >= 70 ? "high" : lockScore >= 35 ? "medium" : "low";
   const lockTone: "open" | "amend" | "risk" =
-    lockScore === null ? "open" : lockScore >= 70 ? "risk" : lockScore >= 35 ? "amend" : "open";
+    lockLevel === "high" ? "risk" : lockLevel === "medium" ? "amend" : "open";
+
+  const [visiblePeersCount, setVisiblePeersCount] = useState(3);
+  const sampleCount = price?.sampleSize ?? price?.comparableProjects?.length ?? 0;
+  const hasSufficientPeers = sampleCount >= 5;
 
   const diffPct = price?.diffPercentage ?? null;
-  const priceTone: "open" | "amend" | "risk" =
-    diffPct === null ? "open" : diffPct > 15 ? "amend" : diffPct < -15 ? "risk" : "open";
+  const priceTone: "open" | "amend" | "risk" | "closed" =
+    !hasSufficientPeers ? "closed" : diffPct === null ? "open" : diffPct > 15 ? "amend" : diffPct < -15 ? "risk" : "open";
   const notAnalysed = lang === "th" ? "ยังไม่ได้วิเคราะห์" : "Not analysed yet";
 
   return (
@@ -1160,21 +1185,14 @@ export function TorDetail({
             <SectionHeading
               sub={
                 lang === "th"
-                  ? "วิเคราะห์ข้อกำหนดทางเทคนิคและคุณสมบัติเทียบกับเกณฑ์โครงการอ้างอิงในอดีต (FR-20, FR-21)"
-                  : "Assessment of technical & qualification requirements against historical baselines (FR-20, FR-21)"
+                  ? "วิเคราะห์ข้อกำหนดทางเทคนิคและคุณสมบัติผู้ยื่นข้อเสนอตามแนวทางจัดซื้อจัดจ้างภาครัฐ (ว 214)"
+                  : "Assessment of technical and bidder qualification requirements based on procurement standards (Circular 214)"
               }
-              right={
-                <span className="flex items-center gap-2">
-                  <span className="font-mono text-[16px] font-bold text-ink">
-                    {lockScore}
-                    <span className="text-ink-3 text-[12px]">/100</span>
-                  </span>
-                </span>
-              }
+              right={<LockSpecBadge level={lockLevel} score={lockScore ?? 0} lang={lang} outOf100 />}
             >
               {lang === "th"
-                ? "วิเคราะห์ความเสี่ยงล็อกสเปกและข้อแตกต่างของข้อกำหนด (Lock-Spec & Requirement Deviations)"
-                : "Lock-Spec Risk & Requirement Differences"}
+                ? "วิเคราะห์ความเสี่ยงล็อกสเปก (Lock-Spec Risk)"
+                : "Lock-Spec Risk Analysis"}
             </SectionHeading>
 
             <div className="mt-2">
@@ -1197,18 +1215,20 @@ export function TorDetail({
                           #{String(idx + 1).padStart(2, "0")}
                         </span>
                         <span className="rounded bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink-2 border border-line">
-                          {finding.category}
+                          {formatCategoryLabel(finding.category, lang)}
                         </span>
                       </div>
 
                       <span
-                        className={`rounded px-2 py-0.5 text-[11px] font-semibold uppercase ${
+                        className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
                           finding.severity === "high"
                             ? "bg-risk-bg text-risk border border-risk-line"
                             : "bg-amend-bg text-amend border border-amend-line"
                         }`}
                       >
-                        {finding.severity}
+                        {finding.severity === "high"
+                          ? (lang === "th" ? "ข้อจำกัดระดับสูง (+35 คะแนน)" : "High Restriction (+35 pts)")
+                          : (lang === "th" ? "ข้อจำกัดระดับปานกลาง" : "Medium Restriction")}
                       </span>
                     </div>
 
@@ -1216,27 +1236,25 @@ export function TorDetail({
                       {finding.title}
                     </h4>
 
-                    <div className="mt-2 text-[13px] leading-thai text-ink-2">
-                      <span className="font-medium text-ink">{lang === "th" ? "ข้อกำหนดใน TOR นี้:" : "Requirement in this TOR:"} </span>
-                      {finding.requirementText}
-                    </div>
-
                     {finding.normalBenchmark ? (
-                      <div className="mt-2.5 rounded-[3px] border border-line bg-surface-2/80 p-3 text-[13px] leading-thai">
-                        <div className="font-semibold text-ink-2 flex items-center gap-1.5">
-                          <span>⚖️</span>
-                          <span>{lang === "th" ? "ข้อแตกต่างจากเกณฑ์มาตรฐานในอดีต (Requirement Difference):" : "Difference vs Historical Baseline:"}</span>
+                      <div className="mt-3 rounded-[3px] border border-line bg-surface-2/80 p-3 text-[13px] leading-thai">
+                        <div className="font-semibold text-ink-2">
+                          {lang === "th" ? "กฎหมายและระเบียบที่เกี่ยวข้อง:" : "Relevant Procurement Regulation / Benchmark:"}
                         </div>
                         <p className="mt-1 text-ink">{finding.normalBenchmark}</p>
                       </div>
                     ) : null}
 
                     {finding.sourceExcerpt ? (
-                      <Well className="mt-3 border-l-2 border-l-line-2 px-3 py-2 text-[12.5px] text-ink-2">
-                        <p>“{finding.sourceExcerpt}”</p>
+                      <Well className="mt-2.5 border-l-2 border-l-line-2 px-3 py-2.5 text-[12.5px] text-ink-2">
+                        <div className="mb-1 text-[11.5px] font-semibold text-ink-3">
+                          {lang === "th" ? "ข้อกำหนดที่ระบบตรวจพบ:" : "System-Detected Requirement:"}
+                        </div>
+                        <p className="italic">“{finding.sourceExcerpt}”</p>
                         {finding.sourceLocation ? (
-                          <p className="mt-1 font-mono text-[11px] text-ink-3">
-                            📍 {finding.sourceLocation}
+                          <p className="mt-1.5 text-[11px] text-ink-3">
+                            <span className="font-medium text-ink-2">{lang === "th" ? "อ้างอิงหมวด/ตำแหน่ง: " : "Reference Section/Location: "}</span>
+                            <span>{finding.sourceLocation}</span>
                           </p>
                         ) : null}
                       </Well>
@@ -1256,8 +1274,8 @@ export function TorDetail({
             <NotAnalysed
               heading={
                 lang === "th"
-                  ? "วิเคราะห์ความเสี่ยงล็อกสเปกและข้อแตกต่างของข้อกำหนด (Lock-Spec & Requirement Deviations)"
-                  : "Lock-Spec Risk & Requirement Differences"
+                  ? "วิเคราะห์ความเสี่ยงล็อกสเปก (Lock-Spec Risk)"
+                  : "Lock-Spec Risk Analysis"
               }
               lang={lang}
             />
@@ -1271,30 +1289,44 @@ export function TorDetail({
             <SectionHeading
               sub={
                 lang === "th"
-                  ? "เปรียบเทียบราคากลางกับค่ามัธยฐานและค่าเฉลี่ยของโครงการที่ใกล้เคียงกันในอดีต (FR-19, FR-20)"
-                  : "Comparison against historical median and average prices of similar past projects (FR-19, FR-20)"
+                  ? "เปรียบเทียบราคากลางกับค่ามัธยฐานและค่าเฉลี่ยของโครงการที่ใกล้เคียงกันในอดีต"
+                  : "Comparison against historical median and average prices of similar past projects"
               }
-              right={
-                price.diffPercentage !== null && !Number.isNaN(price.diffPercentage) ? (
-                  <span className={`font-mono text-[14px] font-bold ${
-                    price.diffPercentage > 15 ? "text-amend" : price.diffPercentage < -15 ? "text-risk" : "text-open"
-                  }`}>
-                    {price.diffPercentage > 0 ? `+${price.diffPercentage}%` : `${price.diffPercentage}%`}
-                  </span>
-                ) : null
-              }
+              right={<InsightPriceBadge diffPercentage={price.diffPercentage} sampleSize={sampleCount} lang={lang} />}
             >
               {lang === "th" ? "ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)" : "Price Reality Check"}
             </SectionHeading>
 
-            <p className="mt-2 text-[14.5px] leading-thai text-ink">
-              {price.interpretation || (
-                lang === "th" ? "ไม่มีข้อมูลสรุปผลการวิเคราะห์ราคา" : "No price interpretation available."
-              )}
-            </p>
+            {!hasSufficientPeers ? (
+              <div className="mt-3 rounded-[3px] border border-line bg-surface-2/70 p-3.5 text-[13px] leading-thai text-ink-2">
+                <div className="flex items-start gap-2.5">
+                  <span className="text-[16px] leading-none pt-0.5">ℹ️</span>
+                  <div>
+                    <p className="font-semibold text-ink">
+                      {lang === "th"
+                        ? `ข้อมูลโครงการเปรียบเทียบในอดีตยังไม่เพียงพอ (พบ ${sampleCount} โครงการ)`
+                        : `Insufficient historical benchmark data (found ${sampleCount} comparable project(s))`}
+                    </p>
+                    <p className="mt-1 text-[12px] text-ink-3">
+                      {lang === "th"
+                        ? "ระบบกำหนดเกณฑ์ขั้นต่ำอย่างน้อย 5 โครงการเพื่อคำนวณราคากลางและส่วนต่างราคาอย่างน่าเชื่อถือ จึงปิดการประเมินส่วนต่างราคาชั่วคราวเพื่อป้องกันข้อสรุปที่คลาดเคลื่อน"
+                        : "The platform requires at least 5 comparable historical projects to calculate a reliable market benchmark. Price deviation evaluation is muted to prevent misleading conclusions."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 text-[15px] leading-thai font-semibold text-ink">
+                {price.interpretation || (
+                  lang === "th" ? "ไม่มีข้อมูลสรุปผลการวิเคราะห์ราคา" : "No price interpretation available."
+                )}
+              </p>
+            )}
 
             {/* Benchmarks & Deviations Grid */}
-            <div className="mt-4 grid grid-cols-1 gap-3.5 rounded-[3px] border border-line bg-surface p-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className={`mt-4 grid grid-cols-1 gap-3.5 rounded-[3px] border border-line bg-surface p-4 sm:grid-cols-2 lg:grid-cols-3 ${
+              !hasSufficientPeers ? "opacity-60 grayscale-[40%] select-none" : ""
+            }`}>
               {/* 1. Target Evaluated Price / Budget */}
               <div className="rounded-[3px] border border-line/60 bg-surface-2/40 p-3">
                 <Label>{lang === "th" ? "ราคากลางโครงการนี้ (Target Price)" : "Current Reference Price"}</Label>
@@ -1343,7 +1375,14 @@ export function TorDetail({
               {/* 4. Deviation vs Historical Median */}
               <div className="rounded-[3px] border border-line/60 bg-surface-2/40 p-3">
                 <Label>{lang === "th" ? "ส่วนต่างเทียบมัธยฐาน (vs Median)" : "Diff vs Median"}</Label>
-                {(() => {
+                {!hasSufficientPeers ? (
+                  <>
+                    <p className="mt-1 font-mono text-[17px] font-bold text-ink-3">—</p>
+                    <p className="mt-1 text-[11px] text-ink-3">
+                      {lang === "th" ? "ยังไม่ประเมิน (ข้อมูลไม่ถึง 5 โครงการ)" : "Not evaluated (<5 peers)"}
+                    </p>
+                  </>
+                ) : (() => {
                   const diff = formatSignedDiff(price.diffAmountTHB, price.diffPercentage);
                   const toneClass = !diff.hasValue
                     ? "text-ink-3"
@@ -1354,17 +1393,34 @@ export function TorDetail({
                     : "text-open";
                   return (
                     <>
-                      <p className={`mt-1 font-mono text-[17px] font-bold ${toneClass}`}>
-                        {diff.text}
-                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <p className={`font-mono text-[17px] font-bold ${toneClass}`}>
+                          {diff.text}
+                        </p>
+                        {price.diffPercentage != null && (
+                          <span className={`rounded px-1.5 py-0.5 text-[10.5px] font-semibold ${
+                            price.diffPercentage < -15
+                              ? "bg-risk-bg text-risk border border-risk-line"
+                              : price.diffPercentage > 15
+                              ? "bg-amend-bg text-amend border border-amend-line"
+                              : "bg-open-bg text-open border border-open-line"
+                          }`}>
+                            {price.diffPercentage < -15
+                              ? (lang === "th" ? "งบต่ำกว่าตลาดมาก" : "Significantly Under Market")
+                              : price.diffPercentage > 15
+                              ? (lang === "th" ? "งบสูงกว่าตลาด" : "Above Market")
+                              : (lang === "th" ? "ใกล้เคียงราคาตลาด" : "Market Normal")}
+                          </span>
+                        )}
+                      </div>
                       <p className="mt-1 text-[11px] text-ink-3">
                         {!diff.hasValue
                           ? (lang === "th" ? "ไม่สามารถคำนวณส่วนต่างได้" : "Cannot calculate difference")
                           : Math.abs(price.diffPercentage ?? 0) <= 15
                           ? (lang === "th" ? "อยู่ในช่วงมาตรฐานปกติ (±15%)" : "Within normal market band (±15%)")
                           : (price.diffPercentage ?? 0) > 15
-                          ? (lang === "th" ? "สูงกว่าเกณฑ์มัธยฐานในอดีต" : "Higher than historical median")
-                          : (lang === "th" ? "ต่ำกว่าเกณฑ์ อาจเสี่ยงงบจำกัด" : "Lower than median, tight budget risk")}
+                          ? (lang === "th" ? "งบประมาณสูงกว่าเกณฑ์มัธยฐานในอดีต (มีกรอบงบประมาณเปิดกว้าง)" : "Higher than median, generous budget ceiling")
+                          : (lang === "th" ? "⚠️ ระวัง: งบต่ำกว่าเกณฑ์ตลาดมาก ผู้รับจ้างอาจเสี่ยงทำงานขาดทุน" : "⚠️ Warning: Far below market norm, high risk of underfunded delivery")}
                       </p>
                     </>
                   );
@@ -1374,7 +1430,14 @@ export function TorDetail({
               {/* 5. Deviation vs Historical Average */}
               <div className="rounded-[3px] border border-line/60 bg-surface-2/40 p-3">
                 <Label>{lang === "th" ? "ส่วนต่างเทียบค่าเฉลี่ย (vs Average)" : "Diff vs Average"}</Label>
-                {(() => {
+                {!hasSufficientPeers ? (
+                  <>
+                    <p className="mt-1 font-mono text-[17px] font-medium text-ink-3">—</p>
+                    <p className="mt-1 text-[11px] text-ink-3">
+                      {lang === "th" ? "ยังไม่ประเมิน (ข้อมูลไม่ถึง 5 โครงการ)" : "Not evaluated (<5 peers)"}
+                    </p>
+                  </>
+                ) : (() => {
                   const avgDiff = formatSignedDiff(
                     price.diffAverageAmountTHB ?? price.diffAmountTHB,
                     price.diffAveragePercentage ?? null
@@ -1399,80 +1462,104 @@ export function TorDetail({
                 <Label>{lang === "th" ? "โครงการเปรียบเทียบ & ความน่าเชื่อถือ" : "Peer Sample & Reliability"}</Label>
                 <div className="mt-1 flex items-center gap-2">
                   <span className="font-mono text-[17px] font-semibold text-ink">
-                    {price.sampleSize ?? price.comparableProjects?.length ?? 0}{" "}
+                    {sampleCount}{" "}
                     <span className="text-[13px] font-normal text-ink-3">
                       {lang === "th" ? "โครงการ" : "projects"}
                     </span>
                   </span>
-                  {price.reliability === "sufficient" ? (
+                  {hasSufficientPeers ? (
                     <span className="rounded bg-open-bg px-2 py-0.5 text-[11px] font-medium text-open border border-open-line">
-                      {lang === "th" ? "ความน่าเชื่อถือปกติ (≥3)" : "Sufficient (≥3)"}
-                    </span>
-                  ) : price.reliability === "low" ? (
-                    <span className="rounded bg-amend-bg px-2 py-0.5 text-[11px] font-medium text-amend border border-amend-line">
-                      {lang === "th" ? "ข้อมูลจำกัด (<3)" : "Low sample (<3)"}
+                      {lang === "th" ? "ข้อมูลเพียงพอ (≥5)" : "Sufficient (≥5)"}
                     </span>
                   ) : (
                     <span className="rounded bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink-3 border border-line">
-                      {lang === "th" ? "ไม่มีข้อมูลอ้างอิง" : "No peers"}
+                      {lang === "th" ? "ข้อมูลไม่เพียงพอ (<5)" : "Insufficient (<5)"}
                     </span>
                   )}
                 </div>
                 <p className="mt-1 text-[11px] text-ink-3">
-                  {price.reliability === "sufficient"
-                    ? (lang === "th" ? "ครบตามเกณฑ์สืบราคา 3 แหล่ง (พ.ร.บ. จัดซื้อจัดจ้างฯ)" : "Meets statutory 3-source quoting baseline")
-                    : price.reliability === "low"
-                    ? (lang === "th" ? "⚠️ ข้อมูลในอดีตมีจำกัด ควรใช้เป็นข้อสังเกตเบื้องต้น" : "⚠️ Limited peer data; treat as advisory context")
-                    : (lang === "th" ? "ไม่พบโครงการเปรียบเทียบในหมวดหมู่เดียวกัน" : "No peers found in this category")}
+                  {hasSufficientPeers
+                    ? (lang === "th" ? "มีข้อมูลเพียงพอต่อการคำนวณราคาตลาด" : "Sufficient peers to estimate market benchmark")
+                    : (lang === "th" ? "เกณฑ์ขั้นต่ำ 5 โครงการในการประเมิน" : "Minimum 5 projects required for benchmark")}
                 </p>
               </div>
             </div>
 
-            {/* Comparable Projects Table */}
+            {/* Peer projects table */}
             {price.comparableProjects && price.comparableProjects.length > 0 ? (
               <div className="mt-5">
-                <div className="flex items-center justify-between">
-                  <Label>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="text-[13.5px] font-semibold text-ink">
+                    {lang === "th" ? "โครงการเปรียบเทียบที่ใช้คำนวณ" : "Comparable Peer Projects"}
+                  </h4>
+                  <span className="font-mono text-[11.5px] text-ink-3">
                     {lang === "th"
-                      ? `รายการโครงการในอดีตที่ใช้เปรียบเทียบอ้างอิง (${price.sampleSize ?? price.comparableProjects.length} โครงการ)`
-                      : `Comparable Reference Projects (${price.sampleSize ?? price.comparableProjects.length})`}
-                  </Label>
-                  {price.reliability === "low" ? (
-                    <span className="font-mono text-[11px] text-amend">
-                      {lang === "th" ? "⚠️ กลุ่มตัวอย่างจำกัด (< 3)" : "⚠️ Limited sample (< 3)"}
-                    </span>
-                  ) : null}
+                      ? `แสดง ${Math.min(visiblePeersCount, price.comparableProjects.length)} จากทั้งหมด ${price.comparableProjects.length} โครงการ`
+                      : `Showing ${Math.min(visiblePeersCount, price.comparableProjects.length)} of ${price.comparableProjects.length} projects`}
+                  </span>
                 </div>
                 <div className="mt-2 overflow-x-auto rounded-[3px] border border-line">
                   <table className="w-full text-left text-[12.5px]">
-                    <thead className="border-b border-line bg-surface-2 text-ink-3">
+                    <thead className="border-b border-line bg-surface-2/60 text-ink-3">
                       <tr>
-                        <th className="px-3 py-2 font-medium">{lang === "th" ? "ชื่อโครงการ" : "Project"}</th>
-                        <th className="px-3 py-2 font-medium">{lang === "th" ? "ปีงบ" : "Year"}</th>
-                        <th className="px-3 py-2 text-right font-medium">{lang === "th" ? "ราคากลาง" : "Reference Price"}</th>
+                        <th className="px-3 py-2 font-medium">{lang === "th" ? "ชื่อโครงการ" : "Project Title"}</th>
+                        <th className="px-3 py-2 font-medium whitespace-nowrap shrink-0 text-center w-[120px]">
+                          {lang === "th" ? "ปีงบประมาณ" : "Fiscal Year"}
+                        </th>
+                        <th className="px-3 py-2 font-medium whitespace-nowrap shrink-0 text-right w-[150px]">
+                          {lang === "th" ? "ราคากลาง" : "Ref Price"}
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line bg-surface">
-                      {price.comparableProjects.map((p, idx) => (
-                        <tr key={idx} className="hover:bg-surface-2/40 transition-colors">
-                          <td className="px-3 py-2 font-medium text-ink">{p.title}</td>
-                          <td className="px-3 py-2 font-mono text-ink-2">{p.year}</td>
-                          <td className="px-3 py-2 text-right font-mono text-ink">
-                            {formatMoney(p.referencePriceTHB, lang)}
+                      {price.comparableProjects.slice(0, visiblePeersCount).map((peer, idx) => (
+                        <tr key={idx} className="hover:bg-surface-2/30">
+                          <td className="px-3 py-2 font-medium text-ink min-w-[240px]">{peer.title}</td>
+                          <td className="px-3 py-2 font-mono text-ink-3 whitespace-nowrap shrink-0 text-center">
+                            {peer.year}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono font-medium text-ink whitespace-nowrap shrink-0">
+                            {formatMoney(peer.referencePriceTHB, lang)}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+
+                {price.comparableProjects.length > visiblePeersCount && (
+                  <div className="mt-3 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setVisiblePeersCount((prev) => prev + 10)}
+                      className="inline-flex items-center gap-1.5 rounded-[3px] border border-line bg-surface-2 px-3 py-1.5 text-[12px] font-medium text-ink hover:bg-surface-3 transition-colors shadow-sm cursor-pointer"
+                    >
+                      <span>+</span>
+                      <span>
+                        {lang === "th"
+                          ? `แสดงเพิ่มอีก ${Math.min(10, price.comparableProjects.length - visiblePeersCount)} โครงการ`
+                          : `Show ${Math.min(10, price.comparableProjects.length - visiblePeersCount)} more projects`}
+                      </span>
+                    </button>
+                    <span className="font-mono text-[11px] text-ink-3">
+                      {Math.min(visiblePeersCount, price.comparableProjects.length)} / {price.comparableProjects.length}
+                    </span>
+                  </div>
+                )}
+
+                {visiblePeersCount > 3 && price.comparableProjects.length <= visiblePeersCount && (
+                  <div className="mt-2 text-right">
+                    <button
+                      type="button"
+                      onClick={() => setVisiblePeersCount(3)}
+                      className="text-[11.5px] text-ink-3 hover:text-ink underline cursor-pointer"
+                    >
+                      {lang === "th" ? "ย่อกลับเหลือ 3 โครงการ" : "Show less (top 3)"}
+                    </button>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="mt-4 rounded-[3px] border border-line bg-surface/50 p-3 text-[12.5px] leading-thai text-ink-3">
-                {lang === "th"
-                  ? "ยังไม่มีข้อมูลโครงการจัดซื้อที่เทียบเคียงได้โดยตรงในฐานข้อมูลเพื่อแสดงตารางเปรียบเทียบ"
-                  : "No direct historical comparable projects currently registered in database."}
-              </div>
-            )}
+            ) : null}
           </AccentPanel>
           ) : (
             <NotAnalysed
@@ -1481,7 +1568,6 @@ export function TorDetail({
             />
           )}
 
-          {/* ---------------------------------------------------------------- */}
           {/* 12. AMENDMENT / STATUS INFORMATION                               */}
           {/* ---------------------------------------------------------------- */}
           {amend.isAmended ? (

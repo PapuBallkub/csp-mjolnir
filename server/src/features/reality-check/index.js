@@ -36,7 +36,6 @@ export {
   RISK_THRESHOLDS,
   detectVendorLockin,
   detectQualificationBarriers,
-  detectPersonnelBarriers,
   detectSpecificationTailoring,
   calculateLockSpecScore,
   formatLockSpecVerdict,

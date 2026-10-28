@@ -3,7 +3,7 @@
  *
  * Tests for FR-21: Automated lock-spec risk detection, qualification barriers,
  * and non-accusatory evidence generation.
- * Conforms to ADR 0014, ADR 0021, ADR 0030.
+ * Conforms to ADR 0014, ADR 0021, ADR 0030, and Circular ว 214.
  */
 
 import test from 'node:test';
@@ -11,7 +11,6 @@ import assert from 'node:assert/strict';
 import {
   detectVendorLockin,
   detectQualificationBarriers,
-  detectPersonnelBarriers,
   detectSpecificationTailoring,
   calculateLockSpecScore,
   formatLockSpecVerdict,
@@ -51,7 +50,7 @@ test('detectVendorLockin: returns null when no MAF or when category is non-softw
     null,
   );
 
-  // Hardware purchase with MAF is standard practice
+  // Hardware purchase with MAF is standard practice under Circular ว 214 Clause 1.1
   assert.equal(
     detectVendorLockin({
       identification: { category: 'hardware-purchase' },
@@ -61,14 +60,14 @@ test('detectVendorLockin: returns null when no MAF or when category is non-softw
   );
 });
 
-test('detectQualificationBarriers: flags high severity when prior experience > 80% of reference price', () => {
+test('detectQualificationBarriers: flags high severity when prior experience > 50% of reference price', () => {
   const tor = {
     projectId: '68039469568',
     facts: { referencePriceTHB: 3_000_000 },
-    eligibility: { previousExperienceMinTHB: 2_600_000 }, // 86.7%
+    eligibility: { previousExperienceMinTHB: 1_800_000 }, // 60.0%
     evidence: {
       'eligibility.previousExperienceMinTHB': {
-        quote: 'มีผลงานไม่น้อยกว่า 2.6 ล้านบาท',
+        quote: 'มีผลงานไม่น้อยกว่า 1.8 ล้านบาท',
         page: 4,
       },
     },
@@ -78,23 +77,9 @@ test('detectQualificationBarriers: flags high severity when prior experience > 8
   assert.ok(finding);
   assert.equal(finding.category, 'Qualification Barrier');
   assert.equal(finding.severity, 'high');
-  assert.match(finding.title, /เกิน 80% ของราคากลาง/);
-  assert.match(finding.requirementText, /86.7%/);
+  assert.match(finding.title, /เกินเกณฑ์ 50% ของราคากลาง/);
+  assert.match(finding.requirementText, /60.0%/);
   assert.equal(finding.sourceLocation, 'หน้า 4');
-});
-
-test('detectQualificationBarriers: flags medium severity when prior experience is 50% - 80% of reference price', () => {
-  const tor = {
-    projectId: '68039469569',
-    facts: { referencePriceTHB: 4_000_000 },
-    eligibility: { previousExperienceMinTHB: 2_400_000 }, // 60.0%
-  };
-
-  const finding = detectQualificationBarriers(tor, 4_000_000);
-  assert.ok(finding);
-  assert.equal(finding.category, 'Qualification Barrier');
-  assert.equal(finding.severity, 'medium');
-  assert.match(finding.title, /สูงกว่าเกณฑ์มาตรฐาน 50%/);
 });
 
 test('detectQualificationBarriers: returns null when prior experience is <= 50% of reference price', () => {
@@ -104,37 +89,6 @@ test('detectQualificationBarriers: returns null when prior experience is <= 50% 
   };
 
   assert.equal(detectQualificationBarriers(tor, 4_000_000), null);
-});
-
-test('detectPersonnelBarriers: flags medium severity when CMMI / ISO required on small budget (<= 5M)', () => {
-  const tor = {
-    projectId: '68039469570',
-    facts: { referencePriceTHB: 3_500_000 },
-    eligibility: { requiredCertifications: ['CMMI Level 3', 'ISO 29110'] },
-    evidence: {
-      'eligibility.requiredCertifications': {
-        quote: 'ต้องได้รับการรับรองมาตรฐาน CMMI Level 3',
-        page: 5,
-      },
-    },
-  };
-
-  const finding = detectPersonnelBarriers(tor, 3_500_000);
-  assert.ok(finding);
-  assert.equal(finding.category, 'Personnel Barrier');
-  assert.equal(finding.severity, 'medium');
-  assert.match(finding.title, /CMMI/);
-  assert.equal(finding.sourceLocation, 'หน้า 5');
-});
-
-test('detectPersonnelBarriers: returns null on large enterprise budget projects (> 5M)', () => {
-  const tor = {
-    facts: { referencePriceTHB: 20_000_000 },
-    eligibility: { requiredCertifications: ['CMMI Level 3'] },
-  };
-
-  // CMMI is expected and normal on 20M enterprise platforms
-  assert.equal(detectPersonnelBarriers(tor, 20_000_000), null);
 });
 
 test('detectSpecificationTailoring: flags exact outdated proprietary platform requirement', () => {
@@ -161,11 +115,44 @@ test('detectSpecificationTailoring: flags exact outdated proprietary platform re
   assert.match(finding.title, /Windows Server 2019/);
 });
 
+test('detectSpecificationTailoring: returns null when "or equivalent" is stated (allowsEquivalent: true or in quote)', () => {
+  // Case A: allowsEquivalent is true from Vertex AI extraction
+  const torA = {
+    technicalRequirements: {
+      requiredTechnologies: [
+        { name: 'Windows Server', version: '2019', allowsEquivalent: true },
+      ],
+    },
+    evidence: {
+      'technicalRequirements.requiredTechnologies': {
+        quote: 'ระบบต้องติดตั้งบน Windows Server 2019 หรือเทียบเท่า',
+      },
+    },
+  };
+  assert.equal(detectSpecificationTailoring(torA), null);
+
+  // Case B: quote explicitly contains "หรือเทียบเท่า" even if tech boolean is null
+  const torB = {
+    technicalRequirements: {
+      requiredTechnologies: [
+        { name: 'Windows Server', version: '2019', allowsEquivalent: null },
+      ],
+    },
+    evidence: {
+      'technicalRequirements.requiredTechnologies': {
+        quote: 'ระบบต้องทำงานบน Windows Server 2019 หรือระบบปฏิบัติการอื่นที่เทียบเท่า',
+      },
+    },
+  };
+  assert.equal(detectSpecificationTailoring(torB), null);
+});
+
 test('calculateLockSpecScore: correctly aggregates points with 100 cap', () => {
   assert.equal(calculateLockSpecScore([]), 0);
   assert.equal(calculateLockSpecScore([{ severity: 'low' }]), 5);
-  assert.equal(calculateLockSpecScore([{ severity: 'high' }, { severity: 'medium' }]), 45);
-  // Cap test: 4 high findings = 120 -> capped at 100
+  assert.equal(calculateLockSpecScore([{ severity: 'high' }]), 35);
+  assert.equal(calculateLockSpecScore([{ severity: 'high' }, { severity: 'high' }]), 70);
+  // Cap test: 4 high findings = 140 -> capped at 100
   const multipleHighs = [
     { severity: 'high' },
     { severity: 'high' },
@@ -176,8 +163,8 @@ test('calculateLockSpecScore: correctly aggregates points with 100 cap', () => {
 });
 
 test('formatLockSpecVerdict: produces non-accusatory Thai copy matching risk thresholds', () => {
-  assert.equal(formatLockSpecVerdict(85), 'ความเสี่ยงสูง: พบเงื่อนไขที่อาจจำกัดการแข่งขันเฉพาะราย');
-  assert.equal(formatLockSpecVerdict(45), 'ความเสี่ยงปานกลาง: มีเงื่อนไขบางข้อที่อาจจำกัดการแข่งขัน');
+  assert.equal(formatLockSpecVerdict(70), 'ความเสี่ยงสูง: พบเงื่อนไขที่อาจจำกัดการแข่งขันเฉพาะราย');
+  assert.equal(formatLockSpecVerdict(35), 'ความเสี่ยงปานกลาง: มีเงื่อนไขบางข้อที่อาจจำกัดการแข่งขัน');
   assert.equal(formatLockSpecVerdict(15), 'ความเสี่ยงต่ำ: ข้อกำหนดเปิดกว้างตามมาตรฐาน');
   assert.equal(formatLockSpecVerdict(0), 'ความเสี่ยงต่ำ: ข้อกำหนดเปิดกว้างตามมาตรฐาน');
 });
@@ -210,8 +197,7 @@ test('analyzeLockSpec: end-to-end analysis on multi-barrier tender produces high
     facts: { referencePriceTHB: 3_000_000 },
     eligibility: {
       manufacturerAuthorizations: ['Official MAF certificate required'],
-      previousExperienceMinTHB: 2_600_000, // 86.7% (high: 30 pts)
-      requiredCertifications: ['CMMI Level 3'], // medium: 15 pts
+      previousExperienceMinTHB: 2_600_000, // 86.7% > 50% (high: 35 pts)
     },
     technicalRequirements: {
       requiredTechnologies: [{ name: 'PostgreSQL' }],
@@ -219,11 +205,10 @@ test('analyzeLockSpec: end-to-end analysis on multi-barrier tender produces high
   };
 
   const result = analyzeLockSpec(biasedTor);
-  // 30 (MAF) + 30 (86.7% Exp) + 15 (CMMI on 3M) = 75 points (High Risk >= 70)
-  assert.equal(result.riskScore, 75);
+  // 35 (MAF) + 35 (>50% Exp) = 70 points (High Risk >= 70)
+  assert.equal(result.riskScore, 70);
   assert.equal(result.verdictText, 'ความเสี่ยงสูง: พบเงื่อนไขที่อาจจำกัดการแข่งขันเฉพาะราย');
-  assert.equal(result.findings.length, 3);
+  assert.equal(result.findings.length, 2);
   assert.equal(result.findings[0].category, 'Vendor Lock-in');
   assert.equal(result.findings[1].category, 'Qualification Barrier');
-  assert.equal(result.findings[2].category, 'Personnel Barrier');
 });

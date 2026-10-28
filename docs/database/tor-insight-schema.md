@@ -66,6 +66,7 @@ Used in `technicalRequirements.requiredTechnologies`.
 |---|---|---|---|---|---|
 | `name` | `String` | Yes | — | Canonical name from the technologies vocabulary ([technology-schema.md](./technology-schema.md)) | `"Windows Server"` |
 | `version` | `String` | No | `null` | The version the TOR requires, kept apart because a required exact version is itself a lock-spec signal | `"2019"` |
+| `allowsEquivalent` | `Boolean` | No | `null` | Whether the TOR explicitly permits equivalent alternatives (e.g. "หรือเทียบเท่า" / "or equivalent"). Null if unstated. | `false` |
 
 ### 2.5 `checkSchema`
 Used in `metadata.checks`: one entry per **failed** check.
