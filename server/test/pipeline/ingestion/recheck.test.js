@@ -99,16 +99,31 @@ test('recheck: says what differs from the packages we have, and changes nothing'
   assert.equal(calls.length, 12, 'the announcement, price and amendment services, for each');
   assert.deepEqual(
     { ...totals },
-    { checked: 4, drafts: 1, open: 3, newAnnouncement: 1, newPrice: 1, amendmentAnswers: 1, failed: 0, stoppedBy: null },
+    { checked: 4, drafts: 1, open: 3, newAnnouncement: 1, newPrice: 1, flagged: 0, amendmentAnswers: 1, failed: 0, stoppedBy: null },
   );
   assert.equal(await snapshotTors(), before, 'watch mode writes nothing');
 });
 
-test('recheck: asks nothing unless it is only watching', async () => {
-  const { lookup, calls } = fakeLookup();
+test('recheck: a package we lack flags the TOR for download; one with nothing new says when it looked (ADR 0032)', async () => {
+  const { lookup } = fakeLookup({
+    'o1 announcement': { zipId: 'zo1', name: 'zo1.zip' },
+    'o1 price': { zipId: 'po1-new', name: 'pricebuild_0307_69100000001.zip' },
+    'o2 announcement': { zipId: 'zo2-new', name: '69100000002_20102569.zip' },
+    'o3 announcement': { zipId: 'zo3', name: 'zo3.zip' },
+    'o3 adjustment': { zipId: 'adj3', name: 'adj3.zip', data: { zipId: 'adj3' } },
+    'd1 announcement': { failed: { success: false, error: 'e-GP did not answer', transient: true } },
+  });
 
-  assert.equal(await runRecheckStep({ now: NOW, lookup }), null);
-  assert.deepEqual(calls, []);
+  const totals = await runRecheckStep({ now: NOW, lookup });
+
+  const stored = Object.fromEntries((await Tor.find().lean()).map((tor) => [NAME.get(tor.projectId), tor]));
+  assert.equal(totals.flagged, 2);
+  assert.equal(stored.o1.packageCheckNeeded, true, 'a new price package');
+  assert.equal(stored.o2.packageCheckNeeded, true, 'a new announcement package');
+  assert.equal(stored.o3.packageCheckNeeded, undefined, "the amendment service's answer is only logged");
+  assert.equal(stored.o3.packagesCheckedAt.toISOString(), NOW.toISOString(), 'nothing new: when it looked');
+  assert.equal(stored.d1.packagesCheckedAt, undefined, 'e-GP did not answer: nothing is known');
+  assert.equal(stored.o1.packagesCheckedAt, undefined, 'a change is dated after the last look that found none');
 });
 
 test('recheck: stops when e-GP stops answering, and at the time box', async () => {

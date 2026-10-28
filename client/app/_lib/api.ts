@@ -211,6 +211,111 @@ export type IngestionExecutionLog = {
   error?: string | null;
 };
 
+export type ReviewItemDeliverables = {
+  system?: string[];
+  implementation?: string[];
+  validation?: string[];
+  supportingWork?: string[];
+};
+
+export type ReviewItemTech = {
+  name: string;
+  version?: string;
+};
+
+export type ReviewItemInfraSpec = {
+  item: string;
+  specification: string;
+};
+
+export type ReviewItemConstraint = {
+  metric: string;
+  value: string;
+};
+
+export type ReviewItemIntegration = {
+  existingSystems?: string[];
+  interfacesAndApis?: string[];
+  dataMigrationNotes?: string | null;
+  deploymentLocation?: string | null;
+};
+
+export type ReviewItemOperations = {
+  installationAndConfig?: string[];
+  training?: string[];
+  technicalSupportAndSla?: string | null;
+  maintenance?: string[];
+};
+
+export type ReviewItemAmendment = {
+  isAmended?: boolean;
+  amendmentSummary?: string;
+  changedSections?: string[];
+};
+
+export type ReviewItemDetails = {
+  // 1. Identification
+  titleEn?: string | null;
+  department?: string | null;
+  category?: string | null;
+  status?: string | null;
+
+  // 2. Key Facts
+  budgetTHB?: number | null;
+  referencePriceTHB?: number | null;
+  submissionDeadline?: string | null;
+  commentDeadline?: string | null;
+  deliveryPeriodDays?: number | null;
+  procurementMethod?: string | null;
+  contractDurationDays?: number | null;
+  warrantyYears?: number | null;
+  penaltyClause?: string | null;
+  postedDate?: string | null;
+
+  // 3. Project Overview
+  objective?: string | null;
+  systemArchetype?: string | null;
+  complexityTier?: string | null;
+  majorComponents?: string[];
+  highLevelScope?: string | null;
+
+  // 4. Deliverables
+  deliverables?: ReviewItemDeliverables;
+
+  // 5. Technical Requirements
+  requiredTechnologies?: string;
+  technologiesList?: ReviewItemTech[];
+  requiredCapabilities?: string[];
+  infrastructureSpecifications?: ReviewItemInfraSpec[];
+  technicalConstraints?: ReviewItemConstraint[];
+
+  // 6. Integration Environment
+  integrationEnvironment?: ReviewItemIntegration;
+
+  // 7. Operational Requirements
+  operationalRequirements?: ReviewItemOperations;
+
+  // 8. Eligibility
+  companyRequirements?: string[];
+  requiredCertifications?: string[];
+  manufacturerAuthorizations?: string[];
+  personnelQualifications?: string[];
+  previousExperience?: string | null;
+  previousExperienceMinTHB?: number | null;
+
+  // 9. Contract Conditions
+  paymentTerms?: string | null;
+  deliveryConditions?: string | null;
+  evaluationMethod?: string | null;
+
+  // 10. Amendment Info
+  amendmentInfo?: ReviewItemAmendment;
+
+  evidence?: Record<string, unknown>;
+  checks?: Array<{ check: string; severity?: string; field?: string; detail?: unknown }>;
+  version?: number;
+};
+
 export type ReviewItem = {
   docId: string;
   title: string;
@@ -221,6 +326,7 @@ export type ReviewItem = {
   reviewStatus?: "pending" | "approved" | "rejected";
   /** Fields the model itself was unsure about. */
   lowFields: { field: string; value: string; confidence: number }[];
+  details?: ReviewItemDetails;
   /** Set when the classifier's IT/non-IT call looks wrong. */
   misclassified?: { predicted: string; likely: string };
 };
@@ -275,6 +381,12 @@ export type AdminOperations = {
     avgOcrConfidence: number;
     avgExtractionConfidence: number;
     amendmentsDetected7d: number;
+    requestStreak?: {
+      inARow: number;
+      limit: number;
+      lastAt: string | null;
+      cooldownRemainingMs: number;
+    };
   };
 };
 
@@ -294,13 +406,64 @@ export type UpdateReviewPayload = {
   action: "approve" | "reclassify" | "confirm_classification";
   reclassifyReason?: string;
   fields?: {
+    // 1. Identification
     title?: string;
+    titleEn?: string | null;
     agency?: string;
-    referencePriceTHB?: number | null;
+    department?: string | null;
+    category?: string | null;
+    status?: string | null;
+
+    // 2. Key Facts
     budgetTHB?: number | null;
+    referencePriceTHB?: number | null;
     submissionDeadline?: string | null;
+    commentDeadline?: string | null;
+    deliveryPeriodDays?: number | null;
+    procurementMethod?: string | null;
+    contractDurationDays?: number | null;
+    warrantyYears?: number | null;
     penaltyClause?: string | null;
+    postedDate?: string | null;
+
+    // 3. Project Overview
+    objective?: string | null;
+    systemArchetype?: string | null;
+    complexityTier?: string | null;
+    majorComponents?: string[];
+    highLevelScope?: string | null;
+
+    // 4. Deliverables
+    deliverables?: ReviewItemDeliverables;
+
+    // 5. Technical Requirements
     requiredTechnologies?: string;
+    technologiesList?: ReviewItemTech[];
+    requiredCapabilities?: string[];
+    infrastructureSpecifications?: ReviewItemInfraSpec[];
+    technicalConstraints?: ReviewItemConstraint[];
+
+    // 6. Integration Environment
+    integrationEnvironment?: ReviewItemIntegration;
+
+    // 7. Operational Requirements
+    operationalRequirements?: ReviewItemOperations;
+
+    // 8. Eligibility
+    companyRequirements?: string[] | string;
+    requiredCertifications?: string[];
+    manufacturerAuthorizations?: string[];
+    personnelQualifications?: string[];
+    previousExperience?: string | null;
+    previousExperienceMinTHB?: number | null;
+
+    // 9. Contract Conditions
+    paymentTerms?: string | null;
+    deliveryConditions?: string | null;
+    evaluationMethod?: string | null;
+
+    // 10. Amendment Info
+    amendmentInfo?: ReviewItemAmendment;
   };
 };
 
@@ -327,12 +490,70 @@ export function adminUpdateReview(projectId: string, payload: UpdateReviewPayloa
   });
 }
 
+export type GetReviewItemResult = {
+  ok: boolean;
+  item: ReviewItem & {
+    budgetTHB?: number | null;
+    referencePriceTHB?: number | null;
+    submissionDeadline?: string | null;
+  };
+};
+
+/**
+ * Retrieves a single normalized review item for the dedicated review workspace (FR-23).
+ */
+export function adminGetReviewItem(projectId: string) {
+  return request<GetReviewItemResult>(`/api/admin/review/${encodeURIComponent(projectId)}`, {
+    cache: "no-store",
+  });
+}
+
 /**
  * Re-queue a TOR for AI extraction (FR-23).
  */
 export function adminReExtract(projectId: string) {
   return request<ReExtractResult>(`/api/admin/review/${encodeURIComponent(projectId)}/re-extract`, {
     method: "POST",
+  });
+}
+
+export type TorVersionItem = {
+  version: number;
+  reason: string;
+  supersededAt: string;
+  supersededBy?: string | null;
+  promptVersion?: string;
+  modelName?: string;
+  confidenceScore?: number;
+  reviewStatus?: string;
+  keptText?: boolean;
+};
+
+export type ListVersionsResult = {
+  projectId: string;
+  current: number | null;
+  versions: TorVersionItem[];
+};
+
+export type RollbackVersionResult = {
+  ok: boolean;
+  projectId: string;
+  restoredVersion: number;
+  currentVersion: number;
+};
+
+/** Lists past snapshots of a TOR's summary (NFR-07, ADR 0031). */
+export function adminGetTorVersions(projectId: string) {
+  return request<ListVersionsResult>(`/api/admin/review/${encodeURIComponent(projectId)}/versions`, {
+    cache: "no-store",
+  });
+}
+
+/** Restores an older version of a TOR's summary (NFR-07, ADR 0031). */
+export function adminRollbackTorVersion(projectId: string, version: number) {
+  return request<RollbackVersionResult>(`/api/admin/review/${encodeURIComponent(projectId)}/rollback`, {
+    method: "POST",
+    body: JSON.stringify({ version }),
   });
 }
 
@@ -376,6 +597,13 @@ export type RetryPipelineStepResult = {
   projectId: string;
   step: string;
   status: string;
+  executedImmediately?: boolean;
+  message: string;
+};
+
+export type RetryAllFailuresResult = {
+  ok: boolean;
+  clearedCount: number;
   message: string;
 };
 
@@ -389,11 +617,26 @@ export type DismissPipelineFailureResult = {
 
 /**
  * Re-triggers / retries a stuck or failed pipeline step (FR-24).
+ * If runNow is true, the step runner is invoked on-demand immediately.
  */
-export function adminRetryPipelineStep(projectId: string, step: string) {
+export function adminRetryPipelineStep(projectId: string, step: string, runNow: boolean = false) {
+  const payload: { projectId: string; step: string; runNow?: boolean } = { projectId, step };
+  if (runNow) {
+    payload.runNow = true;
+  }
   return request<RetryPipelineStepResult>("/api/admin/pipeline/retry", {
     method: "POST",
-    body: JSON.stringify({ projectId, step }),
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Bulk retries all transient or step-specific failures in one click (FR-24).
+ */
+export function adminRetryAllPipelineFailures(options: { step?: string; transientOnly?: boolean } = {}) {
+  return request<RetryAllFailuresResult>("/api/admin/pipeline/retry-all", {
+    method: "POST",
+    body: JSON.stringify(options),
   });
 }
 
@@ -404,6 +647,71 @@ export function adminDismissPipelineFailure(projectId: string, step: string, rea
   return request<DismissPipelineFailureResult>("/api/admin/pipeline/dismiss", {
     method: "POST",
     body: JSON.stringify({ projectId, step, reason }),
+  });
+}
+
+export type PipelineTaskItem = {
+  projectId: string;
+  title: string;
+  agency: string;
+  pipelineStatus: string;
+  phase: 'download' | 'ocr' | 'extract' | 'extracted' | 'failed';
+  step: string;
+  lastError: string | null;
+  attempts: number;
+  lastTransient: boolean;
+  updatedAt: string;
+};
+
+export type GetPipelineTasksResult = {
+  tasks: PipelineTaskItem[];
+  total: number;
+  page: number;
+  limit: number;
+  counts: {
+    all: number;
+    download: number;
+    ocr: number;
+    extract: number;
+    extracted: number;
+    failed: number;
+  };
+};
+
+export type SkipPipelineStepResult = {
+  ok: boolean;
+  projectId: string;
+  step: string;
+  nextStatus: string;
+  message: string;
+};
+
+/**
+ * Queries pipeline tasks with filtering by phase (all, download, ocr, extract, extracted, failed) (FR-24).
+ */
+export function adminGetPipelineTasks(params: {
+  phase?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+} = {}) {
+  const query = new URLSearchParams();
+  if (params.phase) query.set("phase", params.phase);
+  if (params.search) query.set("search", params.search);
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
+
+  const qs = query.toString();
+  return request<GetPipelineTasksResult>(`/api/admin/pipeline/tasks${qs ? `?${qs}` : ""}`);
+}
+
+/**
+ * Advances a project past a stuck pipeline step (FR-24).
+ */
+export function adminSkipPipelineStep(projectId: string, step: string) {
+  return request<SkipPipelineStepResult>("/api/admin/pipeline/skip", {
+    method: "POST",
+    body: JSON.stringify({ projectId, step }),
   });
 }
 
@@ -427,6 +735,7 @@ export type PipelineRecordDiagnostics = {
   submissionDeadline: string | null;
   status: string;
   isAmended: boolean;
+  wavePriority?: string;
   pipelineStatus: string;
   source: string;
   announceDate: string | null;
@@ -685,6 +994,53 @@ export type AnnouncementCode = "15" | "B0" | "D0" | "D2" | "D1" | "W0" | "W2" | 
 /** The stage e-GP announced last, when the feed announced the TOR at all. */
 export type LatestAnnouncement = { code: AnnouncementCode; publishedAt: string | null } | null;
 
+/**
+ * Where a change came from (ADR 0032): `feed`, the agency announced it on
+ * e-GP (a D2); `package`, the platform found a new package whose contents
+ * differ, an inference the page says is one.
+ */
+export type ChangeSource = "feed" | "package";
+
+/** One thing that changed. Dates are ISO strings and numbers plain ones: the page formats them. */
+export type ChangeRow = {
+  kind: "added" | "removed" | "changed";
+  field: string;
+  before: string | null;
+  after: string | null;
+};
+
+/** A change to the TOR, as the detail page lists it (FR-16). */
+export type TorChange = {
+  source: ChangeSource;
+  /** The stage that changed; null when it couldn't be read */
+  stage: "draft" | "invitation" | null;
+  /** The summary on the page predates this change: the new document isn't read yet */
+  rereadPending: boolean;
+  round: string | null;
+  /** The date the notice or the documents state; null when neither does */
+  date: string | null;
+  headline: string | null;
+  /** When the platform found it */
+  detectedAt: string | null;
+  /** The last check before that found nothing new: a found change happened between the two */
+  previousCheckAt: string | null;
+  /** The e-GP package it came with, and the one it replaced: both originals */
+  zipId: string | null;
+  previousZipId: string | null;
+  /** facts: the announcement's facts compared; complete: the summary too; none: nothing compared */
+  diff: "none" | "facts" | "complete";
+  changes: ChangeRow[];
+};
+
+/** The latest change, for a list row: what the change marker shows. */
+export type LatestChange = {
+  source: ChangeSource;
+  date: string | null;
+  detectedAt: string | null;
+  previousCheckAt: string | null;
+  fields: string[];
+} | null;
+
 export type TorInsightSummary = {
   projectId: string;
   identification: {
@@ -717,6 +1073,9 @@ export type TorInsightSummary = {
   amendmentInfo?: {
     isAmended: boolean;
   };
+  /** When the latest change was found; null when none is known (ADR 0032) */
+  lastChangeAt?: string | null;
+  latestChange?: LatestChange;
   /** Only companies may bid ("เฉพาะนิติบุคคล") */
   companiesOnly: boolean;
   latestAnnouncement: LatestAnnouncement;
@@ -809,6 +1168,10 @@ export type TorInsightDetail = {
     amendmentSummary: string;
     changedSections: string[];
   };
+  lastChangeAt?: string | null;
+  latestChange?: LatestChange;
+  /** Each change, oldest first; none rolled back (FR-16, ADR 0032) */
+  amendments?: TorChange[];
   companiesOnly: boolean;
   latestAnnouncement: LatestAnnouncement;
   /** data.go.th has the signed contract */
@@ -922,8 +1285,11 @@ export function getTorInsight(projectId: string) {
 /*  Watchlist (FR-17)                                                 */
 /* ------------------------------------------------------------------ */
 
+/** A saved TOR: changed since it was saved when lastChangeAt is later than savedAt (FR-17) */
+export type WatchlistItem = TorInsightSummary & { savedAt: string };
+
 export type WatchlistResponse = {
-  tors: TorInsightSummary[];
+  tors: WatchlistItem[];
   savedIds: string[];
 };
 

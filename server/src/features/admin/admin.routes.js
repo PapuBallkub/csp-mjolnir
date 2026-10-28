@@ -10,8 +10,14 @@ import {
   handleDismissPipelineFailure,
   handleGetAdminTechnologies,
   handleGetPipelineRecord,
+  handleGetPipelineTasks,
+  handleGetReviewItem,
+  handleListVersions,
   handleReExtract,
+  handleRetryAllPipelineFailures,
   handleRetryPipelineStep,
+  handleRollback,
+  handleSkipPipelineStep,
   handleSuggestProjects,
   handleTriggerIngest,
   handleUpdateAdminTechnology,
@@ -40,11 +46,18 @@ adminRoutes.use(requireAuth, requireRole('admin'));
 // limiter here would eventually hide a pipeline failure behind a 429.
 adminRoutes.get('/operations', readOperations);
 
+// Get single review item for dedicated review workspace (FR-23)
+adminRoutes.get('/review/:projectId', handleGetReviewItem);
+
 // Review actions: manually edit extracted fields, approve, or reclassify (FR-23)
 adminRoutes.patch('/review/:projectId', handleUpdateReview);
 
 // Queue a document for re-extraction
 adminRoutes.post('/review/:projectId/re-extract', handleReExtract);
+
+// The summaries a change replaced, and bringing one back (NFR-07, ADR 0031)
+adminRoutes.get('/review/:projectId/versions', handleListVersions);
+adminRoutes.post('/review/:projectId/rollback', handleRollback);
 
 // Trigger on-demand ingestion poll across procurement feeds
 adminRoutes.post('/ingest', handleTriggerIngest);
@@ -54,6 +67,15 @@ adminRoutes.post('/health-check', handleCheckSourcesHealth);
 
 // Re-trigger / retry a failed pipeline step (FR-24)
 adminRoutes.post('/pipeline/retry', handleRetryPipelineStep);
+
+// Bulk retry all transient pipeline failures (FR-24)
+adminRoutes.post('/pipeline/retry-all', handleRetryAllPipelineFailures);
+
+// Advance past a stuck pipeline step (FR-24)
+adminRoutes.post('/pipeline/skip', handleSkipPipelineStep);
+
+// Query pipeline tasks with phase filtering and search (FR-24)
+adminRoutes.get('/pipeline/tasks', handleGetPipelineTasks);
 
 // Dismiss a permanent pipeline failure (FR-24)
 adminRoutes.post('/pipeline/dismiss', handleDismissPipelineFailure);

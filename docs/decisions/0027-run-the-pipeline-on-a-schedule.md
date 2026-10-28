@@ -1,6 +1,6 @@
 # 0027 · Run the pipeline on a schedule
 
-Status: proposed · 2026-10-13
+Status: proposed · 2026-10-13 · amended by [0030](0030-run-the-night-in-priority-waves.md): each job runs its work in waves, by queue
 
 ## Context
 

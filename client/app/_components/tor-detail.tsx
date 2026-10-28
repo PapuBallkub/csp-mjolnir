@@ -2,13 +2,23 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { TorInsightDetail } from "../_lib/api";
+import type { ChangeRow, TorChange, TorInsightDetail } from "../_lib/api";
 import type { Lang, RiskLevel } from "../_data/tors";
-import { getEgpAnnouncementUrl, getFiscalYear } from "../_lib/format";
+import {
+  CHANGE_SOURCE,
+  changeHeading,
+  changeWhen,
+  describeRow,
+  FOUND_NOTE,
+  markerSource,
+  pendingChange,
+  pendingNotice,
+} from "../_lib/changes";
+import { getEgpAnnouncementUrl, getEgpPackageUrl, getFiscalYear } from "../_lib/format";
 import { useLang, useProfile } from "./prefs";
 import { useAuth } from "./auth";
 import {
-  AmendedFlag,
+  ChangeMarker,
   CompaniesOnlyBadge,
   InsightPriceBadge,
   isDead,
@@ -159,6 +169,110 @@ function formatCategoryLabel(category: string, lang: Lang): string {
   return category;
 }
 
+/** What changed, in the page's words; the rows it doesn't show are left out. */
+function ChangeRows({ rows, lang }: { rows: ChangeRow[]; lang: Lang }) {
+  const shown = rows.flatMap((row) => describeRow(row, lang) ?? []);
+  if (shown.length === 0) return null;
+  return (
+    <ul className="mt-2 flex flex-col gap-1 text-[13px] leading-thai">
+      {shown.map((row, idx) => (
+        <li key={`${row.label}-${idx}`} className="flex flex-wrap gap-x-2">
+          <span className="text-ink-3">{row.label}</span>
+          <span className="tnum text-ink">{row.text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Both originals a change cites, downloaded from e-GP itself: the original stays the authority. */
+function OriginalLinks({ change, lang }: { change: TorChange; lang: Lang }) {
+  if (!change.zipId && !change.previousZipId) return null;
+  const link = "underline text-ink-2 hover:text-ink";
+  return (
+    <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] leading-thai">
+      <span className="text-ink-3">{lang === "th" ? "เอกสารต้นฉบับจาก e-GP:" : "Originals from e-GP:"}</span>
+      {change.previousZipId ? (
+        <a href={getEgpPackageUrl(change.previousZipId)} target="_blank" rel="noreferrer" className={link}>
+          {lang === "th" ? "ดาวน์โหลดฉบับก่อน" : "Download the previous version"}
+        </a>
+      ) : null}
+      {change.zipId ? (
+        <a href={getEgpPackageUrl(change.zipId)} target="_blank" rel="noreferrer" className={link}>
+          {lang === "th" ? "ดาวน์โหลดฉบับใหม่" : "Download the new version"}
+        </a>
+      ) : null}
+    </p>
+  );
+}
+
+/** Who said it changed: the agency's notice, or the platform's finding, muted like Closed (Q3). */
+function ChangeSourceLine({ change, lang }: { change: TorChange; lang: Lang }) {
+  const when = changeWhen(change, lang);
+  const by = lang === "th" ? CHANGE_SOURCE[change.source].by.th : CHANGE_SOURCE[change.source].by.en;
+  return (
+    <p className="mt-0.5 text-[12px] leading-thai text-ink-3">
+      {by}
+      {when ? <span className="tnum"> · {when}</span> : null}
+    </p>
+  );
+}
+
+function FoundNote({ lang }: { lang: Lang }) {
+  return (
+    <p className="mt-2 rounded-[2px] border border-dashed border-closed-line bg-surface px-2.5 py-1.5 text-[12.5px] leading-thai text-ink-2">
+      {lang === "th" ? FOUND_NOTE.th : FOUND_NOTE.en}
+    </p>
+  );
+}
+
+/**
+ * Said before anyone reads the summary, while it predates a change (ADR 0032):
+ * the TOR changed and the new document isn't read yet. What changed in the
+ * facts shows, with both originals.
+ */
+function ChangeNotice({ change, lang }: { change: TorChange; lang: Lang }) {
+  const { title, body } = pendingNotice(change);
+  return (
+    <div className="mt-3 max-w-4xl rounded-[3px] border border-l-[4px] border-amend-line border-l-amend bg-amend-bg px-3.5 py-3">
+      <p className="text-[14px] font-semibold leading-thai text-amend">{lang === "th" ? title.th : title.en}</p>
+      <ChangeSourceLine change={change} lang={lang} />
+      <p className="mt-1 text-[12.5px] leading-thai text-ink-2">{lang === "th" ? body.th : body.en}</p>
+      {change.source === "package" ? <FoundNote lang={lang} /> : null}
+      <ChangeRows rows={change.changes} lang={lang} />
+      <OriginalLinks change={change} lang={lang} />
+    </div>
+  );
+}
+
+/** One change in the history: worded by the stage that changed, as text, not a badge (Q7). */
+function ChangeEntry({ change, lang }: { change: TorChange; lang: Lang }) {
+  const heading = changeHeading(change.stage);
+  const nothingShown = change.changes.every((row) => describeRow(row, lang) === null);
+  return (
+    <li className="border-l-2 border-line pl-3.5">
+      <p className="text-[14px] font-semibold leading-thai text-ink">{lang === "th" ? heading.th : heading.en}</p>
+      <ChangeSourceLine change={change} lang={lang} />
+      {change.source === "package" ? <FoundNote lang={lang} /> : null}
+      <ChangeRows rows={change.changes} lang={lang} />
+      {change.rereadPending ? (
+        <p className="mt-2 text-[12px] leading-thai text-ink-3">
+          {lang === "th"
+            ? "รายการแก้ไขในเนื้อหา TOR จะแสดงหลังการประมวลผลฉบับใหม่"
+            : "Changes inside the TOR show once the new version is processed."}
+        </p>
+      ) : nothingShown ? (
+        <p className="mt-2 text-[12px] leading-thai text-ink-3">
+          {lang === "th"
+            ? "ไม่พบความต่างในค่าที่ระบบเทียบ ดูรายละเอียดจากเอกสารต้นฉบับ"
+            : "No difference in the values we compare; see the originals for the rest."}
+        </p>
+      ) : null}
+      <OriginalLinks change={change} lang={lang} />
+    </li>
+  );
+}
+
 export function TorDetail({
   insight,
 }: {
@@ -215,6 +329,9 @@ export function TorDetail({
     contractSigned: insight.contractSigned,
   });
   const deadline = deadlineOf(iden.status, facts);
+  const changes = insight.amendments ?? [];
+  const marker = markerSource(insight, stage.saysChanged);
+  const pending = pendingChange(changes);
 
   const scope = getScopeSize(facts.referencePriceTHB || facts.budgetTHB);
   const fiscalYear = getFiscalYear(facts.postedDate, insight.projectId);
@@ -303,9 +420,9 @@ export function TorDetail({
           ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {/* e-GP's stage, coloured by status; Amended unless the stage already says so */}
+            {/* e-GP's stage, coloured by status; the change marker unless the stage already says so */}
             <LifecycleBadge status={iden.status} stage={stage} lang={lang} size="large" />
-            {amend?.isAmended && !stage.saysChanged ? <AmendedFlag lang={lang} /> : null}
+            {marker ? <ChangeMarker source={marker} lang={lang} /> : null}
 
             {/* Deadline Countdown Pill in Header */}
             {deadline.date ? (() => {
@@ -353,6 +470,7 @@ export function TorDetail({
           </div>
 
           <ReviewNotice review={insight.review} webUrl={officialEgpUrl} lang={lang} />
+          {pending ? <ChangeNotice change={pending} lang={lang} /> : null}
 
           {/* Verdict Strip */}
           <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[3px] border border-line bg-surface-2/60 p-2.5 sm:gap-6 sm:px-4">
@@ -716,34 +834,6 @@ export function TorDetail({
                   ? "โครงการนี้พ้นกำหนดยื่นข้อเสนอหรือมีการประกาศผลเรียบร้อยแล้ว ไม่จำเป็นต้องอ่านต่อเพื่อเตรียมยื่นซอง"
                   : "The submission deadline has passed or results have been awarded."}
               </p>
-            </div>
-          ) : null}
-
-          {/* Amendment Alert Banner if Amended */}
-          {amend.isAmended ? (
-            <div className="rounded-[3px] border border-l-[4px] border-line border-l-amend bg-amend-bg px-4 py-3.5">
-              <p className="text-[15px] font-semibold text-amend">
-                {lang === "th"
-                  ? `ประกาศนี้มีการแก้ไข TOR (ปรับปรุงล่าสุด ${formatDateString(amend.lastAmendedDate, lang)})`
-                  : `This TOR has been amended (Last updated ${formatDateString(amend.lastAmendedDate, lang)})`}
-              </p>
-              {amend.amendmentSummary ? (
-                <p className="mt-1 text-[13px] leading-thai text-ink-2">
-                  {amend.amendmentSummary}
-                </p>
-              ) : null}
-              {amend.changedSections && amend.changedSections.length > 0 ? (
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] text-ink-3">
-                    {lang === "th" ? "ส่วนที่มีการแก้ไข:" : "Changed sections:"}
-                  </span>
-                  {amend.changedSections.map((sec, idx) => (
-                    <span key={`${sec}-${idx}`} className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-amend border border-amend-line">
-                      {sec}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
             </div>
           ) : null}
 
@@ -1568,29 +1658,38 @@ export function TorDetail({
             />
           )}
 
-          {/* 12. AMENDMENT / STATUS INFORMATION                               */}
           {/* ---------------------------------------------------------------- */}
-          {amend.isAmended ? (
-            <AccentPanel tone="amend" className="px-4 py-5 sm:px-6 sm:py-6">
+          {/* 12. CHANGES: newest first, each with what changed (FR-16)       */}
+          {/* ---------------------------------------------------------------- */}
+          {changes.length > 0 || amend.isAmended ? (
+            <AccentPanel tone="amend" id="changes" className="px-4 py-5 sm:px-6 sm:py-6">
               <SectionHeading
                 sub={
                   lang === "th"
-                    ? "ประวัติและสาระสำคัญที่มีการแก้ไขเปลี่ยนแปลงจากประกาศเดิม"
-                    : "Summary of changes made since original announcement"
+                    ? "แสดงเฉพาะค่าที่เทียบกันได้ เช่น ตัวเลข วันที่ และรายการเทคโนโลยี ส่วนอื่นให้ดูจากเอกสารต้นฉบับ"
+                    : "Only values that compare cleanly are listed: numbers, dates, technologies. For the rest, see the originals."
                 }
               >
-                {lang === "th" ? "ประวัติการแก้ไขเอกสาร TOR" : "Amendment History"}
+                {lang === "th" ? "ประวัติการเปลี่ยนแปลง" : "Change history"}
               </SectionHeading>
 
-              <div className="mt-2">
-                <p className="text-[14px] leading-thai text-ink">
-                  {amend.amendmentSummary || (lang === "th" ? "มีการแก้ไขเอกสารแนบท้าย" : "Attachments amended.")}
-                </p>
+              {amend.amendmentSummary ? (
+                <p className="mb-3 text-[14px] leading-thai text-ink">{amend.amendmentSummary}</p>
+              ) : null}
 
-                <p className="mt-2 font-mono text-[12px] text-ink-3">
-                  {lang === "th" ? "วันที่ประกาศแก้ไข:" : "Amended on:"} {formatDateString(amend.lastAmendedDate, lang)}
+              {changes.length > 0 ? (
+                <ol className="flex flex-col gap-4">
+                  {[...changes].reverse().map((change, idx) => (
+                    <ChangeEntry key={`${change.detectedAt ?? change.date ?? "change"}-${idx}`} change={change} lang={lang} />
+                  ))}
+                </ol>
+              ) : (
+                // Announced before changes were recorded: the date is all there is
+                <p className="text-[13px] leading-thai text-ink-2">
+                  {lang === "th" ? "หน่วยงานประกาศเปลี่ยนแปลงประกาศเชิญชวน" : "The agency announced a changed invitation"}
+                  {amend.lastAmendedDate ? <span className="tnum"> · {formatDateString(amend.lastAmendedDate, lang)}</span> : null}
                 </p>
-              </div>
+              )}
             </AccentPanel>
           ) : null}
 

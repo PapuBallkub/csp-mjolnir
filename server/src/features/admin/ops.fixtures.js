@@ -116,6 +116,12 @@ export const pipelineStats = {
   avgOcrConfidence: 0.95,
   avgExtractionConfidence: 0.91,
   amendmentsDetected7d: 5,
+  requestStreak: {
+    inARow: 0,
+    limit: 230,
+    lastAt: null,
+    cooldownRemainingMs: 0,
+  },
 };
 
 /** Fallback snapshot of pipeline funnel stages when collections are cold or empty. */

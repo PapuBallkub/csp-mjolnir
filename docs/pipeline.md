@@ -72,14 +72,29 @@ The pipeline runs as three **jobs** on a fixed schedule
 
 | Time | Job | What it does |
 |---|---|---|
-| 08:00, 17:05 | `poll` | The national feed, then process |
-| 18:00 | `sweep` | Every agency in `ingestion/data/egp-agencies.json` (267), then process |
-| 22:00 | `process` | Watch draft and open IT TORs for changed packages (it only logs, for now), refresh the comparisons, choose tonight's past projects to read in full, then screen, download, OCR, classify and extract whatever is waiting, through the night |
+| 08:00, 17:05 | `poll` | The national feed, then new TORs, then changed ones |
+| 18:00 | `sweep` | Every agency in `ingestion/data/egp-agencies.json` (267), then the same |
+| 22:00 | `process` | The night, in four waves (below), until 07:55 |
+
+**Each job works in waves,** one kind of work at a time, so that when its time
+runs out, what's left is what can wait
+([0030](decisions/0030-run-the-night-in-priority-waves.md)):
+
+| Wave | Steps | Queue |
+|---|---|---|
+| 1. Check | Ask e-GP whether draft and open IT TORs' packages changed (`recheck`), then download the changed ones and record what changed | `changed` |
+| 2. New TORs | Screen the new titles, download what passed, preview, classify, read the IT ones whole, extract | `new` |
+| 3. Changes | Read and extract the changed ones | `changed` |
+| 4. Price | Refresh the comparisons, choose tonight's past projects, read them, refresh the comparisons again | `past` |
+
+The night runs all four; `poll` and `sweep` run waves 2 and 3, for what the
+feed brought. Within each step, the soonest bid deadline goes first.
 
 Each job takes no new work after its time box, 5 minutes before the next job,
 and leaves a `PipelineRun` record and a log file in
-`server/data/logs/<date>/`. Each time the feed is asked leaves a `FeedPoll`
-record.
+`server/data/logs/<date>/`. Each step's name says its queue, e.g.
+`ingest download (new)`, so a record shows which wave a short night stopped
+in. Each time the feed is asked leaves a `FeedPoll` record.
 
 **One job by hand,** with its time box worked out from the schedule, or given:
 
@@ -244,25 +259,43 @@ npm run ingest -- --step history --dry-run    # show tonight's choice, change no
 npm run ingest -- --step history
 ```
 
-### `npm run ingest -- --step recheck --dry-run`
-**Asks e-GP whether the packages of draft and open IT TORs have changed.** The
-feed has never announced a changed invitation (`D2`: none in 613 polls), so
-nothing else would tell us. It takes the TORs read in full and found IT,
-with a package downloaded: drafts, and open ones whose bids haven't closed.
-For each, it asks e-GP's announcement and price services which package is
-current (one small JSON request each, no download), and what the amendment
-service (`infoProcureDocAnnounZipAdj`) answers.
+### `npm run ingest -- --step recheck`
+**Asks e-GP whether the packages of draft and open IT TORs have changed**
+([0032](decisions/0032-record-what-changed-in-a-tor.md)). The feed has never
+announced a changed invitation (`D2`), so nothing else would tell us. It
+takes the TORs read in full and found IT, with a package downloaded: drafts,
+and open ones whose bids haven't closed. For each, it asks e-GP's
+announcement and price services which package is current (one small JSON
+request each, no download):
+- **one we don't have:** it flags the TOR (`packageCheckNeeded`), and the
+  download after it takes the package;
+- **nothing new:** it records when it looked (`packagesCheckedAt`), so a
+  change found later is dated as after it.
 
-**It only watches for now:** it logs a package we don't have, or any answer
-from the amendment service, and changes nothing. Without `--dry-run` it asks
-nothing. A week of it shows where e-GP puts an amendment, before the recheck
-acts on one. The `process` job runs it first, about 3 requests per TOR (67
-TORs took 3½ minutes). It stops at the time box, or when 3 TORs in a row get
-no answer.
+What e-GP's amendment service (`infoProcureDocAnnounZipAdj`) answers is only
+logged. The `process` job runs it first, about 3 requests per TOR (67 TORs
+took 3½ minutes). It stops at the time box, or when 3 TORs in a row get no
+answer. `--dry-run` only says what it finds.
 
 ```
-npm run ingest -- --step recheck --dry-run
+npm run ingest -- --step recheck
+npm run ingest -- --step recheck --dry-run    # say what's new, change nothing
 ```
+
+**Download decides whether a new package is a change.** It reads each
+package's own announcement, which says "ร่าง" on a draft, not the feed, which
+can lag by days:
+- **a draft becoming an invitation** is the next stage, and not recorded;
+- **an invitation replaced by another, or a draft by another,** with a
+  different TOR file or facts, is a change;
+- **a price form with a different budget or ราคากลาง** is a change too.
+
+A change goes into `Tor.amendments`, from the feed (a `D2`: the agency said
+so) or a package (we found it), with both packages, and what changed: the
+facts at download, and the summary's own dates, numbers, technologies and
+standard conditions once it's extracted again. Free text gets no rows, since
+two extractions word it differently. The log says `CHANGED`, `Next stage`,
+or that a package's stage couldn't be read (not counted).
 
 ### `npm run ingest:download`
 **Downloads each workable TOR's e-GP package** ([0020](decisions/0020-read-the-whole-egp-package.md)),
@@ -354,7 +387,8 @@ npm run ingest:ocr -- --id 69109028093
 | `--types <codes>` | fetch, sweep | fetch: every type; sweep: every type but `15` | e-GP feed only: only these announcement codes, e.g. `D0,B0` |
 | `--until <time>` | sweep, recheck, download, ocr | none | The time box: no new work after this time, e.g. `2026-10-14T07:55:00+07:00`. The project in hand finishes. Jobs set it for you; `screen` and `extract` take it too. |
 | `--skip-screen` | download | off | Download new projects without waiting for the title screen |
-| `--dry-run` | history, recheck | off | History: show tonight's past projects, ask for none. Recheck: watch only, which is all it does for now. |
+| `--queue <queues>` | download, ocr | all | Only these kinds of work, e.g. `new` or `new,changed` ([0030](decisions/0030-run-the-night-in-priority-waves.md)): `new` (not read yet), `changed` (a new stage, or a replaced document), `past` (past projects asked for). The jobs run them one at a time; `extract` takes it too. |
+| `--dry-run` | history, recheck | off | History: show tonight's past projects, ask for none. Recheck: say what's new, flag nothing. |
 | `--query`, `-q` | fetch | none | Keep only new projects whose title has this text. None by default: the title screen and classify decide what is IT |
 | `--limit`, `-l` | fetch | none | At most this many **new** projects; updates to projects already in the database are never limited |
 | `--source` | fetch | `process3` | The e-GP feed, the only source now (`all` means the same). `datago` was removed. |
@@ -518,7 +552,10 @@ npm run extract -- --outdated          # also redo results from an older prompt
 npm run extract -- --force             # redo everything, reviewed results too
 npm run extract -- --recheck           # rebuild from saved answers: no Gemini call
 npm run extract -- --retry-failed      # also try TORs that gave up after failing
+npm run extract -- --queue new         # one kind of work only: new, changed or past
 ```
+
+The soonest bid deadline goes first.
 
 | Option | When to use it |
 |---|---|
@@ -535,3 +572,26 @@ up to 3 times (see [Running a command again](#running-a-command-again)).
 `server/data/extractions/<projectId>.json`. It holds Gemini's own answers,
 with the quote and page behind every value. Check these against the PDF.
 `--recheck` rebuilds from them too.
+
+### Versions, and `npm run rollback`
+**A summary a change replaces is kept,** in `TorInsightVersion`
+([0031](decisions/0031-keep-the-summary-a-change-replaces.md)). That happens
+when download applies a new TOR file, OCR reads changed text, extraction makes
+a summary again (`--outdated`, `--force`, `--recheck`), or an admin corrects
+it in the review queue. Each is kept once, with the reason, the TOR's file
+and facts it went with, and its OCR text, so it can be brought back.
+`metadata.version` counts them. A title-level record, a preview and a record
+found not IT keep none.
+
+```
+npm run rollback -- --id 69099707497                     # its versions
+npm run rollback -- --id 69099707497 --to 2 --dry-run    # what bringing version 2 back would do
+npm run rollback -- --id 69099707497 --to 2              # bring it back
+```
+
+A rollback keeps the current summary first, then puts version N back, with
+the TOR's file, OCR text and facts it went with. Its source matches again, so
+the next extraction leaves it alone. With a pipeline run going, it does
+nothing and says so. Admins can do the same from the API:
+`GET /api/admin/review/:projectId/versions` and
+`POST /api/admin/review/:projectId/rollback` with `{ "version": 2 }`.

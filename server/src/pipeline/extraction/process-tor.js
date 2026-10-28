@@ -10,6 +10,9 @@
  */
 
 import { TorInsight } from '#models/index.js';
+import { isFullExtraction } from '#features/reality-check/index.js';
+import { completeChange } from '../shared/amendments.js';
+import { keepVersion, nextVersion, reasonFor } from '../shared/insight-versions.js';
 import { buildAwaitingFullText, buildExcluded, buildInsight } from './assemble.js';
 import { QUOTED_LISTS, keepGroundedItems, runChecks } from './checks.js';
 import { generateJson } from './gemini.js';
@@ -191,13 +194,30 @@ export async function buildFromAnswers(
  * the model first, so nothing the schema rejects is ever stored. `analytics`
  * is left alone: price and lock-spec analysis write it, and re-extracting
  * mustn't wipe their results.
+ *
+ * The summary it replaces is kept as a version first (ADR 0031), and the new
+ * one is numbered after it. `reason` says why, when the caller knows better
+ * than what the two were built from (extract --recheck: 'rebuilt').
  */
-export async function saveInsight(insight) {
-  const document = new TorInsight(insight);
+export async function saveInsight(insight, { reason } = {}) {
+  const current = await TorInsight.findOne({ projectId: insight.projectId }).lean();
+  const why = current ? (reason ?? reasonFor(current, insight)) : null;
+  if (current) await keepVersion(insight.projectId, { reason: why, current });
+  const document = new TorInsight({
+    ...insight,
+    metadata: { ...insight.metadata, version: await nextVersion(insight.projectId) },
+  });
   await document.validate();
 
   const fields = document.toObject({ flattenMaps: true });
   for (const key of ['_id', 'createdAt', 'updatedAt', 'analytics']) delete fields[key];
 
   await TorInsight.updateOne({ projectId: insight.projectId }, { $set: fields }, { upsert: true });
+
+  // A summary made again because its TOR changed completes that change's
+  // record with what the summary itself says now (ADR 0032). A prompt update
+  // isn't the agency's change, so it adds nothing there.
+  if (why === 'source-changed' && isFullExtraction(current) && isFullExtraction(insight)) {
+    await completeChange(insight.projectId, current.metadata?.version ?? 1, current, insight);
+  }
 }

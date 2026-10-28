@@ -42,14 +42,45 @@ after(async () => {
 const later = (ms) => new Date(Date.now() + ms);
 
 test('JOBS: every job processes in the same order, screen before download', () => {
-  const processing = ['screen', 'download', 'ocr', 'extract', 'ocr', 'extract'];
-  assert.deepEqual(JOBS.poll, ['fetch', ...processing]);
-  assert.deepEqual(JOBS.sweep, ['sweep', ...processing]);
-  // The night refreshes comparisons first, then asks for past projects before download takes them (ADR 0028)
-  assert.deepEqual(JOBS.process, ['recheck', 'comparisons', 'history', ...processing]);
-  assert.ok(STEPS.recheck.args.includes('--dry-run'), 'the recheck only watches for now');
+  const read = (queue) => [`ocr:${queue}`, `extract:${queue}`, `ocr:${queue}`, `extract:${queue}`];
+  const newTors = ['screen', 'download:new', ...read('new')];
+  const changed = ['download:changed', ...read('changed')];
+  assert.deepEqual(JOBS.poll, ['fetch', ...newTors, ...changed]);
+  assert.deepEqual(JOBS.sweep, ['sweep', ...newTors, ...changed]);
+  // The night in waves (ADR 0030): the check, new TORs, the changed ones read,
+  // then comparisons around tonight's past projects (ADR 0028)
+  assert.deepEqual(JOBS.process, [
+    'recheck', 'download:changed',
+    ...newTors,
+    ...read('changed'),
+    'comparisons', 'history', 'download:past', ...read('past'), 'comparisons',
+  ]);
+  assert.ok(!STEPS.recheck.args.includes('--dry-run'), 'the recheck flags changed packages for download (ADR 0032)');
   assert.ok(STEPS.history.args.includes('history'));
   assert.ok(!STEPS.fetch.args.join(' ').includes('15'), 'the poll leaves out 15, which always times out');
+});
+
+test('JOBS: a job never reads a later kind of work before an earlier one is done', () => {
+  // What a short night cuts is what can wait: every new TOR's step comes
+  // before any changed TOR's read, and those before any past project's
+  const lastOf = (job, queue) => JOBS[job].findLastIndex((key) => key.endsWith(`:${queue}`));
+  const firstRead = (job, queue) => JOBS[job].findIndex((key) => /^(ocr|extract):/.test(key) && key.endsWith(`:${queue}`));
+  assert.ok(lastOf('process', 'new') < firstRead('process', 'changed'));
+  assert.ok(lastOf('process', 'changed') < firstRead('process', 'past'));
+  assert.ok(lastOf('poll', 'new') < firstRead('poll', 'changed'));
+  assert.ok(!JOBS.poll.some((key) => key.endsWith(':past')), 'past projects are read at night only');
+});
+
+test('STEPS: each queue step is its command, narrowed to one kind of work', () => {
+  for (const key of ['download', 'ocr', 'extract']) {
+    for (const queue of ['new', 'changed', 'past']) {
+      const step = STEPS[`${key}:${queue}`];
+      assert.equal(step.script, STEPS[key].script);
+      assert.deepEqual(step.args, [...STEPS[key].args, '--queue', queue]);
+      assert.equal(step.name, `${STEPS[key].name} (${queue})`);
+    }
+  }
+  for (const job of Object.values(JOBS)) for (const key of job) assert.ok(STEPS[key], `${key} is a step`);
 });
 
 test('runJob: runs the steps in order with the time box, and records them', async () => {

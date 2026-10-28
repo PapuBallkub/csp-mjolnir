@@ -292,12 +292,29 @@ Tracks post-publishing changes and revisions to the procurement document:
 | `excluded` | `exclusionSchema` | `null` | Set when the document isn't IT (§2.6). Extraction stops there, so the other sections stay empty (NFR-16). |
 | `awaitingFullText` | `Boolean` | `false` | Classify read a preview and found IT: the full text is being read, and extraction follows. The other sections stay empty, and the public doesn't see the record until then [0018](../decisions/0018-preview-ocr-before-classify.md). |
 | `titleOnly` | `Boolean` (Indexed) | `false` | A past project known only from its data.go.th row and its title: identification, prices and the title screen's category; every other section empty, nothing quoted, no score. Only for a past project the screen found `it`; an `unsure` one has no record until read. Counted in benchmarks; never shown on the site, reviewed or used as a detailed comparable. Full extraction replaces it ([0028](../decisions/0028-past-projects-from-data-go-th.md)). |
+| `version` | `Number` | `1` | Which version of the TOR's summary this is: 1, then one more each time a summary is replaced. The summaries it replaced are in `TorInsightVersion` (§3.14, [0031](../decisions/0031-keep-the-summary-a-change-replaces.md)). |
 
 ---
 
 ### 3.13 Mongoose Timestamp Fields
 - `createdAt` (`Date`): Timestamp when record was created in database.
 - `updatedAt` (`Date`): Timestamp when record was last updated.
+
+---
+
+### 3.14 `TorInsightVersion` (the summaries a change replaced)
+
+A separate collection, one document per replaced summary ([0031](../decisions/0031-keep-the-summary-a-change-replaces.md)). Kept before a summary is overwritten, wherever that happens: download (a new TOR file), OCR (changed text), extraction, and the admin's review queue (FR-23). A title-level record, a preview waiting for its full text, and a record found not IT are replaced without one. Read by the rollback (NFR-07) and, later, by an amendment's diff (FR-16).
+
+| Field | Type | Description |
+|---|---|---|
+| `projectId`, `version` | `String`, `Number` (unique together) | Which summary, and its `metadata.version` when it was replaced |
+| `supersededAt` | `Date` | When it was replaced |
+| `reason` | `String` enum | `source-changed` (the TOR's file or OCR text changed), `prompt-update` (`extract --outdated`), `forced` (`--force`, or `--id` on one up to date), `rebuilt` (`extract --recheck`), `corrected` (an admin's edit), `rollback` (an older version brought back over it) |
+| `supersededBy` | `ObjectId` → User | The admin, for `corrected` and `rollback`; null for the pipeline |
+| `insight` | Mixed | The whole TorInsight as it was, stored as-is, so a later schema change never breaks an old version |
+| `tor` | Mixed | The Tor as the summary went with it: `document`, `ocr` without its text, `pipelineStatus`, and `title`, `agency`, `budgetTHB`, `referencePriceTHB`, `submissionDeadline` (an admin edit changes these on the Tor too) |
+| `ocrText`, `ocrTextHash` | `String` | The OCR text it was built from. Each distinct text is stored once, by the version it was about to be lost from; the others keep only its hash |
 
 ---
 

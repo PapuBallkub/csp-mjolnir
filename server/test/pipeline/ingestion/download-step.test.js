@@ -9,7 +9,7 @@ import axios, { AxiosError } from 'axios';
 import mongoose from 'mongoose';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { PipelineFailure, TitleScreen, Tor } from '#models/index.js';
+import { PipelineFailure, TitleScreen, Tor, TorInsight, TorInsightVersion } from '#models/index.js';
 import { applyPackage, applyPricePackage, readTorParts, runAddStep, runDownloadStep } from '#pipeline/ingestion/ingest.js';
 import { isPreviewRead } from '#pipeline/ingestion/lib/ocr.js';
 import { downloadEgpPackage, downloadEgpPricePackage } from '#pipeline/ingestion/lib/tor-downloader.js';
@@ -236,6 +236,48 @@ test('download step: a past project e-GP has no package for gives up at once (AD
   assert.equal((await failureOf()).attempts, 1);
 });
 
+test('download step: --queue takes one kind of work, soonest deadline first (ADR 0030)', async () => {
+  // PROJECT is new; one more new, closing sooner; one at a new stage; one past project
+  const sooner = '55555000011';
+  const atNewStage = '55555000012';
+  const past = '55555000013';
+  await screened(sooner, 'it');
+  await Tor.updateOne({ projectId: PROJECT }, { submissionDeadline: new Date('2026-11-20') });
+  await Tor.create([
+    {
+      projectId: sooner,
+      source: 'process3',
+      title: 'จ้างพัฒนาระบบ',
+      pipelineStatus: 'fetched',
+      submissionDeadline: new Date('2026-11-02'),
+      announcementHistory: [{ code: 'D0', type: 'invitation', publishedAt: new Date('2026-10-07') }],
+    },
+    {
+      projectId: atNewStage,
+      source: 'process3',
+      title: 'จ้างบำรุงรักษาระบบ',
+      pipelineStatus: 'ocr_done',
+      packageCheckNeeded: true,
+      priceCheckedAt: new Date(),
+      announcementHistory: [{ code: 'D0', type: 'invitation', publishedAt: new Date('2026-10-07') }],
+    },
+    pastProject(past, new Date()),
+  ]);
+  const get = egpHasNoFile();
+  const asked = () => [...new Set(get.mock.calls.map((call) => call.arguments[0].match(/projectId=(\d+)/)?.[1]))];
+
+  await runDownloadStep({ documentsDir, queues: ['changed'] });
+  assert.deepEqual(asked(), [atNewStage]);
+
+  get.mock.resetCalls();
+  await runDownloadStep({ documentsDir, queues: ['new'] });
+  assert.deepEqual(asked(), [sooner, PROJECT], 'the soonest deadline first');
+
+  get.mock.resetCalls();
+  await runDownloadStep({ documentsDir, queues: ['past'] });
+  assert.deepEqual(asked(), [past]);
+});
+
 test('download step: a TOR the e-GP feed never announced is never downloaded', async () => {
   await Tor.deleteMany({});
   // What the removed data.go.th fallback left behind: "Open" only by default
@@ -374,6 +416,116 @@ test('download step: a new package with a changed TOR sends it back to OCR, as a
   const tor = await torOf();
   assert.equal(tor.pipelineStatus, 'downloaded');
   assert.equal(tor.document.version, 2);
+});
+
+test('download step: a summary built from a TOR file a new package replaces is kept first, with that file and its text (ADR 0031)', async () => {
+  egpServes({ current: 'zip-d0', zips: { 'zip-d0': await invitation('%PDF-1.4 the TOR, first') } });
+  await run();
+  await Tor.updateOne({ projectId: PROJECT }, { pipelineStatus: 'ocr_done', packageCheckNeeded: true, 'ocr.rawText': 'ข้อความ TOR ฉบับแรก' });
+  const before = await torOf();
+  await TorInsight.create({
+    projectId: PROJECT,
+    identification: { titleTh: 'จ้างพัฒนาระบบคอมพิวเตอร์', agency: 'กรมตัวอย่าง', status: 'Open' },
+    facts: { referencePriceTHB: 1_000_000 },
+    metadata: { excluded: null },
+  });
+
+  egpServes({ current: 'zip-d2', zips: { 'zip-d2': await invitation('%PDF-1.4 the TOR, changed') } });
+  await run();
+
+  const kept = await TorInsightVersion.findOne({ projectId: PROJECT }).lean();
+  assert.equal(kept.reason, 'source-changed');
+  assert.equal(kept.insight.facts.referencePriceTHB, 1_000_000);
+  assert.equal(kept.tor.document.contentHash, before.document.contentHash, 'the file it was built from, not the new one');
+  assert.equal(kept.ocrText, 'ข้อความ TOR ฉบับแรก');
+  assert.notEqual((await torOf()).document.contentHash, before.document.contentHash);
+
+  await TorInsight.deleteMany({});
+  await TorInsightVersion.deleteMany({});
+});
+
+/** The Tor after a first invitation is downloaded and read, ready for a second package. */
+async function downloadedOnce() {
+  egpServes({ current: 'zip-d0', zips: { 'zip-d0': await invitation('%PDF-1.4 the TOR, first') } });
+  await run();
+  await Tor.updateOne({ projectId: PROJECT }, { pipelineStatus: 'ocr_done', packageCheckNeeded: true, priceCheckedAt: new Date() });
+}
+const changesOf = async () => (await torOf()).amendments ?? [];
+
+test('download step: an invitation replaced by one with a different TOR is recorded as a change (ADR 0032)', async () => {
+  await downloadedOnce();
+  await TorInsight.create({
+    projectId: PROJECT,
+    identification: { titleTh: 'จ้างพัฒนาระบบคอมพิวเตอร์', agency: 'กรมตัวอย่าง', status: 'Open' },
+    metadata: { excluded: null },
+  });
+
+  egpServes({ current: 'zip-d2', zips: { 'zip-d2': await invitation('%PDF-1.4 the TOR, changed') } });
+  await run();
+
+  const [change] = await changesOf();
+  assert.equal(change.source, 'package', 'found by us, not announced');
+  assert.equal(change.stage, 'invitation', 'read from the package, for the page to word it');
+  assert.deepEqual([change.zipId, change.previousZipId], ['zip-d2', 'zip-d0'], 'both originals');
+  assert.deepEqual(change.changes.map((row) => [row.field, row.before, row.after]), [['document', `${PROJECT}_zip-d0.zip`, `${PROJECT}_zip-d2.zip`]]);
+  assert.equal(change.diff, 'facts');
+  assert.equal(change.insightVersion, 1, 'the summary it replaces, kept by PR D');
+  assert.ok((await torOf()).lastChangeAt);
+
+  await TorInsight.deleteMany({});
+  await TorInsightVersion.deleteMany({});
+});
+
+test('download step: a draft becoming an invitation is the next stage, read from the package, not a change', async () => {
+  await downloadedOnce();
+  const draft = await fs.readFile(path.join(import.meta.dirname, 'fixtures', 'egp-package', '69109028093-draft-announcement.txt'), 'utf8');
+  await Tor.updateOne({ projectId: PROJECT }, { 'packages.0.announcementText': draft });
+
+  egpServes({ current: 'zip-d0b', zips: { 'zip-d0b': await invitation('%PDF-1.4 the final TOR') } });
+  await run();
+
+  assert.deepEqual(await changesOf(), []);
+  assert.equal((await torOf()).lastChangeAt, null);
+});
+
+test('download step: a new package with the same TOR and facts is no change; one the feed announced is answered', async () => {
+  await downloadedOnce();
+  egpServes({ current: 'zip-d0b', zips: { 'zip-d0b': await invitation('%PDF-1.4 the TOR, first') } });
+  await run();
+  assert.deepEqual(await changesOf(), [], 'rebuilt, nothing in it changed');
+
+  // The feed announced a changed invitation (D2): the next package fills it in, whatever it holds
+  await Tor.updateOne(
+    { projectId: PROJECT },
+    { packageCheckNeeded: true, $push: { amendments: { source: 'feed', date: new Date('2026-10-25'), detectedAt: new Date() } } },
+  );
+  egpServes({ current: 'zip-d0c', zips: { 'zip-d0c': await invitation('%PDF-1.4 the TOR, first') } });
+  await run();
+  const [announced] = await changesOf();
+  assert.deepEqual([announced.source, announced.zipId], ['feed', 'zip-d0c']);
+});
+
+test('download step: a price form replacing another with a different budget is a change', async () => {
+  await downloadedOnce();
+  const prices = [
+    { zipId: 'price-1', budget: 1_000_000 },
+    { zipId: 'price-2', budget: 1_200_000 },
+  ];
+  const downloadPrice = async () => {
+    const { zipId, budget } = prices.shift();
+    const budgetTHB = { value: budget, quote: `วงเงินงบประมาณ ${budget.toLocaleString()} บาท`, document: 'price-form' };
+    return { success: true, package: { kind: 'price', zipId, name: `${zipId}.zip`, files: [], facts: { budgetTHB }, problems: [] } };
+  };
+  egpServes({ current: 'zip-d0', zips: {} });
+
+  await run({ downloadPrice });
+  assert.deepEqual(await changesOf(), [], 'the first price form is no change');
+
+  await Tor.updateOne({ projectId: PROJECT }, { packageCheckNeeded: true });
+  await run({ downloadPrice });
+  const [change] = await changesOf();
+  assert.deepEqual(change.changes.map((row) => [row.field, row.before, row.after]), [['facts.budgetTHB', '1000000', '1200000']]);
+  assert.equal(change.stage, 'invitation', 'the stage of the announcement the price came after');
 });
 
 test("applyPackage: a package that doesn't state a fact leaves the last one standing, and never replaces the feed's agency", () => {

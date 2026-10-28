@@ -14,6 +14,10 @@
  *                                         call, for when the checks or assembly change
  *   npm run extract -- --retry-failed     also try the TORs that gave up after
  *                                         repeated failures
+ *   npm run extract -- --queue new        one kind of work only, as the scheduled
+ *                                         jobs run it: new, changed, past (ADR 0030)
+ *
+ * Soonest bid deadline first.
  *
  * Every TOR also gets a review file, server/data/extractions/<projectId>.json,
  * holding the model's own answers with their quotes and pages (D11).
@@ -29,6 +33,7 @@ import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Technology, Tor, TorInsight } from '#models/index.js';
 import { MAX_ATTEMPTS, clearFailure, loadGivenUp, recordFailure } from '../shared/failures.js';
 import { isPastDeadline, parseUntil } from '../shared/deadline.js';
+import { inQueues, parseQueues, soonestFirst } from '../shared/queues.js';
 import { withRunLock } from '../shared/run-lock.js';
 import { createGeminiClient, readGeminiConfig } from './gemini.js';
 import { buildFromAnswers, classifyPreview, processTor, saveInsight } from './process-tor.js';
@@ -53,6 +58,7 @@ function parseArgs(argv) {
     recheck: argv.includes('--recheck'),
     retryFailed: argv.includes('--retry-failed'),
     until: parseUntil(value('--until')), // the time box of a scheduled run (ADR 0027)
+    queues: parseQueues(value('--queue')), // only these kinds of work (ADR 0030); null is all
   };
 }
 
@@ -99,7 +105,7 @@ async function recheck(tors, existing, args) {
       };
       const { insight, review } = await buildFromAnswers(tor, saved, { run, dryRun: args.dryRun });
       await fs.writeFile(reviewPath(tor.projectId), JSON.stringify({ insight, ...review }, null, 2));
-      if (!args.dryRun) await saveInsight(insight);
+      if (!args.dryRun) await saveInsight(insight, { reason: 'rebuilt' });
       counts.rebuilt++;
       const { confidenceScore, checks, excluded } = insight.metadata;
       console.log(
@@ -126,7 +132,8 @@ async function main() {
   const config = readGeminiConfig();
   const client = createGeminiClient(config);
   console.log(
-    `Extraction · ${config.model} · prompt ${PROMPT_VERSION}${args.dryRun ? ' · DRY RUN (nothing saved)' : ''}\n`,
+    `Extraction · ${config.model} · prompt ${PROMPT_VERSION}` +
+      `${args.queues ? ` · ${args.queues.join(', ')}` : ''}${args.dryRun ? ' · DRY RUN (nothing saved)' : ''}\n`,
   );
 
   await connectDatabase();
@@ -144,7 +151,11 @@ async function run(args, { client, config }) {
 
   const tors = args.id
     ? await Tor.find({ projectId: args.id }).lean()
-    : await Tor.find({ pipelineStatus: { $in: ['ocr_preview', 'ocr_done'] } }).sort({ updatedAt: 1 }).lean();
+    : soonestFirst(
+        await Tor.find(inQueues({ pipelineStatus: { $in: ['ocr_preview', 'ocr_done'] } }, args.queues, 'read'))
+          .sort({ updatedAt: 1 })
+          .lean(),
+      );
   if (args.id && !['ocr_preview', 'ocr_done'].includes(tors[0]?.pipelineStatus)) {
     throw new Error(`TOR ${args.id} has no OCR text yet; run \`npm run ingest:ocr -- --id ${args.id}\` first.`);
   }

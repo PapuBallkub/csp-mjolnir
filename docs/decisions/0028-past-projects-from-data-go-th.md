@@ -1,6 +1,6 @@
 # 0028 · Past projects from data.go.th, as ordinary projects
 
-Status: proposed · 2026-10-15
+Status: proposed · 2026-10-15 · amended by [0030](0030-run-the-night-in-priority-waves.md): past projects are read in the night's last wave, between two comparison runs
 
 ## Context
 
@@ -131,8 +131,10 @@ result replaces the title-level record. Projects chosen earlier and
 not downloaded yet count against the night's number. A past project e-GP has
 no package for gives up at once: an awarded project won't get one later.
 
-The same job refreshes the comparisons first (`find-comparable --all
---save`), so that a long night of OCR can't crowd them out.
+The same job refreshes the comparisons (`find-comparable --all --save`)
+right before choosing, and again once tonight's past projects are read
+([0030](0030-run-the-night-in-priority-waves.md)). Past projects are the
+night's last wave: new TORs and changes go first.
 
 ## Changes to the records
 
@@ -167,9 +169,14 @@ The same job refreshes the comparisons first (`find-comparable --all
   have 5 related projects, or close, so a TOR closing in two weeks may close
   before its turn. A TOR in a busy category may already have 5 from other
   projects read in full, and then gives its turn away at once.
-- **The catalog shows every status by default,** so extracted past projects
-  would appear under Awarded. Defaulting `/search` to Draft and Open is a
-  frontend change.
+- **The catalog starts with Draft and Open,** what can still be bid on. Past
+  projects read in full appear under Awarded, one click away under Status.
+  On 2026-10-23: 140 TORs in all, 68 Draft or Open, and all 32 Awarded ones
+  from data.go.th.
+- **data.go.th is cited at the one fact only it gives:** a signed contract.
+  The badge "ลงนามสัญญาแล้ว" says where that comes from. A record-level
+  "from data.go.th" tag was left out: the dataset copies e-GP's own records,
+  and the page already links e-GP, which stays the authority.
 - **The agreed price of a project we follow from the feed** needs its winner
   page (`W0`), not read yet; data.go.th gives it only for FY2568.
 - **Whether price-based comparables are fair** (a school's system against a

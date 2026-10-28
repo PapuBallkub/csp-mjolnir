@@ -268,10 +268,20 @@ test('fetch flags a package check only for a stage that builds a package, once',
   await fetchP3();
   assert.equal(await flag(), true);
 
-  // Once download has checked, the same item seen again doesn't flag it anew
+  // ...and opens the record of a change the agency announced, for download to fill in (ADR 0032)
+  const changes = async () => (await Tor.findOne({ projectId: TEST_PROJECT_PAST_DOWNLOAD }).lean()).amendments;
+  const [announced] = await changes();
+  assert.deepEqual(
+    [announced.source, announced.stage, announced.zipId, announced.date.toISOString().slice(0, 10)],
+    ['feed', 'invitation', null, '2026-10-05'],
+  );
+  assert.ok((await Tor.findOne({ projectId: TEST_PROJECT_PAST_DOWNLOAD }).lean()).lastChangeAt);
+
+  // Once download has checked, the same item seen again doesn't flag it anew, or record it twice
   await Tor.updateOne({ projectId: TEST_PROJECT_PAST_DOWNLOAD }, { packageCheckNeeded: false });
   await fetchP3();
   assert.equal(await flag(), false);
+  assert.equal((await changes()).length, 1);
   mock.restoreAll();
 });
 

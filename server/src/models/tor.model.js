@@ -287,12 +287,37 @@ const torSchema = new mongoose.Schema(
       default: false,
       index: true,
     },
+    // Each change to the TOR we know of, oldest first (ADR 0032): one the
+    // agency announced (a D2), or a new package in the same stage the
+    // platform found. A draft becoming an invitation is the next stage, not
+    // a change.
     amendments: [
       {
+        // 'feed': e-GP announced it; 'package': we found it, and say so
+        source: { type: String, enum: ['feed', 'package'], default: 'package' },
+        // The stage that changed, 'draft' or 'invitation', read from the
+        // package; null when it couldn't be. The page words the change by it
+        stage: { type: String, default: null },
         round: { type: String, default: '' }, // e.g. "ครั้งที่ 2"
-        date: { type: Date, default: Date.now },
+        // The date the agency's notice or documents state. Null when neither
+        // says: a found change is dated by previousCheckAt and detectedAt
+        date: { type: Date, default: null },
         headline: { type: String, default: '' },
-        contentHash: { type: String, default: null },
+        // When we found it, and the last check before that found nothing new:
+        // the change happened between the two
+        detectedAt: { type: Date, default: null },
+        previousCheckAt: { type: Date, default: null },
+        // The package it came with and the one it replaced: both originals
+        zipId: { type: String, default: null },
+        previousZipId: { type: String, default: null },
+        contentHash: { type: String, default: null }, // the new TOR file's
+        // The summary version it replaced (TorInsightVersion, ADR 0031)
+        insightVersion: { type: Number, default: null },
+        // 'facts': the package's facts compared; 'complete': the summary too,
+        // once extracted again; 'none': nothing to compare yet
+        diff: { type: String, enum: ['none', 'facts', 'complete'], default: 'none' },
+        // A rollback undid it (NFR-07): kept, not shown
+        rolledBack: { type: Boolean, default: false },
         changes: [
           {
             kind: {
@@ -307,6 +332,19 @@ const torSchema = new mongoose.Schema(
         ],
       },
     ],
+    // When the latest change was found: for sorting, and the watchlist's
+    // "changed since you saved" (ADR 0032)
+    lastChangeAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    // The recheck's last look that found nothing new: a change found later
+    // happened after it (ADR 0032)
+    packagesCheckedAt: {
+      type: Date,
+      default: null,
+    },
 
     // Chronological record of every e-GP announcement received for this project (FR-02).
     // Each entry is one RSS item, recorded once however many polls see it
