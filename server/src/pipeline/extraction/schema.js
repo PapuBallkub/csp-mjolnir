@@ -354,7 +354,7 @@ export const extractSchema = {
                   'false if the technology is strictly locked or mandated without permitting equivalents.',
               },
             },
-            required: ['quote', 'name', 'version'],
+            required: ['quote', 'name', 'version', 'allowsEquivalent'],
             propertyOrdering: ['quote', 'name', 'version', 'allowsEquivalent'],
           },
         },
