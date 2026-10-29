@@ -34,7 +34,8 @@ function PdfPreviewModalContent({
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const activeBlobUrlRef = useRef<string | null>(null);
 
-  const previewUrl = getTorPdfPreviewUrl(projectId, part);
+  const currentRole = part === 0 ? "tor" : part === 1 ? "bidding" : "announcement";
+  const previewUrl = getTorPdfPreviewUrl(projectId, part, currentRole);
 
   // Close on Escape & Lock body scroll
   useEffect(() => {
@@ -329,15 +330,25 @@ function PdfPreviewModalContent({
               </div>
 
               <h3 className="text-[15px] font-semibold text-ink">
-                {lang === "th"
-                  ? "ยังไม่มีไฟล์เอกสาร PDF ต้นฉบับในขณะนี้"
-                  : "Original PDF Document Unavailable"}
+                {part === 1
+                  ? (lang === "th" ? "ไม่มีเอกสารประกวดราคาในแพ็กเกจนี้" : "No Bidding Rules Document in this Package")
+                  : part === 2
+                  ? (lang === "th" ? "ไม่มีเอกสารประกาศเชิญชวนในแพ็กเกจนี้" : "No Announcement Letter in this Package")
+                  : (lang === "th" ? "ยังไม่มีไฟล์เอกสาร PDF ต้นฉบับในขณะนี้" : "Original PDF Document Unavailable")}
               </h3>
 
               <p className="max-w-md mt-1.5 text-[12.5px] text-ink-2 leading-relaxed">
-                {lang === "th"
-                  ? "โครงการนี้อาจยังไม่มีเอกสารแนบเผยแพร่ในระบบ หรือไฟล์อยู่ระหว่างการจัดเตรียมจาก e-GP คุณสามารถตรวจสอบรายละเอียดประกาศทางการได้โดยตรงที่หน้าเว็บ e-GP"
-                  : "This notice may not have an attached PDF published yet or e-GP is preparing the package. You can view the announcement details on the official portal."}
+                {part === 1
+                  ? (lang === "th"
+                      ? "โครงการในขั้นตอนรับฟังความคิดเห็นร่าง หรือบางประกาศอาจไม่มีการแนบเอกสารประกวดราคาแยกต่างหาก คุณสามารถตรวจสอบเอกสาร TOR หลัก หรือดูประกาศทางการบน e-GP ได้"
+                      : "Draft hearing stages or certain notices may not include separate bidding rules. You can inspect the main TOR specification or the official e-GP portal.")
+                  : part === 2
+                  ? (lang === "th"
+                      ? "แพ็กเกจเอกสารนี้ไม่มีไฟล์ประกาศเชิญชวนแยกต่างหาก คุณสามารถดูเอกสาร TOR หลัก หรือเปิดดูประกาศทางการบน e-GP ได้"
+                      : "This package does not contain a separate announcement document. You can inspect the main TOR or open official e-GP.")
+                  : (lang === "th"
+                      ? "โครงการนี้อาจยังไม่มีเอกสารแนบเผยแพร่ในระบบ หรือไฟล์อยู่ระหว่างการจัดเตรียมจาก e-GP คุณสามารถตรวจสอบรายละเอียดประกาศทางการได้โดยตรงที่หน้าเว็บ e-GP"
+                      : "This notice may not have an attached PDF published yet or e-GP is preparing the package. You can view the announcement details on the official portal.")}
               </p>
 
               <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono text-ink-3 bg-surface-2 border border-line rounded-[2px] px-2.5 py-1">

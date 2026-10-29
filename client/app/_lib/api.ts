@@ -1279,9 +1279,12 @@ export function getTorInsight(projectId: string) {
  * Returns the URL to stream the PDF document preview for a TOR project on demand.
  * The endpoint streams binary PDF directly from memory without saving to DB.
  */
-export function getTorPdfPreviewUrl(projectId: string, part = 0): string {
-  const query = part > 0 ? `?part=${part}` : "";
-  return `${PUBLIC_API}/api/tors/${encodeURIComponent(projectId)}/preview${query}`;
+export function getTorPdfPreviewUrl(projectId: string, part = 0, role?: string): string {
+  const params = new URLSearchParams();
+  if (part > 0) params.set("part", String(part));
+  if (role) params.set("role", role);
+  const qs = params.toString();
+  return `${PUBLIC_API}/api/tors/${encodeURIComponent(projectId)}/preview${qs ? `?${qs}` : ""}`;
 }
 
 /* ------------------------------------------------------------------ */

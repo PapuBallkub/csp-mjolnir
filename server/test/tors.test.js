@@ -549,3 +549,234 @@ test('GET /api/tors/:projectId/preview: returns 404 when project or document not
   assert.ok(data.error?.message?.includes('not available'));
 });
 
+test('GET /api/tors/:projectId/preview: isolates distinct document roles across preview tabs', async () => {
+  const multiProjectId = '99999000088';
+  const torPdfPath = path.join(import.meta.dirname, 'temp_tor.pdf');
+  const biddingPdfPath = path.join(import.meta.dirname, 'temp_bidding.pdf');
+  const announPdfPath = path.join(import.meta.dirname, 'temp_announcement.pdf');
+
+  await fsPromises.writeFile(torPdfPath, '%PDF-1.4 TOR SPECIFICATION CONTENT');
+  await fsPromises.writeFile(biddingPdfPath, '%PDF-1.4 BIDDING RULES CONTENT');
+  await fsPromises.writeFile(announPdfPath, '%PDF-1.4 ANNOUNCEMENT LETTER CONTENT');
+
+  await Tor.create({
+    projectId: multiProjectId,
+    source: 'process3',
+    title: 'ทดสอบแยกแท็บเอกสาร PDF',
+    document: {
+      fileName: 'main_tor.pdf',
+      storagePath: torPdfPath,
+      sizeBytes: 35,
+      pages: 1,
+    },
+    packages: [
+      {
+        zipId: 'zip_test_123',
+        kind: 'announcement',
+        files: [
+          { role: 'tor', fileName: 'main_tor.pdf', storagePath: torPdfPath, sizeBytes: 35 },
+          { role: 'bidding', fileName: 'doc_rules.pdf', storagePath: biddingPdfPath, sizeBytes: 30 },
+          { role: 'announcement', fileName: 'annoudoc_letter.pdf', storagePath: announPdfPath, sizeBytes: 37 },
+        ],
+      },
+    ],
+  });
+
+  try {
+    // 1. Tab 0 / default -> TOR specification
+    const resTor = await fetch(`${baseUrl}/api/tors/${multiProjectId}/preview?part=0`);
+    assert.equal(resTor.status, 200);
+    assert.ok(resTor.headers.get('content-disposition')?.includes('main_tor.pdf'));
+    const textTor = await resTor.text();
+    assert.equal(textTor, '%PDF-1.4 TOR SPECIFICATION CONTENT');
+
+    // 2. Tab 1 -> Bidding rules (must NOT return TOR)
+    const resBidding = await fetch(`${baseUrl}/api/tors/${multiProjectId}/preview?part=1`);
+    assert.equal(resBidding.status, 200);
+    assert.ok(resBidding.headers.get('content-disposition')?.includes('doc_rules.pdf'));
+    const textBidding = await resBidding.text();
+    assert.equal(textBidding, '%PDF-1.4 BIDDING RULES CONTENT');
+
+    // 3. Tab 2 -> Announcement (must NOT return TOR)
+    const resAnnoun = await fetch(`${baseUrl}/api/tors/${multiProjectId}/preview?part=2`);
+    assert.equal(resAnnoun.status, 200);
+    assert.ok(resAnnoun.headers.get('content-disposition')?.includes('annoudoc_letter.pdf'));
+    const textAnnoun = await resAnnoun.text();
+    assert.equal(textAnnoun, '%PDF-1.4 ANNOUNCEMENT LETTER CONTENT');
+
+    // 4. Named query `role=bidding`
+    const resNamed = await fetch(`${baseUrl}/api/tors/${multiProjectId}/preview?role=bidding`);
+    assert.equal(resNamed.status, 200);
+    assert.ok(resNamed.headers.get('content-disposition')?.includes('doc_rules.pdf'));
+  } finally {
+    await Tor.deleteOne({ projectId: multiProjectId });
+    await fsPromises.unlink(torPdfPath).catch(() => {});
+    await fsPromises.unlink(biddingPdfPath).catch(() => {});
+    await fsPromises.unlink(announPdfPath).catch(() => {});
+  }
+});
+
+test('GET /api/tors/:projectId/preview: returns 404 when bidding doc does not exist instead of serving TOR', async () => {
+  const singleDocProjectId = '99999000077';
+  const torPdfPath = path.join(import.meta.dirname, 'temp_single_tor.pdf');
+  await fsPromises.writeFile(torPdfPath, '%PDF-1.4 ONLY TOR CONTENT');
+
+  await Tor.create({
+    projectId: singleDocProjectId,
+    source: 'process3',
+    title: 'โครงการร่างมีเฉพาะ TOR',
+    document: {
+      fileName: 'draft_tor.pdf',
+      storagePath: torPdfPath,
+      sizeBytes: 25,
+      pages: 1,
+    },
+    packages: [],
+  });
+
+  try {
+    // Tab 0 -> Should find TOR
+    const resTor = await fetch(`${baseUrl}/api/tors/${singleDocProjectId}/preview?part=0`);
+    assert.equal(resTor.status, 200);
+
+    // Tab 1 (Bidding) -> MUST NOT fallback to draft_tor.pdf
+    const resBidding = await fetch(`${baseUrl}/api/tors/${singleDocProjectId}/preview?part=1`);
+    assert.equal(resBidding.status, 404);
+  } finally {
+    await Tor.deleteOne({ projectId: singleDocProjectId });
+    await fsPromises.unlink(torPdfPath).catch(() => {});
+  }
+});
+
+test('GET /api/tors/:projectId/preview: handles HTTP 206 Range requests and 416 invalid ranges', async () => {
+  const rangeProjectId = '99999000066';
+  const testPdfPath = path.join(import.meta.dirname, 'temp_range_tor.pdf');
+  const sampleContent = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  await fsPromises.writeFile(testPdfPath, sampleContent);
+
+  await Tor.create({
+    projectId: rangeProjectId,
+    source: 'process3',
+    title: 'ทดสอบ HTTP Range',
+    document: {
+      fileName: 'range_tor.pdf',
+      storagePath: testPdfPath,
+      sizeBytes: sampleContent.length,
+      pages: 1,
+    },
+  });
+
+  try {
+    // 1. Valid range bytes=0-9 (first 10 bytes)
+    const resRange1 = await fetch(`${baseUrl}/api/tors/${rangeProjectId}/preview`, {
+      headers: { Range: 'bytes=0-9' },
+    });
+    assert.equal(resRange1.status, 206);
+    assert.equal(resRange1.headers.get('content-range'), `bytes 0-9/${sampleContent.length}`);
+    assert.equal(resRange1.headers.get('content-length'), '10');
+    assert.equal(await resRange1.text(), '0123456789');
+
+    // 2. Valid range bytes=10-19
+    const resRange2 = await fetch(`${baseUrl}/api/tors/${rangeProjectId}/preview`, {
+      headers: { Range: 'bytes=10-19' },
+    });
+    assert.equal(resRange2.status, 206);
+    assert.equal(await resRange2.text(), 'ABCDEFGHIJ');
+
+    // 3. Out-of-bounds range -> 416 Range Not Satisfiable
+    const resInvalidRange = await fetch(`${baseUrl}/api/tors/${rangeProjectId}/preview`, {
+      headers: { Range: 'bytes=999-1000' },
+    });
+    assert.equal(resInvalidRange.status, 416);
+  } finally {
+    await Tor.deleteOne({ projectId: rangeProjectId });
+    await fsPromises.unlink(testPdfPath).catch(() => {});
+  }
+});
+
+test('GET /api/tors/:projectId/preview: selects specific historical package by zipId', async () => {
+  const versionedProjectId = '99999000055';
+  const v1Path = path.join(import.meta.dirname, 'temp_v1_bidding.pdf');
+  const v2Path = path.join(import.meta.dirname, 'temp_v2_bidding.pdf');
+
+  await fsPromises.writeFile(v1Path, '%PDF-1.4 BIDDING RULES V1');
+  await fsPromises.writeFile(v2Path, '%PDF-1.4 BIDDING RULES V2 (AMENDED)');
+
+  await Tor.create({
+    projectId: versionedProjectId,
+    source: 'process3',
+    title: 'ทดสอบประวัติฉบับแก้ไข',
+    packages: [
+      {
+        zipId: 'zip_draft_v1',
+        kind: 'announcement',
+        files: [{ role: 'bidding', fileName: 'bidding_v1.pdf', storagePath: v1Path, sizeBytes: 25 }],
+      },
+      {
+        zipId: 'zip_amended_v2',
+        kind: 'announcement',
+        files: [{ role: 'bidding', fileName: 'bidding_v2.pdf', storagePath: v2Path, sizeBytes: 35 }],
+      },
+    ],
+  });
+
+  try {
+    // Latest package (v2) by default
+    const resLatest = await fetch(`${baseUrl}/api/tors/${versionedProjectId}/preview?role=bidding`);
+    assert.equal(resLatest.status, 200);
+    assert.equal(await resLatest.text(), '%PDF-1.4 BIDDING RULES V2 (AMENDED)');
+
+    // Specific historical package by zipId
+    const resHistorical = await fetch(
+      `${baseUrl}/api/tors/${versionedProjectId}/preview?role=bidding&zipId=zip_draft_v1`,
+    );
+    assert.equal(resHistorical.status, 200);
+    assert.equal(await resHistorical.text(), '%PDF-1.4 BIDDING RULES V1');
+  } finally {
+    await Tor.deleteOne({ projectId: versionedProjectId });
+    await fsPromises.unlink(v1Path).catch(() => {});
+    await fsPromises.unlink(v2Path).catch(() => {});
+  }
+});
+
+test('GET /api/tors/:projectId/preview: supports multi-part TOR documents', async () => {
+  const multiPartProjectId = '99999000044';
+  const part1Path = path.join(import.meta.dirname, 'temp_part1.pdf');
+  const part2Path = path.join(import.meta.dirname, 'temp_part2.pdf');
+
+  await fsPromises.writeFile(part1Path, '%PDF-1.4 TOR PART 1 SPEC');
+  await fsPromises.writeFile(part2Path, '%PDF-1.4 TOR PART 2 SPEC');
+
+  await Tor.create({
+    projectId: multiPartProjectId,
+    source: 'process3',
+    title: 'โครงการ TOR แยก 2 ส่วน',
+    document: {
+      fileName: 'main_tor_part1.pdf',
+      storagePath: part1Path,
+      parts: [
+        { fileName: 'main_tor_part1.pdf', storagePath: part1Path, sizeBytes: 25 },
+        { fileName: 'main_tor_part2.pdf', storagePath: part2Path, sizeBytes: 25 },
+      ],
+    },
+  });
+
+  try {
+    // Part 0 -> Part 1
+    const res1 = await fetch(`${baseUrl}/api/tors/${multiPartProjectId}/preview?part=0`);
+    assert.equal(res1.status, 200);
+    assert.equal(await res1.text(), '%PDF-1.4 TOR PART 1 SPEC');
+
+    // Part 1 -> Part 2
+    const res2 = await fetch(`${baseUrl}/api/tors/${multiPartProjectId}/preview?part=1`);
+    assert.equal(res2.status, 200);
+    assert.equal(await res2.text(), '%PDF-1.4 TOR PART 2 SPEC');
+  } finally {
+    await Tor.deleteOne({ projectId: multiPartProjectId });
+    await fsPromises.unlink(part1Path).catch(() => {});
+    await fsPromises.unlink(part2Path).catch(() => {});
+  }
+});
+
+
+
