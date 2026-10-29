@@ -327,6 +327,7 @@ export type ReviewItem = {
   /** Fields the model itself was unsure about. */
   lowFields: { field: string; value: string; confidence: number }[];
   details?: ReviewItemDetails;
+  procurementMethod?: string | null;
   /** Set when the classifier's IT/non-IT call looks wrong. */
   misclassified?: { predicted: string; likely: string };
 };
@@ -735,6 +736,7 @@ export type PipelineRecordDiagnostics = {
   submissionDeadline: string | null;
   status: string;
   isAmended: boolean;
+  procurementMethod?: string | null;
   wavePriority?: string;
   pipelineStatus: string;
   source: string;

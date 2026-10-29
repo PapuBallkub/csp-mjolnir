@@ -130,7 +130,7 @@ function PdfPreviewModalContent({
     return () => {
       cancelled = true;
     };
-  }, [previewUrl]);
+  }, [previewUrl, procurementMethod]);
 
   // Revoke active blob URL when component unmounts
   useEffect(() => {

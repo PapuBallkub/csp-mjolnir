@@ -571,7 +571,7 @@ export function RecordInspectorModal({
         projectId={projectId}
         title={record?.title || projectId}
         agency={record?.agency}
-        procurementMethod={(record as any)?.procurementMethod}
+        procurementMethod={record?.procurementMethod}
         officialEgpUrl={
           record?.projectId
             ? `https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${record.projectId}`
