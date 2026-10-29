@@ -2545,6 +2545,7 @@ export default function DedicatedReviewPage({
         projectId={projectId}
         title={data?.title || ""}
         agency={data?.agency || ""}
+        procurementMethod={(data as any)?.procurementMethod}
         officialEgpUrl={getEgpAnnouncementUrl(projectId)}
         lang={lang}
       />

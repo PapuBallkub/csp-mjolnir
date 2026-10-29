@@ -828,6 +828,24 @@ export async function getTorPdfStream(projectId, { part = 0, role = null, zipId 
       }
     }
 
+    // 5b. Fall back to price estimate package (ราคากลาง / BOQ) if no announcement package exists
+    if (!zipId) {
+      try {
+        const { data: priceData } = await axios.get(
+          `${PROCESS5}/egp-doc-price-estimate-service/dpe-common/infoDocPriceestZipHis?projectId=${id}`,
+          {
+            headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
+            timeout: 6000,
+          },
+        );
+        if (priceData?.data?.zipFileId) {
+          zipId = priceData.data.zipFileId;
+        }
+      } catch {
+        // Price lookup unavailable
+      }
+    }
+
     // Blank bank guarantee forms and legal boilerplate e-GP includes in every package
     const isJunkForm = (entryName) => {
       const base = String(entryName).split(/[\\/]/).pop();

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { Readable } from 'node:stream';
+import { Tor } from '#models/index.js';
 import { listTors, getTorByProjectId, torFacets, getTorPdfStream } from './tor.service.js';
 
 export async function getTorsHandler(req, res, next) {
@@ -48,9 +49,18 @@ export async function getTorPreviewHandler(req, res, next) {
 
     const pdfInfo = await getTorPdfStream(projectId, { part, role, zipId, version });
     if (!pdfInfo) {
+      const rawTor = await Tor.findOne({ projectId }).lean();
+      const method = rawTor?.procurementMethod || '';
+      const isNonBidding =
+        !/e-bidding/i.test(method) &&
+        /เฉพาะเจาะจง|คัดเลือก|e-market|ตลาดอิเล็กทรอนิกส์|สอบราคา|ตกลงราคา/i.test(method || rawTor?.title || '');
+
       return res.status(404).json({
         error: {
           message: `PDF document for project '${projectId}' is not available`,
+          code: isNonBidding ? 'NO_PUBLIC_DOCUMENT_FOR_METHOD' : 'PDF_NOT_FOUND',
+          procurementMethod: method || null,
+          title: rawTor?.title || null,
         },
       });
     }

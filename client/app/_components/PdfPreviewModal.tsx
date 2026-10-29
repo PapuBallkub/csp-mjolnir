@@ -10,6 +10,7 @@ interface PdfPreviewModalProps {
   projectId: string;
   title: string;
   agency?: string;
+  procurementMethod?: string | null;
   officialEgpUrl?: string | null;
   lang?: "th" | "en";
 }
@@ -24,18 +25,40 @@ function PdfPreviewModalContent({
   projectId,
   title,
   agency,
+  procurementMethod,
   officialEgpUrl,
   lang = "th",
 }: PdfPreviewModalProps) {
   const [loading, setLoading] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [errorDetails, setErrorDetails] = useState<{
+    code?: string;
+    procurementMethod?: string | null;
+    message?: string;
+  } | null>(null);
   const [part, setPart] = useState(0);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const activeBlobUrlRef = useRef<string | null>(null);
 
   const currentRole = part === 0 ? "tor" : part === 1 ? "bidding" : "announcement";
   const previewUrl = getTorPdfPreviewUrl(projectId, part, currentRole);
+
+  const effectiveMethod = errorDetails?.procurementMethod || procurementMethod || "";
+  const isDirectProcurement =
+    /เฉพาะเจาะจง|direct/i.test(effectiveMethod) ||
+    /เฉพาะเจาะจง/i.test(title);
+  const isSelectionProcurement =
+    /คัดเลือก|selection/i.test(effectiveMethod) ||
+    /คัดเลือก/i.test(title);
+  const isEmarket =
+    /ตลาดอิเล็กทรอนิกส์|e-market/i.test(effectiveMethod) ||
+    /ตลาดอิเล็กทรอนิกส์|e-market/i.test(title);
+  const isNonBidding =
+    isDirectProcurement ||
+    isSelectionProcurement ||
+    isEmarket ||
+    errorDetails?.code === "NO_PUBLIC_DOCUMENT_FOR_METHOD";
 
   // Close on Escape & Lock body scroll
   useEffect(() => {
@@ -64,6 +87,18 @@ function PdfPreviewModalContent({
       .then(async (res) => {
         if (cancelled) return;
         if (!res.ok) {
+          try {
+            const errJson = await res.json();
+            if (errJson?.error) {
+              setErrorDetails({
+                code: errJson.error.code,
+                procurementMethod: errJson.error.procurementMethod || procurementMethod,
+                message: errJson.error.message,
+              });
+            }
+          } catch {
+            // Ignore non-JSON error bodies
+          }
           setLoadError(true);
           setLoading(false);
           return;
@@ -311,85 +346,163 @@ function PdfPreviewModalContent({
           ) : null}
 
           {loadError ? (
-            /* Error State Card (Theme-responsive) */
-            <div className="flex flex-col items-center justify-center h-full p-6 sm:p-10 text-center bg-surface text-ink">
-              <div className="w-12 h-12 rounded-full bg-surface-2 border border-line flex items-center justify-center text-ink-3 mb-3">
-                <svg
-                  className="w-6 h-6 text-ink-3"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="9" y1="15" x2="15" y2="15" />
-                </svg>
-              </div>
+            isNonBidding ? (
+              /* Method-Aware Explanation State (Direct / Selective Procurement) */
+              <div className="flex flex-col items-center justify-center h-full p-6 sm:p-10 text-center bg-surface text-ink overflow-y-auto">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[3px] bg-surface-2 border border-line text-[11.5px] font-semibold tracking-wide text-ink mb-2">
+                  <span>🏷️</span>
+                  <span>
+                    {isDirectProcurement
+                      ? (lang === "th" ? "โครงการจัดหาโดยวิธีเฉพาะเจาะจง (Direct Contracting)" : "Direct Contracting Procurement")
+                      : isSelectionProcurement
+                      ? (lang === "th" ? "โครงการจัดหาโดยวิธีคัดเลือก (Selective Method)" : "Selective Method Procurement")
+                      : (lang === "th" ? "วิธีจัดซื้อจัดจ้างที่ไม่มีประกาศเชิญชวนทั่วไป" : "Non-Open Bidding Method")}
+                  </span>
+                </div>
 
-              <h3 className="text-[15px] font-semibold text-ink">
-                {part === 1
-                  ? (lang === "th" ? "ไม่มีเอกสารประกวดราคาในแพ็กเกจนี้" : "No Bidding Rules Document in this Package")
-                  : part === 2
-                  ? (lang === "th" ? "ไม่มีเอกสารประกาศเชิญชวนในแพ็กเกจนี้" : "No Announcement Letter in this Package")
-                  : (lang === "th" ? "ยังไม่มีไฟล์เอกสาร PDF ต้นฉบับในขณะนี้" : "Original PDF Document Unavailable")}
-              </h3>
+                <h3 className="text-[15.5px] font-semibold text-ink">
+                  {isDirectProcurement
+                    ? (lang === "th" ? "ไม่มีเอกสาร TOR ประกาศสาธารณะสำหรับวิธีเฉพาะเจาะจง" : "No Public TOR Published for Direct Contracting")
+                    : isSelectionProcurement
+                    ? (lang === "th" ? "ไม่มีเอกสาร TOR ประกาศสาธารณะสำหรับวิธีคัดเลือก" : "No Public TOR Published for Selective Procurement")
+                    : (lang === "th" ? "ไม่มีเอกสารประกาศเชิญชวนทั่วไปในระบบ" : "No Public Tender Package for this Method")}
+                </h3>
 
-              <p className="max-w-md mt-1.5 text-[12.5px] text-ink-2 leading-relaxed">
-                {part === 1
-                  ? (lang === "th"
-                      ? "โครงการในขั้นตอนรับฟังความคิดเห็นร่าง หรือบางประกาศอาจไม่มีการแนบเอกสารประกวดราคาแยกต่างหาก คุณสามารถตรวจสอบเอกสาร TOR หลัก หรือดูประกาศทางการบน e-GP ได้"
-                      : "Draft hearing stages or certain notices may not include separate bidding rules. You can inspect the main TOR specification or the official e-GP portal.")
-                  : part === 2
-                  ? (lang === "th"
-                      ? "แพ็กเกจเอกสารนี้ไม่มีไฟล์ประกาศเชิญชวนแยกต่างหาก คุณสามารถดูเอกสาร TOR หลัก หรือเปิดดูประกาศทางการบน e-GP ได้"
-                      : "This package does not contain a separate announcement document. You can inspect the main TOR or open official e-GP.")
-                  : (lang === "th"
-                      ? "โครงการนี้อาจยังไม่มีเอกสารแนบเผยแพร่ในระบบ หรือไฟล์อยู่ระหว่างการจัดเตรียมจาก e-GP คุณสามารถตรวจสอบรายละเอียดประกาศทางการได้โดยตรงที่หน้าเว็บ e-GP"
-                      : "This notice may not have an attached PDF published yet or e-GP is preparing the package. You can view the announcement details on the official portal.")}
-              </p>
+                <div className="max-w-xl mt-3 p-4 rounded-[4px] bg-surface-2 border border-line text-left text-[12px] leading-relaxed text-ink-2 space-y-2">
+                  {lang === "th" ? (
+                    <>
+                      <p>
+                        <strong className="text-ink font-semibold">ตาม พ.ร.บ. การจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560:</strong>{" "}
+                        {isDirectProcurement
+                          ? "การจัดหาโดยวิธีเฉพาะเจาะจงเป็นการติดต่อเจรจาตกลงราคากับผู้ประกอบการโดยตรง (เช่น วงเงินไม่เกิน 500,000 บาท หรือเป็นงานจ้างบำรุงรักษาต่อเนื่องจากระบบเดิมที่มีผู้เชี่ยวชาญตรงเพียงรายเดียว) จึงไม่มีการออกร่างขอบเขตของงาน (TOR) หรือประกาศเชิญชวนสาธารณะเพื่อรับฟังความคิดเห็น (B0/D0) บนระบบ e-GP เหมือนวิธี e-bidding"
+                          : "การจัดหาโดยวิธีคัดเลือกเป็นการส่งหนังสือเชิญชวนไปยังผู้ประกอบการที่มีคุณสมบัติตรงไม่น้อยกว่า 3 รายโดยตรง ไม่ใช่การเปิดประมูลสาธารณะทั่วไป จึงไม่มีการเผยแพร่ไฟล์แพ็กเกจประกาศสาธารณะบนระบบ e-GP"}
+                      </p>
+                      <p className="text-ink-3 text-[11px] pt-2 border-t border-line">
+                        ℹ️ ข้อมูลโครงการที่แสดงบนแพลตฟอร์มนี้ (งบประมาณ, ราคากลาง, รายชื่อผู้ชนะ และสัญญา) ถูกนำเข้าจากฐานข้อมูลเปิดภาครัฐ (data.go.th) ท่านสามารถตรวจสอบบันทึกผลการจัดซื้อจัดจ้างและสาระสำคัญของสัญญาทางการได้โดยตรงที่หน้าเว็บ e-GP
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        <strong className="text-ink font-semibold">Under the Public Procurement and Supplies Administration Act B.E. 2560:</strong>{" "}
+                        {isDirectProcurement
+                          ? "Direct contracting procures directly from a qualified vendor (e.g. contracts under 500k THB or ongoing proprietary system maintenance). Government agencies do not publish open public TOR hearing packages (B0/D0) on e-GP."
+                          : "Selective procurement invites at least 3 qualified vendors directly rather than conducting an open public tender. Consequently, no public invitation package is archived on e-GP."}
+                      </p>
+                      <p className="text-ink-3 text-[11px] pt-2 border-t border-line">
+                        ℹ️ Project details shown on GIPDP (budget, reference price, awarded contractor, and contract information) are aggregated from open government spending data. Official award and contract milestones can be verified directly on the official e-GP portal.
+                      </p>
+                    </>
+                  )}
+                </div>
 
-              <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono text-ink-3 bg-surface-2 border border-line rounded-[2px] px-2.5 py-1">
-                <span>Project #{projectId}</span>
-                {agency ? <span>· {agency}</span> : null}
-              </div>
+                <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono text-ink-3 bg-surface-2 border border-line rounded-[2px] px-2.5 py-1">
+                  <span>Project #{projectId}</span>
+                  {agency ? <span>· {agency}</span> : null}
+                </div>
 
-              <div className="flex flex-wrap items-center justify-center gap-2.5 mt-5">
-                {part > 0 ? (
+                <div className="flex flex-wrap items-center justify-center gap-2.5 mt-5">
+                  {officialEgpUrl ? (
+                    <a
+                      href={officialEgpUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${btn.primary} h-8 px-4 text-[12px] flex items-center gap-1.5`}
+                    >
+                      <span>{lang === "th" ? "เปิดดูข้อมูลโครงการบน e-GP ทางการ" : "Open project details on official e-GP"}</span>
+                      <span className="text-[10px]">↗</span>
+                    </a>
+                  ) : null}
                   <button
                     type="button"
-                    onClick={() => {
-                      setPart(0);
-                      setLoading(true);
-                      setLoadError(false);
-                    }}
-                    className={`${btn.primary} h-8 px-3.5 text-[12px]`}
+                    onClick={onClose}
+                    className={`${btn.secondary} h-8 px-3.5 text-[12px]`}
                   >
-                    {lang === "th" ? "📄 กลับไปดูเอกสาร TOR หลัก" : "📄 View Main TOR"}
+                    {lang === "th" ? "ปิดหน้าต่างเพื่ออ่านบทวิเคราะห์ AI" : "Close to view AI Insights"}
                   </button>
-                ) : null}
-                {officialEgpUrl ? (
-                  <a
-                    href={officialEgpUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${part > 0 ? btn.secondary : btn.primary} h-8 px-3.5 text-[12px] flex items-center gap-1.5`}
-                  >
-                    <span>{lang === "th" ? "เปิดดูบนเว็บ e-GP ทางการ" : "Open on official e-GP"}</span>
-                    <span className="text-[10px]">↗</span>
-                  </a>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className={`${btn.secondary} h-8 px-3.5 text-[12px]`}
-                >
-                  {lang === "th" ? "ปิดหน้าต่าง" : "Close"}
-                </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Error State Card (Theme-responsive for standard missing PDF) */
+              <div className="flex flex-col items-center justify-center h-full p-6 sm:p-10 text-center bg-surface text-ink">
+                <div className="w-12 h-12 rounded-full bg-surface-2 border border-line flex items-center justify-center text-ink-3 mb-3">
+                  <svg
+                    className="w-6 h-6 text-ink-3"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="9" y1="15" x2="15" y2="15" />
+                  </svg>
+                </div>
+
+                <h3 className="text-[15px] font-semibold text-ink">
+                  {part === 1
+                    ? (lang === "th" ? "ไม่มีเอกสารประกวดราคาในแพ็กเกจนี้" : "No Bidding Rules Document in this Package")
+                    : part === 2
+                    ? (lang === "th" ? "ไม่มีเอกสารประกาศเชิญชวนในแพ็กเกจนี้" : "No Announcement Letter in this Package")
+                    : (lang === "th" ? "ยังไม่มีไฟล์เอกสาร PDF ต้นฉบับในขณะนี้" : "Original PDF Document Unavailable")}
+                </h3>
+
+                <p className="max-w-md mt-1.5 text-[12.5px] text-ink-2 leading-relaxed">
+                  {part === 1
+                    ? (lang === "th"
+                        ? "โครงการในขั้นตอนรับฟังความคิดเห็นร่าง หรือบางประกาศอาจไม่มีการแนบเอกสารประกวดราคาแยกต่างหาก คุณสามารถตรวจสอบเอกสาร TOR หลัก หรือดูประกาศทางการบน e-GP ได้"
+                        : "Draft hearing stages or certain notices may not include separate bidding rules. You can inspect the main TOR specification or the official e-GP portal.")
+                    : part === 2
+                    ? (lang === "th"
+                        ? "แพ็กเกจเอกสารนี้ไม่มีไฟล์ประกาศเชิญชวนแยกต่างหาก คุณสามารถดูเอกสาร TOR หลัก หรือเปิดดูประกาศทางการบน e-GP ได้"
+                        : "This package does not contain a separate announcement document. You can inspect the main TOR or open official e-GP.")
+                    : (lang === "th"
+                        ? "โครงการนี้อาจยังไม่มีเอกสารแนบเผยแพร่ในระบบ หรือไฟล์อยู่ระหว่างการจัดเตรียมจาก e-GP คุณสามารถตรวจสอบรายละเอียดประกาศทางการได้โดยตรงที่หน้าเว็บ e-GP"
+                        : "This notice may not have an attached PDF published yet or e-GP is preparing the package. You can view the announcement details on the official portal.")}
+                </p>
+
+                <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono text-ink-3 bg-surface-2 border border-line rounded-[2px] px-2.5 py-1">
+                  <span>Project #{projectId}</span>
+                  {agency ? <span>· {agency}</span> : null}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-2.5 mt-5">
+                  {part > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPart(0);
+                        setLoading(true);
+                        setLoadError(false);
+                      }}
+                      className={`${btn.primary} h-8 px-3.5 text-[12px]`}
+                    >
+                      {lang === "th" ? "📄 กลับไปดูเอกสาร TOR หลัก" : "📄 View Main TOR"}
+                    </button>
+                  ) : null}
+                  {officialEgpUrl ? (
+                    <a
+                      href={officialEgpUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${part > 0 ? btn.secondary : btn.primary} h-8 px-3.5 text-[12px] flex items-center gap-1.5`}
+                    >
+                      <span>{lang === "th" ? "เปิดดูบนเว็บ e-GP ทางการ" : "Open on official e-GP"}</span>
+                      <span className="text-[10px]">↗</span>
+                    </a>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className={`${btn.secondary} h-8 px-3.5 text-[12px]`}
+                  >
+                    {lang === "th" ? "ปิดหน้าต่าง" : "Close"}
+                  </button>
+                </div>
+              </div>
+            )
           ) : blobUrl ? (
             <iframe
               key={blobUrl}

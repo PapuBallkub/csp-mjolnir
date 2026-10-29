@@ -549,6 +549,26 @@ test('GET /api/tors/:projectId/preview: returns 404 when project or document not
   assert.ok(data.error?.message?.includes('not available'));
 });
 
+test('GET /api/tors/:projectId/preview: returns NO_PUBLIC_DOCUMENT_FOR_METHOD for direct/selective procurement without documents', async () => {
+  const directProjectId = '99999000066';
+  await Tor.create({
+    projectId: directProjectId,
+    source: 'datago',
+    title: 'จ้างพัฒนาระบบโดยวิธีเฉพาะเจาะจง',
+    procurementMethod: 'เฉพาะเจาะจง',
+    status: 'Awarded',
+    document: { fileName: 'test.pdf', storagePath: null },
+  });
+
+  const res = await fetch(`${baseUrl}/api/tors/${directProjectId}/preview`);
+  assert.equal(res.status, 404);
+  const data = await res.json();
+  assert.equal(data.error?.code, 'NO_PUBLIC_DOCUMENT_FOR_METHOD');
+  assert.equal(data.error?.procurementMethod, 'เฉพาะเจาะจง');
+
+  await Tor.deleteOne({ projectId: directProjectId });
+});
+
 test('GET /api/tors/:projectId/preview: isolates distinct document roles across preview tabs', async () => {
   const multiProjectId = '99999000088';
   const torPdfPath = path.join(import.meta.dirname, 'temp_tor.pdf');

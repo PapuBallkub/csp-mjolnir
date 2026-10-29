@@ -1547,6 +1547,7 @@ export function TorDetail({
         projectId={projectId}
         title={iden.titleTh}
         agency={iden.agency}
+        procurementMethod={facts.procurementMethod}
         officialEgpUrl={officialEgpUrl}
         lang={lang}
       />
