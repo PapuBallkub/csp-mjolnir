@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { PipelineRecordDiagnostics } from "../../../_lib/api";
 import { btn, Label, Panel } from "../../../_components/ui";
+import { PdfPreviewModal } from "../../../_components/PdfPreviewModal";
 
 export function RecordInspectorModal({
   projectId,
@@ -29,6 +30,7 @@ export function RecordInspectorModal({
   const [retrying, setRetrying] = useState(false);
   const [reExtracting, setReExtracting] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(projectId);
@@ -96,7 +98,7 @@ export function RecordInspectorModal({
                     </span>
                     {record.wavePriority ? (
                       <span className="rounded-[2px] border border-line-2 bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-ink">
-                        🌊 {record.wavePriority}
+                        {record.wavePriority}
                       </span>
                     ) : null}
                   </>
@@ -430,9 +432,19 @@ export function RecordInspectorModal({
                 <div className="space-y-4">
                   {/* Document Box */}
                   <Panel className="p-3.5">
-                    <Label>
-                      {lang === "th" ? "เอกสารแนบจาก e-GP" : "e-GP Document Attachment"}
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label>
+                        {lang === "th" ? "เอกสารแนบจาก e-GP" : "e-GP Document Attachment"}
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={() => setShowPdfPreview(true)}
+                        className={`${btn.secondary} text-[11px] h-7 px-2.5 flex items-center gap-1 cursor-pointer`}
+                      >
+                        <span>📄</span>
+                        <span>{lang === "th" ? "พรีวิว PDF" : "Preview PDF"}</span>
+                      </button>
+                    </div>
                     {record.document ? (
                       <div className="mt-2 space-y-2 text-[12px]">
                         <div className="flex justify-between border-b border-line pb-1.5">
@@ -516,6 +528,14 @@ export function RecordInspectorModal({
                     ? "↻ สั่งอ่านเอกสารใหม่ (Re-extract)"
                     : "↻ Re-extract"}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPdfPreview(true)}
+                  className={`${btn.secondary} h-8 px-3 text-[12px] flex items-center gap-1 cursor-pointer`}
+                >
+                  <span>📄</span>
+                  <span>{lang === "th" ? "พรีวิว PDF" : "Preview PDF"}</span>
+                </button>
                 <a
                   href={`/tor/${record.projectId}`}
                   target="_blank"
@@ -544,6 +564,21 @@ export function RecordInspectorModal({
           </button>
         </div>
       </div>
+
+      <PdfPreviewModal
+        isOpen={showPdfPreview}
+        onClose={() => setShowPdfPreview(false)}
+        projectId={projectId}
+        title={record?.title || projectId}
+        agency={record?.agency}
+        procurementMethod={record?.procurementMethod}
+        officialEgpUrl={
+          record?.projectId
+            ? `https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${record.projectId}`
+            : null
+        }
+        lang={lang}
+      />
     </div>
   );
 }

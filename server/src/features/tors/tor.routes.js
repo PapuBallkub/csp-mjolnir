@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getTorsHandler, getTorDetailHandler, getTorFacetsHandler } from './tor.controller.js';
+import { getTorsHandler, getTorDetailHandler, getTorFacetsHandler, getTorPreviewHandler } from './tor.controller.js';
 
 export const torRoutes = Router();
 
@@ -7,4 +7,7 @@ export const torRoutes = Router();
 torRoutes.get('/', getTorsHandler);
 // Before /:projectId, which would otherwise take "facets" as a project ID
 torRoutes.get('/facets', getTorFacetsHandler);
+torRoutes.get('/:projectId/preview', getTorPreviewHandler);
+torRoutes.get('/:projectId/pdf', getTorPreviewHandler);
 torRoutes.get('/:projectId', getTorDetailHandler);
+

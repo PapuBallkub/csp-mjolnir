@@ -1,5 +1,11 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { Readable } from 'node:stream';
+import axios from 'axios';
+import AdmZip from 'adm-zip';
 import { env } from '#common/config/env.js';
 import { Tor, TorInsight } from '#models/index.js';
+import { USER_AGENT } from '#pipeline/shared/user-agent.js';
 
 /**
  * What the public may see (NFR-17). Never a non-IT TOR, and never a result a
@@ -568,3 +574,433 @@ function publicDocument(document) {
 function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+const PROCESS5 = 'https://process5.gprocurement.go.th';
+const MAX_PREVIEW_BYTES = 40 * 1024 * 1024; // 40MB
+const PREVIEW_TIMEOUT_MS = 15000;
+
+// In-Memory LRU Cache for on-demand PDF previews (Max 20 entries, 30 min TTL)
+const PDF_CACHE_MAX_ENTRIES = 20;
+const PDF_CACHE_TTL_MS = 30 * 60 * 1000;
+const pdfPreviewCache = new Map();
+
+function getCachedPdf(key) {
+  const entry = pdfPreviewCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > PDF_CACHE_TTL_MS) {
+    pdfPreviewCache.delete(key);
+    return null;
+  }
+  // LRU bump: delete and re-insert at end of Map
+  pdfPreviewCache.delete(key);
+  entry.timestamp = Date.now();
+  pdfPreviewCache.set(key, entry);
+  return entry;
+}
+
+function setCachedPdf(key, buffer, fileName) {
+  if (pdfPreviewCache.size >= PDF_CACHE_MAX_ENTRIES) {
+    const oldestKey = pdfPreviewCache.keys().next().value;
+    if (oldestKey) pdfPreviewCache.delete(oldestKey);
+  }
+  pdfPreviewCache.set(key, {
+    buffer,
+    fileName,
+    timestamp: Date.now(),
+  });
+}
+
+/**
+ * Streams the PDF document for a project on demand without persisting binary data to DB.
+ * 1. If downloaded file exists on disk (from OCR pipeline), stream it directly.
+ * 2. If in-memory LRU cache has the buffer, stream it instantly in ~1ms.
+ * 3. If direct e-GP template URL is available, stream it.
+ * 4. Query e-GP process5 API on the fly, extract candidate PDFs, populate cache, and stream.
+ *
+ * @param {string} projectId - 11-digit e-GP project ID
+ * @param {object} [options]
+ * @param {number|string} [options.part=0] - Which document part or role (0/'tor', 1/'bidding', 2/'announcement')
+ * @param {string} [options.role] - Explicit document role ('tor' | 'bidding' | 'announcement')
+ * @param {string} [options.zipId] - Optional e-GP zip package ID to target a specific amendment stage
+ * @param {number|string} [options.version] - Optional version index
+ * @returns {Promise<{ stream: import('stream').Readable, fileName: string, contentLength?: number, storagePath?: string, buffer?: Buffer } | null>}
+ */
+export async function getTorPdfStream(projectId, { part = 0, role = null, zipId = null, version = null } = {}) {
+  if (!projectId || typeof projectId !== 'string') return null;
+  const id = projectId.trim();
+
+  const tor = await Tor.findOne({ projectId: id }).lean();
+  if (!tor) return null;
+
+  // 1. Normalize target document role and numeric index
+  let targetRole = null;
+  let numericPart = 0;
+
+  if (role) {
+    const roleLower = String(role).toLowerCase().trim();
+    if (roleLower === 'bidding') targetRole = 'bidding';
+    else if (roleLower === 'announcement') targetRole = 'announcement';
+    else targetRole = 'tor';
+    numericPart = Number(part) || 0;
+  } else {
+    // If role is not explicitly provided, deduce from part
+    if (typeof part === 'string') {
+      const lower = part.toLowerCase().trim();
+      if (lower === 'bidding') {
+        targetRole = 'bidding';
+        numericPart = 1;
+      } else if (lower === 'announcement') {
+        targetRole = 'announcement';
+        numericPart = 2;
+      } else if (lower === 'tor') {
+        targetRole = 'tor';
+        numericPart = 0;
+      } else {
+        numericPart = Number(lower) || 0;
+      }
+    } else if (typeof part === 'number') {
+      numericPart = part;
+    }
+
+    if (!targetRole) {
+      // If project has multi-part TOR specification and numericPart indexes into it, treat as TOR part
+      if (numericPart > 0 && Array.isArray(tor.document?.parts) && tor.document.parts.length > numericPart) {
+        targetRole = 'tor';
+      } else if (numericPart === 1) {
+        targetRole = 'bidding';
+      } else if (numericPart === 2) {
+        targetRole = 'announcement';
+      } else {
+        targetRole = 'tor';
+      }
+    }
+  }
+
+  // 2. Check local file on disk
+  let localPath = null;
+  let fileName = null;
+
+  // Check tor.packages (filterable by zipId or version index)
+  if (Array.isArray(tor.packages) && tor.packages.length > 0) {
+    let candidatePackages = tor.packages;
+    if (zipId) {
+      const specific = tor.packages.filter((p) => p.zipId === zipId);
+      if (specific.length) candidatePackages = specific;
+    } else if (version !== null && version !== undefined) {
+      const verNum = Number(version);
+      if (verNum > 0 && tor.packages[verNum - 1]) {
+        candidatePackages = [tor.packages[verNum - 1]];
+      }
+    }
+
+    for (let i = candidatePackages.length - 1; i >= 0; i--) {
+      const pkg = candidatePackages[i];
+      if (!Array.isArray(pkg?.files)) continue;
+      const matched = pkg.files.find((f) => f.role === targetRole);
+      if (matched?.storagePath && fs.existsSync(matched.storagePath)) {
+        localPath = matched.storagePath;
+        fileName = matched.fileName;
+        break;
+      }
+    }
+  }
+
+  // If role is 'tor', also check tor.document
+  if (!localPath && targetRole === 'tor') {
+    if (numericPart > 0 && Array.isArray(tor.document?.parts) && tor.document.parts[numericPart]) {
+      localPath = tor.document.parts[numericPart].storagePath;
+      fileName = tor.document.parts[numericPart].fileName;
+    } else if (tor.document?.storagePath && fs.existsSync(tor.document.storagePath)) {
+      localPath = tor.document.storagePath;
+      fileName = tor.document.fileName || `${id}_TOR.pdf`;
+    }
+  }
+
+  // Check project directory on disk if it exists (e.g. server/data/documents/<projectId>/)
+  if (!localPath && (targetRole === 'bidding' || targetRole === 'announcement')) {
+    const documentsDir = path.resolve('server/data/documents');
+    const projectDir = path.join(documentsDir, id);
+    if (fs.existsSync(projectDir)) {
+      try {
+        const scanEntries = fs.readdirSync(projectDir, { recursive: true });
+        for (const entry of scanEntries) {
+          const entryStr = String(entry);
+          if (!entryStr.toLowerCase().endsWith('.pdf')) continue;
+          const base = path.basename(entryStr).toLowerCase();
+          if (targetRole === 'bidding' && (base.startsWith('doc_') || base.includes('bidding'))) {
+            const cand = path.join(projectDir, entryStr);
+            if (fs.existsSync(cand) && fs.statSync(cand).isFile()) {
+              localPath = cand;
+              fileName = path.basename(cand);
+              break;
+            }
+          } else if (targetRole === 'announcement' && (base.startsWith('annoudoc') || base.includes('announ'))) {
+            const cand = path.join(projectDir, entryStr);
+            if (fs.existsSync(cand) && fs.statSync(cand).isFile()) {
+              localPath = cand;
+              fileName = path.basename(cand);
+              break;
+            }
+          }
+        }
+      } catch {
+        // Ignore directory read errors
+      }
+    }
+  }
+
+  if (localPath && fs.existsSync(localPath)) {
+    try {
+      const stats = fs.statSync(localPath);
+      return {
+        stream: fs.createReadStream(localPath),
+        fileName: fileName || path.basename(localPath),
+        contentLength: stats.size,
+        storagePath: localPath,
+      };
+    } catch {
+      // Fall through to cache/network fetch if file read fails
+    }
+  }
+
+  // 3. Check In-Memory LRU Cache (version, role, and part isolated)
+  const versionTag = zipId || tor.document?.contentHash || tor.document?.version || tor.updatedAt?.getTime?.() || '1';
+  const cacheKey = `${id}:${versionTag}:${targetRole}:${numericPart}`;
+  const cached = getCachedPdf(cacheKey);
+  if (cached) {
+    return {
+      stream: Readable.from(cached.buffer),
+      fileName: cached.fileName,
+      contentLength: cached.buffer.byteLength,
+      buffer: cached.buffer,
+    };
+  }
+
+  // 4. Direct URL from e-GP template service or portal (restricted to matching role)
+  const directUrl = tor.egpUrl || tor.announcementHistory?.[0]?.url;
+  if (directUrl) {
+    const isTemplateUrl = directUrl.includes('view-pdf-file');
+    const isPdfUrl = directUrl.endsWith('.pdf');
+
+    if (
+      (targetRole === 'announcement' && (isTemplateUrl || isPdfUrl)) ||
+      (targetRole === 'tor' && isPdfUrl && !isTemplateUrl)
+    ) {
+      try {
+        const resp = await axios.get(directUrl, {
+          headers: { 'User-Agent': USER_AGENT, Accept: 'application/pdf,*/*' },
+          responseType: 'arraybuffer',
+          timeout: PREVIEW_TIMEOUT_MS,
+        });
+        const directBuffer = Buffer.from(resp.data);
+        const resFileName = `${id}_${targetRole}.pdf`;
+        setCachedPdf(cacheKey, directBuffer, resFileName);
+        return {
+          stream: Readable.from(directBuffer),
+          fileName: resFileName,
+          contentLength: directBuffer.byteLength,
+          buffer: directBuffer,
+        };
+      } catch {
+        // Fall through to dynamic lookup
+      }
+    }
+  }
+
+  // 5. Dynamic lookup from e-GP process5 API
+  try {
+    const lookupUrls = [
+      `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZip?projectId=${id}`,
+      `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZipTemp?projectId=${id}`,
+    ];
+
+    let zipId = null;
+    let templateId = null;
+
+    for (const url of lookupUrls) {
+      try {
+        const { data } = await axios.get(url, {
+          headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
+          timeout: 8000,
+        });
+        if (data?.data?.buildName2) {
+          templateId = data.data.buildName2;
+        }
+        if (data?.data?.zipId) {
+          zipId = data.data.zipId;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    // 5b. Fall back to price estimate package (ราคากลาง / BOQ) if no announcement package exists
+    if (!zipId) {
+      try {
+        const { data: priceData } = await axios.get(
+          `${PROCESS5}/egp-doc-price-estimate-service/dpe-common/infoDocPriceestZipHis?projectId=${id}`,
+          {
+            headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
+            timeout: 6000,
+          },
+        );
+        if (priceData?.data?.zipFileId) {
+          zipId = priceData.data.zipFileId;
+        }
+      } catch {
+        // Price lookup unavailable
+      }
+    }
+
+    // Blank bank guarantee forms and legal boilerplate e-GP includes in every package
+    const isJunkForm = (entryName) => {
+      const base = String(entryName).split(/[\\/]/).pop();
+      return (
+        /bond\.pdf$/i.test(base) ||
+        /^contract_\d+\.pdf$/i.test(base) ||
+        /^definition_\d+\.pdf$/i.test(base) ||
+        /^quotation\.pdf$/i.test(base) ||
+        /^bidding noltice\.pdf$/i.test(base) ||
+        /^bill_payment\.pdf$/i.test(base) ||
+        /^action_plan/i.test(base) ||
+        /^price adjustment/i.test(base)
+      );
+    };
+
+    if (zipId) {
+      try {
+        const resp = await axios.get(
+          `${PROCESS5}/egp-upload-service/v1/downloadFileTest?fileId=${zipId}`,
+          {
+            headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
+            responseType: 'arraybuffer',
+            timeout: PREVIEW_TIMEOUT_MS,
+            maxContentLength: MAX_PREVIEW_BYTES,
+          },
+        );
+
+        const buffer = Buffer.from(resp.data);
+        if (buffer.subarray(0, 4).toString('ascii').startsWith('%PDF')) {
+          if (targetRole === 'tor') {
+            setCachedPdf(cacheKey, buffer, `${id}_document.pdf`);
+            return {
+              stream: Readable.from(buffer),
+              fileName: `${id}_document.pdf`,
+              contentLength: buffer.byteLength,
+              buffer,
+            };
+          }
+        } else {
+          const zip = new AdmZip(buffer);
+          const entries = zip
+            .getEntries()
+            .filter((e) => !e.isDirectory && /\.pdf$/i.test(e.entryName) && !isJunkForm(e.entryName));
+
+          if (entries.length > 0) {
+            // Categorize entries
+            const torCandidates = entries
+              .filter((e) => /(^|[^a-z])tor([^a-z]|$)|ขอบเขต|คุณลักษณะ/i.test(e.entryName))
+              .sort((a, b) => b.header.size - a.header.size);
+
+            const biddingCandidates = entries
+              .filter((e) => /doc_/i.test(e.entryName) || /bidding|ประกวดราคา/i.test(e.entryName))
+              .sort((a, b) => b.header.size - a.header.size);
+
+            const announcementCandidates = entries
+              .filter((e) => /annoudoc/i.test(e.entryName) || /ประกาศ/i.test(e.entryName))
+              .sort((a, b) => b.header.size - a.header.size);
+
+            const otherCandidates = entries
+              .filter(
+                (e) =>
+                  !torCandidates.includes(e) &&
+                  !biddingCandidates.includes(e) &&
+                  !announcementCandidates.includes(e),
+              )
+              .sort((a, b) => b.header.size - a.header.size);
+
+            // Warm cache for discovered candidate parts for instant sub-document tab switches
+            if (torCandidates[0]) {
+              try {
+                const tBuf = torCandidates[0].getData();
+                setCachedPdf(`${id}:${versionTag}:tor:0`, tBuf, torCandidates[0].name || `${id}_TOR.pdf`);
+              } catch {}
+            }
+            if (biddingCandidates[0]) {
+              try {
+                const bBuf = biddingCandidates[0].getData();
+                setCachedPdf(`${id}:${versionTag}:bidding:1`, bBuf, biddingCandidates[0].name || `${id}_bidding.pdf`);
+              } catch {}
+            }
+            if (announcementCandidates[0]) {
+              try {
+                const aBuf = announcementCandidates[0].getData();
+                setCachedPdf(
+                  `${id}:${versionTag}:announcement:2`,
+                  aBuf,
+                  announcementCandidates[0].name || `${id}_announcement.pdf`,
+                );
+              } catch {}
+            }
+
+            // Pick candidate precisely matching targetRole
+            let selected = null;
+            if (targetRole === 'tor') {
+              selected = torCandidates[numericPart] || torCandidates[0] || otherCandidates[0];
+            } else if (targetRole === 'bidding') {
+              selected = biddingCandidates[0];
+            } else if (targetRole === 'announcement') {
+              selected = announcementCandidates[0];
+            }
+
+            if (selected) {
+              const pdfData = selected.getData();
+              const selectedName = selected.name || `${id}_${targetRole}.pdf`;
+              setCachedPdf(cacheKey, pdfData, selectedName);
+
+              return {
+                stream: Readable.from(pdfData),
+                fileName: selectedName,
+                contentLength: pdfData.byteLength,
+                buffer: pdfData,
+              };
+            }
+          }
+        }
+      } catch {
+        // Fall through to template lookup if zip extraction fails
+      }
+    }
+
+    // Fall back to 2-page announcement letter template only when announcement was requested
+    if (targetRole === 'announcement' && templateId) {
+      try {
+        const resp = await axios.get(
+          `${PROCESS5}/egp-template-service/dwnt/view-pdf-file?templateId=${templateId}`,
+          {
+            headers: { 'User-Agent': USER_AGENT, Accept: 'application/pdf,*/*' },
+            responseType: 'arraybuffer',
+            timeout: PREVIEW_TIMEOUT_MS,
+          },
+        );
+        const templBuffer = Buffer.from(resp.data);
+        setCachedPdf(cacheKey, templBuffer, `${id}_announcement.pdf`);
+        return {
+          stream: Readable.from(templBuffer),
+          fileName: `${id}_announcement.pdf`,
+          contentLength: templBuffer.byteLength,
+          buffer: templBuffer,
+        };
+      } catch {
+        // Failed
+      }
+    }
+  } catch {
+    // Upstream unavailable
+  }
+
+  return null;
+}
+
+
