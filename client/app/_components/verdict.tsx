@@ -3,6 +3,7 @@ import { priceDeltaPct } from "../_data/tors";
 import type { ChangeSource, TorInsightSummary, TorStatus } from "../_lib/api";
 import { CHANGE_SOURCE } from "../_lib/changes";
 import { stageOf, type Stage } from "../_lib/stage";
+import type { Match } from "../_lib/match";
 
 // Re-export Status and keep backward-compat alias
 export type { Status };
@@ -502,10 +503,24 @@ export function LifecycleRail({ status, amended = false }: { status: TorStatus; 
   );
 }
 
-export function MatchScore({ score, lang }: { score: number; lang: Lang }) {
-  const strong = score >= 80;
+export function MatchScore({
+  score,
+  lang,
+}: {
+  score: number;
+  lang: Lang;
+  match?: Match;
+}) {
+  const strong = score >= 70;
   return (
-    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+    <span
+      className="inline-flex items-center gap-2 whitespace-nowrap"
+      title={
+        lang === "th"
+          ? `คะแนนความตรงกับโปรไฟล์ ${score}/100 — ดูการวิเคราะห์ 6 มิติฉบับเต็มในหน้ารายละเอียด`
+          : `Match score ${score}/100 — view 6-dimension breakdown in detail page`
+      }
+    >
       <span className="relative h-[3px] w-12 overflow-hidden rounded-full bg-line">
         <span
           className={`absolute inset-y-0 left-0 rounded-full ${strong ? "bg-open" : "bg-ink-2"}`}
@@ -518,7 +533,7 @@ export function MatchScore({ score, lang }: { score: number; lang: Lang }) {
         {score}
         <span className="text-ink-3">/100</span>
       </span>
-      <span className="sr-only">{lang === "th" ? "คะแนนความเหมาะสม" : "match score"}</span>
+      <span className="sr-only">{lang === "th" ? "คะแนนความตรงกับโปรไฟล์" : "profile match score"}</span>
     </span>
   );
 }

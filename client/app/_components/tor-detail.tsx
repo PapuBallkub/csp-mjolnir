@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ChangeRow, TorChange, TorInsightDetail } from "../_lib/api";
-import type { Lang } from "../_data/tors";
+import { formatTHB, type Lang } from "../_data/tors";
 import {
   CHANGE_SOURCE,
   changeHeading,
@@ -20,6 +20,7 @@ import { useAuth } from "./auth";
 import { ChangeMarker, CompaniesOnlyBadge, isDead, LifecycleBadge } from "./verdict";
 import { countdownText, daysLeft } from "./deadline";
 import { announcementLabel, deadlineOf, stageOf } from "../_lib/stage";
+import { matchFor } from "../_lib/match";
 import { AccentPanel, btn, Chip, Fact, Label, Panel, SectionHeading, Well } from "./ui";
 
 function formatMoney(amount: number | null | undefined, lang: Lang = "th"): string {
@@ -288,15 +289,12 @@ export function TorDetail({
       ? facts.webUrl
       : getEgpAnnouncementUrl(projectId);
 
-  // Match profile skills with required technologies only if signed in
+  // Match profile with TOR requirements only if signed in (FR-13)
+  const match = isAuthenticated ? matchFor(insight, profile) : null;
   const requiredTechNames = Array.from(
     new Set(tech.requiredTechnologies?.map((t) => t.name).filter(Boolean) || []),
   );
-  const matchedSkills = isAuthenticated
-    ? requiredTechNames.filter((t) =>
-        profile.skills.some((s) => s.toLowerCase() === t.toLowerCase() || t.toLowerCase().includes(s.toLowerCase()))
-      )
-    : [];
+  const matchedSkills = match ? match.matched : [];
 
   // null: the analysis hasn't been run yet. Shown as such, never as a 0 that
   // reads like "measured, low risk" (ADR 0015)
@@ -469,14 +467,14 @@ export function TorDetail({
 
             <div className="hidden h-3 w-px bg-line sm:block" />
 
-            {/* Skill Match Section (Auth-aware) */}
+            {/* Match with You (Auth-aware) */}
             <div className="flex items-center gap-2">
               <span className="text-[12px] text-ink-3">
-                {lang === "th" ? "ตรงกับทักษะคุณ:" : "Skill match:"}
+                {lang === "th" ? "ตรงกับคุณ:" : "Match:"}
               </span>
-              {isAuthenticated ? (
+              {isAuthenticated && match ? (
                 <span className="font-mono text-[12px] font-semibold text-open">
-                  {matchedSkills.length}/{requiredTechNames.length} {lang === "th" ? "รายการ" : "skills"}
+                  {match.score}% ({match.matched.length}/{requiredTechNames.length} {lang === "th" ? "ทักษะ" : "skills"})
                 </span>
               ) : (
                 <Link
@@ -707,29 +705,54 @@ export function TorDetail({
           {/* Capability Matchbox (Auth-aware) */}
           <Panel className="p-4">
             <div className="flex items-center justify-between gap-2">
-              <Label>{lang === "th" ? "ความตรงกับทักษะของคุณ" : "Skills match"}</Label>
-              {isAuthenticated ? (
-                <span className="font-mono text-[13px] font-semibold text-open">
-                  {Math.round((matchedSkills.length / Math.max(requiredTechNames.length, 1)) * 100)}%
+              <Label>{lang === "th" ? "ความตรงกับโปรไฟล์คุณ" : "Profile match"}</Label>
+              {isAuthenticated && match ? (
+                <span className="font-mono text-[14px] font-bold text-open">
+                  {match.score}%
                 </span>
               ) : null}
             </div>
 
-            {isAuthenticated ? (
+            {isAuthenticated && match ? (
               <>
+                <div className="mt-2 flex items-center justify-between text-[11.5px]">
+                  <span className="text-ink-3">
+                    {lang === "th" ? "ระดับความตรง:" : "Match tier:"}
+                  </span>
+                  <span className="font-semibold text-ink">
+                    {lang === "th"
+                      ? match.tier === "strong"
+                        ? "ตรงมาก"
+                        : match.tier === "good"
+                          ? "ตรงปานกลาง-สูง"
+                          : match.tier === "moderate"
+                            ? "ตรงบางส่วน"
+                            : "ตรงน้อย"
+                      : match.tier.toUpperCase()}
+                  </span>
+                </div>
+
+                {match.disqualifiedDirectBid ? (
+                  <div className="mt-2 rounded-[2px] border border-amber-300 bg-amber-50/80 px-2.5 py-1.5 text-[11px] leading-thai text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                    {lang === "th"
+                      ? "⚠️ กำหนดเฉพาะนิติบุคคล (คุณเป็นบุคคลธรรมดา)"
+                      : "⚠️ Requires company (you are individual)"}
+                  </div>
+                ) : null}
+
                 <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-3">
                   {requiredTechNames.map((tName, idx) => {
-                    const isMatch = matchedSkills.includes(tName);
+                    const isMatched = match.matched.includes(tName);
                     return (
                       <span
                         key={`${tName}-${idx}`}
                         className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[11px] ${
-                          isMatch
+                          isMatched
                             ? "border-open-line bg-open-bg text-open font-medium"
                             : "border-line bg-surface-2 text-ink-3"
                         }`}
                       >
-                        <span>{isMatch ? "✓" : "○"}</span>
+                        <span>{isMatched ? "✓" : "○"}</span>
                         <span>{tName}</span>
                       </span>
                     );
@@ -740,15 +763,15 @@ export function TorDetail({
                   href="/profile"
                   className="mt-3 inline-block text-[11px] text-ink-2 underline underline-offset-2 hover:text-ink"
                 >
-                  {lang === "th" ? "แก้ไขทักษะในโปรไฟล์ของคุณ →" : "Edit your skills profile →"}
+                  {lang === "th" ? "ปรับแต่งโปรไฟล์ของคุณ →" : "Edit your match profile →"}
                 </Link>
               </>
             ) : (
               <div className="mt-2 border-t border-line pt-2.5">
                 <p className="text-[12px] leading-thai text-ink-2">
                   {lang === "th"
-                    ? "ลงชื่อเข้าใช้เพื่อดูว่าโครงการนี้ต้องใช้ทักษะที่คุณถนัดหรือไม่ และวิเคราะห์ความเหมาะสมกับทีมของคุณ"
-                    : "Sign in to see how well this project matches your technical capabilities."}
+                    ? "ลงชื่อเข้าใช้เพื่อดูว่าโครงการนี้ตรงกับทักษะ ช่วงงบ และประเภทกิจการของคุณหรือไม่"
+                    : "Sign in to see how well this project matches your skills, budget, and entity type."}
                 </p>
                 <Link
                   href="/auth"
@@ -1211,7 +1234,503 @@ export function TorDetail({
           </Panel>
 
           {/* ---------------------------------------------------------------- */}
-          {/* 10. DECISION SUPPORT: LOCK-SPEC RISK (Analytical Layer)          */}
+          {/* 10. DECISION SUPPORT: PROFILE MATCH (FR-13 & Section 4.10)       */}
+          {/* ---------------------------------------------------------------- */}
+          {isAuthenticated && match ? (
+            <AccentPanel
+              id="profile-match"
+              tone={
+                match.disqualifiedDirectBid
+                  ? "amend"
+                  : match.score >= 75
+                    ? "open"
+                    : match.score >= 50
+                      ? "neutral"
+                      : "risk"
+              }
+              className="scroll-mt-24 px-4 py-5 sm:px-6 sm:py-6"
+            >
+              <SectionHeading
+                sub={
+                  lang === "th"
+                    ? "เปรียบเทียบข้อกำหนดของ TOR กับทักษะ ช่วงงบ สถาปัตยกรรมระบบ และผลงานในโปรไฟล์ของคุณ"
+                    : "Comparison of TOR requirements against your skills, budget, architecture, and past portfolio"
+                }
+                right={
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono text-[18px] font-bold text-ink">
+                      {match.score}
+                      <span className="text-ink-3 text-[13px]">/100</span>
+                    </span>
+                  </span>
+                }
+              >
+                {lang === "th" ? "ความตรงกับคุณ (Profile Match)" : "Profile Match with You"}
+              </SectionHeading>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span
+                  className={`inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 text-[11.5px] font-semibold ${
+                    match.score >= 85
+                      ? "border-open-line bg-open-bg text-open"
+                      : match.score >= 70
+                        ? "border-line bg-surface-2 text-ink"
+                        : "border-line bg-surface-2 text-ink-2"
+                  }`}
+                >
+                  <span>●</span>
+                  <span>
+                    {lang === "th"
+                      ? match.tier === "strong"
+                        ? "ตรงกับคุณมาก (Strong Match)"
+                        : match.tier === "good"
+                          ? "ตรงปานกลาง-สูง (Good Match)"
+                          : match.tier === "moderate"
+                            ? "ตรงบางส่วน (Moderate Match)"
+                            : "ไม่ค่อยตรง (Low Match)"
+                      : `${match.tier.toUpperCase()} MATCH`}
+                  </span>
+                </span>
+
+                {match.disqualifiedDirectBid ? (
+                  <span className="inline-flex items-center rounded-[2px] border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11.5px] font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                    {lang === "th" ? "เฉพาะนิติบุคคล" : "Companies only"}
+                  </span>
+                ) : null}
+              </div>
+
+              {/* 6-Dimension Evaluation Bars (ADR 0033) */}
+              <div className="mt-4 rounded-md border border-line bg-surface p-4 shadow-2xs">
+                <div className="mb-3 flex items-center justify-between border-b border-line/60 pb-2.5">
+                  <h4 className="text-[13px] font-semibold text-ink">
+                    {lang === "th" ? "วิเคราะห์ความตรงกับโปรไฟล์ 6 มิติ" : "6-Dimension Profile Fit Analysis"}
+                  </h4>
+                  <span className="font-mono text-[13px] font-semibold text-ink">
+                    {match.score}
+                    <span className="text-[11px] text-ink-3">/100</span>
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {/* 1. Skills Fit (40%) */}
+                  <div>
+                    <div className="flex items-center justify-between text-[12.5px] leading-thai">
+                      <span className="text-ink font-medium">
+                        {lang === "th" ? "ทักษะเทคโนโลยี" : "Technical Skills"}{" "}
+                        <span className="text-[11.5px] text-ink-3 font-normal">(40%)</span>
+                      </span>
+                      <span className="font-mono text-[12px] font-semibold tnum text-ink">
+                        {match.breakdown.skills.score}
+                        <span className="text-[10.5px] text-ink-3 font-normal">/100</span>
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-3">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          match.breakdown.skills.score >= 70
+                            ? "bg-open"
+                            : match.breakdown.skills.score >= 40
+                              ? "bg-ink-2"
+                              : "bg-amber-500"
+                        }`}
+                        style={{ width: `${match.breakdown.skills.score}%` }}
+                      />
+                    </div>
+                    {match.breakdown.skills.totalRequired > 0 ? (
+                      <p className="mt-1 text-[11px] leading-thai text-ink-3">
+                        {match.matched.length > 0
+                          ? lang === "th"
+                            ? `✓ ทักษะตรง ${match.matched.length} จาก ${match.breakdown.skills.totalRequired} รายการ (${match.matched.join(", ")})`
+                            : `✓ Matches ${match.matched.length} of ${match.breakdown.skills.totalRequired} skills (${match.matched.join(", ")})`
+                          : lang === "th"
+                            ? `ยังไม่มีทักษะที่ตรงจาก ${match.breakdown.skills.totalRequired} รายการที่ TOR กำหนด`
+                            : `0 of ${match.breakdown.skills.totalRequired} required skills matched`}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-[11px] leading-thai text-ink-3">
+                        {lang === "th" ? "TOR ไม่ระบุชื่อเทคโนโลยีเจาะจง" : "No specific technologies required"}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* 2. System Archetype (15%) */}
+                  <div>
+                    <div className="flex items-center justify-between text-[12.5px] leading-thai">
+                      <span className="text-ink font-medium">
+                        {lang === "th" ? "สถาปัตยกรรมระบบ" : "System Archetype"}{" "}
+                        <span className="text-[11.5px] text-ink-3 font-normal">(15%)</span>
+                      </span>
+                      <span className="font-mono text-[12px] font-semibold tnum text-ink">
+                        {match.breakdown.archetype.score}
+                        <span className="text-[10.5px] text-ink-3 font-normal">/100</span>
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-3">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          match.breakdown.archetype.score >= 70
+                            ? "bg-open"
+                            : match.breakdown.archetype.score >= 40
+                              ? "bg-ink-2"
+                              : "bg-amber-500"
+                        }`}
+                        style={{ width: `${match.breakdown.archetype.score}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] leading-thai text-ink-3">
+                      {match.breakdown.archetype.torArchetype
+                        ? lang === "th"
+                          ? `ประเภทระบบ: ${match.breakdown.archetype.torArchetype}${match.breakdown.archetype.isPreferred ? " (ตรงกับงานที่คุณถนัด)" : ""}`
+                          : `System archetype: ${match.breakdown.archetype.torArchetype}${match.breakdown.archetype.isPreferred ? " (matches your preferred archetype)" : ""}`
+                        : lang === "th"
+                          ? "TOR ไม่ระบุสถาปัตยกรรมเจาะจง (คิดคะแนนพื้นฐาน)"
+                          : "No specific archetype defined"}
+                    </p>
+                  </div>
+
+                  {/* 3. Budget Range (20%) */}
+                  <div>
+                    <div className="flex items-center justify-between text-[12.5px] leading-thai">
+                      <span className="text-ink font-medium">
+                        {lang === "th" ? "ช่วงงบประมาณ" : "Budget Fit"}{" "}
+                        <span className="text-[11.5px] text-ink-3 font-normal">(20%)</span>
+                      </span>
+                      <span className="font-mono text-[12px] font-semibold tnum text-ink">
+                        {match.breakdown.budget.score}
+                        <span className="text-[10.5px] text-ink-3 font-normal">/100</span>
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-3">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          match.breakdown.budget.score >= 80
+                            ? "bg-open"
+                            : match.breakdown.budget.score >= 50
+                              ? "bg-ink-2"
+                              : "bg-amber-500"
+                        }`}
+                        style={{ width: `${match.breakdown.budget.score}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] leading-thai text-ink-3">
+                      {match.breakdown.budget.status === "within_range"
+                        ? lang === "th"
+                          ? "✓ ราคากลางอยู่ในช่วงงบประมาณที่คุณรับงาน"
+                          : "✓ Price is within your preferred budget range"
+                        : match.breakdown.budget.status === "above_max"
+                          ? lang === "th"
+                            ? "โครงการมีมูลค่าสูงกว่าช่วงงบที่คุณรับไหว (อาจต้องร่วมค้าหรือรับงานช่วง)"
+                            : "Project budget exceeds your profile upper limit"
+                          : match.breakdown.budget.status === "below_min"
+                            ? lang === "th"
+                              ? "โครงการมีมูลค่าต่ำกว่าช่วงงบที่คุณรับไหว"
+                              : "Project budget is below your profile lower limit"
+                            : lang === "th"
+                              ? "ไม่ระบุงบประมาณ"
+                              : "No price specified"}
+                    </p>
+                  </div>
+
+                  {/* 4. Past Performance (10%) */}
+                  <div>
+                    <div className="flex items-center justify-between text-[12.5px] leading-thai">
+                      <span className="text-ink font-medium">
+                        {lang === "th" ? "ผลงานสัญญาเดิม" : "Past Contract Experience"}{" "}
+                        <span className="text-[11.5px] text-ink-3 font-normal">(10%)</span>
+                      </span>
+                      <span className="font-mono text-[12px] font-semibold tnum text-ink">
+                        {match.breakdown.portfolio.score}
+                        <span className="text-[10.5px] text-ink-3 font-normal">/100</span>
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-3">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          match.breakdown.portfolio.score >= 80
+                            ? "bg-open"
+                            : match.breakdown.portfolio.score >= 50
+                              ? "bg-ink-2"
+                              : "bg-amber-500"
+                        }`}
+                        style={{ width: `${match.breakdown.portfolio.score}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] leading-thai text-ink-3">
+                      {match.breakdown.portfolio.meetsThreshold
+                        ? lang === "th"
+                          ? "✓ ผลงานสัญญาเดี่ยวสูงสุดของคุณผ่านเกณฑ์ขั้นต่ำโดยประมาณ"
+                          : "✓ Your past contract track record meets the typical threshold"
+                        : lang === "th"
+                          ? `ประมาณการเกณฑ์ผลงานขั้นต่ำ ~${formatTHB(match.breakdown.portfolio.estimatedRequired)} (ผลงานสูงสุดในโปรไฟล์: ${formatTHB(match.breakdown.portfolio.userMax)})`
+                          : `Estimated experience threshold ~${formatTHB(match.breakdown.portfolio.estimatedRequired)}`}
+                    </p>
+                  </div>
+
+                  {/* 5. Entity Type (10%) */}
+                  <div>
+                    <div className="flex items-center justify-between text-[12.5px] leading-thai">
+                      <span className="text-ink font-medium">
+                        {lang === "th" ? "สถานะผู้ยื่นข้อเสนอ" : "Entity Qualification"}{" "}
+                        <span className="text-[11.5px] text-ink-3 font-normal">(10%)</span>
+                      </span>
+                      <span className="font-mono text-[12px] font-semibold tnum text-ink">
+                        {match.breakdown.entity.score}
+                        <span className="text-[10.5px] text-ink-3 font-normal">/100</span>
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-3">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          match.breakdown.entity.score >= 80
+                            ? "bg-open"
+                            : match.breakdown.entity.score >= 50
+                              ? "bg-ink-2"
+                              : "bg-amber-500"
+                        }`}
+                        style={{ width: `${match.breakdown.entity.score}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] leading-thai text-ink-3">
+                      {match.breakdown.entity.disqualifiedDirectBid
+                        ? lang === "th"
+                          ? "⚠️ TOR กำหนดเฉพาะนิติบุคคล แต่โปรไฟล์ลงทะเบียนเป็นบุคคลธรรมดา (แนะนำเข้าร่วมแบบ Joint Venture หรือ Subcontract)"
+                          : "⚠️ TOR requires a registered company while profile is individual"
+                        : lang === "th"
+                          ? "✓ สถานะนิติบุคคล/บุคคลธรรมดาตรงตามเงื่อนไขที่กำหนด"
+                          : "✓ Entity type matches procurement requirements"}
+                    </p>
+                  </div>
+
+                  {/* 6. Certifications & Standards (5%) */}
+                  <div>
+                    <div className="flex items-center justify-between text-[12.5px] leading-thai">
+                      <span className="text-ink font-medium">
+                        {lang === "th" ? "ใบรับรองและมาตรฐาน" : "Certifications & Standards"}{" "}
+                        <span className="text-[11.5px] text-ink-3 font-normal">(5%)</span>
+                      </span>
+                      <span className="font-mono text-[12px] font-semibold tnum text-ink">
+                        {match.breakdown.certifications.score}
+                        <span className="text-[10.5px] text-ink-3 font-normal">/100</span>
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-3">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          match.breakdown.certifications.score >= 80
+                            ? "bg-open"
+                            : match.breakdown.certifications.score >= 50
+                              ? "bg-ink-2"
+                              : "bg-amber-500"
+                        }`}
+                        style={{ width: `${match.breakdown.certifications.score}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] leading-thai text-ink-3">
+                      {match.breakdown.certifications.totalRequired > 0
+                        ? match.breakdown.certifications.matched.length > 0
+                          ? lang === "th"
+                            ? `✓ ตรง ${match.breakdown.certifications.matched.length} จาก ${match.breakdown.certifications.totalRequired} มาตรฐานที่ระบุ`
+                            : `✓ Matches ${match.breakdown.certifications.matched.length} of ${match.breakdown.certifications.totalRequired} certifications`
+                          : lang === "th"
+                            ? `ยังไม่มีใบรับรองที่ตรงจาก ${match.breakdown.certifications.totalRequired} รายการที่กำหนด`
+                            : `0 of ${match.breakdown.certifications.totalRequired} certifications matched`
+                        : lang === "th"
+                          ? "TOR ไม่ระบุใบรับรองภาคบังคับ"
+                          : "No mandatory certifications required"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Highlights & Checkmarks */}
+              {match.breakdown.highlightsTh.length > 0 ? (
+                <div className="mt-4 space-y-1.5 border-t border-line/60 pt-3.5">
+                  {(lang === "th" ? match.breakdown.highlightsTh : match.breakdown.highlightsEn).map(
+                    (hl, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-[13px] leading-thai text-ink">
+                        <span className="text-open font-bold">✓</span>
+                        <span>{hl}</span>
+                      </div>
+                    )
+                  )}
+                </div>
+              ) : null}
+
+              {/* Warnings & Considerations */}
+              {match.breakdown.warningsTh.length > 0 ? (
+                <div className="mt-3 space-y-2 border-t border-line/60 pt-3">
+                  <span className="block text-[11px] font-semibold uppercase tracking-wider text-ink-3">
+                    {lang === "th" ? "ข้อควรระวังหรือสิ่งที่ขาด:" : "Points to verify or missing requirements:"}
+                  </span>
+                  {(lang === "th" ? match.breakdown.warningsTh : match.breakdown.warningsEn).map(
+                    (wn, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-start gap-2 text-[12.5px] leading-thai text-ink-2"
+                      >
+                        <span className="text-amber-600 dark:text-amber-400 font-semibold">⚠️</span>
+                        <span>{wn}</span>
+                      </div>
+                    )
+                  )}
+                </div>
+              ) : null}
+
+              {/* Missing Skills breakdown */}
+              {match.missing.length > 0 ? (
+                <div className="mt-3.5 flex flex-wrap items-center gap-1.5 border-t border-line/60 pt-3 text-[12px]">
+                  <span className="text-ink-3">
+                    {lang === "th" ? "ทักษะที่ยังไม่มีในโปรไฟล์:" : "Skills missing from profile:"}
+                  </span>
+                  {match.missing.map((techName) => (
+                    <span
+                      key={techName}
+                      className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-ink-3"
+                    >
+                      ○ {techName}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              {/* Strategic Advice & Recommendations */}
+              {(match.disqualifiedDirectBid ||
+                match.breakdown.portfolio.score < 80 ||
+                match.breakdown.certifications.score < 70) ? (
+                <div className="mt-4 rounded-md border border-line bg-surface-2/40 p-3.5">
+                  <h4 className="text-[12px] font-semibold text-ink flex items-center gap-1.5">
+                    <span>💡</span>
+                    <span>
+                      {lang === "th"
+                        ? "แนวทางและคำแนะนำเชิงกลยุทธ์สำหรับคุณ"
+                        : "Strategic Guidance & Actionable Advice"}
+                    </span>
+                  </h4>
+                  <ul className="mt-2 space-y-2 text-[12px] leading-thai text-ink-2">
+                    {match.disqualifiedDirectBid ? (
+                      <li className="flex items-start gap-2">
+                        <span className="text-ink-3">•</span>
+                        <span>
+                          {lang === "th" ? (
+                            <>
+                              <strong className="text-ink font-medium">แนวทางเข้าร่วม:</strong>{" "}
+                              โครงการนี้ระบุคุณสมบัติเฉพาะนิติบุคคล แต่คุณลงทะเบียนเป็นบุคคลธรรมดา
+                              แนะนำรวมกลุ่มเป็น <em>กิจการร่วมค้า (Joint Venture)</em>{" "}
+                              หรือติดต่อผู้เสนอราคารายใหญ่เพื่อรับงานในฐานะ{" "}
+                              <em>ผู้รับเหมาช่วง (Subcontractor)</em> ในระบบส่วนที่คุณเชี่ยวชาญ
+                            </>
+                          ) : (
+                            <>
+                              <strong className="text-ink font-medium">Participation Route:</strong>{" "}
+                              This project specifies juristic entities only while your profile is registered
+                              as an individual. Consider forming a <em>Joint Venture</em> or partnering as a{" "}
+                              <em>Subcontractor</em> on specific modules.
+                            </>
+                          )}
+                        </span>
+                      </li>
+                    ) : null}
+
+                    {match.breakdown.portfolio.score < 80 &&
+                    (facts.referencePriceTHB ?? facts.budgetTHB ?? 0) > 0 ? (
+                      <li className="flex items-start gap-2">
+                        <span className="text-ink-3">•</span>
+                        <span>
+                          {lang === "th" ? (
+                            <>
+                              <strong className="text-ink font-medium">เกณฑ์ผลงานสัญญาเดิม:</strong>{" "}
+                              งานจัดซื้อจัดจ้างภาครัฐขนาดนี้มักกำหนดผลงานสัญญาเดียวไม่น้อยกว่า 40% (ประมาณ{" "}
+                              {formatTHB(
+                                Math.round((facts.referencePriceTHB ?? facts.budgetTHB ?? 0) * 0.4)
+                              )}
+                              ) การร่วมงานแบบ Subcontract หรือโครงการวิธีเฉพาะเจาะจง (≤ ฿500,000)
+                              จะช่วยสะสมหนังสือรับรองผลงานเพื่อยื่นเป็นคู่สัญญาหลักในอนาคต
+                            </>
+                          ) : (
+                            <>
+                              <strong className="text-ink font-medium">Past Performance:</strong> Thai
+                              public procurement typically enforces single-contract experience of ~40%
+                              (approx.{" "}
+                              {formatTHB(
+                                Math.round((facts.referencePriceTHB ?? facts.budgetTHB ?? 0) * 0.4)
+                              )}
+                              ). Building credentials through subcontracts or smaller specific-method
+                              bids (≤ ฿500k) creates qualified past records.
+                            </>
+                          )}
+                        </span>
+                      </li>
+                    ) : null}
+
+                    {match.breakdown.certifications.score < 70 ? (
+                      <li className="flex items-start gap-2">
+                        <span className="text-ink-3">•</span>
+                        <span>
+                          {lang === "th" ? (
+                            <>
+                              <strong className="text-ink font-medium">การยกระดับมาตรฐาน:</strong>{" "}
+                              โครงการนี้มีข้อกำหนดด้านมาตรฐาน/ใบรับรอง
+                              การได้รับรองมาตรฐานสากลที่หน่วยงานรัฐยอมรับ เช่น ISO/IEC 29110
+                              จะช่วยเพิ่มแต้มต่อและปลดล็อกการยื่นข้อเสนอในโครงการรัฐอีกเป็นจำนวนมาก
+                            </>
+                          ) : (
+                            <>
+                              <strong className="text-ink font-medium">Standard Readiness:</strong> This
+                              TOR requires specific certifications. Acquiring recognized standards like
+                              ISO/IEC 29110 substantially expands bidding eligibility.
+                            </>
+                          )}
+                        </span>
+                      </li>
+                    ) : null}
+                  </ul>
+                </div>
+              ) : null}
+
+              <div className="mt-4 border-t border-line/60 pt-3 flex items-center justify-between text-[11.5px]">
+                <span className="text-ink-3">
+                  {lang === "th"
+                    ? "ผลการจับคู่คำนวณจากโปรไฟล์ของคุณ และไม่ถือเป็นผลการตรวจคุณสมบัติอย่างเป็นทางการ"
+                    : "Personalized analytical match based on your profile; not an official agency determination."}
+                </span>
+                <Link
+                  href="/profile"
+                  className="font-medium text-ink-2 underline underline-offset-2 hover:text-ink whitespace-nowrap ml-2"
+                >
+                  {lang === "th" ? "ปรับแต่งโปรไฟล์ →" : "Edit profile →"}
+                </Link>
+              </div>
+            </AccentPanel>
+          ) : !isAuthenticated ? (
+            <Panel className="px-4 py-5 sm:px-6 sm:py-6">
+              <SectionHeading
+                sub={
+                  lang === "th"
+                    ? "ประเมินความเข้ากันได้ของทักษะ สถาปัตยกรรมระบบ ช่วงงบประมาณ และเกณฑ์คุณสมบัติ"
+                    : "Assess alignment with your technical skills, budget capacity, and qualification requirements"
+                }
+              >
+                {lang === "th" ? "ความตรงกับคุณ (Profile Match)" : "Profile Match with You"}
+              </SectionHeading>
+              <div className="mt-3 rounded-[3px] border border-line bg-surface-2/60 p-4">
+                <p className="text-[13px] leading-thai text-ink-2">
+                  {lang === "th"
+                    ? "ลงชื่อเข้าใช้ระบบเพื่อดูคะแนนความตรงกับโปรไฟล์ของคุณ ตรวจสอบว่าทักษะและงบประมาณตรงกับที่ทีมของคุณรับได้หรือไม่ พร้อมแจ้งเตือนเกณฑ์เฉพาะนิติบุคคล"
+                    : "Sign in to see a personalized fit score against your profile, checking skills, budget, archetype, and company eligibility."}
+                </p>
+                <div className="mt-3 flex items-center gap-3">
+                  <Link href="/auth" className={`${btn.secondary} text-[12px]`}>
+                    {lang === "th" ? "ลงชื่อเข้าใช้เพื่อดูผลจับคู่" : "Sign in to view match"}
+                  </Link>
+                  <span className="text-[11px] text-ink-3">
+                    {lang === "th" ? "ดูข้อมูลประกาศได้ครบถ้วนโดยไม่ต้องมีบัญชี" : "All procurement facts remain public without an account"}
+                  </span>
+                </div>
+              </div>
+            </Panel>
+          ) : null}
+
+          {/* ---------------------------------------------------------------- */}
+          {/* 11. DECISION SUPPORT: LOCK-SPEC RISK (Analytical Layer)          */}
           {/* ---------------------------------------------------------------- */}
           {lockSpec ? (
           <AccentPanel tone={lockTone} className="px-4 py-5 sm:px-6 sm:py-6">
@@ -1320,7 +1839,7 @@ export function TorDetail({
             <SectionHeading
               sub={
                 lang === "th"
-                  ? "เปรียบเทียบราคากลางกับโครงการเทคโนโลยีลักษณะเดียวกันในอดีต (FR-19)"
+                  ? "เปรียบเทียบราคากลางกับโครงการเทคโนโลยีลักษณะเดียวกันในอดีต"
                   : "Comparison against historical median of similar past projects"
               }
               right={

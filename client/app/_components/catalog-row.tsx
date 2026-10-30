@@ -155,9 +155,57 @@ export function CatalogRow({
             {missing ? <span className="px-1 text-[11px] leading-thai text-ink-3">{missing}</span> : null}
           </div>
 
-          {/* 4. Tech Stack Tags / Capabilities */}
+          {/* 4. Tech Stack Tags / Capabilities & Match Signals */}
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             {tor.companiesOnly ? <CompaniesOnlyBadge lang={lang} /> : null}
+
+            {/* Signal Badges (Fast Scan) */}
+            {match?.disqualifiedDirectBid ? (
+              <span
+                title={
+                  lang === "th"
+                    ? "TOR กำหนดเฉพาะนิติบุคคล แต่โปรไฟล์ของคุณลงทะเบียนเป็นบุคคลธรรมดา (แนะนำเข้าร่วมในรูปแบบกิจการร่วมค้า หรือรับงานช่วง)"
+                    : "TOR requires a registered company, but your profile is registered as an individual"
+                }
+                className="inline-flex items-center gap-1 rounded-[2px] border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+              >
+                <span>⚠️</span>
+                <span>{lang === "th" ? "คุณเป็นบุคคลธรรมดา" : "Individual bidder"}</span>
+              </span>
+            ) : null}
+
+            {match && match.breakdown.skills.totalRequired > 0 && match.matched.length > 0 ? (
+              <span
+                title={
+                  lang === "th"
+                    ? `ตรงกับทักษะที่คุณเชี่ยวชาญ ${match.matched.length} จาก ${match.breakdown.skills.totalRequired} รายการ`
+                    : `Matches ${match.matched.length} of ${match.breakdown.skills.totalRequired} required skills`
+                }
+                className="inline-flex items-center gap-1 rounded-[2px] border border-open-line bg-open-bg px-1.5 py-0.5 text-[11px] font-medium text-open"
+              >
+                <span>✓</span>
+                <span>
+                  {lang === "th"
+                    ? `ทักษะตรง ${match.matched.length}/${match.breakdown.skills.totalRequired}`
+                    : `Skills ${match.matched.length}/${match.breakdown.skills.totalRequired}`}
+                </span>
+              </span>
+            ) : null}
+
+            {match && match.breakdown.budget.status === "within_range" && price !== null ? (
+              <span
+                title={
+                  lang === "th"
+                    ? "ราคากลางอยู่ในช่วงงบประมาณที่คุณรับงาน"
+                    : "Price is within your preferred budget range"
+                }
+                className="inline-flex items-center gap-1 rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2"
+              >
+                <span>✓</span>
+                <span>{lang === "th" ? "งบตรงช่วง" : "Budget fit"}</span>
+              </span>
+            ) : null}
+
             {visibleTech.map((term, idx) => {
               const known = match?.matched.includes(term);
               return (
@@ -200,7 +248,19 @@ export function CatalogRow({
             <TorDeadline status={iden.status} facts={facts} now={now} lang={lang} />
           </div>
 
-          {match ? <MatchScore score={match.score} lang={lang} /> : null}
+          {match ? (
+            <Link
+              href={`/tor/${tor.projectId}#profile-match`}
+              className="relative z-10 transition-opacity hover:opacity-80"
+              title={
+                lang === "th"
+                  ? `คะแนนความตรง ${match.score}/100 — คลิกเพื่อดูผลวิเคราะห์ 6 มิติฉบับเต็ม`
+                  : `Match score ${match.score}/100 — click to view 6-dimension breakdown`
+              }
+            >
+              <MatchScore score={match.score} lang={lang} match={match} />
+            </Link>
+          ) : null}
 
           {trailing ? (
             <div className="relative z-10 flex w-full justify-end sm:mt-auto sm:pt-2">

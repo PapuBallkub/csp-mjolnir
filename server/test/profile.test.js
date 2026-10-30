@@ -273,6 +273,87 @@ test('profile: new user has default empty profile', async () => {
     budgetMin: 0,
     budgetMax: 0,
     certifications: [],
+    entityType: 'juristic',
+    preferredArchetypes: [],
+    maxPastPortfolioTHB: 0,
+    matchNotification: {
+      enabled: false,
+      minScore: 75,
+      frequency: 'daily',
+      includeSubcontract: true,
+    },
+  });
+});
+
+test('profile: updates entityType, preferredArchetypes, and maxPastPortfolioTHB', async () => {
+  const cookie = await registerAndGetCookie('profile-extended-fields');
+  const res = await send('PATCH', '/api/profile', {
+    body: {
+      entityType: 'individual',
+      preferredArchetypes: ['web-portal', 'mobile-app'],
+      maxPastPortfolioTHB: 1500000,
+    },
+    cookie,
+  });
+  assert.equal(res.status, 200);
+  const { user } = await res.json();
+  assert.equal(user.profile.entityType, 'individual');
+  assert.deepEqual(user.profile.preferredArchetypes, ['web-portal', 'mobile-app']);
+  assert.equal(user.profile.maxPastPortfolioTHB, 1500000);
+
+  // Verify persistence via GET /api/auth/me
+  const meRes = await send('GET', '/api/auth/me', { cookie });
+  const meData = await meRes.json();
+  assert.equal(meData.user.profile.entityType, 'individual');
+  assert.deepEqual(meData.user.profile.preferredArchetypes, ['web-portal', 'mobile-app']);
+  assert.equal(meData.user.profile.maxPastPortfolioTHB, 1500000);
+});
+
+test('profile: rejects invalid entityType, invalid archetypes, and negative portfolio', async () => {
+  const cookie = await registerAndGetCookie('profile-validation-extended');
+  const res = await send('PATCH', '/api/profile', {
+    body: {
+      entityType: 'alien-corp',
+      maxPastPortfolioTHB: -100,
+    },
+    cookie,
+  });
+  assert.equal(res.status, 400);
+  const data = await res.json();
+  assert.ok(data.error.details.entityType);
+  assert.ok(data.error.details.maxPastPortfolioTHB);
+});
+
+test('profile: updates matchNotification settings (FR-14 preparation)', async () => {
+  const cookie = await registerAndGetCookie('profile-match-notif');
+  const res = await send('PATCH', '/api/profile', {
+    body: {
+      matchNotification: {
+        enabled: true,
+        minScore: 85,
+        frequency: 'instant',
+        includeSubcontract: false,
+      },
+    },
+    cookie,
+  });
+  assert.equal(res.status, 200);
+  const { user } = await res.json();
+  assert.deepEqual(user.profile.matchNotification, {
+    enabled: true,
+    minScore: 85,
+    frequency: 'instant',
+    includeSubcontract: false,
+  });
+
+  // Verify persistence via GET /api/auth/me
+  const meRes = await send('GET', '/api/auth/me', { cookie });
+  const meData = await meRes.json();
+  assert.deepEqual(meData.user.profile.matchNotification, {
+    enabled: true,
+    minScore: 85,
+    frequency: 'instant',
+    includeSubcontract: false,
   });
 });
 

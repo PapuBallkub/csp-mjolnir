@@ -1688,7 +1688,7 @@ export default function DedicatedReviewPage({
                   {lang === "th" ? "10. ข้อมูลการแก้ไขประกาศ" : "10. Amendment Information"}
                 </SectionHeading>
                 <p className="text-[12px] text-ink-3 mt-1">
-                  {lang === "th" ? "การเปลี่ยนแปลงหรือแก้ไขข้อกำหนด TOR หลังเผยแพร่ประกาศครั้งแรก (FR-16)" : "Post-publication TOR amendments, changes, and diffs (FR-16)"}
+                  {lang === "th" ? "การเปลี่ยนแปลงหรือแก้ไขข้อกำหนด TOR หลังเผยแพร่ประกาศครั้งแรก" : "Post-publication TOR amendments, changes, and diffs"}
                 </p>
               </div>
 

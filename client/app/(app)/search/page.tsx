@@ -64,6 +64,8 @@ const DEADLINE_BANDS: { id: string; label: Bi; days?: number }[] = [
 
 const SORTS: { id: Sort; label: Bi }[] = [
   { id: "newest", label: { th: "ประกาศล่าสุด", en: "Newest" } },
+  { id: "match-desc", label: { th: "ตรงกับคุณมากที่สุด", en: "Highest match" } },
+  { id: "match-asc", label: { th: "ตรงกับคุณน้อยที่สุด", en: "Lowest match" } },
   { id: "deadline", label: { th: "ใกล้ครบกำหนดยื่นข้อเสนอ", en: "Bids due soonest" } },
   { id: "budget-desc", label: { th: "ราคากลางสูงสุด", en: "Highest price" } },
   { id: "budget-asc", label: { th: "ราคากลางต่ำสุด", en: "Lowest price" } },
@@ -263,6 +265,9 @@ function BrowsePageContent() {
 
   function setMode(nextMode: Mode) {
     setOverrideMode(nextMode);
+    if (nextMode === "match") {
+      setSort((prev) => (prev === "newest" ? "match-desc" : prev));
+    }
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       if (nextMode === "match") {
@@ -281,10 +286,18 @@ function BrowsePageContent() {
   const [budgetBand, setBudgetBand] = useState("any");
   const [deadlineBand, setDeadlineBand] = useState("any");
   const [hideHighRisk, setHideHighRisk] = useState(false);
-  const [sort, setSort] = useState<Sort>("newest");
+  const [sort, setSort] = useState<Sort>(
+    searchParams.get("mode") === "match" ? "match-desc" : "newest"
+  );
   const [scoreFloor, setScoreFloor] = useState<number>(0);
   const [hideClosed, setHideClosed] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    if (authStatus === "anonymous" && mode === "filter" && (sort === "match-desc" || sort === "match-asc")) {
+      setSort("newest");
+    }
+  }, [authStatus, mode, sort]);
 
   const debouncedQuery = useDebounced(query, 300);
 
@@ -338,7 +351,7 @@ function BrowsePageContent() {
       closingWithin: DEADLINE_BANDS.find((b) => b.id === deadlineBand)?.days,
       excludeHighRisk: hideHighRisk,
       sort,
-      limit: PAGE_SIZE,
+      limit: sort === "match-desc" || sort === "match-asc" ? MATCH_LIMIT : PAGE_SIZE,
     };
   }, [debouncedQuery, statuses, amendedOnly, techFilter, agencyFilter, budgetBand, deadlineBand, hideHighRisk, sort]);
   const key = useMemo(() => JSON.stringify(params), [params]);
@@ -381,41 +394,66 @@ function BrowsePageContent() {
 
   /* ------------------------------- matching ------------------------------- */
 
-  const skillsKey = profile.skills.join("\n");
-  const canMatch = authStatus === "authenticated" && profile.skills.length > 0;
+  const profileKey = `${authStatus}:${profile.skills.join(",")}:${profile.budgetMin}:${profile.budgetMax}:${profile.entityType}:${(profile.preferredArchetypes ?? []).join(",")}`;
+  const canMatch = authStatus === "authenticated";
   const [matchList, setMatchList] = useState<{ key: string; result: ApiResult<Page> } | null>(null);
   const [matchTry, setMatchTry] = useState(0);
 
   useEffect(() => {
     if (!canMatch) return;
     let cancelled = false;
-    // Only TORs that use at least one of the skills can rank anywhere useful
-    listTors({ tech: skillsKey.split("\n"), sort: "deadline", limit: MATCH_LIMIT }).then((result) => {
+    // Query candidate TORs to evaluate against user profile across all 6 dimensions
+    listTors({ limit: MATCH_LIMIT }).then((result) => {
       if (cancelled) return;
       setMatchList({
-        key: skillsKey,
+        key: profileKey,
         result: result.ok
-          ? { ok: true, data: { key: skillsKey, ...result.data, at: new Date() } }
+          ? { ok: true, data: { key: profileKey, ...result.data, at: new Date() } }
           : result,
       });
     });
     return () => {
       cancelled = true;
     };
-  }, [canMatch, skillsKey, matchTry]);
+  }, [canMatch, profileKey, matchTry]);
 
-  const matchResult = matchList?.key === skillsKey ? matchList.result : null;
+  const matchResult = matchList?.key === profileKey ? matchList.result : null;
   const ranked = useMemo(() => {
     if (!matchResult?.ok) return [];
-    return matchResult.data.tors
-      .map((tor) => ({ tor, match: matchFor(tor, profile) }))
-      .sort((a, b) => b.match.score - a.match.score);
-  }, [matchResult, profile]);
+    const items = matchResult.data.tors.map((tor) => ({ tor, match: matchFor(tor, profile) }));
+    switch (sort) {
+      case "match-asc":
+        return items.sort((a, b) => a.match.score - b.match.score);
+      case "match-desc":
+        return items.sort((a, b) => b.match.score - a.match.score);
+      case "deadline":
+        return items.sort((a, b) => {
+          const aDead = a.tor.facts.submissionDeadline ? new Date(a.tor.facts.submissionDeadline).getTime() : Infinity;
+          const bDead = b.tor.facts.submissionDeadline ? new Date(b.tor.facts.submissionDeadline).getTime() : Infinity;
+          return aDead - bDead;
+        });
+      case "budget-desc":
+        return items.sort((a, b) => (b.tor.facts.referencePriceTHB ?? b.tor.facts.budgetTHB ?? 0) - (a.tor.facts.referencePriceTHB ?? a.tor.facts.budgetTHB ?? 0));
+      case "budget-asc":
+        return items.sort((a, b) => (a.tor.facts.referencePriceTHB ?? a.tor.facts.budgetTHB ?? 0) - (b.tor.facts.referencePriceTHB ?? b.tor.facts.budgetTHB ?? 0));
+      case "newest":
+        return items.sort((a, b) => {
+          const aIso = a.tor.facts.postedDate || a.tor.createdAt || "";
+          const bIso = b.tor.facts.postedDate || b.tor.createdAt || "";
+          const aDate = aIso ? new Date(aIso).getTime() : 0;
+          const bDate = bIso ? new Date(bIso).getTime() : 0;
+          return bDate - aDate;
+        });
+      default:
+        return items.sort((a, b) => b.match.score - a.match.score);
+    }
+  }, [matchResult, profile, sort]);
 
-  const strongCount = ranked.filter((row) => row.match.score >= 70 && !isDead(row.tor.identification.status)).length;
+  const isTorClosed = (tor: TorInsightSummary) => isDead(tor.identification.status) || Boolean(tor.contractSigned);
+  const strongCount = ranked.filter((row) => row.match.score >= 70 && !isTorClosed(row.tor)).length;
   const matchResults = ranked
     .filter((row) => row.match.score >= scoreFloor)
-    .filter((row) => (hideClosed ? !isDead(row.tor.identification.status) : true))
+    .filter((row) => (hideClosed ? !isTorClosed(row.tor) : true))
     .filter((row) => (hideHighRisk ? !isHighRisk(row.tor) : true));
 
   /* -------------------------------- rails --------------------------------- */
@@ -559,6 +597,38 @@ function BrowsePageContent() {
       <Panel className="overflow-hidden">
         <div className="border-b border-line bg-surface-2 px-3 py-2.5">
           <h2 className="text-[12px] font-semibold text-ink">
+            {lang === "th" ? "ตัวกรอง" : "Filter"}
+          </h2>
+        </div>
+        <FilterGroup title={lang === "th" ? "คะแนนขั้นต่ำ" : "Minimum score"}>
+          {SCORE_FLOORS.map((floor) => (
+            <Radio
+              key={floor.id}
+              name="floor"
+              checked={scoreFloor === floor.id}
+              onChange={() => setScoreFloor(floor.id)}
+              label={pick(floor.label, lang)}
+            />
+          ))}
+        </FilterGroup>
+        <FilterGroup title={lang === "th" ? "ซ่อน" : "Hide"}>
+          <Check
+            checked={hideClosed}
+            onChange={() => setHideClosed(!hideClosed)}
+            label={lang === "th" ? "งานที่ไม่รับข้อเสนอแล้ว" : "Projects no longer taking bids"}
+          />
+          <Check
+            checked={hideHighRisk}
+            onChange={() => setHideHighRisk(!hideHighRisk)}
+            label={lang === "th" ? "งานเสี่ยงล็อกสเปกสูง" : "High lock-spec risk"}
+            trailing={<RiskMeter level="high" />}
+          />
+        </FilterGroup>
+      </Panel>
+
+      <Panel className="overflow-hidden">
+        <div className="border-b border-line bg-surface-2 px-3 py-2.5">
+          <h2 className="text-[12px] font-semibold text-ink">
             {lang === "th" ? "จับคู่จากโปรไฟล์ของคุณ" : "Ranked from your profile"}
           </h2>
         </div>
@@ -596,38 +666,6 @@ function BrowsePageContent() {
             {lang === "th" ? "แก้ไขโปรไฟล์" : "Edit your profile"}
           </Link>
         </div>
-      </Panel>
-
-      <Panel className="overflow-hidden">
-        <div className="border-b border-line bg-surface-2 px-3 py-2.5">
-          <h2 className="text-[12px] font-semibold text-ink">
-            {lang === "th" ? "ปรับผลลัพธ์" : "Refine"}
-          </h2>
-        </div>
-        <FilterGroup title={lang === "th" ? "คะแนนขั้นต่ำ" : "Minimum score"}>
-          {SCORE_FLOORS.map((floor) => (
-            <Radio
-              key={floor.id}
-              name="floor"
-              checked={scoreFloor === floor.id}
-              onChange={() => setScoreFloor(floor.id)}
-              label={pick(floor.label, lang)}
-            />
-          ))}
-        </FilterGroup>
-        <FilterGroup title={lang === "th" ? "ซ่อน" : "Hide"}>
-          <Check
-            checked={hideClosed}
-            onChange={() => setHideClosed(!hideClosed)}
-            label={lang === "th" ? "งานที่ไม่รับข้อเสนอแล้ว" : "Projects no longer taking bids"}
-          />
-          <Check
-            checked={hideHighRisk}
-            onChange={() => setHideHighRisk(!hideHighRisk)}
-            label={lang === "th" ? "งานเสี่ยงล็อกสเปกสูง" : "High lock-spec risk"}
-            trailing={<RiskMeter level="high" />}
-          />
-        </FilterGroup>
       </Panel>
     </div>
   );
@@ -713,13 +751,23 @@ function BrowsePageContent() {
     }
 
     const remaining = shown.total - shown.tors.length;
+    let displayedTors = shown.tors;
+    if (sort === "match-desc") {
+      displayedTors = [...shown.tors].sort((a, b) => matchFor(b, profile).score - matchFor(a, profile).score);
+    } else if (sort === "match-asc") {
+      displayedTors = [...shown.tors].sort((a, b) => matchFor(a, profile).score - matchFor(b, profile).score);
+    }
+
     return (
       <>
         <div aria-busy={!current}>
           <div className={`flex flex-col gap-2.5 transition-opacity ${current ? "" : "opacity-60"}`}>
-            {shown.tors.map((tor) => (
-              <CatalogRow key={tor.projectId} tor={tor} now={shown.at} />
-            ))}
+            {displayedTors.map((tor) => {
+              const match = canMatch || sort === "match-desc" || sort === "match-asc"
+                ? matchFor(tor, profile)
+                : undefined;
+              return <CatalogRow key={tor.projectId} tor={tor} now={shown.at} match={match} />;
+            })}
           </div>
         </div>
 
@@ -757,28 +805,6 @@ function BrowsePageContent() {
   function matchResultsView() {
     if (authStatus === "loading") return skeleton;
 
-    if (profile.skills.length === 0) {
-      return (
-        <EmptyState
-          headline={
-            lang === "th"
-              ? "ยังจับคู่ไม่ได้ เพราะโปรไฟล์ยังไม่มีทักษะ"
-              : "We can't rank anything until your profile lists some skills"
-          }
-          body={
-            lang === "th"
-              ? "เลือกเทคโนโลยีที่คุณทำได้ในหน้าโปรไฟล์ แล้วรายการนี้จะเรียงใหม่ให้ทันที"
-              : "Pick the technologies you can build with on your profile and this list re-ranks immediately."
-          }
-          action={
-            <Link href="/profile" className={btn.secondary}>
-              {lang === "th" ? "ไปตั้งค่าโปรไฟล์" : "Set up your profile"}
-            </Link>
-          }
-        />
-      );
-    }
-
     if (!matchResult) return skeleton;
 
     if (!matchResult.ok) {
@@ -800,13 +826,13 @@ function BrowsePageContent() {
         <EmptyState
           headline={
             lang === "th"
-              ? "ยังไม่มีประกาศที่ใช้ทักษะในโปรไฟล์ของคุณ"
-              : "No posting uses the skills on your profile yet"
+              ? "ยังไม่มีประกาศในระบบที่พร้อมประเมิน"
+              : "No postings in the system ready for matching yet"
           }
           body={
             lang === "th"
-              ? "ประกาศที่มีอยู่ตอนนี้ไม่ได้ระบุเทคโนโลยีที่คุณเลือกไว้ ลองเพิ่มทักษะในโปรไฟล์ หรือค้นหาเองจากทุกประกาศ"
-              : "None of the current postings name a technology you picked. Add skills to your profile, or search every posting yourself."
+              ? "ยังไม่มีประกาศที่สรุปเสร็จและพร้อมเผยแพร่ ลองกลับมาใหม่ภายหลัง หรือค้นหาประกาศทั้งหมดในระบบ"
+              : "No posting has been cleared for publishing yet. Check back later or search all postings."
           }
           action={
             <button type="button" onClick={() => setMode("filter")} className={btn.secondary}>
@@ -827,16 +853,41 @@ function BrowsePageContent() {
               : "Try a lower score floor, showing projects no longer taking bids, or dropping the risk filter."
           }
           action={
-            <button type="button" onClick={() => setScoreFloor(0)} className={btn.secondary}>
-              {lang === "th" ? "แสดงทุกคะแนน" : "Show every score"}
-            </button>
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setScoreFloor(0);
+                  setHideClosed(false);
+                  setHideHighRisk(false);
+                }}
+                className={btn.secondary}
+              >
+                {lang === "th" ? "แสดงทุกคะแนนและทุกสถานะ" : "Show all scores and projects"}
+              </button>
+            </div>
           }
         />
       );
     }
 
+    const noSkillsBanner =
+      profile.skills.length === 0 ? (
+        <div className="mb-2.5 flex items-center justify-between rounded-[3px] border border-amber-300 bg-amber-50 px-3.5 py-2 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          <span>
+            {lang === "th"
+              ? "💡 คุณยังไม่ได้ระบุทักษะในโปรไฟล์ — ระบบกำลังจัดอันดับจากงบประมาณ สถาปัตยกรรม และเกณฑ์ทั่วไป"
+              : "💡 You haven't added tech skills to your profile yet — ranking by budget, archetype, and general eligibility."}
+          </span>
+          <Link href="/profile" className="ml-2 shrink-0 font-semibold underline hover:opacity-80">
+            {lang === "th" ? "ตั้งค่าทักษะ →" : "Add skills →"}
+          </Link>
+        </div>
+      ) : null;
+
     return (
       <div className="flex flex-col gap-2.5">
+        {noSkillsBanner}
         {matchResults.map(({ tor, match }) => (
           <CatalogRow key={tor.projectId} tor={tor} now={matchResult.data.at} match={match} />
         ))}
@@ -871,8 +922,8 @@ function BrowsePageContent() {
     const { tors, total } = matchResult.data;
     countLine =
       lang === "th"
-        ? `แสดง ${matchResults.length} จาก ${tors.length} ประกาศที่ใช้ทักษะของคุณ${total > tors.length ? ` (จัดอันดับ ${tors.length} รายการที่ใกล้ครบกำหนดยื่นข้อเสนอที่สุดจากทั้งหมด ${total})` : ""}`
-        : `${matchResults.length} of ${tors.length} postings that use your skills${total > tors.length ? ` (the ${tors.length} with bids due soonest, of ${total})` : ""}`;
+        ? `แสดง ${matchResults.length} จาก ${tors.length} ประกาศที่ประเมินความตรงกับคุณ${total > tors.length ? ` (จัดอันดับ ${tors.length} รายการที่ใกล้ครบกำหนดที่สุดจากทั้งหมด ${total})` : ""}`
+        : `${matchResults.length} of ${tors.length} postings evaluated against your profile${total > tors.length ? ` (the ${tors.length} with bids due soonest, of ${total})` : ""}`;
   }
 
   return (
@@ -985,8 +1036,8 @@ function BrowsePageContent() {
                 {mode === "filter"
                   ? `${lang === "th" ? "ตัวกรอง" : "Filters"}${activeCount > 0 ? ` (${activeCount})` : ""}`
                   : lang === "th"
-                    ? "โปรไฟล์และการปรับผลลัพธ์"
-                    : "Profile and refinements"}
+                    ? "ตัวกรองและโปรไฟล์"
+                    : "Filters and profile"}
               </span>
               <span className="font-mono text-[11px] text-ink-3">{filtersOpen ? "−" : "+"}</span>
             </button>
@@ -1031,7 +1082,11 @@ function BrowsePageContent() {
                     onChange={(e) => setSort(e.target.value as Sort)}
                     className={`${input} w-auto pr-6`}
                   >
-                    {SORTS.map((option) => (
+                    {SORTS.filter((option) =>
+                      authStatus === "authenticated"
+                        ? true
+                        : option.id !== "match-desc" && option.id !== "match-asc"
+                    ).map((option) => (
                       <option key={option.id} value={option.id}>
                         {pick(option.label, lang)}
                       </option>
@@ -1044,8 +1099,8 @@ function BrowsePageContent() {
                 <SectionHeading
                   sub={
                     lang === "th"
-                      ? "คะแนนคิดจากเทคโนโลยีที่ตรงกับทักษะของคุณ (70) และราคากลางที่อยู่ในช่วงงบที่คุณรับได้ (30) เครื่องหมาย ✓ คือเทคโนโลยีที่คุณมีแล้ว"
-                      : "Scored on technologies that match your skills (70) and a price inside your budget range (30). A ✓ marks a technology you already have."
+                      ? "คะแนนประเมินจากทักษะ (40%), สถาปัตยกรรมระบบ (15%), ช่วงงบ (20%), ผลงานเดิม (10%), สถานะนิติบุคคล (10%) และมาตรฐาน (5%) เครื่องหมาย ✓ คือทักษะที่คุณมี"
+                      : "Scored on skills (40%), architecture (15%), budget (20%), past portfolio (10%), entity type (10%), and standards (5%). A ✓ marks a skill you have."
                   }
                 >
                   {matchResult?.ok

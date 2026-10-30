@@ -332,11 +332,15 @@ export async function listTors(
   // On the status and the amended flag: matched once the live values are in
   const liveConditions = [];
 
-  // Text search on title, agency, department and technology names
+  // Text search on projectId, title, agency, department and technology names
   if (typeof q === 'string' && q.trim()) {
-    const pattern = { $regex: escapeRegex(q.trim()), $options: 'i' };
+    const rawQ = q.trim();
+    const cleanId = rawQ.replace(/^#/, '');
+    const pattern = { $regex: escapeRegex(rawQ), $options: 'i' };
+    const idPattern = { $regex: escapeRegex(cleanId), $options: 'i' };
     conditions.push({
       $or: [
+        { projectId: idPattern },
         { 'identification.titleTh': pattern },
         { 'identification.titleEn': pattern },
         { 'identification.agency': pattern },
@@ -405,7 +409,10 @@ export async function listTors(
     'facts.postedDate': 1,
     'facts.webUrl': 1,
     'technicalRequirements.requiredTechnologies': 1,
+    'overview.systemArchetype': 1,
     'eligibility.standardConditions': 1,
+    'eligibility.requiredCertifications': 1,
+    'eligibility.previousExperienceMinTHB': 1,
     'analytics.lockSpec.riskScore': 1,
     'analytics.lockSpec.verdictText': 1,
     'analytics.priceAnalysis.diffPercentage': 1,

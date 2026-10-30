@@ -11,12 +11,25 @@
  * what to do next, rather than a screen that silently renders nothing.
  */
 
+export type EntityType = "juristic" | "individual";
+
+export type MatchNotificationSettings = {
+  enabled: boolean;
+  minScore: number;
+  frequency: "instant" | "daily" | "weekly";
+  includeSubcontract: boolean;
+};
+
 /** FR-12. Stored server-side and returned inside every AuthUser. */
 export type UserProfile = {
   skills: string[];
   budgetMin: number;
   budgetMax: number;
   certifications: string[];
+  entityType?: EntityType;
+  preferredArchetypes?: string[];
+  maxPastPortfolioTHB?: number;
+  matchNotification?: MatchNotificationSettings;
 };
 
 /** Mirrors `toPublicUser` on the server. Adding a field there means adding it here. */
@@ -1059,6 +1072,14 @@ export type TorInsightSummary = {
   technicalRequirements?: {
     requiredTechnologies: { name: string; version: string | null }[];
   };
+  overview?: {
+    systemArchetype?: string | null;
+    objective?: string | null;
+  };
+  eligibility?: {
+    requiredCertifications?: string[];
+    previousExperienceMinTHB?: number | null;
+  };
   /** null: the analysis hasn't been run, never a measured 0 */
   analytics: {
     lockSpec: { riskScore: number; verdictText: string } | null;
@@ -1110,6 +1131,7 @@ export type TorInsightDetail = {
     objective: string | null;
     majorComponents: string[];
     highLevelScope: string | null;
+    systemArchetype?: string | null;
   };
   deliverables: {
     system: string[];
@@ -1204,7 +1226,7 @@ export type TorListParams = {
   /** Still open, and closing within this many days */
   closingWithin?: number;
   excludeHighRisk?: boolean;
-  sort?: "newest" | "deadline" | "budget-desc" | "budget-asc";
+  sort?: "newest" | "deadline" | "budget-desc" | "budget-asc" | "match-desc" | "match-asc";
   page?: number;
   limit?: number;
 };

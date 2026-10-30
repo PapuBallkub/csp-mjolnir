@@ -1,10 +1,13 @@
 import { badRequest } from '#common/errors/http-error.js';
+import { SYSTEM_ARCHETYPES } from '#pipeline/extraction/index.js';
 
 const MAX_SKILLS = 150;
 const MAX_SKILL_LENGTH = 100;
 const MAX_CERTIFICATIONS = 50;
 const MAX_CERTIFICATION_LENGTH = 100;
 const MAX_BUDGET = 10_000_000_000;
+const MAX_PREFERRED_ARCHETYPES = 10;
+const VALID_ENTITY_TYPES = ['juristic', 'individual'];
 
 /**
  * Validates and returns sanitized profile fields. Throws badRequest with
@@ -16,6 +19,46 @@ const MAX_BUDGET = 10_000_000_000;
 export function parseProfileUpdate(body) {
   const errors = {};
   const update = {};
+
+  // --- entityType ---
+  if (body.entityType !== undefined) {
+    if (typeof body.entityType !== 'string' || !VALID_ENTITY_TYPES.includes(body.entityType.trim())) {
+      errors.entityType = `Entity type must be either 'juristic' or 'individual'.`;
+    } else {
+      update.entityType = body.entityType.trim();
+    }
+  }
+
+  // --- preferredArchetypes ---
+  if (body.preferredArchetypes !== undefined) {
+    if (!Array.isArray(body.preferredArchetypes)) {
+      errors.preferredArchetypes = 'Preferred archetypes must be an array.';
+    } else {
+      const cleaned = [
+        ...new Set(
+          body.preferredArchetypes
+            .filter((a) => typeof a === 'string')
+            .map((a) => a.trim().toLowerCase())
+            .filter((a) => SYSTEM_ARCHETYPES.includes(a)),
+        ),
+      ];
+      if (cleaned.length > MAX_PREFERRED_ARCHETYPES) {
+        errors.preferredArchetypes = `You can save at most ${MAX_PREFERRED_ARCHETYPES} preferred archetypes.`;
+      } else {
+        update.preferredArchetypes = cleaned;
+      }
+    }
+  }
+
+  // --- maxPastPortfolioTHB ---
+  if (body.maxPastPortfolioTHB !== undefined) {
+    const n = Number(body.maxPastPortfolioTHB);
+    if (!Number.isFinite(n) || n < 0 || n > MAX_BUDGET || !Number.isInteger(n)) {
+      errors.maxPastPortfolioTHB = `Max past portfolio must be an integer between 0 and ${MAX_BUDGET.toLocaleString()} THB.`;
+    } else {
+      update.maxPastPortfolioTHB = n;
+    }
+  }
 
   // --- skills ---
   if (body.skills !== undefined) {
@@ -85,6 +128,52 @@ export function parseProfileUpdate(body) {
       } else {
         update.certifications = cleaned;
       }
+    }
+  }
+
+  // --- matchNotification (FR-14 Preparation) ---
+  if (body.matchNotification !== undefined) {
+    if (typeof body.matchNotification !== 'object' || body.matchNotification === null || Array.isArray(body.matchNotification)) {
+      errors.matchNotification = 'Match notification settings must be an object.';
+    } else {
+      const mn = body.matchNotification;
+      const validatedMn = {};
+
+      if (mn.enabled !== undefined) {
+        if (typeof mn.enabled !== 'boolean') {
+          errors['matchNotification.enabled'] = 'Enabled must be a boolean.';
+        } else {
+          validatedMn.enabled = mn.enabled;
+        }
+      }
+
+      if (mn.minScore !== undefined) {
+        const score = Number(mn.minScore);
+        if (!Number.isFinite(score) || score < 50 || score > 95) {
+          errors['matchNotification.minScore'] = 'Minimum match score must be an integer between 50 and 95.';
+        } else {
+          validatedMn.minScore = Math.round(score);
+        }
+      }
+
+      if (mn.frequency !== undefined) {
+        const validFreq = ['instant', 'daily', 'weekly'];
+        if (typeof mn.frequency !== 'string' || !validFreq.includes(mn.frequency.trim())) {
+          errors['matchNotification.frequency'] = "Frequency must be 'instant', 'daily', or 'weekly'.";
+        } else {
+          validatedMn.frequency = mn.frequency.trim();
+        }
+      }
+
+      if (mn.includeSubcontract !== undefined) {
+        if (typeof mn.includeSubcontract !== 'boolean') {
+          errors['matchNotification.includeSubcontract'] = 'includeSubcontract must be a boolean.';
+        } else {
+          validatedMn.includeSubcontract = mn.includeSubcontract;
+        }
+      }
+
+      update.matchNotification = validatedMn;
     }
   }
 

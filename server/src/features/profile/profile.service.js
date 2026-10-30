@@ -11,7 +11,13 @@ import { User } from '#models/index.js';
 export async function updateProfile(userId, fields) {
   const setOps = {};
   for (const [key, value] of Object.entries(fields)) {
-    setOps[`profile.${key}`] = value;
+    if (key === 'matchNotification' && typeof value === 'object' && value !== null) {
+      for (const [subKey, subVal] of Object.entries(value)) {
+        setOps[`profile.matchNotification.${subKey}`] = subVal;
+      }
+    } else {
+      setOps[`profile.${key}`] = value;
+    }
   }
 
   // Cross-field validation when only one of min/max is sent: we have to
