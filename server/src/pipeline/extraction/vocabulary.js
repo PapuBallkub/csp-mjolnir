@@ -113,7 +113,13 @@ export async function resolveTechnologies(items, { projectId, dryRun = false }) 
     }
 
     const duplicate = technologies.some((t) => t.name === match.name && t.version === match.version);
-    if (!duplicate) technologies.push({ name: match.name, version: match.version });
+    if (!duplicate) {
+      technologies.push({
+        name: match.name,
+        version: match.version,
+        allowsEquivalent: typeof item?.allowsEquivalent === 'boolean' ? item.allowsEquivalent : null,
+      });
+    }
   }
   return { technologies, unknown };
 }

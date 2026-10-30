@@ -346,9 +346,16 @@ export const extractSchema = {
               quote: { type: Type.STRING, description: QUOTE },
               name: { type: Type.STRING, description: 'The name as written, without the version, e.g. "Windows Server".' },
               version: { type: Type.STRING, nullable: true, description: 'e.g. "2019"; null when none is required.' },
+              allowsEquivalent: {
+                type: Type.BOOLEAN,
+                nullable: true,
+                description:
+                  'True if the TOR explicitly permits equivalent alternatives (e.g. "หรือเทียบเท่า" or "or equivalent"); ' +
+                  'false if the technology is strictly locked or mandated without permitting equivalents.',
+              },
             },
-            required: ['quote', 'name', 'version'],
-            propertyOrdering: ['quote', 'name', 'version'],
+            required: ['quote', 'name', 'version', 'allowsEquivalent'],
+            propertyOrdering: ['quote', 'name', 'version', 'allowsEquivalent'],
           },
         },
         requiredCapabilities: list('Capabilities the solution must have, e.g. "รองรับ Single Sign-On".'),

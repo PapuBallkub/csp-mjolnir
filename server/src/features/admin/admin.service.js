@@ -1651,9 +1651,9 @@ export async function getPipelineRecordDiagnostics(projectId) {
             extractedTechnologies: insight.facts?.requiredTechStack || [],
             lockSpecRisk:
               insight.lockSpecAnalysis?.riskLevel ||
-              (insight.analytics?.lockSpec?.riskScore > 60
+              (insight.analytics?.lockSpec?.riskScore >= 70
                 ? 'high'
-                : insight.analytics?.lockSpec?.riskScore > 30
+                : insight.analytics?.lockSpec?.riskScore >= 35
                 ? 'medium'
                 : 'low'),
           }

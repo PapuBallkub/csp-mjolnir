@@ -30,6 +30,7 @@ const comparableProjectSchema = new mongoose.Schema(
     title: { type: String, required: true },
     year: { type: Number, required: true },
     referencePriceTHB: { type: Number, required: true },
+    agreedPriceTHB: { type: Number, default: null },
   },
   { _id: false },
 );
@@ -54,6 +55,7 @@ const technologySchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     version: { type: String, default: null, trim: true },
+    allowsEquivalent: { type: Boolean, default: null },
   },
   { _id: false },
 );
@@ -221,9 +223,19 @@ const torInsightSchema = new mongoose.Schema(
         findings: [findingSchema],
       },
       priceAnalysis: {
-        referencePriceTHB: { type: Number, default: 0 },
-        historicalMedianTHB: { type: Number, default: 0 },
-        diffPercentage: { type: Number, default: 0 },
+        referencePriceTHB: { type: Number, default: null },
+        historicalMedianTHB: { type: Number, default: null },
+        historicalAverageTHB: { type: Number, default: null },
+        diffAmountTHB: { type: Number, default: null },
+        diffPercentage: { type: Number, default: null },
+        diffAverageAmountTHB: { type: Number, default: null },
+        diffAveragePercentage: { type: Number, default: null },
+        sampleSize: { type: Number, default: 0 },
+        reliability: {
+          type: String,
+          enum: ['none', 'low', 'sufficient'],
+          default: 'none',
+        },
         interpretation: { type: String, default: '', trim: true },
         comparableProjects: [comparableProjectSchema],
       },
