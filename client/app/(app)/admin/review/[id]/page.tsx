@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -20,10 +20,14 @@ import { SignInPrompt } from "../../../../_components/sign-in-prompt";
 import { btn, EmptyState, input, Label, Panel, SectionHeading, textarea } from "../../../../_components/ui";
 import {
   DynamicListEditor,
+  EditSummaryConfirmModal,
+  type EditDiffItem,
   EvidenceGroundingDrawer,
   KeyValueListEditor,
   VersionHistoryDrawer,
 } from "./ReviewEditorComponents";
+import PdfPreviewModal from "../../../../_components/PdfPreviewModal";
+import { getEgpAnnouncementUrl } from "../../../../_lib/format";
 
 function confidenceTone(value: number): string {
   if (value < 0.7) return "bg-risk text-white";
@@ -55,6 +59,53 @@ function FieldConfidenceBadge({
       <span>{pct}%</span>
     </span>
   );
+}
+
+function FieldHeader({
+  label,
+  fieldKey,
+  diffItem,
+  onRevert,
+  htmlFor,
+  confidenceBadge,
+  lang = "th",
+}: {
+  label: string;
+  fieldKey?: string;
+  diffItem?: EditDiffItem;
+  onRevert?: (fieldKey: string) => void;
+  htmlFor?: string;
+  confidenceBadge?: React.ReactNode;
+  lang?: "th" | "en";
+}) {
+  return (
+    <div className="mb-1 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <Label htmlFor={htmlFor}>{label}</Label>
+        {diffItem && fieldKey && (
+          <span className="inline-flex items-center gap-1 rounded-[2px] bg-amend-bg border border-amend-line px-1.5 py-0.2 text-[10.5px] font-semibold text-amend">
+            <span>●</span>
+            <span>{lang === "th" ? "แก้ไขแล้ว" : "Modified"}</span>
+            {onRevert && (
+              <button
+                type="button"
+                onClick={() => onRevert(fieldKey)}
+                className="ml-0.5 text-amend hover:underline cursor-pointer"
+                title={lang === "th" ? "คืนค่าเดิม" : "Revert to original"}
+              >
+                ↺
+              </button>
+            )}
+          </span>
+        )}
+      </div>
+      {confidenceBadge}
+    </div>
+  );
+}
+
+function modInput(isMod: boolean | undefined) {
+  return isMod ? "border-amend/80 bg-amend-bg/15 ring-1 ring-amend/60 focus:border-amend focus:ring-amend" : "";
 }
 
 function parseNumberInput(val: string): { valid: boolean; value: number | null } {
@@ -99,7 +150,7 @@ const SECTIONS_LIST = [
   { id: "sec-integration", labelTh: "6. ระบบเดิมและสภาพแวดล้อม", labelEn: "6. Integration" },
   { id: "sec-ops", labelTh: "7. การติดตั้งและบำรุงรักษา", labelEn: "7. Operations" },
   { id: "sec-eligibility", labelTh: "8. คุณสมบัติผู้ยื่นข้อเสนอ", labelEn: "8. Eligibility" },
-  { id: "sec-contract", labelTh: "9. เงื่อนไขสัญญา", labelEn: "9. Contract Terms" },
+  { id: "sec-contract", labelTh: "9. เงื่อนไขสัญญา", labelEn: "9. Contract" },
   { id: "sec-amendments", labelTh: "10. ประวัติการแก้ไข", labelEn: "10. Amendments" },
 ];
 
@@ -216,6 +267,9 @@ export default function DedicatedReviewPage({
   const [isReExtracting, setIsReExtracting] = useState(false);
   const [reExtractNotice, setReExtractNotice] = useState<string | null>(null);
 
+  // Edit Summary & Confirmation Alert Modal
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
   const [showReclassifyModal, setShowReclassifyModal] = useState(false);
   const [reclassifyReason, setReclassifyReason] = useState("");
   const [isReclassifying, setIsReclassifying] = useState(false);
@@ -228,6 +282,9 @@ export default function DedicatedReviewPage({
 
   // Evidence grounding drawer states (NFR-17)
   const [showEvidenceDrawer, setShowEvidenceDrawer] = useState(false);
+
+  // PDF Preview modal state
+  const [showPdfModal, setShowPdfModal] = useState(false);
 
   // Active section scroll tracking
   const [activeSection, setActiveSection] = useState("sec-identification");
@@ -254,17 +311,22 @@ export default function DedicatedReviewPage({
   };
 
   const handleRollback = async (version: number) => {
-    if (!confirm(lang === "th" ? `ยืนยันการย้อนกลับเนื้อหา TOR เป็นเวอร์ชัน v${version}?` : `Rollback TOR content to version v${version}?`)) {
-      return;
-    }
     setIsRollingBack(true);
     setErrorMessage(null);
     const res = await adminRollbackTorVersion(projectId, version);
     setIsRollingBack(false);
     if (res.ok) {
       setShowVersionDrawer(false);
-      // Reload review item to reflect rolled-back fields
-      window.location.reload();
+      // Cleanly re-populate review item and form state in-place
+      const freshRes = await adminGetReviewItem(projectId);
+      if (freshRes.ok) {
+        setData(freshRes.data.item);
+        applyItemToForm(freshRes.data.item);
+      }
+      loadVersions();
+      setSaveSuccess(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => setSaveSuccess(false), 6000);
     } else {
       setErrorMessage(res.error?.message || "Rollback failed");
     }
@@ -307,6 +369,124 @@ export default function DedicatedReviewPage({
     return match?.confidence ?? (data?.extraction ?? fallback);
   };
 
+  const applyItemToForm = useCallback((item: GetReviewItemResult["item"]) => {
+    const det = item.details || {};
+
+    // 1. Identification
+    setTitle(item.title || "");
+    setTitleEn(det.titleEn || "");
+    setAgency(item.agency || "");
+    setDepartment(det.department || "");
+    setCategory(det.category || "software-development");
+    setStatus(det.status || "Open");
+
+    // 2. Key Facts
+    setBudgetTHB(item.budgetTHB != null ? String(item.budgetTHB) : "");
+    setReferencePriceTHB(item.referencePriceTHB != null ? String(item.referencePriceTHB) : "");
+    setSubmissionDeadline(toDateInputValue(item.submissionDeadline));
+    setCommentDeadline(toDateInputValue(det.commentDeadline));
+    setDeliveryPeriodDays(det.deliveryPeriodDays != null ? String(det.deliveryPeriodDays) : "");
+    setProcurementMethod(det.procurementMethod || "");
+    setContractDurationDays(
+      det.contractDurationDays != null ? String(det.contractDurationDays) : ""
+    );
+    setWarrantyYears(det.warrantyYears != null ? String(det.warrantyYears) : "");
+    setPenaltyClause(det.penaltyClause || "");
+    setPostedDate(toDateInputValue(det.postedDate));
+
+    // 3. Project Overview
+    setObjective(det.objective || "");
+    setSystemArchetype(det.systemArchetype || "");
+    setComplexityTier(det.complexityTier || "");
+    setHighLevelScope(det.highLevelScope || "");
+    setMajorComponents(det.majorComponents || []);
+
+    // 4. Deliverables
+    setDeliverablesSystem(det.deliverables?.system || []);
+    setDeliverablesImplementation(det.deliverables?.implementation || []);
+    setDeliverablesValidation(det.deliverables?.validation || []);
+    setDeliverablesSupportingWork(det.deliverables?.supportingWork || []);
+
+    // 5. Technical Requirements
+    const initialTechVersions: Record<string, string> = {};
+    const techList: string[] = [];
+    if (det.technologiesList && Array.isArray(det.technologiesList)) {
+      det.technologiesList.forEach((t) => {
+        if (t?.name) {
+          techList.push(t.name);
+          if (t.version) initialTechVersions[t.name] = t.version;
+        }
+      });
+    } else if (det.requiredTechnologies) {
+      det.requiredTechnologies
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .forEach((t) => techList.push(t));
+    }
+    setSelectedTechs(techList);
+    setTechVersions(initialTechVersions);
+
+    setRequiredCapabilities(det.requiredCapabilities || []);
+    setInfrastructureSpecs(
+      (det.infrastructureSpecifications || []).map((s) => ({
+        key: s.item,
+        value: s.specification,
+      }))
+    );
+    setTechnicalConstraints(
+      (det.technicalConstraints || []).map((c) => ({
+        key: c.metric,
+        value: c.value,
+      }))
+    );
+
+    // 6. Integration Environment
+    setExistingSystems(det.integrationEnvironment?.existingSystems || []);
+    setInterfacesAndApis(det.integrationEnvironment?.interfacesAndApis || []);
+    setDataMigrationNotes(det.integrationEnvironment?.dataMigrationNotes || "");
+    setDeploymentLocation(det.integrationEnvironment?.deploymentLocation || "");
+
+    // 7. Operational Requirements
+    setInstallationAndConfig(det.operationalRequirements?.installationAndConfig || []);
+    setTraining(det.operationalRequirements?.training || []);
+    setTechnicalSupportAndSla(det.operationalRequirements?.technicalSupportAndSla || "");
+    setMaintenance(det.operationalRequirements?.maintenance || []);
+
+    // 8. Eligibility
+    if (Array.isArray(det.companyRequirements)) {
+      setCompanyReqs(det.companyRequirements);
+    } else if (det.companyRequirements) {
+      setCompanyReqs(
+        String(det.companyRequirements)
+          .split("\n")
+          .map((s) => s.trim().replace(/^[-*•\d.]+\s*/, ""))
+          .filter(Boolean)
+      );
+    } else {
+      setCompanyReqs([]);
+    }
+    setRequiredCertifications(det.requiredCertifications || []);
+    setManufacturerAuthorizations(det.manufacturerAuthorizations || []);
+    setPersonnelQualifications(det.personnelQualifications || []);
+    setPreviousExperience(det.previousExperience || "");
+    setPreviousExperienceMinTHB(
+      det.previousExperienceMinTHB != null ? String(det.previousExperienceMinTHB) : ""
+    );
+
+    // 9. Contract Conditions
+    setPaymentTerms(det.paymentTerms || "");
+    setDeliveryConditions(det.deliveryConditions || "");
+    setEvaluationMethod(det.evaluationMethod || "");
+
+    // 10. Amendment Info
+    setIsAmended(Boolean(det.amendmentInfo?.isAmended));
+    setAmendmentSummary(det.amendmentInfo?.amendmentSummary || "");
+    setChangedSections(det.amendmentInfo?.changedSections || []);
+
+    setCurrentVersion(det.version || 1);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     async function loadItem() {
@@ -336,121 +516,7 @@ export default function DedicatedReviewPage({
 
       const item = res.data.item;
       setData(item);
-      const det = item.details || {};
-
-      // 1. Identification
-      setTitle(item.title || "");
-      setTitleEn(det.titleEn || "");
-      setAgency(item.agency || "");
-      setDepartment(det.department || "");
-      setCategory(det.category || "software-development");
-      setStatus(det.status || "Open");
-
-      // 2. Key Facts
-      setBudgetTHB(item.budgetTHB != null ? String(item.budgetTHB) : "");
-      setReferencePriceTHB(item.referencePriceTHB != null ? String(item.referencePriceTHB) : "");
-      setSubmissionDeadline(toDateInputValue(item.submissionDeadline));
-      setCommentDeadline(toDateInputValue(det.commentDeadline));
-      setDeliveryPeriodDays(det.deliveryPeriodDays != null ? String(det.deliveryPeriodDays) : "");
-      setProcurementMethod(det.procurementMethod || "");
-      setContractDurationDays(
-        det.contractDurationDays != null ? String(det.contractDurationDays) : ""
-      );
-      setWarrantyYears(det.warrantyYears != null ? String(det.warrantyYears) : "");
-      setPenaltyClause(det.penaltyClause || "");
-      setPostedDate(toDateInputValue(det.postedDate));
-
-      // 3. Project Overview
-      setObjective(det.objective || "");
-      setSystemArchetype(det.systemArchetype || "");
-      setComplexityTier(det.complexityTier || "");
-      setHighLevelScope(det.highLevelScope || "");
-      setMajorComponents(det.majorComponents || []);
-
-      // 4. Deliverables
-      setDeliverablesSystem(det.deliverables?.system || []);
-      setDeliverablesImplementation(det.deliverables?.implementation || []);
-      setDeliverablesValidation(det.deliverables?.validation || []);
-      setDeliverablesSupportingWork(det.deliverables?.supportingWork || []);
-
-      // 5. Technical Requirements
-      const initialTechVersions: Record<string, string> = {};
-      const techList: string[] = [];
-      if (det.technologiesList && Array.isArray(det.technologiesList)) {
-        det.technologiesList.forEach((t) => {
-          if (t?.name) {
-            techList.push(t.name);
-            if (t.version) initialTechVersions[t.name] = t.version;
-          }
-        });
-      } else if (det.requiredTechnologies) {
-        det.requiredTechnologies
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
-          .forEach((t) => techList.push(t));
-      }
-      setSelectedTechs(techList);
-      setTechVersions(initialTechVersions);
-
-      setRequiredCapabilities(det.requiredCapabilities || []);
-      setInfrastructureSpecs(
-        (det.infrastructureSpecifications || []).map((s) => ({
-          key: s.item,
-          value: s.specification,
-        }))
-      );
-      setTechnicalConstraints(
-        (det.technicalConstraints || []).map((c) => ({
-          key: c.metric,
-          value: c.value,
-        }))
-      );
-
-      // 6. Integration Environment
-      setExistingSystems(det.integrationEnvironment?.existingSystems || []);
-      setInterfacesAndApis(det.integrationEnvironment?.interfacesAndApis || []);
-      setDataMigrationNotes(det.integrationEnvironment?.dataMigrationNotes || "");
-      setDeploymentLocation(det.integrationEnvironment?.deploymentLocation || "");
-
-      // 7. Operational Requirements
-      setInstallationAndConfig(det.operationalRequirements?.installationAndConfig || []);
-      setTraining(det.operationalRequirements?.training || []);
-      setTechnicalSupportAndSla(det.operationalRequirements?.technicalSupportAndSla || "");
-      setMaintenance(det.operationalRequirements?.maintenance || []);
-
-      // 8. Eligibility
-      if (Array.isArray(det.companyRequirements)) {
-        setCompanyReqs(det.companyRequirements);
-      } else if (det.companyRequirements) {
-        setCompanyReqs(
-          String(det.companyRequirements)
-            .split("\n")
-            .map((s) => s.trim().replace(/^[-*•\d.]+\s*/, ""))
-            .filter(Boolean)
-        );
-      } else {
-        setCompanyReqs([]);
-      }
-      setRequiredCertifications(det.requiredCertifications || []);
-      setManufacturerAuthorizations(det.manufacturerAuthorizations || []);
-      setPersonnelQualifications(det.personnelQualifications || []);
-      setPreviousExperience(det.previousExperience || "");
-      setPreviousExperienceMinTHB(
-        det.previousExperienceMinTHB != null ? String(det.previousExperienceMinTHB) : ""
-      );
-
-      // 9. Contract Conditions
-      setPaymentTerms(det.paymentTerms || "");
-      setDeliveryConditions(det.deliveryConditions || "");
-      setEvaluationMethod(det.evaluationMethod || "");
-
-      // 10. Amendment Info
-      setIsAmended(Boolean(det.amendmentInfo?.isAmended));
-      setAmendmentSummary(det.amendmentInfo?.amendmentSummary || "");
-      setChangedSections(det.amendmentInfo?.changedSections || []);
-
-      setCurrentVersion(det.version || 1);
+      applyItemToForm(item);
       setLoading(false);
     }
 
@@ -458,9 +524,372 @@ export default function DedicatedReviewPage({
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, applyItemToForm]);
 
-  async function handleSaveAndPublish(e: React.FormEvent) {
+  const diffs = useMemo<EditDiffItem[]>(() => {
+    if (!data) return [];
+    const det = data.details || {};
+    const result: EditDiffItem[] = [];
+
+    const check = (
+      section: string,
+      field: string,
+      labelTh: string,
+      labelEn: string,
+      before: string | number | null | undefined,
+      after: string | number | null | undefined
+    ) => {
+      const b = before == null ? "" : String(before).trim();
+      const a = after == null ? "" : String(after).trim();
+      if (b !== a) {
+        result.push({ section, field, labelTh, labelEn, from: b, to: a });
+      }
+    };
+
+    // 1. Identification
+    check("1. Identification", "title", "ชื่อโครงการ (TH)", "Project Title (TH)", data.title, title.trim());
+    check("1. Identification", "titleEn", "ชื่อโครงการ (EN)", "Project Title (EN)", det.titleEn, titleEn.trim());
+    check("1. Identification", "agency", "หน่วยงานจัดจ้าง", "Agency", data.agency, agency.trim());
+    check("1. Identification", "department", "สำนัก/กอง/ส่วนงาน", "Department", det.department, department.trim());
+    check("1. Identification", "category", "หมวดหมู่โครงการ", "Category", det.category, category);
+    check("1. Identification", "status", "สถานะโครงการ", "Status", det.status, status);
+
+    // 2. Key Facts
+    check("2. Key Facts", "budgetTHB", "งบประมาณ (บาท)", "Approved Budget (THB)", data.budgetTHB, budgetCheck.value);
+    check("2. Key Facts", "referencePriceTHB", "ราคากลาง (บาท)", "Reference Price (THB)", data.referencePriceTHB, refPriceCheck.value);
+    check("2. Key Facts", "submissionDeadline", "วันสิ้นสุดรับซอง", "Submission Deadline", toDateInputValue(data.submissionDeadline), submissionDeadline);
+    check("2. Key Facts", "commentDeadline", "วันสิ้นสุดรับฟังคำวิจารณ์", "Comment Deadline", toDateInputValue(det.commentDeadline), commentDeadline);
+    check("2. Key Facts", "deliveryPeriodDays", "ระยะเวลาส่งมอบ (วัน)", "Delivery Period (Days)", det.deliveryPeriodDays, deliveryPeriodCheck.value);
+    check("2. Key Facts", "procurementMethod", "วิธีการจัดซื้อจัดจ้าง", "Procurement Method", det.procurementMethod, procurementMethod.trim());
+    check("2. Key Facts", "contractDurationDays", "ระยะเวลาสัญญา (วัน)", "Contract Duration (Days)", det.contractDurationDays, durationCheck.value);
+    check("2. Key Facts", "warrantyYears", "ระยะเวลารับประกัน (ปี)", "Warranty (Years)", det.warrantyYears, warrantyCheck.value);
+    check("2. Key Facts", "penaltyClause", "เงื่อนไขค่าปรับ", "Penalty Clause", det.penaltyClause, penaltyClause.trim());
+    check("2. Key Facts", "postedDate", "วันที่ประกาศ", "Posted Date", toDateInputValue(det.postedDate), postedDate);
+
+    // 3. Project Overview
+    check("3. Overview", "objective", "วัตถุประสงค์", "Objective", det.objective, objective.trim());
+    check("3. Overview", "systemArchetype", "ประเภทระบบ", "System Archetype", det.systemArchetype, systemArchetype.trim());
+    check("3. Overview", "complexityTier", "ระดับความซับซ้อน", "Complexity Tier", det.complexityTier, complexityTier.trim());
+    check("3. Overview", "highLevelScope", "ขอบเขตงานภาพรวม", "High-level Scope", det.highLevelScope, highLevelScope.trim());
+    check("3. Overview", "majorComponents", "องค์ประกอบสำคัญ", "Major Components", (det.majorComponents || []).join(", "), majorComponents.filter(Boolean).join(", "));
+
+    // 4. Deliverables
+    check("4. Deliverables", "deliverables.system", "งานส่งมอบระบบหลัก", "System Deliverables", (det.deliverables?.system || []).join("; "), deliverablesSystem.filter(Boolean).join("; "));
+    check("4. Deliverables", "deliverables.implementation", "งานติดตั้งและบริการ", "Implementation Deliverables", (det.deliverables?.implementation || []).join("; "), deliverablesImplementation.filter(Boolean).join("; "));
+    check("4. Deliverables", "deliverables.validation", "งานทดสอบและตรวจรับ", "Validation Deliverables", (det.deliverables?.validation || []).join("; "), deliverablesValidation.filter(Boolean).join("; "));
+    check("4. Deliverables", "deliverables.supportingWork", "งานสนับสนุนและอบรม", "Supporting Work", (det.deliverables?.supportingWork || []).join("; "), deliverablesSupportingWork.filter(Boolean).join("; "));
+
+    // 5. Technical Requirements
+    const origTechs = (det.technologiesList?.map((t) => t.name) || (det.requiredTechnologies ? det.requiredTechnologies.split(",").map((s) => s.trim()).filter(Boolean) : [])).join(", ");
+    check("5. Tech Stack", "requiredTechnologies", "เทคโนโลยีที่กำหนด", "Required Tech", origTechs, selectedTechs.join(", "));
+    check("5. Tech Stack", "requiredCapabilities", "ความสามารถทางเทคนิค", "Required Capabilities", (det.requiredCapabilities || []).join("; "), requiredCapabilities.filter(Boolean).join("; "));
+    const origInfra = (det.infrastructureSpecifications || []).map((s: { item: string; specification: string }) => `${s.item}: ${s.specification}`).join("; ");
+    const currInfra = infrastructureSpecs.map((s) => `${s.key}: ${s.value}`).join("; ");
+    check("5. Tech Stack", "infrastructureSpecifications", "คุณลักษณะฮาร์ดแวร์/อุปกรณ์", "Infrastructure Specs", origInfra, currInfra);
+    const origConstraints = (det.technicalConstraints || []).map((c: { metric: string; value: string }) => `${c.metric}: ${c.value}`).join("; ");
+    const currConstraints = technicalConstraints.map((c) => `${c.key}: ${c.value}`).join("; ");
+    check("5. Tech Stack", "technicalConstraints", "ข้อจำกัดทางเทคนิค", "Technical Constraints", origConstraints, currConstraints);
+
+    // 6. Integration Environment
+    check("6. Integration", "existingSystems", "ระบบเดิมที่เชื่อมต่อ", "Existing Systems", (det.integrationEnvironment?.existingSystems || []).join("; "), existingSystems.filter(Boolean).join("; "));
+    check("6. Integration", "interfacesAndApis", "อินเทอร์เฟซและ API", "Interfaces & APIs", (det.integrationEnvironment?.interfacesAndApis || []).join("; "), interfacesAndApis.filter(Boolean).join("; "));
+    check("6. Integration", "deploymentLocation", "สถานที่ติดตั้ง/ระบบคลาวด์", "Deployment Location", det.integrationEnvironment?.deploymentLocation, deploymentLocation.trim());
+    check("6. Integration", "dataMigrationNotes", "การโอนย้ายข้อมูล", "Data Migration", det.integrationEnvironment?.dataMigrationNotes, dataMigrationNotes.trim());
+
+    // 7. Operational Requirements
+    check("7. Operations", "installationAndConfig", "ข้อกำหนดการติดตั้ง", "Installation & Config", (det.operationalRequirements?.installationAndConfig || []).join("; "), installationAndConfig.filter(Boolean).join("; "));
+    check("7. Operations", "training", "การฝึกอบรม", "Training Curriculum", (det.operationalRequirements?.training || []).join("; "), training.filter(Boolean).join("; "));
+    check("7. Operations", "technicalSupportAndSla", "การซัพพอร์ตและ SLA", "Technical Support & SLA", det.operationalRequirements?.technicalSupportAndSla, technicalSupportAndSla.trim());
+    check("7. Operations", "maintenance", "การบำรุงรักษา", "Maintenance", (det.operationalRequirements?.maintenance || []).join("; "), maintenance.filter(Boolean).join("; "));
+
+    // 8. Eligibility
+    const origCompany = Array.isArray(det.companyRequirements) ? det.companyRequirements.join("; ") : (det.companyRequirements || "");
+    check("8. Eligibility", "companyRequirements", "คุณสมบัติบริษัท", "Company Requirements", origCompany, companyReqs.filter(Boolean).join("; "));
+    check("8. Eligibility", "requiredCertifications", "มาตรฐานและใบรับรอง", "Required Certifications", (det.requiredCertifications || []).join("; "), requiredCertifications.filter(Boolean).join("; "));
+    check("8. Eligibility", "manufacturerAuthorizations", "หนังสือแต่งตั้งตัวแทนจำหน่าย", "Manufacturer Authorizations", (det.manufacturerAuthorizations || []).join("; "), manufacturerAuthorizations.filter(Boolean).join("; "));
+    check("8. Eligibility", "personnelQualifications", "คุณสมบัติบุคลากร", "Personnel Qualifications", (det.personnelQualifications || []).join("; "), personnelQualifications.filter(Boolean).join("; "));
+    check("8. Eligibility", "previousExperienceMinTHB", "มูลค่าผลงานขั้นต่ำ (บาท)", "Min Experience (THB)", det.previousExperienceMinTHB, minExpCheck.value);
+    check("8. Eligibility", "previousExperience", "เงื่อนไขผลงานที่ผ่านมา", "Previous Experience", det.previousExperience, previousExperience.trim());
+
+    // 9. Contract Conditions
+    check("9. Contract", "paymentTerms", "การจ่ายเงินและงวดงาน", "Payment Terms", det.paymentTerms, paymentTerms.trim());
+    check("9. Contract", "deliveryConditions", "เงื่อนไขการส่งมอบ", "Delivery Conditions", det.deliveryConditions, deliveryConditions.trim());
+    check("9. Contract", "evaluationMethod", "เกณฑ์การพิจารณา", "Evaluation Method", det.evaluationMethod, evaluationMethod.trim());
+
+    // 10. Amendment Info
+    check("10. Amendments", "isAmended", "สถานะการแก้ไข (Amended)", "Is Amended Flag", Boolean(det.amendmentInfo?.isAmended) ? "Yes" : "No", isAmended ? "Yes" : "No");
+    check("10. Amendments", "amendmentSummary", "สรุปประเด็นการแก้ไข", "Amendment Summary", det.amendmentInfo?.amendmentSummary, amendmentSummary.trim());
+    check("10. Amendments", "changedSections", "ส่วนที่แก้ไข", "Changed Sections", (det.amendmentInfo?.changedSections || []).join("; "), changedSections.filter(Boolean).join("; "));
+
+    return result;
+  }, [
+    data,
+    title,
+    titleEn,
+    agency,
+    department,
+    category,
+    status,
+    budgetCheck.value,
+    refPriceCheck.value,
+    submissionDeadline,
+    commentDeadline,
+    deliveryPeriodCheck.value,
+    procurementMethod,
+    durationCheck.value,
+    warrantyCheck.value,
+    penaltyClause,
+    postedDate,
+    objective,
+    systemArchetype,
+    complexityTier,
+    highLevelScope,
+    majorComponents,
+    deliverablesSystem,
+    deliverablesImplementation,
+    deliverablesValidation,
+    deliverablesSupportingWork,
+    selectedTechs,
+    requiredCapabilities,
+    infrastructureSpecs,
+    technicalConstraints,
+    existingSystems,
+    interfacesAndApis,
+    deploymentLocation,
+    dataMigrationNotes,
+    installationAndConfig,
+    training,
+    technicalSupportAndSla,
+    maintenance,
+    companyReqs,
+    requiredCertifications,
+    manufacturerAuthorizations,
+    personnelQualifications,
+    minExpCheck.value,
+    previousExperience,
+    paymentTerms,
+    deliveryConditions,
+    evaluationMethod,
+    isAmended,
+    amendmentSummary,
+    changedSections,
+  ]);
+
+  const diffsByField = useMemo(() => {
+    const map: Record<string, EditDiffItem> = {};
+    for (const d of diffs) {
+      map[d.field] = d;
+    }
+    return map;
+  }, [diffs]);
+
+  const diffsBySection = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const d of diffs) {
+      map[d.section] = (map[d.section] || 0) + 1;
+    }
+    return map;
+  }, [diffs]);
+
+  const handleRevertField = useCallback(
+    (fieldKey: string) => {
+      if (!data) return;
+      const det = data.details || {};
+      switch (fieldKey) {
+        case "title":
+          setTitle(data.title || "");
+          break;
+        case "titleEn":
+          setTitleEn(det.titleEn || "");
+          break;
+        case "agency":
+          setAgency(data.agency || "");
+          break;
+        case "department":
+          setDepartment(det.department || "");
+          break;
+        case "category":
+          setCategory(det.category || "software-development");
+          break;
+        case "status":
+          setStatus(det.status || "Open");
+          break;
+        case "budgetTHB":
+          setBudgetTHB(data.budgetTHB != null ? String(data.budgetTHB) : "");
+          break;
+        case "referencePriceTHB":
+          setReferencePriceTHB(data.referencePriceTHB != null ? String(data.referencePriceTHB) : "");
+          break;
+        case "submissionDeadline":
+          setSubmissionDeadline(toDateInputValue(data.submissionDeadline));
+          break;
+        case "commentDeadline":
+          setCommentDeadline(toDateInputValue(det.commentDeadline));
+          break;
+        case "deliveryPeriodDays":
+          setDeliveryPeriodDays(det.deliveryPeriodDays != null ? String(det.deliveryPeriodDays) : "");
+          break;
+        case "procurementMethod":
+          setProcurementMethod(det.procurementMethod || "");
+          break;
+        case "contractDurationDays":
+          setContractDurationDays(det.contractDurationDays != null ? String(det.contractDurationDays) : "");
+          break;
+        case "warrantyYears":
+          setWarrantyYears(det.warrantyYears != null ? String(det.warrantyYears) : "");
+          break;
+        case "penaltyClause":
+          setPenaltyClause(det.penaltyClause || "");
+          break;
+        case "postedDate":
+          setPostedDate(toDateInputValue(det.postedDate));
+          break;
+        case "objective":
+          setObjective(det.objective || "");
+          break;
+        case "systemArchetype":
+          setSystemArchetype(det.systemArchetype || "");
+          break;
+        case "complexityTier":
+          setComplexityTier(det.complexityTier || "");
+          break;
+        case "highLevelScope":
+          setHighLevelScope(det.highLevelScope || "");
+          break;
+        case "majorComponents":
+          setMajorComponents(det.majorComponents || []);
+          break;
+        case "deliverables.system":
+          setDeliverablesSystem(det.deliverables?.system || []);
+          break;
+        case "deliverables.implementation":
+          setDeliverablesImplementation(det.deliverables?.implementation || []);
+          break;
+        case "deliverables.validation":
+          setDeliverablesValidation(det.deliverables?.validation || []);
+          break;
+        case "deliverables.supportingWork":
+          setDeliverablesSupportingWork(det.deliverables?.supportingWork || []);
+          break;
+        case "requiredTechnologies": {
+          const techList: string[] = [];
+          if (det.technologiesList && Array.isArray(det.technologiesList)) {
+            det.technologiesList.forEach((t) => {
+              if (t?.name) techList.push(t.name);
+            });
+          } else if (det.requiredTechnologies) {
+            det.requiredTechnologies
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .forEach((t) => techList.push(t));
+          }
+          setSelectedTechs(techList);
+          break;
+        }
+        case "requiredCapabilities":
+          setRequiredCapabilities(det.requiredCapabilities || []);
+          break;
+        case "deploymentLocation":
+          setDeploymentLocation(det.integrationEnvironment?.deploymentLocation || "");
+          break;
+        case "dataMigrationNotes":
+          setDataMigrationNotes(det.integrationEnvironment?.dataMigrationNotes || "");
+          break;
+        case "technicalSupportAndSla":
+          setTechnicalSupportAndSla(det.operationalRequirements?.technicalSupportAndSla || "");
+          break;
+        case "companyRequirements":
+          if (Array.isArray(det.companyRequirements)) {
+            setCompanyReqs(det.companyRequirements);
+          } else if (det.companyRequirements) {
+            setCompanyReqs(
+              String(det.companyRequirements)
+                .split("\n")
+                .map((s) => s.trim().replace(/^[-*•\d.]+\s*/, ""))
+                .filter(Boolean)
+            );
+          } else {
+            setCompanyReqs([]);
+          }
+          break;
+        case "previousExperienceMinTHB":
+          setPreviousExperienceMinTHB(det.previousExperienceMinTHB != null ? String(det.previousExperienceMinTHB) : "");
+          break;
+        case "previousExperience":
+          setPreviousExperience(det.previousExperience || "");
+          break;
+        case "infrastructureSpecifications":
+          setInfrastructureSpecs(
+            (det.infrastructureSpecifications || []).map((s: { item: string; specification: string }) => ({
+              key: s.item,
+              value: s.specification,
+            }))
+          );
+          break;
+        case "technicalConstraints":
+          setTechnicalConstraints(
+            (det.technicalConstraints || []).map((c: { metric: string; value: string }) => ({
+              key: c.metric,
+              value: c.value,
+            }))
+          );
+          break;
+        case "existingSystems":
+          setExistingSystems(det.integrationEnvironment?.existingSystems || []);
+          break;
+        case "interfacesAndApis":
+          setInterfacesAndApis(det.integrationEnvironment?.interfacesAndApis || []);
+          break;
+        case "installationAndConfig":
+          setInstallationAndConfig(det.operationalRequirements?.installationAndConfig || []);
+          break;
+        case "training":
+          setTraining(det.operationalRequirements?.training || []);
+          break;
+        case "maintenance":
+          setMaintenance(det.operationalRequirements?.maintenance || []);
+          break;
+        case "requiredCertifications":
+          setRequiredCertifications(det.requiredCertifications || []);
+          break;
+        case "manufacturerAuthorizations":
+          setManufacturerAuthorizations(det.manufacturerAuthorizations || []);
+          break;
+        case "personnelQualifications":
+          setPersonnelQualifications(det.personnelQualifications || []);
+          break;
+        case "paymentTerms":
+          setPaymentTerms(det.paymentTerms || "");
+          break;
+        case "deliveryConditions":
+          setDeliveryConditions(det.deliveryConditions || "");
+          break;
+        case "evaluationMethod":
+          setEvaluationMethod(det.evaluationMethod || "");
+          break;
+        case "isAmended":
+          setIsAmended(Boolean(det.amendmentInfo?.isAmended));
+          break;
+        case "amendmentSummary":
+          setAmendmentSummary(det.amendmentInfo?.amendmentSummary || "");
+          break;
+        case "changedSections":
+          setChangedSections(det.amendmentInfo?.changedSections || []);
+          break;
+        default:
+          break;
+      }
+    },
+    [data]
+  );
+
+  const handleDiscardAll = useCallback(() => {
+    if (!data) return;
+    applyItemToForm(data);
+  }, [data, applyItemToForm]);
+
+  function handleSaveAndPublish(e: React.FormEvent) {
     e.preventDefault();
 
     if (!refPriceCheck.valid) {
@@ -517,6 +946,14 @@ export default function DedicatedReviewPage({
       return;
     }
 
+    setErrorMessage(null);
+    setSaveSuccess(false);
+
+    // Prompt confirmation modal with live calculated diffs
+    setShowConfirmModal(true);
+  }
+
+  async function executeApprove() {
     setIsSaving(true);
     setErrorMessage(null);
     setSaveSuccess(false);
@@ -616,14 +1053,24 @@ export default function DedicatedReviewPage({
       setIsSaving(false);
 
       if (res.ok) {
+        setShowConfirmModal(false);
         setSaveSuccess(true);
+        // Refresh active review item so data matches the newly approved record
+        const freshRes = await adminGetReviewItem(projectId);
+        if (freshRes.ok) {
+          setData(freshRes.data.item);
+          applyItemToForm(freshRes.data.item);
+        }
         loadVersions();
-        setTimeout(() => setSaveSuccess(false), 5000);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        setTimeout(() => setSaveSuccess(false), 6000);
       } else {
+        setShowConfirmModal(false);
         setErrorMessage(res.error?.message || "Failed to update review record");
       }
     } catch (err: unknown) {
       setIsSaving(false);
+      setShowConfirmModal(false);
       setErrorMessage(err instanceof Error ? err.message : "An unexpected error occurred");
     }
   }
@@ -748,57 +1195,72 @@ export default function DedicatedReviewPage({
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       {/* Top Bar Header (offset below App Shell header at 53px) */}
-      <div className="sticky top-[53px] z-20 mb-6 flex flex-col gap-3 rounded-[3px] border border-line bg-surface/95 px-5 py-3.5 backdrop-blur shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="sticky top-[53px] z-20 mb-6 flex flex-col gap-2.5 rounded-[3px] border border-line bg-surface/95 px-4 py-2.5 backdrop-blur shadow-sm xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-wrap items-center gap-2 text-[12px]">
           <Link
             href="/admin?job=review"
-            className="text-[12px] font-medium text-ink-3 hover:text-ink transition-colors flex items-center gap-1"
+            className="text-[12px] font-medium text-ink-3 hover:text-ink transition-colors flex items-center gap-1 shrink-0"
           >
             <span>←</span>
-            <span>{lang === "th" ? "กลับไปคิวตรวจทาน" : "Back to Review Queue"}</span>
+            <span>{lang === "th" ? "คิวตรวจทาน" : "Review Queue"}</span>
           </Link>
           <span className="text-line-2">|</span>
-          <span className="font-mono text-[12px] font-bold text-ink">{projectId}</span>
-          <span className={`rounded-[2px] px-2 py-0.5 text-[11px] font-medium font-mono ${confidenceTone(data.extraction)}`}>
-            {Math.round(data.extraction * 100)}% Confidence
+          <span className="font-mono text-[12px] font-bold text-ink shrink-0">{projectId}</span>
+          <span className={`rounded-[2px] px-2 py-0.5 text-[11px] font-medium font-mono shrink-0 ${confidenceTone(data.extraction)}`}>
+            {Math.round(data.extraction * 100)}%
           </span>
           {currentVersion ? (
             <button
               type="button"
               onClick={() => setShowVersionDrawer(true)}
-              className="rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] font-mono text-ink-2 hover:border-ink hover:text-ink transition-colors cursor-pointer"
+              className="rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] font-mono text-ink-2 hover:border-ink hover:text-ink transition-colors cursor-pointer shrink-0"
               title={lang === "th" ? "ดูประวัติเวอร์ชันและย้อนกลับ" : "View version history and rollback"}
             >
               v{currentVersion} ↗
             </button>
           ) : null}
+          {diffs.length > 0 && (
+            <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-0.5 text-[11px] font-medium text-amend shrink-0 flex items-center gap-1">
+              <span>●</span>
+              <span>{lang === "th" ? `แก้ไข ${diffs.length} รายการ` : `${diffs.length} edited`}</span>
+            </span>
+          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
+          <button
+            type="button"
+            onClick={() => setShowPdfModal(true)}
+            className={`${btn.secondary} text-[11px] h-7 px-2 flex items-center gap-1 shrink-0`}
+            title={lang === "th" ? "พรีวิวเอกสาร PDF ต้นฉบับ" : "Preview original PDF"}
+          >
+            <span>📄</span>
+            <span>{lang === "th" ? "พรีวิว PDF" : "Preview PDF"}</span>
+          </button>
           {data.details?.evidence ? (
             <button
               type="button"
               onClick={() => setShowEvidenceDrawer(true)}
-              className={`${btn.secondary} text-[11px] h-8 px-2.5 flex items-center gap-1`}
+              className={`${btn.secondary} text-[11px] h-7 px-2 flex items-center gap-1 shrink-0`}
             >
-              <span>📄</span>
-              <span>{lang === "th" ? "หลักฐานอ้างอิง TOR" : "Grounding Evidence"}</span>
+              <span>🔍</span>
+              <span>{lang === "th" ? "หลักฐาน TOR" : "Evidence"}</span>
             </button>
           ) : null}
           <a
             href={`/tor/${projectId}`}
             target="_blank"
             rel="noreferrer"
-            className={`${btn.secondary} text-[11px] h-8 px-2.5 flex items-center gap-1`}
+            className={`${btn.secondary} text-[11px] h-7 px-2 flex items-center gap-1 shrink-0`}
           >
-            <span>{lang === "th" ? "ดูหน้าสาธารณะ" : "Public View"}</span>
+            <span>{lang === "th" ? "ดูหน้าเว็บ" : "Public View"}</span>
             <span className="text-[10px] opacity-75">↗</span>
           </a>
           <button
             type="button"
             disabled={isReExtracting}
             onClick={handleReExtractTrigger}
-            className={`${btn.secondary} text-[11px] h-8 px-2.5 text-ink-2`}
+            className={`${btn.secondary} text-[11px] h-7 px-2 text-ink-2 shrink-0`}
           >
             {isReExtracting
               ? lang === "th"
@@ -811,22 +1273,22 @@ export default function DedicatedReviewPage({
           <button
             type="button"
             onClick={() => setShowReclassifyModal(true)}
-            className="rounded-[3px] border border-risk-line bg-risk-bg px-2.5 h-8 text-[11px] font-medium text-risk hover:opacity-85 transition-opacity cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 rounded-[3px] border border-risk-line bg-risk-bg px-3.5 h-9 text-[13px] font-medium text-risk hover:opacity-85 transition-opacity cursor-pointer shrink-0"
           >
-            {lang === "th" ? "คัดออกนอกขอบเขต" : "Reclassify"}
+            {lang === "th" ? "คัดออก" : "Reclassify"}
           </button>
           <button
             type="submit"
             form="review-form"
             disabled={isSaving || hasValidationErrors}
-            className={`${btn.primary} text-[12px] h-8 px-4 font-semibold`}
+            className={`${btn.primary} text-[13px] h-9 px-4 font-semibold shrink-0 cursor-pointer`}
           >
             {isSaving
               ? lang === "th"
                 ? "กำลังบันทึก..."
                 : "Saving..."
               : lang === "th"
-                ? "บันทึกและอนุมัติ (Approve & Publish)"
+                ? "บันทึกและอนุมัติ"
                 : "Approve & Publish"}
           </button>
         </div>
@@ -859,20 +1321,28 @@ export default function DedicatedReviewPage({
             <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-3">
               {lang === "th" ? "หัวข้อข้อมูล TOR ทั้ง 10 ส่วน" : "10 TOR Sections"}
             </span>
-            {SECTIONS_LIST.map((sec) => (
-              <button
-                key={sec.id}
-                type="button"
-                onClick={() => scrollToSection(sec.id)}
-                className={`text-left px-3 py-2 text-[12px] rounded-[2px] transition-colors cursor-pointer truncate ${
-                  activeSection === sec.id
-                    ? "bg-surface-2 font-semibold text-ink border-l-2 border-ink"
-                    : "text-ink-2 hover:bg-surface-2 hover:text-ink"
-                }`}
-              >
-                {lang === "th" ? sec.labelTh : sec.labelEn}
-              </button>
-            ))}
+            {SECTIONS_LIST.map((sec) => {
+              const sectionDiffCount = diffsBySection[sec.labelEn] || 0;
+              return (
+                <button
+                  key={sec.id}
+                  type="button"
+                  onClick={() => scrollToSection(sec.id)}
+                  className={`flex items-center justify-between text-left px-3 py-2 text-[12px] rounded-[2px] transition-colors cursor-pointer ${
+                    activeSection === sec.id
+                      ? "bg-surface-2 font-semibold text-ink border-l-2 border-ink"
+                      : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                  }`}
+                >
+                  <span className="truncate">{lang === "th" ? sec.labelTh : sec.labelEn}</span>
+                  {sectionDiffCount > 0 ? (
+                    <span className="ml-2 rounded-full bg-amend text-surface text-[10px] font-bold px-1.5 py-0.2 shrink-0">
+                      {sectionDiffCount}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -893,71 +1363,100 @@ export default function DedicatedReviewPage({
 
               <div className="mt-4 flex flex-col gap-4">
                 <div>
-                  <div className="mb-1 flex items-center justify-between">
-                    <Label htmlFor="field-title">{lang === "th" ? "ชื่อโครงการ (ภาษาไทย)" : "Project Title (Thai)"}</Label>
-                    <FieldConfidenceBadge confidence={getFieldScore("Title")} lang={lang} />
-                  </div>
+                  <FieldHeader
+                    label={lang === "th" ? "ชื่อโครงการ (ภาษาไทย)" : "Project Title (Thai)"}
+                    fieldKey="title"
+                    htmlFor="field-title"
+                    diffItem={diffsByField["title"]}
+                    onRevert={handleRevertField}
+                    confidenceBadge={<FieldConfidenceBadge confidence={getFieldScore("Title")} lang={lang} />}
+                    lang={lang}
+                  />
                   <input
                     id="field-title"
                     type="text"
                     required
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className={input}
+                    className={`${input} ${modInput(Boolean(diffsByField["title"]))}`}
                   />
                 </div>
 
                 <div>
-                  <div className="mb-1 flex items-center justify-between">
-                    <Label htmlFor="field-title-en">{lang === "th" ? "ชื่อโครงการ (ภาษาอังกฤษ)" : "Project Title (English)"}</Label>
-                  </div>
+                  <FieldHeader
+                    label={lang === "th" ? "ชื่อโครงการ (ภาษาอังกฤษ)" : "Project Title (English)"}
+                    fieldKey="titleEn"
+                    htmlFor="field-title-en"
+                    diffItem={diffsByField["titleEn"]}
+                    onRevert={handleRevertField}
+                    lang={lang}
+                  />
                   <input
                     id="field-title-en"
                     type="text"
                     value={titleEn}
                     onChange={(e) => setTitleEn(e.target.value)}
                     placeholder="e.g. Bangkok Smart Traffic Data Infrastructure Development"
-                    className={input}
+                    className={`${input} ${modInput(Boolean(diffsByField["titleEn"]))}`}
                   />
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <div className="mb-1 flex items-center justify-between">
-                      <Label htmlFor="field-agency">{lang === "th" ? "หน่วยงานผู้จัดซื้อ" : "Procuring Organization"}</Label>
-                      <FieldConfidenceBadge confidence={getFieldScore("Agency")} lang={lang} />
-                    </div>
+                    <FieldHeader
+                      label={lang === "th" ? "หน่วยงานผู้จัดซื้อ" : "Procuring Organization"}
+                      fieldKey="agency"
+                      htmlFor="field-agency"
+                      diffItem={diffsByField["agency"]}
+                      onRevert={handleRevertField}
+                      confidenceBadge={<FieldConfidenceBadge confidence={getFieldScore("Agency")} lang={lang} />}
+                      lang={lang}
+                    />
                     <input
                       id="field-agency"
                       type="text"
                       required
                       value={agency}
                       onChange={(e) => setAgency(e.target.value)}
-                      className={input}
+                      className={`${input} ${modInput(Boolean(diffsByField["agency"]))}`}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="field-dept">{lang === "th" ? "สำนัก / กอง / ฝ่ายที่รับผิดชอบ" : "Department / Division"}</Label>
+                    <FieldHeader
+                      label={lang === "th" ? "สำนัก / กอง / ฝ่ายที่รับผิดชอบ" : "Department / Division"}
+                      fieldKey="department"
+                      htmlFor="field-dept"
+                      diffItem={diffsByField["department"]}
+                      onRevert={handleRevertField}
+                      lang={lang}
+                    />
                     <input
                       id="field-dept"
                       type="text"
                       value={department}
                       onChange={(e) => setDepartment(e.target.value)}
                       placeholder="เช่น กองสารสนเทศระบายน้ำ"
-                      className={`${input} mt-1`}
+                      className={`${input} mt-1 ${modInput(Boolean(diffsByField["department"]))}`}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <Label htmlFor="field-category">{lang === "th" ? "หมวดหมู่งานไอที" : "IT Category"}</Label>
+                    <FieldHeader
+                      label={lang === "th" ? "หมวดหมู่งานไอที" : "IT Category"}
+                      fieldKey="category"
+                      htmlFor="field-category"
+                      diffItem={diffsByField["category"]}
+                      onRevert={handleRevertField}
+                      lang={lang}
+                    />
                     <select
                       id="field-category"
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className={`${input} mt-1 cursor-pointer`}
+                      className={`${input} mt-1 cursor-pointer ${modInput(Boolean(diffsByField["category"]))}`}
                     >
                       <option value="software-development">{lang === "th" ? "พัฒนาซอฟต์แวร์ / ระบบสารสนเทศ" : "Software Development"}</option>
                       <option value="hardware-infrastructure">{lang === "th" ? "โครงสร้างพื้นฐานฮาร์ดแวร์และเครือข่าย" : "Hardware & Infra"}</option>
@@ -970,12 +1469,19 @@ export default function DedicatedReviewPage({
                   </div>
 
                   <div>
-                    <Label htmlFor="field-status">{lang === "th" ? "สถานะการจัดซื้อ" : "Procurement Status"}</Label>
+                    <FieldHeader
+                      label={lang === "th" ? "สถานะการจัดซื้อ" : "Procurement Status"}
+                      fieldKey="status"
+                      htmlFor="field-status"
+                      diffItem={diffsByField["status"]}
+                      onRevert={handleRevertField}
+                      lang={lang}
+                    />
                     <select
                       id="field-status"
                       value={status}
                       onChange={(e) => setStatus(e.target.value)}
-                      className={`${input} mt-1 cursor-pointer`}
+                      className={`${input} mt-1 cursor-pointer ${modInput(Boolean(diffsByField["status"]))}`}
                     >
                       <option value="Draft">{lang === "th" ? "ร่างประกาศ" : "Draft"}</option>
                       <option value="Open">{lang === "th" ? "เปิดรับซอง / ยื่นข้อเสนอ" : "Open"}</option>
@@ -1002,17 +1508,22 @@ export default function DedicatedReviewPage({
               <div className="mt-4 flex flex-col gap-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <div className="mb-1 flex items-center justify-between">
-                      <Label htmlFor="field-budget">{lang === "th" ? "งบประมาณ (บาท)" : "Approved Budget (THB)"}</Label>
-                      <FieldConfidenceBadge confidence={getFieldScore("Budget")} lang={lang} />
-                    </div>
+                    <FieldHeader
+                      label={lang === "th" ? "งบประมาณ (บาท)" : "Approved Budget (THB)"}
+                      fieldKey="budgetTHB"
+                      htmlFor="field-budget"
+                      diffItem={diffsByField["budgetTHB"]}
+                      onRevert={handleRevertField}
+                      confidenceBadge={<FieldConfidenceBadge confidence={getFieldScore("Budget")} lang={lang} />}
+                      lang={lang}
+                    />
                     <input
                       id="field-budget"
                       type="text"
                       value={budgetTHB}
                       onChange={(e) => setBudgetTHB(e.target.value)}
                       placeholder="เช่น 1,800,000"
-                      className={`${input} ${!budgetCheck.valid ? "border-risk focus:border-risk" : ""}`}
+                      className={`${input} ${!budgetCheck.valid ? "border-risk focus:border-risk" : ""} ${modInput(Boolean(diffsByField["budgetTHB"]))}`}
                     />
                     {!budgetCheck.valid ? (
                       <p className="mt-1 text-[11px] text-risk">
@@ -1022,17 +1533,22 @@ export default function DedicatedReviewPage({
                   </div>
 
                   <div>
-                    <div className="mb-1 flex items-center justify-between">
-                      <Label htmlFor="field-ref-price">{lang === "th" ? "ราคากลาง (บาท)" : "Reference Price (THB)"}</Label>
-                      <FieldConfidenceBadge confidence={getFieldScore("Reference")} lang={lang} />
-                    </div>
+                    <FieldHeader
+                      label={lang === "th" ? "ราคากลาง (บาท)" : "Reference Price (THB)"}
+                      fieldKey="referencePriceTHB"
+                      htmlFor="field-ref-price"
+                      diffItem={diffsByField["referencePriceTHB"]}
+                      onRevert={handleRevertField}
+                      confidenceBadge={<FieldConfidenceBadge confidence={getFieldScore("Reference")} lang={lang} />}
+                      lang={lang}
+                    />
                     <input
                       id="field-ref-price"
                       type="text"
                       value={referencePriceTHB}
                       onChange={(e) => setReferencePriceTHB(e.target.value)}
                       placeholder="เช่น 1,750,000"
-                      className={`${input} ${!refPriceCheck.valid ? "border-risk focus:border-risk" : ""}`}
+                      className={`${input} ${!refPriceCheck.valid ? "border-risk focus:border-risk" : ""} ${modInput(Boolean(diffsByField["referencePriceTHB"]))}`}
                     />
                     {!refPriceCheck.valid ? (
                       <p className="mt-1 text-[11px] text-risk">
@@ -1044,105 +1560,157 @@ export default function DedicatedReviewPage({
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div>
-                    <div className="mb-1 flex items-center justify-between">
-                      <Label htmlFor="field-deadline">{lang === "th" ? "วันสิ้นสุดรับซอง" : "Submission Deadline"}</Label>
-                      <FieldConfidenceBadge confidence={getFieldScore("Deadline")} lang={lang} />
-                    </div>
+                    <FieldHeader
+                      label={lang === "th" ? "วันสิ้นสุดรับซอง" : "Submission Deadline"}
+                      fieldKey="submissionDeadline"
+                      htmlFor="field-deadline"
+                      diffItem={diffsByField["submissionDeadline"]}
+                      onRevert={handleRevertField}
+                      confidenceBadge={<FieldConfidenceBadge confidence={getFieldScore("Deadline")} lang={lang} />}
+                      lang={lang}
+                    />
                     <input
                       id="field-deadline"
                       type="date"
                       value={submissionDeadline}
                       onChange={(e) => setSubmissionDeadline(e.target.value)}
-                      className={input}
+                      className={`${input} ${modInput(Boolean(diffsByField["submissionDeadline"]))}`}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="field-comment-deadline">{lang === "th" ? "วันสิ้นสุดวิจารณ์" : "Public Hearing Deadline"}</Label>
+                    <FieldHeader
+                      label={lang === "th" ? "วันสิ้นสุดวิจารณ์" : "Public Hearing Deadline"}
+                      fieldKey="commentDeadline"
+                      htmlFor="field-comment-deadline"
+                      diffItem={diffsByField["commentDeadline"]}
+                      onRevert={handleRevertField}
+                      lang={lang}
+                    />
                     <input
                       id="field-comment-deadline"
                       type="date"
                       value={commentDeadline}
                       onChange={(e) => setCommentDeadline(e.target.value)}
-                      className={`${input} mt-1`}
+                      className={`${input} ${modInput(Boolean(diffsByField["commentDeadline"]))}`}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="field-posted-date">{lang === "th" ? "วันที่ประกาศ" : "Posted Date"}</Label>
+                    <FieldHeader
+                      label={lang === "th" ? "วันที่ประกาศ" : "Posted Date"}
+                      fieldKey="postedDate"
+                      htmlFor="field-posted-date"
+                      diffItem={diffsByField["postedDate"]}
+                      onRevert={handleRevertField}
+                      lang={lang}
+                    />
                     <input
                       id="field-posted-date"
                       type="date"
                       value={postedDate}
                       onChange={(e) => setPostedDate(e.target.value)}
-                      className={`${input} mt-1`}
+                      className={`${input} ${modInput(Boolean(diffsByField["postedDate"]))}`}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div>
-                    <Label htmlFor="field-duration">{lang === "th" ? "ระยะเวลาสัญญา (วัน)" : "Contract Duration (Days)"}</Label>
+                    <FieldHeader
+                      label={lang === "th" ? "ระยะเวลาสัญญา (วัน)" : "Contract Duration (Days)"}
+                      fieldKey="contractDurationDays"
+                      htmlFor="field-duration"
+                      diffItem={diffsByField["contractDurationDays"]}
+                      onRevert={handleRevertField}
+                      lang={lang}
+                    />
                     <input
                       id="field-duration"
                       type="text"
                       value={contractDurationDays}
                       onChange={(e) => setContractDurationDays(e.target.value)}
                       placeholder="เช่น 180"
-                      className={`${input} mt-1 ${!durationCheck.valid ? "border-risk focus:border-risk" : ""}`}
+                      className={`${input} ${!durationCheck.valid ? "border-risk focus:border-risk" : ""} ${modInput(Boolean(diffsByField["contractDurationDays"]))}`}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="field-delivery-period">{lang === "th" ? "ระยะเวลาส่งมอบงาน (วัน)" : "Delivery Period (Days)"}</Label>
+                    <FieldHeader
+                      label={lang === "th" ? "ระยะเวลาส่งมอบงาน (วัน)" : "Delivery Period (Days)"}
+                      fieldKey="deliveryPeriodDays"
+                      htmlFor="field-delivery-period"
+                      diffItem={diffsByField["deliveryPeriodDays"]}
+                      onRevert={handleRevertField}
+                      lang={lang}
+                    />
                     <input
                       id="field-delivery-period"
                       type="text"
                       value={deliveryPeriodDays}
                       onChange={(e) => setDeliveryPeriodDays(e.target.value)}
                       placeholder="เช่น 120"
-                      className={`${input} mt-1 ${!deliveryPeriodCheck.valid ? "border-risk focus:border-risk" : ""}`}
+                      className={`${input} ${!deliveryPeriodCheck.valid ? "border-risk focus:border-risk" : ""} ${modInput(Boolean(diffsByField["deliveryPeriodDays"]))}`}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="field-warranty">{lang === "th" ? "ระยะเวลารับประกัน (ปี)" : "Warranty Period (Years)"}</Label>
+                    <FieldHeader
+                      label={lang === "th" ? "ระยะเวลารับประกัน (ปี)" : "Warranty Period (Years)"}
+                      fieldKey="warrantyYears"
+                      htmlFor="field-warranty"
+                      diffItem={diffsByField["warrantyYears"]}
+                      onRevert={handleRevertField}
+                      lang={lang}
+                    />
                     <input
                       id="field-warranty"
                       type="text"
                       value={warrantyYears}
                       onChange={(e) => setWarrantyYears(e.target.value)}
                       placeholder="เช่น 1 หรือ 2"
-                      className={`${input} mt-1 ${!warrantyCheck.valid ? "border-risk focus:border-risk" : ""}`}
+                      className={`${input} ${!warrantyCheck.valid ? "border-risk focus:border-risk" : ""} ${modInput(Boolean(diffsByField["warrantyYears"]))}`}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <Label htmlFor="field-method">{lang === "th" ? "วิธีการจัดซื้อจัดจ้าง" : "Procurement Method"}</Label>
+                    <FieldHeader
+                      label={lang === "th" ? "วิธีการจัดซื้อจัดจ้าง" : "Procurement Method"}
+                      fieldKey="procurementMethod"
+                      htmlFor="field-method"
+                      diffItem={diffsByField["procurementMethod"]}
+                      onRevert={handleRevertField}
+                      lang={lang}
+                    />
                     <input
                       id="field-method"
                       type="text"
                       value={procurementMethod}
                       onChange={(e) => setProcurementMethod(e.target.value)}
                       placeholder="เช่น ประกวดราคาอิเล็กทรอนิกส์ (e-bidding) หรือ วิธีคัดเลือก"
-                      className={`${input} mt-1`}
+                      className={`${input} ${modInput(Boolean(diffsByField["procurementMethod"]))}`}
                     />
                   </div>
 
                   <div>
-                    <div className="mb-1 flex items-center justify-between">
-                      <Label htmlFor="field-penalty">{lang === "th" ? "เงื่อนไขค่าปรับล่าช้า" : "Penalty Clause"}</Label>
-                      <FieldConfidenceBadge confidence={getFieldScore("Penalty")} lang={lang} />
-                    </div>
+                    <FieldHeader
+                      label={lang === "th" ? "เงื่อนไขค่าปรับล่าช้า" : "Penalty Clause"}
+                      fieldKey="penaltyClause"
+                      htmlFor="field-penalty"
+                      diffItem={diffsByField["penaltyClause"]}
+                      onRevert={handleRevertField}
+                      confidenceBadge={<FieldConfidenceBadge confidence={getFieldScore("Penalty")} lang={lang} />}
+                      lang={lang}
+                    />
                     <input
                       id="field-penalty"
                       type="text"
                       value={penaltyClause}
                       onChange={(e) => setPenaltyClause(e.target.value)}
                       placeholder="เช่น ร้อยละ 0.20 ต่อวันของมูลค่าสัญญา"
-                      className={input}
+                      className={`${input} ${modInput(Boolean(diffsByField["penaltyClause"]))}`}
                     />
                   </div>
                 </div>
@@ -1162,28 +1730,40 @@ export default function DedicatedReviewPage({
 
               <div className="mt-4 flex flex-col gap-4">
                 <div>
-                  <div className="mb-1 flex items-center justify-between">
-                    <Label htmlFor="field-objective">{lang === "th" ? "วัตถุประสงค์โครงการ" : "Project Objective"}</Label>
-                    <FieldConfidenceBadge confidence={getFieldScore("Objective")} lang={lang} />
-                  </div>
+                  <FieldHeader
+                    label={lang === "th" ? "วัตถุประสงค์โครงการ" : "Project Objective"}
+                    fieldKey="objective"
+                    htmlFor="field-objective"
+                    diffItem={diffsByField["objective"]}
+                    onRevert={handleRevertField}
+                    confidenceBadge={<FieldConfidenceBadge confidence={getFieldScore("Objective")} lang={lang} />}
+                    lang={lang}
+                  />
                   <textarea
                     id="field-objective"
                     rows={4}
                     value={objective}
                     onChange={(e) => setObjective(e.target.value)}
                     placeholder={lang === "th" ? "ระบุวัตถุประสงค์หลักของโครงการตามที่ระบุในเอกสาร TOR..." : "Specify project objectives..."}
-                    className={`${textarea} min-h-[100px]`}
+                    className={`${textarea} min-h-[100px] ${modInput(Boolean(diffsByField["objective"]))}`}
                   />
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <Label htmlFor="field-archetype">{lang === "th" ? "รูปแบบสถาปัตยกรรมระบบ" : "System Archetype"}</Label>
+                    <FieldHeader
+                      label={lang === "th" ? "รูปแบบสถาปัตยกรรมระบบ" : "System Archetype"}
+                      fieldKey="systemArchetype"
+                      htmlFor="field-archetype"
+                      diffItem={diffsByField["systemArchetype"]}
+                      onRevert={handleRevertField}
+                      lang={lang}
+                    />
                     <select
                       id="field-archetype"
                       value={systemArchetype}
                       onChange={(e) => setSystemArchetype(e.target.value)}
-                      className={`${input} mt-1 cursor-pointer`}
+                      className={`${input} cursor-pointer ${modInput(Boolean(diffsByField["systemArchetype"]))}`}
                     >
                       <option value="">{lang === "th" ? "-- เลือกสถาปัตยกรรมระบบ --" : "-- Select System Archetype --"}</option>
                       <option value="Web Application">Web Application</option>
@@ -1199,12 +1779,19 @@ export default function DedicatedReviewPage({
                   </div>
 
                   <div>
-                    <Label htmlFor="field-tier">{lang === "th" ? "ระดับความซับซ้อนของระบบ" : "Complexity Tier"}</Label>
+                    <FieldHeader
+                      label={lang === "th" ? "ระดับความซับซ้อนของระบบ" : "Complexity Tier"}
+                      fieldKey="complexityTier"
+                      htmlFor="field-tier"
+                      diffItem={diffsByField["complexityTier"]}
+                      onRevert={handleRevertField}
+                      lang={lang}
+                    />
                     <select
                       id="field-tier"
                       value={complexityTier}
                       onChange={(e) => setComplexityTier(e.target.value)}
-                      className={`${input} mt-1 cursor-pointer`}
+                      className={`${input} cursor-pointer ${modInput(Boolean(diffsByField["complexityTier"]))}`}
                     >
                       <option value="">{lang === "th" ? "-- เลือกระดับความซับซ้อน --" : "-- Select Complexity Tier --"}</option>
                       <option value="Tier 1 - Standard / Low Complexity">Tier 1 - Standard / Low Complexity</option>
@@ -1215,14 +1802,21 @@ export default function DedicatedReviewPage({
                 </div>
 
                 <div>
-                  <Label htmlFor="field-scope">{lang === "th" ? "ขอบเขตงานภาพรวม" : "High-Level Scope"}</Label>
+                  <FieldHeader
+                    label={lang === "th" ? "ขอบเขตงานภาพรวม" : "High-Level Scope"}
+                    fieldKey="highLevelScope"
+                    htmlFor="field-scope"
+                    diffItem={diffsByField["highLevelScope"]}
+                    onRevert={handleRevertField}
+                    lang={lang}
+                  />
                   <textarea
                     id="field-scope"
                     rows={3}
                     value={highLevelScope}
                     onChange={(e) => setHighLevelScope(e.target.value)}
                     placeholder={lang === "th" ? "สรุปขอบเขตงานภาพรวมที่ผู้รับจ้างต้องดำเนินการ..." : "High-level summary of contractor obligations..."}
-                    className={`${textarea} mt-1 min-h-[90px]`}
+                    className={`${textarea} min-h-[90px] ${modInput(Boolean(diffsByField["highLevelScope"]))}`}
                   />
                 </div>
 
@@ -1233,6 +1827,8 @@ export default function DedicatedReviewPage({
                   placeholder={lang === "th" ? "เช่น ระบบประมวลผลข้อมูลกลาง (Central API)" : "e.g. Central Processing Engine"}
                   addLabel={lang === "th" ? "เพิ่มองค์ประกอบระบบ" : "Add Component"}
                   emptyHint={lang === "th" ? "ยังไม่ได้ระบุองค์ประกอบหลัก (คลิก + เพื่อเพิ่ม)" : "No major components listed"}
+                  isModified={Boolean(diffsByField["majorComponents"])}
+                  onRevert={() => handleRevertField("majorComponents")}
                   lang={lang}
                 />
               </div>
@@ -1256,6 +1852,8 @@ export default function DedicatedReviewPage({
                   onChange={setDeliverablesSystem}
                   placeholder={lang === "th" ? "เช่น ซอร์สโค้ดและโปรแกรมระบบบริหารจัดการข้อมูล..." : "e.g. Software source code and deployed web app..."}
                   addLabel={lang === "th" ? "เพิ่มสิ่งส่งมอบด้านระบบ" : "Add System Deliverable"}
+                  isModified={Boolean(diffsByField["deliverables.system"])}
+                  onRevert={() => handleRevertField("deliverables.system")}
                   lang={lang}
                 />
 
@@ -1265,6 +1863,8 @@ export default function DedicatedReviewPage({
                   onChange={setDeliverablesImplementation}
                   placeholder={lang === "th" ? "เช่น รายงานผลการติดตั้งและปรับแต่งค่าความปลอดภัยเซิร์ฟเวอร์..." : "e.g. Server installation & hardening report..."}
                   addLabel={lang === "th" ? "เพิ่มสิ่งส่งมอบด้านการติดตั้ง" : "Add Implementation Deliverable"}
+                  isModified={Boolean(diffsByField["deliverables.implementation"])}
+                  onRevert={() => handleRevertField("deliverables.implementation")}
                   lang={lang}
                 />
 
@@ -1274,6 +1874,8 @@ export default function DedicatedReviewPage({
                   onChange={setDeliverablesValidation}
                   placeholder={lang === "th" ? "เช่น รายงานผลการทดสอบเจาะระบบ (Penetration Test Report)..." : "e.g. User Acceptance & Pentest report..."}
                   addLabel={lang === "th" ? "เพิ่มสิ่งส่งมอบด้านการทดสอบ" : "Add Validation Deliverable"}
+                  isModified={Boolean(diffsByField["deliverables.validation"])}
+                  onRevert={() => handleRevertField("deliverables.validation")}
                   lang={lang}
                 />
 
@@ -1283,6 +1885,8 @@ export default function DedicatedReviewPage({
                   onChange={setDeliverablesSupportingWork}
                   placeholder={lang === "th" ? "เช่น คู่มือการใช้งานสำหรับผู้ดูแลระบบและผู้ใช้งานทั่วไป..." : "e.g. Admin & user manuals, SLA documentation..."}
                   addLabel={lang === "th" ? "เพิ่มเอกสาร/งานสนับสนุน" : "Add Supporting Work"}
+                  isModified={Boolean(diffsByField["deliverables.supportingWork"])}
+                  onRevert={() => handleRevertField("deliverables.supportingWork")}
                   lang={lang}
                 />
               </div>
@@ -1301,10 +1905,14 @@ export default function DedicatedReviewPage({
 
               <div className="mt-4 flex flex-col gap-5">
                 {/* Tech Stack Selector */}
-                <div>
-                  <Label>
-                    {lang === "th" ? "เทคโนโลยีที่กำหนดใน TOR" : "Required Tech Stack"}
-                  </Label>
+                <div className={`rounded-[3px] transition-colors ${diffsByField["requiredTechnologies"] ? "p-3 bg-amend-bg/15 border border-amend-line/80" : ""}`}>
+                  <FieldHeader
+                    label={lang === "th" ? "เทคโนโลยีที่กำหนดใน TOR" : "Required Tech Stack"}
+                    fieldKey="requiredTechnologies"
+                    diffItem={diffsByField["requiredTechnologies"]}
+                    onRevert={handleRevertField}
+                    lang={lang}
+                  />
                   <p className="text-[12px] text-ink-3 mt-0.5">
                     {lang === "th" ? "เลือกจากคลังเทคโนโลยีมาตรฐาน หรือเพิ่มเทคโนโลยีพร้อมระบุเวอร์ชัน" : "Select from vocabulary or add custom technologies with version"}
                   </p>
@@ -1409,6 +2017,8 @@ export default function DedicatedReviewPage({
                   onChange={setRequiredCapabilities}
                   placeholder={lang === "th" ? "เช่น รองรับการเชื่อมต่อพร้อมกันไม่น้อยกว่า 1,000 คน (Concurrent Users)" : "e.g. Support min 1,000 concurrent users"}
                   addLabel={lang === "th" ? "เพิ่มสมรรถนะเทคนิค" : "Add Capability"}
+                  isModified={Boolean(diffsByField["requiredCapabilities"])}
+                  onRevert={() => handleRevertField("requiredCapabilities")}
                   lang={lang}
                 />
 
@@ -1419,6 +2029,8 @@ export default function DedicatedReviewPage({
                   keyLabel={lang === "th" ? "รายการ / ฮาร์ดแวร์" : "Item / Component"}
                   valueLabel={lang === "th" ? "คุณลักษณะที่กำหนด (Spec)" : "Required Specification"}
                   addLabel={lang === "th" ? "เพิ่มคุณลักษณะอุปกรณ์" : "Add Hardware Spec"}
+                  isModified={Boolean(diffsByField["infrastructureSpecifications"])}
+                  onRevert={() => handleRevertField("infrastructureSpecifications")}
                   lang={lang}
                 />
 
@@ -1429,6 +2041,8 @@ export default function DedicatedReviewPage({
                   keyLabel={lang === "th" ? "ตัวชี้วัด (Metric)" : "Metric"}
                   valueLabel={lang === "th" ? "เกณฑ์ที่กำหนด (Target Value)" : "Target Value"}
                   addLabel={lang === "th" ? "เพิ่มเกณฑ์ทางเทคนิค" : "Add Constraint"}
+                  isModified={Boolean(diffsByField["technicalConstraints"])}
+                  onRevert={() => handleRevertField("technicalConstraints")}
                   lang={lang}
                 />
               </div>
@@ -1452,6 +2066,8 @@ export default function DedicatedReviewPage({
                   onChange={setExistingSystems}
                   placeholder={lang === "th" ? "เช่น ระบบทะเบียนราษฎร์ กรมการปกครอง (DOPA)" : "e.g. DOPA Resident Database"}
                   addLabel={lang === "th" ? "เพิ่มระบบเดิม" : "Add Existing System"}
+                  isModified={Boolean(diffsByField["existingSystems"])}
+                  onRevert={() => handleRevertField("existingSystems")}
                   lang={lang}
                 />
 
@@ -1461,30 +2077,46 @@ export default function DedicatedReviewPage({
                   onChange={setInterfacesAndApis}
                   placeholder={lang === "th" ? "เช่น RESTful API ด้วย JSON Web Token (JWT)" : "e.g. REST API with JWT Auth"}
                   addLabel={lang === "th" ? "เพิ่ม API Interface" : "Add Interface"}
+                  isModified={Boolean(diffsByField["interfacesAndApis"])}
+                  onRevert={() => handleRevertField("interfacesAndApis")}
                   lang={lang}
                 />
 
                 <div>
-                  <Label htmlFor="field-migration">{lang === "th" ? "ข้อมูลและเงื่อนไขการย้ายข้อมูล" : "Data Migration Notes"}</Label>
+                  <FieldHeader
+                    label={lang === "th" ? "ข้อมูลและเงื่อนไขการย้ายข้อมูล" : "Data Migration Notes"}
+                    fieldKey="dataMigrationNotes"
+                    htmlFor="field-migration"
+                    diffItem={diffsByField["dataMigrationNotes"]}
+                    onRevert={handleRevertField}
+                    lang={lang}
+                  />
                   <textarea
                     id="field-migration"
                     rows={3}
                     value={dataMigrationNotes}
                     onChange={(e) => setDataMigrationNotes(e.target.value)}
                     placeholder={lang === "th" ? "ระบุรายละเอียดการถ่ายโอนข้อมูลจากฐานข้อมูลเดิม..." : "Specify data migration requirements..."}
-                    className={`${textarea} mt-1 min-h-[85px]`}
+                    className={`${textarea} min-h-[85px] ${modInput(Boolean(diffsByField["dataMigrationNotes"]))}`}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="field-deploy-loc">{lang === "th" ? "สถานที่และสภาพแวดล้อมการติดตั้ง" : "Deployment Location"}</Label>
+                  <FieldHeader
+                    label={lang === "th" ? "สถานที่และสภาพแวดล้อมการติดตั้ง" : "Deployment Location"}
+                    fieldKey="deploymentLocation"
+                    htmlFor="field-deploy-loc"
+                    diffItem={diffsByField["deploymentLocation"]}
+                    onRevert={handleRevertField}
+                    lang={lang}
+                  />
                   <input
                     id="field-deploy-loc"
                     type="text"
                     value={deploymentLocation}
                     onChange={(e) => setDeploymentLocation(e.target.value)}
                     placeholder={lang === "th" ? "เช่น ศูนย์ข้อมูล กทม. ดินแดง หรือ ระบบคลาวด์กลางภาครัฐ (GDCC)" : "e.g. Government Data Center / GDCC Cloud"}
-                    className={`${input} mt-1`}
+                    className={`${input} ${modInput(Boolean(diffsByField["deploymentLocation"]))}`}
                   />
                 </div>
               </div>
@@ -1508,6 +2140,8 @@ export default function DedicatedReviewPage({
                   onChange={setInstallationAndConfig}
                   placeholder={lang === "th" ? "เช่น ติดตั้งระบบปฏิบัติการและตั้งค่า Firewall ตามมาตรฐาน CIS Benchmark" : "e.g. Hardening and setup"}
                   addLabel={lang === "th" ? "เพิ่มข้อกำหนดการติดตั้ง" : "Add Installation Requirement"}
+                  isModified={Boolean(diffsByField["installationAndConfig"])}
+                  onRevert={() => handleRevertField("installationAndConfig")}
                   lang={lang}
                 />
 
@@ -1517,18 +2151,27 @@ export default function DedicatedReviewPage({
                   onChange={setTraining}
                   placeholder={lang === "th" ? "เช่น อบรมการใช้งานระบบสำหรับเจ้าหน้าที่ 2 รุ่น รุ่นละ 30 คน" : "e.g. 2 sessions of admin training for 30 staff"}
                   addLabel={lang === "th" ? "เพิ่มหลักสูตรฝึกอบรม" : "Add Training"}
+                  isModified={Boolean(diffsByField["training"])}
+                  onRevert={() => handleRevertField("training")}
                   lang={lang}
                 />
 
                 <div>
-                  <Label htmlFor="field-sla">{lang === "th" ? "ข้อตกลงระดับการให้บริการและการสนับสนุนเทคนิค" : "Support & SLA Terms"}</Label>
+                  <FieldHeader
+                    label={lang === "th" ? "ข้อตกลงระดับการให้บริการและการสนับสนุนเทคนิค" : "Support & SLA Terms"}
+                    fieldKey="technicalSupportAndSla"
+                    htmlFor="field-sla"
+                    diffItem={diffsByField["technicalSupportAndSla"]}
+                    onRevert={handleRevertField}
+                    lang={lang}
+                  />
                   <textarea
                     id="field-sla"
                     rows={3}
                     value={technicalSupportAndSla}
                     onChange={(e) => setTechnicalSupportAndSla(e.target.value)}
                     placeholder={lang === "th" ? "เช่น ให้บริการแก้ไขเหตุขัดข้องแบบ 24x7 และตอบสนองภายใน 2 ชั่วโมง" : "e.g. 24x7 incident response within 2 hours"}
-                    className={`${textarea} mt-1 min-h-[85px]`}
+                    className={`${textarea} min-h-[85px] ${modInput(Boolean(diffsByField["technicalSupportAndSla"]))}`}
                   />
                 </div>
 
@@ -1538,6 +2181,8 @@ export default function DedicatedReviewPage({
                   onChange={setMaintenance}
                   placeholder={lang === "th" ? "เช่น ตรวจสอบสถานะการทำงานเชิงป้องกัน (Preventive Maintenance) ทุก 3 เดือน" : "e.g. Quarterly preventive maintenance"}
                   addLabel={lang === "th" ? "เพิ่มข้อกำหนดบำรุงรักษา" : "Add Maintenance Requirement"}
+                  isModified={Boolean(diffsByField["maintenance"])}
+                  onRevert={() => handleRevertField("maintenance")}
                   lang={lang}
                 />
               </div>
@@ -1562,6 +2207,8 @@ export default function DedicatedReviewPage({
                   placeholder={lang === "th" ? "เช่น มีทุนจดทะเบียนชำระแล้วไม่น้อยกว่า 5,000,000 บาท" : "e.g. Registered capital not less than 5,000,000 THB"}
                   addLabel={lang === "th" ? "เพิ่มคุณสมบัติบริษัท" : "Add Company Requirement"}
                   confidenceBadge={<FieldConfidenceBadge confidence={getFieldScore("Company")} lang={lang} />}
+                  isModified={Boolean(diffsByField["companyRequirements"])}
+                  onRevert={() => handleRevertField("companyRequirements")}
                   lang={lang}
                 />
 
@@ -1571,6 +2218,8 @@ export default function DedicatedReviewPage({
                   onChange={setRequiredCertifications}
                   placeholder={lang === "th" ? "เช่น ได้รับการรับรองมาตรฐาน ISO/IEC 29110 หรือ CMMI Level 3" : "e.g. ISO/IEC 29110 or CMMI Level 3"}
                   addLabel={lang === "th" ? "เพิ่มใบรับรอง/มาตรฐาน" : "Add Certification"}
+                  isModified={Boolean(diffsByField["requiredCertifications"])}
+                  onRevert={() => handleRevertField("requiredCertifications")}
                   lang={lang}
                 />
 
@@ -1580,6 +2229,8 @@ export default function DedicatedReviewPage({
                   onChange={setManufacturerAuthorizations}
                   placeholder={lang === "th" ? "เช่น มีหนังสือแต่งตั้งตัวแทนจำหน่ายอย่างเป็นทางการจากเจ้าของผลิตภัณฑ์" : "e.g. Official Manufacturer Authorization Letter"}
                   addLabel={lang === "th" ? "เพิ่มหนังสือแต่งตั้ง" : "Add Authorization"}
+                  isModified={Boolean(diffsByField["manufacturerAuthorizations"])}
+                  onRevert={() => handleRevertField("manufacturerAuthorizations")}
                   lang={lang}
                 />
 
@@ -1589,34 +2240,48 @@ export default function DedicatedReviewPage({
                   onChange={setPersonnelQualifications}
                   placeholder={lang === "th" ? "เช่น ผู้จัดการโครงการต้องได้รับประกาศนียบัตร PMP และมีประสบการณ์ไม่น้อยกว่า 5 ปี" : "e.g. Project Manager certified PMP with 5+ yrs exp"}
                   addLabel={lang === "th" ? "เพิ่มคุณสมบัติบุคลากร" : "Add Personnel Qualification"}
+                  isModified={Boolean(diffsByField["personnelQualifications"])}
+                  onRevert={() => handleRevertField("personnelQualifications")}
                   lang={lang}
                 />
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div className="sm:col-span-2">
-                    <div className="mb-1 flex items-center justify-between">
-                      <Label htmlFor="field-prev-exp">{lang === "th" ? "ผลงานและประสบการณ์ที่ต้องมี" : "Required Experience"}</Label>
-                      <FieldConfidenceBadge confidence={getFieldScore("Experience")} lang={lang} />
-                    </div>
+                    <FieldHeader
+                      label={lang === "th" ? "ผลงานและประสบการณ์ที่ต้องมี" : "Required Experience"}
+                      fieldKey="previousExperience"
+                      htmlFor="field-prev-exp"
+                      diffItem={diffsByField["previousExperience"]}
+                      onRevert={handleRevertField}
+                      confidenceBadge={<FieldConfidenceBadge confidence={getFieldScore("Experience")} lang={lang} />}
+                      lang={lang}
+                    />
                     <textarea
                       id="field-prev-exp"
                       rows={3}
                       value={previousExperience}
                       onChange={(e) => setPreviousExperience(e.target.value)}
                       placeholder={lang === "th" ? "เช่น มีผลงานพัฒนาระบบเทคโนโลยีสารสนเทศที่มีลักษณะคล้ายคลึงกันในสัญญาเดียว..." : "e.g. Prior track record delivering similar government IT systems..."}
-                      className={`${textarea} min-h-[90px]`}
+                      className={`${textarea} min-h-[90px] ${modInput(Boolean(diffsByField["previousExperience"]))}`}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="field-min-exp">{lang === "th" ? "มูลค่าผลงานขั้นต่ำ (บาท)" : "Min Experience Value (THB)"}</Label>
+                    <FieldHeader
+                      label={lang === "th" ? "มูลค่าผลงานขั้นต่ำ (บาท)" : "Min Experience Value (THB)"}
+                      fieldKey="previousExperienceMinTHB"
+                      htmlFor="field-min-exp"
+                      diffItem={diffsByField["previousExperienceMinTHB"]}
+                      onRevert={handleRevertField}
+                      lang={lang}
+                    />
                     <input
                       id="field-min-exp"
                       type="text"
                       value={previousExperienceMinTHB}
                       onChange={(e) => setPreviousExperienceMinTHB(e.target.value)}
                       placeholder="เช่น 5,000,000"
-                      className={`${input} mt-1 ${!minExpCheck.valid ? "border-risk focus:border-risk" : ""}`}
+                      className={`${input} ${!minExpCheck.valid ? "border-risk focus:border-risk" : ""} ${modInput(Boolean(diffsByField["previousExperienceMinTHB"]))}`}
                     />
                     {!minExpCheck.valid ? (
                       <p className="mt-1 text-[11px] text-risk">
@@ -1641,41 +2306,60 @@ export default function DedicatedReviewPage({
 
               <div className="mt-4 flex flex-col gap-4">
                 <div>
-                  <div className="mb-1 flex items-center justify-between">
-                    <Label htmlFor="field-payment">{lang === "th" ? "งวดการจ่ายเงิน" : "Payment Schedule & Terms"}</Label>
-                    <FieldConfidenceBadge confidence={getFieldScore("Payment")} lang={lang} />
-                  </div>
+                  <FieldHeader
+                    label={lang === "th" ? "งวดการจ่ายเงิน" : "Payment Schedule & Terms"}
+                    fieldKey="paymentTerms"
+                    htmlFor="field-payment"
+                    diffItem={diffsByField["paymentTerms"]}
+                    onRevert={handleRevertField}
+                    confidenceBadge={<FieldConfidenceBadge confidence={getFieldScore("Payment")} lang={lang} />}
+                    lang={lang}
+                  />
                   <textarea
                     id="field-payment"
                     rows={3}
                     value={paymentTerms}
                     onChange={(e) => setPaymentTerms(e.target.value)}
                     placeholder={lang === "th" ? "เช่น แบ่งจ่าย 4 งวดตามผลการตรวจรับมอบงาน..." : "e.g. 4 milestone payments upon deliverable acceptance..."}
-                    className={`${textarea} min-h-[90px]`}
+                    className={`${textarea} min-h-[90px] ${modInput(Boolean(diffsByField["paymentTerms"]))}`}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="field-delivery-cond">{lang === "th" ? "เงื่อนไขการตรวจรับมอบงาน" : "Delivery Conditions"}</Label>
+                  <FieldHeader
+                    label={lang === "th" ? "เงื่อนไขการตรวจรับมอบงาน" : "Delivery Conditions"}
+                    fieldKey="deliveryConditions"
+                    htmlFor="field-delivery-cond"
+                    diffItem={diffsByField["deliveryConditions"]}
+                    onRevert={handleRevertField}
+                    lang={lang}
+                  />
                   <textarea
                     id="field-delivery-cond"
                     rows={3}
                     value={deliveryConditions}
                     onChange={(e) => setDeliveryConditions(e.target.value)}
                     placeholder={lang === "th" ? "เช่น ตรวจรับภายใน 5 วันทำการหลังส่งมอบครบถ้วน..." : "e.g. Acceptance testing within 5 business days..."}
-                    className={`${textarea} mt-1 min-h-[85px]`}
+                    className={`${textarea} min-h-[85px] ${modInput(Boolean(diffsByField["deliveryConditions"]))}`}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="field-eval-method">{lang === "th" ? "เกณฑ์การพิจารณาคัดเลือก" : "Evaluation Method"}</Label>
+                  <FieldHeader
+                    label={lang === "th" ? "เกณฑ์การพิจารณาคัดเลือก" : "Evaluation Method"}
+                    fieldKey="evaluationMethod"
+                    htmlFor="field-eval-method"
+                    diffItem={diffsByField["evaluationMethod"]}
+                    onRevert={handleRevertField}
+                    lang={lang}
+                  />
                   <input
                     id="field-eval-method"
                     type="text"
                     value={evaluationMethod}
                     onChange={(e) => setEvaluationMethod(e.target.value)}
                     placeholder={lang === "th" ? "เช่น เกณฑ์ราคา หรือ เกณฑ์ประสิทธิภาพต่อราคา (Price-Performance Ratio)" : "e.g. Price Criteria or Price-Performance"}
-                    className={`${input} mt-1`}
+                    className={`${input} ${modInput(Boolean(diffsByField["evaluationMethod"]))}`}
                   />
                 </div>
               </div>
@@ -1693,29 +2377,52 @@ export default function DedicatedReviewPage({
               </div>
 
               <div className="mt-4 flex flex-col gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isAmended}
-                    onChange={(e) => setIsAmended(e.target.checked)}
-                    className="h-4 w-4 rounded border-line-2 accent-ink"
-                  />
-                  <span className="text-[13px] font-medium text-ink">
-                    {lang === "th" ? "ประกาศนี้มีการแก้ไข TOR" : "This TOR has been amended (isAmended flag)"}
-                  </span>
-                </label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isAmended}
+                      onChange={(e) => setIsAmended(e.target.checked)}
+                      className="h-4 w-4 rounded border-line-2 accent-ink"
+                    />
+                    <span className="text-[13px] font-medium text-ink">
+                      {lang === "th" ? "ประกาศนี้มีการแก้ไข TOR" : "This TOR has been amended (isAmended flag)"}
+                    </span>
+                  </label>
+                  {diffsByField["isAmended"] && (
+                    <span className="inline-flex items-center gap-1 rounded-[2px] bg-amend-bg border border-amend-line px-1.5 py-0.2 text-[10.5px] font-semibold text-amend">
+                      <span>●</span>
+                      <span>{lang === "th" ? "แก้ไขแล้ว" : "Modified"}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRevertField("isAmended")}
+                        className="ml-0.5 text-amend hover:underline cursor-pointer"
+                        title={lang === "th" ? "คืนค่าเดิม" : "Revert"}
+                      >
+                        ↺
+                      </button>
+                    </span>
+                  )}
+                </div>
 
                 {isAmended ? (
                   <div className="flex flex-col gap-4 rounded-[3px] border border-amend-line bg-amend-bg/15 p-4 animate-in fade-in duration-200">
                     <div>
-                      <Label htmlFor="field-amend-summary">{lang === "th" ? "สรุปสาระสำคัญที่มีการแก้ไข" : "Amendment Summary"}</Label>
+                      <FieldHeader
+                        label={lang === "th" ? "สรุปสาระสำคัญที่มีการแก้ไข" : "Amendment Summary"}
+                        fieldKey="amendmentSummary"
+                        htmlFor="field-amend-summary"
+                        diffItem={diffsByField["amendmentSummary"]}
+                        onRevert={handleRevertField}
+                        lang={lang}
+                      />
                       <textarea
                         id="field-amend-summary"
                         rows={3}
                         value={amendmentSummary}
                         onChange={(e) => setAmendmentSummary(e.target.value)}
                         placeholder={lang === "th" ? "เช่น ขยายเวลารับซองออกไป 7 วัน และปรับลดข้อกำหนดคุณสมบัติ ISO..." : "e.g. Extended submission deadline by 7 days..."}
-                        className={`${textarea} mt-1 min-h-[85px]`}
+                        className={`${textarea} min-h-[85px] ${modInput(Boolean(diffsByField["amendmentSummary"]))}`}
                       />
                     </div>
 
@@ -1725,6 +2432,8 @@ export default function DedicatedReviewPage({
                       onChange={setChangedSections}
                       placeholder={lang === "th" ? "เช่น ข้อ 4.2 ขยายเวลารับซอง" : "e.g. Section 4.2 Extended deadline"}
                       addLabel={lang === "th" ? "เพิ่มส่วนที่แก้ไข" : "Add Section"}
+                      isModified={Boolean(diffsByField["changedSections"])}
+                      onRevert={() => handleRevertField("changedSections")}
                       lang={lang}
                     />
                   </div>
@@ -1828,6 +2537,30 @@ export default function DedicatedReviewPage({
           </div>
         </div>
       )}
+
+      {/* PDF Preview Modal */}
+      <PdfPreviewModal
+        isOpen={showPdfModal}
+        onClose={() => setShowPdfModal(false)}
+        projectId={projectId}
+        title={data?.title || ""}
+        agency={data?.agency || ""}
+        procurementMethod={data?.procurementMethod || data?.details?.procurementMethod}
+        officialEgpUrl={getEgpAnnouncementUrl(projectId)}
+        lang={lang}
+      />
+
+      {/* Edit Summary & Confirmation Alert Modal */}
+      <EditSummaryConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={executeApprove}
+        diffs={diffs}
+        isSaving={isSaving}
+        onRevertField={handleRevertField}
+        onDiscardAll={handleDiscardAll}
+        lang={lang}
+      />
     </div>
   );
 }

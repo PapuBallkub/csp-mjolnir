@@ -327,6 +327,7 @@ export type ReviewItem = {
   /** Fields the model itself was unsure about. */
   lowFields: { field: string; value: string; confidence: number }[];
   details?: ReviewItemDetails;
+  procurementMethod?: string | null;
   /** Set when the classifier's IT/non-IT call looks wrong. */
   misclassified?: { predicted: string; likely: string };
 };
@@ -735,6 +736,7 @@ export type PipelineRecordDiagnostics = {
   submissionDeadline: string | null;
   status: string;
   isAmended: boolean;
+  procurementMethod?: string | null;
   wavePriority?: string;
   pipelineStatus: string;
   source: string;
@@ -1273,6 +1275,18 @@ export function getTorInsight(projectId: string) {
   return request<TorInsightDetail>(`/api/tors/${encodeURIComponent(projectId)}`, {
     cache: "no-store",
   });
+}
+
+/**
+ * Returns the URL to stream the PDF document preview for a TOR project on demand.
+ * The endpoint streams binary PDF directly from memory without saving to DB.
+ */
+export function getTorPdfPreviewUrl(projectId: string, part = 0, role?: string): string {
+  const params = new URLSearchParams();
+  if (part > 0) params.set("part", String(part));
+  if (role) params.set("role", role);
+  const qs = params.toString();
+  return `${PUBLIC_API}/api/tors/${encodeURIComponent(projectId)}/preview${qs ? `?${qs}` : ""}`;
 }
 
 /* ------------------------------------------------------------------ */
