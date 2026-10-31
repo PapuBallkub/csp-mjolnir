@@ -1054,6 +1054,7 @@ export type TorInsightSummary = {
   facts: {
     budgetTHB: number | null;
     referencePriceTHB: number | null;
+    agreedPriceTHB?: number | null;
     submissionDeadline: string | null;
     /** A draft out for public hearing: comments due by this date (extract-v4) */
     commentDeadline?: string | null;
@@ -1062,13 +1063,27 @@ export type TorInsightSummary = {
     postedDate: string | null;
     webUrl: string | null;
   };
+  overview?: {
+    systemArchetype?: string | null;
+    complexityTier?: string | null;
+  };
   technicalRequirements?: {
     requiredTechnologies: { name: string; version: string | null }[];
   };
   /** null: the analysis hasn't been run, never a measured 0 */
   analytics: {
-    lockSpec: { riskScore: number; verdictText: string } | null;
-    priceAnalysis: { diffPercentage: number } | null;
+    lockSpec: {
+      riskScore: number;
+      verdictText: string;
+      findings?: LockSpecFinding[];
+    } | null;
+    priceAnalysis: {
+      diffPercentage: number;
+      historicalMedianTHB?: number | null;
+      historicalAverageTHB?: number | null;
+      sampleSize?: number;
+      reliability?: "none" | "low" | "sufficient";
+    } | null;
   };
   amendmentInfo?: {
     isAmended: boolean;

@@ -29,7 +29,7 @@ export function Wordmark({ className = "" }: { className?: string }) {
 const NAV = [
   { href: "/search", label: { th: "ค้นหาประกาศ", en: "Search" } },
   { href: "/watchlist", label: { th: "รายการติดตาม", en: "Watchlist" } },
-  { href: "/watchdog", label: { th: "ตรวจสอบราคา/การแก้ไข", en: "Watchdog" } },
+  { href: "/watchdog", label: { th: "แนวโน้มราคา/ล็อกสเปก", en: "Watchdog" } },
 ] as const;
 
 export function HeaderControls({ className = "" }: { className?: string }) {

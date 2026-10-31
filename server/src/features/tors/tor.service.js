@@ -390,7 +390,7 @@ export async function listTors(
   }
 
   const safePage = Math.max(1, parseInt(page, 10) || 1);
-  const safeLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+  const safeLimit = Math.min(500, Math.max(1, parseInt(limit, 10) || 20));
 
   // A light payload for the list
   const projection = {
@@ -398,18 +398,25 @@ export async function listTors(
     identification: 1,
     'facts.budgetTHB': 1,
     'facts.referencePriceTHB': 1,
+    'facts.agreedPriceTHB': 1,
     'facts.submissionDeadline': 1,
     'facts.commentDeadline': 1,
     'facts.procurementMethod': 1,
     'facts.penaltyClause': 1,
     'facts.postedDate': 1,
     'facts.webUrl': 1,
+    'overview.systemArchetype': 1,
+    'overview.complexityTier': 1,
     'technicalRequirements.requiredTechnologies': 1,
     'eligibility.standardConditions': 1,
     'analytics.lockSpec.riskScore': 1,
     'analytics.lockSpec.verdictText': 1,
+    'analytics.lockSpec.findings': 1,
     'analytics.priceAnalysis.diffPercentage': 1,
     'analytics.priceAnalysis.historicalMedianTHB': 1,
+    'analytics.priceAnalysis.historicalAverageTHB': 1,
+    'analytics.priceAnalysis.sampleSize': 1,
+    'analytics.priceAnalysis.reliability': 1,
     'amendmentInfo.isAmended': 1,
     'amendmentInfo.lastAmendedDate': 1,
     contractSigned: 1,
