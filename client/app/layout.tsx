@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans_Thai, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
-import Script from "next/script";
 import { AuthProvider } from "./_components/auth";
 import { PrefsProvider } from "./_components/prefs";
 import "./globals.css";
@@ -48,9 +47,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <head>
-        <Script id="mjolnir-theme" strategy="beforeInteractive">
-          {themeScript}
-        </Script>
+        <script
+          id="mjolnir-theme"
+          dangerouslySetInnerHTML={{
+            __html: themeScript,
+          }}
+        />
       </head>
       <body className="min-h-screen flex flex-col">
         {/*

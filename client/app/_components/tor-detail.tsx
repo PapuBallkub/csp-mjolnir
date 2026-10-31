@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ChangeRow, TorChange, TorInsightDetail } from "../_lib/api";
 import { formatTHB, type Lang } from "../_data/tors";
@@ -252,6 +253,45 @@ export function TorDetail({
   const { profile } = useProfile();
   const { user, status: authStatus, addToWatchlist, removeFromWatchlist } = useAuth();
   const isAuthenticated = authStatus === "authenticated" && !!user;
+  const router = useRouter();
+
+  const handleBackToSearch = (e: React.MouseEvent) => {
+    if (typeof window !== "undefined") {
+      // 1. If referrer is from /search on the same origin, router.back() restores full state
+      if (document.referrer) {
+        try {
+          const ref = new URL(document.referrer);
+          if (ref.origin === window.location.origin && ref.pathname === "/search") {
+            e.preventDefault();
+            router.back();
+            return;
+          }
+        } catch {
+          // invalid URL format, proceed to session/hash fallback
+        }
+      }
+
+      // 2. If no valid referrer (e.g. page refreshed or direct link), check sessionStorage for last search URL
+      try {
+        const lastSearch = sessionStorage.getItem("gipdp_last_search_url");
+        if (lastSearch) {
+          const parsed = new URL(lastSearch, window.location.origin);
+          if (parsed.origin === window.location.origin && parsed.pathname === "/search") {
+            e.preventDefault();
+            router.push(lastSearch);
+            return;
+          }
+        }
+      } catch {}
+
+      // 3. If visited via #profile-match anchor, navigate to match view
+      if (window.location.hash === "#profile-match") {
+        e.preventDefault();
+        router.push("/search?mode=match");
+        return;
+      }
+    }
+  };
 
   const projectId = insight.projectId;
   const isSaved = user?.watchlist?.includes(projectId) ?? false;
@@ -339,7 +379,7 @@ export function TorDetail({
 
         <div className="relative mx-auto max-w-[1240px] px-4 py-6">
           <nav className="flex flex-wrap items-center gap-2 text-[11.5px] text-ink-3">
-            <Link href="/search" className="hover:text-ink hover:underline">
+            <Link href="/search" onClick={handleBackToSearch} className="hover:text-ink hover:underline">
               {lang === "th" ? "ค้นหาประกาศ" : "Search"}
             </Link>
             <span>/</span>
@@ -1995,7 +2035,7 @@ export function TorDetail({
           ) : null}
 
           <div className="flex items-center justify-between border-t border-line pt-4">
-            <Link href="/search" className={btn.ghost}>
+            <Link href="/search" onClick={handleBackToSearch} className={btn.ghost}>
               ← {lang === "th" ? "กลับไปหน้ารายการค้นหา" : "Back to catalog"}
             </Link>
           </div>
