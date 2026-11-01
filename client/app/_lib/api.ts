@@ -967,9 +967,15 @@ export type LockSpecAnalysis = {
 };
 
 export type PriceAnalysis = {
-  referencePriceTHB: number;
-  historicalMedianTHB: number;
-  diffPercentage: number;
+  referencePriceTHB: number | null;
+  historicalMedianTHB: number | null;
+  historicalAverageTHB?: number | null;
+  diffAmountTHB?: number | null;
+  diffPercentage: number | null;
+  diffAverageAmountTHB?: number | null;
+  diffAveragePercentage?: number | null;
+  sampleSize?: number;
+  reliability?: "none" | "low" | "sufficient";
   interpretation: string;
   comparableProjects: ComparableProject[];
 };

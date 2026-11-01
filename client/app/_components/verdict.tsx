@@ -235,18 +235,20 @@ export function LockSpecBadge({
   score,
   lang,
   showScore = true,
+  outOf100 = false,
 }: {
   level: RiskLevel;
   score: number;
   lang: Lang;
   showScore?: boolean;
+  outOf100?: boolean;
 }) {
   const tone = TONE[RISK_TONE[level]];
   return (
     <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
       <RiskMeter level={level} />
       <span className="transition-opacity duration-150">{say(RISK_LABEL[level], lang)}</span>
-      {showScore ? <span className="font-mono tnum opacity-70">{score}</span> : null}
+      {showScore ? <span className="font-mono tnum opacity-70">{score}{outOf100 ? "/100" : ""}</span> : null}
     </span>
   );
 }
@@ -270,11 +272,22 @@ function PriceVerdictBadge({ verdict, delta, lang }: { verdict: PriceVerdict; de
 
 export function InsightPriceBadge({
   diffPercentage,
+  sampleSize,
   lang,
 }: {
   diffPercentage?: number | null;
+  sampleSize?: number | null;
   lang: Lang;
 }) {
+  if (sampleSize != null && sampleSize < 5) {
+    return (
+      <span className={`${badgeBase} border-line bg-surface-2 text-ink-3`}>
+        <span>ℹ</span>
+        <span>{lang === "th" ? "ข้อมูลไม่เพียงพอ (<5 โครงการ)" : "Insufficient data (<5)"}</span>
+      </span>
+    );
+  }
+
   if (diffPercentage == null || Number.isNaN(diffPercentage)) {
     return (
       <span className={`${badgeBase} border-line bg-surface-2 text-ink-3`}>
