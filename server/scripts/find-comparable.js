@@ -18,7 +18,13 @@
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { TorInsight } from '#models/index.js';
-import { FULL_EXTRACTION, findComparableProjects, getProjectPrice } from '#features/reality-check/index.js';
+import {
+  FULL_EXTRACTION,
+  findComparableProjects,
+  getProjectPrice,
+  calculatePriceBenchmarks,
+  analyzeLockSpec,
+} from '#features/reality-check/index.js';
 
 function parseArgs(args) {
   const options = {
@@ -102,18 +108,42 @@ async function inspectOne(projectId, { limit, save }) {
     );
   });
 
-  if (save) {
-    const comparableList = results.map((r) => ({
-      title: r.title,
-      year: r.year,
-      referencePriceTHB: r.referencePriceTHB,
-    }));
+  const priceAnalysis = calculatePriceBenchmarks(tor, results);
 
+  console.log(`------------------------------------------------------`);
+  console.log(`Historical Benchmarks & Deviations (FR-20):`);
+  console.log(`  Sample Size:       ${priceAnalysis.sampleSize} (${priceAnalysis.reliability})`);
+  console.log(`  Historical Median: ${formatTHB(priceAnalysis.historicalMedianTHB)}`);
+  console.log(`  Historical Mean:   ${formatTHB(priceAnalysis.historicalAverageTHB)}`);
+  if (priceAnalysis.diffPercentage != null) {
+    const sign = priceAnalysis.diffPercentage > 0 ? '+' : '';
+    console.log(`  Diff vs Median:    ${sign}${priceAnalysis.diffPercentage}% (${formatTHB(priceAnalysis.diffAmountTHB)})`);
+  }
+  console.log(`  Verdict:           ${priceAnalysis.interpretation}`);
+  console.log(`------------------------------------------------------\n`);
+
+  const lockSpec = analyzeLockSpec(tor);
+  console.log(`Lock-Spec Risk Analysis (FR-21):`);
+  console.log(`  Risk Score:        ${lockSpec.riskScore}/100`);
+  console.log(`  Verdict:           ${lockSpec.verdictText}`);
+  console.log(`  Findings:          ${lockSpec.findings.length} detected finding(s)`);
+  lockSpec.findings.forEach((f, idx) => {
+    console.log(`    [${idx + 1}] [${f.severity.toUpperCase()}] ${f.title}`);
+    console.log(`        Quote: "${f.sourceExcerpt}" (${f.sourceLocation})`);
+  });
+  console.log(`------------------------------------------------------\n`);
+
+  if (save) {
     await TorInsight.updateOne(
       { projectId },
-      { $set: { 'analytics.priceAnalysis.comparableProjects': comparableList } }
+      {
+        $set: {
+          'analytics.priceAnalysis': priceAnalysis,
+          'analytics.lockSpec': lockSpec,
+        },
+      }
     );
-    console.log(`✓ Saved ${comparableList.length} comparable project(s) to TorInsight.`);
+    console.log(`✓ Saved price analysis benchmarks, lock-spec analysis, and ${priceAnalysis.comparableProjects.length} comparable project(s) to TorInsight.`);
   }
 }
 
@@ -133,16 +163,18 @@ async function processAll({ limit, save }) {
   let updatedCount = 0;
   for (const tor of tors) {
     const results = await findComparableProjects(tor, { limit });
-    if (save && results.length > 0) {
-      const comparableList = results.map((r) => ({
-        title: r.title,
-        year: r.year,
-        referencePriceTHB: r.referencePriceTHB,
-      }));
+    if (save) {
+      const priceAnalysis = calculatePriceBenchmarks(tor, results);
+      const lockSpec = analyzeLockSpec(tor);
 
       await TorInsight.updateOne(
         { projectId: tor.projectId },
-        { $set: { 'analytics.priceAnalysis.comparableProjects': comparableList } }
+        {
+          $set: {
+            'analytics.priceAnalysis': priceAnalysis,
+            'analytics.lockSpec': lockSpec,
+          },
+        }
       );
       updatedCount += 1;
     }

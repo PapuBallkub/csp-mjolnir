@@ -48,6 +48,7 @@ Used within `analytics.priceAnalysis.comparableProjects` to list historical refe
 | `title` | `String` | Yes | — | Title of the historical comparable government IT project | `"โครงการพัฒนาระบบคลังข้อมูลกลาง BMA Phase 1"` |
 | `year` | `Number` | Yes | — | Fiscal year of the historical project | `2024` or `2567` |
 | `referencePriceTHB` | `Number` | Yes | — | Approved reference price (ราคากลาง) of that project in Thai Baht (THB) | `15000000` |
+| `agreedPriceTHB` | `Number` | No | `null` | Historical agreed contract price (ราคาตามสัญญา) shown as bidder context | `13800000` |
 
 ### 2.3 `evidenceSchema`
 Used as the values of the `evidence` map (§3.2b): where an extracted value came from.
@@ -65,6 +66,7 @@ Used in `technicalRequirements.requiredTechnologies`.
 |---|---|---|---|---|---|
 | `name` | `String` | Yes | — | Canonical name from the technologies vocabulary ([technology-schema.md](./technology-schema.md)) | `"Windows Server"` |
 | `version` | `String` | No | `null` | The version the TOR requires, kept apart because a required exact version is itself a lock-spec signal | `"2019"` |
+| `allowsEquivalent` | `Boolean` | No | `null` | Whether the TOR explicitly permits equivalent alternatives (e.g. "หรือเทียบเท่า" / "or equivalent"). Null if unstated. | `false` |
 
 ### 2.5 `checkSchema`
 Used in `metadata.checks`: one entry per **failed** check.

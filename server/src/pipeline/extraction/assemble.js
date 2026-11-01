@@ -13,6 +13,7 @@
 import { egpAnnouncementUrl } from '../shared/egp-links.js';
 import { feedAmount, feedDate, toAmount, toDate, toNumber, toText } from './convert.js';
 import { DOCUMENTS } from './documents.js';
+import { analyzeLockSpec } from '../../features/reality-check/index.js';
 
 const unique = (items) => [...new Set(items ?? [])];
 
@@ -132,7 +133,7 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
   const titleTh = aiTitle && (!titleDisagrees || !tor.title) ? aiTitle : tor.title;
 
   const facts = ai.facts ?? {};
-  return {
+  const insight = {
     projectId: tor.projectId,
     identification: identity(tor, tor.agency || toText(ai.identification?.agency) || classification.agency, {
       titleTh,
@@ -193,6 +194,13 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
       excluded: null,
     }),
   };
+
+  // Populate automated lock-spec risk analysis (FR-21)
+  insight.analytics = {
+    lockSpec: analyzeLockSpec(insight),
+  };
+
+  return insight;
 }
 
 /**

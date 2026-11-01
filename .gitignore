@@ -38,3 +38,6 @@ server/data/
 
 # local context files
 context/
+
+# manual testing datasets
+testdata/
