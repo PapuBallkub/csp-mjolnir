@@ -1260,6 +1260,16 @@ export type Profile = {
   scopeSizes: ScopeSize[];
   smeRegistered: boolean;
   watchlist: string[];
+  certifications?: string[];
+  entityType?: "juristic" | "individual";
+  preferredArchetypes?: string[];
+  maxPastPortfolioTHB?: number;
+  matchNotification?: {
+    enabled: boolean;
+    minScore: number;
+    frequency: "instant" | "daily" | "weekly";
+    includeSubcontract: boolean;
+  };
 };
 
 export const demoProfile: Profile = {
@@ -1272,6 +1282,16 @@ export const demoProfile: Profile = {
   scopeSizes: ["solo", "small-team"],
   smeRegistered: true,
   watchlist: ["BMA-2569-0142", "BMA-2569-0217", "BMA-2569-0245"],
+  certifications: ["ISO/IEC 29110"],
+  entityType: "individual",
+  preferredArchetypes: ["web-portal", "mobile-app"],
+  maxPastPortfolioTHB: 1_500_000,
+  matchNotification: {
+    enabled: false,
+    minScore: 75,
+    frequency: "daily",
+    includeSubcontract: true,
+  },
 };
 
 /** One reason the score came out where it did — shown, never left implicit. */

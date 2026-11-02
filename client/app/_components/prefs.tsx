@@ -24,6 +24,36 @@ const LangContext = createContext<{ lang: Lang; setLang: (lang: Lang) => void }>
   setLang: () => {},
 });
 
+const langListeners = new Set<() => void>();
+
+function subscribeToLang(callback: () => void) {
+  langListeners.add(callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    langListeners.delete(callback);
+    window.removeEventListener("storage", callback);
+  };
+}
+
+function readLang(): Lang {
+  if (typeof window === "undefined") return "th";
+  try {
+    const stored = localStorage.getItem("mjolnir-lang");
+    if (stored === "th" || stored === "en") return stored;
+  } catch {}
+  return "th";
+}
+
+function setStoredLang(next: Lang) {
+  try {
+    localStorage.setItem("mjolnir-lang", next);
+    document.documentElement.lang = next;
+  } catch {}
+  for (const listener of langListeners) {
+    listener();
+  }
+}
+
 /**
  * FR-12. When signed in, the profile is whatever the server last returned.
  * When signed out, a guest-local profile lets someone try the matcher on
@@ -46,7 +76,11 @@ const ProfileContext = createContext<ProfileValue>({
 });
 
 export function PrefsProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>("th");
+  const lang = useSyncExternalStore(subscribeToLang, readLang, () => "th" as Lang);
+  const setLang = useCallback((next: Lang) => {
+    setStoredLang(next);
+  }, []);
+
   const { status, user, updateProfile: authUpdateProfile } = useAuth();
 
   const [guestProfile, setGuestProfile] = useState<Profile>(demoProfile);
@@ -61,6 +95,16 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
           skills: user.profile?.skills ?? [],
           budgetMin: user.profile?.budgetMin ?? 0,
           budgetMax: user.profile?.budgetMax ?? 0,
+          certifications: user.profile?.certifications ?? [],
+          entityType: user.profile?.entityType ?? "juristic",
+          preferredArchetypes: user.profile?.preferredArchetypes ?? [],
+          maxPastPortfolioTHB: user.profile?.maxPastPortfolioTHB ?? 0,
+          matchNotification: user.profile?.matchNotification ?? {
+            enabled: false,
+            minScore: 75,
+            frequency: "daily",
+            includeSubcontract: true,
+          },
           scopeSizes: [],
           smeRegistered: false,
           watchlist: guestProfile.watchlist,

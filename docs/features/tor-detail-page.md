@@ -581,6 +581,8 @@ this section can provide additional contractual detail.
 
 ### 4.10 Profile Match
 
+See [0033 · Capability profile and match scoring](../decisions/0033-capability-profile-and-match-scoring.md) for the 6-factor composite scoring engine, entity qualification rules, and diagnostic feedback.
+
 #### Purpose
 
 Compare the procurement opportunity against the user's profile and preferences. \

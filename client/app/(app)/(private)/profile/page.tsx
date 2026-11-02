@@ -59,6 +59,28 @@ const ALL_STANDARD_CERTS: string[] = CERTIFICATION_CATEGORIES.flatMap((c) => c.i
 
 const PLATFORM_MAX_BUDGET = 10_000_000_000;
 
+const CANONICAL_ARCHETYPES = [
+  { id: "web-portal", label: { th: "เว็บพอร์ทัล / เว็บไซต์ระบบงาน", en: "Web Portal & Public Services" } },
+  { id: "mobile-app", label: { th: "โมบายแอปพลิเคชัน (iOS/Android)", en: "Mobile Applications" } },
+  { id: "enterprise-erp", label: { th: "ระบบ ERP / บัญชีและการเงิน", en: "Enterprise ERP & Finance" } },
+  { id: "edoc-workflow", label: { th: "สารบรรณอิเล็กทรอนิกส์ / เวิร์กโฟลว์", en: "e-Document & Workflow" } },
+  { id: "data-analytics", label: { th: "คลังข้อมูล / Data Analytics / AI", en: "Data Analytics & AI" } },
+  { id: "gis-mapping", label: { th: "ระบบแผนที่ / GIS", en: "GIS & Geospatial" } },
+  { id: "cybersecurity", label: { th: "ความมั่นคงปลอดภัยไซเบอร์ (Cybersecurity)", en: "Cybersecurity & SOC" } },
+  { id: "iot-telemetry", label: { th: "IoT / ระบบตรวจวัดระยะไกล", en: "IoT & Telemetry" } },
+  { id: "infra-networking", label: { th: "เครือข่าย / เซิร์ฟเวอร์ / Cloud / CCTV", en: "Infrastructure & Network" } },
+  { id: "other", label: { th: "ระบบเฉพาะด้านอื่นๆ", en: "Other Specialized IT" } },
+] as const;
+
+const PORTFOLIO_PRESETS = [
+  { label: { th: "฿500,000", en: "฿500k" }, value: 500_000 },
+  { label: { th: "฿1,000,000", en: "฿1.0M" }, value: 1_000_000 },
+  { label: { th: "฿2,000,000", en: "฿2.0M" }, value: 2_000_000 },
+  { label: { th: "฿5,000,000", en: "฿5.0M" }, value: 5_000_000 },
+  { label: { th: "฿10,000,000", en: "฿10.0M" }, value: 10_000_000 },
+  { label: { th: "ไม่ระบุ", en: "Not specified" }, value: 0 },
+] as const;
+
 // Quick budget presets mapped to Thai procurement tiers
 const BUDGET_PRESETS = [
   {
@@ -187,6 +209,15 @@ export default function ProfilePage() {
     budgetMin: user.profile?.budgetMin ?? 0,
     budgetMax: user.profile?.budgetMax ?? 0,
     certifications: user.profile?.certifications ?? [],
+    entityType: user.profile?.entityType ?? "juristic",
+    preferredArchetypes: user.profile?.preferredArchetypes ?? [],
+    maxPastPortfolioTHB: user.profile?.maxPastPortfolioTHB ?? 0,
+    matchNotification: user.profile?.matchNotification ?? {
+      enabled: false,
+      minScore: 75,
+      frequency: "daily",
+      includeSubcontract: true,
+    },
   }));
 
   // Save operation state
@@ -216,17 +247,30 @@ export default function ProfilePage() {
   }, []);
 
   const isDirty = useMemo(() => {
-    const saved = user.profile ?? { skills: [], budgetMin: 0, budgetMax: 0, certifications: [] };
+    const saved = user.profile ?? {
+      skills: [],
+      budgetMin: 0,
+      budgetMax: 0,
+      certifications: [],
+      entityType: "juristic",
+      preferredArchetypes: [],
+      maxPastPortfolioTHB: 0,
+    };
     const savedSkills = [...saved.skills].sort().join(",");
     const draftSkills = [...draft.skills].sort().join(",");
     const savedCerts = [...(saved.certifications ?? [])].sort().join(",");
     const draftCerts = [...draft.certifications].sort().join(",");
+    const savedArchetypes = [...(saved.preferredArchetypes ?? [])].sort().join(",");
+    const draftArchetypes = [...(draft.preferredArchetypes ?? [])].sort().join(",");
 
     return (
       savedSkills !== draftSkills ||
       saved.budgetMin !== draft.budgetMin ||
       saved.budgetMax !== draft.budgetMax ||
-      savedCerts !== draftCerts
+      savedCerts !== draftCerts ||
+      (saved.entityType ?? "juristic") !== (draft.entityType ?? "juristic") ||
+      savedArchetypes !== draftArchetypes ||
+      (saved.maxPastPortfolioTHB ?? 0) !== (draft.maxPastPortfolioTHB ?? 0)
     );
   }, [draft, user.profile]);
 
@@ -236,6 +280,83 @@ export default function ProfilePage() {
         ? "งบต่ำสุดต้องไม่เกินงบสูงสุด"
         : "Minimum budget cannot exceed maximum budget"
       : null;
+
+  // Profile completeness score & optimization tips
+  const completeness = useMemo(() => {
+    let score = 0;
+    const missingItems: { id: string; th: string; en: string }[] = [];
+
+    // 1. Skills (30%)
+    if (draft.skills.length >= 3) {
+      score += 30;
+    } else if (draft.skills.length > 0) {
+      score += 15;
+      missingItems.push({
+        id: "skills",
+        th: "เลือกทักษะอย่างน้อย 3 รายการ",
+        en: "Add at least 3 skills",
+      });
+    } else {
+      missingItems.push({
+        id: "skills",
+        th: "ระบุทักษะเทคโนโลยีที่คุณเชี่ยวชาญ",
+        en: "Specify your technical skills",
+      });
+    }
+
+    // 2. Budget Range (20%)
+    if (draft.budgetMin > 0 || (draft.budgetMax > 0 && draft.budgetMax < PLATFORM_MAX_BUDGET)) {
+      score += 20;
+    } else {
+      missingItems.push({
+        id: "budget",
+        th: "ระบุช่วงงบประมาณที่รับได้",
+        en: "Set budget capacity",
+      });
+    }
+
+    // 3. Max Past Portfolio (20%)
+    if ((draft.maxPastPortfolioTHB ?? 0) > 0) {
+      score += 20;
+    } else {
+      missingItems.push({
+        id: "portfolio",
+        th: "ระบุมูลค่าผลงานสัญญาเดียวสูงสุดเดิม",
+        en: "Set max past contract value",
+      });
+    }
+
+    // 4. Preferred Archetypes (15%)
+    if ((draft.preferredArchetypes ?? []).length > 0) {
+      score += 15;
+    } else {
+      missingItems.push({
+        id: "archetypes",
+        th: "เลือกประเภทระบบที่สนใจ",
+        en: "Pick preferred archetypes",
+      });
+    }
+
+    // 5. Certifications (15%)
+    if (draft.certifications.length > 0) {
+      score += 15;
+    } else {
+      missingItems.push({
+        id: "certs",
+        th: "ระบุมาตรฐาน/ใบรับรองที่มี",
+        en: "Add certifications / standards",
+      });
+    }
+
+    return { score, missingItems };
+  }, [
+    draft.skills,
+    draft.budgetMin,
+    draft.budgetMax,
+    draft.maxPastPortfolioTHB,
+    draft.preferredArchetypes,
+    draft.certifications,
+  ]);
 
   // Combined available technologies (database vocabulary + any user saved skills)
   const displaySkills = useMemo(() => {
@@ -475,6 +596,9 @@ export default function ProfilePage() {
       budgetMin: user.profile?.budgetMin ?? 0,
       budgetMax: user.profile?.budgetMax ?? 0,
       certifications: user.profile?.certifications ?? [],
+      entityType: user.profile?.entityType ?? "juristic",
+      preferredArchetypes: user.profile?.preferredArchetypes ?? [],
+      maxPastPortfolioTHB: user.profile?.maxPastPortfolioTHB ?? 0,
     });
     setSaveResult("idle");
   }, [user.profile]);
@@ -619,7 +743,77 @@ export default function ProfilePage() {
               </p>
             </section>
 
-            {/* 2. Budget Capacity (Moved above Tech for intuitive flow) */}
+            {/* 2. Entity Type (Juristic vs Individual) */}
+            <section className="mt-9">
+              <SectionHeading
+                sub={
+                  lang === "th"
+                    ? "สถานะทางกฎหมายสำหรับเข้าร่วมการจัดซื้อจัดจ้างภาครัฐ ใช้ประเมินเงื่อนไขเฉพาะนิติบุคคล"
+                    : "Your legal bidding entity type, used to check 'companies only' requirements."
+                }
+              >
+                {lang === "th" ? "ประเภทผู้ประกอบการ" : "Bidding entity type"}
+              </SectionHeading>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setDraft((prev) => ({ ...prev, entityType: "juristic" }))}
+                  className={`flex flex-col items-start gap-1.5 rounded-[4px] border p-3.5 text-left transition-colors cursor-pointer ${
+                    (draft.entityType ?? "juristic") === "juristic"
+                      ? "border-ink bg-surface-2 shadow-xs"
+                      : "border-line bg-surface hover:border-ink/40 hover:bg-surface-2"
+                  }`}
+                >
+                  <div className="flex w-full items-center justify-between">
+                    <span className="text-[13px] font-semibold text-ink">
+                      {lang === "th" ? "นิติบุคคล (บริษัท / หจก.)" : "Registered Company (Juristic)"}
+                    </span>
+                    <span
+                      className={`inline-block h-3.5 w-3.5 rounded-full border ${
+                        (draft.entityType ?? "juristic") === "juristic"
+                          ? "border-4 border-ink bg-surface"
+                          : "border-line bg-surface"
+                      }`}
+                    />
+                  </div>
+                  <p className="text-[11.5px] leading-thai text-ink-3">
+                    {lang === "th"
+                      ? "เหมาะสำหรับยื่นประกวดราคา e-Bidding และโครงการทุกขนาด รองรับเงื่อนไขเฉพาะนิติบุคคล"
+                      : "Eligible for e-Bidding and all government contracts, satisfies 'companies only' requirements."}
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDraft((prev) => ({ ...prev, entityType: "individual" }))}
+                  className={`flex flex-col items-start gap-1.5 rounded-[4px] border p-3.5 text-left transition-colors cursor-pointer ${
+                    draft.entityType === "individual"
+                      ? "border-ink bg-surface-2 shadow-xs"
+                      : "border-line bg-surface hover:border-ink/40 hover:bg-surface-2"
+                  }`}
+                >
+                  <div className="flex w-full items-center justify-between">
+                    <span className="text-[13px] font-semibold text-ink">
+                      {lang === "th" ? "บุคคลธรรมดา / ฟรีแลนซ์" : "Individual / Freelancer"}
+                    </span>
+                    <span
+                      className={`inline-block h-3.5 w-3.5 rounded-full border ${
+                        draft.entityType === "individual"
+                          ? "border-4 border-ink bg-surface"
+                          : "border-line bg-surface"
+                      }`}
+                    />
+                  </div>
+                  <p className="text-[11.5px] leading-thai text-ink-3">
+                    {lang === "th"
+                      ? "เหมาะสำหรับงานวิธีเฉพาะเจาะจง (งบไม่เกิน ฿500,000), งานที่ปรึกษา หรือรับงานช่วง (Subcontract)"
+                      : "Best for direct selection (<= ฿500k), individual consultant contracts, or subcontracting."}
+                  </p>
+                </button>
+              </div>
+            </section>
+
+            {/* 3. Budget Capacity & Past Portfolio */}
             <section className="mt-9">
               <SectionHeading
                 sub={
@@ -716,6 +910,73 @@ export default function ProfilePage() {
                   })}
                 </div>
               </div>
+
+              {/* Max Past Portfolio */}
+              <div className="mt-6 border-t border-line pt-5">
+                <label className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label>
+                      {lang === "th"
+                        ? "มูลค่าสัญญาผลงานสูงสุดที่ผ่านมา (บาท)"
+                        : "Highest past single contract value (THB)"}
+                    </Label>
+                    <span className="text-[11px] text-ink-3 font-mono tnum">
+                      {(draft.maxPastPortfolioTHB ?? 0) > 0
+                        ? formatTHB(draft.maxPastPortfolioTHB ?? 0)
+                        : lang === "th"
+                          ? "ไม่ระบุ"
+                          : "Unspecified"}
+                    </span>
+                  </div>
+                  <div className="max-w-xs">
+                    <input
+                      type="number"
+                      value={draft.maxPastPortfolioTHB ?? 0}
+                      step={100_000}
+                      min={0}
+                      max={PLATFORM_MAX_BUDGET}
+                      onChange={(e) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          maxPastPortfolioTHB: Math.max(0, Number(e.target.value)),
+                        }))
+                      }
+                      className={`${input} font-mono tnum`}
+                      aria-label={lang === "th" ? "มูลค่าสัญญาผลงานสูงสุด" : "Max past contract value"}
+                    />
+                  </div>
+                </label>
+                <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
+                  {lang === "th"
+                    ? "TOR ภาครัฐมักกำหนดให้ผู้ยื่นมีผลงานสัญญาเดียวไม่น้อยกว่า 30% – 50% ของราคากลาง เพื่อประเมินขีดความสามารถ"
+                    : "Thai government TORs typically mandate a past single contract of 30% – 50% of reference price to qualify."}
+                </p>
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {PORTFOLIO_PRESETS.map((preset) => {
+                    const active = (draft.maxPastPortfolioTHB ?? 0) === preset.value;
+                    return (
+                      <button
+                        key={preset.value}
+                        type="button"
+                        onClick={() =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            maxPastPortfolioTHB: preset.value,
+                          }))
+                        }
+                        className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          active
+                            ? "border-ink bg-ink text-surface shadow-xs"
+                            : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
+                        }`}
+                      >
+                        {lang === "th" ? preset.label.th : preset.label.en}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {budgetError && <p className="mt-1.5 text-[11px] text-red-600">{budgetError}</p>}
               {typeof saveResult === "object" && saveResult.details?.budgetMin && (
                 <p className="mt-1.5 text-[11px] text-red-600">{saveResult.details.budgetMin}</p>
@@ -725,7 +986,62 @@ export default function ProfilePage() {
               )}
             </section>
 
-            {/* 3. Technical Skills & Technologies */}
+            {/* 4. Preferred System Archetypes */}
+            <section className="mt-9">
+              <SectionHeading
+                sub={
+                  lang === "th"
+                    ? "เลือกประเภทระบบที่คุณมีความเชี่ยวชาญ ระบบจะจัดอันดับงานในหมวดหมู่นี้ให้สูงเป็นพิเศษ (เลือกได้สูงสุด 10 รายการ หรือไม่เลือกเพื่อดูทุกประเภท)"
+                    : "Select deliverable architecture types your team specializes in (up to 10, or leave empty for all)."
+                }
+                right={
+                  (draft.preferredArchetypes ?? []).length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setDraft((prev) => ({ ...prev, preferredArchetypes: [] }))}
+                      className="cursor-pointer text-[11px] text-ink-3 underline underline-offset-2 transition-colors hover:text-red-600"
+                    >
+                      {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                    </button>
+                  ) : null
+                }
+              >
+                {lang === "th" ? "สถาปัตยกรรมระบบที่ถนัด" : "Preferred system architectures"}
+              </SectionHeading>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {CANONICAL_ARCHETYPES.map((arch) => {
+                  const selected = (draft.preferredArchetypes ?? []).includes(arch.id);
+                  return (
+                    <button
+                      key={arch.id}
+                      type="button"
+                      onClick={() => {
+                        setDraft((prev) => {
+                          const current = prev.preferredArchetypes ?? [];
+                          const next = selected
+                            ? current.filter((id) => id !== arch.id)
+                            : current.length < 10
+                              ? [...current, arch.id]
+                              : current;
+                          return { ...prev, preferredArchetypes: next };
+                        });
+                      }}
+                      className={`cursor-pointer inline-flex items-center gap-1.5 rounded-[4px] border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                        selected
+                          ? "border-ink bg-ink text-surface shadow-xs"
+                          : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
+                      }`}
+                    >
+                      <span>{selected ? "✓" : "+"}</span>
+                      <span>{lang === "th" ? arch.label.th : arch.label.en}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* 5. Technical Skills & Technologies */}
             <section className="mt-9">
               <SectionHeading
                 sub={
@@ -1345,7 +1661,69 @@ export default function ProfilePage() {
               </p>
             </div>
 
+            {/* Completeness Meter */}
+            <div className="border-b border-line bg-surface-2/40 px-4 py-3.5">
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="font-semibold text-ink">
+                  {lang === "th" ? "ความสมบูรณ์ของโปรไฟล์" : "Profile Completeness"}
+                </span>
+                <span className="font-mono font-bold text-ink">
+                  {completeness.score}%
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-line">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    completeness.score >= 80
+                      ? "bg-open"
+                      : completeness.score >= 50
+                        ? "bg-ink-2"
+                        : "bg-amber-500"
+                  }`}
+                  style={{ width: `${completeness.score}%` }}
+                />
+              </div>
+              {completeness.missingItems.length > 0 ? (
+                <div className="mt-2 space-y-1 text-[11px] text-ink-3">
+                  <span className="font-medium text-ink-2">
+                    {lang === "th" ? "คำแนะนำเพิ่มความแม่นยำ:" : "Tips to improve accuracy:"}
+                  </span>
+                  {completeness.missingItems.slice(0, 2).map((item) => (
+                    <div key={item.id} className="flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                      <span>•</span>
+                      <span>{item[lang]}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-[11px] text-open font-medium">
+                  ✓ {lang === "th" ? "โปรไฟล์สมบูรณ์ พร้อมสำหรับการจับคู่ความแม่นยำสูง" : "Profile is complete for high-accuracy matching"}
+                </p>
+              )}
+            </div>
+
             <div className="divide-y divide-line">
+              {/* 0. Entity Type */}
+              <div className="px-4 py-3">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
+                  {lang === "th" ? "ประเภทผู้ประกอบการ" : "Entity type"}
+                </span>
+                <p className="mt-1 text-[13px] font-medium text-ink flex items-center gap-1.5">
+                  <span
+                    className={`inline-block h-2 w-2 rounded-full ${
+                      draft.entityType === "individual" ? "bg-amber-500" : "bg-open"
+                    }`}
+                  />
+                  {draft.entityType === "individual"
+                    ? lang === "th"
+                      ? "บุคคลธรรมดา / ฟรีแลนซ์"
+                      : "Individual / Freelancer"
+                    : lang === "th"
+                      ? "นิติบุคคล (บริษัท/หจก.)"
+                      : "Company (Juristic)"}
+                </p>
+              </div>
+
               {/* 1. Budget Capacity */}
               <div className="px-4 py-3">
                 <span className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
@@ -1365,7 +1743,37 @@ export default function ProfilePage() {
                 </p>
               </div>
 
-              {/* 2. Saved skills */}
+              {/* 2. Max Past Portfolio */}
+              <div className="px-4 py-3">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
+                  {lang === "th" ? "สัญญาผลงานสูงสุดเดิม" : "Max past contract"}
+                </span>
+                <p className="mt-1 font-mono tnum text-[13px] text-ink">
+                  {(draft.maxPastPortfolioTHB ?? 0) > 0
+                    ? formatTHB(draft.maxPastPortfolioTHB ?? 0)
+                    : lang === "th"
+                      ? "ไม่ได้ระบุ"
+                      : "Not specified"}
+                </p>
+              </div>
+
+              {/* 3. Preferred Archetypes */}
+              <div className="px-4 py-3">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
+                  {lang === "th" ? "สถาปัตยกรรมระบบที่ถนัด" : "System architectures"}
+                </span>
+                <p className="mt-1 text-[13px] font-medium text-ink">
+                  {(draft.preferredArchetypes ?? []).length > 0
+                    ? lang === "th"
+                      ? `${draft.preferredArchetypes?.length} ประเภทที่เลือก`
+                      : `${draft.preferredArchetypes?.length} selected`
+                    : lang === "th"
+                      ? "ทุกประเภท (ไม่จำกัด)"
+                      : "All types (open)"}
+                </p>
+              </div>
+
+              {/* 4. Saved skills */}
               <div className="px-4 py-3">
                 <span className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
                   {lang === "th" ? "ทักษะที่บันทึก" : "Saved skills"}

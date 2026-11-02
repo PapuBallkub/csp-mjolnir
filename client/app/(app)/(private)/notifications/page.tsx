@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatTHBCompact, pick, tors } from "../../../_data/tors";
 import { useAuthedUser } from "../../../_components/auth";
-import { useLang } from "../../../_components/prefs";
+import { useLang, useProfile } from "../../../_components/prefs";
 import { btn, input, Label, Panel, SectionHeading } from "../../../_components/ui";
 import { LockSpecBadge, StatusBadge } from "../../../_components/verdict";
 import { Wordmark } from "../../../_components/shell";
@@ -57,19 +57,24 @@ function Switch({
 export default function NotificationsPage() {
   const { lang } = useLang();
   const user = useAuthedUser();
-  // Seeded from the account, not from true: this is the FR08 consent the user
-  // actually gave at signup, and showing it checked when they declined is the
-  // same class of lie as the "Verified" badge that used to sit above. Toggling
-  // it does not persist yet — there is no PATCH /api/auth/me.
+  const { profile, saveProfile, saving } = useProfile();
+
   const [consent, setConsent] = useState(user.notificationConsent);
+  const [minScore, setMinScore] = useState<number>(profile.matchNotification?.minScore ?? 75);
+  const [includeSubcontract, setIncludeSubcontract] = useState<boolean>(
+    profile.matchNotification?.includeSubcontract ?? true
+  );
   const [events, setEvents] = useState({
-    newMatch: true,
+    newMatch: profile.matchNotification?.enabled ?? true,
     amended: true,
     closed: true,
     deadline: true,
     priceOutlier: false,
   });
-  const [frequency, setFrequency] = useState("daily");
+  const [frequency, setFrequency] = useState<"instant" | "daily" | "weekly">(
+    profile.matchNotification?.frequency ?? "daily"
+  );
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
   const [searches, setSearches] = useState([
     { id: "s1", query: "Next.js · ต่ำกว่า 2 ล้าน · ทำคนเดียวไหว", on: true },
     { id: "s2", query: "LINE Messaging API · สำนักงานเขต", on: true },
@@ -78,16 +83,43 @@ export default function NotificationsPage() {
 
   const sample = tors[0];
 
-  const EVENTS: { id: keyof typeof events; label: { th: string; en: string }; desc: { th: string; en: string } }[] =
-    [
-      {
-        id: "newMatch",
-        label: { th: "มีงานใหม่ที่ตรงกับโปรไฟล์", en: "A new project matches my profile" },
-        desc: {
-          th: "ส่งเมื่อคะแนนความตรง 70 ขึ้นไป",
-          en: "Sent when the match score is 70 or above.",
-        },
+  async function handleSave() {
+    setSaveStatus("idle");
+    const error = await saveProfile({
+      matchNotification: {
+        enabled: consent && events.newMatch,
+        minScore,
+        frequency,
+        includeSubcontract,
       },
+    });
+    if (error) {
+      setSaveStatus("error");
+    } else {
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 3500);
+    }
+  }
+
+  async function handleTurnOffAll() {
+    setConsent(false);
+    setEvents((prev) => ({ ...prev, newMatch: false }));
+    const error = await saveProfile({
+      matchNotification: {
+        enabled: false,
+        minScore,
+        frequency,
+        includeSubcontract,
+      },
+    });
+    if (!error) {
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 3500);
+    }
+  }
+
+  const EVENTS: { id: "amended" | "closed" | "deadline" | "priceOutlier"; label: { th: string; en: string }; desc: { th: string; en: string } }[] =
+    [
       {
         id: "amended",
         label: { th: "TOR ที่ติดตามถูกแก้ไข", en: "A watched TOR was amended" },
@@ -172,18 +204,94 @@ export default function NotificationsPage() {
             />
           </Panel>
 
+          {/* Profile Match Notification Settings */}
           <Panel className={`p-3.5 ${consent ? "" : "pointer-events-none opacity-50"}`}>
-            <Label>{lang === "th" ? "แจ้งเตือนเมื่อ" : "Tell me when"}</Label>
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <Label>{lang === "th" ? "การแจ้งเตือนงานที่ตรงกับคุณ" : "Job match alerts"}</Label>
+                <p className="mt-1 text-[12px] leading-thai text-ink-3">
+                  {lang === "th"
+                    ? "แจ้งเตือนทางอีเมลเมื่อมีประกาศ TOR ใหม่ที่ประเมินคะแนนความตรงกับโปรไฟล์ของคุณถึงเกณฑ์ที่กำหนด"
+                    : "Email alerts when newly published TOR notices match your capability profile."}
+                </p>
+              </div>
+              <Switch
+                checked={events.newMatch}
+                onChange={() => {
+                  const next = !events.newMatch;
+                  setEvents((prev) => ({ ...prev, newMatch: next }));
+                  if (next && !consent) setConsent(true);
+                }}
+                label=""
+                disabled={!consent}
+              />
+            </div>
+
+            {events.newMatch && (
+              <div className="mt-3.5 space-y-3.5 border-t border-line pt-3">
+                <div>
+                  <Label>
+                    {lang === "th"
+                      ? "เกณฑ์คะแนนความตรงขั้นต่ำที่จะแจ้งเตือน"
+                      : "Minimum match score threshold"}
+                  </Label>
+                  <div className="mt-1.5 flex flex-wrap gap-2">
+                    {[
+                      { score: 85, label: { th: "85+ ขึ้นไป (ตรงมากเท่านั้น)", en: "85+ (Strong fits only)" } },
+                      { score: 75, label: { th: "75+ ขึ้นไป (แนะนำ)", en: "75+ (Recommended)" } },
+                      { score: 60, label: { th: "60+ ขึ้นไป (ครอบคลุม)", en: "60+ (Broad discovery)" } },
+                    ].map((option) => (
+                      <button
+                        key={option.score}
+                        type="button"
+                        onClick={() => setMinScore(option.score)}
+                        className={`rounded-[3px] border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                          minScore === option.score
+                            ? "border-ink bg-ink text-surface font-semibold"
+                            : "border-line bg-surface text-ink-2 hover:border-line-2 hover:text-ink"
+                        }`}
+                      >
+                        {option.label[lang]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label>
+                    {lang === "th" ? "โอกาสร่วมงานและรับเหมาช่วง" : "Subcontracting & Joint Venture"}
+                  </Label>
+                  <label className="mt-1.5 flex items-start gap-2.5 cursor-pointer text-[12px] leading-thai text-ink-2 hover:text-ink">
+                    <input
+                      type="checkbox"
+                      checked={includeSubcontract}
+                      onChange={(e) => setIncludeSubcontract(e.target.checked)}
+                      className="mt-0.5 h-3.5 w-3.5 rounded-[2px] accent-ink shrink-0"
+                    />
+                    <span>
+                      {lang === "th"
+                        ? "รวมงานที่เหมาะกับการรับเหมาช่วง (Subcontract) หรือกิจการร่วมค้า (Joint Venture) แม้โครงการหลักจะกำหนดเฉพาะนิติบุคคล"
+                        : "Include opportunities suitable for Subcontracting or Joint Venture even if TOR specifies juristic company"}
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
+          </Panel>
+
+          <Panel className={`p-3.5 ${consent ? "" : "pointer-events-none opacity-50"}`}>
+            <Label>{lang === "th" ? "แจ้งเตือนโครงการที่ติดตาม (Watchlist)" : "Watched projects & watchlist alerts"}</Label>
             <div className="mt-1 divide-y divide-line">
               {EVENTS.map((event) => (
-                <Switch
-                  key={event.id}
-                  checked={events[event.id]}
-                  onChange={() => setEvents({ ...events, [event.id]: !events[event.id] })}
-                  label={pick(event.label, lang)}
-                  description={pick(event.desc, lang)}
-                  disabled={!consent}
-                />
+                <div key={event.id} className="py-0.5">
+                  <Switch
+                    checked={events[event.id]}
+                    onChange={() => setEvents({ ...events, [event.id]: !events[event.id] })}
+                    label={pick(event.label, lang)}
+                    description={pick(event.desc, lang)}
+                    disabled={!consent}
+                  />
+                </div>
               ))}
             </div>
           </Panel>
@@ -200,7 +308,7 @@ export default function NotificationsPage() {
                     type="radio"
                     name="frequency"
                     checked={frequency === option.id}
-                    onChange={() => setFrequency(option.id)}
+                    onChange={() => setFrequency(option.id as "instant" | "daily" | "weekly")}
                     className="h-3.5 w-3.5 accent-ink"
                   />
                   {pick(option.label, lang)}
@@ -233,13 +341,48 @@ export default function NotificationsPage() {
             </div>
           </Panel>
 
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className={btn.primary}>
-              {lang === "th" ? "บันทึกการตั้งค่า" : "Save preferences"}
-            </button>
-            <button type="button" className={btn.ghost}>
-              {lang === "th" ? "หยุดส่งอีเมลทั้งหมด" : "Turn off all email"}
-            </button>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className={btn.primary}
+              >
+                {saving
+                  ? lang === "th" ? "กำลังบันทึก…" : "Saving…"
+                  : lang === "th" ? "บันทึกการตั้งค่า" : "Save preferences"}
+              </button>
+              <button
+                type="button"
+                onClick={handleTurnOffAll}
+                disabled={saving}
+                className={btn.ghost}
+              >
+                {lang === "th" ? "หยุดส่งอีเมลทั้งหมด" : "Turn off all email"}
+              </button>
+            </div>
+
+            {saveStatus === "saved" && (
+              <div className="flex items-center gap-2 rounded-[3px] border border-green-200 bg-green-50/80 px-3 py-2 text-[13px] font-medium text-green-700 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300">
+                <span>✓</span>
+                <span>
+                  {lang === "th"
+                    ? "บันทึกการตั้งค่าการแจ้งเตือนเรียบร้อยแล้ว"
+                    : "Notification preferences saved successfully"}
+                </span>
+              </div>
+            )}
+            {saveStatus === "error" && (
+              <div className="flex items-center gap-2 rounded-[3px] border border-red-200 bg-red-50/80 px-3 py-2 text-[13px] font-medium text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+                <span>⚠️</span>
+                <span>
+                  {lang === "th"
+                    ? "เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่อีกครั้ง"
+                    : "Failed to save preferences. Please try again."}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
