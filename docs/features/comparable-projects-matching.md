@@ -24,7 +24,10 @@ The matching service (`server/src/features/reality-check/similarity.service.js`)
 
 | Data Field | Data Type | Role in Matching | Operational Purpose |
 |---|---|---|---|
-| `identification.category` | `String` | **Stage 1: Hard Filter** | Eliminates domain mismatches upfront (e.g., `software-development` vs. `cloud-and-infrastructure`). |
+| `identification.category` | `String` | **Stage 1: Domain Pre-filter** | Eliminates domain mismatches upfront (e.g., `software-development` vs. `cloud-and-infrastructure`). |
+| `identification.status` | `String` *(enum)* | **Stage 1: Stability Pre-filter** | Accepts only concluded projects (`'Closed'`, `'Awarded'`). Excludes volatile `Draft` (in hearing) and active `Open` tenders (subject to change/amendments). |
+| `metadata.confidenceScore` | `Number` (0–100) | **Stage 1: Quality Pre-filter (NFR-17)** | Requires confidence $\ge 80\%$. Prevents low-confidence or unreviewed extractions from distorting price benchmarks. |
+| `metadata.titleOnly` / `awaitingFullText` / `excluded` | `Boolean` / `Object` | **Stage 1: Full-Read Pre-filter (ADR 0028)** | Requires full document extraction. Title-only stubs and pending previews cannot be compared. |
 | `overview.systemArchetype` | `String` *(enum)* | **Stage 2: Architecture (40%)** | Matches the software deliverable architecture (e.g. `mobile-app`, `web-portal`, `enterprise-erp`). |
 | `overview.complexityTier` | `String` *(enum)* | **Stage 2: Scope (35%)** | Normalizes engineering scale (`basic`, `standard`, `enterprise`) based on concurrency, SLA, and integrations. |
 | `technicalRequirements.requiredTechnologies` | `[Object]` *(List of `{name, version}`)* | **Stage 2: Tech Bonus (25%)** | Soft bonus for shared frameworks and databases (e.g., React, PostgreSQL) using Jaccard similarity. |
@@ -82,8 +85,10 @@ Target TOR
    ▼
 [ Stage 1: Candidate Pool Query (MongoDB) ]
    ├── Exact match on identification.category
+   ├── Concluded status only: identification.status in ['Closed', 'Awarded']
+   ├── High extraction confidence: metadata.confidenceScore >= 80 (NFR-17)
+   ├── Full document extraction: isFullExtraction = true (ADR 0028)
    ├── Exclude target projectId
-   ├── Filter to isFullExtraction = true (ADR 0028)
    └── (No price filter applied!)
    │
    ▼ (Candidates Pool)

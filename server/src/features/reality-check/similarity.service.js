@@ -93,6 +93,41 @@ export const isFullExtraction = (tor) =>
   !tor?.metadata?.titleOnly && !tor?.metadata?.awaitingFullText && !tor?.metadata?.excluded;
 
 /**
+ * Concluded procurement statuses considered stable for historical peer benchmarking.
+ * Excludes Draft (still in hearing), Open (active tender subject to change/amendments),
+ * and Cancelled (failed procurements).
+ */
+export const STABLE_STATUSES = ['Closed', 'Awarded'];
+
+/** Minimum OCR/LLM confidence score required for candidate peers (NFR-17). */
+export const MIN_CONFIDENCE_SCORE = 80;
+
+/** Query filters for candidate peer selection in MongoDB (ADR 0021 & NFR-17). */
+export const CANDIDATE_FILTERS = {
+  ...FULL_EXTRACTION,
+  'identification.status': { $in: STABLE_STATUSES },
+  'metadata.confidenceScore': { $gte: MIN_CONFIDENCE_SCORE },
+};
+
+/**
+ * Checks whether an in-memory project candidate meets stability and quality criteria:
+ * 1. Full extraction (ADR 0028)
+ * 2. Concluded status: 'Closed' or 'Awarded' only
+ * 3. Confidence score >= 80% (NFR-17)
+ *
+ * @param {object} tor
+ * @returns {boolean}
+ */
+export const isEligibleCandidate = (tor) => {
+  if (!isFullExtraction(tor)) return false;
+  const status = tor?.identification?.status;
+  if (!STABLE_STATUSES.includes(status)) return false;
+  const score = tor?.metadata?.confidenceScore;
+  if (typeof score !== 'number' || score < MIN_CONFIDENCE_SCORE) return false;
+  return true;
+};
+
+/**
  * Resolves the primary reference price for a TOR document.
  * Checks facts.referencePriceTHB first, then facts.budgetTHB.
  *
@@ -306,7 +341,7 @@ export async function findComparableProjects(targetTor, options = {}) {
   if (Array.isArray(candidatesPool)) {
     candidates = candidatesPool.filter((cand) => {
       if (cand.projectId === targetTor.projectId) return false;
-      if (!isFullExtraction(cand)) return false;
+      if (!isEligibleCandidate(cand)) return false;
       if (cand.identification?.category !== targetCategory) return false;
       const price = getProjectPrice(cand);
       return price !== null && price > 0;
@@ -314,7 +349,7 @@ export async function findComparableProjects(targetTor, options = {}) {
   } else {
     candidates = await TorInsight.find({
       projectId: { $ne: targetTor.projectId },
-      ...FULL_EXTRACTION,
+      ...CANDIDATE_FILTERS,
       'identification.category': targetCategory,
       $or: [
         { 'facts.referencePriceTHB': { $gt: 0 } },
@@ -327,6 +362,7 @@ export async function findComparableProjects(targetTor, options = {}) {
         facts: 1,
         overview: 1,
         technicalRequirements: 1,
+        metadata: 1,
       })
       .lean();
   }
