@@ -20,6 +20,10 @@ export {
   COMPLEXITY_TIERS,
   calculateComplexitySimilarity,
   getProjectComplexityTier,
+  STABLE_STATUSES,
+  MIN_CONFIDENCE_SCORE,
+  CANDIDATE_FILTERS,
+  isEligibleCandidate,
 } from './similarity.service.js';
 
 export {

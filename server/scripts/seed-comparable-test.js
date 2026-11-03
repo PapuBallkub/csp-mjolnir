@@ -52,7 +52,7 @@ export const TEST_HISTORICAL_PROJECTS = [
       ],
       requiredCapabilities: ['บำรุงรักษาแบบรวมศูนย์', 'ระบบป้องกันไวรัส'],
     },
-    metadata: { origin: 'pipeline' },
+    metadata: { origin: 'pipeline', confidenceScore: 90 },
   },
   {
     projectId: '67082000202',
@@ -83,7 +83,7 @@ export const TEST_HISTORICAL_PROJECTS = [
         { name: 'Windows', version: '10' },
       ],
     },
-    metadata: { origin: 'pipeline' },
+    metadata: { origin: 'pipeline', confidenceScore: 90 },
   },
 
   // ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ export const TEST_HISTORICAL_PROJECTS = [
         { name: 'Windows Server', version: '2022' },
       ],
     },
-    metadata: { origin: 'pipeline' },
+    metadata: { origin: 'pipeline', confidenceScore: 90 },
   },
   {
     projectId: '67094000404',
@@ -151,7 +151,7 @@ export const TEST_HISTORICAL_PROJECTS = [
         { name: 'Microsoft SQL Server', version: null },
       ],
     },
-    metadata: { origin: 'pipeline' },
+    metadata: { origin: 'pipeline', confidenceScore: 90 },
   },
 
   // ---------------------------------------------------------------------------
@@ -188,7 +188,7 @@ export const TEST_HISTORICAL_PROJECTS = [
         { name: 'VMware vSphere ESXi', version: null },
       ],
     },
-    metadata: { origin: 'pipeline' },
+    metadata: { origin: 'pipeline', confidenceScore: 90 },
   },
 ];
 

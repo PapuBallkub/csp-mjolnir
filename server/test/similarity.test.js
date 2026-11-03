@@ -114,7 +114,9 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
       identification: {
         category: 'software-development',
         titleTh: 'จ้างพัฒนาระบบ e-Service และเว็บพอร์ทัล',
+        status: 'Awarded',
       },
+      metadata: { confidenceScore: 90 },
       facts: {
         referencePriceTHB: 10000000,
         postedDate: '2025-06-01',
@@ -134,7 +136,9 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
       identification: {
         category: 'software-development',
         titleTh: 'โครงการพัฒนาระบบบริหารจัดการข้อมูล e-Service',
+        status: 'Closed',
       },
+      metadata: { confidenceScore: 85 },
       facts: {
         referencePriceTHB: 15000000,
         postedDate: '2024-03-01',
@@ -154,7 +158,9 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
       identification: {
         category: 'network-and-security',
         titleTh: 'จัดซื้อระบบเครือข่ายความปลอดภัย',
+        status: 'Awarded',
       },
+      metadata: { confidenceScore: 90 },
       facts: {
         referencePriceTHB: 10000000,
       },
@@ -164,7 +170,9 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
       projectId: 'TARGET_001',
       identification: {
         category: 'software-development',
+        status: 'Awarded',
       },
+      metadata: { confidenceScore: 90 },
       facts: {
         referencePriceTHB: 10000000,
       },
@@ -230,11 +238,11 @@ test('findComparableProjects: full extractions only, not title-level or waiting 
     identification: { category: 'software-licenses', titleTh: 'เช่าใช้บริการ Microsoft 365' },
     facts: { referencePriceTHB: 1000000 },
   };
-  const candidate = (projectId, metadata) => ({
+  const candidate = (projectId, metadata, status = 'Awarded') => ({
     projectId,
-    identification: { category: 'software-licenses', titleTh: 'เช่าใช้บริการ Microsoft 365 รายปี' },
+    identification: { category: 'software-licenses', titleTh: 'เช่าใช้บริการ Microsoft 365 รายปี', status },
     facts: { referencePriceTHB: 1100000 },
-    metadata,
+    metadata: { confidenceScore: 90, ...metadata },
   });
   const pool = [
     candidate('FULL', {}),
@@ -285,8 +293,9 @@ test('findComparableProjects: matches peers on technical specifications without 
     // Under ADR 0021 non-circular logic, it is matched as comparable peer so the price outlier is detected!
     {
       projectId: 'CAND_10X_ANOMALY',
-      identification: { category: 'software-development', titleTh: 'ระบบจองคิวออนไลน์หน่วยงานพิเศษ' },
+      identification: { category: 'software-development', titleTh: 'ระบบจองคิวออนไลน์หน่วยงานพิเศษ', status: 'Awarded' },
       facts: { referencePriceTHB: 5000000 }, // 10x higher price!
+      metadata: { confidenceScore: 90 },
       overview: { systemArchetype: 'web-portal', complexityTier: 'basic' },
       technicalRequirements: { requiredTechnologies: [{ name: 'React' }, { name: 'Node.js' }] },
     },
@@ -294,8 +303,9 @@ test('findComparableProjects: matches peers on technical specifications without 
     // Under old circular logic, price match made this comparable. Under ADR 0021, technical specs reject it.
     {
       projectId: 'CAND_WRONG_SPECS',
-      identification: { category: 'software-development', titleTh: 'ระบบ ERP องค์กร' },
+      identification: { category: 'software-development', titleTh: 'ระบบ ERP องค์กร', status: 'Closed' },
       facts: { referencePriceTHB: 500000 },
+      metadata: { confidenceScore: 90 },
       overview: { systemArchetype: 'enterprise-erp', complexityTier: 'enterprise' },
       technicalRequirements: { requiredTechnologies: [{ name: 'SAP' }] },
     },
@@ -325,16 +335,18 @@ test('findComparableProjects: tie-breaks by price distance when technical scores
     // Candidate A: 5.2M (diff = 0.2M)
     {
       projectId: 'CAND_CLOSER_PRICE',
-      identification: { category: 'software-development', titleTh: 'ระบบบริการ ก' },
+      identification: { category: 'software-development', titleTh: 'ระบบบริการ ก', status: 'Awarded' },
       facts: { referencePriceTHB: 5200000 },
+      metadata: { confidenceScore: 90 },
       overview: { systemArchetype: 'web-portal', complexityTier: 'standard' },
       technicalRequirements: { requiredTechnologies: [{ name: 'PostgreSQL' }] },
     },
     // Candidate B: 7.0M (diff = 2.0M)
     {
       projectId: 'CAND_FARTHER_PRICE',
-      identification: { category: 'software-development', titleTh: 'ระบบบริการ ข' },
+      identification: { category: 'software-development', titleTh: 'ระบบบริการ ข', status: 'Closed' },
       facts: { referencePriceTHB: 7000000 },
+      metadata: { confidenceScore: 90 },
       overview: { systemArchetype: 'web-portal', complexityTier: 'standard' },
       technicalRequirements: { requiredTechnologies: [{ name: 'PostgreSQL' }] },
     },
@@ -346,4 +358,92 @@ test('findComparableProjects: tie-breaks by price distance when technical scores
   // Both have identical score (1.0), so closer price (5.2M vs 5.0M) must rank first
   assert.equal(results[0].projectId, 'CAND_CLOSER_PRICE');
   assert.equal(results[1].projectId, 'CAND_FARTHER_PRICE');
+});
+
+test('findComparableProjects: accepts only Closed and Awarded statuses (rejects Draft, Open, Cancelled)', async () => {
+  const target = {
+    projectId: 'TARGET_STATUS',
+    identification: { category: 'software-development', titleTh: 'ระบบทดสอบสถานะ' },
+    facts: { referencePriceTHB: 2000000 },
+    overview: { systemArchetype: 'web-portal', complexityTier: 'standard' },
+  };
+
+  const pool = [
+    {
+      projectId: 'CAND_AWARDED',
+      identification: { category: 'software-development', status: 'Awarded' },
+      facts: { referencePriceTHB: 2000000 },
+      metadata: { confidenceScore: 90 },
+    },
+    {
+      projectId: 'CAND_CLOSED',
+      identification: { category: 'software-development', status: 'Closed' },
+      facts: { referencePriceTHB: 2000000 },
+      metadata: { confidenceScore: 85 },
+    },
+    {
+      projectId: 'CAND_OPEN',
+      identification: { category: 'software-development', status: 'Open' },
+      facts: { referencePriceTHB: 2000000 },
+      metadata: { confidenceScore: 90 },
+    },
+    {
+      projectId: 'CAND_DRAFT',
+      identification: { category: 'software-development', status: 'Draft' },
+      facts: { referencePriceTHB: 2000000 },
+      metadata: { confidenceScore: 90 },
+    },
+    {
+      projectId: 'CAND_CANCELLED',
+      identification: { category: 'software-development', status: 'Cancelled' },
+      facts: { referencePriceTHB: 2000000 },
+      metadata: { confidenceScore: 90 },
+    },
+  ];
+
+  const results = await findComparableProjects(target, { candidatesPool: pool });
+  assert.equal(results.length, 2, 'Should accept only Closed and Awarded');
+  const ids = results.map((r) => r.projectId).sort();
+  assert.deepEqual(ids, ['CAND_AWARDED', 'CAND_CLOSED']);
+});
+
+test('findComparableProjects: filters out candidates below 80% confidence score (NFR-17)', async () => {
+  const target = {
+    projectId: 'TARGET_CONF',
+    identification: { category: 'software-development', titleTh: 'ระบบทดสอบความเชื่อมั่น' },
+    facts: { referencePriceTHB: 3000000 },
+    overview: { systemArchetype: 'web-portal', complexityTier: 'standard' },
+  };
+
+  const pool = [
+    {
+      projectId: 'CAND_CONF_80',
+      identification: { category: 'software-development', status: 'Awarded' },
+      facts: { referencePriceTHB: 3000000 },
+      metadata: { confidenceScore: 80 },
+    },
+    {
+      projectId: 'CAND_CONF_95',
+      identification: { category: 'software-development', status: 'Awarded' },
+      facts: { referencePriceTHB: 3000000 },
+      metadata: { confidenceScore: 95 },
+    },
+    {
+      projectId: 'CAND_CONF_79',
+      identification: { category: 'software-development', status: 'Awarded' },
+      facts: { referencePriceTHB: 3000000 },
+      metadata: { confidenceScore: 79 },
+    },
+    {
+      projectId: 'CAND_CONF_NULL',
+      identification: { category: 'software-development', status: 'Awarded' },
+      facts: { referencePriceTHB: 3000000 },
+      metadata: {},
+    },
+  ];
+
+  const results = await findComparableProjects(target, { candidatesPool: pool });
+  assert.equal(results.length, 2, 'Should only accept confidence >= 80%');
+  const ids = results.map((r) => r.projectId).sort();
+  assert.deepEqual(ids, ['CAND_CONF_80', 'CAND_CONF_95']);
 });
