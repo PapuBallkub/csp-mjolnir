@@ -4,7 +4,10 @@ import type { TorInsightSummary, TorListParams, TorStatus } from "../../../_lib/
 export type Mode = "filter" | "match";
 export type Sort = NonNullable<TorListParams["sort"]>;
 
-export const PAGE_SIZE = 20;
+export const DEFAULT_PAGE_SIZE = 10;
+export const PAGE_SIZE_OPTIONS = [5, 10, 20] as const;
+/** Kept for backwards compatibility */
+export const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 /** Matched mode ranks at most this many TORs that use one of the user's skills */
 export const MATCH_LIMIT = 100;
 
@@ -49,6 +52,7 @@ export function toggle<T>(list: T[], value: T): T[] {
 export type Page = {
   key: string;
   page: number;
+  pageSize: number;
   tors: TorInsightSummary[];
   total: number;
   pages: number;
@@ -72,10 +76,14 @@ export interface FilterState {
   deadlineBand: string;
   hideHighRisk: boolean;
   sort: Sort;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface MatchState {
   scoreFloor: number;
   hideClosed: boolean;
   hideHighRisk: boolean;
+  page?: number;
+  pageSize?: number;
 }

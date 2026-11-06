@@ -234,13 +234,13 @@ export function StatusBadge({
 export function LockSpecBadge({
   level,
   score,
-  lang,
+  lang = "th",
   showScore = true,
   outOf100 = false,
 }: {
   level: RiskLevel;
   score: number;
-  lang: Lang;
+  lang?: Lang;
   showScore?: boolean;
   outOf100?: boolean;
 }) {
@@ -274,11 +274,11 @@ function PriceVerdictBadge({ verdict, delta, lang }: { verdict: PriceVerdict; de
 export function InsightPriceBadge({
   diffPercentage,
   sampleSize,
-  lang,
+  lang = "th",
 }: {
   diffPercentage?: number | null;
   sampleSize?: number | null;
-  lang: Lang;
+  lang?: Lang;
 }) {
   if (sampleSize != null && sampleSize < 5) {
     return (
@@ -423,12 +423,12 @@ function LifecycleGlyph({ status, className = "h-3 w-3 shrink-0" }: { status: To
  */
 export function LifecycleBadge({
   status,
-  lang,
+  lang = "th",
   stage,
   size = "regular",
 }: {
   status: TorStatus;
-  lang: Lang;
+  lang?: Lang;
   stage?: Stage;
   size?: "regular" | "large";
 }) {
@@ -458,7 +458,7 @@ export function LifecycleBadge({
  * as well as colour: the agency announced it, or the platform found it,
  * muted and dashed like Closed because it is an inference.
  */
-export function ChangeMarker({ source, lang }: { source: ChangeSource; lang: Lang }) {
+export function ChangeMarker({ source, lang = "th" }: { source: ChangeSource; lang?: Lang }) {
   const { marker, hint } = CHANGE_SOURCE[source];
   const colours =
     source === "feed"
@@ -488,7 +488,7 @@ export function ChangeMarker({ source, lang }: { source: ChangeSource; lang: Lan
 }
 
 /** Who may bid is a category, not a verdict, so it stays monochrome. Decisive for freelancers. */
-export function CompaniesOnlyBadge({ lang, className = "" }: { lang: Lang; className?: string }) {
+export function CompaniesOnlyBadge({ lang = "th", className = "" }: { lang?: Lang; className?: string }) {
   return (
     <span
       className={`inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 whitespace-nowrap leading-normal ${className}`}

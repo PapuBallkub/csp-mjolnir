@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { googleSignInUrl, type ApiError } from "../_lib/api";
 import { useAuth } from "./auth";
-import { useLang, LangToggle, ThemeToggle } from "./prefs";
+import { useLang, ThemeToggle } from "./prefs";
 import { Wordmark } from "./shell";
 import { btn, input, Label, Panel } from "./ui";
 import { LockSpecBadge, StatusBadge } from "./verdict";
@@ -112,7 +112,6 @@ export function AuthForm({ next }: { next: string | null }) {
             <Wordmark />
           </Link>
           <div className="ml-auto flex items-center gap-2">
-            <LangToggle />
             <ThemeToggle />
           </div>
         </div>

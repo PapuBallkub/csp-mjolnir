@@ -17,7 +17,7 @@ export function daysLeft(deadline: string, now: Date): number {
 /** Returns the dynamic countdown text and urgency tone for a given days left count. */
 export function countdownText(
   days: number,
-  lang: Lang
+  lang: Lang = "th"
 ): { text: string; tone: string } {
   if (days < 0) {
     return {

@@ -14,8 +14,9 @@ export type Lang = "th" | "en";
 /** A bilingual string. Source content is Thai; English is the plain-language gloss. */
 export type Bi = { th: string; en: string };
 
-export function pick(value: Bi, lang: Lang): string {
-  return lang === "th" ? value.th : value.en;
+export function pick(value: Bi, ...args: unknown[]): string {
+  void args;
+  return value.th;
 }
 
 export type Status = "Draft" | "Open" | "Awarded" | "Closed" | "Cancelled";

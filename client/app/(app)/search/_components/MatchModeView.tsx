@@ -6,11 +6,17 @@ import { useSearchParams } from "next/navigation";
 import { listTors, type ApiResult, type TorInsightSummary } from "../../../_lib/api";
 import { matchFor } from "../../../_lib/match";
 import { useAuth } from "../../../_components/auth";
-import { useLang, useProfile } from "../../../_components/prefs";
+import { useProfile } from "../../../_components/prefs";
 import { CatalogRow, CatalogRowSkeleton } from "../../../_components/catalog-row";
 import { isDead } from "../../../_components/verdict";
 import { btn, EmptyState, SectionHeading } from "../../../_components/ui";
-import { isHighRisk, MATCH_LIMIT, type Page } from "../_lib/types";
+import {
+  DEFAULT_PAGE_SIZE,
+  isHighRisk,
+  MATCH_LIMIT,
+  PAGE_SIZE_OPTIONS,
+  type Page,
+} from "../_lib/types";
 import {
   buildMatchQueryString,
   parseMatchParams,
@@ -18,6 +24,7 @@ import {
 } from "../_lib/search-params";
 import { failureText } from "./SearchCommon";
 import { MatchRail } from "./MatchRail";
+import { Pagination } from "./Pagination";
 
 export function MatchModeView({
   onStrongCountChange,
@@ -26,14 +33,17 @@ export function MatchModeView({
   onStrongCountChange?: (count: number) => void;
   onSwitchToFilter?: () => void;
 }) {
-  const { lang } = useLang();
   const { profile } = useProfile();
   const { status: authStatus } = useAuth();
   const searchParams = useSearchParams();
 
-  const [scoreFloor, setScoreFloor] = useState(() => parseMatchParams(searchParams).scoreFloor);
-  const [hideClosed, setHideClosed] = useState(() => parseMatchParams(searchParams).hideClosed);
-  const [hideHighRisk, setHideHighRisk] = useState(() => parseMatchParams(searchParams).hideHighRisk);
+  const initialParsed = useMemo(() => parseMatchParams(searchParams), [searchParams]);
+
+  const [scoreFloor, setScoreFloor] = useState(() => initialParsed.scoreFloor);
+  const [hideClosed, setHideClosed] = useState(() => initialParsed.hideClosed);
+  const [hideHighRisk, setHideHighRisk] = useState(() => initialParsed.hideHighRisk);
+  const [page, setPage] = useState<number>(() => initialParsed.page ?? 1);
+  const [pageSize, setPageSize] = useState<number>(() => initialParsed.pageSize ?? DEFAULT_PAGE_SIZE);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Handle browser Back / Forward buttons (popstate)
@@ -44,11 +54,23 @@ export function MatchModeView({
       setScoreFloor(parsed.scoreFloor);
       setHideClosed(parsed.hideClosed);
       setHideHighRisk(parsed.hideHighRisk);
+      setPage(parsed.page ?? 1);
+      setPageSize(parsed.pageSize ?? DEFAULT_PAGE_SIZE);
     };
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
+
+  // Reset page when filter thresholds change
+  const matchFilterSig = `${scoreFloor}:${hideClosed}:${hideHighRisk}`;
+  const prevSig = useRef(matchFilterSig);
+  useEffect(() => {
+    if (prevSig.current !== matchFilterSig) {
+      prevSig.current = matchFilterSig;
+      setPage(1);
+    }
+  }, [matchFilterSig]);
 
   const isInitialMount = useRef(true);
 
@@ -63,9 +85,11 @@ export function MatchModeView({
       scoreFloor,
       hideClosed,
       hideHighRisk,
+      page,
+      pageSize,
     });
     syncUrlToBrowser(qs);
-  }, [scoreFloor, hideClosed, hideHighRisk]);
+  }, [scoreFloor, hideClosed, hideHighRisk, page, pageSize]);
 
   /* ------------------------------- matching ------------------------------- */
 
@@ -82,7 +106,7 @@ export function MatchModeView({
       setMatchList({
         key: profileKey,
         result: result.ok
-          ? { ok: true, data: { key: profileKey, ...result.data, at: new Date() } }
+          ? { ok: true, data: { ...result.data, key: profileKey, page: 1, pageSize: MATCH_LIMIT, at: new Date() } }
           : result,
       });
     });
@@ -117,9 +141,9 @@ export function MatchModeView({
 
   const skeleton = (
     <div aria-busy="true">
-      <span className="sr-only">{lang === "th" ? "กำลังโหลดประกาศ" : "Loading postings"}</span>
+      <span className="sr-only">กำลังโหลดประกาศ</span>
       <div className="flex flex-col gap-2.5">
-        {Array.from({ length: 5 }, (_, i) => (
+        {Array.from({ length: Math.min(pageSize, 5) }, (_, i) => (
           <CatalogRowSkeleton key={i} />
         ))}
       </div>
@@ -129,24 +153,16 @@ export function MatchModeView({
   if (authStatus === "anonymous") {
     return (
       <EmptyState
-        headline={
-          lang === "th"
-            ? "ลงชื่อเข้าใช้ แล้วระบบจะจัดอันดับประกาศตามทักษะของคุณ"
-            : "Sign in and we'll rank postings by your skills"
-        }
-        body={
-          lang === "th"
-            ? "บันทึกเทคโนโลยีที่คุณทำได้และช่วงงบที่รับไหวไว้ในโปรไฟล์ แล้วประกาศที่ตรงกับคุณที่สุดจะขึ้นมาก่อน ส่วนการค้นหาและอ่านประกาศทุกรายการไม่ต้องลงชื่อเข้าใช้"
-            : "Save the technologies you build with and the budget you can take on, and the postings that fit you best come first. Searching and reading every posting needs no account."
-        }
+        headline="ลงชื่อเข้าใช้ แล้วระบบจะจัดอันดับประกาศตามทักษะของคุณ"
+        body="บันทึกเทคโนโลยีที่คุณทำได้และช่วงงบที่รับไหวไว้ในโปรไฟล์ แล้วประกาศที่ตรงกับคุณที่สุดจะขึ้นมาก่อน ส่วนการค้นหาและอ่านประกาศทุกรายการไม่ต้องลงชื่อเข้าใช้"
         action={
           <div className="flex flex-wrap justify-center gap-2">
             <Link href="/auth" className={btn.primary}>
-              {lang === "th" ? "ลงชื่อเข้าใช้" : "Sign in"}
+              ลงชื่อเข้าใช้
             </Link>
             {onSwitchToFilter ? (
               <button type="button" onClick={onSwitchToFilter} className={btn.secondary}>
-                {lang === "th" ? "ค้นหาเองแทน" : "Search by hand instead"}
+                ค้นหาเองแทน
               </button>
             ) : null}
           </div>
@@ -162,11 +178,11 @@ export function MatchModeView({
     if (!matchResult.ok) {
       return (
         <EmptyState
-          headline={lang === "th" ? "จัดอันดับไม่สำเร็จ" : "Couldn't rank the postings"}
-          body={failureText(matchResult.error, lang)}
+          headline="จัดอันดับไม่สำเร็จ"
+          body={failureText(matchResult.error, "th")}
           action={
             <button type="button" onClick={() => setMatchTry((n) => n + 1)} className={btn.secondary}>
-              {lang === "th" ? "ลองอีกครั้ง" : "Try again"}
+              ลองอีกครั้ง
             </button>
           }
         />
@@ -176,20 +192,12 @@ export function MatchModeView({
     if (matchResult.data.total === 0) {
       return (
         <EmptyState
-          headline={
-            lang === "th"
-              ? "ยังไม่มีประกาศในระบบที่พร้อมประเมิน"
-              : "No postings in the system ready for matching yet"
-          }
-          body={
-            lang === "th"
-              ? "ยังไม่มีประกาศที่สรุปเสร็จและพร้อมเผยแพร่ ลองกลับมาใหม่ภายหลัง หรือค้นหาประกาศทั้งหมดในระบบ"
-              : "No posting has been cleared for publishing yet. Check back later or search all postings."
-          }
+          headline="ยังไม่มีประกาศในระบบที่พร้อมประเมิน"
+          body="ยังไม่มีประกาศที่สรุปเสร็จและพร้อมเผยแพร่ ลองกลับมาใหม่ภายหลัง หรือค้นหาประกาศทั้งหมดในระบบ"
           action={
             onSwitchToFilter ? (
               <button type="button" onClick={onSwitchToFilter} className={btn.secondary}>
-                {lang === "th" ? "ค้นหาเองจากทุกประกาศ" : "Search every posting"}
+                ค้นหาเองจากทุกประกาศ
               </button>
             ) : null
           }
@@ -200,12 +208,8 @@ export function MatchModeView({
     if (matchResults.length === 0) {
       return (
         <EmptyState
-          headline={lang === "th" ? "ไม่มีประกาศที่ผ่านเงื่อนไขนี้" : "Nothing passes these settings"}
-          body={
-            lang === "th"
-              ? "ลองลดคะแนนขั้นต่ำ แสดงงานที่ไม่รับข้อเสนอแล้ว หรือเอาตัวกรองความเสี่ยงออก"
-              : "Try a lower score floor, showing projects no longer taking bids, or dropping the risk filter."
-          }
+          headline="ไม่มีประกาศที่ผ่านเงื่อนไขนี้"
+          body="ลองลดคะแนนขั้นต่ำ แสดงงานที่ไม่รับข้อเสนอแล้ว หรือเอาตัวกรองความเสี่ยงออก"
           action={
             <div className="flex flex-wrap justify-center gap-2">
               <button
@@ -214,10 +218,11 @@ export function MatchModeView({
                   setScoreFloor(0);
                   setHideClosed(false);
                   setHideHighRisk(false);
+                  setPage(1);
                 }}
                 className={btn.secondary}
               >
-                {lang === "th" ? "แสดงทุกคะแนนและทุกสถานะ" : "Show all scores and projects"}
+                แสดงทุกคะแนนและทุกสถานะ
               </button>
             </div>
           }
@@ -229,29 +234,49 @@ export function MatchModeView({
       profile.skills.length === 0 ? (
         <div className="mb-2.5 flex items-center justify-between rounded-[3px] border border-amber-300 bg-amber-50 px-3.5 py-2 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           <span>
-            {lang === "th"
-              ? "💡 คุณยังไม่ได้ระบุทักษะในโปรไฟล์ — ระบบกำลังจัดอันดับจากงบประมาณ สถาปัตยกรรม และเกณฑ์ทั่วไป"
-              : "💡 You haven't added tech skills to your profile yet — ranking by budget, archetype, and general eligibility."}
+            💡 คุณยังไม่ได้ระบุทักษะในโปรไฟล์ — ระบบกำลังจัดอันดับจากงบประมาณ สถาปัตยกรรม และเกณฑ์ทั่วไป
           </span>
           <Link href="/profile" className="ml-2 shrink-0 font-semibold underline hover:opacity-80">
-            {lang === "th" ? "ตั้งค่าทักษะ →" : "Add skills →"}
+            ตั้งค่าทักษะ →
           </Link>
         </div>
       ) : null;
 
+    const total = matchResults.length;
+    const pages = Math.ceil(total / pageSize);
+    const pagedItems = matchResults.slice((page - 1) * pageSize, page * pageSize);
+
     return (
-      <div className="flex flex-col gap-2.5">
-        {noSkillsBanner}
-        {matchResults.map(({ tor, match }) => (
-          <CatalogRow key={tor.projectId} tor={tor} now={matchResult.data.at} match={match} />
-        ))}
-      </div>
+      <>
+        <div className="flex flex-col gap-3">
+          {noSkillsBanner}
+          {pagedItems.map(({ tor, match }) => (
+            <CatalogRow key={tor.projectId} tor={tor} now={matchResult.data.at} match={match} />
+          ))}
+        </div>
+
+        <Pagination
+          page={page}
+          pages={pages}
+          total={total}
+          pageSize={pageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          onPageChange={(nextPage) => {
+            setPage(nextPage);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          onPageSizeChange={(newPageSize) => {
+            setPageSize(newPageSize);
+            setPage(1);
+          }}
+        />
+      </>
     );
   }
 
   const rail = (
     <MatchRail
-      lang={lang}
+      lang="th"
       scoreFloor={scoreFloor}
       setScoreFloor={setScoreFloor}
       hideClosed={hideClosed}
@@ -266,28 +291,23 @@ export function MatchModeView({
   if (matchResult?.ok) {
     const tors = matchResult.data.tors;
     const total = matchResult.data.total;
-    countLine =
-      lang === "th"
-        ? `แสดง ${matchResults.length} จาก ${tors.length} ประกาศที่ประเมินความตรงกับคุณ${
-            total > tors.length ? ` (จัดอันดับ ${tors.length} รายการที่ใกล้ครบกำหนดที่สุดจากทั้งหมด ${total})` : ""
-          }`
-        : `Showing ${matchResults.length} of ${tors.length} scored for you${
-            total > tors.length ? ` (ranked the ${tors.length} due soonest of ${total})` : ""
-          }`;
+    countLine = `แสดง ${matchResults.length} จาก ${tors.length} ประกาศที่ประเมินความตรงกับคุณ${
+      total > tors.length ? ` (จัดอันดับ ${tors.length} รายการที่ใกล้ครบกำหนดที่สุดจากทั้งหมด ${total})` : ""
+    }`;
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[248px_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
       {/* Mobile Drawer Trigger */}
       <div className="lg:hidden">
         <button
           type="button"
           onClick={() => setFiltersOpen(!filtersOpen)}
           aria-expanded={filtersOpen}
-          className={`${btn.secondary} w-full justify-between`}
+          className={`${btn.secondary} w-full justify-between cursor-pointer`}
         >
-          <span>{lang === "th" ? "ตัวกรองและโปรไฟล์" : "Filters and profile"}</span>
-          <span className="font-mono text-[11px] text-ink-3">{filtersOpen ? "−" : "+"}</span>
+          <span>ตัวกรองและโปรไฟล์</span>
+          <span className="font-mono text-[11px] text-ink-3">{filtersOpen ? "▲" : "▼"}</span>
         </button>
         {filtersOpen ? <div className="mt-3">{rail}</div> : null}
       </div>
@@ -303,19 +323,9 @@ export function MatchModeView({
       <div className="min-w-0">
         <div className="mb-3">
           <SectionHeading
-            sub={
-              lang === "th"
-                ? "คะแนนประเมินจากทักษะ (40%), สถาปัตยกรรมระบบ (15%), ช่วงงบ (20%), ผลงานเดิม (10%), สถานะนิติบุคคล (10%) และมาตรฐาน (5%) เครื่องหมาย ✓ คือทักษะที่คุณมี"
-                : "Scored on skills (40%), architecture (15%), budget (20%), past portfolio (10%), entity type (10%), and standards (5%). A ✓ marks a skill you have."
-            }
+            sub="คะแนนประเมินจากทักษะ (40%), สถาปัตยกรรมระบบ (15%), ช่วงงบ (20%), ผลงานเดิม (10%), สถานะนิติบุคคล (10%) และมาตรฐาน (5%)"
           >
-            {matchResult?.ok
-              ? lang === "th"
-                ? `ตรงกับคุณมาก ${strongCount} งาน`
-                : `${strongCount} strong matches for you`
-              : lang === "th"
-                ? "งานที่ตรงกับคุณ"
-                : "Postings that fit you"}
+            {matchResult?.ok ? `ตรงกับคุณมาก ${strongCount} งาน` : "งานที่ตรงกับคุณ"}
           </SectionHeading>
         </div>
 

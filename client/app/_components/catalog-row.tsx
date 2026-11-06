@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { formatTHB, formatTHBCompact, type Lang } from "../_data/tors";
+import { formatTHB } from "../_data/tors";
 import type { TorInsightSummary, TorReview } from "../_lib/api";
 import type { Match } from "../_lib/match";
-import { useLang } from "./prefs";
 import { TorDeadline } from "./deadline";
 import { getFiscalYear } from "../_lib/format";
 import { stageOf } from "../_lib/stage";
@@ -24,37 +23,34 @@ import {
 import { Chip } from "./ui";
 
 /**
- * Says what a row is before anyone trusts it (ADR 0015): demo data is made up,
- * and an AI summary nobody has checked may be wrong. A checked one needs no tag.
+ * ระบุสถานะของประกาศว่าผ่านการตรวจสอบโดยมนุษย์แล้วหรือเป็นข้อมูล AI/ตัวอย่าง
  */
-function ReviewTag({ review, lang }: { review: TorReview; lang: Lang }) {
+function ReviewTag({ review }: { review: TorReview }) {
   if (review.origin === "demo") {
     return (
       <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-px text-[10.5px] font-medium text-amend">
-        {lang === "th" ? "ข้อมูลตัวอย่าง" : "Demo data"}
+        ข้อมูลตัวอย่าง
       </span>
     );
   }
   if (review.checked) return null;
   return (
     <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-px text-[10.5px] text-ink-2">
-      {lang === "th" ? "สรุปโดย AI · ยังไม่ตรวจ" : "AI summary · unchecked"}
+      สรุปโดย AI · ยังไม่ตรวจ
     </span>
   );
 }
 
-/** Analysis nobody ran is said once, plainly, rather than shown as a reassuring badge. */
-function notAnalysedText(lockSpec: boolean, price: boolean, lang: Lang): string | null {
-  if (lockSpec && price) return lang === "th" ? "ยังไม่วิเคราะห์ล็อกสเปกและราคา" : "Lock-spec and price not analysed yet";
-  if (lockSpec) return lang === "th" ? "ยังไม่วิเคราะห์ล็อกสเปก" : "Lock-spec not analysed yet";
-  if (price) return lang === "th" ? "ยังไม่วิเคราะห์ราคา" : "Price not analysed yet";
+function notAnalysedText(lockSpec: boolean, price: boolean): string | null {
+  if (lockSpec && price) return "ยังไม่วิเคราะห์ล็อกสเปกและราคา";
+  if (lockSpec) return "ยังไม่วิเคราะห์ล็อกสเปก";
+  if (price) return "ยังไม่วิเคราะห์ราคา";
   return null;
 }
 
 /**
- * One catalog row, from the API. Tuned for scan speed: users come here to
- * reject most of the list quickly, so the status rail, verdicts, price and
- * time left sit in fixed places the eye learns once.
+ * การ์ดแสดงรายการ TOR แต่ละโครงการ ปรับโครงสร้างแบบเป็นสัดส่วน (Card Layout)
+ * เพื่อให้อ่านและสแกนข้อมูลสำคัญได้ทันที: สถานะ -> ชื่อโครงการ -> งบ/กำหนดเวลา/คะแนน -> เทคโนโลยี
  */
 export function CatalogRow({
   tor,
@@ -63,30 +59,22 @@ export function CatalogRow({
   trailing,
 }: {
   tor: TorInsightSummary;
-  /** When the list arrived: the moment the API decided what is Closed */
   now: Date;
-  /** Matched mode: the score, and the technologies the user already has */
   match?: Match;
-  /** Optional trailing action slot (e.g. remove button on watchlist) */
   trailing?: ReactNode;
 }) {
-  const { lang } = useLang();
   const { identification: iden, facts, analytics } = tor;
 
   const tech = [...new Set((tor.technicalRequirements?.requiredTechnologies ?? []).map((t) => t.name))];
-  const visibleTech = tech.slice(0, 4);
+  const visibleTech = tech.slice(0, 5);
   const restTech = tech.length - visibleTech.length;
 
-  // The reference price is what the catalog filters on; the budget stands in only when it's missing
   const price = facts.referencePriceTHB ?? facts.budgetTHB;
-  const priceLabel =
-    facts.referencePriceTHB !== null
-      ? lang === "th" ? "ราคากลาง" : "reference price"
-      : lang === "th" ? "งบประมาณ" : "budget";
+  const priceLabel = facts.referencePriceTHB !== null ? "ราคากลาง" : "งบประมาณ";
 
-  const title = lang === "en" && iden.titleEn ? iden.titleEn : iden.titleTh;
+  const title = iden.titleTh;
   const fiscalYear = getFiscalYear(facts.postedDate, tor.projectId);
-  const missing = notAnalysedText(!analytics.lockSpec, !analytics.priceAnalysis, lang);
+  const missing = notAnalysedText(!analytics.lockSpec, !analytics.priceAnalysis);
   const isClosed = isDead(iden.status);
   const stage = stageOf({
     status: iden.status,
@@ -97,112 +85,112 @@ export function CatalogRow({
 
   return (
     <article
-      className={`group relative flex gap-3.5 sm:gap-4 rounded-lg border border-line px-4 py-3.5 sm:px-5 sm:py-4 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm ${
+      className={`group relative flex gap-3.5 sm:gap-4 rounded-lg border border-line p-4 sm:p-5 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm ${
         isClosed ? "bg-surface-closed grayscale" : "bg-surface"
       }`}
     >
       <LifecycleRail status={iden.status} amended={tor.amendmentInfo?.isAmended} />
 
-      <div className="flex min-w-0 flex-1 flex-col gap-3.5 sm:flex-row sm:gap-5">
-        {/* Main Content Column: JobsDB hierarchy (Title -> Agency -> Badges -> Tech) */}
-        <div className="min-w-0 flex-1">
-          {/* 1. Job / Project Title — Prominent, First (matches price size) */}
-          <h3 className="text-[19px] sm:text-[20px] leading-[1.45] font-semibold text-ink">
-            <Link
-              href={`/tor/${tor.projectId}`}
-              className="underline-offset-2 after:absolute after:inset-0 group-hover:underline"
-            >
-              {title}
-            </Link>
-          </h3>
-
-          {/* 2. Agency & Key Metadata — Directly below title */}
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-ink-2">
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        {/* Tier 1: Metadata Bar & Status Badges */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line/50 pb-2.5">
+          <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-3">
+            {fiscalYear ? (
+              <span className="font-medium text-ink-2 bg-surface-2 px-1.5 py-0.5 rounded-[2px] border border-line">
+                ปีงบฯ {fiscalYear}
+              </span>
+            ) : null}
+            <span className="font-mono tnum text-[11.5px]">#{tor.projectId}</span>
+            <span className="text-ink-4">·</span>
             <span className="font-medium text-ink-2">{iden.agency}</span>
             {iden.department ? (
               <>
-                <span className="h-3 w-px bg-line" />
-                <span className="text-ink-3 text-[12px]">{iden.department}</span>
+                <span className="text-ink-4">/</span>
+                <span className="text-ink-3">{iden.department}</span>
               </>
             ) : null}
-            {fiscalYear ? (
-              <>
-                <span className="h-3 w-px bg-line" />
-                <span className="tnum text-ink-3 text-[12px]">
-                  {lang === "th" ? `ปีงบฯ ${fiscalYear}` : `FY ${fiscalYear}`}
-                </span>
-              </>
-            ) : null}
-            <span className="h-3 w-px bg-line" />
-            <span className="font-mono tnum text-[11px] text-ink-3">#{tor.projectId}</span>
-            <ReviewTag review={tor.review} lang={lang} />
+            <ReviewTag review={tor.review} />
           </div>
 
-          {/* 3. Decision Signals & Status Badges */}
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            <LifecycleBadge status={iden.status} stage={stage} lang={lang} />
-            {change ? <ChangeMarker source={change} lang={lang} /> : null}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <LifecycleBadge status={iden.status} stage={stage} lang="th" />
+            {change ? <ChangeMarker source={change} lang="th" /> : null}
             {analytics.lockSpec ? (
               <LockSpecBadge
                 level={riskLevel(analytics.lockSpec.riskScore)}
                 score={analytics.lockSpec.riskScore}
-                lang={lang}
+                lang="th"
               />
             ) : null}
             {analytics.priceAnalysis ? (
-              <PriceDeltaBadge delta={analytics.priceAnalysis.diffPercentage} lang={lang} />
+              <PriceDeltaBadge delta={analytics.priceAnalysis.diffPercentage} lang="th" />
             ) : null}
-            {missing ? <span className="px-1 text-[11px] leading-thai text-ink-3">{missing}</span> : null}
+            {missing ? <span className="text-[11px] text-ink-3">{missing}</span> : null}
+          </div>
+        </div>
+
+        {/* Tier 2: Title */}
+        <h3 className="text-[17px] sm:text-[18px] leading-[1.45] font-semibold text-ink">
+          <Link
+            href={`/tor/${tor.projectId}`}
+            className="underline-offset-2 after:absolute after:inset-0 group-hover:underline"
+          >
+            {title}
+          </Link>
+        </h3>
+
+        {/* Tier 3: Core Facts Grid (Budget, Deadline, Match) */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 rounded-[4px] bg-surface-2/60 border border-line/50 p-2.5 text-[12.5px]">
+          {/* 1. Price */}
+          <div className="flex flex-col">
+            <span className="text-[11px] font-medium text-ink-3">{priceLabel}</span>
+            <div className="mt-0.5">
+              {price !== null ? (
+                <span className="font-mono tnum text-[16px] sm:text-[17px] font-bold text-ink" title={formatTHB(price)}>
+                  {formatTHB(price)}
+                </span>
+              ) : (
+                <span className="text-ink-3">ไม่ระบุใน TOR</span>
+              )}
+            </div>
           </div>
 
-          {/* 4. Tech Stack Tags / Capabilities & Match Signals */}
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            {tor.companiesOnly ? <CompaniesOnlyBadge lang={lang} /> : null}
+          {/* 2. Deadline */}
+          <div className="flex flex-col">
+            <span className="text-[11px] font-medium text-ink-3">กำหนดยื่นข้อเสนอ</span>
+            <div className="mt-0.5">
+              <TorDeadline status={iden.status} facts={facts} now={now} lang="th" />
+            </div>
+          </div>
 
-            {/* Signal Badges (Fast Scan) */}
+          {/* 3. Match / Qualification Signal */}
+          <div className="col-span-2 sm:col-span-1 flex flex-col justify-center">
+            {match ? (
+              <Link
+                href={`/tor/${tor.projectId}#profile-match`}
+                className="relative z-10 inline-flex items-center gap-1.5 transition-opacity hover:opacity-80"
+                title={`คะแนนความตรง ${match.score}/100 — คลิกดูวิเคราะห์ฉบับเต็ม`}
+              >
+                <MatchScore score={match.score} lang="th" match={match} />
+              </Link>
+            ) : (
+              <span className="text-[11.5px] text-ink-3">ลงชื่อเข้าใช้เพื่อดูความตรงกับคุณ</span>
+            )}
+          </div>
+        </div>
+
+        {/* Tier 4: Tech Stack Chips & Qualification Badges */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {tor.companiesOnly ? <CompaniesOnlyBadge lang="th" /> : null}
+
             {match?.disqualifiedDirectBid ? (
               <span
-                title={
-                  lang === "th"
-                    ? "TOR กำหนดเฉพาะนิติบุคคล แต่โปรไฟล์ของคุณลงทะเบียนเป็นบุคคลธรรมดา (แนะนำเข้าร่วมในรูปแบบกิจการร่วมค้า หรือรับงานช่วง)"
-                    : "TOR requires a registered company, but your profile is registered as an individual"
-                }
+                title="TOR กำหนดเฉพาะนิติบุคคล แต่คุณลงทะเบียนเป็นบุคคลธรรมดา (แนะนำเข้าร่วมในรูปแบบกิจการร่วมค้า หรือรับงานช่วง)"
                 className="inline-flex items-center gap-1 rounded-[2px] border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
               >
                 <span>⚠️</span>
-                <span>{lang === "th" ? "คุณเป็นบุคคลธรรมดา" : "Individual bidder"}</span>
-              </span>
-            ) : null}
-
-            {match && match.breakdown.skills.totalRequired > 0 && match.matched.length > 0 ? (
-              <span
-                title={
-                  lang === "th"
-                    ? `ตรงกับทักษะที่คุณเชี่ยวชาญ ${match.matched.length} จาก ${match.breakdown.skills.totalRequired} รายการ`
-                    : `Matches ${match.matched.length} of ${match.breakdown.skills.totalRequired} required skills`
-                }
-                className="inline-flex items-center gap-1 rounded-[2px] border border-open-line bg-open-bg px-1.5 py-0.5 text-[11px] font-medium text-open"
-              >
-                <span>✓</span>
-                <span>
-                  {lang === "th"
-                    ? `ทักษะตรง ${match.matched.length}/${match.breakdown.skills.totalRequired}`
-                    : `Skills ${match.matched.length}/${match.breakdown.skills.totalRequired}`}
-                </span>
-              </span>
-            ) : null}
-
-            {match && match.breakdown.budget.status === "within_range" && price !== null ? (
-              <span
-                title={
-                  lang === "th"
-                    ? "ราคากลางอยู่ในช่วงงบประมาณที่คุณรับงาน"
-                    : "Price is within your preferred budget range"
-                }
-                className="inline-flex items-center gap-1 rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2"
-              >
-                <span>✓</span>
-                <span>{lang === "th" ? "งบตรงช่วง" : "Budget fit"}</span>
+                <span>เฉพาะนิติบุคคล</span>
               </span>
             ) : null}
 
@@ -210,60 +198,19 @@ export function CatalogRow({
               const known = match?.matched.includes(term);
               return (
                 <Chip key={`${term}-${idx}`} className={known ? "border-open-line bg-open-bg text-open" : ""}>
-                  {known ? <span className="mr-1" aria-label={lang === "th" ? "คุณมีทักษะนี้" : "you have this skill"}>✓</span> : null}
+                  {known ? <span className="mr-1" aria-label="คุณมีทักษะนี้">✓</span> : null}
                   {term}
                 </Chip>
               );
             })}
             {restTech > 0 ? <Chip className="text-ink-3">+{restTech}</Chip> : null}
             {tech.length === 0 ? (
-              <span className="text-[11.5px] text-ink-3">
-                {lang === "th" ? "TOR ไม่ระบุเทคโนโลยี" : "No technologies named in the TOR"}
-              </span>
+              <span className="text-[11.5px] text-ink-3">TOR ไม่ระบุเทคโนโลยี</span>
             ) : null}
           </div>
-        </div>
-
-        {/* Right Column: Price, Urgency & Trailing Action */}
-        <div className="flex shrink-0 flex-col gap-2 border-t border-line/60 pt-3 sm:w-[196px] sm:items-end sm:justify-start sm:gap-3 sm:border-t-0 sm:border-l sm:border-line sm:pt-0 sm:pl-5">
-          <div className="flex w-full items-end justify-between gap-4 sm:w-auto sm:flex-col sm:items-end sm:justify-start sm:gap-3">
-            <div className="flex flex-col items-start sm:items-end">
-              {price !== null ? (
-                <span
-                  className="font-mono tnum text-[19px] sm:text-[20px] leading-none font-semibold text-ink"
-                  title={formatTHB(price)}
-                >
-                  {formatTHBCompact(price)}
-                </span>
-              ) : (
-                <span className="text-[13px] leading-none text-ink-3">
-                  {lang === "th" ? "ไม่ระบุใน TOR" : "Not in the TOR"}
-                </span>
-              )}
-              <span className="mt-1 text-[11px] font-medium text-ink-3">
-                {priceLabel}
-              </span>
-            </div>
-
-            <TorDeadline status={iden.status} facts={facts} now={now} lang={lang} />
-          </div>
-
-          {match ? (
-            <Link
-              href={`/tor/${tor.projectId}#profile-match`}
-              className="relative z-10 transition-opacity hover:opacity-80"
-              title={
-                lang === "th"
-                  ? `คะแนนความตรง ${match.score}/100 — คลิกเพื่อดูผลวิเคราะห์ 6 มิติฉบับเต็ม`
-                  : `Match score ${match.score}/100 — click to view 6-dimension breakdown`
-              }
-            >
-              <MatchScore score={match.score} lang={lang} match={match} />
-            </Link>
-          ) : null}
 
           {trailing ? (
-            <div className="relative z-10 flex w-full justify-end sm:mt-auto sm:pt-2">
+            <div className="relative z-10 flex shrink-0 justify-end">
               {trailing}
             </div>
           ) : null}
@@ -277,26 +224,19 @@ export function CatalogRow({
 export function CatalogRowSkeleton() {
   const bar = "rounded-[2px] bg-surface-3";
   return (
-    <div className="flex gap-3.5 sm:gap-4 rounded-lg border border-line bg-surface px-4 py-3.5 sm:px-5 sm:py-4" aria-hidden="true">
+    <div className="flex gap-3.5 sm:gap-4 rounded-lg border border-line bg-surface p-4 sm:p-5" aria-hidden="true">
       <span className="w-[5px] shrink-0 rounded-full bg-line" />
-      <div className="flex min-w-0 flex-1 animate-pulse flex-col gap-3.5 sm:flex-row sm:gap-5">
-        <div className="min-w-0 flex-1">
-          <div className={`h-6 sm:h-7 w-4/5 ${bar}`} />
-          <div className={`mt-2 h-3.5 w-60 ${bar}`} />
-          <div className="mt-3 flex gap-1.5">
-            <div className={`h-5 w-24 ${bar}`} />
-            <div className={`h-5 w-36 ${bar}`} />
-            <div className={`h-5 w-28 ${bar}`} />
-          </div>
-          <div className="mt-2.5 flex gap-1">
-            <div className={`h-4 w-14 ${bar}`} />
-            <div className={`h-4 w-16 ${bar}`} />
-            <div className={`h-4 w-12 ${bar}`} />
-          </div>
+      <div className="flex min-w-0 flex-1 animate-pulse flex-col gap-3">
+        <div className="flex justify-between">
+          <div className={`h-4 w-48 ${bar}`} />
+          <div className={`h-4 w-32 ${bar}`} />
         </div>
-        <div className="flex shrink-0 flex-row justify-between gap-4 sm:w-[184px] sm:flex-col sm:items-end sm:border-l sm:border-line sm:pl-5">
-          <div className={`h-6 w-20 ${bar}`} />
-          <div className={`h-4 w-24 ${bar}`} />
+        <div className={`h-6 w-3/4 ${bar}`} />
+        <div className={`h-12 w-full rounded-[4px] ${bar}`} />
+        <div className="flex gap-1.5 pt-1">
+          <div className={`h-4 w-16 ${bar}`} />
+          <div className={`h-4 w-20 ${bar}`} />
+          <div className={`h-4 w-14 ${bar}`} />
         </div>
       </div>
     </div>

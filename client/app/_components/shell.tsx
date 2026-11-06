@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { displayName, useAuth } from "./auth";
-import { useLang, LangToggle, ThemeToggle } from "./prefs";
+import { ThemeToggle } from "./prefs";
 
 /**
  * The hammer, drawn flat and geometric rather than mythic — this is an
@@ -27,25 +27,23 @@ export function Wordmark({ className = "" }: { className?: string }) {
 }
 
 const NAV = [
-  { href: "/search", label: { th: "ค้นหาประกาศ", en: "Search" } },
-  { href: "/watchlist", label: { th: "รายการติดตาม", en: "Watchlist" } },
-  { href: "/watchdog", label: { th: "ตรวจสอบราคา/การแก้ไข", en: "Watchdog" } },
+  { href: "/search", label: "ค้นหาประกาศ" },
+  { href: "/watchlist", label: "รายการติดตาม" },
+  { href: "/watchdog", label: "ตรวจสอบราคา/การแก้ไข" },
 ] as const;
 
 export function HeaderControls({ className = "" }: { className?: string }) {
   const pathname = usePathname();
-  const { lang } = useLang();
   const { status, user, signOut } = useAuth();
   const signInHref = `/auth?next=${encodeURIComponent(pathname || "/")}`;
 
   return (
     <div className={`flex shrink-0 items-center gap-2 ${className}`}>
-      <LangToggle />
       <ThemeToggle />
       <Link
         href="/notifications"
-        aria-label={lang === "th" ? "ตั้งค่าการแจ้งเตือน" : "Notification preferences"}
-        title={lang === "th" ? "การแจ้งเตือน" : "Notifications"}
+        aria-label="ตั้งค่าการแจ้งเตือน"
+        title="การแจ้งเตือน"
         className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
       >
         <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
@@ -83,9 +81,9 @@ export function HeaderControls({ className = "" }: { className?: string }) {
           <button
             type="button"
             onClick={() => signOut()}
-            aria-label={lang === "th" ? "ออกจากระบบ" : "Sign out"}
-            title={lang === "th" ? "ออกจากระบบ" : "Sign out"}
-            className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-3 transition-colors hover:text-ink"
+            aria-label="ออกจากระบบ"
+            title="ออกจากระบบ"
+            className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-3 transition-colors hover:text-ink cursor-pointer"
           >
             <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
               <path
@@ -104,7 +102,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
           href={signInHref}
           className="flex h-[26px] items-center rounded-[3px] border border-line-2 bg-surface px-2.5 text-[12px] font-medium text-ink transition-colors hover:bg-surface-2"
         >
-          {lang === "th" ? "เข้าสู่ระบบ" : "Sign in"}
+          เข้าสู่ระบบ
         </Link>
       )}
     </div>
@@ -113,7 +111,6 @@ export function HeaderControls({ className = "" }: { className?: string }) {
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { lang } = useLang();
   const { status, user } = useAuth();
 
   return (
@@ -123,8 +120,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <Link
             href="/"
             className="flex h-[26px] items-center text-ink transition-opacity hover:opacity-70"
-            title={lang === "th" ? "หน้าแรก" : "Home"}
-            aria-label={lang === "th" ? "หน้าแรก" : "Home"}
+            title="หน้าแรก"
+            aria-label="หน้าแรก"
           >
             <svg
               viewBox="0 0 20 20"
@@ -154,10 +151,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
                       : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                   }`}
                 >
-                  {item.label[lang]}
+                  {item.label}
                 </Link>
               );
             })}
+
             {/* The divider goes with the link, or an orphan hairline is left
                 floating in the nav. This takes the admin surface off the public
                 page; it does not make /admin private, since that page reads
@@ -173,7 +171,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                       : "text-ink-3 hover:bg-surface-2 hover:text-ink"
                   }`}
                 >
-                  {lang === "th" ? "ผู้ดูแลระบบ" : "Admin"}
+                  ผู้ดูแลระบบ
                 </Link>
               </>
             ) : null}
@@ -189,8 +187,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 text-[11px] text-ink-3">
           <Wordmark className="opacity-60" />
           <span className="leading-thai">
-            เครื่องมือค้นหาโครงการ ไม่ใช่ระบบยื่นข้อเสนอ · A discovery tool, not a bidding
-            assistant.
+            เครื่องมือค้นหาและวิเคราะห์ประกาศจัดซื้อจัดจ้างภาครัฐด้าน IT (ไม่ใช่ระบบยื่นข้อเสนอทางการของ e-GP)
           </span>
           <span className="ml-auto font-mono">01219346 · Kasetsart University</span>
         </div>
