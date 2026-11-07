@@ -40,7 +40,7 @@ test('a past project known only from its title stays hidden, and so can\'t be wa
   await TorInsight.deleteMany({ projectId: pastId });
   await TorInsight.create({
     projectId: pastId,
-    identification: { titleTh: 'ทดสอบโครงการในอดีต', agency: 'หน่วยงานทดสอบอดีต', status: 'Awarded', category: 'software-licenses' },
+    identification: { titleTh: 'ทดสอบโครงการในอดีต', agency: 'หน่วยงานทดสอบอดีต', status: 'Awarded', categories: ['software-licenses'] },
     facts: { referencePriceTHB: 1200000, agreedPriceTHB: 1100000 },
     metadata: { reviewStatus: 'pending', titleOnly: true },
   });

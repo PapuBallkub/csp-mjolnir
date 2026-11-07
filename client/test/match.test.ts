@@ -13,7 +13,7 @@ function createMockTor(overrides: Partial<TorInsightSummary> = {}): TorInsightSu
       titleEn: "Citizen Service Portal Development Project",
       agency: "สำนักงานพัฒนารัฐบาลดิจิทัล (องค์การมหาชน)",
       department: null,
-      category: "Software Development",
+      categories: ["software-development"],
       status: "Open",
     },
     facts: {

@@ -6,6 +6,8 @@ import {
   calculateScopeSimilarity,
   calculateComplexitySimilarity,
   calculateCompositeSimilarity,
+  calculateCategorySimilarity,
+  sharesCategory,
   getFiscalYear,
   getProjectPrice,
   getProjectArchetype,
@@ -90,7 +92,7 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
   const targetTor = {
     projectId: 'TARGET_001',
     identification: {
-      category: 'software-development',
+      categories: ['software-development'],
       titleTh: 'จ้างพัฒนาระบบบริการ e-Service สำหรับประชาชน',
     },
     facts: {
@@ -112,7 +114,7 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
     {
       projectId: 'CAND_BEST',
       identification: {
-        category: 'software-development',
+        categories: ['software-development'],
         titleTh: 'จ้างพัฒนาระบบ e-Service และเว็บพอร์ทัล',
         status: 'Awarded',
       },
@@ -134,7 +136,7 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
     {
       projectId: 'CAND_GOOD',
       identification: {
-        category: 'software-development',
+        categories: ['software-development'],
         titleTh: 'โครงการพัฒนาระบบบริหารจัดการข้อมูล e-Service',
         status: 'Closed',
       },
@@ -156,7 +158,7 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
     {
       projectId: 'CAND_WRONG_CAT',
       identification: {
-        category: 'network-and-security',
+        categories: ['network-and-security'],
         titleTh: 'จัดซื้อระบบเครือข่ายความปลอดภัย',
         status: 'Awarded',
       },
@@ -169,7 +171,7 @@ test('findComparableProjects: filters and ranks candidate projects properly', as
     {
       projectId: 'TARGET_001',
       identification: {
-        category: 'software-development',
+        categories: ['software-development'],
         status: 'Awarded',
       },
       metadata: { confidenceScore: 90 },
@@ -200,7 +202,7 @@ test('findComparableProjects: matches realistic project 69109062251 (maintenance
     projectId: '69109062251',
     identification: {
       titleTh: 'จ้างบำรุงรักษาเครื่องคอมพิวเตอร์แม่ข่าย (Server) เครื่องคอมพิวเตอร์ และ LAN Cable',
-      category: 'maintenance-and-support',
+      categories: ['maintenance-and-support'],
     },
     facts: {
       budgetTHB: 1194600,
@@ -235,12 +237,12 @@ test('findComparableProjects: matches realistic project 69109062251 (maintenance
 test('findComparableProjects: full extractions only, not title-level or waiting records (ADR 0028)', async () => {
   const target = {
     projectId: 'TARGET_002',
-    identification: { category: 'software-licenses', titleTh: 'เช่าใช้บริการ Microsoft 365' },
+    identification: { categories: ['software-licenses'], titleTh: 'เช่าใช้บริการ Microsoft 365' },
     facts: { referencePriceTHB: 1000000 },
   };
   const candidate = (projectId, metadata, status = 'Awarded') => ({
     projectId,
-    identification: { category: 'software-licenses', titleTh: 'เช่าใช้บริการ Microsoft 365 รายปี', status },
+    identification: { categories: ['software-licenses'], titleTh: 'เช่าใช้บริการ Microsoft 365 รายปี', status },
     facts: { referencePriceTHB: 1100000 },
     metadata: { confidenceScore: 90, ...metadata },
   });
@@ -281,7 +283,7 @@ test('calculateScopeSimilarity: matches identical system archetypes with high sc
 test('findComparableProjects: matches peers on technical specifications without circular price filtering (ADR 0021)', async () => {
   const target = {
     projectId: 'TARGET_NORMAL',
-    identification: { category: 'software-development', titleTh: 'ระบบจองคิวออนไลน์ประชาชน' },
+    identification: { categories: ['software-development'], titleTh: 'ระบบจองคิวออนไลน์ประชาชน' },
     facts: { referencePriceTHB: 500000 }, // ฿500k normal baseline
     overview: { systemArchetype: 'web-portal', complexityTier: 'basic' },
     technicalRequirements: { requiredTechnologies: [{ name: 'React' }, { name: 'Node.js' }] },
@@ -293,7 +295,7 @@ test('findComparableProjects: matches peers on technical specifications without 
     // Under ADR 0021 non-circular logic, it is matched as comparable peer so the price outlier is detected!
     {
       projectId: 'CAND_10X_ANOMALY',
-      identification: { category: 'software-development', titleTh: 'ระบบจองคิวออนไลน์หน่วยงานพิเศษ', status: 'Awarded' },
+      identification: { categories: ['software-development'], titleTh: 'ระบบจองคิวออนไลน์หน่วยงานพิเศษ', status: 'Awarded' },
       facts: { referencePriceTHB: 5000000 }, // 10x higher price!
       metadata: { confidenceScore: 90 },
       overview: { systemArchetype: 'web-portal', complexityTier: 'basic' },
@@ -303,7 +305,7 @@ test('findComparableProjects: matches peers on technical specifications without 
     // Under old circular logic, price match made this comparable. Under ADR 0021, technical specs reject it.
     {
       projectId: 'CAND_WRONG_SPECS',
-      identification: { category: 'software-development', titleTh: 'ระบบ ERP องค์กร', status: 'Closed' },
+      identification: { categories: ['software-development'], titleTh: 'ระบบ ERP องค์กร', status: 'Closed' },
       facts: { referencePriceTHB: 500000 },
       metadata: { confidenceScore: 90 },
       overview: { systemArchetype: 'enterprise-erp', complexityTier: 'enterprise' },
@@ -325,7 +327,7 @@ test('findComparableProjects: matches peers on technical specifications without 
 test('findComparableProjects: tie-breaks by price distance when technical scores are identical', async () => {
   const target = {
     projectId: 'TARGET_TIE',
-    identification: { category: 'software-development', titleTh: 'ระบบบริการข้อมูล' },
+    identification: { categories: ['software-development'], titleTh: 'ระบบบริการข้อมูล' },
     facts: { referencePriceTHB: 5000000 }, // 5M
     overview: { systemArchetype: 'web-portal', complexityTier: 'standard' },
     technicalRequirements: { requiredTechnologies: [{ name: 'PostgreSQL' }] },
@@ -335,7 +337,7 @@ test('findComparableProjects: tie-breaks by price distance when technical scores
     // Candidate A: 5.2M (diff = 0.2M)
     {
       projectId: 'CAND_CLOSER_PRICE',
-      identification: { category: 'software-development', titleTh: 'ระบบบริการ ก', status: 'Awarded' },
+      identification: { categories: ['software-development'], titleTh: 'ระบบบริการ ก', status: 'Awarded' },
       facts: { referencePriceTHB: 5200000 },
       metadata: { confidenceScore: 90 },
       overview: { systemArchetype: 'web-portal', complexityTier: 'standard' },
@@ -344,7 +346,7 @@ test('findComparableProjects: tie-breaks by price distance when technical scores
     // Candidate B: 7.0M (diff = 2.0M)
     {
       projectId: 'CAND_FARTHER_PRICE',
-      identification: { category: 'software-development', titleTh: 'ระบบบริการ ข', status: 'Closed' },
+      identification: { categories: ['software-development'], titleTh: 'ระบบบริการ ข', status: 'Closed' },
       facts: { referencePriceTHB: 7000000 },
       metadata: { confidenceScore: 90 },
       overview: { systemArchetype: 'web-portal', complexityTier: 'standard' },
@@ -363,7 +365,7 @@ test('findComparableProjects: tie-breaks by price distance when technical scores
 test('findComparableProjects: accepts only Closed and Awarded statuses (rejects Draft, Open, Cancelled)', async () => {
   const target = {
     projectId: 'TARGET_STATUS',
-    identification: { category: 'software-development', titleTh: 'ระบบทดสอบสถานะ' },
+    identification: { categories: ['software-development'], titleTh: 'ระบบทดสอบสถานะ' },
     facts: { referencePriceTHB: 2000000 },
     overview: { systemArchetype: 'web-portal', complexityTier: 'standard' },
   };
@@ -371,31 +373,31 @@ test('findComparableProjects: accepts only Closed and Awarded statuses (rejects 
   const pool = [
     {
       projectId: 'CAND_AWARDED',
-      identification: { category: 'software-development', status: 'Awarded' },
+      identification: { categories: ['software-development'], status: 'Awarded' },
       facts: { referencePriceTHB: 2000000 },
       metadata: { confidenceScore: 90 },
     },
     {
       projectId: 'CAND_CLOSED',
-      identification: { category: 'software-development', status: 'Closed' },
+      identification: { categories: ['software-development'], status: 'Closed' },
       facts: { referencePriceTHB: 2000000 },
       metadata: { confidenceScore: 85 },
     },
     {
       projectId: 'CAND_OPEN',
-      identification: { category: 'software-development', status: 'Open' },
+      identification: { categories: ['software-development'], status: 'Open' },
       facts: { referencePriceTHB: 2000000 },
       metadata: { confidenceScore: 90 },
     },
     {
       projectId: 'CAND_DRAFT',
-      identification: { category: 'software-development', status: 'Draft' },
+      identification: { categories: ['software-development'], status: 'Draft' },
       facts: { referencePriceTHB: 2000000 },
       metadata: { confidenceScore: 90 },
     },
     {
       projectId: 'CAND_CANCELLED',
-      identification: { category: 'software-development', status: 'Cancelled' },
+      identification: { categories: ['software-development'], status: 'Cancelled' },
       facts: { referencePriceTHB: 2000000 },
       metadata: { confidenceScore: 90 },
     },
@@ -410,7 +412,7 @@ test('findComparableProjects: accepts only Closed and Awarded statuses (rejects 
 test('findComparableProjects: filters out candidates below 80% confidence score (NFR-17)', async () => {
   const target = {
     projectId: 'TARGET_CONF',
-    identification: { category: 'software-development', titleTh: 'ระบบทดสอบความเชื่อมั่น' },
+    identification: { categories: ['software-development'], titleTh: 'ระบบทดสอบความเชื่อมั่น' },
     facts: { referencePriceTHB: 3000000 },
     overview: { systemArchetype: 'web-portal', complexityTier: 'standard' },
   };
@@ -418,25 +420,25 @@ test('findComparableProjects: filters out candidates below 80% confidence score 
   const pool = [
     {
       projectId: 'CAND_CONF_80',
-      identification: { category: 'software-development', status: 'Awarded' },
+      identification: { categories: ['software-development'], status: 'Awarded' },
       facts: { referencePriceTHB: 3000000 },
       metadata: { confidenceScore: 80 },
     },
     {
       projectId: 'CAND_CONF_95',
-      identification: { category: 'software-development', status: 'Awarded' },
+      identification: { categories: ['software-development'], status: 'Awarded' },
       facts: { referencePriceTHB: 3000000 },
       metadata: { confidenceScore: 95 },
     },
     {
       projectId: 'CAND_CONF_79',
-      identification: { category: 'software-development', status: 'Awarded' },
+      identification: { categories: ['software-development'], status: 'Awarded' },
       facts: { referencePriceTHB: 3000000 },
       metadata: { confidenceScore: 79 },
     },
     {
       projectId: 'CAND_CONF_NULL',
-      identification: { category: 'software-development', status: 'Awarded' },
+      identification: { categories: ['software-development'], status: 'Awarded' },
       facts: { referencePriceTHB: 3000000 },
       metadata: {},
     },
@@ -446,4 +448,100 @@ test('findComparableProjects: filters out candidates below 80% confidence score 
   assert.equal(results.length, 2, 'Should only accept confidence >= 80%');
   const ids = results.map((r) => r.projectId).sort();
   assert.deepEqual(ids, ['CAND_CONF_80', 'CAND_CONF_95']);
+});
+
+const withCategories = (...categories) => ({ identification: { categories } });
+
+test('calculateCategorySimilarity: sharing more scores more, and the same order scores most (ADR 0034)', () => {
+  const target = withCategories('software-development', 'maintenance-and-support');
+  const score = (...categories) => calculateCategorySimilarity(target, withCategories(...categories));
+
+  assert.equal(score('software-development', 'maintenance-and-support'), 1);
+  assert.equal(score('maintenance-and-support', 'software-development'), 0.75, 'both shared, in the other order');
+  assert.equal(score('software-development'), 0.5, 'one of two shared, in the same place');
+  assert.equal(score('maintenance-and-support'), 0.375, 'one of two shared, one place apart');
+  assert.equal(score('network-and-security'), 0);
+});
+
+test('calculateCategorySimilarity: a shared category scores less the further apart it sits', () => {
+  const target = withCategories('software-development');
+  const first = withCategories('software-development', 'maintenance-and-support', 'network-and-security');
+  const last = withCategories('maintenance-and-support', 'network-and-security', 'software-development');
+
+  assert.equal(calculateCategorySimilarity(target, first), 0.3333);
+  assert.equal(calculateCategorySimilarity(target, last), 0.1667);
+});
+
+test('calculateCategorySimilarity: the same both ways, and neutral when one is unknown', () => {
+  const a = withCategories('software-development', 'data-and-ai');
+  const b = withCategories('data-and-ai', 'other-it');
+
+  assert.equal(calculateCategorySimilarity(a, b), calculateCategorySimilarity(b, a));
+  assert.equal(calculateCategorySimilarity(a, withCategories()), 0.5);
+  assert.equal(calculateCategorySimilarity({}, a), 0.5);
+});
+
+test('sharesCategory: any shared category counts, in any position', () => {
+  const target = withCategories('software-development', 'maintenance-and-support');
+
+  assert.equal(sharesCategory(target, withCategories('other-it', 'network-and-security', 'maintenance-and-support')), true);
+  assert.equal(sharesCategory(target, withCategories('network-and-security')), false);
+  assert.equal(sharesCategory(target, withCategories()), false);
+  assert.equal(sharesCategory({}, target), false);
+});
+
+test('calculateCompositeSimilarity: archetype 35%, complexity 30%, tech 20%, category 15%', () => {
+  const project = (archetype, tier, tech, ...categories) => ({
+    ...withCategories(...categories),
+    overview: { systemArchetype: archetype, complexityTier: tier },
+    technicalRequirements: { requiredTechnologies: [{ name: tech }] },
+  });
+  const target = project('web-portal', 'standard', 'React', 'software-development');
+  const score = (candidate) => calculateCompositeSimilarity(target, candidate).score;
+
+  assert.equal(score(project('web-portal', 'standard', 'React', 'software-development')), 1);
+  // Each part alone falls; the rest stay full
+  assert.equal(score(project('mobile-app', 'standard', 'React', 'software-development')), 0.7025); // archetype at 0.15
+  assert.equal(score(project('web-portal', 'enterprise', 'React', 'software-development')), 0.85); // complexity at 0.50
+  assert.equal(score(project('web-portal', 'standard', 'Vue', 'software-development')), 0.8); // tech at 0
+  assert.equal(score(project('web-portal', 'standard', 'React', 'software-development', 'other-it')), 0.925); // category at 0.50
+
+  const { breakdown } = calculateCompositeSimilarity(target, project('web-portal', 'standard', 'React', 'software-development', 'other-it'));
+  assert.equal(breakdown.categorySim, 0.5);
+});
+
+test('calculateCompositeSimilarity: a matching category cannot lift a project past the right archetype', () => {
+  const project = (archetype, ...categories) => ({ ...withCategories(...categories), overview: { systemArchetype: archetype } });
+  const target = project('web-portal', 'software-development', 'maintenance-and-support', 'other-it');
+
+  const sameArchetype = project('web-portal', 'other-it', 'network-and-security', 'data-and-ai');
+  const sameCategories = project('mobile-app', 'software-development', 'maintenance-and-support', 'other-it');
+
+  assert.ok(calculateCompositeSimilarity(target, sameArchetype).score > calculateCompositeSimilarity(target, sameCategories).score);
+});
+
+test('findComparableProjects: shares at least one category, the closest lists first (ADR 0034)', async () => {
+  const project = (projectId, ...categories) => ({
+    projectId,
+    identification: { categories, titleTh: projectId, status: 'Awarded' },
+    facts: { referencePriceTHB: 1_000_000 },
+    metadata: { confidenceScore: 90 },
+  });
+  const target = project('TARGET', 'software-development', 'maintenance-and-support');
+  const candidatesPool = [
+    project('C', 'maintenance-and-support'),
+    project('D', 'network-and-security'),
+    project('A', 'software-development'),
+    project('B', 'maintenance-and-support', 'software-development'),
+    project('E', 'software-development', 'maintenance-and-support'),
+  ];
+
+  const results = await findComparableProjects(target, { candidatesPool });
+
+  assert.deepEqual(results.map((result) => result.projectId), ['E', 'B', 'A', 'C']);
+});
+
+test('findComparableProjects: no categories, no comparison', async () => {
+  const target = { projectId: 'T', identification: { categories: [] }, facts: { referencePriceTHB: 1_000_000 } };
+  assert.deepEqual(await findComparableProjects(target, { candidatesPool: [] }), []);
 });

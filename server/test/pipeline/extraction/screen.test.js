@@ -261,7 +261,7 @@ test('runScreen --past: IT past projects get a title-level record; unsure and no
   assert.equal(record.metadata.titleOnly, true);
   assert.equal(record.metadata.confidenceScore, null);
   assert.equal(record.identification.status, 'Awarded');
-  assert.equal(record.identification.category, 'systems-integration');
+  assert.deepEqual(record.identification.categories, ['systems-integration']);
   assert.equal(record.identification.department, 'สำนักยุทธศาสตร์');
   assert.equal(record.facts.referencePriceTHB, 96469000);
   assert.equal(record.facts.agreedPriceTHB, 95842000);

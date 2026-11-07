@@ -50,7 +50,6 @@ function clean() {
       quote: 'โครงการจ้างพัฒนาคลังข้อมูลสุขภาพดิจิทัล',
       reason: 'จ้างพัฒนาระบบซอฟต์แวร์',
       isIT: true,
-      category: 'software-development',
     },
     extracted: {
       identification: {

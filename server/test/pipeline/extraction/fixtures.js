@@ -37,13 +37,13 @@ export function fixture() {
       reason: 'เป็นการจ้างพัฒนาระบบซอฟต์แวร์',
       agency: 'สำนักงานปลัดกระทรวงสาธารณสุข',
       isIT: true,
-      category: 'software-development',
     },
     extracted: {
       identification: {
         titleTh: evidence('โครงการจ้างพัฒนาคลังข้อมูลสุขภาพดิจิทัล', 1, 'โครงการจ้างพัฒนาคลังข้อมูลสุขภาพดิจิทัล'),
         agency: evidence('สำนักงานปลัดกระทรวงสาธารณสุข', 1, 'สำนักงานปลัดกระทรวงสาธารณสุข'),
         department: 'สำนักสุขภาพดิจิทัล',
+        categories: ['software-development'],
       },
       facts: {
         budget: evidence('จำนวนเงิน ๑๒,๕๐๐,๐๐๐ บาท (สิบสองล้านห้าแสนบาทถ้วน)', 3, '๑๒,๕๐๐,๐๐๐'),
