@@ -19,6 +19,7 @@ import { useLang } from "../../../../_components/prefs";
 import { SignInPrompt } from "../../../../_components/sign-in-prompt";
 import { btn, EmptyState, input, Label, Panel, SectionHeading, textarea } from "../../../../_components/ui";
 import {
+  CategoryPicker,
   DynamicListEditor,
   EditSummaryConfirmModal,
   type EditDiffItem,
@@ -174,7 +175,7 @@ export default function DedicatedReviewPage({
   const [titleEn, setTitleEn] = useState("");
   const [agency, setAgency] = useState("");
   const [department, setDepartment] = useState("");
-  const [category, setCategory] = useState("software-development");
+  const [categories, setCategories] = useState<string[]>([]);
   const [status, setStatus] = useState("Open");
 
   // 2. Key Facts
@@ -377,7 +378,7 @@ export default function DedicatedReviewPage({
     setTitleEn(det.titleEn || "");
     setAgency(item.agency || "");
     setDepartment(det.department || "");
-    setCategory(det.category || "software-development");
+    setCategories(det.categories ?? []);
     setStatus(det.status || "Open");
 
     // 2. Key Facts
@@ -551,7 +552,7 @@ export default function DedicatedReviewPage({
     check("1. Identification", "titleEn", "ชื่อโครงการ (EN)", "Project Title (EN)", det.titleEn, titleEn.trim());
     check("1. Identification", "agency", "หน่วยงานจัดจ้าง", "Agency", data.agency, agency.trim());
     check("1. Identification", "department", "สำนัก/กอง/ส่วนงาน", "Department", det.department, department.trim());
-    check("1. Identification", "category", "หมวดหมู่โครงการ", "Category", det.category, category);
+    check("1. Identification", "categories", "หมวดหมู่โครงการ", "Categories", (det.categories || []).join(", "), categories.join(", "));
     check("1. Identification", "status", "สถานะโครงการ", "Status", det.status, status);
 
     // 2. Key Facts
@@ -628,7 +629,7 @@ export default function DedicatedReviewPage({
     titleEn,
     agency,
     department,
-    category,
+    categories,
     status,
     budgetCheck.value,
     refPriceCheck.value,
@@ -708,8 +709,8 @@ export default function DedicatedReviewPage({
         case "department":
           setDepartment(det.department || "");
           break;
-        case "category":
-          setCategory(det.category || "software-development");
+        case "categories":
+          setCategories(det.categories ?? []);
           break;
         case "status":
           setStatus(det.status || "Open");
@@ -967,7 +968,7 @@ export default function DedicatedReviewPage({
           titleEn: titleEn.trim() || null,
           agency: agency.trim(),
           department: department.trim() || null,
-          category: category || null,
+          categories,
           status: status || null,
 
           // 2. Key Facts
@@ -1442,32 +1443,23 @@ export default function DedicatedReviewPage({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <FieldHeader
-                      label={lang === "th" ? "หมวดหมู่งานไอที" : "IT Category"}
-                      fieldKey="category"
-                      htmlFor="field-category"
-                      diffItem={diffsByField["category"]}
-                      onRevert={handleRevertField}
-                      lang={lang}
-                    />
-                    <select
-                      id="field-category"
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className={`${input} mt-1 cursor-pointer ${modInput(Boolean(diffsByField["category"]))}`}
-                    >
-                      <option value="software-development">{lang === "th" ? "พัฒนาซอฟต์แวร์ / ระบบสารสนเทศ" : "Software Development"}</option>
-                      <option value="hardware-infrastructure">{lang === "th" ? "โครงสร้างพื้นฐานฮาร์ดแวร์และเครือข่าย" : "Hardware & Infra"}</option>
-                      <option value="cloud-and-datacenter">{lang === "th" ? "ระบบคลาวด์และศูนย์ข้อมูล" : "Cloud & Data Center"}</option>
-                      <option value="data-and-ai">{lang === "th" ? "ระบบข้อมูลและปัญญาประดิษฐ์ (AI)" : "Data & AI"}</option>
-                      <option value="cybersecurity">{lang === "th" ? "ความมั่นคงปลอดภัยไซเบอร์" : "Cybersecurity"}</option>
-                      <option value="maintenance-and-support">{lang === "th" ? "บำรุงรักษาและสนับสนุนระบบ" : "Maintenance & Support"}</option>
-                      <option value="non-IT">{lang === "th" ? "งานนอกขอบเขต / ไม่ใช่งานไอที" : "Out of Scope / Non-IT"}</option>
-                    </select>
-                  </div>
+                <div>
+                  <FieldHeader
+                    label={lang === "th" ? "หมวดหมู่งานไอที" : "IT Categories"}
+                    fieldKey="categories"
+                    diffItem={diffsByField["categories"]}
+                    onRevert={handleRevertField}
+                    lang={lang}
+                  />
+                  <CategoryPicker
+                    selected={categories}
+                    onChange={setCategories}
+                    isModified={Boolean(diffsByField["categories"])}
+                    lang={lang}
+                  />
+                </div>
 
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <FieldHeader
                       label={lang === "th" ? "สถานะการจัดซื้อ" : "Procurement Status"}

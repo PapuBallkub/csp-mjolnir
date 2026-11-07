@@ -20,7 +20,7 @@ import {
 test('detectVendorLockin: flags MAF on software-development as high severity', () => {
   const tor = {
     projectId: '68039469567',
-    identification: { category: 'software-development' },
+    identification: { categories: ['software-development'] },
     eligibility: {
       manufacturerAuthorizations: ['หนังสือแต่งตั้งตัวแทนจำหน่ายจากผู้ผลิตซอฟต์แวร์'],
     },
@@ -44,7 +44,7 @@ test('detectVendorLockin: returns null when no MAF or when category is non-softw
   // Software without MAF
   assert.equal(
     detectVendorLockin({
-      identification: { category: 'software-development' },
+      identification: { categories: ['software-development'] },
       eligibility: { manufacturerAuthorizations: [] },
     }),
     null,
@@ -53,7 +53,7 @@ test('detectVendorLockin: returns null when no MAF or when category is non-softw
   // Hardware purchase with MAF is standard practice under Circular ว 214 Clause 1.1
   assert.equal(
     detectVendorLockin({
-      identification: { category: 'hardware-purchase' },
+      identification: { categories: ['network-and-security'] },
       eligibility: { manufacturerAuthorizations: ['MAF from Cisco'] },
     }),
     null,
@@ -172,7 +172,7 @@ test('formatLockSpecVerdict: produces non-accusatory Thai copy matching risk thr
 test('analyzeLockSpec: end-to-end analysis on clean open tender produces low risk', () => {
   const cleanTor = {
     projectId: '68039469580',
-    identification: { category: 'software-development' },
+    identification: { categories: ['software-development'] },
     facts: { referencePriceTHB: 4_000_000 },
     eligibility: {
       manufacturerAuthorizations: [],
@@ -193,7 +193,7 @@ test('analyzeLockSpec: end-to-end analysis on clean open tender produces low ris
 test('analyzeLockSpec: end-to-end analysis on multi-barrier tender produces high risk', () => {
   const biasedTor = {
     projectId: '68039469581',
-    identification: { category: 'software-development' },
+    identification: { categories: ['software-development'] },
     facts: { referencePriceTHB: 3_000_000 },
     eligibility: {
       manufacturerAuthorizations: ['Official MAF certificate required'],
@@ -211,4 +211,49 @@ test('analyzeLockSpec: end-to-end analysis on multi-barrier tender produces high
   assert.equal(result.findings.length, 2);
   assert.equal(result.findings[0].category, 'Vendor Lock-in');
   assert.equal(result.findings[1].category, 'Qualification Barrier');
+});
+
+const askingForALetter = (categories, procurementKind = null) => ({
+  projectId: '69000000001',
+  identification: { categories },
+  facts: { procurementKind },
+  eligibility: { manufacturerAuthorizations: ['หนังสือแต่งตั้งตัวแทนจำหน่ายจากผู้ผลิต'] },
+});
+
+test('detectVendorLockin: the main category decides, not the rest of the list (ADR 0034)', () => {
+  const fires = (categories, kind) => detectVendorLockin(askingForALetter(categories, kind)) !== null;
+
+  // Licenses as the main scope: not flagged, whatever else the project holds
+  assert.equal(fires(['software-licenses']), false);
+  assert.equal(fires(['software-licenses', 'software-development']), false);
+  assert.equal(fires(['software-licenses', 'systems-integration'], 'hire'), false, 'checked before the contract kind');
+
+  // Building as the main scope: flagged, even with licenses further down
+  assert.equal(fires(['software-development']), true);
+  assert.equal(fires(['systems-integration']), true);
+  assert.equal(fires(['software-development', 'software-licenses']), true);
+  assert.equal(fires(['systems-integration', 'maintenance-and-support', 'software-licenses']), true);
+
+  // Any other main scope: only a hire contract is flagged
+  assert.equal(fires(['maintenance-and-support'], 'hire'), true);
+  assert.equal(fires(['maintenance-and-support'], 'buy'), false);
+  assert.equal(fires(['maintenance-and-support']), false);
+  assert.equal(fires(['data-and-ai', 'software-development'], 'buy'), false);
+  assert.equal(fires([], 'hire'), true);
+  assert.equal(fires([]), false);
+});
+
+test('detectVendorLockin: says why a letter still matters when licenses are only part of the project', () => {
+  const mixed = detectVendorLockin(askingForALetter(['software-development', 'software-licenses']));
+  assert.match(mixed.normalBenchmark, /ซื้อสิทธิ์ใช้งานซอฟต์แวร์/);
+  assert.match(mixed.normalBenchmark, /ว 214 ข้อ 1\.3/);
+
+  const plain = detectVendorLockin(askingForALetter(['software-development']));
+  assert.doesNotMatch(plain.normalBenchmark, /สิทธิ์ใช้งาน/);
+});
+
+test('detectVendorLockin: a hire contract that builds nothing is not called software development', () => {
+  const finding = detectVendorLockin(askingForALetter(['maintenance-and-support'], 'hire'));
+  assert.doesNotMatch(finding.title, /พัฒนาซอฟต์แวร์/);
+  assert.doesNotMatch(finding.normalBenchmark, /พัฒนาซอฟต์แวร์/);
 });

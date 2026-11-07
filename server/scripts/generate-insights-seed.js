@@ -146,7 +146,7 @@ function buildInsight(tor, index) {
       agency: agency,
       department: agency.includes('กรม') ? 'กองเทคโนโลยีสารสนเทศ' : 'สำนักบริการคอมพิวเตอร์',
       egpReference: `e-GP-${pId}`,
-      category: 'Software & IT Services',
+      categories: ['software-development'],
       status: 'Open',
     },
     facts: {

@@ -35,7 +35,8 @@
     "rollback": "node scripts/rollback.js",
     "seed": "node scripts/seed.js",
     "seed:comparable": "node scripts/seed-comparable-test.js",
-    "comparable": "node scripts/find-comparable.js"
+    "comparable": "node scripts/find-comparable.js",
+    "migrate:categories": "node scripts/migrate-categories.js"
   },
   "dependencies": {
     "@google/genai": "^2.25.0",
