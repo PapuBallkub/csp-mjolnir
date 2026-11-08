@@ -40,7 +40,7 @@ function fakeResolver() {
 
 test('a non-IT TOR stops after the classify call: extraction never runs (D8)', async () => {
   const { tor, classification } = fixture();
-  const client = fakeClient({ ...classification, isIT: false, category: null, reason: 'ซื้อคอมพิวเตอร์อย่างเดียว' });
+  const client = fakeClient({ ...classification, isIT: false, reason: 'ซื้อคอมพิวเตอร์อย่างเดียว' });
 
   const { insight } = await processTor(tor, { client, config: CONFIG, resolveTechnologies: fakeResolver().resolve });
 
@@ -60,7 +60,7 @@ test('extraction reads the bidding document too, and is fingerprinted with it; a
   assert.equal(it.insight.metadata.sourceFingerprint, sourceFingerprint(tor, { bidding: true }));
 
   const excluded = await processTor(tor, {
-    client: fakeClient({ ...classification, isIT: false, category: null, reason: 'ก่อสร้างถนน' }),
+    client: fakeClient({ ...classification, isIT: false, reason: 'ก่อสร้างถนน' }),
     config: CONFIG,
     resolveTechnologies: fakeResolver().resolve,
   });
@@ -196,14 +196,14 @@ test('classifyPreview: an IT preview waits for its full text, hidden, with nothi
   assert.equal(client.calls.length, 1, 'only the classify call');
   assert.equal(insight.metadata.awaitingFullText, true);
   assert.equal(insight.metadata.excluded, undefined);
-  assert.equal(insight.identification.category, 'software-development');
+  assert.deepEqual(insight.identification.categories, [], 'the extract step gives them, from the whole TOR');
   assert.equal(review.preview, true);
   await new TorInsight(insight).validate(); // fits the model
 });
 
 test('classifyPreview: a non-IT preview is excluded, and its TOR stops there', async () => {
   const { tor, classification } = fixture();
-  const client = fakeClient({ ...classification, isIT: false, category: null, reason: 'ซื้อเตียงผ่าตัด' });
+  const client = fakeClient({ ...classification, isIT: false, reason: 'ซื้อเตียงผ่าตัด' });
 
   const { insight } = await classifyPreview(previewOf(tor), { client, config: CONFIG });
 
@@ -222,7 +222,7 @@ test("saveInsight: a past project its preview shows isn't IT is no longer title-
     facts: { agreedPriceTHB: 1_850_000 },
     metadata: { titleOnly: true, excluded: null },
   });
-  const client = fakeClient({ ...classification, isIT: false, category: null, reason: 'ซื้อคอมพิวเตอร์ All in One' });
+  const client = fakeClient({ ...classification, isIT: false, reason: 'ซื้อคอมพิวเตอร์ All in One' });
 
   const { insight } = await classifyPreview(previewOf({ ...tor, status: 'Awarded' }), { client, config: CONFIG });
   await saveInsight(insight);

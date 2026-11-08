@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { ChangeRow, TorChange, TorInsightDetail } from "../_lib/api";
 import { formatTHB, type Lang, type RiskLevel } from "../_data/tors";
 import {
@@ -16,6 +16,7 @@ import {
   pendingNotice,
 } from "../_lib/changes";
 import { getEgpAnnouncementUrl, getEgpPackageUrl, getFiscalYear } from "../_lib/format";
+import { categoryLabel } from "../_lib/categories";
 import { useLang, useProfile } from "./prefs";
 import { useAuth } from "./auth";
 import {
@@ -459,14 +460,14 @@ export function TorDetail({
                 <span className="text-ink-3">{iden.department}</span>
               </>
             ) : null}
-            {iden.category ? (
-              <>
-                <span className="h-3 w-px bg-line" />
+            {(iden.categories ?? []).map((category, index) => (
+              <Fragment key={category}>
+                {index === 0 ? <span className="h-3 w-px bg-line" /> : null}
                 <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-ink-3">
-                  {iden.category}
+                  {categoryLabel(category, lang)}
                 </span>
-              </>
-            ) : null}
+              </Fragment>
+            ))}
           </p>
 
           <h1 className="mt-2 max-w-4xl text-[26px] sm:text-[28px] leading-thai font-semibold tracking-tight text-ink">

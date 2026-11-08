@@ -1,6 +1,6 @@
 # 0031 · Keep the summary a change replaces
 
-Status: proposed · 2026-10-24
+Status: proposed · 2026-10-24 (updated 2026-11-07, [0034](0034-a-tor-can-have-several-categories.md))
 
 ## Context
 
@@ -21,7 +21,9 @@ for:
 **Every summary a change replaces is kept, in a separate collection,
 `TorInsightVersion`: one document per replaced summary.** It holds:
 - the whole summary as it was, stored as-is, so a later schema change never
-  breaks an old version;
+  breaks an old version. A rollback reads it through the model, which drops a
+  field it doesn't know, so a migration that renames a field converts these
+  too ([0034](0034-a-tor-can-have-several-categories.md));
 - why it was replaced: `source-changed`, `prompt-update`, `forced`,
   `rebuilt`, `corrected` or `rollback`;
 - who replaced it, for an admin's correction or rollback;
@@ -67,8 +69,9 @@ admin screen to offer.
 
 **The review queue keeps the extracted category** on approve and confirm,
 instead of setting `'IT / software'`. That value isn't one of the categories
-the comparison and the past-project selection group by. A category an earlier
-reclassify set to `'non-IT'` comes back from the version it kept.
+the comparison and the past-project selection group by. Reclassify no longer
+writes `'non-IT'` ([0034](0034-a-tor-can-have-several-categories.md)), and the
+migration there brought back any category it had overwritten.
 
 ## Consequences
 

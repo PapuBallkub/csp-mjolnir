@@ -12,8 +12,8 @@ import {
   TitleScreen,
   Tor,
   TorInsight,
-  TorInsightVersion,
 } from '#models/index.js';
+import { MAX_CATEGORIES, PROJECT_CATEGORIES, cleanCategories } from '#models/project-categories.js';
 import { isFullExtraction } from '#features/reality-check/index.js';
 import { keepVersion, listVersions, nextVersion, rollbackTor } from '#pipeline/shared/insight-versions.js';
 import { runAddStep, runDownloadStep, runFetchStep, runOcrStep } from '#pipeline/ingestion/ingest.js';
@@ -260,7 +260,7 @@ export async function getDynamicReviewQueue() {
       let misclassified = undefined;
       if (insight.metadata?.excluded) {
         misclassified = {
-          predicted: insight.identification?.category || 'IT / software',
+          predicted: insight.identification?.categories?.join(', ') || 'IT / software',
           likely: insight.metadata.excluded.reason || 'Civil works — out of scope',
         };
       }
@@ -360,7 +360,7 @@ export async function getTorReviewItem(projectId) {
     // 1. Identification
     titleEn: insight?.identification?.titleEn || null,
     department: insight?.identification?.department || null,
-    category: insight?.identification?.category || null,
+    categories: insight?.identification?.categories ?? [],
     status: insight?.identification?.status || tor?.status || 'Open',
 
     // 2. Key Facts
@@ -491,7 +491,7 @@ export async function getTorReviewItem(projectId) {
       details,
       misclassified: insight?.metadata?.excluded
         ? {
-            predicted: insight.identification?.category || 'IT / software',
+            predicted: insight.identification?.categories?.join(', ') || 'IT / software',
             likely: insight.metadata.excluded.reason || 'Civil works — out of scope',
           }
         : undefined,
@@ -674,6 +674,18 @@ function validateAndParseDate(val, fieldName) {
   return d;
 }
 
+// Cleaning drops anything unknown, repeated or past the limit, so a list that
+// comes back shorter had one of those
+function validateCategories(val) {
+  if (!Array.isArray(val) || cleanCategories(val).length !== val.length) {
+    throw badRequest(
+      `หมวดหมู่งานไอทีเลือกได้ไม่เกิน ${MAX_CATEGORIES} รายการและห้ามซ้ำ ` +
+        `(categories must be up to ${MAX_CATEGORIES} of: ${PROJECT_CATEGORIES.join(', ')})`,
+    );
+  }
+  return val;
+}
+
 /**
  * Allows platform administrators to manually edit extracted data or
  * reclassify misclassified TORs to maintain dataset integrity (FR-23).
@@ -700,8 +712,8 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
       identification: {
         titleTh: tor?.title || `Project ${projectId}`,
         agency: tor?.agency || 'สำนักการระบายน้ำ',
-        // Not stated anywhere yet: the comparison groups by the extracted category
-        category: null,
+        // Not stated anywhere yet: the comparison groups by the extracted categories
+        categories: [],
         status: tor?.status || 'Open',
       },
       facts: {
@@ -744,8 +756,8 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
       insight.identification.department = fields.department ? String(fields.department).trim() : null;
     }
 
-    if (fields.category !== undefined && fields.category) {
-      insight.identification.category = String(fields.category).trim();
+    if (fields.categories !== undefined) {
+      insight.identification.categories = validateCategories(fields.categories);
     }
 
     if (fields.status !== undefined && fields.status) {
@@ -1040,11 +1052,6 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
       }
     }
 
-    // The extracted category stays: the comparison and the past-project
-    // selection group by it. One an earlier reclassify set aside comes back.
-    if (!fields.category && insight.identification.category === 'non-IT') {
-      insight.identification.category = await categoryBefore(projectId);
-    }
     insight.metadata.reviewStatus = 'approved';
     insight.metadata.reviewedBy = userId;
     insight.metadata.reviewedAt = new Date();
@@ -1056,7 +1063,7 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
       { $set: { verdict: 'pass', reason: 'Admin approved TOR and verified IT classification' } },
     ).catch(() => {});
   } else if (action === 'reclassify') {
-    insight.identification.category = 'non-IT';
+    // Only this hides the TOR. Its categories stay, so undoing it loses nothing (ADR 0034).
     insight.metadata.excluded = {
       reason: reclassifyReason || 'Civil works — out of scope',
       quote: null,
@@ -1069,9 +1076,6 @@ export async function updateTorReview(projectId, { action, fields = {}, reclassi
       { $set: { verdict: 'fail', reason: reclassifyReason || 'Civil works — out of scope' } },
     ).catch(() => {});
   } else if (action === 'confirm_classification') {
-    if (!fields.category && insight.identification.category === 'non-IT') {
-      insight.identification.category = await categoryBefore(projectId);
-    }
     insight.metadata.excluded = null;
     insight.metadata.reviewStatus = 'approved';
     insight.metadata.reviewedBy = userId;
@@ -1154,17 +1158,6 @@ function contentChanged(before, after) {
       record.metadata?.excluded ?? null,
     ]);
   return content(before) !== content(after);
-}
-
-/** The category a TOR had before a reclassify set it to 'non-IT': from its latest version with a real one. */
-async function categoryBefore(projectId) {
-  const kept = await TorInsightVersion.findOne(
-    { projectId, 'insight.identification.category': { $nin: [null, '', 'non-IT', 'IT / software'] } },
-    { 'insight.identification.category': 1 },
-  )
-    .sort({ version: -1 })
-    .lean();
-  return kept?.insight?.identification?.category ?? null;
 }
 
 /**

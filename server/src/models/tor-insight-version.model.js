@@ -6,7 +6,9 @@ import mongoose from 'mongoose';
 // A summary a change replaced: one document per replaced summary, so a TOR
 // replaced three times has three. Kept as it was, so a later schema change
 // never breaks an old version, and with the Tor's state it went with, so a
-// rollback can put the TOR back as it was.
+// rollback can put the TOR back as it was. A rollback reads it through the
+// TorInsight model, which drops a field it doesn't know, so a migration that
+// renames a field converts these too (ADR 0034).
 const torInsightVersionSchema = new mongoose.Schema(
   {
     projectId: { type: String, required: true },

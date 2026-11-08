@@ -233,7 +233,7 @@ Then `npm run screen -- --past` screens their titles, and the night's
 ([0028](decisions/0028-past-projects-from-data-go-th.md)), up to
 `HISTORY_PER_NIGHT` (20), from the past projects not read yet:
 1. **What the open TORs need, soonest deadline first.** Each open IT TOR
-   gets the past projects its comparison would rank highest (the same
+   gets the past projects its comparison would rank highest (a shared
    category, 0.3× to 3× its price, then the comparison's own score, then the
    closest price, since many projects not read yet tie on the score) until it
    has `HISTORY_ENOUGH_RELATED` (5) related ones. Then the next TOR's turn
