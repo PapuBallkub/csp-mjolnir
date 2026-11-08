@@ -3,6 +3,7 @@ import { after, before, test } from 'node:test';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { TorInsight } from '#models/index.js';
+import { MAX_CATEGORIES, cleanCategories } from '#models/project-categories.js';
 
 const TEST_PROJECT_ID = 'test-insight-99999999999';
 
@@ -87,10 +88,40 @@ test('TorInsight schema: leaves unstated facts null instead of inventing a value
   assert.equal(doc.facts.referencePriceTHB, null);
   assert.equal(doc.eligibility.previousExperienceMinTHB, null);
   assert.equal(doc.contractConditions.evaluationMethod, null);
-  assert.equal(doc.identification.category, null);
+  assert.deepEqual([...doc.identification.categories], []);
   assert.equal(doc.metadata.confidenceScore, null);
   assert.equal(doc.metadata.excluded, null);
   assert.equal(doc.facts.medianPriceTHB, undefined, 'our own median lives in analytics, not facts');
+});
+
+test('TorInsight schema: categories are the fixed kinds, and the contract kind is one of three', () => {
+  const errors = (identification, facts = {}) =>
+    new TorInsight({
+      projectId: TEST_PROJECT_ID,
+      identification: { titleTh: 'โครงการ', agency: 'หน่วยงาน', status: 'Open', ...identification },
+      facts,
+    }).validateSync()?.errors;
+
+  assert.equal(errors({ categories: ['software-development', 'maintenance-and-support'] }), undefined);
+  assert.ok(errors({ categories: ['non-IT'] })['identification.categories.0']);
+  assert.ok(errors({ categories: ['data-and-ai', 'IT / software'] })['identification.categories.1']);
+  assert.equal(errors({}, { procurementKind: 'hire' }), undefined);
+  assert.ok(errors({}, { procurementKind: 'lease' })['facts.procurementKind']);
+});
+
+test('cleanCategories: known kinds only, no repeats, three at most, order kept', () => {
+  assert.deepEqual(cleanCategories(['data-and-ai', 'other-it']), ['data-and-ai', 'other-it']);
+  assert.deepEqual(cleanCategories(['other-it', 'hardware', 'other-it']), ['other-it']);
+  assert.deepEqual(
+    cleanCategories(['other-it', 'data-and-ai', 'software-licenses', 'software-development']),
+    ['other-it', 'data-and-ai', 'software-licenses'],
+  );
+  assert.equal(MAX_CATEGORIES, 3);
+
+  // An old single value, read as a list
+  assert.deepEqual(cleanCategories(['software-development']), ['software-development']);
+  for (const never of [null, undefined, '', 'non-IT', 'IT / software']) assert.deepEqual(cleanCategories([never]), []);
+  assert.deepEqual(cleanCategories(undefined), []);
 });
 
 test('TorInsight schema: rejects missing required fields (projectId, titleTh, agency, status)', async () => {
@@ -156,7 +187,7 @@ test('TorInsight model: creates, validates, queries, and updates a complete norm
       agency: 'กรุงเทพมหานคร (Bangkok Metropolitan Administration)',
       department: 'สำนักยุทธศาสตร์และประเมินผล',
       egpReference: '68039469567',
-      category: 'Software / IT',
+      categories: ['software-development'],
       status: 'Open',
     },
     facts: {

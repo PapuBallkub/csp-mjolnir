@@ -270,7 +270,7 @@ export type ReviewItemDetails = {
   // 1. Identification
   titleEn?: string | null;
   department?: string | null;
-  category?: string | null;
+  categories?: string[];
   status?: string | null;
 
   // 2. Key Facts
@@ -425,7 +425,7 @@ export type UpdateReviewPayload = {
     titleEn?: string | null;
     agency?: string;
     department?: string | null;
-    category?: string | null;
+    categories?: string[];
     status?: string | null;
 
     // 2. Key Facts
@@ -1063,7 +1063,7 @@ export type TorInsightSummary = {
     titleEn: string | null;
     agency: string;
     department: string | null;
-    category: string | null;
+    categories: string[];
     status: TorStatus;
   };
   facts: {
@@ -1116,7 +1116,7 @@ export type TorInsightDetail = {
     agency: string;
     department: string | null;
     egpReference: string | null;
-    category: string | null;
+    categories: string[];
     status: TorStatus;
   };
   facts: {

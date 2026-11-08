@@ -1,6 +1,8 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import type { ChangeSource, TorInsightDetail } from "../../_lib/api";
 import { type RiskLevel } from "../../_data/tors";
+import { categoryLabel } from "../../_lib/categories";
 import {
   ChangeMarker,
   CompaniesOnlyBadge,
@@ -131,14 +133,14 @@ export function TorHeader({
               <span className="text-ink-3">{iden.department}</span>
             </>
           ) : null}
-          {iden.category ? (
-            <>
+          {(iden.categories ?? (iden.category ? [iden.category] : [])).map((category) => (
+            <Fragment key={category}>
               <span className="h-3 w-px bg-line" />
               <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-ink-3">
-                {iden.category}
+                {categoryLabel(category, "th")}
               </span>
-            </>
-          ) : null}
+            </Fragment>
+          ))}
         </p>
 
         <h1 className="mt-2 max-w-4xl text-[24px] sm:text-[28px] leading-thai font-semibold tracking-tight text-ink">

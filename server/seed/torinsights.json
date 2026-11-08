@@ -7,7 +7,7 @@
       "agency": "กรมสรรพากร",
       "department": "กองเทคโนโลยีสารสนเทศ",
       "egpReference": "e-GP-68039469567",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -238,7 +238,7 @@
       "agency": "กรมสรรพสามิต",
       "department": "กองเทคโนโลยีสารสนเทศ",
       "egpReference": "e-GP-68019273071",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -464,7 +464,7 @@
       "agency": "การไฟฟ้าส่วนภูมิภาค",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-67069277177",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -676,7 +676,7 @@
       "agency": "กรมสรรพสามิต",
       "department": "กองเทคโนโลยีสารสนเทศ",
       "egpReference": "e-GP-67059626749",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -915,7 +915,7 @@
       "agency": "มหาวิทยาลัยเชียงใหม่",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-67109111284",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -1138,7 +1138,7 @@
       "agency": "การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-68019139367",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -1353,7 +1353,7 @@
       "agency": "โรงพยาบาลสกลนคร",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-67079184063",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -1592,7 +1592,7 @@
       "agency": "โรงพยาบาลกระทุ่มแบน",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-68039587713",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -1819,7 +1819,7 @@
       "agency": "สำนักงานปลัดกระทรวงสาธารณสุข",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-68049205582",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -2035,7 +2035,7 @@
       "agency": "มหาวิทยาลัยแม่ฟ้าหลวง",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-68059369128",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -2273,7 +2273,7 @@
       "agency": "มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าพระนครเหนือ",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-68029499031",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -2496,7 +2496,7 @@
       "agency": "มหาวิทยาลัยเทคโนโลยีราชมงคลกรุงเทพ",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-67079653125",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -2708,7 +2708,7 @@
       "agency": "สำนักงานการบินพลเรือนแห่งประเทศไทย",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-67119149066",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -2943,7 +2943,7 @@
       "agency": "โรงพยาบาลราชวิถี",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-67079232408",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -3169,7 +3169,7 @@
       "agency": "เทศบาลนครปากเกร็ด",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-67089478824",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -3381,7 +3381,7 @@
       "agency": "กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-68049322058",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -3616,7 +3616,7 @@
       "agency": "มหาวิทยาลัยเกษตรศาสตร์",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-67089659709",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -3839,7 +3839,7 @@
       "agency": "การไฟฟ้าส่วนภูมิภาค",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-67089592787",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -4054,7 +4054,7 @@
       "agency": "สำนักงานพัฒนารัฐบาลดิจิทัล (องค์การมหาชน)",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-68039334110",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -4289,7 +4289,7 @@
       "agency": "สถาบันคุ้มครองเงินฝาก",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-68079268515",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -4512,7 +4512,7 @@
       "agency": "สำนักงานปลัดกระทรวงการอุดมศึกษา วิทยาศาสตร์ วิจัยและนวัตกรรม",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-68099389351",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -4724,7 +4724,7 @@
       "agency": "โรงเรียนวิทยาศาสตร์จุฬาภรณราชวิทยาลัย ตรัง",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-68039274567",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -4962,7 +4962,7 @@
       "agency": "กรมป้องกันและบรรเทาสาธารณภัย",
       "department": "กองเทคโนโลยีสารสนเทศ",
       "egpReference": "e-GP-68099509916",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -5185,7 +5185,7 @@
       "agency": "สถาบันบัณฑิตพัฒนบริหารศาสตร์",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-68099644960",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -5397,7 +5397,7 @@
       "agency": "กรมป้องกันและบรรเทาสาธารณภัย",
       "department": "กองเทคโนโลยีสารสนเทศ",
       "egpReference": "e-GP-68089055481",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -5632,7 +5632,7 @@
       "agency": "มหาวิทยาลัยเทคโนโลยีราชมงคลศรีวิชัย  วิทยาเขตภาคใต้",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-68049309510",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -5858,7 +5858,7 @@
       "agency": "โรงเรียนเทศบาลวัดชัยชุมพล",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-68069439775",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {
@@ -6070,7 +6070,7 @@
       "agency": "มหาวิทยาลัยราชภัฏสงขลา",
       "department": "สำนักบริการคอมพิวเตอร์",
       "egpReference": "e-GP-67129452363",
-      "category": "Software & IT Services",
+      "categories": ["software-development"],
       "status": "Open"
     },
     "facts": {

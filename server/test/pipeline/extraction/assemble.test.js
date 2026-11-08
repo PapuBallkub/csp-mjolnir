@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { TorInsight } from '#models/index.js';
-import { buildExcluded, buildInsight } from '#pipeline/extraction/assemble.js';
+import { buildAwaitingFullText, buildExcluded, buildInsight, buildTitleLevel } from '#pipeline/extraction/assemble.js';
 import { RUN, fixture } from './fixtures.js';
 
 const TECHNOLOGIES = [
@@ -10,14 +10,14 @@ const TECHNOLOGIES = [
   { name: 'Kubernetes', version: null },
 ];
 
-function build({ checks = [], change = () => {} } = {}) {
+function build({ checks = [], change = () => {}, authorizations = [] } = {}) {
   const input = fixture();
   change(input);
   return buildInsight({
     ...input,
     technologies: TECHNOLOGIES,
     certifications: ['ISO/IEC 27001'],
-    authorizations: [],
+    authorizations,
     checkResult: { checks, score: checks.length ? 79 : 100 },
     run: RUN,
   });
@@ -139,10 +139,67 @@ test('the title: the document\'s clean one when they agree, the feed\'s when the
   assert.match(build({ checks: disagree }).identification.titleTh, /^ประกวดราคา/);
 });
 
-test('status, links and category come from the feed, the helper and the classifier', () => {
+test('categories come from the extract step, cleaned, in the order given (ADR 0034)', () => {
+  const answer = (categories) =>
+    build({ change: (input) => { input.extracted.identification.categories = categories; } }).identification.categories;
+
+  assert.deepEqual(answer(['maintenance-and-support', 'software-development']), ['maintenance-and-support', 'software-development']);
+  assert.deepEqual(answer(['data-and-ai', 'hardware', 'data-and-ai']), ['data-and-ai'], 'nothing unknown, nothing twice');
+  assert.deepEqual(
+    answer(['other-it', 'data-and-ai', 'software-licenses', 'software-development']),
+    ['other-it', 'data-and-ai', 'software-licenses'],
+    'the first three',
+  );
+});
+
+test("answers saved before extract-v6 keep the classify step's category, for --recheck", () => {
+  const saved = (category) =>
+    build({
+      change: (input) => {
+        delete input.extracted.identification.categories;
+        input.classification.category = category;
+      },
+    }).identification.categories;
+
+  assert.deepEqual(saved('software-development'), ['software-development']);
+  assert.deepEqual(saved(null), []);
+});
+
+test('a record with no categories of its own says none: waiting for its text, or not IT', () => {
+  const { tor, classification } = fixture();
+  assert.deepEqual(buildAwaitingFullText({ tor, classification, run: RUN }).identification.categories, []);
+  assert.deepEqual(buildExcluded({ tor, classification, run: RUN }).identification.categories, []);
+});
+
+test("a title-level record wraps the title screen's one category", () => {
+  const { tor } = fixture();
+  const categories = (category) => buildTitleLevel({ tor, screen: { category }, run: RUN }).identification.categories;
+
+  assert.deepEqual(categories('network-and-security'), ['network-and-security']);
+  assert.deepEqual(categories(null), []);
+});
+
+test('the contract kind is copied from the Tor, so lock-spec can read it (ADR 0034)', () => {
+  const hired = (authorizations = []) =>
+    build({
+      authorizations,
+      change: (input) => {
+        input.tor.procurementKind = 'hire';
+        input.extracted.identification.categories = ['maintenance-and-support'];
+      },
+    });
+
+  assert.equal(hired().facts.procurementKind, 'hire');
+  assert.equal(new TorInsight(hired()).validateSync(), undefined);
+  assert.equal(build().facts.procurementKind, null);
+
+  const findings = hired(['หนังสือแต่งตั้งตัวแทนจำหน่ายจากผู้ผลิต']).analytics.lockSpec.findings;
+  assert.ok(findings.some((finding) => finding.category === 'Vendor Lock-in'));
+});
+
+test('status and links come from the feed and the helper', () => {
   const insight = build();
   assert.equal(insight.identification.status, 'Open');
-  assert.equal(insight.identification.category, 'software-development');
   assert.equal(insight.identification.titleEn, null);
   assert.match(insight.facts.webUrl, /keywordSearch=test-extract-99999999999$/);
   assert.match(insight.facts.sourceUrl, /process3/);
@@ -187,7 +244,7 @@ test('a non-IT TOR gets a minimal record that still validates', () => {
   tor.agency = ''; // an RSS record has no agency name
   const excluded = buildExcluded({
     tor,
-    classification: { ...classification, isIT: false, category: null, reason: 'ซื้อคอมพิวเตอร์อย่างเดียว' },
+    classification: { ...classification, isIT: false, reason: 'ซื้อคอมพิวเตอร์อย่างเดียว' },
     run: RUN,
   });
 
