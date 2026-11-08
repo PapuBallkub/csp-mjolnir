@@ -65,14 +65,23 @@ export function TorDeadline({
   facts,
   now,
   lang,
+  align = "end",
+  hideLabel = false,
+  className = "",
 }: {
   status: TorStatus;
   facts: { submissionDeadline: string | null; commentDeadline?: string | null };
   now: Date;
   lang: Lang;
+  align?: "start" | "end" | "center";
+  hideLabel?: boolean;
+  className?: string;
 }) {
   const info = deadlineOf(status, facts);
   const say = (text: { th: string; en: string }) => (lang === "th" ? text.th : text.en);
+
+  const alignClass =
+    align === "start" ? "items-start" : align === "center" ? "items-center" : "items-end";
 
   // Nothing left to do: say so, and keep the date it closed for the record
   if (isDead(status)) {
@@ -81,9 +90,9 @@ export function TorDeadline({
         ? { th: "ปิดรับข้อเสนอแล้ว", en: "Bidding closed" }
         : { th: "ไม่รับข้อเสนอแล้ว", en: "No longer taking bids" };
     return (
-      <span className="flex flex-col items-end gap-1 whitespace-nowrap">
-        <span className="text-[13.5px] font-medium text-ink-3">{say(over)}</span>
-        {info.date ? <span className="tnum text-[12.5px] text-ink-3">{formatThaiDate(info.date, lang)}</span> : null}
+      <span className={`flex flex-col ${alignClass} gap-0.5 whitespace-nowrap ${className}`}>
+        <span className="text-[13px] font-bold text-ink-3 leading-tight">{say(over)}</span>
+        {info.date ? <span className="tnum text-[10.5px] text-ink-3 font-mono leading-tight">{formatThaiDate(info.date, lang)}</span> : null}
       </span>
     );
   }
@@ -105,11 +114,12 @@ export function TorDeadline({
   }
 
   return (
-    <span className="flex flex-col items-end gap-1 whitespace-nowrap">
-      {/* What the deadline is for, so "5 days left" never stands alone */}
-      <span className="text-[11.5px] leading-thai text-ink-3">{say(info.label)}</span>
-      <span className={`tnum text-[15.5px] sm:text-[16px] leading-none font-semibold ${tone}`}>{text}</span>
-      {info.date ? <span className="tnum text-[13px] font-medium text-ink-2">{formatThaiDate(info.date, lang)}</span> : null}
+    <span className={`flex flex-col ${alignClass} gap-0.5 whitespace-nowrap ${className}`}>
+      {!hideLabel && (
+        <span className="text-[11px] leading-thai text-ink-3">{say(info.label)}</span>
+      )}
+      <span className={`tnum text-[13px] sm:text-[14px] leading-tight font-bold ${tone}`}>{text}</span>
+      {info.date ? <span className="tnum text-[10.5px] text-ink-3 font-mono leading-tight">{formatThaiDate(info.date, lang)}</span> : null}
     </span>
   );
 }

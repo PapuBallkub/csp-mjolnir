@@ -179,6 +179,11 @@ export function ProfileEditForm({
 
   // Clear modal state
   const [clearConfirmTarget, setClearConfirmTarget] = useState<"skills" | "certifications" | null>(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+
+  const isDirty = useMemo(() => {
+    return JSON.stringify(draft) !== JSON.stringify(initialDraft);
+  }, [draft, initialDraft]);
 
   const budgetError =
     draft.budgetMin > 0 && draft.budgetMax > 0 && draft.budgetMin > draft.budgetMax
@@ -892,12 +897,17 @@ export function ProfileEditForm({
 
         {draft.matchNotification?.enabled && (
           <div className="mt-4 ml-7 space-y-4 border-l-2 border-line pl-4">
-            <div>
-              <Label>เกณฑ์คะแนนขั้นต่ำในการแจ้งเตือน: {draft.matchNotification.minScore}%</Label>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <span className="text-[12.5px] font-medium text-ink whitespace-nowrap leading-none">
+                เกณฑ์คะแนนขั้นต่ำในการแจ้งเตือน:{" "}
+                <span className="font-mono text-[13px] font-bold text-ink">
+                  {draft.matchNotification.minScore}%
+                </span>
+              </span>
               <input
                 type="range"
-                min={50}
-                max={90}
+                min={40}
+                max={100}
                 step={5}
                 value={draft.matchNotification.minScore}
                 onChange={(e) => {
@@ -907,12 +917,15 @@ export function ProfileEditForm({
                     matchNotification: {
                       enabled: prev.matchNotification?.enabled ?? true,
                       minScore: val,
-                      frequency: prev.matchNotification?.frequency ?? "daily",
+                      frequency:
+                        prev.matchNotification?.frequency === "instant"
+                          ? "daily"
+                          : prev.matchNotification?.frequency ?? "daily",
                       includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
                     },
                   }));
                 }}
-                className="mt-1 w-full max-w-xs cursor-pointer accent-ink"
+                className="h-2 w-full max-w-xs cursor-pointer accent-ink my-auto"
               />
             </div>
 
@@ -922,20 +935,22 @@ export function ProfileEditForm({
                 {[
                   { id: "daily", label: "วันละครั้ง (สรุปช่วงเช้า)" },
                   { id: "weekly", label: "สัปดาห์ละครั้ง" },
-                  { id: "instant", label: "ทันทีที่ตรวจพบ" },
                 ].map((freq) => (
                   <label key={freq.id} className="flex items-center gap-1.5 cursor-pointer">
                     <input
                       type="radio"
                       name="notif-frequency"
-                      checked={draft.matchNotification?.frequency === freq.id}
+                      checked={
+                        (draft.matchNotification?.frequency ?? "daily") === freq.id ||
+                        (draft.matchNotification?.frequency === "instant" && freq.id === "daily")
+                      }
                       onChange={() => {
                         setDraft((prev) => ({
                           ...prev,
                           matchNotification: {
                             enabled: prev.matchNotification?.enabled ?? true,
                             minScore: prev.matchNotification?.minScore ?? 75,
-                            frequency: freq.id as "daily" | "weekly" | "instant",
+                            frequency: freq.id as "daily" | "weekly",
                             includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
                           },
                         }));
@@ -955,7 +970,13 @@ export function ProfileEditForm({
       <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
         <button
           type="button"
-          onClick={onCancel}
+          onClick={() => {
+            if (isDirty) {
+              setCancelConfirmOpen(true);
+            } else {
+              onCancel();
+            }
+          }}
           disabled={saving}
           className={btn.secondary}
         >
@@ -969,6 +990,86 @@ export function ProfileEditForm({
           {saving ? "กำลังบันทึก…" : "✓ บันทึกข้อมูลโปรไฟล์"}
         </button>
       </div>
+
+      {/* Floating Unsaved Changes Bar */}
+      {isDirty && (
+        <aside
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full border border-line bg-surface/95 px-4 py-2.5 shadow-xl backdrop-blur-md transition-all"
+        >
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+            </span>
+            <span className="text-[12.5px] font-medium text-ink whitespace-nowrap">
+              คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-line" />
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setCancelConfirmOpen(true)}
+              disabled={saving}
+              className="rounded-full px-2.5 py-1 text-[12px] font-medium text-ink-3 hover:bg-surface-2 hover:text-ink transition-colors"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !!budgetError}
+              className="rounded-full bg-ink px-3.5 py-1 text-[12px] font-medium text-surface hover:opacity-90 transition-opacity"
+            >
+              {saving ? "กำลังบันทึก…" : "✓ บันทึกข้อมูล"}
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* Cancel Confirmation Modal */}
+      {cancelConfirmOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
+          onClick={() => setCancelConfirmOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-[4px] border border-line bg-surface p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-[15px] font-semibold text-ink">
+              ยกเลิกการแก้ไขข้อมูล?
+            </h3>
+            <p className="mt-2 text-[12.5px] leading-thai text-ink-2">
+              คุณมีการเปลี่ยนแปลงข้อมูลโปรไฟล์ที่ยังไม่ได้บันทึก หากยกเลิก ข้อมูลที่แก้ไขไว้จะถูกละทิ้งทั้งหมด
+            </p>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCancelConfirmOpen(false)}
+                className={btn.secondary}
+              >
+                แก้ไขต่อ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCancelConfirmOpen(false);
+                  onCancel();
+                }}
+                className={`${btn.primary} bg-red-600 hover:bg-red-700`}
+              >
+                ยืนยันยกเลิก
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Clear Confirmation Modal */}
       {clearConfirmTarget && (

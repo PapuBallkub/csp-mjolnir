@@ -347,11 +347,9 @@ export function ProfileDisplay({
             <p>
               {profile.matchNotification?.enabled
                 ? `ส่งสรุปงานที่ตรงตั้งแต่ ${profile.matchNotification.minScore}% ขึ้นไป (${
-                    profile.matchNotification.frequency === "instant"
-                      ? "ทันทีที่ตรวจพบ"
-                      : profile.matchNotification.frequency === "weekly"
+                    profile.matchNotification.frequency === "weekly"
                       ? "สัปดาห์ละครั้ง"
-                      : "วันละครั้ง"
+                      : "วันละครั้ง (สรุปช่วงเช้า)"
                   })`
                 : "คุณยังไม่ได้เปิดการแจ้งเตือนอีเมลสำหรับงานที่ตรงกับคุณ"}
             </p>

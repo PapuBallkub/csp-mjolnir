@@ -222,7 +222,7 @@ export function TorDetail({
       />
 
       {/* 2. STICKY SEGMENTED CONTROL (TABS) */}
-      <div className="sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur-sm shadow-xs">
+      <div className="sticky top-[53px] z-20 border-b border-line bg-surface/95 backdrop-blur-md shadow-xs">
         <div className="mx-auto max-w-[1240px] px-4">
           <nav
             role="tablist"

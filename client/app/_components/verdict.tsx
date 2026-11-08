@@ -491,10 +491,11 @@ export function ChangeMarker({ source, lang = "th" }: { source: ChangeSource; la
 export function CompaniesOnlyBadge({ lang = "th", className = "" }: { lang?: Lang; className?: string }) {
   return (
     <span
-      className={`inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 whitespace-nowrap leading-normal ${className}`}
+      className={`inline-flex items-center gap-1 rounded-[3px] border border-line-2/70 bg-surface-3 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 whitespace-nowrap leading-tight ${className}`}
       title={lang === "th" ? "TOR กำหนดให้ผู้ยื่นเป็นนิติบุคคล" : "The TOR requires bidders to be a registered company"}
     >
-      {lang === "th" ? "เฉพาะนิติบุคคล" : "Companies only"}
+      <span className="text-[10px] opacity-75" aria-hidden="true">🏢</span>
+      <span>{lang === "th" ? "เฉพาะนิติบุคคล" : "Companies only"}</span>
     </span>
   );
 }
@@ -534,17 +535,19 @@ export function MatchScore({
           : `Match score ${score}/100 — view 6-dimension breakdown in detail page`
       }
     >
-      <span className="relative h-[3px] w-12 overflow-hidden rounded-full bg-line">
+      <span
+        className={`font-mono tnum text-[13px] sm:text-[14px] font-bold leading-tight ${
+          strong ? "text-open" : "text-ink"
+        }`}
+      >
+        {score}
+        <span className="text-[10.5px] font-normal text-ink-3">/100</span>
+      </span>
+      <span className="relative h-[4px] w-12 sm:w-14 overflow-hidden rounded-full bg-line shrink-0">
         <span
           className={`absolute inset-y-0 left-0 rounded-full ${strong ? "bg-open" : "bg-ink-2"}`}
           style={{ width: `${score}%` }}
         />
-      </span>
-      <span
-        className={`font-mono tnum text-[12px] font-medium ${strong ? "text-open" : "text-ink-2"}`}
-      >
-        {score}
-        <span className="text-ink-3">/100</span>
       </span>
       <span className="sr-only">{lang === "th" ? "คะแนนความตรงกับโปรไฟล์" : "profile match score"}</span>
     </span>

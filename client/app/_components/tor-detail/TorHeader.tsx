@@ -156,15 +156,8 @@ export function TorHeader({
           <LifecycleBadge status={iden.status} stage={stage} size="large" />
           {marker ? <ChangeMarker source={marker} /> : null}
 
-          {/* Deadline Countdown Pill */}
-          {deadline.date ? (() => {
-            if (isDead(iden.status)) {
-              return (
-                <span className="inline-flex items-center gap-1.5 rounded-[2px] border border-line bg-surface-2 px-2.5 py-[3px] text-[11px] font-medium text-ink-3">
-                  <span>{iden.status === "Closed" ? "ปิดรับข้อเสนอแล้ว" : "สิ้นสุดแล้ว"}</span>
-                </span>
-              );
-            }
+          {/* Deadline Countdown Pill (active bids only, avoiding duplicate with LifecycleBadge) */}
+          {deadline.date && !isDead(iden.status) ? (() => {
             const days = daysLeft(deadline.date, new Date());
             const cd = countdownText(days);
             const pillStyle =

@@ -35,7 +35,7 @@ export function TorAside({
   );
 
   return (
-    <aside className="flex flex-col gap-4 lg:sticky lg:top-[70px] lg:self-start">
+    <aside className="flex flex-col gap-4 lg:sticky lg:top-[116px] lg:self-start">
       {/* 1. Core Price & Quick Dates Card */}
       <Panel className="px-4 pt-4 pb-3">
         <Label>ราคากลาง (Reference Price)</Label>
