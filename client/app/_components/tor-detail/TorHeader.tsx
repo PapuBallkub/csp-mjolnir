@@ -133,9 +133,9 @@ export function TorHeader({
               <span className="text-ink-3">{iden.department}</span>
             </>
           ) : null}
-          {(iden.categories ?? (iden.category ? [iden.category] : [])).map((category) => (
+          {(iden.categories ?? []).map((category, index) => (
             <Fragment key={category}>
-              <span className="h-3 w-px bg-line" />
+              {index === 0 ? <span className="h-3 w-px bg-line" /> : null}
               <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-ink-3">
                 {categoryLabel(category, "th")}
               </span>
