@@ -8,6 +8,7 @@ import { notFoundHandler } from '#common/middleware/not-found.js';
 import { adminRoutes } from '#features/admin/index.js';
 import { authRateLimits, createAuthRoutes } from '#features/auth/index.js';
 import { healthRoutes } from '#features/health/index.js';
+import { createNotificationRoutes } from '#features/notifications/index.js';
 import { createProfileRoutes } from '#features/profile/index.js';
 import { technologyRoutes } from '#features/technologies/index.js';
 import { torRoutes } from '#features/tors/index.js';
@@ -55,6 +56,7 @@ export function createApp({ rateLimits = authRateLimits } = {}) {
   app.use('/api/technologies', technologyRoutes);
   app.use('/api/profile', createProfileRoutes());
   app.use('/api/watchlist', createWatchlistRoutes());
+  app.use('/api/notifications', createNotificationRoutes());
 
   // Both stay last, and in this order.
   app.use(notFoundHandler);
