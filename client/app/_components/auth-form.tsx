@@ -264,8 +264,8 @@ export function AuthForm({ next }: { next: string | null }) {
         <div className="flex flex-col gap-4 lg:pt-4">
           <h1 className="text-[24px] leading-thai font-semibold tracking-tight text-ink">
             {lang === "th"
-              ? "ค้นหางานไอทีของ กทม. ได้โดยไม่ต้องเปิด PDF สักไฟล์"
-              : "Find Bangkok's IT contracts without opening a single PDF"}
+              ? "ค้นหางานไอทีภาครัฐได้โดยไม่ต้องเปิด PDF สักไฟล์"
+              : "Find government IT contracts without opening a single PDF"}
           </h1>
           <p className="text-[14px] leading-thai text-ink-2">
             {lang === "th"

@@ -1,4 +1,5 @@
 import type { TorInsightDetail } from "../../../_lib/api";
+import { prioritizeMatchedTechObjects } from "../../../_lib/catalog";
 import { Chip, Label, Panel, SectionHeading } from "../../ui";
 
 export function TechnicalSpecsTab({
@@ -12,6 +13,11 @@ export function TechnicalSpecsTab({
   const integration = insight.integrationEnvironment;
   const ops = insight.operationalRequirements;
 
+  const sortedTech = prioritizeMatchedTechObjects(tech.requiredTechnologies ?? [], matchedSkills);
+  const matchCount = matchedSkills.length > 0
+    ? sortedTech.filter((t) => matchedSkills.includes(t.name)).length
+    : 0;
+
   return (
     <div className="flex flex-col gap-6">
       {/* 1. TECHNICAL REQUIREMENTS */}
@@ -22,19 +28,26 @@ export function TechnicalSpecsTab({
 
         {/* Technologies */}
         <div className="mt-3">
-          <Label>เทคโนโลยีที่กำหนดระบุไว้</Label>
-          {!tech.requiredTechnologies || tech.requiredTechnologies.length === 0 ? (
+          <div className="flex items-center justify-between">
+            <Label>เทคโนโลยีที่กำหนดระบุไว้</Label>
+            {matchCount > 0 ? (
+              <span className="text-[11.5px] font-medium text-open">
+                ตรงกับทักษะของคุณ {matchCount} รายการ
+              </span>
+            ) : null}
+          </div>
+          {!sortedTech || sortedTech.length === 0 ? (
             <p className="mt-2 text-[13px] text-ink-3">
               TOR นี้ไม่ได้ระบุเทคโนโลยีเฉพาะเจาะจง (เทคโนโลยีเปิด / ขึ้นกับข้อเสนอของผู้ยื่นข้อเสนอ)
             </p>
           ) : (
             <div className="mt-2 flex flex-wrap gap-2">
-              {tech.requiredTechnologies.map((t, idx) => {
+              {sortedTech.map((t, idx) => {
                 const isMatch = matchedSkills.includes(t.name);
                 return (
                   <Chip
                     key={`${t.name}-${t.version ?? ""}-${idx}`}
-                    className={isMatch ? "border-open-line bg-open-bg text-open" : ""}
+                    className={isMatch ? "border-open-line bg-open-bg text-open font-medium" : ""}
                   >
                     {isMatch ? <span className="mr-1">✓</span> : null}
                     <span className="font-medium">{t.name}</span>

@@ -104,6 +104,12 @@ export function TorDetail({
   });
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }
+  }, [projectId]);
+
+  useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash;
       if (hash === "#profile-match" || hash === "#analysis" || hash === "#lock-spec" || hash === "#price") {
@@ -227,7 +233,7 @@ export function TorDetail({
           <nav
             role="tablist"
             aria-label="หัวข้อรายละเอียดโครงการ"
-            className="flex space-x-1 sm:space-x-2 overflow-x-auto py-2.5 no-scrollbar"
+            className="flex space-x-1 sm:space-x-2 overflow-x-auto py-2.5 no-scrollbar [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent_100%)] sm:[mask-image:none]"
           >
             {tabs.map((tab) => {
               const isActive = activeTab === tab.key;

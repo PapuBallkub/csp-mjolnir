@@ -147,8 +147,12 @@
   --radius-card: 3px;
 }
 
+html {
+  background: var(--surface);
+}
+
 body {
-  background: var(--canvas);
+  background: var(--surface);
   color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;

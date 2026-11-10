@@ -147,16 +147,16 @@ function PdfPreviewModalContent({
       role="dialog"
       aria-modal="true"
       aria-labelledby="pdf-modal-title"
-      className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 bg-ink/40 backdrop-blur-[2px] animate-in fade-in duration-150"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-0 sm:p-4 bg-ink/40 backdrop-blur-[2px] animate-in fade-in duration-150"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className={`relative flex flex-col w-full bg-surface border border-line rounded-[4px] shadow-2xl transition-all duration-200 overflow-hidden ${
+        className={`relative flex flex-col w-full bg-surface border-0 sm:border border-line rounded-none sm:rounded-[4px] shadow-2xl transition-all duration-200 overflow-hidden ${
           isFullscreen
-            ? "h-[98vh] max-w-[98vw]"
-            : "h-[88vh] max-w-5xl"
+            ? "h-[100dvh] sm:h-[98vh] max-w-[100vw] sm:max-w-[98vw]"
+            : "h-[100dvh] sm:h-[88vh] max-w-5xl"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -200,10 +200,10 @@ function PdfPreviewModalContent({
               href={previewUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11.5px] font-medium text-ink-2 hover:text-ink hover:bg-surface rounded-[2px] border border-transparent hover:border-line transition-colors"
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11.5px] font-medium text-ink bg-surface-2 sm:bg-transparent sm:text-ink-2 hover:text-ink hover:bg-surface rounded-[2px] border border-line sm:border-transparent sm:hover:border-line transition-colors"
               title={lang === "th" ? "เปิดไฟล์ PDF ในแท็บใหม่" : "Open PDF in new tab"}
             >
-              <span>{lang === "th" ? "แท็บใหม่" : "New Tab"}</span>
+              <span>{lang === "th" ? "เปิดในแท็บใหม่" : "New Tab"}</span>
               <span className="text-[10px]">↗</span>
             </a>
 

@@ -2,58 +2,9 @@ import { daysUntil, formatDate, type Lang, type Status } from "../_data/tors";
 import type { TorStatus } from "../_lib/api";
 import { deadlineOf } from "../_lib/stage";
 import { isDead } from "./verdict";
+import { countdownText, daysLeft, formatThaiDate } from "../_lib/deadline";
 
-/* ------------------------- real dates, from the API ------------------------ */
-
-// Deadlines are set in Thai time, so "days left" counts Bangkok calendar days
-const DAY = 24 * 60 * 60 * 1000;
-const BANGKOK = 7 * 60 * 60 * 1000;
-const bangkokDay = (time: number) => Math.floor((time + BANGKOK) / DAY);
-
-export function daysLeft(deadline: string, now: Date): number {
-  return bangkokDay(new Date(deadline).getTime()) - bangkokDay(now.getTime());
-}
-
-/** Returns the dynamic countdown text and urgency tone for a given days left count. */
-export function countdownText(
-  days: number,
-  lang: Lang = "th"
-): { text: string; tone: string } {
-  if (days < 0) {
-    return {
-      text: lang === "th" ? "ปิดรับแล้ว" : "Closed",
-      tone: "text-ink-3",
-    };
-  }
-  if (days === 0) {
-    return {
-      text: lang === "th" ? "ครบกำหนดวันนี้" : "Due today",
-      tone: "text-risk font-bold",
-    };
-  }
-  if (days === 1) {
-    return {
-      text: lang === "th" ? "เหลืออีก 1 วัน" : "1 day left",
-      tone: "text-risk font-bold",
-    };
-  }
-  return {
-    text: lang === "th" ? `เหลืออีก ${days} วัน` : `${days} days left`,
-    tone:
-      days <= 2
-        ? "text-risk font-semibold"
-        : days <= 7
-        ? "text-amend font-semibold"
-        : "text-ink font-semibold",
-  };
-}
-
-/** e.g. "19 ต.ค. 2569" / "19 Oct 2026", in Thai time; the Thai year is the Buddhist one */
-export function formatThaiDate(iso: string, lang: Lang): string {
-  const date = new Date(new Date(iso).getTime() + BANGKOK);
-  // formatDate reads the date part, so only the Bangkok calendar date goes in
-  return formatDate(date.toISOString().slice(0, 10), lang);
-}
+export { countdownText, daysLeft, formatThaiDate };
 
 /**
  * Time left on a real TOR, and what it is left for: a draft asks for comments

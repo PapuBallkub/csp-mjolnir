@@ -61,6 +61,13 @@ export default function TorDetailPage({
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
+    // Explicitly reset window scroll to top whenever navigating to a new TOR
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }
+  }, [id]);
+
+  useEffect(() => {
     let ignore = false;
     getTorInsight(id).then((result) => {
       if (ignore) return;
@@ -76,6 +83,14 @@ export default function TorDetailPage({
       ignore = true;
     };
   }, [id, retryKey]);
+
+  useEffect(() => {
+    if (insight && typeof window !== "undefined") {
+      // Re-scroll to top after data hydration to counter browser scroll restoration
+      // from previously viewed long pages or history navigation
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }
+  }, [insight]);
 
   const handleRetry = () => {
     setLoading(true);

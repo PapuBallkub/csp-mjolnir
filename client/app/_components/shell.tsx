@@ -63,27 +63,33 @@ export function HeaderControls({ className = "" }: { className?: string }) {
         // resolving it moves nothing.
         <span
           aria-hidden="true"
-          className="h-[26px] w-[92px] rounded-[3px] border border-line bg-surface-2"
+          className="h-[26px] w-[26px] sm:w-[92px] rounded-[3px] border border-line bg-surface-2"
         />
       ) : status === "authenticated" ? (
         <span className="flex items-center gap-1">
           <Link
             href="/profile"
             title={user.email}
-            className={`flex h-[26px] max-w-[140px] items-center truncate rounded-[3px] border px-2 text-[12px] transition-colors ${
+            aria-label={`โปรไฟล์ของ ${displayName(user)}`}
+            className={`flex h-[26px] items-center rounded-[3px] border px-2 text-[12px] transition-colors ${
               pathname?.startsWith("/profile")
                 ? "border-line-2 bg-surface-3 text-ink"
                 : "border-line bg-surface-2 text-ink-2 hover:text-ink"
             }`}
           >
-            {displayName(user)}
+            <span className="sm:hidden font-mono text-[11px] font-semibold text-ink" aria-hidden="true">
+              👤
+            </span>
+            <span className="hidden sm:inline max-w-[130px] truncate">
+              {displayName(user)}
+            </span>
           </Link>
           <button
             type="button"
             onClick={() => signOut()}
             aria-label="ออกจากระบบ"
             title="ออกจากระบบ"
-            className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-3 transition-colors hover:text-ink cursor-pointer"
+            className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-3 transition-colors hover:text-ink cursor-pointer shrink-0"
           >
             <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
               <path
@@ -114,12 +120,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const { status, user } = useAuth();
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-surface">
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex min-h-[52px] max-w-[1240px] items-center gap-4 px-4 py-2.5">
+        <div className="mx-auto flex min-h-[52px] max-w-[1240px] items-center gap-2.5 sm:gap-4 px-3 sm:px-4 py-2.5">
           <Link
             href="/"
-            className="flex h-[26px] items-center text-ink transition-opacity hover:opacity-70"
+            className="flex h-[26px] items-center text-ink transition-opacity hover:opacity-70 shrink-0"
             title="หน้าแรก"
             aria-label="หน้าแรก"
           >
@@ -138,7 +144,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </svg>
           </Link>
 
-          <nav className="-mx-1 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-1">
+          <nav className="-mx-1 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-1 [mask-image:linear-gradient(to_right,black_calc(100%-18px),transparent_100%)] sm:[mask-image:none]">
             {NAV.map((item) => {
               const active = pathname.startsWith(item.href);
               return (
@@ -181,7 +187,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 bg-canvas">{children}</main>
 
       <footer className="mt-auto border-t border-line bg-surface">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 text-[11px] text-ink-3">

@@ -9,6 +9,8 @@ import { TorDeadline } from "./deadline";
 import { getFiscalYear } from "../_lib/format";
 import { stageOf } from "../_lib/stage";
 import { markerSource } from "../_lib/changes";
+import { getVisibleTechnologies, prioritizeMatchedTech } from "../_lib/catalog";
+import { useBreakpoint } from "../_lib/breakpoints";
 import {
   ChangeMarker,
   CompaniesOnlyBadge,
@@ -65,10 +67,10 @@ export function CatalogRow({
 }) {
   const { identification: iden, facts, analytics } = tor;
 
-  const tech = [...new Set((tor.technicalRequirements?.requiredTechnologies ?? []).map((t) => t.name))];
-  const MAX_VISIBLE_TECH = 3;
-  const visibleTech = tech.slice(0, MAX_VISIBLE_TECH);
-  const restTech = tech.length - visibleTech.length;
+  const breakpoint = useBreakpoint();
+  const rawTech = [...new Set((tor.technicalRequirements?.requiredTechnologies ?? []).map((t) => t.name))];
+  const tech = prioritizeMatchedTech(rawTech, match?.matched);
+  const { visibleTech, restTech } = getVisibleTechnologies(tech, breakpoint);
 
   const price = facts.referencePriceTHB ?? facts.budgetTHB;
   const priceLabel = facts.referencePriceTHB !== null ? "ราคากลาง" : "งบประมาณ";
@@ -93,41 +95,40 @@ export function CatalogRow({
       <LifecycleRail status={iden.status} amended={tor.amendmentInfo?.isAmended} />
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:gap-2">
-        {/* Tier 1: Metadata Bar & Status Badges */}
-        <div className="flex flex-wrap items-center justify-between gap-1 border-b border-line/40 pb-1.5">
-          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-3">
-            {fiscalYear ? (
-              <span className="font-medium text-ink-2 bg-surface-2 px-1.5 py-0.5 rounded-[2px] border border-line">
-                ปีงบฯ {fiscalYear}
-              </span>
-            ) : null}
-            <span className="font-mono tnum text-[11px]">#{tor.projectId}</span>
-            <span className="text-ink-4">·</span>
-            <span className="font-medium text-ink-2">{iden.agency}</span>
-            {iden.department ? (
-              <>
-                <span className="text-ink-4">/</span>
-                <span className="text-ink-3">{iden.department}</span>
-              </>
-            ) : null}
-            <ReviewTag review={tor.review} />
-          </div>
+        {/* Tier 1: Metadata Bar */}
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-3">
+          {fiscalYear ? (
+            <span className="font-medium text-ink-2 bg-surface-2 px-1.5 py-0.5 rounded-[2px] border border-line">
+              ปีงบฯ {fiscalYear}
+            </span>
+          ) : null}
+          <span className="font-mono tnum text-[11px]">#{tor.projectId}</span>
+          <span className="text-ink-4">·</span>
+          <span className="font-medium text-ink-2">{iden.agency}</span>
+          {iden.department ? (
+            <>
+              <span className="text-ink-4">/</span>
+              <span className="text-ink-3">{iden.department}</span>
+            </>
+          ) : null}
+          <ReviewTag review={tor.review} />
+        </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            <LifecycleBadge status={iden.status} stage={stage} lang="th" />
-            {change ? <ChangeMarker source={change} lang="th" /> : null}
-            {analytics.lockSpec ? (
-              <LockSpecBadge
-                level={riskLevel(analytics.lockSpec.riskScore)}
-                score={analytics.lockSpec.riskScore}
-                lang="th"
-              />
-            ) : null}
-            {analytics.priceAnalysis ? (
-              <PriceDeltaBadge delta={analytics.priceAnalysis.diffPercentage} lang="th" />
-            ) : null}
-            {missing ? <span className="text-[10.5px] text-ink-3">{missing}</span> : null}
-          </div>
+        {/* Tier 2: Status & Risk Badges (always on left side) */}
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-line/40 pb-1.5">
+          <LifecycleBadge status={iden.status} stage={stage} lang="th" />
+          {change ? <ChangeMarker source={change} lang="th" /> : null}
+          {analytics.lockSpec ? (
+            <LockSpecBadge
+              level={riskLevel(analytics.lockSpec.riskScore)}
+              score={analytics.lockSpec.riskScore}
+              lang="th"
+            />
+          ) : null}
+          {analytics.priceAnalysis ? (
+            <PriceDeltaBadge delta={analytics.priceAnalysis.diffPercentage} lang="th" />
+          ) : null}
+          {missing ? <span className="text-[10.5px] text-ink-3">{missing}</span> : null}
         </div>
 
         {/* Tier 2: Title */}
@@ -244,9 +245,10 @@ export function CatalogRowSkeleton() {
     <div className="flex gap-2.5 sm:gap-3 rounded-lg border border-line bg-surface p-2.5 sm:p-3" aria-hidden="true">
       <span className="w-[4px] shrink-0 rounded-full bg-line" />
       <div className="flex min-w-0 flex-1 animate-pulse flex-col gap-1.5 sm:gap-2">
-        <div className="flex justify-between">
-          <div className={`h-3 w-40 ${bar}`} />
-          <div className={`h-3 w-28 ${bar}`} />
+        <div className={`h-3 w-48 ${bar}`} />
+        <div className="flex gap-2 border-b border-line/40 pb-1.5">
+          <div className={`h-4.5 w-20 ${bar}`} />
+          <div className={`h-4.5 w-28 ${bar}`} />
         </div>
         <div className={`h-4 w-3/4 ${bar}`} />
         <div className={`h-9 w-full rounded-[4px] ${bar}`} />

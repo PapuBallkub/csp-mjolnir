@@ -140,8 +140,8 @@ const PROBLEMS = [
   {
     stat: { th: "กระจัดกระจาย", en: "Scattered" },
     label: {
-      th: "ข้อมูลกระจายอยู่ตามเว็บไซต์หน่วยงาน BMA หลายสิบแห่ง ไม่มีที่เดียวรวมทั้งหมด",
-      en: "across dozens of BMA agency sites — no single place to check them all",
+      th: "ข้อมูลกระจายอยู่ตามระบบ e-GP และเว็บไซต์หน่วยงานรัฐทั่วประเทศ ไม่มีที่เดียวที่รวบรวมอย่างเป็นระบบ",
+      en: "scattered across e-GP and agency websites nationwide — with no unified place to analyze them",
     },
   },
   {
@@ -173,6 +173,26 @@ export default function LandingPage() {
           >
             <Wordmark />
           </Link>
+          <nav className="-mx-1 hidden sm:flex min-w-0 items-center gap-1 overflow-x-auto px-1">
+            <Link
+              href="/search"
+              className="rounded-[3px] px-2.5 py-1.5 text-[13px] text-ink-2 hover:bg-surface-2 hover:text-ink transition-colors"
+            >
+              {lang === "th" ? "ค้นหาประกาศ" : "Browse TORs"}
+            </Link>
+            <Link
+              href="/watchlist"
+              className="rounded-[3px] px-2.5 py-1.5 text-[13px] text-ink-2 hover:bg-surface-2 hover:text-ink transition-colors"
+            >
+              {lang === "th" ? "รายการติดตาม" : "Watchlist"}
+            </Link>
+            <Link
+              href="/watchdog"
+              className="rounded-[3px] px-2.5 py-1.5 text-[13px] text-ink-2 hover:bg-surface-2 hover:text-ink transition-colors"
+            >
+              {lang === "th" ? "ตรวจสอบราคา/การแก้ไข" : "Price & Amendment Analysis"}
+            </Link>
+          </nav>
           <HeaderControls className="ml-auto" />
         </div>
       </header>
@@ -205,6 +225,101 @@ export default function LandingPage() {
               >
                 {t.secondary}
               </Link>
+            </div>
+
+            {/* Live-feel Normalized TOR Card Preview */}
+            <div className="mt-12 rounded-lg border border-line bg-surface p-4 sm:p-5 shadow-sm max-w-[800px]">
+              <div className="flex items-center justify-between pb-2 mb-3 border-b border-line/60">
+                <span className="text-[11.5px] font-medium text-ink-3">
+                  {lang === "th"
+                    ? "ตัวอย่างผลลัพธ์: AI สรุปสาระสำคัญจากเอกสาร TOR หลายสิบหน้าเหลือการ์ดเดียว"
+                    : "Example output: AI extracts critical facts from 40+ page TOR into a single actionable card"}
+                </span>
+                <Link
+                  href="/search"
+                  className="text-[11.5px] font-semibold text-open hover:underline"
+                >
+                  {lang === "th" ? "ค้นหาประกาศจริง →" : "Browse real projects →"}
+                </Link>
+              </div>
+
+              {/* Sample Card (using the new left-aligned status system) */}
+              <div className="relative flex gap-3 rounded-lg border border-line bg-surface-2/30 p-3 sm:p-3.5">
+                <span className="w-[4px] shrink-0 rounded-full bg-open" aria-hidden="true" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:gap-2">
+                  {/* Tier 1: Metadata */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-3">
+                    <span className="font-medium text-ink-2 bg-surface-2 px-1.5 py-0.5 rounded-[2px] border border-line">
+                      ปีงบฯ 2569
+                    </span>
+                    <span className="font-mono tnum">#68049322058</span>
+                    <span className="text-ink-4">·</span>
+                    <span className="font-medium text-ink-2">กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)</span>
+                    <span className="text-ink-4">/</span>
+                    <span>สำนักบริการคอมพิวเตอร์</span>
+                  </div>
+
+                  {/* Tier 2: Status & Risk Badges (left-aligned) */}
+                  <div className="flex flex-wrap items-center gap-1.5 border-b border-line/40 pb-1.5">
+                    <span className="inline-flex items-center gap-1.5 rounded-[3px] border border-open-line bg-open-bg px-2 py-0.5 text-[11px] font-semibold text-open">
+                      <span className="h-1.5 w-1.5 rounded-full bg-open" />
+                      เปิดรับข้อเสนอ
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-[3px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-semibold text-risk font-mono">
+                      <span>📊</span>
+                      <span>ความเสี่ยงล็อกสเปกสูง 81</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-[3px] border border-amend-line bg-amend-bg px-2 py-0.5 text-[11px] font-semibold text-amend font-mono">
+                      <span>▲</span>
+                      <span>สูงกว่าราคากลาง 19%</span>
+                    </span>
+                  </div>
+
+                  {/* Tier 3: Title */}
+                  <h3 className="text-[14px] sm:text-[15px] font-semibold leading-snug text-ink">
+                    ประกวดราคาจ้างบริการพัฒนาและปรับปรุงระบบงานสารสนเทศด้านลงทุนและสำนักงาน ปี 2568 ด้วยวิธี e-bidding
+                  </h3>
+
+                  {/* Tier 4: Core Facts Grid */}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 rounded-[4px] bg-surface-2/60 border border-line/50 p-2 text-[12px]">
+                    <div>
+                      <span className="text-[10px] font-medium text-ink-3 uppercase">ราคากลาง</span>
+                      <div className="font-mono font-bold text-ink text-[14px]">฿1,796,185</div>
+                      <span className="text-[10.5px] text-ink-4">วงเงินงบประมาณ</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-medium text-ink-3 uppercase">กำหนดยื่นข้อเสนอ</span>
+                      <div className="font-medium text-[12.5px] text-amend font-semibold">เหลืออีก 11 วัน</div>
+                      <span className="text-[10.5px] text-ink-4">20 พ.ย. 2569</span>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <span className="text-[10px] font-medium text-ink-3 uppercase">ความตรงกับคุณ</span>
+                      <div className="font-mono font-bold text-open text-[13px]">61/100</div>
+                      <span className="text-[10.5px] text-ink-3">ตรงบางส่วน (ทักษะเข้าเกณฑ์)</span>
+                    </div>
+                  </div>
+
+                  {/* Tier 5: Tech stack chips */}
+                  <div className="flex items-center gap-1.5 pt-0.5 overflow-hidden flex-nowrap text-[11px]">
+                    <span className="inline-flex items-center gap-1 rounded-[3px] border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300 shrink-0">
+                      ⚠️ เฉพาะนิติบุคคล
+                    </span>
+                    <span className="h-3 w-px bg-line/80 mx-0.5 shrink-0" />
+                    <span className="rounded-[3px] border border-open-line bg-open-bg px-2 py-0.5 text-open shrink-0">
+                      ✓ Linux
+                    </span>
+                    <span className="rounded-[3px] border border-line/60 bg-surface-2 px-2 py-0.5 text-ink-2 shrink-0">
+                      PostgreSQL 15
+                    </span>
+                    <span className="rounded-[3px] border border-open-line bg-open-bg px-2 py-0.5 text-open shrink-0">
+                      ✓ Docker
+                    </span>
+                    <span className="rounded-[3px] border border-line/60 bg-surface-2 px-1.5 py-0.5 text-ink-3 shrink-0">
+                      +1
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -293,13 +408,14 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-line bg-surface">
-        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 text-[11px] text-ink-3">
-          <Wordmark className="opacity-60" />
+        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-4 text-[11.5px] text-ink-3">
+          <Wordmark className="opacity-70" />
           <span className="leading-thai">
-            เครื่องมือค้นหาโครงการ ไม่ใช่ระบบยื่นข้อเสนอ · A discovery tool, not a bidding
-            assistant.
+            {lang === "th"
+              ? "แพลตฟอร์มค้นหาและวิเคราะห์ประกาศจัดซื้อจัดจ้างภาครัฐด้าน IT (เครื่องมืออิสระบุคคลที่สาม — การยื่นข้อเสนอทางการทั้งหมดทำผ่านระบบ e-GP)"
+              : "Government IT Procurement Discovery Platform (Independent third-party tool — all official submissions occur via e-GP)."}
           </span>
-          <span className="ml-auto font-mono">01219346 · Kasetsart University</span>
+          <span className="ml-auto font-mono text-[11px] text-ink-4">01219346 · Kasetsart University</span>
         </div>
       </footer>
     </div>
