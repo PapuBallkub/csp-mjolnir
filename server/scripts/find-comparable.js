@@ -112,7 +112,7 @@ async function inspectOne(projectId, { limit, save }) {
   const priceAnalysis = calculatePriceBenchmarks(tor, results);
 
   console.log(`------------------------------------------------------`);
-  console.log(`Historical Benchmarks & Deviations (FR-20):`);
+  console.log(`Historical Benchmarks & Deviations (FR-19):`);
   console.log(`  Sample Size:       ${priceAnalysis.sampleSize} (${priceAnalysis.reliability})`);
   console.log(`  Historical Median: ${formatTHB(priceAnalysis.historicalMedianTHB)}`);
   console.log(`  Historical Mean:   ${formatTHB(priceAnalysis.historicalAverageTHB)}`);

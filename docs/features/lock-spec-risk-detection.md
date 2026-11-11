@@ -2,7 +2,7 @@
 
 **Feature:** Lock-Specification Risk Scoring & Qualification Barrier Detection  
 **Related Requirements:**  
-- `FR-20`: Compare a TOR's technical and qualification requirements against normalized historical baselines.  
+- `FR-20`: Compare a TOR's technical and qualification requirements against normalized historical baselines. **Partly met:** this feature compares them with the fixed rules of Circular ว 214, not with similar past projects. The comparison with past projects isn't built yet; it needs enough processed TORs of each type to be meaningful.  
 - `FR-21`: Visibly flag "high lock-spec risk" on TORs with statistically unusual or hyper-specific requirements.  
 - `NFR-15`: Thai primary locale with transparent, non-accusatory copy ("Describe, don't accuse").  
 **Related Decisions:**  

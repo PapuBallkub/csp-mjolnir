@@ -1,7 +1,8 @@
 # Requirements
 
 What GIPDP has to do, condensed from the team's Software Requirements
-Specification (SRS v0.3, 30 Sep 2026). The full SRS is kept out of this
+Specification (SRS v0.3, 30 Sep 2026), plus FR-24, which the team has agreed
+to add in v0.4. The full SRS is kept out of this
 repository on purpose; this file is the public stand-in, detailed enough to
 build against and to cite from code. **Where the two disagree, the SRS wins** —
 ask the team, then fix this file.

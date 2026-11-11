@@ -1,7 +1,7 @@
 /**
  * server/test/price-benchmark.test.js
  *
- * Tests for FR-20: Historical price benchmarking, median & average calculation,
+ * Tests for FR-19: Historical price benchmarking, median & average calculation,
  * and price deviation calculations.
  * Conforms to ADR 0014, ADR 0022, ADR 0024.
  */
