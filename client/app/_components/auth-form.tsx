@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { googleSignInUrl, type ApiError } from "../_lib/api";
 import { useAuth } from "./auth";
-import { useLang, LangToggle, ThemeToggle } from "./prefs";
+import { useLang, ThemeToggle } from "./prefs";
 import { Wordmark } from "./shell";
 import { btn, input, Label, Panel } from "./ui";
 import { LockSpecBadge, StatusBadge } from "./verdict";
@@ -112,7 +112,6 @@ export function AuthForm({ next }: { next: string | null }) {
             <Wordmark />
           </Link>
           <div className="ml-auto flex items-center gap-2">
-            <LangToggle />
             <ThemeToggle />
           </div>
         </div>
@@ -265,8 +264,8 @@ export function AuthForm({ next }: { next: string | null }) {
         <div className="flex flex-col gap-4 lg:pt-4">
           <h1 className="text-[24px] leading-thai font-semibold tracking-tight text-ink">
             {lang === "th"
-              ? "ค้นหางานไอทีของ กทม. ได้โดยไม่ต้องเปิด PDF สักไฟล์"
-              : "Find Bangkok's IT contracts without opening a single PDF"}
+              ? "ค้นหางานไอทีภาครัฐได้โดยไม่ต้องเปิด PDF สักไฟล์"
+              : "Find government IT contracts without opening a single PDF"}
           </h1>
           <p className="text-[14px] leading-thai text-ink-2">
             {lang === "th"
