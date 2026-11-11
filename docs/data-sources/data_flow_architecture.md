@@ -20,7 +20,7 @@ reasons behind them are in the decisions it links to.
 flowchart LR
     RSS["process3 RSS<br/>new and changed announcements"] --> TOR[("Tor<br/>MongoDB")]
     DGO["data.go.th<br/>agency codes"] -. sweep list .-> RSS
-    CSV["data.go.th<br/>past contracts, CSV"] -- "history:import,<br/>by hand" --> TOR
+    CSV["data.go.th<br/>past contracts, CSV"] -->|"history:import,<br/>by hand"| TOR
     TOR --> SCR["title screen<br/>(Gemini reads titles only)"]
     SCR --> DL["download<br/>process5: each stage's package,<br/>and the price package"]
     DL --> FILES["files kept per package:<br/>server/data/documents/&lt;id&gt;/&lt;package&gt;/"]

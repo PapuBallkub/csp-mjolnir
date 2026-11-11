@@ -525,6 +525,8 @@ here may contain JSX or path aliases. One file per `_lib` module: `api`,
 | [design-document.md](design-document.md) | The software design document: architecture, data model, pipeline, API and frontend design, traceability. |
 | [pipeline.md](pipeline.md) | Every pipeline command, its options and settings. |
 | [pipeline-guide.md](pipeline-guide.md) | The pipeline in plain words: how a project travels, running it, reading its output, costs. |
+| [server-features.md](server-features.md) | How the server is put together: the layers in a feature, what each feature owns, how features and pipelines depend on each other, what's shared, where the layout's rules bend. |
+| [data-model.md](data-model.md) | The 12 collections: an ER diagram of how they connect by `projectId`, the pipeline's bookkeeping, who writes and reads each. |
 | [deployment-checklist.md](deployment-checklist.md) | What to set and verify before a production deploy, and the known gaps. |
 | [project-map.md](project-map.md) | This page. |
 
