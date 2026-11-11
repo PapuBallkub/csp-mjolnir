@@ -525,6 +525,8 @@ here may contain JSX or path aliases. One file per `_lib` module: `api`,
 | [design-document.md](design-document.md) | The software design document: architecture, data model, pipeline, API and frontend design, traceability. |
 | [pipeline.md](pipeline.md) | Every pipeline command, its options and settings. |
 | [pipeline-guide.md](pipeline-guide.md) | The pipeline in plain words: how a project travels, running it, reading its output, costs. |
+| [system-overview.md](system-overview.md) | GIPDP on one page: the parts and how a TOR travels through them, the day's schedule, who uses what, what isn't built yet. |
+| [what-the-public-sees.md](what-the-public-sees.md) | The gate between the database and the public: what hides a TOR, pilot mode, what a visible TOR carries, what stays internal. |
 | [server-features.md](server-features.md) | How the server is put together: the layers in a feature, what each feature owns, how features and pipelines depend on each other, what's shared, where the layout's rules bend. |
 | [data-model.md](data-model.md) | The 12 collections: an ER diagram of how they connect by `projectId`, the pipeline's bookkeeping, who writes and reads each. |
 | [deployment-checklist.md](deployment-checklist.md) | What to set and verify before a production deploy, and the known gaps. |
