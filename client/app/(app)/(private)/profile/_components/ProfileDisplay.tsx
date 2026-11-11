@@ -328,8 +328,8 @@ export function ProfileDisplay({
       {/* 4. MATCH NOTIFICATION SETTINGS CARD */}
       <Panel className="p-5 sm:p-6">
         <div className="flex items-center justify-between border-b border-line/60 pb-3">
-          <SectionHeading sub="การแจ้งเตือนประกาศจัดซื้อจัดจ้างที่ตรงกับโปรไฟล์ผ่านทางอีเมล (PDPA Consent)">
-            การแจ้งเตือนทางอีเมล (Email Notifications)
+          <SectionHeading sub="จัดการช่องทางและความยินยอมในการรับข้อมูลข่าวสารโครงการจากระบบ">
+            การตั้งค่าการแจ้งเตือน (Notification Preferences)
           </SectionHeading>
           <span
             className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
