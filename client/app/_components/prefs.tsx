@@ -13,46 +13,13 @@ import type { ApiError, UserProfile } from "../_lib/api";
 import { useAuth } from "./auth";
 
 /**
- * Content language. Source documents are Thai and most users read Thai, so
- * that is the default; the toggle switches everything that *describes a
- * document* — titles, agencies, summaries, verdict wording — while the
- * navigation chrome stays in English, which is how bilingual teams here
- * actually work.
+ * Default system language: Thai only (NFR-15).
  */
-const LangContext = createContext<{ lang: Lang; setLang: (lang: Lang) => void }>({
-  lang: "th",
+const TH_LANG_CONTEXT = {
+  lang: "th" as Lang,
   setLang: () => {},
-});
-
-const langListeners = new Set<() => void>();
-
-function subscribeToLang(callback: () => void) {
-  langListeners.add(callback);
-  window.addEventListener("storage", callback);
-  return () => {
-    langListeners.delete(callback);
-    window.removeEventListener("storage", callback);
-  };
-}
-
-function readLang(): Lang {
-  if (typeof window === "undefined") return "th";
-  try {
-    const stored = localStorage.getItem("mjolnir-lang");
-    if (stored === "th" || stored === "en") return stored;
-  } catch {}
-  return "th";
-}
-
-function setStoredLang(next: Lang) {
-  try {
-    localStorage.setItem("mjolnir-lang", next);
-    document.documentElement.lang = next;
-  } catch {}
-  for (const listener of langListeners) {
-    listener();
-  }
-}
+};
+const LangContext = createContext<{ lang: Lang; setLang: (lang: Lang) => void }>(TH_LANG_CONTEXT);
 
 /**
  * FR-12. When signed in, the profile is whatever the server last returned.
@@ -76,11 +43,6 @@ const ProfileContext = createContext<ProfileValue>({
 });
 
 export function PrefsProvider({ children }: { children: ReactNode }) {
-  const lang = useSyncExternalStore(subscribeToLang, readLang, () => "th" as Lang);
-  const setLang = useCallback((next: Lang) => {
-    setStoredLang(next);
-  }, []);
-
   const { status, user, updateProfile: authUpdateProfile } = useAuth();
 
   const [guestProfile, setGuestProfile] = useState<Profile>(demoProfile);
@@ -127,7 +89,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <LangContext.Provider value={{ lang, setLang }}>
+    <LangContext.Provider value={TH_LANG_CONTEXT}>
       <ProfileContext.Provider value={{ profile, setProfile, saving, saveProfile }}>
         {children}
       </ProfileContext.Provider>
@@ -136,41 +98,11 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
 }
 
 export function useLang() {
-  return useContext(LangContext);
+  return TH_LANG_CONTEXT;
 }
 
 export function useProfile() {
   return useContext(ProfileContext);
-}
-
-export function LangToggle() {
-  const { lang, setLang } = useLang();
-  const options: { value: Lang; label: string }[] = [
-    { value: "th", label: "ไทย" },
-    { value: "en", label: "EN" },
-  ];
-
-  return (
-    <div
-      className="flex items-center rounded-[3px] border border-line bg-surface-2 p-[2px]"
-      role="group"
-      aria-label="Content language"
-    >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => setLang(option.value)}
-          aria-pressed={lang === option.value}
-          className={`flex h-5 w-9 items-center justify-center rounded-[2px] text-[11px] font-medium transition-all duration-150 ${
-            lang === option.value ? "bg-ink text-surface shadow-xs" : "text-ink-3 hover:text-ink"
-          }`}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 type Theme = "light" | "dark";

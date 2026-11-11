@@ -43,18 +43,22 @@ function formatTHB(num) {
 /**
  * Detects Category 1: Vendor Lock-in & Reseller Letters.
  * Checks for Manufacturer Authorization Form (MAF) in software development tenders.
- * Grounded in Circular ว 214 Clause 1.1 & 1.3.
+ * Grounded in Circular ว 214 Clause 1.3.
+ *
+ * Reads the main category (ADR 0034). Licenses as the main scope are not
+ * flagged: a reseller letter can belong to buying them. Licenses as a smaller
+ * part don't stop the rule, and the finding says so.
  *
  * @param {object} tor
  * @returns {object|null}
  */
 export function detectVendorLockin(tor) {
-  const category = tor?.identification?.category;
-  const isSoftwareHire =
-    category === 'software-development' ||
-    category === 'systems-integration' ||
-    tor?.procurementKind === 'hire' ||
-    tor?.facts?.procurementKind === 'hire';
+  const categories = tor?.identification?.categories ?? [];
+  const mainCategory = categories[0];
+  if (mainCategory === 'software-licenses') return null;
+
+  const isDevelopment = mainCategory === 'software-development' || mainCategory === 'systems-integration';
+  const isSoftwareHire = isDevelopment || tor?.facts?.procurementKind === 'hire';
 
   const mafs = tor?.eligibility?.manufacturerAuthorizations;
   const hasMAF = Array.isArray(mafs) && mafs.length > 0;
@@ -62,13 +66,19 @@ export function detectVendorLockin(tor) {
   if (isSoftwareHire && hasMAF) {
     const rawQuote = mafs[0] || 'ต้องแนบหนังสือแต่งตั้งตัวแทนจำหน่ายจากผู้ผลิต';
     const evidence = tor?.evidence?.['eligibility.manufacturerAuthorizations'];
+    const work = isDevelopment ? 'งานพัฒนาหรือวางระบบ' : 'งานจ้าง';
+    const usualPractice = isDevelopment
+      ? 'งานจ้างพัฒนาซอฟต์แวร์ทั่วไปประเมินจากทักษะและผลงานของทีมพัฒนา ไม่กำหนดหนังสือตัวแทนจำหน่าย (ว 214 ข้อ 1.3)'
+      : 'งานจ้างทั่วไปประเมินจากทักษะและผลงานของผู้รับจ้าง ไม่กำหนดหนังสือตัวแทนจำหน่าย (ว 214 ข้อ 1.3)';
 
     return {
       id: `FIND-${tor?.projectId || 'TOR'}-01`,
-      title: 'กำหนดหนังสือแต่งตั้งตัวแทนจำหน่าย (MAF) ในงานจ้างพัฒนาซอฟต์แวร์',
+      title: `กำหนดหนังสือแต่งตั้งตัวแทนจำหน่าย (MAF) ใน${isDevelopment ? 'งานจ้างพัฒนาซอฟต์แวร์' : 'งานจ้าง'}`,
       category: 'Vendor Lock-in',
       requirementText: 'ผู้ยื่นข้อเสนอต้องแนบหนังสือแต่งตั้งตัวแทนจำหน่าย (Manufacturer Authorization) จากเจ้าของลิขสิทธิ์ซอฟต์แวร์',
-      normalBenchmark: 'งานจ้างพัฒนาซอฟต์แวร์ทั่วไปประเมินจากทักษะและผลงานของทีมพัฒนา ไม่กำหนดหนังสือตัวแทนจำหน่าย (ว 214 ข้อ 1.3)',
+      normalBenchmark: categories.includes('software-licenses')
+        ? `โครงการนี้มีทั้ง${work} และการซื้อสิทธิ์ใช้งานซอฟต์แวร์ หนังสือแต่งตั้งตัวแทนจำหน่ายอาจเกี่ยวกับส่วนสิทธิ์ใช้งาน แต่ ว 214 ข้อ 1.3 ไม่ให้ใช้เงื่อนไขนี้จำกัดผู้เสนอราคาในส่วน${work}`
+        : usualPractice,
       sourceExcerpt: evidence?.quote || rawQuote,
       sourceLocation: evidence?.page != null ? `หน้า ${evidence.page}` : 'หมวดคุณสมบัติเฉพาะของผู้ยื่นข้อเสนอ',
       severity: 'high',

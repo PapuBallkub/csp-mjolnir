@@ -3,6 +3,8 @@ import type { TorStatus } from "../../../_lib/api";
 import {
   BUDGET_BANDS,
   DEADLINE_BANDS,
+  DEFAULT_PAGE_SIZE,
+  PAGE_SIZE_OPTIONS,
   SCORE_FLOORS,
   SORTS,
   type FilterState,
@@ -58,6 +60,14 @@ export function parseFilterParams(sp: SearchParamReader): FilterState {
   const amendedOnly = sp.get("amended") === "true";
   const hideHighRisk = sp.get("hideRisk") === "true";
 
+  const rawPage = Number(sp.get("page"));
+  const page = Number.isInteger(rawPage) && rawPage >= 1 ? rawPage : 1;
+
+  const rawPageSize = Number(sp.get("pageSize"));
+  const pageSize = PAGE_SIZE_OPTIONS.includes(rawPageSize as (typeof PAGE_SIZE_OPTIONS)[number])
+    ? rawPageSize
+    : DEFAULT_PAGE_SIZE;
+
   return {
     query,
     statuses,
@@ -68,6 +78,8 @@ export function parseFilterParams(sp: SearchParamReader): FilterState {
     deadlineBand,
     hideHighRisk,
     sort,
+    page,
+    pageSize,
   };
 }
 
@@ -77,10 +89,20 @@ export function parseMatchParams(sp: SearchParamReader): MatchState {
   const hideClosed = sp.get("hideClosed") === "false" ? false : true;
   const hideHighRisk = sp.get("hideRisk") === "true";
 
+  const rawPage = Number(sp.get("page"));
+  const page = Number.isInteger(rawPage) && rawPage >= 1 ? rawPage : 1;
+
+  const rawPageSize = Number(sp.get("pageSize"));
+  const pageSize = PAGE_SIZE_OPTIONS.includes(rawPageSize as (typeof PAGE_SIZE_OPTIONS)[number])
+    ? rawPageSize
+    : DEFAULT_PAGE_SIZE;
+
   return {
     scoreFloor,
     hideClosed,
     hideHighRisk,
+    page,
+    pageSize,
   };
 }
 
@@ -133,6 +155,14 @@ export function buildFilterQueryString(filters: FilterState): string {
     p.set("hideRisk", "true");
   }
 
+  if (filters.page && filters.page > 1) {
+    p.set("page", String(filters.page));
+  }
+
+  if (filters.pageSize && filters.pageSize !== DEFAULT_PAGE_SIZE) {
+    p.set("pageSize", String(filters.pageSize));
+  }
+
   const qs = p.toString();
   return qs ? `?${qs}` : "";
 }
@@ -151,6 +181,14 @@ export function buildMatchQueryString(match: MatchState): string {
 
   if (match.hideHighRisk) {
     p.set("hideRisk", "true");
+  }
+
+  if (match.page && match.page > 1) {
+    p.set("page", String(match.page));
+  }
+
+  if (match.pageSize && match.pageSize !== DEFAULT_PAGE_SIZE) {
+    p.set("pageSize", String(match.pageSize));
   }
 
   const qs = p.toString();

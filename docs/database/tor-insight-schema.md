@@ -108,7 +108,7 @@ Used in `metadata.excluded`, when the classify step finds the document isn't IT.
 | `agency` | `String` | Required, Indexed | — | Name of the procuring government organization, from the feed first | `"กรุงเทพมหานคร"` |
 | `department` | `String` | No | `null` | Division/office responsible for the project | `"สำนักยุทธศาสตร์และประเมินผล"` |
 | `egpReference` | `String` | No | `null` | Official e-GP announcement reference code | `"e-GP 67011234567"` |
-| `category` | `String` | Indexed | `null` | Set by the classify step | `'Software / IT'`, `'Network / Security'` |
+| `categories` | `[String]` | Indexed | `[]` | 1 to 3 of the 7 kinds of IT work in `models/project-categories.js`, the main one first. The order matters: comparisons score it and lock-spec reads the first. Set by the extract step, or the title screen for a title-only record; `[]` when there is none ([0034](../decisions/0034-a-tor-can-have-several-categories.md)) | `['software-development', 'maintenance-and-support']` |
 | `status` | `String` | Required, Indexed | — | Copied from `Tor.status` at extraction; never extracted, never defaulted. **The API doesn't read this copy:** the feed keeps changing the status (a cancellation, a winner), so the API reads it live from `Tor` and uses this only when no `Tor` exists. | `'Draft'`, `'Open'`, `'Awarded'`, `'Closed'`, `'Cancelled'` |
 
 > **Status Semantics:**
@@ -132,6 +132,7 @@ Used in `metadata.excluded`, when the classify step finds the document isn't IT.
 | `commentDeadline` | `Date` | `null` | No | A draft out for public hearing (ร่าง TOR): the last date to send comments. Never a bid date; the two are never swapped (extract-v4, [0019](../decisions/0019-stage-badges-and-deadlines-that-say-what-for.md)). |
 | `deliveryPeriodDays` | `Number` | `null` | No | Project implementation & delivery period (calendar days). |
 | `procurementMethod` | `String` | `null` | No | Bidding method (e.g. `"e-Bidding"`, `"Specific Method (เฉพาะเจาะจง)"`, `"Selection (คัดเลือก)"`). |
+| `procurementKind` | `String` | `null` | No | `hire`, `buy` or `rent`. Copied from `Tor.procurementKind`, never extracted; lock-spec reads it ([0034](../decisions/0034-a-tor-can-have-several-categories.md)). |
 | `warrantyYears` | `Number` | `null` | No | Warranty / maintenance obligation duration (in years). |
 | `contractDurationDays` | `Number` | `null` | No | Total legal contract validity duration (days). |
 | `penaltyClause` | `String` | `null` | No | Late delivery penalty clause (e.g. `"0.20% of contract value per day"`). |
@@ -312,7 +313,7 @@ A separate collection, one document per replaced summary ([0031](../decisions/00
 | `supersededAt` | `Date` | When it was replaced |
 | `reason` | `String` enum | `source-changed` (the TOR's file or OCR text changed), `prompt-update` (`extract --outdated`), `forced` (`--force`, or `--id` on one up to date), `rebuilt` (`extract --recheck`), `corrected` (an admin's edit), `rollback` (an older version brought back over it) |
 | `supersededBy` | `ObjectId` → User | The admin, for `corrected` and `rollback`; null for the pipeline |
-| `insight` | Mixed | The whole TorInsight as it was, stored as-is, so a later schema change never breaks an old version |
+| `insight` | Mixed | The whole TorInsight as it was, stored as-is, so a later schema change never breaks an old version. A rollback reads it through the model, which drops a field it doesn't know, so a migration that renames a field converts these too ([0034](../decisions/0034-a-tor-can-have-several-categories.md)) |
 | `tor` | Mixed | The Tor as the summary went with it: `document`, `ocr` without its text, `pipelineStatus`, and `title`, `agency`, `budgetTHB`, `referencePriceTHB`, `submissionDeadline` (an admin edit changes these on the Tor too) |
 | `ocrText`, `ocrTextHash` | `String` | The OCR text it was built from. Each distinct text is stored once, by the version it was about to be lost from; the others keep only its hash |
 
@@ -330,7 +331,7 @@ A separate collection, one document per replaced summary ([0031](../decisions/00
     "agency": "กรุงเทพมหานคร",
     "department": "สำนักยุทธศาสตร์และประเมินผล",
     "egpReference": "e-GP 67010012345",
-    "category": "Software / IT",
+    "categories": ["software-development", "maintenance-and-support"],
     "status": "Open"
   },
   "facts": {

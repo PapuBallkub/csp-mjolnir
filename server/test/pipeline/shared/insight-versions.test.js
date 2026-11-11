@@ -14,7 +14,7 @@ const ID = '69300000001';
 /** A full summary, as extraction would save it: what it says, and what it was built from. */
 const summary = ({ price, fingerprint = 'f1', prompt = 'extract-v5', model = 'gemini-test' }) => ({
   projectId: ID,
-  identification: { titleTh: 'จ้างพัฒนาระบบแจ้งเตือน', agency: 'กรมตัวอย่าง', category: 'software-development', status: 'Open' },
+  identification: { titleTh: 'จ้างพัฒนาระบบแจ้งเตือน', agency: 'กรมตัวอย่าง', categories: ['software-development'], status: 'Open' },
   facts: { referencePriceTHB: price },
   metadata: { modelName: model, promptVersion: prompt, sourceFingerprint: fingerprint, excluded: null },
 });

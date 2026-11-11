@@ -88,7 +88,7 @@ beforeEach(async () => {
   await TorInsight.collection.insertMany([
     ...Object.values(OPEN).map(({ projectId, category, price }) => ({
       projectId,
-      identification: { titleTh: TITLE, category },
+      identification: { titleTh: TITLE, categories: [category] },
       facts: { referencePriceTHB: price },
       metadata: { excluded: null },
     })),
@@ -96,7 +96,7 @@ beforeEach(async () => {
       .filter((past) => !past.unsure)
       .map(({ projectId, category, price, posted }) => ({
         projectId,
-        identification: { titleTh: TITLE, category },
+        identification: { titleTh: TITLE, categories: [category] },
         facts: { referencePriceTHB: price, postedDate: new Date(posted) },
         metadata: { excluded: null, titleOnly: true },
       })),
@@ -157,6 +157,20 @@ test("selection: unsure past projects come only after every IT one in the TOR's 
   // u1 is as close in price as a1, but unsure; far is outside the band
   assert.deepEqual(names(chosen), ['a1', 'a2', 'a3', 'a4', 'u1']);
   assert.deepEqual(chosen.map((pick) => pick.verdict), ['it', 'it', 'it', 'it', 'unsure']);
+});
+
+test('selection: a TOR with two categories looks for past projects under either (ADR 0034)', async () => {
+  // Alone, nothing open wants the network project: it waits for a spare night
+  const alone = await selectPastProjects({ perNight: 20, enough: 2, now: NOW });
+  assert.notEqual(alone.chosen.find((pick) => pick.projectId === PAST.other.projectId)?.for, OPEN.t2.projectId);
+
+  await TorInsight.collection.updateOne(
+    { projectId: OPEN.t2.projectId },
+    { $set: { 'identification.categories': ['data-and-ai', 'network-and-security'] } },
+  );
+
+  const both = await selectPastProjects({ perNight: 20, enough: 2, now: NOW });
+  assert.equal(both.chosen.find((pick) => pick.projectId === PAST.other.projectId)?.for, OPEN.t2.projectId);
 });
 
 test('selection: only e-bidding projects, the only ones e-GP keeps documents for', async () => {

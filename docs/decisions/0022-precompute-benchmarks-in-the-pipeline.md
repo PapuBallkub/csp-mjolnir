@@ -44,7 +44,7 @@ To prevent full-collection scans ($O(N)$) as the database grows to 100,000+ reco
 
 ```javascript
 torInsightSchema.index({
-  'identification.category': 1,
+  'identification.categories': 1,
   'facts.referencePriceTHB': 1,
 });
 ```

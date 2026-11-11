@@ -100,7 +100,7 @@ history`, in the 22:00 `process` job). It chooses up to `HISTORY_PER_NIGHT`
   even spread. 5 is a step, not a limit. Once every open TOR has 5, the
   soonest goes on to 10, then the next, and so on.
 - **Related** means a project already read in full that the TOR's comparison
-  would list: the same category, 0.3× to 3× its price. It can be past or
+  would list: a shared category, 0.3× to 3× its price. It can be past or
   new, since what matters is relevance, not age. A past project already
   chosen for that TOR and not read yet counts too, so a TOR isn't given more
   while its picks wait. One found not IT once read, or one that gave up,

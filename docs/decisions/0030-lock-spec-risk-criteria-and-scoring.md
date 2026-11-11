@@ -1,6 +1,6 @@
 # 0030 · Lock-spec risk criteria and scoring algorithm
 
-Status: accepted · 2026-10-25
+Status: accepted · 2026-10-25 (updated 2026-11-06, [0034](0034-a-tor-can-have-several-categories.md))
 
 ## Context
 
@@ -27,7 +27,7 @@ Rather than relying on non-deterministic LLM guessing at query time or arbitrary
 
 | Category | Trigger Condition in TOR | Severity & Points | Governing Instruments (เอกสารอ้างอิง) | Core Statutory Prohibition |
 |---|---|:---:|---|---|
-| **1. Vendor Lock-in** | MAF required for custom software development (`software-development` or `hire` + `manufacturerAuthorizations`) | `high`<br>**(35 pts)** | • พ.ร.บ. จัดซื้อจัดจ้างฯ 2560 (ม. 8, 9)<br>• หนังสือเวียน กวจ. ด่วนที่สุด ว 214 (ข้อ 1.1, 1.3) | ห้ามกำหนดหนังสือแต่งตั้งตัวแทนจำหน่าย (MAF) ในงานจ้างบริการ/จ้างพัฒนา |
+| **1. Vendor Lock-in** | MAF required for custom software development (main category `software-development` or `systems-integration`, or `hire`, + `manufacturerAuthorizations`; not when `software-licenses` is the main category) | `high`<br>**(35 pts)** | • พ.ร.บ. จัดซื้อจัดจ้างฯ 2560 (ม. 8, 9)<br>• หนังสือเวียน กวจ. ด่วนที่สุด ว 214 (ข้อ 1.1, 1.3) | ห้ามกำหนดหนังสือแต่งตั้งตัวแทนจำหน่าย (MAF) ในงานจ้างบริการ/จ้างพัฒนา |
 | **2. Qualification Barrier** | Prior contract ratio $> 50\%$ of reference price / budget | `high`<br>**(35 pts)** | • พ.ร.บ. จัดซื้อจัดจ้างฯ 2560 (ม. 9)<br>• หนังสือเวียน กวจ. ด่วนที่สุด ว 214 (ข้อ 2) | ห้ามกำหนดผลงานเกินร้อยละ 50 ของวงเงินงบประมาณหรือราคากลาง |
 | **3. Specification Tailoring** | Specifying locked proprietary brand or legacy runtime without "or equivalent" | `high`<br>**(35 pts)** | • พ.ร.บ. จัดซื้อจัดจ้างฯ 2560 (ม. 9)<br>• หนังสือเวียน กวจ. ด่วนที่สุด ว 214 (ข้อ 3) | ห้ามระบุชื่อยี่ห้อเป็นการเฉพาะเจาะจง เว้นแต่ระบุ "หรือเทียบเท่า" |
 
@@ -38,7 +38,7 @@ Rather than relying on non-deterministic LLM guessing at query time or arbitrary
 Below is the granular separation of each cited legal instrument, what each specific document mandates, and why violating the principle harms open competition for SMEs:
 
 ##### Category 1: Vendor Lock-in & Reseller Letters (`Vendor Lock-in`)
-- **Trigger in TOR:** Custom software development project (`identification.category === 'software-development'` or `procurementKind === 'hire'`) demanding Manufacturer Authorization Form (MAF) or Exclusive Partnership Certificates (`eligibility.manufacturerAuthorizations`).
+- **Trigger in TOR:** Custom software development project (`identification.categories[0]` is `software-development` or `systems-integration`, or `facts.procurementKind === 'hire'`) demanding Manufacturer Authorization Form (MAF) or Exclusive Partnership Certificates (`eligibility.manufacturerAuthorizations`). Not flagged when `software-licenses` is the main category (ADR 0034).
 - **Severity & Points:** `high` (35 points).
 - **Governing Legal Instruments & What Each Document Mandates:**
   - 📜 **พ.ร.บ. การจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560 (มาตรา 8 และมาตรา 9)**

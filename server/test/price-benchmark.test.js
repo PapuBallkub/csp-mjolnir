@@ -159,7 +159,7 @@ test('formatPriceInterpretation: generates appropriate non-accusatory Thai copy'
 test('calculatePriceBenchmarks: integrates target price resolution, peers, deviations, and reliability', () => {
   const targetTor = {
     projectId: '68039469567',
-    identification: { titleTh: 'โครงการพัฒนาระบบ Portal', category: 'software-development' },
+    identification: { titleTh: 'โครงการพัฒนาระบบ Portal', categories: ['software-development'] },
     facts: { referencePriceTHB: 2_400_000, budgetTHB: 2_500_000 },
   };
 

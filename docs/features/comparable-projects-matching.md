@@ -4,51 +4,51 @@ This document provides the operational and mathematical reference for finding an
 
 **Related Requirements & Decisions:**
 - Requirements: `FR-19` (Grouping similar historical projects), `FR-20` (Price reality check), `FR-21` (Lock-spec risk analysis)
-- Architectural Decision: [`ADR 0021 · Define comparable projects by architecture and complexity`](../decisions/0021-find-comparable-projects.md)
+- Architectural Decisions: [`ADR 0021 · Define comparable projects by architecture and complexity`](../decisions/0021-find-comparable-projects.md), [`ADR 0034 · A TOR can have several categories, main one first`](../decisions/0034-a-tor-can-have-several-categories.md)
 - Schema Specification: [`tor-insight-schema.md`](../database/tor-insight-schema.md)
 
 ---
 
 ## 1. Overview & Core Philosophy
 
-1. **"The AI picks the label; code does the comparing":** During ingestion, Gemini classifies unstructured TOR text into structured labels (category, archetype, complexity tier, tech stack). At query time, fast deterministic backend code compares these labels in < 10ms with zero runtime LLM calls or token costs.
+1. **"The AI picks the label; code does the comparing":** During ingestion, Gemini classifies unstructured TOR text into structured labels (categories, archetype, complexity tier, tech stack). At query time, fast deterministic backend code compares these labels in < 10ms with zero runtime LLM calls or token costs.
 2. **Deterministic & Repeatable:** Two runs always produce identical similarity scores and benchmarks.
-3. **No "Zero-Match" Traps:** Tech stacks in Thai government TORs are often unstated or use varied naming. Matching anchors on **category, deliverable archetype, and complexity tier**, using the tech stack only as a soft scoring bonus.
+3. **No "Zero-Match" Traps:** Tech stacks in Thai government TORs are often unstated or use varied naming. Matching anchors on **categories, deliverable archetype, and complexity tier**, using the tech stack only as a soft scoring bonus.
 4. **Zero Circular Price Bias:** Candidate selection relies 100% on technical specifications. Price is never an input filter; historical prices are only evaluated *after* peers are selected to establish an independent benchmark.
 
 ---
 
 ## 2. Data Fields Used for Similarity Matching
 
-The matching service (`server/src/features/reality-check/similarity.service.js`) filters and scores candidate peers using **4 normalized technical fields** from `TorInsight` (`server/src/models/tor-insight.model.js`):
+The matching service (`server/src/features/reality-check/similarity.service.js`) filters and scores candidate peers using these **normalized technical fields** from `TorInsight` (`server/src/models/tor-insight.model.js`):
 
 | Data Field | Data Type | Role in Matching | Operational Purpose |
 |---|---|---|---|
-| `identification.category` | `String` | **Stage 1: Domain Pre-filter** | Eliminates domain mismatches upfront (e.g., `software-development` vs. `cloud-and-infrastructure`). |
+| `identification.categories` | `[String]` *(enum, main one first)* | **Stage 1: Domain Pre-filter**, then **Stage 2: Category (15%)** | Eliminates domain mismatches upfront (shares no category, e.g. `software-development` vs. `network-and-security`), then rewards sharing more of them, in the same order. |
 | `identification.status` | `String` *(enum)* | **Stage 1: Stability Pre-filter** | Accepts only concluded projects (`'Closed'`, `'Awarded'`). Excludes volatile `Draft` (in hearing) and active `Open` tenders (subject to change/amendments). |
 | `metadata.confidenceScore` | `Number` (0–100) | **Stage 1: Quality Pre-filter (NFR-17)** | Requires confidence $\ge 80\%$. Prevents low-confidence or unreviewed extractions from distorting price benchmarks. |
 | `metadata.titleOnly` / `awaitingFullText` / `excluded` | `Boolean` / `Object` | **Stage 1: Full-Read Pre-filter (ADR 0028)** | Requires full document extraction. Title-only stubs and pending previews cannot be compared. |
-| `overview.systemArchetype` | `String` *(enum)* | **Stage 2: Architecture (40%)** | Matches the software deliverable architecture (e.g. `mobile-app`, `web-portal`, `enterprise-erp`). |
-| `overview.complexityTier` | `String` *(enum)* | **Stage 2: Scope (35%)** | Normalizes engineering scale (`basic`, `standard`, `enterprise`) based on concurrency, SLA, and integrations. |
-| `technicalRequirements.requiredTechnologies` | `[Object]` *(List of `{name, version}`)* | **Stage 2: Tech Bonus (25%)** | Soft bonus for shared frameworks and databases (e.g., React, PostgreSQL) using Jaccard similarity. |
+| `overview.systemArchetype` | `String` *(enum)* | **Stage 2: Architecture (35%)** | Matches the software deliverable architecture (e.g. `mobile-app`, `web-portal`, `enterprise-erp`). |
+| `overview.complexityTier` | `String` *(enum)* | **Stage 2: Scope (30%)** | Normalizes engineering scale (`basic`, `standard`, `enterprise`) based on concurrency, SLA, and integrations. |
+| `technicalRequirements.requiredTechnologies` | `[Object]` *(List of `{name, version}`)* | **Stage 2: Tech Bonus (20%)** | Soft bonus for shared frameworks and databases (e.g., React, PostgreSQL) using Jaccard similarity. |
 
 ---
 
 ## 3. Classification Taxonomies Extracted by Gemini
 
-During ingestion, Gemini extracts two standardized enums defined in `server/src/pipeline/extraction/schema.js`:
+During ingestion, Gemini extracts two standardized enums defined in `server/src/models/project-categories.js` and `server/src/pipeline/extraction/schema.js`:
 
-### 3.1 Level 1 (`category`) vs Level 2 (`systemArchetype`)
+### 3.1 Level 1 (`categories`) vs Level 2 (`systemArchetype`)
 To prevent "apples-to-oranges" comparisons, procurement classification operates across two distinct levels:
 
-| Dimension | `identification.category` (Level 1) | `overview.systemArchetype` (Level 2) |
+| Dimension | `identification.categories` (Level 1) | `overview.systemArchetype` (Level 2) |
 |---|---|---|
 | **Role** | **Procurement Contract Transaction Type** | **Software Architecture Pattern** |
 | **Question** | *"What kind of legal/budget transaction is this?"* | *"What architectural shape is physically handed over?"* |
 | **Perspective** | Procurement officer / Government finance | Software architect / Development team |
 | **Values** | `software-development`, `systems-integration`, `software-licenses`, `maintenance-and-support`, `network-and-security`, `data-and-ai`, `other-it` | `mobile-app`, `web-portal`, `enterprise-erp`, `edoc-workflow`, `data-analytics`, `gis-mapping`, `cybersecurity`, `iot-telemetry`, `infra-networking`, `other` |
 
-> **Why Level 1 alone is not enough:** In the category `software-development`, an agency may tender a Mobile App, a 3D Geospatial Map, or an Accounting ERP. If we only filtered by `category`, the mobile app would be compared against the map and the ERP. `systemArchetype` ensures only identical architectural deliverables are compared.
+> **Why Level 1 alone is not enough:** In the category `software-development`, an agency may tender a Mobile App, a 3D Geospatial Map, or an Accounting ERP. If we only filtered by `categories`, the mobile app would be compared against the map and the ERP. `systemArchetype` ensures only identical architectural deliverables are compared.
 
 ### 3.2 The 9 Canonical System Archetypes (`overview.systemArchetype`)
 Grounded in DES ICT Reference Price standards and DGA/TDGA architectural guidelines:
@@ -84,7 +84,7 @@ Target TOR
    │
    ▼
 [ Stage 1: Candidate Pool Query (MongoDB) ]
-   ├── Exact match on identification.category
+   ├── Shares at least one of identification.categories
    ├── Concluded status only: identification.status in ['Closed', 'Awarded']
    ├── High extraction confidence: metadata.confidenceScore >= 80 (NFR-17)
    ├── Full document extraction: isFullExtraction = true (ADR 0028)
@@ -93,12 +93,13 @@ Target TOR
    │
    ▼ (Candidates Pool)
 [ Stage 2: In-Memory Composite Scoring ]
-   ├── 1. Deliverable Architecture Score (S_archetype,  weight = 40%)
-   ├── 2. Engineering Complexity Score   (S_complexity, weight = 35%)
-   └── 3. Tech Stack Overlap Score       (S_tech,       weight = 25%)
+   ├── 1. Deliverable Architecture Score (S_archetype,  weight = 35%)
+   ├── 2. Engineering Complexity Score   (S_complexity, weight = 30%)
+   ├── 3. Tech Stack Overlap Score       (S_tech,       weight = 20%)
+   └── 4. Category Score                 (S_category,   weight = 15%)
    │
    ▼
-Final Composite Score = (0.40 × S_archetype) + (0.35 × S_complexity) + (0.25 × S_tech)
+Final Composite Score = (0.35 × S_archetype) + (0.30 × S_complexity) + (0.20 × S_tech) + (0.15 × S_category)
    │
    ▼
 Sort Descending ➔ Tie-break by price distance ➔ Select Top 5 Peers
@@ -113,7 +114,7 @@ Calculate Historical Median from Top Peers' referencePriceTHB
 
 To illustrate how candidate projects are evaluated, consider a **Target Project ($T$)**:
 - **Title:** *"โครงการพัฒนา Mobile Application สำหรับรับเรื่องร้องเรียนประชาชน"*
-- **Category:** `software-development`
+- **Categories:** `['software-development', 'maintenance-and-support']`
 - **Archetype:** `mobile-app`
 - **Complexity Tier:** `standard`
 - **Tech Stack:** `["Flutter", "Node.js", "PostgreSQL"]`
@@ -121,7 +122,7 @@ To illustrate how candidate projects are evaluated, consider a **Target Project 
 
 ---
 
-### Step 1: System Archetype Score ($S_{\text{archetype}}$, 40% Weight)
+### Step 1: System Archetype Score ($S_{\text{archetype}}$, 35% Weight)
 
 - **Input:** `target.overview.systemArchetype` vs. `candidate.overview.systemArchetype`
 - **Scoring Rules:**
@@ -143,7 +144,7 @@ Target has `systemArchetype = "mobile-app"`:
 
 ---
 
-### Step 2: Complexity Scope Score ($S_{\text{complexity}}$, 35% Weight)
+### Step 2: Complexity Scope Score ($S_{\text{complexity}}$, 30% Weight)
 
 - **Input:** `target.overview.complexityTier` vs. `candidate.overview.complexityTier`
 - **Scoring Rules:**
@@ -167,7 +168,7 @@ Target has `complexityTier = "standard"`:
 
 ---
 
-### Step 3: Technology Similarity Score ($S_{\text{tech}}$, 25% Weight)
+### Step 3: Technology Similarity Score ($S_{\text{tech}}$, 20% Weight)
 
 - **Input:** Two lists of technology objects: `technicalRequirements.requiredTechnologies`
 - **Formula:** Normalize names (lowercase, trimmed) and compute Jaccard similarity:
@@ -191,19 +192,42 @@ Target has Tech Stack: `{"flutter", "nodejs", "postgresql"}` ($N=3$):
 
 ---
 
-### Step 4: Final Composite Ranking & Median Price
+### Step 4: Category Score ($S_{\text{category}}$, 15% Weight)
 
-$$\text{Composite Score} = (S_{\text{archetype}} \times 0.40) + (S_{\text{complexity}} \times 0.35) + (S_{\text{tech}} \times 0.25)$$
+- **Input:** `target.identification.categories` vs. `candidate.identification.categories`, each with the main kind of work first
+- **Formula:** $S_{\text{category}} = \text{overlap} \times \text{order}$
+  - **overlap** rewards sharing more: $\frac{|A \cap B|}{|A \cup B|}$, as for the tech stack.
+  - **order** rewards the same order. For each shared category: same position **$1.00$**, one apart **$0.75$**, two apart **$0.50$**. Then take the average.
+- **Unstated:** **$0.50$ (Neutral baseline)**. A project with no categories never reaches this step in a comparison, because the pre-filter needs one shared category.
+
+#### Category Walkthrough
+Target has `categories = ['software-development', 'maintenance-and-support']`:
+
+| Candidate | Candidate Categories | Overlap | Order | Category Score ($S_{\text{category}}$) |
+|---|---|---|---|---|
+| Project A | `['software-development', 'maintenance-and-support']` | $\frac{2}{2} = 1.00$ | $1.00$ | **$1.00$** |
+| Project B | `['maintenance-and-support', 'software-development']` | $\frac{2}{2} = 1.00$ | $0.75$ | **$0.75$** |
+| Project C | `['software-development']` | $\frac{1}{2} = 0.50$ | $1.00$ | **$0.50$** |
+| Project D | `['software-development', 'network-and-security']` | $\frac{1}{3} = 0.33$ | $1.00$ | **$0.33$** |
+| Project E | `['maintenance-and-support']` | $\frac{1}{2} = 0.50$ | $0.75$ | **$0.375$** |
+
+Why they're multiplied: sharing both categories in swapped order (Project B) should beat sharing only the main one (Project C), and within that, the same order should still score most.
+
+---
+
+### Step 5: Final Composite Ranking & Median Price
+
+$$\text{Composite Score} = (S_{\text{archetype}} \times 0.35) + (S_{\text{complexity}} \times 0.30) + (S_{\text{tech}} \times 0.20) + (S_{\text{category}} \times 0.15)$$
 
 #### End-to-End Walkthrough Table
 
-| Candidate | Archetype ($40\%$) | Complexity ($35\%$) | Tech ($25\%$) | Weighted Score Breakdown | Composite Score | Rank | Ref Price |
+| Candidate | Archetype ($35\%$) | Complexity ($30\%$) | Tech ($20\%$) | Category ($15\%$) | Composite Score | Rank | Ref Price |
 |---|---|---|---|---|---|---|---|
-| **Project A** | $1.00 \times 0.40 = 0.400$ | $1.00 \times 0.35 = 0.350$ | $1.00 \times 0.25 = 0.250$ | $0.400 + 0.350 + 0.250$ | **$1.000$** | **#1** | ฿4,200,000 |
-| **Project B** | $1.00 \times 0.40 = 0.400$ | $0.50 \times 0.35 = 0.175$ | $0.25 \times 0.25 = 0.0625$ | $0.400 + 0.175 + 0.0625$ | **$0.638$** | **#2** | ฿3,800,000 |
-| **Project E** | $0.50 \times 0.40 = 0.200$ | $0.50 \times 0.35 = 0.175$ | $0.20 \times 0.25 = 0.050$ | $0.200 + 0.175 + 0.050$ | **$0.425$** | **#3** | ฿3,900,000 |
-| **Project D** | $0.15 \times 0.40 = 0.060$ | $1.00 \times 0.35 = 0.350$ | $0.00 \times 0.25 = 0.000$ | $0.060 + 0.350 + 0.000$ | **$0.410$** | **#4** | ฿4,100,000 |
-| **Project C** | $0.15 \times 0.40 = 0.060$ | $0.50 \times 0.35 = 0.175$ | $0.50 \times 0.25 = 0.125$ | $0.060 + 0.175 + 0.125$ | **$0.360$** | **#5** | ฿4,500,000 |
+| **Project A** | $1.00 \times 0.35 = 0.350$ | $1.00 \times 0.30 = 0.300$ | $1.00 \times 0.20 = 0.200$ | $1.00 \times 0.15 = 0.150$ | **$1.000$** | **#1** | ฿4,200,000 |
+| **Project B** | $1.00 \times 0.35 = 0.350$ | $0.50 \times 0.30 = 0.150$ | $0.25 \times 0.20 = 0.050$ | $0.75 \times 0.15 = 0.113$ | **$0.663$** | **#2** | ฿3,800,000 |
+| **Project E** | $0.50 \times 0.35 = 0.175$ | $0.50 \times 0.30 = 0.150$ | $0.20 \times 0.20 = 0.040$ | $0.375 \times 0.15 = 0.056$ | **$0.421$** | **#3** | ฿3,900,000 |
+| **Project D** | $0.15 \times 0.35 = 0.053$ | $1.00 \times 0.30 = 0.300$ | $0.00 \times 0.20 = 0.000$ | $0.33 \times 0.15 = 0.050$ | **$0.403$** | **#4** | ฿4,100,000 |
+| **Project C** | $0.15 \times 0.35 = 0.053$ | $0.50 \times 0.30 = 0.150$ | $0.50 \times 0.20 = 0.100$ | $0.50 \times 0.15 = 0.075$ | **$0.378$** | **#5** | ฿4,500,000 |
 
 #### Tie-Breaking Rule:
 If two candidates tie on Composite Score, the algorithm breaks ties by choosing the candidate whose reference price is closest to the target:

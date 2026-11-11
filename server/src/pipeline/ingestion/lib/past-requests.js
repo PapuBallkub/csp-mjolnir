@@ -9,7 +9,7 @@
  * projects until it has ENOUGH_RELATED related ones, and only then does the
  * next TOR's turn come. Once every open TOR has that many, the soonest look
  * for more, ENOUGH_RELATED at a time. Related: a project read in full that its
- * comparison would list (same category, within its price band), past or new,
+ * comparison would list (a shared category, within its price band), past or new,
  * or a past one already chosen for it and not read yet. Candidates are ranked
  * by the comparison's own score, then by how close their price is: a past
  * project not read yet is known only by its title and prices, and the score
@@ -22,8 +22,9 @@
  * others, so a pick would give up at once and waste a night's place.
  */
 
-import { FULL_EXTRACTION, calculateCompositeSimilarity, getProjectPrice } from '#features/reality-check/index.js';
+import { FULL_EXTRACTION, calculateCompositeSimilarity, getProjectPrice, sharesCategory } from '#features/reality-check/index.js';
 import { TitleScreen, Tor, TorInsight } from '#models/index.js';
+import { cleanCategories } from '#models/project-categories.js';
 import { feedAmount, feedDate } from '../../extraction/convert.js';
 import { loadGivenUp } from '../../shared/failures.js';
 import { WITH_EGP_DOCUMENTS } from '../sources/datago-contracts.js';
@@ -44,13 +45,13 @@ const time = (date) => (date ? new Date(date).getTime() : null);
 const isOpen = (tor, now) =>
   ['Draft', 'Open'].includes(tor.status) && (!tor.submissionDeadline || new Date(tor.submissionDeadline) >= now);
 
-/** Whether `other` is in `target`'s comparison: the same category, within its price band. */
+/** Whether `other` is in `target`'s comparison: a shared category, within its price band. */
 function comparable(target, other) {
   const price = getProjectPrice(target);
   const otherPrice = getProjectPrice(other);
   return (
     Boolean(price && otherPrice) &&
-    other.identification?.category === target.identification?.category &&
+    sharesCategory(target, other) &&
     otherPrice >= price * PRICE_BAND[0] &&
     otherPrice <= price * PRICE_BAND[1]
   );
@@ -109,7 +110,7 @@ async function candidates() {
     .filter((tor) => !withRecord.has(tor.projectId))
     .map((tor) => ({
       projectId: tor.projectId,
-      identification: { titleTh: tor.title, category: category.get(tor.projectId) },
+      identification: { titleTh: tor.title, categories: cleanCategories([category.get(tor.projectId)]) },
       facts: {
         referencePriceTHB: feedAmount(tor.referencePriceTHB),
         budgetTHB: feedAmount(tor.budgetTHB),
@@ -144,7 +145,7 @@ export async function selectPastProjects({ perNight = HISTORY_PER_NIGHT, enough 
   const deadline = new Map(openTors.map((tor) => [tor.projectId, time(tor.submissionDeadline) ?? Infinity]));
   const targets = (
     await TorInsight.find(
-      { ...FULL_EXTRACTION, projectId: { $in: [...deadline.keys()] }, 'identification.category': { $ne: null } },
+      { ...FULL_EXTRACTION, projectId: { $in: [...deadline.keys()] }, 'identification.categories.0': { $exists: true } },
       { projectId: 1, identification: 1, facts: 1, overview: 1, technicalRequirements: 1 },
     ).lean()
   ).sort((a, b) => deadline.get(a.projectId) - deadline.get(b.projectId) || a.projectId.localeCompare(b.projectId));
@@ -152,7 +153,7 @@ export async function selectPastProjects({ perNight = HISTORY_PER_NIGHT, enough 
   // What each open TOR has now: projects read in full in its comparison,
   // past or new, and past ones chosen for it and not read yet
   const extracted = await TorInsight.find(
-    { ...FULL_EXTRACTION, 'identification.category': { $ne: null } },
+    { ...FULL_EXTRACTION, 'identification.categories.0': { $exists: true } },
     { projectId: 1, identification: 1, facts: 1 },
   ).lean();
   const unsettled = await unsettledFor();

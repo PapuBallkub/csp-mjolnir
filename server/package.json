@@ -36,6 +36,7 @@
     "seed": "node scripts/seed.js",
     "seed:comparable": "node scripts/seed-comparable-test.js",
     "comparable": "node scripts/find-comparable.js",
+    "migrate:categories": "node scripts/migrate-categories.js",
     "notify": "node scripts/notify.js",
     "notify:send": "node scripts/notify.js --send",
     "notify:all": "node scripts/notify.js --all",

@@ -2,27 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { pick } from "../../../_data/tors";
-import {
-  listTors,
-  torFacets,
-  type ApiError,
-  type ApiResult,
-  type TorFacets,
-  type TorListParams,
-  type TorStatus,
-} from "../../../_lib/api";
+import { listTors, torFacets, type ApiError, type ApiResult, type TorFacets, type TorListParams, type TorStatus } from "../../../_lib/api";
 import { matchFor } from "../../../_lib/match";
 import { useAuth } from "../../../_components/auth";
-import { useLang, useProfile } from "../../../_components/prefs";
+import { useProfile } from "../../../_components/prefs";
 import { CatalogRow, CatalogRowSkeleton } from "../../../_components/catalog-row";
 import { DEFAULT_STATUSES, STATUSES, showsEveryStatus, statusChanges } from "../../../_lib/catalog";
 import { btn, EmptyState, input, Label } from "../../../_components/ui";
 import {
   BUDGET_BANDS,
   DEADLINE_BANDS,
-  MATCH_LIMIT,
-  PAGE_SIZE,
+  DEFAULT_PAGE_SIZE,
+  PAGE_SIZE_OPTIONS,
   SORTS,
   type Page,
   type Sort,
@@ -34,22 +25,26 @@ import {
 } from "../_lib/search-params";
 import { failureText, useDebounced } from "./SearchCommon";
 import { FilterRail } from "./FilterRail";
+import { Pagination } from "./Pagination";
 
 export function FilterModeView() {
-  const { lang } = useLang();
   const { profile } = useProfile();
   const { status: authStatus } = useAuth();
   const searchParams = useSearchParams();
 
-  const [query, setQuery] = useState(() => parseFilterParams(searchParams).query);
-  const [statuses, setStatuses] = useState<TorStatus[]>(() => parseFilterParams(searchParams).statuses);
-  const [amendedOnly, setAmendedOnly] = useState(() => parseFilterParams(searchParams).amendedOnly);
-  const [techFilter, setTechFilter] = useState<string[]>(() => parseFilterParams(searchParams).techFilter);
-  const [agencyFilter, setAgencyFilter] = useState<string[]>(() => parseFilterParams(searchParams).agencyFilter);
-  const [budgetBand, setBudgetBand] = useState(() => parseFilterParams(searchParams).budgetBand);
-  const [deadlineBand, setDeadlineBand] = useState(() => parseFilterParams(searchParams).deadlineBand);
-  const [hideHighRisk, setHideHighRisk] = useState(() => parseFilterParams(searchParams).hideHighRisk);
-  const [rawSort, setSort] = useState<Sort>(() => parseFilterParams(searchParams).sort);
+  const initialParsed = useMemo(() => parseFilterParams(searchParams), [searchParams]);
+
+  const [query, setQuery] = useState(() => initialParsed.query);
+  const [statuses, setStatuses] = useState<TorStatus[]>(() => initialParsed.statuses);
+  const [amendedOnly, setAmendedOnly] = useState(() => initialParsed.amendedOnly);
+  const [techFilter, setTechFilter] = useState<string[]>(() => initialParsed.techFilter);
+  const [agencyFilter, setAgencyFilter] = useState<string[]>(() => initialParsed.agencyFilter);
+  const [budgetBand, setBudgetBand] = useState(() => initialParsed.budgetBand);
+  const [deadlineBand, setDeadlineBand] = useState(() => initialParsed.deadlineBand);
+  const [hideHighRisk, setHideHighRisk] = useState(() => initialParsed.hideHighRisk);
+  const [rawSort, setSort] = useState<Sort>(() => initialParsed.sort);
+  const [page, setPage] = useState<number>(() => initialParsed.page ?? 1);
+  const [pageSize, setPageSize] = useState<number>(() => initialParsed.pageSize ?? DEFAULT_PAGE_SIZE);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const sort: Sort =
@@ -71,6 +66,8 @@ export function FilterModeView() {
       setStatuses(parsed.statuses);
       setAmendedOnly(parsed.amendedOnly);
       setHideHighRisk(parsed.hideHighRisk);
+      setPage(parsed.page ?? 1);
+      setPageSize(parsed.pageSize ?? DEFAULT_PAGE_SIZE);
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -78,6 +75,19 @@ export function FilterModeView() {
   }, []);
 
   const debouncedQuery = useDebounced(query, 300);
+
+  // Reset to page 1 when search filters change
+  const filterSignature = useMemo(
+    () => `${debouncedQuery}:${statuses.join(",")}:${amendedOnly}:${techFilter.join(",")}:${agencyFilter.join(",")}:${budgetBand}:${deadlineBand}:${hideHighRisk}:${sort}`,
+    [debouncedQuery, statuses, amendedOnly, techFilter, agencyFilter, budgetBand, deadlineBand, hideHighRisk, sort]
+  );
+  const prevFilterSig = useRef(filterSignature);
+  useEffect(() => {
+    if (prevFilterSig.current !== filterSignature) {
+      prevFilterSig.current = filterSignature;
+      setPage(1);
+    }
+  }, [filterSignature]);
 
   const isInitialMount = useRef(true);
 
@@ -98,6 +108,8 @@ export function FilterModeView() {
       deadlineBand,
       hideHighRisk,
       sort,
+      page,
+      pageSize,
     });
     syncUrlToBrowser(qs);
   }, [
@@ -110,6 +122,8 @@ export function FilterModeView() {
     deadlineBand,
     hideHighRisk,
     sort,
+    page,
+    pageSize,
   ]);
 
   const activeCount =
@@ -130,6 +144,7 @@ export function FilterModeView() {
     setBudgetBand("any");
     setDeadlineBand("any");
     setHideHighRisk(false);
+    setPage(1);
   }
 
   /* ---------------------------- filter options ---------------------------- */
@@ -148,6 +163,8 @@ export function FilterModeView() {
 
   /* ------------------------------ search list ----------------------------- */
 
+  const isMatchSort = sort === "match-desc" || sort === "match-asc";
+
   const params = useMemo<TorListParams>(() => {
     const band = BUDGET_BANDS.find((b) => b.id === budgetBand);
     return {
@@ -161,55 +178,53 @@ export function FilterModeView() {
       closingWithin: DEADLINE_BANDS.find((b) => b.id === deadlineBand)?.days,
       excludeHighRisk: hideHighRisk,
       sort,
-      limit: sort === "match-desc" || sort === "match-asc" ? MATCH_LIMIT : PAGE_SIZE,
+      limit: isMatchSort ? 100 : pageSize,
+      page: isMatchSort ? 1 : page,
     };
-  }, [debouncedQuery, statuses, amendedOnly, techFilter, agencyFilter, budgetBand, deadlineBand, hideHighRisk, sort]);
+  }, [debouncedQuery, statuses, amendedOnly, techFilter, agencyFilter, budgetBand, deadlineBand, hideHighRisk, sort, pageSize, page, isMatchSort]);
+
   const key = useMemo(() => JSON.stringify(params), [params]);
 
-  const [wanted, setWanted] = useState({ key: "", page: 1 });
-  const page = wanted.key === key ? wanted.page : 1;
-
   const [list, setList] = useState<Page | null>(null);
-  const [listError, setListError] = useState<{ key: string; page: number; error: ApiError } | null>(null);
+  const [listError, setListError] = useState<{ key: string; error: ApiError } | null>(null);
   const [listTry, setListTry] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    listTors({ ...params, page }).then((result) => {
+    listTors(params).then((result) => {
       if (cancelled) return;
       if (!result.ok) {
-        setListError({ key, page, error: result.error });
+        setListError({ key, error: result.error });
         return;
       }
       setListError(null);
       const { tors, total, pages } = result.data;
-      setList((prev) => ({
+      setList({
         key,
         page,
+        pageSize,
         total,
         pages,
         at: new Date(),
-        tors: page > 1 && prev?.key === key ? [...prev.tors, ...tors] : tors,
-      }));
+        tors,
+      });
     });
     return () => {
       cancelled = true;
     };
-  }, [params, key, page, listTry]);
+  }, [params, key, page, pageSize, listTry]);
 
   const current = list?.key === key ? list : null;
-  const failed = listError?.key === key && listError.page === page ? listError.error : null;
-  const loadingMore = current !== null && current.page < page && !failed;
-
+  const failed = listError?.key === key ? listError.error : null;
   const canMatch = authStatus === "authenticated";
 
   /* ------------------------------- results -------------------------------- */
 
   const skeleton = (
     <div aria-busy="true">
-      <span className="sr-only">{lang === "th" ? "กำลังโหลดประกาศ" : "Loading postings"}</span>
+      <span className="sr-only">กำลังโหลดประกาศ</span>
       <div className="flex flex-col gap-2.5">
-        {Array.from({ length: 5 }, (_, i) => (
+        {Array.from({ length: Math.min(pageSize, 5) }, (_, i) => (
           <CatalogRowSkeleton key={i} />
         ))}
       </div>
@@ -220,11 +235,11 @@ export function FilterModeView() {
     if (failed && !current) {
       return (
         <EmptyState
-          headline={lang === "th" ? "โหลดรายการประกาศไม่สำเร็จ" : "Couldn't load the postings"}
-          body={failureText(failed, lang)}
+          headline="โหลดรายการประกาศไม่สำเร็จ"
+          body={failureText(failed, "th")}
           action={
             <button type="button" onClick={() => setListTry((n) => n + 1)} className={btn.secondary}>
-              {lang === "th" ? "ลองอีกครั้ง" : "Try again"}
+              ลองอีกครั้ง
             </button>
           }
         />
@@ -240,15 +255,11 @@ export function FilterModeView() {
       if (!searched && activeCount === 0) {
         return (
           <EmptyState
-            headline={lang === "th" ? "ตอนนี้ไม่มีประกาศที่ยังยื่นได้" : "Nothing open or coming up right now"}
-            body={
-              lang === "th"
-                ? "หน้านี้เริ่มต้นแสดงเฉพาะร่างประกาศและประกาศเชิญชวนที่ยังเปิดรับข้อเสนอ โครงการที่ปิดรับแล้ว ได้ผู้ชนะแล้ว หรือยกเลิก ดูได้จากตัวกรองสถานะ"
-                : "The catalog starts with drafts and invitations still taking bids. Closed, awarded and cancelled projects are under Status."
-            }
+            headline="ตอนนี้ไม่มีประกาศที่ยังยื่นได้"
+            body="หน้านี้เริ่มต้นแสดงเฉพาะร่างประกาศและประกาศเชิญชวนที่ยังเปิดรับข้อเสนอ โครงการที่ปิดรับแล้ว ได้ผู้ชนะแล้ว หรือยกเลิก ดูได้จากตัวกรองสถานะ"
             action={
               <button type="button" onClick={() => setStatuses(STATUSES)} className={btn.secondary}>
-                {lang === "th" ? "แสดงทุกสถานะ" : "Show every status"}
+                แสดงทุกสถานะ
               </button>
             }
           />
@@ -256,45 +267,44 @@ export function FilterModeView() {
       }
       return !searched && otherFilters === 0 && showsEveryStatus(statuses) ? (
         <EmptyState
-          headline={lang === "th" ? "ยังไม่มีประกาศในระบบ" : "No postings yet"}
-          body={
-            lang === "th"
-              ? "ยังไม่มีประกาศที่สรุปเสร็จและพร้อมเผยแพร่ ลองกลับมาใหม่ภายหลัง ระหว่างนี้ประกาศต้นฉบับทั้งหมดยังอยู่ที่ e-GP"
-              : "No posting has been summarised and cleared for publishing yet. Check back later; every original is still on e-GP."
-          }
+          headline="ยังไม่มีประกาศในระบบ"
+          body="ยังไม่มีประกาศที่สรุปเสร็จและพร้อมเผยแพร่ ลองกลับมาใหม่ภายหลัง ระหว่างนี้ประกาศต้นฉบับทั้งหมดยังอยู่ที่ e-GP"
         />
       ) : (
         <EmptyState
-          headline={lang === "th" ? "ไม่มีประกาศที่ตรงกับเงื่อนไขนี้" : "Nothing matches these filters"}
-          body={
-            lang === "th"
-              ? "ลองค้นด้วยคำที่สั้นลง ขยายช่วงราคากลางหรือกำหนดยื่น หรือเอาตัวกรองบางข้อออก"
-              : "Try a shorter search, a wider price or deadline range, or drop a filter or two."
-          }
+          headline="ไม่มีประกาศที่ตรงกับเงื่อนไขนี้"
+          body="ลองค้นด้วยคำที่สั้นลง ขยายช่วงราคากลางหรือกำหนดยื่น หรือเอาตัวกรองบางข้อออก"
           action={
             <button type="button" onClick={clearAll} className={btn.secondary}>
-              {lang === "th" ? "ล้างตัวกรองทั้งหมด" : "Clear all filters"}
+              ล้างตัวกรองทั้งหมด
             </button>
           }
         />
       );
     }
 
-    const remaining = shown.total - shown.tors.length;
     let displayedTors = shown.tors;
-    if (sort === "match-desc") {
-      displayedTors = [...shown.tors].sort((a, b) => matchFor(b, profile).score - matchFor(a, profile).score);
-    } else if (sort === "match-asc") {
-      displayedTors = [...shown.tors].sort((a, b) => matchFor(a, profile).score - matchFor(b, profile).score);
+    let effectiveTotal = shown.total;
+    let effectivePages = shown.pages;
+
+    if (isMatchSort) {
+      const sorted = [...shown.tors].sort((a, b) => {
+        const scoreA = matchFor(a, profile).score;
+        const scoreB = matchFor(b, profile).score;
+        return sort === "match-desc" ? scoreB - scoreA : scoreA - scoreB;
+      });
+      effectiveTotal = sorted.length;
+      effectivePages = Math.ceil(effectiveTotal / pageSize);
+      displayedTors = sorted.slice((page - 1) * pageSize, page * pageSize);
     }
 
     return (
       <>
         <div aria-busy={!current}>
-          <div className={`flex flex-col gap-2.5 transition-opacity ${current ? "" : "opacity-60"}`}>
+          <div className={`flex flex-col gap-3 transition-opacity ${current ? "" : "opacity-60"}`}>
             {displayedTors.map((tor) => {
               const match =
-                canMatch || sort === "match-desc" || sort === "match-asc"
+                canMatch || isMatchSort
                   ? matchFor(tor, profile)
                   : undefined;
               return <CatalogRow key={tor.projectId} tor={tor} now={shown.at} match={match} />;
@@ -304,52 +314,54 @@ export function FilterModeView() {
 
         {current && failed ? (
           <p className="mt-3 text-center text-[12.5px] leading-thai text-ink-2">
-            {failureText(failed, lang)}{" "}
+            {failureText(failed, "th")}{" "}
             <button
               type="button"
               onClick={() => setListTry((n) => n + 1)}
-              className="underline underline-offset-2 hover:text-ink"
+              className="underline underline-offset-2 hover:text-ink cursor-pointer"
             >
-              {lang === "th" ? "ลองอีกครั้ง" : "Try again"}
+              ลองอีกครั้ง
             </button>
           </p>
-        ) : current && current.page < current.pages ? (
-          <div className="mt-3 flex justify-center">
-            <button
-              type="button"
-              onClick={() => setWanted({ key, page: current.page + 1 })}
-              disabled={loadingMore}
-              className={btn.secondary}
-            >
-              {loadingMore
-                ? lang === "th" ? "กำลังโหลด…" : "Loading…"
-                : lang === "th"
-                  ? `แสดงเพิ่มอีก ${Math.min(PAGE_SIZE, remaining)} ประกาศ`
-                  : `Show ${Math.min(PAGE_SIZE, remaining)} more`}
-            </button>
-          </div>
         ) : null}
+
+        <Pagination
+          page={page}
+          pages={effectivePages}
+          total={effectiveTotal}
+          pageSize={pageSize}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          onPageChange={(nextPage) => {
+            setPage(nextPage);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          onPageSizeChange={(newPageSize) => {
+            setPageSize(newPageSize);
+            setPage(1);
+          }}
+          disabled={!current}
+        />
       </>
     );
   }
 
   const rail = (
     <FilterRail
-      lang={lang}
+      lang="th"
       statuses={statuses}
       setStatuses={setStatuses}
       amendedOnly={amendedOnly}
       setAmendedOnly={setAmendedOnly}
-      hideHighRisk={hideHighRisk}
-      setHideHighRisk={setHideHighRisk}
-      budgetBand={budgetBand}
-      setBudgetBand={setBudgetBand}
-      deadlineBand={deadlineBand}
-      setDeadlineBand={setDeadlineBand}
       techFilter={techFilter}
       setTechFilter={setTechFilter}
       agencyFilter={agencyFilter}
       setAgencyFilter={setAgencyFilter}
+      budgetBand={budgetBand}
+      setBudgetBand={setBudgetBand}
+      deadlineBand={deadlineBand}
+      setDeadlineBand={setDeadlineBand}
+      hideHighRisk={hideHighRisk}
+      setHideHighRisk={setHideHighRisk}
       activeCount={activeCount}
       clearAll={clearAll}
       facets={facets}
@@ -357,26 +369,36 @@ export function FilterModeView() {
     />
   );
 
-  const countLine = current
-    ? lang === "th"
-      ? `แสดง ${current.tors.length} จาก ${current.total} ประกาศ`
-      : `Showing ${current.tors.length} of ${current.total} postings`
-    : null;
+  const countLine = (() => {
+    if (!current) return "กำลังค้นหา…";
+    const totalStr = current.total.toLocaleString();
+    const searched = Boolean(debouncedQuery.trim());
+    if (current.total === 0) return "ไม่พบประกาศ";
+    if (activeCount === 0 && !searched && showsEveryStatus(statuses)) {
+      return `ทั้งหมด ${totalStr} ประกาศ`;
+    }
+    return `พบ ${totalStr} ประกาศที่ตรงกับเงื่อนไข`;
+  })();
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[248px_minmax(0,1fr)]">
-      {/* Mobile Drawer Trigger */}
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
+      {/* Mobile Filters Toggle & Drawer */}
       <div className="lg:hidden">
         <button
           type="button"
-          onClick={() => setFiltersOpen(!filtersOpen)}
+          onClick={() => setFiltersOpen((o) => !o)}
+          className={`flex w-full items-center justify-between rounded-[3px] border border-line bg-surface px-3 py-2 text-[13px] font-medium text-ink cursor-pointer`}
           aria-expanded={filtersOpen}
-          className={`${btn.secondary} w-full justify-between`}
         >
-          <span>
-            {`${lang === "th" ? "ตัวกรอง" : "Filters"}${activeCount > 0 ? ` (${activeCount})` : ""}`}
+          <span className="flex items-center gap-2">
+            <span>ตัวกรองการค้นหา</span>
+            {activeCount > 0 ? (
+              <span className="rounded-full bg-ink px-1.5 py-0.2 text-[11px] font-mono text-surface">
+                {activeCount}
+              </span>
+            ) : null}
           </span>
-          <span className="font-mono text-[11px] text-ink-3">{filtersOpen ? "−" : "+"}</span>
+          <span className="text-ink-3">{filtersOpen ? "▲ ซ่อน" : "▼ แสดง"}</span>
         </button>
         {filtersOpen ? <div className="mt-3">{rail}</div> : null}
       </div>
@@ -404,17 +426,13 @@ export function FilterModeView() {
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={
-                lang === "th"
-                  ? "ค้นหาชื่อโครงการ หน่วยงาน หรือเทคโนโลยี เช่น Windows Server"
-                  : "Search a title, agency or technology, e.g. Windows Server"
-              }
+              placeholder="ค้นหาชื่อโครงการ หน่วยงาน หรือเทคโนโลยี เช่น Windows Server, Cloud"
               className={`${input} pl-8`}
-              aria-label={lang === "th" ? "ค้นหาประกาศ" : "Search postings"}
+              aria-label="ค้นหาประกาศ"
             />
           </div>
           <label className="flex items-center gap-2 whitespace-nowrap">
-            <Label>{lang === "th" ? "เรียงตาม" : "Sort"}</Label>
+            <Label>เรียงตาม</Label>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as Sort)}
@@ -426,7 +444,7 @@ export function FilterModeView() {
                   : option.id !== "match-desc" && option.id !== "match-asc"
               ).map((option) => (
                 <option key={option.id} value={option.id}>
-                  {pick(option.label, lang)}
+                  {option.label.th}
                 </option>
               ))}
             </select>

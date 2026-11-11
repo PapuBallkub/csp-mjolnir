@@ -39,7 +39,7 @@ This feature addresses both questions by:
                                 │
                                 ▼
                        AI Extraction Step
-              (Classifies category & extracts facts)
+              (Classifies categories & extracts facts)
                                 │
                                 ▼
                ┌─────────────────────────────────┐
@@ -82,10 +82,10 @@ All benchmarking and analysis rely on fields already normalized by the extractio
 
 | Section in `TorInsight` | Field | Role & Justification |
 |---|---|---|
-| `identification` | `category` | **Primary Hard Filter.** Ensures comparisons remain within the same domain (`software-development`, `cloud-and-infrastructure`, `maintenance-and-support`). |
-| `overview` | `systemArchetype` | **Deliverable Architecture Matching ($S_{\text{archetype}}$, 40%).** Direct AI-extracted system archetype (grounded in DES/DGA standards: `mobile-app`, `web-portal`, `enterprise-erp`, `edoc-workflow`, `data-analytics`, `gis-mapping`, `cybersecurity`, `iot-telemetry`, `infra-networking`, `other`). |
-| `overview` | `complexityTier` | **Engineering Scope Matching ($S_{\text{complexity}}$, 35%).** Standardized scale tier (`basic`, `standard`, `enterprise`). Replaces circular budget brackets to ensure peers operate at comparable technical complexity. |
-| `technicalRequirements` | `requiredTechnologies` | **Tech Overlap Bonus ($S_{\text{tech}}$, 25%).** Jaccard similarity of normalized technology names. Explicit versions are flagged as lock-spec signals. |
+| `identification` | `categories` | **Primary Hard Filter, and Category Matching ($S_{\text{category}}$, 15%).** A peer shares at least one (`software-development`, `network-and-security`, `maintenance-and-support`); sharing more of them, in the same order, scores higher ([ADR 0034](../decisions/0034-a-tor-can-have-several-categories.md)). |
+| `overview` | `systemArchetype` | **Deliverable Architecture Matching ($S_{\text{archetype}}$, 35%).** Direct AI-extracted system archetype (grounded in DES/DGA standards: `mobile-app`, `web-portal`, `enterprise-erp`, `edoc-workflow`, `data-analytics`, `gis-mapping`, `cybersecurity`, `iot-telemetry`, `infra-networking`, `other`). |
+| `overview` | `complexityTier` | **Engineering Scope Matching ($S_{\text{complexity}}$, 30%).** Standardized scale tier (`basic`, `standard`, `enterprise`). Replaces circular budget brackets to ensure peers operate at comparable technical complexity. |
+| `technicalRequirements` | `requiredTechnologies` | **Tech Overlap Bonus ($S_{\text{tech}}$, 20%).** Jaccard similarity of normalized technology names. Explicit versions are flagged as lock-spec signals. |
 | `identification` | `titleTh` | **Display & Traceability.** Administrative project title shown on output cards and audit trails; excluded from scoring to avoid phrase noise. |
 | `facts` | `referencePriceTHB`, `budgetTHB` | **Benchmark Output Target.** Evaluated against the peer median *after* technical peers are selected to detect price anomalies. |
 | `facts` | `deliveryPeriodDays` | **Scope Scale Context.** Reflects expected project delivery timeframe (never a hard filter). |
@@ -100,7 +100,7 @@ All benchmarking and analysis rely on fields already normalized by the extractio
 ### 4.1 Candidate Pool Query (Stage 1)
 Given a target TOR $T$, query MongoDB with:
 
-$$\text{Category} = T.\text{category}$$
+$$C.\text{categories} \cap T.\text{categories} \neq \emptyset$$
 $$\text{Full Extraction} = \text{true}$$
 $$\text{projectId} \neq T.\text{projectId}$$
 
@@ -109,7 +109,7 @@ $$\text{projectId} \neq T.\text{projectId}$$
 ### 4.2 Composite Similarity Scoring (Stage 2)
 For each candidate $C$ in the retrieved pool, calculate a composite similarity score $S \in [0, 1]$:
 
-$$S = 0.40 \cdot S_{\text{archetype}} + 0.35 \cdot S_{\text{complexity}} + 0.25 \cdot S_{\text{tech}}$$
+$$S = 0.35 \cdot S_{\text{archetype}} + 0.30 \cdot S_{\text{complexity}} + 0.20 \cdot S_{\text{tech}} + 0.15 \cdot S_{\text{category}}$$
 
 - **Architecture Similarity ($S_{\text{archetype}}$):**
   Matches `overview.systemArchetype` directly:
@@ -325,7 +325,8 @@ Each deviation is modeled as an individual, self-contained finding (`findingSche
    - If `eligibility.previousExperienceMinTHB` $> 0.5 \times \text{referencePriceTHB}$ $\rightarrow$ **Medium Severity**.
    - If $> 0.8 \times \text{referencePriceTHB}$ $\rightarrow$ **High Severity**.
 2. **MAF Required on Software Development (`hire`):**
-   - If `eligibility.manufacturerAuthorizations` is present for `procurementKind === 'hire'` $\rightarrow$ **High Severity**.
+   - If `eligibility.manufacturerAuthorizations` is present and the main category (`identification.categories[0]`) is `software-development` or `systems-integration`, or `facts.procurementKind === 'hire'` $\rightarrow$ **High Severity**.
+   - Not flagged when the main category is `software-licenses` ([ADR 0034](../decisions/0034-a-tor-can-have-several-categories.md)).
 3. **Exact Outdated / Single-Vendor Version Locked:**
    - If `technicalRequirements.requiredTechnologies` specifies an exact minor version or end-of-life platform where peers accept open standards $\rightarrow$ **High Severity**.
 4. **Disproportionate Certifications:**

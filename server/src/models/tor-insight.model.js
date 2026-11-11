@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { PROJECT_CATEGORIES } from './project-categories.js';
 import { STANDARD_CONDITION_KEYS } from './standard-conditions.js';
 
 // Missing is null, never a plausible default: a field the TOR does not state
@@ -100,7 +101,10 @@ const torInsightSchema = new mongoose.Schema(
       agency: { type: String, required: true, trim: true, index: true }, // from the feed first
       department: { type: String, default: null, trim: true },
       egpReference: { type: String, default: null, trim: true },
-      category: { type: String, default: null, index: true }, // set by the classify step
+      // The kinds of IT work, the main one first (ADR 0034): from the extract
+      // step, or the title screen for a title-only record. The order matters:
+      // comparisons score it and lock-spec reads the first.
+      categories: { type: [{ type: String, enum: PROJECT_CATEGORIES }], index: true },
       // Copied from Tor.status, never extracted. Closed is worked out when the
       // data is read (Open and past the deadline), not stored (ADR 0013).
       status: {
@@ -126,6 +130,8 @@ const torInsightSchema = new mongoose.Schema(
       commentDeadline: { type: Date, default: null },
       deliveryPeriodDays: { type: Number, default: null },
       procurementMethod: { type: String, default: null, trim: true },
+      // Copied from Tor.procurementKind, never extracted: lock-spec reads it (ADR 0034)
+      procurementKind: { type: String, enum: ['hire', 'buy', 'rent'], default: null }, // validators skip null
       warrantyYears: { type: Number, default: null },
       contractDurationDays: { type: Number, default: null },
       penaltyClause: { type: String, default: null, trim: true }, // e.g. "0.20% of contract value per day"
@@ -295,7 +301,7 @@ const torInsightSchema = new mongoose.Schema(
 
 // Compound index for comparable projects & price benchmarking lookup (ADR 0021 & 0022)
 torInsightSchema.index({
-  'identification.category': 1,
+  'identification.categories': 1,
   'facts.referencePriceTHB': 1,
 });
 

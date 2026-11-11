@@ -166,7 +166,7 @@ before(async () => {
       titleTh: 'โครงการทดสอบระบบปัญญาประดิษฐ์และคลาวด์',
       agency: 'สำนักทดสอบรัฐบาลดิจิทัล',
       status: 'Open',
-      category: 'Software & IT Services',
+      categories: ['software-development'],
     },
     facts: {
       budgetTHB: 15000000,

@@ -2,9 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { pick, type Bi } from "../../_data/tors";
 import { torFacets } from "../../_lib/api";
-import { useLang } from "../../_components/prefs";
 import { type Mode } from "./_lib/types";
 import { parseMode, saveLastSearchUrl, syncUrlToBrowser } from "./_lib/search-params";
 import { formatUpdated } from "./_components/SearchCommon";
@@ -12,7 +10,6 @@ import { FilterModeView } from "./_components/FilterModeView";
 import { MatchModeView } from "./_components/MatchModeView";
 
 function BrowsePageContent() {
-  const { lang } = useLang();
   const searchParams = useSearchParams();
 
   const [mode, setModeState] = useState<Mode>(() => parseMode(searchParams));
@@ -46,11 +43,11 @@ function BrowsePageContent() {
     });
   }, []);
 
-  const MODES: { id: Mode; label: Bi; badge?: number }[] = [
-    { id: "filter", label: { th: "ค้นหาและกรอง", en: "Search & filter" } },
+  const MODES: { id: Mode; label: string; badge?: number }[] = [
+    { id: "filter", label: "ค้นหาและกรอง" },
     {
       id: "match",
-      label: { th: "ตรงกับโปรไฟล์ฉัน", en: "Matched to me" },
+      label: "ตรงกับโปรไฟล์ฉัน",
       badge: strongCount,
     },
   ];
@@ -61,16 +58,14 @@ function BrowsePageContent() {
       <header className="mb-6 border-b border-line pb-5">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight text-ink">
-            {lang === "th" ? "ค้นหาประกาศจัดซื้อจัดจ้าง IT" : "Browse IT Procurements"}
+            ค้นหาประกาศจัดซื้อจัดจ้าง IT
           </h1>
           <p className="mt-1 text-[13px] leading-thai text-ink-2">
-            {lang === "th"
-              ? "ค้นหา กรอง และอ่านสรุปสาระสำคัญของเอกสาร TOR จากหน่วยงานภาครัฐในกรุงเทพฯ"
-              : "Search, filter and read summaries of Bangkok government IT procurement documents."}
+            ค้นหา กรอง และอ่านสรุปสาระสำคัญของเอกสาร TOR ด้านเทคโนโลยีจากหน่วยงานภาครัฐ
             {lastUpdated ? (
               <>
                 {" · "}
-                {lang === "th" ? "อัปเดตล่าสุด" : "updated"} {formatUpdated(lastUpdated, lang)}
+                อัปเดตล่าสุด {formatUpdated(lastUpdated, "th")}
               </>
             ) : null}
           </p>
@@ -81,7 +76,7 @@ function BrowsePageContent() {
           <div
             className="inline-flex rounded-[3px] border border-line bg-surface-2 p-[3px]"
             role="group"
-            aria-label={lang === "th" ? "วิธีเลือกดูประกาศ" : "How to narrow the list"}
+            aria-label="วิธีเลือกดูประกาศ"
           >
             {MODES.map((option) => (
               <button
@@ -89,15 +84,15 @@ function BrowsePageContent() {
                 type="button"
                 onClick={() => setMode(option.id)}
                 aria-pressed={mode === option.id}
-                className={`flex items-center justify-center gap-2 rounded-[2px] px-3 py-1.5 text-[13px] font-medium transition-all duration-150 ${
+                className={`flex items-center justify-center gap-2 rounded-[2px] px-3 py-1.5 text-[13px] font-medium transition-all duration-150 cursor-pointer ${
                   option.id === "filter" ? "min-w-[110px]" : "min-w-[165px]"
                 } ${
                   mode === option.id
-                    ? "bg-surface text-ink shadow-sm"
+                    ? "bg-surface text-ink shadow-sm font-semibold"
                     : "text-ink-3 hover:text-ink"
                 }`}
               >
-                <span>{pick(option.label, lang)}</span>
+                <span>{option.label}</span>
                 {option.badge !== undefined ? (
                   <span
                     className={`rounded-[2px] px-1 font-mono tnum text-[11px] ${
@@ -113,12 +108,8 @@ function BrowsePageContent() {
 
           <p className="text-[12px] leading-thai text-ink-3">
             {mode === "filter"
-              ? lang === "th"
-                ? "กรองเองตามเทคโนโลยี ราคากลาง กำหนดยื่น และหน่วยงาน"
-                : "Narrow it yourself by technology, price, deadline and agency."
-              : lang === "th"
-                ? "เรียงจากทักษะและช่วงงบที่คุณบันทึกไว้ในโปรไฟล์"
-                : "Ranked from the skills and budget range saved on your profile."}
+              ? "กรองเองตามเทคโนโลยี ราคากลาง กำหนดยื่น และหน่วยงาน"
+              : "เรียงตามความเหมาะสมจากทักษะและช่วงงบที่คุณบันทึกไว้ในโปรไฟล์"}
           </p>
         </div>
       </header>

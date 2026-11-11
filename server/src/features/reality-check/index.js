@@ -11,6 +11,8 @@ export {
   calculateScaleProximity,
   calculateTechSimilarity,
   calculateScopeSimilarity,
+  calculateCategorySimilarity,
+  sharesCategory,
   getFiscalYear,
   getProjectPrice,
   getProjectArchetype,

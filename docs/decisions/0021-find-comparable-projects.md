@@ -1,6 +1,6 @@
 # 0021 · Define comparable projects by architecture and complexity
 
-Status: accepted · 2026-10-11 (updated 2026-11-02)
+Status: accepted · 2026-10-11 (updated 2026-11-06, [0034](0034-a-tor-can-have-several-categories.md))
 
 ## Context
 
@@ -28,31 +28,32 @@ Peers are identified and ranked using pre-filters for data stability and quality
 
 | Data Field | Standard / Source | Role in Matching | Why We Chose It (Decision) |
 |---|---|---|---|
-| `identification.category` | Thai e-GP Procurement Categories | **Hard Filter (Pre-filter)** | **Prevents domain mismatch.** Eliminates completely different procurement types upfront (e.g. software development vs. hardware purchases vs. cabling maintenance). |
+| `identification.categories` | Thai e-GP Procurement Categories | **Hard Filter (Pre-filter), then Category Score (15%)** | **Prevents domain mismatch.** A peer shares at least one category, which eliminates completely different procurement types upfront (e.g. software development vs. cabling maintenance). Sharing more of them, in the same order, then scores higher (ADR 0034). |
 | `identification.status` | Thai e-GP Lifecycle Status | **Hard Filter (Stability Pre-filter)** | **Accepts only concluded projects (`'Closed'`, `'Awarded'`).** Excludes `Draft` (still in public hearing) and active `Open` tenders (which can be amended, re-budgeted, or cancelled) to guarantee price and specification stability. |
 | `metadata.confidenceScore` | AI Extraction Rules Engine (NFR-17) | **Hard Filter (Quality Pre-filter)** | **Requires confidence score $\ge 80\%$.** Low-confidence or unverified extractions are withheld from peer benchmarking to avoid skewing price reality checks. |
 | `metadata.titleOnly` / `awaitingFullText` / `excluded` | Ingestion Status (ADR 0028) | **Hard Filter (Full Read Pre-filter)** | **Requires full document extraction.** Title-level stubs and pending previews lack technical attributes and cannot be scored. |
-| `overview.systemArchetype` | DES & DGA ICT Standards (TDGA) | **Architecture Score (40%)** | **Matches software deliverable pattern.** Differentiates Mobile Apps, Web Portals, ERPs, and GIS Maps within the same broad category. Deliverables dictate team structure and cost. |
-| `overview.complexityTier` | Barry Boehm's COCOMO II & DGA Guidelines | **Scope Score (35%)** | **Measures engineering scale without price bias.** Distinguishes small internal tools from nationwide high-concurrency platforms (`basic`, `standard`, `enterprise`). Replaces circular price brackets. |
-| `technicalRequirements.requiredTechnologies` | Normalized Tech Vocabulary | **Tech Bonus Score (25%)** | **Soft scoring bonus for shared stack.** Jaccard similarity of frameworks/databases (e.g. React, PostgreSQL). Kept as a soft bonus (not hard filter) so unstated stacks don't return zero peers. |
+| `overview.systemArchetype` | DES & DGA ICT Standards (TDGA) | **Architecture Score (35%)** | **Matches software deliverable pattern.** Differentiates Mobile Apps, Web Portals, ERPs, and GIS Maps within the same broad category. Deliverables dictate team structure and cost. |
+| `overview.complexityTier` | Barry Boehm's COCOMO II & DGA Guidelines | **Scope Score (30%)** | **Measures engineering scale without price bias.** Distinguishes small internal tools from nationwide high-concurrency platforms (`basic`, `standard`, `enterprise`). Replaces circular price brackets. |
+| `technicalRequirements.requiredTechnologies` | Normalized Tech Vocabulary | **Tech Bonus Score (20%)** | **Soft scoring bonus for shared stack.** Jaccard similarity of frameworks/databases (e.g. React, PostgreSQL). Kept as a soft bonus (not hard filter) so unstated stacks don't return zero peers. |
 
 ```
 All Ingested Projects in Database
         │
         ▼  [ Level 1: Pre-filters (Domain, Stability & Quality) ]
 Hard filters eliminate irrelevant, volatile, or unverified records:
-  ├── 1. Same procurement category: identification.category
+  ├── 1. Shares a procurement category: identification.categories
   ├── 2. Concluded status only: identification.status in ['Closed', 'Awarded']
   ├── 3. High extraction confidence: metadata.confidenceScore >= 80 (NFR-17)
   └── 4. Full document extraction: isFullExtraction = true (ADR 0028)
         │
-        ▼  (Inside ONE single category: e.g. "software-development")
+        ▼  (Sharing at least one category: e.g. "software-development")
         │
         ▼  [ Level 2: Composite Similarity Scoring ]
 Scores candidates on technical specifications:
-  ├── 1. Deliverable Architecture  (overview.systemArchetype,           weight = 40%)
-  ├── 2. Engineering Complexity    (overview.complexityTier,            weight = 35%)
-  └── 3. Tech Stack Overlap        (technicalRequirements.technologies, weight = 25%)
+  ├── 1. Deliverable Architecture  (overview.systemArchetype,           weight = 35%)
+  ├── 2. Engineering Complexity    (overview.complexityTier,            weight = 30%)
+  ├── 3. Tech Stack Overlap        (technicalRequirements.technologies, weight = 20%)
+  └── 4. Category Overlap & Order  (identification.categories,          weight = 15%)
         │
         ▼
 Select Top 5 Technical Peers  ──►  Only now, calculate median of their referencePriceTHB
@@ -71,7 +72,7 @@ Select Top 5 Technical Peers  ──►  Only now, calculate median of their ref
 4. **Complexity Tiers Replace Circular Price Brackets:**
    Testing whether a price is abnormal while using price to filter candidate peers creates a circular dependency (an overpriced project is only compared against other overpriced projects). Replacing price filters with `complexityTier` (`basic`, `standard`, `enterprise`) ensures peers operate at comparable technical scale while keeping price benchmarking completely independent.
 5. **Tech Stack as a Soft Bonus, Not a Hard Requirement:**
-   Thai government TORs frequently omit specific programming languages or specify different modern stacks for identical jobs (e.g. React vs Vue, Flutter vs React Native). Weighting `requiredTechnologies` at 25% provides a scoring bonus when stacks align, without disqualifying valid peers when stacks differ or are unstated.
+   Thai government TORs frequently omit specific programming languages or specify different modern stacks for identical jobs (e.g. React vs Vue, Flutter vs React Native). Weighting `requiredTechnologies` at 20% provides a scoring bonus when stacks align, without disqualifying valid peers when stacks differ or are unstated.
 6. **Rejection of `overview.objective` and Semantic Text Search:**
    Government TOR objectives reflect administrative rhetoric rather than technical deliverables (*"เพื่อยกระดับประสิทธิภาพตามหลักธรรมาภิบาล"*). Matching on raw objectives causes false-positive similarity on shared slogans while missing actual engineering peers.
 

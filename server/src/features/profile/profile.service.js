@@ -15,6 +15,9 @@ export async function updateProfile(userId, fields) {
       for (const [subKey, subVal] of Object.entries(value)) {
         setOps[`profile.matchNotification.${subKey}`] = subVal;
       }
+      if (typeof value.enabled === 'boolean') {
+        setOps.notificationConsent = value.enabled;
+      }
     } else {
       setOps[`profile.${key}`] = value;
     }

@@ -1,6 +1,70 @@
 import { useEffect, useState } from "react";
 import { btn, input, Label } from "../../../../_components/ui";
 import type { TorVersionItem } from "../../../../_lib/api";
+import { MAX_CATEGORIES, PROJECT_CATEGORIES, toggleCategory } from "../../../../_lib/categories";
+
+/**
+ * Numbered tick boxes: the order of ticking is the order saved, and number 1
+ * is the main category, which comparisons and lock-spec read (ADR 0034).
+ */
+export function CategoryPicker({
+  selected,
+  onChange,
+  isModified,
+  lang = "th",
+}: {
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  isModified?: boolean;
+  lang?: "th" | "en";
+}) {
+  const full = selected.length >= MAX_CATEGORIES;
+
+  return (
+    <fieldset>
+      <legend className="sr-only">{lang === "th" ? "หมวดหมู่งานไอที" : "IT categories"}</legend>
+      <p className="text-[12px] text-ink-3">
+        {lang === "th"
+          ? `เลือกได้สูงสุด ${MAX_CATEGORIES} หมวด ตามลำดับที่กด · อันดับ 1 คือหมวดหลัก`
+          : `Up to ${MAX_CATEGORIES}, in the order you tick them · number 1 is the main one`}
+      </p>
+      <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+        {PROJECT_CATEGORIES.map(({ key, th, en }) => {
+          const rank = selected.indexOf(key) + 1;
+          const disabled = full && rank === 0;
+          return (
+            <label
+              key={key}
+              className={`flex min-h-9 items-center gap-2 rounded-[3px] border px-2.5 py-1.5 text-[13px] leading-thai ${
+                rank > 0
+                  ? `bg-surface-2 text-ink ${isModified ? "border-amend/80" : "border-ink-3"}`
+                  : "border-line-2 bg-surface text-ink-2"
+              } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+            >
+              <input
+                type="checkbox"
+                checked={rank > 0}
+                disabled={disabled}
+                onChange={() => onChange(toggleCategory(selected, key))}
+                className="peer sr-only"
+              />
+              <span
+                aria-hidden="true"
+                className={`flex h-5 w-5 flex-none items-center justify-center rounded-[3px] border text-[11px] font-semibold tnum peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink ${
+                  rank > 0 ? "border-ink bg-ink text-surface" : "border-line-2"
+                }`}
+              >
+                {rank > 0 ? rank : ""}
+              </span>
+              <span>{lang === "th" ? th : en}</span>
+              {rank > 0 ? <span className="sr-only">{lang === "th" ? `อันดับ ${rank}` : `Rank ${rank}`}</span> : null}
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
 
 export function DynamicListEditor({
   label,
