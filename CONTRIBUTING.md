@@ -9,6 +9,7 @@ and the history readable — nothing beyond that.
 | :--- | :--- |
 | `client/` | Next.js frontend. Pages live in `client/app/(app)/` (shell-wrapped) and `client/app/` (standalone). |
 | `server/` | Node + Express API, and the pipelines in `server/src/pipeline/`. |
+| `docs/project-map.md` | Every file in the repo, one line each, and where to start for common tasks. |
 | `docs/pipeline.md` | What each pipeline command does, its options, and its settings. |
 | `server/src/common/` | Plumbing every feature uses: config, db, errors, middleware. |
 | `server/src/models/` | Every Mongoose schema, in one place. Shape only, no logic. |
