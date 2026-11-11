@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { displayName, useAuth } from "./auth";
 import { useLang, LangToggle, ThemeToggle } from "./prefs";
+import { fetchNotifications } from "../_lib/api";
 
 /**
  * The hammer, drawn flat and geometric rather than mythic — this is an
@@ -38,26 +40,146 @@ export function HeaderControls({ className = "" }: { className?: string }) {
   const { status, user, signOut } = useAuth();
   const signInHref = `/auth?next=${encodeURIComponent(pathname || "/")}`;
 
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showCallout, setShowCallout] = useState(false);
+  const autoCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch unread count when user is authenticated
+  useEffect(() => {
+    if (status !== "authenticated") {
+      setUnreadCount(0);
+      setShowCallout(false);
+      return;
+    }
+
+    let active = true;
+    fetchNotifications({ limit: 1 }).then((res) => {
+      if (!active || !res.ok) return;
+      const count = res.data.unreadCount;
+      setUnreadCount(count);
+
+      // Check if callout was already dismissed in this session
+      try {
+        const alreadyDismissed = sessionStorage.getItem("gipdp_bell_callout_dismissed");
+        if (count > 0 && !alreadyDismissed) {
+          setShowCallout(true);
+        }
+      } catch {
+        // Ignore sessionStorage availability errors
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [status, pathname]);
+
+  // Auto-close callout after 7 seconds
+  useEffect(() => {
+    if (!showCallout) return;
+
+    autoCloseTimerRef.current = setTimeout(() => {
+      handleDismissCallout();
+    }, 7000);
+
+    return () => {
+      if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+    };
+  }, [showCallout]);
+
+  function handleDismissCallout() {
+    setShowCallout(false);
+    try {
+      sessionStorage.setItem("gipdp_bell_callout_dismissed", "true");
+    } catch {
+      // Ignore sessionStorage availability errors
+    }
+  }
+
+  function handlePauseTimer() {
+    if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+  }
+
+  function handleResumeTimer() {
+    if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+    autoCloseTimerRef.current = setTimeout(() => {
+      handleDismissCallout();
+    }, 4000);
+  }
+
   return (
     <div className={`flex shrink-0 items-center gap-2 ${className}`}>
       <LangToggle />
       <ThemeToggle />
-      <Link
-        href="/notifications"
-        aria-label={lang === "th" ? "ตั้งค่าการแจ้งเตือน" : "Notification preferences"}
-        title={lang === "th" ? "การแจ้งเตือน" : "Notifications"}
-        className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
-      >
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
-          <path
-            d="M4 6.5a4 4 0 1 1 8 0c0 3 1 4 1 4H3s1-1 1-4Z"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            fill="none"
-          />
-          <path d="M6.5 13a1.6 1.6 0 0 0 3 0" stroke="currentColor" strokeWidth="1.3" />
-        </svg>
-      </Link>
+      <div className="relative">
+        <Link
+          href="/notifications"
+          onClick={handleDismissCallout}
+          aria-label={
+            lang === "th"
+              ? `การแจ้งเตือน${unreadCount > 0 ? ` (${unreadCount} รายการใหม่)` : ""}`
+              : `Notifications${unreadCount > 0 ? ` (${unreadCount} new)` : ""}`
+          }
+          title={lang === "th" ? "การแจ้งเตือน" : "Notifications"}
+          className="relative flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
+        >
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
+            <path
+              d="M4 6.5a4 4 0 1 1 8 0c0 3 1 4 1 4H3s1-1 1-4Z"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              fill="none"
+            />
+            <path d="M6.5 13a1.6 1.6 0 0 0 3 0" stroke="currentColor" strokeWidth="1.3" />
+          </svg>
+          {unreadCount > 0 ? (
+            <span
+              className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-surface shadow-xs"
+              aria-hidden="true"
+            >
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          ) : null}
+        </Link>
+
+        {showCallout && unreadCount > 0 ? (
+          <div
+            role="status"
+            aria-live="polite"
+            onMouseEnter={handlePauseTimer}
+            onMouseLeave={handleResumeTimer}
+            className="absolute right-0 top-full z-50 mt-2 w-max max-w-[280px] rounded-md border border-line-2 bg-surface-2 p-2.5 shadow-lg animate-in fade-in slide-in-from-top-1"
+          >
+            {/* The little upward arrow pointing to the bell */}
+            <div
+              className="absolute -top-1.5 right-2 h-2.5 w-2.5 rotate-45 border-l border-t border-line-2 bg-surface-2"
+              aria-hidden="true"
+            />
+
+            <div className="relative flex items-center justify-between gap-3">
+              <Link
+                href="/notifications"
+                onClick={handleDismissCallout}
+                className="text-[12px] font-medium leading-tight text-ink hover:underline"
+              >
+                {lang === "th"
+                  ? `คุณมี ${unreadCount} การแจ้งเตือนที่ยังไม่ได้อ่าน`
+                  : `You have ${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`}
+              </Link>
+              <button
+                type="button"
+                onClick={handleDismissCallout}
+                aria-label={lang === "th" ? "ปิด" : "Dismiss"}
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink"
+              >
+                <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 4l8 8M12 4l-8 8" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
       {status === "loading" ? (
         // A fixed-size placeholder, not "Sign in": the answer is not
         // known yet, and guessing wrong flashes the wrong thing at

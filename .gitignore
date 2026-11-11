@@ -39,5 +39,5 @@ server/data/
 # local context files
 context/
 
-# manual testing datasets
-testdata/
+# local dev environment
+only_for_local_dev/

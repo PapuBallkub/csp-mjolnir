@@ -35,6 +35,7 @@ const notificationSchema = new mongoose.Schema(
     // Email dispatch state: allows creating notification data beforehand (staging)
     // while sending emails separately at the scheduled digest time (08:00 AM).
     emailSent: { type: Boolean, default: false, index: true },
+    emailSkipped: { type: Boolean, default: false, index: true },
     emailSentAt: { type: Date, default: null },
   },
   { timestamps: true },

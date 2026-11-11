@@ -9,6 +9,7 @@ import {
   buildMatchSnapshot,
   evaluateUserCandidateMatches,
 } from '#features/notifications/creators/match-notification.service.js';
+import { extractNotifiedProjectIds } from '#features/notifications/creators/find-notification-duplication.js';
 import { renderMatchDigestEmail } from '#features/notifications/templates/match-digest.template.js';
 
 test('notifications: creates and verifies HMAC unsubscribe token', () => {
@@ -106,4 +107,32 @@ test('notifications: evaluateUserCandidateMatches filters by score and returns e
 
   const matches = evaluateUserCandidateMatches(userWithSkills, tors, { minScore: 50 });
   assert.ok(Array.isArray(matches));
+});
+
+test('notifications: extractNotifiedProjectIds correctly extracts project IDs from match and single-project snapshots', () => {
+  const pastNotifications = [
+    {
+      type: 'match',
+      snapshot: {
+        matchedItems: [
+          { projectId: '69069041234' },
+          { projectId: '69079055432' },
+        ],
+      },
+    },
+    {
+      type: 'amendment',
+      snapshot: {
+        projectId: '69088899999',
+      },
+    },
+  ];
+
+  const projectIds = extractNotifiedProjectIds(pastNotifications);
+
+  assert.equal(projectIds.size, 3);
+  assert.ok(projectIds.has('69069041234'));
+  assert.ok(projectIds.has('69079055432'));
+  assert.ok(projectIds.has('69088899999'));
+  assert.ok(!projectIds.has('unknown-id'));
 });

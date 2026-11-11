@@ -25,7 +25,7 @@ export async function getFeed(req, res) {
  */
 export async function getDetail(req, res) {
   const notification = await getNotificationById(req.params.id, req.user.id);
-  res.json({ notification });
+  res.json({ notification, ...notification });
 }
 
 /**

@@ -2,6 +2,7 @@ import { env } from '#common/config/env.js';
 import { calculateMatchScore } from '#features/match/matchmaker.js';
 import { Notification, TorInsight, User } from '#models/index.js';
 import { sendMatchDigestEmail } from '../email.service.js';
+import { getNotifiedProjectIds } from './find-notification-duplication.js';
 
 /**
  * Builds the immutable snapshot payload for a match notification.
@@ -60,9 +61,17 @@ export function evaluateUserCandidateMatches(user, candidateTors, { minScore = 7
 
   for (const tor of candidateTors) {
     const matchResult = calculateMatchScore(tor, profile);
-    if (matchResult && matchResult.score >= effectiveMinScore) {
-      matches.push({ tor, matchResult });
+    if (!matchResult || matchResult.score < effectiveMinScore) {
+      continue;
     }
+
+    // Filter strictly by the user's entity type (Company vs Individual):
+    // If user is a single person (individual), do not notify them for companies-only tenders
+    if (matchResult.breakdown?.entity?.disqualifiedDirectBid) {
+      continue;
+    }
+
+    matches.push({ tor, matchResult });
   }
 
   // Rank matches by highest score first
@@ -132,9 +141,23 @@ export async function generateMatchNotifications({ minScore = 70 } = {}) {
       continue;
     }
 
+    // Deduplicate: check which project IDs were already notified to this user within the last 30 days
+    const alreadyNotifiedIds = await getNotifiedProjectIds(user._id, { type: 'match' });
+
+    // Keep only genuinely NEW projects that this user has never been notified about
+    const newMatchedPairs = matchedPairs.filter(({ tor }) => {
+      const pId = String(tor.projectId || tor.identification?.egpReference || '');
+      return pId && !alreadyNotifiedIds.has(pId);
+    });
+
+    // If all matching projects were already notified previously, skip to avoid spamming
+    if (newMatchedPairs.length === 0) {
+      continue;
+    }
+
     summary.matchedUsers += 1;
 
-    const snapshot = buildMatchSnapshot(matchedPairs);
+    const snapshot = buildMatchSnapshot(newMatchedPairs);
 
     await Notification.create({
       userId: user._id,
@@ -167,6 +190,7 @@ export async function dispatchPendingMatchEmails({ batchLimit = 100 } = {}) {
   const pendingNotifications = await Notification.find({
     type: 'match',
     emailSent: false,
+    emailSkipped: { $ne: true },
   })
     .limit(batchLimit)
     .populate('userId', 'email name notificationConsent profile.matchNotification')
@@ -183,8 +207,9 @@ export async function dispatchPendingMatchEmails({ batchLimit = 100 } = {}) {
 
     if (!user || !user.email) {
       console.warn(`[dispatch] Notification ${notif._id} skipped: user or email is missing.`);
-      notif.emailSent = true;
-      notif.emailSentAt = new Date();
+      notif.emailSent = false;
+      notif.emailSkipped = true;
+      notif.emailSentAt = null;
       await notif.save();
       summary.emailsSkipped += 1;
       continue;
@@ -196,8 +221,9 @@ export async function dispatchPendingMatchEmails({ batchLimit = 100 } = {}) {
 
     if (!hasEmailConsent || isNotificationExplicitlyDisabled) {
       console.log(`[dispatch] Skipped ${user.email}: notificationConsent is ${user.notificationConsent}`);
-      notif.emailSent = true;
-      notif.emailSentAt = new Date();
+      notif.emailSent = false;
+      notif.emailSkipped = true;
+      notif.emailSentAt = null;
       await notif.save();
       summary.emailsSkipped += 1;
       continue;
@@ -207,8 +233,9 @@ export async function dispatchPendingMatchEmails({ batchLimit = 100 } = {}) {
     const matchedItems = notif.snapshot?.matchedItems ?? [];
     if (matchedItems.length === 0) {
       console.warn(`[dispatch] Skipped ${user.email}: snapshot.matchedItems is empty.`);
-      notif.emailSent = true;
-      notif.emailSentAt = new Date();
+      notif.emailSent = false;
+      notif.emailSkipped = true;
+      notif.emailSentAt = null;
       await notif.save();
       summary.emailsSkipped += 1;
       continue;

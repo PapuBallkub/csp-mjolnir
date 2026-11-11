@@ -1351,3 +1351,87 @@ export function removeFromWatchlist(projectId: string) {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/*  Notifications (FR-13, FR-14, FR-18)                              */
+/* ------------------------------------------------------------------ */
+
+export type MatchedTorSummary = {
+  projectId: string;
+  projectTitle: string;
+  agency: string;
+  budget: number | null;
+  matchScore: number;
+  matchedSkills: string[];
+  submissionDeadline?: string | null;
+  daysLeft?: number;
+};
+
+export type NotificationSnapshot = {
+  matchedItems?: MatchedTorSummary[];
+  projectId?: string;
+  projectTitle?: string;
+  agency?: string;
+  budget?: number | null;
+  matchScore?: number;
+  matchedSkills?: string[];
+  amendmentId?: string;
+  reason?: string;
+  [key: string]: unknown;
+};
+
+export type NotificationFeedItem = {
+  _id: string;
+  userId: string;
+  type: "match" | "amendment" | "deadline" | "priceOutlier" | string;
+  snapshot: NotificationSnapshot;
+  isRead: boolean;
+  readAt?: string | null;
+  emailSent?: boolean;
+  emailSentAt?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+export type NotificationFeedResponse = {
+  notifications: NotificationFeedItem[];
+  unreadCount: number;
+  total: number;
+};
+
+export function fetchNotifications(params: { type?: string; limit?: number; skip?: number } = {}) {
+  const qs = new URLSearchParams();
+  if (params.type) qs.set("type", params.type);
+  if (params.limit) qs.set("limit", String(params.limit));
+  if (params.skip) qs.set("skip", String(params.skip));
+  const query = qs.toString();
+  return request<NotificationFeedResponse>(`/api/notifications${query ? `?${query}` : ""}`, {
+    cache: "no-store",
+  });
+}
+
+export function fetchNotificationById(id: string) {
+  return request<NotificationFeedItem>(`/api/notifications/${encodeURIComponent(id)}`, {
+    cache: "no-store",
+  });
+}
+
+export function markNotificationRead(id: string) {
+  return request<{ updated: boolean; id: string }>(`/api/notifications/${encodeURIComponent(id)}/read`, {
+    method: "PATCH",
+  });
+}
+
+export function markAllNotificationsRead() {
+  return request<{ updatedCount: number }>("/api/notifications/read-all", {
+    method: "PATCH",
+  });
+}
+
+export function unsubscribeByToken(token: string) {
+  return request<{ success: boolean; message: string }>(
+    `/api/notifications/unsubscribe?token=${encodeURIComponent(token)}`,
+    { cache: "no-store" }
+  );
+}
+
+
