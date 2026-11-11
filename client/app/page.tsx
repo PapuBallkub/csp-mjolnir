@@ -8,7 +8,7 @@ import { CatalogRow, CatalogRowSkeleton } from "./_components/catalog-row";
 import { HeaderControls, Wordmark } from "./_components/shell";
 import { useAuth } from "./_components/auth";
 import { useProfile } from "./_components/prefs";
-import { listTors, type Tor } from "./_lib/api";
+import { listTors, type TorInsightSummary } from "./_lib/api";
 import { matchFor } from "./_lib/match";
 
 /**
@@ -114,7 +114,7 @@ export default function LandingPage() {
   const { profile } = useProfile();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [featuredTors, setFeaturedTors] = useState<Tor[]>([]);
+  const [featuredTors, setFeaturedTors] = useState<TorInsightSummary[]>([]);
   const [isLoadingTors, setIsLoadingTors] = useState(true);
 
   // Fetch 5 live open projects to feature on the discovery section
