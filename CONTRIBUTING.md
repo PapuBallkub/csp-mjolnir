@@ -120,9 +120,10 @@ merging. A one-line typo fix is not worth the ceremony — merge your own.
 | `test` | tests |
 
 Scopes follow the folders. `client` and `docs` stay flat, but `server/src` is
-sliced by feature, so scope a server commit by the feature it touches — `tors`,
-`auth`, `matching`, and from Phase 2 `ingestion` and `ocr`. Keep `server` for
-the skeleton itself: `app.js`, `common/`, `models/`, config.
+sliced by feature, so scope a server commit by the feature or pipeline it
+touches — `tors`, `auth`, `match`, `admin`, `watchlist`, `ingestion`,
+`extraction`, or `pipeline` for the jobs and work across both pipelines. Keep
+`server` for the skeleton itself: `app.js`, `common/`, `models/`, config.
 
 Write the subject in the imperative, under roughly 50 characters:
 

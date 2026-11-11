@@ -115,6 +115,17 @@ Each change to the TOR we know of, oldest first ([0032](../decisions/0032-record
 - `field` (`String`): What changed: `document` (the TOR file, by package name), or a summary path such as `facts.submissionDeadline` or `technicalRequirements.requiredTechnologies`.
 - `before`, `after` (`String`): The values, as ISO dates and plain numbers; one item of a list. Only values that can be compared get a row: numbers, dates and lists of known items. Free text gets none, since two extractions word it differently.
 
+### 2.5 `announcementHistory` (Array, oldest first)
+Every e-GP announcement the feed has sent for this project (FR-02), one entry per RSS item however many polls see it ([0016](../decisions/0016-pipeline-runs-are-safe-to-repeat.md)). Fetch appends; nothing deletes. `status` is derived from it and `contract` (`status-engine.js`, [0017](../decisions/0017-read-the-egp-feed-as-egp-defines-it.md)).
+
+| Field | Type | Default | Description | Example |
+|---|---|---|---|---|
+| `code` | `String` | — (required) | The e-GP announcement code | `"D0"` |
+| `type` | `String` | — (required) | The code's name in the pipeline | `"invitation"` |
+| `receivedAt` | `Date` | now | When the pipeline first saw the item | `"2026-10-07T10:05:00.000Z"` |
+| `publishedAt` | `Date` | `null` | The item's `pubDate` (a date, no time) | `"2026-10-06T17:00:00.000Z"` |
+| `sourceUrl` | `String` | `""` | The item's link | `"https://process3.gprocurement.go.th/…"` |
+
 ---
 
 ## 3. Main `torSchema` Fields
@@ -136,6 +147,7 @@ Each change to the TOR we know of, oldest first ([0032](../decisions/0032-record
 | `procurementKind` | `String` | No | `null` | The contract's kind, read from the title: `hire` (จ้าง, a job), `buy` (ซื้อ, supplying goods), `rent` (เช่า) [0018](../decisions/0018-preview-ocr-before-classify.md) | `"hire"` |
 | `egpUrl` | `String` | No | `""` | Direct link to e-GP search page for this project | `"https://process3.gprocurement.go.th/egp2procmainWeb/jsp/procsearch.sch?project_id=68049205582"` |
 | `announceType` | `String` | No | `""` | The latest e-GP announcement code seen: `15` reference price, `B0` draft TOR, `D0` invitation, `D2` invitation changed, `D1` invitation cancelled, `W0`/`W2` winner announced/changed, `W1` winner cancelled ([0017](../decisions/0017-read-the-egp-feed-as-egp-defines-it.md)) | `"D0"` |
+| `announcementHistory` | `Array` | No | `[]` | Every feed announcement for the project, oldest first (§2.5) | `[{ "code": "D0", … }]` |
 | `status` | `String` | Indexed | `'Open'` | Current procurement status (`'Draft'`, `'Open'`, `'Awarded'`, `'Closed'`, `'Cancelled'`) | `"Awarded"` |
 | `isAmended` | `Boolean` | Indexed | `false` | Whether e-GP announced a changed invitation (`D2`). A change only the platform found leaves it false: see `amendments` | `false` |
 | `lastChangeAt` | `Date` | Indexed | `null` | When the latest change still standing was found: for sorting, and the watchlist's "changed since you saved" ([0032](../decisions/0032-record-what-changed-in-a-tor.md)) | `"2026-10-25T15:05:00.000Z"` |
@@ -153,7 +165,7 @@ Each change to the TOR we know of, oldest first ([0032](../decisions/0032-record
 ## 4. Pipeline Progression States
 
 ```text
-[ fetched ]      --> Upstream metadata captured from RSS / data.go.th API
+[ fetched ]      --> Metadata captured from the RSS feed or the data.go.th import
      │
      ▼
 [ downloaded ]   --> PDF document successfully saved to local / volume storage

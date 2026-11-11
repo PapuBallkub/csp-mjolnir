@@ -93,10 +93,10 @@ compose sets it to `http://server:8000`.
 - [ ] `API_INTERNAL_URL` unset, or set to an address the client's server can
       reach. Wrong, every TOR detail page shows "couldn't load this posting"
       while the catalog, which fetches from the browser, still works
-- [ ] Note that **no client code reads it yet** — it appears only in
-      `client/Dockerfile`. The plumbing exists; nothing is connected to it. When
-      the auth form is wired up, this becomes live and a wrong value at build
-      time means a client that cannot reach its API.
+- [ ] `NEXT_PUBLIC_API_URL` built in correctly: `client/app/_lib/api.ts` reads
+      it for every call the browser makes. Wrong, sign-in, the catalog, the
+      watchlist and the admin pages all fail. TOR detail pages still render,
+      because they fetch on the server, but their buttons fail.
 
 ---
 
@@ -168,8 +168,6 @@ Do not assume these are handled just because the app works.
       self-service recovery. Both belong with FR08.
 - [ ] **Registration reveals whether an address already has an account**,
       because the form has to say so for the person who genuinely forgot.
-- [ ] **The client is not wired to the API yet** — `client/app/auth/page.tsx` is
-      still a mockup whose submit handler only calls `preventDefault()`.
 
 ---
 

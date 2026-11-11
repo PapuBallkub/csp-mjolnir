@@ -7,7 +7,7 @@ The details live in one page per source:
 |---|---|---|
 | `process3.gprocurement.go.th`, the e-GP RSS feed | Finds **open** projects (drafts and invitations) and follows them to the winner | [process3_gprocurement.md](process3_gprocurement.md) |
 | `process5.gprocurement.go.th`, e-GP's file services | Holds each project's documents: announcement, bidding document, TOR, price form | [process5_gprocurement.md](process5_gprocurement.md) |
-| `data.go.th`, the open-data portal | e-GP's agency codes, for the sweep. Its past contracts aren't read now; an import is planned. | [data_go_th.md](data_go_th.md) |
+| `data.go.th`, the open-data portal | e-GP's agency codes, for the sweep, and past IT contracts, imported by hand (`npm run history:import`) as projects to compare prices against | [data_go_th.md](data_go_th.md) |
 
 The commands and pipeline stages are in [pipeline.md](../pipeline.md). The
 reasons behind them are in the decisions it links to.
@@ -20,9 +20,11 @@ reasons behind them are in the decisions it links to.
 flowchart LR
     RSS["process3 RSS<br/>new and changed announcements"] --> TOR[("Tor<br/>MongoDB")]
     DGO["data.go.th<br/>agency codes"] -. sweep list .-> RSS
-    TOR --> DL["download<br/>process5: announcement zip,<br/>else price zip"]
-    DL --> PDF["one PDF kept:<br/>server/data/documents/&lt;id&gt;_TOR.pdf"]
-    PDF --> OCR["OCR<br/>6-page preview, then the rest if IT"]
+    CSV["data.go.th<br/>past contracts, CSV"] -- "history:import,<br/>by hand" --> TOR
+    TOR --> SCR["title screen<br/>(Gemini reads titles only)"]
+    SCR --> DL["download<br/>process5: each stage's package,<br/>and the price package"]
+    DL --> FILES["files kept per package:<br/>server/data/documents/&lt;id&gt;/&lt;package&gt;/"]
+    FILES --> OCR["OCR<br/>6-page preview, then the rest if IT"]
     OCR --> AI["classify, then extract<br/>(Gemini)"]
     AI --> INS[("TorInsight<br/>MongoDB")]
 ```
@@ -30,8 +32,15 @@ flowchart LR
 - **Two pipelines meet in the database.** Ingestion writes `Tor`; extraction
   writes `TorInsight`. Where the feed has a value, it wins over the AI's
   ([0013](../decisions/0013-split-ingestion-and-ai-extraction.md)).
+- **Titles are screened before anything is downloaded.** Gemini reads them in
+  batches of 40, and only a project that is clearly not IT stops there (an
+  audit sample goes on anyway, to measure how often the screen is wrong); the
+  rest are downloaded
+  ([0026](../decisions/0026-screen-titles-before-downloading.md)).
 - **Only workable TORs are downloaded:** Draft or Open, announced by the feed,
   with no winner ([0018](../decisions/0018-preview-ocr-before-classify.md)).
+  The exception is a past project chosen to be read for comparisons
+  ([0028](../decisions/0028-past-projects-from-data-go-th.md)).
 - **Each package's project files are kept, and its announcement is read in
   code** for the agency, ราคากลาง and bid window. A new stage's package is
   downloaded when the feed announces it ([0020](../decisions/0020-read-the-whole-egp-package.md)).

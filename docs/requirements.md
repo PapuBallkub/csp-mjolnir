@@ -81,7 +81,7 @@ What the SRS says each class gets, and where it lives today.
 | Saved opportunities | authenticated | `/watchlist` |
 | Notifications | authenticated | `/notifications` |
 | Administration dashboard | admin | `/admin` |
-| Data management (edit, reclassify, review, roll back) | admin | `/admin` — not yet built |
+| Data management (edit, reclassify, review, roll back) | admin | `/admin/review/[id]` |
 
 ## External systems
 
