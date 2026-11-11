@@ -329,35 +329,41 @@ export function ProfileDisplay({
       <Panel className="p-5 sm:p-6">
         <div className="flex items-center justify-between border-b border-line/60 pb-3">
           <SectionHeading sub="การแจ้งเตือนประกาศจัดซื้อจัดจ้างที่ตรงกับโปรไฟล์ผ่านทางอีเมล (PDPA Consent)">
-            การแจ้งเตือนงานที่ตรงกับคุณ
+            การแจ้งเตือนทางอีเมล (Email Notifications)
           </SectionHeading>
           <span
             className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
-              profile.matchNotification?.enabled
+              user.notificationConsent && profile.matchNotification?.enabled
                 ? "bg-open-bg text-open border border-open-line"
                 : "bg-surface-2 text-ink-3 border border-line"
             }`}
           >
-            {profile.matchNotification?.enabled ? "เปิดใช้งาน" : "ปิดอยู่"}
+            {user.notificationConsent && profile.matchNotification?.enabled
+              ? "เปิดใช้งาน"
+              : "ปิดอยู่"}
           </span>
         </div>
 
         <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[13px] text-ink-2">
           <div>
             <p>
-              {profile.matchNotification?.enabled
+              {!user.notificationConsent
+                ? "ยังไม่ยินยอมรับการแจ้งเตือนทางอีเมล"
+                : profile.matchNotification?.enabled
                 ? `ส่งสรุปงานที่ตรงตั้งแต่ ${profile.matchNotification.minScore}% ขึ้นไป (${
                     profile.matchNotification.frequency === "weekly"
                       ? "สัปดาห์ละครั้ง"
-                      : "วันละครั้ง (สรุปช่วงเช้า)"
+                      : "วันละครั้ง"
                   })`
-                : "คุณยังไม่ได้เปิดการแจ้งเตือนอีเมลสำหรับงานที่ตรงกับคุณ"}
+                : "ยินยอมรับการแจ้งเตือนทางอีเมลแล้ว แต่ปิดการแจ้งเตือนประกาศตรงโปรไฟล์"}
             </p>
-            {profile.matchNotification?.enabled && profile.matchNotification.includeSubcontract && (
-              <p className="mt-1 text-[11.5px] text-ink-3">
-                ✓ รวมโอกาสรับงานช่วง (Subcontract) และกิจการร่วมค้า
-              </p>
-            )}
+            {user.notificationConsent &&
+              profile.matchNotification?.enabled &&
+              profile.matchNotification.includeSubcontract && (
+                <p className="mt-1 text-[11.5px] text-ink-3">
+                  ✓ รวมโอกาสรับงานช่วง (Subcontract) และกิจการร่วมค้า
+                </p>
+              )}
           </div>
 
           <button

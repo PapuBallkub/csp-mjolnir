@@ -215,14 +215,14 @@ export async function dispatchPendingMatchEmails({ batchLimit = 100 } = {}) {
       continue;
     }
 
-    // Consent check:
-    // User gives explicit consent either via user.notificationConsent or by enabling matchNotification in profile
-    const hasEmailConsent = Boolean(user.notificationConsent || user.profile?.matchNotification?.enabled);
-    const isNotificationExplicitlyDisabled = user.profile?.matchNotification?.enabled === false;
+    // Master consent check: user.notificationConsent is the primary PDPA consent switch
+    const hasMasterConsent = Boolean(user.notificationConsent);
+    // Specific match notification switch:
+    const isMatchNotificationEnabled = Boolean(user.profile?.matchNotification?.enabled);
 
-    if (!hasEmailConsent || isNotificationExplicitlyDisabled) {
+    if (!hasMasterConsent || !isMatchNotificationEnabled) {
       console.log(
-        `[dispatch] Skipped ${user.email}: email consent not granted or notifications disabled (consent=${user.notificationConsent}, matchNotification.enabled=${user.profile?.matchNotification?.enabled})`
+        `[dispatch] Skipped ${user.email}: notifications not active (masterConsent=${hasMasterConsent}, matchNotification.enabled=${isMatchNotificationEnabled})`
       );
       notif.emailSent = false;
       notif.emailSkipped = true;

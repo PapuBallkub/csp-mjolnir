@@ -178,7 +178,11 @@ export function me() {
  * FR-12. Saves profile preferences. PATCH, so only the fields sent are updated.
  * Returns the full updated user — the caller replaces its AuthUser with this.
  */
-export function updateProfile(body: Partial<UserProfile>) {
+export type UpdateProfilePayload = Partial<UserProfile> & {
+  notificationConsent?: boolean;
+};
+
+export function updateProfile(body: UpdateProfilePayload) {
   return request<UserResponse>("/api/profile", {
     method: "PATCH",
     body: JSON.stringify(body),
