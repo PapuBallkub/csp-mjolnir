@@ -1,7 +1,5 @@
-import Link from "next/link";
 import type { TorInsightDetail } from "../../_lib/api";
 import { isDead } from "../verdict";
-import type { Match } from "../../_lib/match";
 import { Fact, Label, Panel, btn } from "../ui";
 import { formatMoney, formatDateString } from "./_lib/tor-helpers";
 
@@ -9,30 +7,25 @@ export function TorAside({
   insight,
   fiscalYear,
   officialEgpUrl,
-  match,
-  isAuthenticated,
-  isSaved,
-  toggleLoading,
-  onWatchlistClick,
   onPreviewPdf,
   deadline,
+  isSaved,
+  isPopping,
+  toggleLoading,
+  onWatchlistClick,
 }: {
   insight: TorInsightDetail;
   fiscalYear: number | null;
   officialEgpUrl: string | null;
-  match: Match | null;
-  isAuthenticated: boolean;
-  isSaved: boolean;
-  toggleLoading: boolean;
-  onWatchlistClick: () => void;
   onPreviewPdf: () => void;
   deadline: { kind: string; date: string | null; label: { th: string; en: string } };
+  isSaved?: boolean;
+  isPopping?: boolean;
+  toggleLoading?: boolean;
+  onWatchlistClick?: () => void;
 }) {
   const iden = insight.identification;
   const facts = insight.facts;
-  const requiredTechNames: string[] = Array.from(
-    new Set((insight.technicalRequirements.requiredTechnologies ?? []).map((t) => t.name).filter(Boolean))
-  );
 
   return (
     <aside className="flex flex-col gap-4 lg:sticky lg:top-[116px] lg:self-start">
@@ -140,131 +133,63 @@ export function TorAside({
           </Fact>
         </div>
 
-        {/* Document Actions (PDF Preview & Official e-GP Link) */}
+        {/* Document Actions (PDF Preview, Watchlist & Official e-GP Link) */}
         <div className="mt-4 border-t border-line pt-3 pb-1 space-y-2">
           <button
             type="button"
             onClick={onPreviewPdf}
-            className={`${btn.primary} flex w-full items-center justify-center gap-1.5 text-[12px] cursor-pointer`}
+            className={`${btn.primary} flex w-full items-center justify-center gap-1.5 text-[12.5px] cursor-pointer`}
           >
             <span>📄</span>
             <span>พรีวิวเอกสารต้นฉบับ (PDF)</span>
           </button>
+
+          {onWatchlistClick ? (
+            <button
+              type="button"
+              onClick={onWatchlistClick}
+              disabled={toggleLoading}
+              aria-pressed={isSaved}
+              className={`relative flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-[3px] px-3.5 text-[12.5px] font-medium transition-colors duration-200 cursor-pointer select-none ${
+                isSaved
+                  ? "border border-open-line bg-open-bg text-open hover:opacity-90"
+                  : "border border-line-2 bg-surface text-ink hover:bg-surface-2"
+              }`}
+            >
+              {isPopping ? (
+                <span className="pointer-events-none absolute inset-0 rounded-[3px] bg-open/15 animate-pulse-ring" />
+              ) : null}
+
+              <span
+                className={`inline-flex shrink-0 items-center justify-center transition-transform duration-300 ${
+                  isPopping ? "animate-bookmark-pop" : ""
+                }`}
+              >
+                {isSaved ? (
+                  <span className="text-open font-bold text-[14px]">✓</span>
+                ) : (
+                  <span className="text-[13px] text-ink-2">★</span>
+                )}
+              </span>
+
+              <span className="whitespace-nowrap">
+                {isSaved ? "ติดตามประกาศนี้แล้ว" : "บันทึกติดตามประกาศนี้"}
+              </span>
+            </button>
+          ) : null}
 
           {officialEgpUrl ? (
             <a
               href={officialEgpUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className={`${btn.secondary} flex w-full items-center justify-center gap-1.5 text-[12px]`}
+              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-[3px] border border-line bg-surface text-[12px] font-medium text-ink-2 transition-colors hover:border-line-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
             >
               <span>เปิดดูบนระบบ e-GP ทางการ</span>
-              <span>↗</span>
+              <span className="text-[11px] text-ink-2">↗</span>
             </a>
           ) : null}
-
-          <p className="mt-1.5 text-center text-[11px] leading-relaxed text-ink-3">
-            <span className="block">การยื่นข้อเสนอและการประมูลทางการทำผ่าน e-GP เท่านั้น</span>
-            <span className="block text-[10.5px] text-ink-3/80">
-              (ระบบ e-GP ปิดปรับปรุงประจำวัน 00:00–04:00 น.)
-            </span>
-          </p>
         </div>
-      </Panel>
-
-      {/* 2. Watchlist Action Card */}
-      <Panel className="p-4">
-        <button
-          type="button"
-          onClick={onWatchlistClick}
-          disabled={toggleLoading}
-          className={isSaved ? `${btn.secondary} w-full text-[13px]` : `${btn.primary} w-full text-[13px]`}
-          aria-pressed={isSaved}
-        >
-          {toggleLoading
-            ? "กำลังอัปเดต…"
-            : isSaved
-            ? "✓ ติดตามประกาศนี้แล้ว"
-            : "★ บันทึกไว้ติดตามการเปลี่ยนแปลง"}
-        </button>
-        <p className="mt-2 text-[11px] leading-thai text-ink-3">
-          {isSaved
-            ? "ระบบจะแจ้งเตือนเมื่อมีการออกเอกสารแก้ไข (Amendment) หรือประกาศผู้ชนะ"
-            : "บันทึกเพื่อรับการแจ้งเตือนทันทีเมื่อมีการแก้ไข TOR หรือเลื่อนวันยื่นข้อเสนอ"}
-        </p>
-      </Panel>
-
-      {/* 3. Capability Match Box (Auth-aware) */}
-      <Panel className="p-4">
-        <div className="flex items-center justify-between gap-2">
-          <Label>ความตรงกับโปรไฟล์คุณ</Label>
-          {isAuthenticated && match ? (
-            <span className="font-mono text-[14px] font-bold text-open">
-              {match.score}%
-            </span>
-          ) : null}
-        </div>
-
-        {isAuthenticated && match ? (
-          <>
-            <div className="mt-2 flex items-center justify-between text-[11.5px]">
-              <span className="text-ink-3">ระดับความตรง:</span>
-              <span className="font-semibold text-ink">
-                {match.tier === "strong"
-                  ? "ตรงมาก"
-                  : match.tier === "good"
-                  ? "ตรงปานกลาง-สูง"
-                  : match.tier === "moderate"
-                  ? "ตรงบางส่วน"
-                  : "ตรงน้อย"}
-              </span>
-            </div>
-
-            {match.disqualifiedDirectBid ? (
-              <div className="mt-2 rounded-[2px] border border-amber-300 bg-amber-50/80 px-2.5 py-1.5 text-[11px] leading-thai text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                ⚠️ กำหนดเฉพาะนิติบุคคล (คุณเป็นบุคคลธรรมดา)
-              </div>
-            ) : null}
-
-            <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-3">
-              {requiredTechNames.map((tName, idx) => {
-                const isMatched = match.matched.includes(tName);
-                return (
-                  <span
-                    key={`${tName}-${idx}`}
-                    className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[11px] ${
-                      isMatched
-                        ? "border-open-line bg-open-bg text-open font-medium"
-                        : "border-line bg-surface-2 text-ink-3"
-                    }`}
-                  >
-                    <span>{isMatched ? "✓" : "○"}</span>
-                    <span>{tName}</span>
-                  </span>
-                );
-              })}
-            </div>
-
-            <Link
-              href="/profile"
-              className="mt-3 inline-block text-[11px] text-ink-2 underline underline-offset-2 hover:text-ink"
-            >
-              ปรับแต่งโปรไฟล์ของคุณ →
-            </Link>
-          </>
-        ) : (
-          <div className="mt-2 border-t border-line pt-2.5">
-            <p className="text-[12px] leading-thai text-ink-2">
-              ลงชื่อเข้าใช้เพื่อดูว่าโครงการนี้ตรงกับทักษะ ช่วงงบ และประเภทกิจการของคุณหรือไม่
-            </p>
-            <Link
-              href="/auth"
-              className={`${btn.secondary} mt-3 flex w-full items-center justify-center text-[12px]`}
-            >
-              ลงชื่อเข้าใช้เพื่อดูผลจับคู่
-            </Link>
-          </div>
-        )}
       </Panel>
     </aside>
   );

@@ -33,8 +33,6 @@ interface TabItem {
   key: TabKey;
   label: string;
   icon: string;
-  badge?: string | number | null;
-  badgeTone?: "open" | "amend" | "risk" | "neutral";
 }
 
 export function TorDetail({
@@ -83,6 +81,7 @@ export function TorDetail({
   const projectId = insight.projectId;
   const isSaved = user?.watchlist?.includes(projectId) ?? false;
   const [toggleLoading, setToggleLoading] = useState(false);
+  const [isPopping, setIsPopping] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
@@ -138,19 +137,22 @@ export function TorDetail({
       setShowAuthModal(true);
       return;
     }
+    if (toggleLoading) return;
+
+    setIsPopping(true);
     setToggleLoading(true);
-    if (isSaved) {
-      await removeFromWatchlist(projectId);
-    } else {
-      await addToWatchlist(projectId);
-    }
+
+    const action = isSaved ? removeFromWatchlist(projectId) : addToWatchlist(projectId);
+    // Smooth transition pacing: ensure spring micro-animation completes naturally without 10ms flicker
+    await Promise.all([action, new Promise((resolve) => setTimeout(resolve, 320))]);
+
     setToggleLoading(false);
+    setTimeout(() => setIsPopping(false), 80);
   };
 
   const iden = insight.identification;
   const facts = insight.facts;
   const lockSpec = insight.analytics.lockSpec;
-  const amend = insight.amendmentInfo;
   const stage = stageOf({
     status: iden.status,
     latestAnnouncement: insight.latestAnnouncement,
@@ -186,24 +188,16 @@ export function TorDetail({
       key: "specs",
       label: "ข้อกำหนดทางเทคนิค",
       icon: "⚙️",
-      badge: insight.technicalRequirements.requiredTechnologies?.length
-        ? `${insight.technicalRequirements.requiredTechnologies.length} stack`
-        : null,
-      badgeTone: "neutral",
     },
     {
       key: "analysis",
       label: "การวิเคราะห์ & ความเหมาะสม",
       icon: "🔍",
-      badge: isAuthenticated && match ? `${match.score}% ตรง` : lockScore != null && lockScore >= 35 ? "ตรวจพบความเสี่ยง" : null,
-      badgeTone: isAuthenticated && match ? "open" : lockScore != null && lockScore >= 70 ? "risk" : "amend",
     },
     {
       key: "eligibility",
       label: "คุณสมบัติ & เอกสาร",
       icon: "📑",
-      badge: amend.isAmended ? "แก้ไขแล้ว" : null,
-      badgeTone: "amend",
     },
   ];
 
@@ -257,24 +251,6 @@ export function TorDetail({
                 >
                   <span className="text-[14px]">{tab.icon}</span>
                   <span>{tab.label}</span>
-
-                  {tab.badge ? (
-                    <span
-                      className={`rounded px-1.5 py-0.2 font-mono text-[10.5px] font-semibold leading-tight ${
-                        isActive
-                          ? "bg-surface/20 text-surface"
-                          : tab.badgeTone === "open"
-                          ? "bg-open-bg text-open border border-open-line"
-                          : tab.badgeTone === "risk"
-                          ? "bg-risk-bg text-risk border border-risk-line"
-                          : tab.badgeTone === "amend"
-                          ? "bg-amend-bg text-amend border border-amend-line"
-                          : "bg-surface-3 text-ink-3"
-                      }`}
-                    >
-                      {tab.badge}
-                    </span>
-                  ) : null}
                 </button>
               );
             })}
@@ -284,19 +260,18 @@ export function TorDetail({
 
       {/* 3. MAIN BODY & ASIDE GRID */}
       <div className="mx-auto grid max-w-[1240px] gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        {/* ASIDE COLUMN */}
+        {/* ASIDE COLUMN (ACTION STACK OPTION 1) */}
         <div className="order-1 lg:order-2">
           <TorAside
             insight={insight}
             fiscalYear={fiscalYear}
             officialEgpUrl={officialEgpUrl}
-            match={match}
-            isAuthenticated={isAuthenticated}
-            isSaved={isSaved}
-            toggleLoading={toggleLoading}
-            onWatchlistClick={handleWatchlistClick}
             onPreviewPdf={() => setIsPdfModalOpen(true)}
             deadline={deadline}
+            isSaved={isSaved}
+            isPopping={isPopping}
+            toggleLoading={toggleLoading}
+            onWatchlistClick={handleWatchlistClick}
           />
         </div>
 
@@ -395,6 +370,48 @@ export function TorDetail({
           </div>
         </div>
       ) : null}
+
+      {/* 4. FLOATING ACTION BUTTON (BOTTOM-RIGHT FAB — OPTION 2) */}
+      <div className="fixed bottom-6 right-6 z-40 group">
+        {/* Tooltip on Hover */}
+        <div className="pointer-events-none absolute bottom-full right-0 mb-2.5 whitespace-nowrap rounded-[4px] bg-ink px-3 py-1.5 text-[12px] font-medium text-surface shadow-lg opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+          {isSaved ? "✓ ติดตามประกาศนี้แล้ว (คลิกเพื่อยกเลิก)" : "★ บันทึกติดตามประกาศนี้"}
+          <div className="absolute top-full right-5 h-0 w-0 border-x-4 border-t-4 border-x-transparent border-t-ink" />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleWatchlistClick}
+          disabled={toggleLoading}
+          aria-pressed={isSaved}
+          aria-label={isSaved ? "ติดตามประกาศนี้แล้ว คลิกเพื่อยกเลิก" : "บันทึกติดตามประกาศนี้"}
+          className={`relative flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full border shadow-xl transition-all duration-300 cursor-pointer hover:scale-105 active:scale-90 focus:outline-none focus:ring-2 focus:ring-focus ${
+            isSaved
+              ? "border-open-line bg-open text-white shadow-open/30"
+              : "border-line bg-ink text-surface shadow-ink/30 hover:opacity-90"
+          } ${isPopping ? "animate-bookmark-pop" : ""}`}
+        >
+          {/* Radial Pulse Ring during state change */}
+          {isPopping ? (
+            <span className="pointer-events-none absolute inset-0 rounded-full bg-open/40 animate-pulse-ring" />
+          ) : null}
+
+          {/* Smooth Icon Spring Transition */}
+          <span
+            className={`inline-flex items-center justify-center transition-all duration-300 ${
+              isPopping ? "scale-125 rotate-12" : "scale-100 rotate-0"
+            }`}
+          >
+            {isSaved ? (
+              <svg viewBox="0 0 24 24" className="h-6 w-6 stroke-current fill-none stroke-[2.8]" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : (
+              <span className="text-[22px] leading-none text-surface">★</span>
+            )}
+          </span>
+        </button>
+      </div>
 
       {/* Original Document PDF Preview Modal */}
       <PdfPreviewModal

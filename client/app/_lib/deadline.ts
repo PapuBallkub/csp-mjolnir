@@ -5,8 +5,9 @@ const DAY = 24 * 60 * 60 * 1000;
 const BANGKOK = 7 * 60 * 60 * 1000;
 const bangkokDay = (time: number) => Math.floor((time + BANGKOK) / DAY);
 
-export function daysLeft(deadline: string, now: Date): number {
-  return bangkokDay(new Date(deadline).getTime()) - bangkokDay(now.getTime());
+export function daysLeft(deadline: string, now: Date = new Date()): number {
+  const targetNow = now instanceof Date && !isNaN(now.getTime()) ? now : new Date();
+  return bangkokDay(new Date(deadline).getTime()) - bangkokDay(targetNow.getTime());
 }
 
 /** Returns the dynamic countdown text and urgency tone for a given days left count. */

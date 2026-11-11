@@ -14,16 +14,16 @@ export { countdownText, daysLeft, formatThaiDate };
 export function TorDeadline({
   status,
   facts,
-  now,
-  lang,
+  now = new Date(),
+  lang = "th",
   align = "end",
   hideLabel = false,
   className = "",
 }: {
   status: TorStatus;
   facts: { submissionDeadline: string | null; commentDeadline?: string | null };
-  now: Date;
-  lang: Lang;
+  now?: Date;
+  lang?: Lang;
   align?: "start" | "end" | "center";
   hideLabel?: boolean;
   className?: string;

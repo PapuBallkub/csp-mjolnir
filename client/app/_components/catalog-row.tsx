@@ -61,10 +61,11 @@ export function CatalogRow({
   trailing,
 }: {
   tor: TorInsightSummary;
-  now: Date;
+  now?: Date;
   match?: Match;
   trailing?: ReactNode;
 }) {
+  const currentDate = now instanceof Date ? now : new Date();
   const { identification: iden, facts, analytics } = tor;
 
   const breakpoint = useBreakpoint();
@@ -162,7 +163,7 @@ export function CatalogRow({
           <div className="flex flex-col justify-between">
             <span className="text-[10px] font-medium text-ink-3 uppercase tracking-wider">กำหนดยื่นข้อเสนอ</span>
             <div className="mt-1">
-              <TorDeadline status={iden.status} facts={facts} now={now} lang="th" align="start" hideLabel={true} />
+              <TorDeadline status={iden.status} facts={facts} now={currentDate} lang="th" align="start" hideLabel={true} />
             </div>
           </div>
 

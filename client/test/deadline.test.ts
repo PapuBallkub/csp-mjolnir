@@ -64,3 +64,11 @@ test("formatThaiDate: formats date with Thai Buddhist year", () => {
   assert.ok(formatted.includes("พ.ย."));
 });
 
+test("daysLeft: safely defaults now to current date when omitted or undefined", () => {
+  // Should not throw TypeError: Cannot read properties of undefined (reading 'getTime')
+  const future = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+  const days = daysLeft(future);
+  assert.ok(days >= 4 && days <= 6);
+});
+
+
