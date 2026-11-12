@@ -874,7 +874,7 @@ export function ProfileEditForm({
         </SectionHeading>
 
         {/* Master Consent Toggle */}
-        <div className="mt-3 flex items-start gap-3">
+        <div className="mt-3.5 flex items-center gap-2.5">
           <input
             type="checkbox"
             id="master-notif-consent"
@@ -894,22 +894,21 @@ export function ProfileEditForm({
                 }));
               }
             }}
-            className="mt-1 h-4 w-4 rounded border-line text-ink cursor-pointer"
+            className="h-[18px] w-[18px] rounded border-line text-ink cursor-pointer accent-ink"
           />
-          <label htmlFor="master-notif-consent" className="text-[13px] leading-thai text-ink cursor-pointer">
-            <span className="font-semibold text-ink">ยินยอมรับการแจ้งเตือนทางอีเมล (Email Consent)</span>
-            <span className="block text-[11.5px] text-ink-3">
-              อนุญาตให้ระบบส่งการแจ้งเตือนสรุปโครงการไปยัง {user.email} (สามารถยกเลิกหรือเปลี่ยนแปลงได้ตลอดเวลาตาม PDPA)
+          <label htmlFor="master-notif-consent" className="cursor-pointer select-none">
+            <span className="text-[15px] font-semibold text-ink">
+              ยินยอมรับการแจ้งเตือนทางอีเมล (Email Consent)
             </span>
           </label>
         </div>
 
         {/* Expanded Specific Notification Settings */}
         {consent && (
-          <div className="mt-4 ml-6 space-y-4 border-l-2 border-line pl-4">
+          <div className="mt-3.5 ml-2.5 space-y-4 border-l-2 border-line/60 pl-4 sm:pl-5">
             {/* Specific Type: TOR Matching */}
             <div>
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-2.5">
                 <input
                   type="checkbox"
                   id="tor-match-toggle"
@@ -925,68 +924,78 @@ export function ProfileEditForm({
                       },
                     }))
                   }
-                  className="mt-1 h-4 w-4 rounded border-line text-ink cursor-pointer"
+                  className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-pointer accent-ink"
                 />
-                <label htmlFor="tor-match-toggle" className="text-[13px] leading-thai text-ink cursor-pointer">
-                  <span className="font-medium text-ink">เปิดรับการแจ้งเตือนประกาศที่ตรงกับโปรไฟล์ (TOR Matching)</span>
-                  <span className="block text-[11.5px] text-ink-3">
+                <label htmlFor="tor-match-toggle" className="text-[13.5px] leading-thai text-ink cursor-pointer select-none">
+                  <span className="font-medium text-ink">
+                    เปิดรับการแจ้งเตือนประกาศที่ตรงกับโปรไฟล์ (TOR Matching)
+                  </span>
+                  <span className="block text-[12px] text-ink-3 mt-0.5">
                     ระบบจะส่งสรุปรายการโครงการที่คะแนนความตรงถึงเกณฑ์ที่กำหนดไปยังอีเมลของคุณ
                   </span>
                 </label>
               </div>
 
-              {/* Sub-options: Visible together, grayed out if TOR Matching is not checked */}
+              {/* Sub-options: Always visible together, grayed out if TOR Matching is not checked */}
               <div
-                className={`mt-3 ml-7 space-y-4 border-l pl-3.5 transition-all ${
+                className={`mt-3.5 ml-7 space-y-3.5 transition-all ${
                   draft.matchNotification?.enabled
-                    ? "border-line/70 opacity-100"
-                    : "border-line/30 opacity-40 pointer-events-none select-none"
+                    ? "opacity-100"
+                    : "opacity-40 pointer-events-none select-none"
                 }`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                  <span className="text-[12.5px] font-medium text-ink whitespace-nowrap leading-none">
-                    เกณฑ์คะแนนขั้นต่ำในการแจ้งเตือน:{" "}
-                    <span className="font-mono text-[13px] font-bold text-ink">
+                {/* Setting 1: Minimum Score Threshold */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                  <span className="text-[13px] font-medium text-ink sm:w-[200px] shrink-0">
+                    เกณฑ์คะแนนขั้นต่ำในการแจ้งเตือน:
+                  </span>
+                  <div className="flex items-center gap-3 w-full max-w-xs">
+                    <input
+                      type="range"
+                      min={50}
+                      max={95}
+                      step={5}
+                      disabled={!draft.matchNotification?.enabled}
+                      value={draft.matchNotification?.minScore ?? 75}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setDraft((prev) => ({
+                          ...prev,
+                          matchNotification: {
+                            enabled: prev.matchNotification?.enabled ?? true,
+                            minScore: val,
+                            frequency:
+                              prev.matchNotification?.frequency === "instant"
+                                ? "daily"
+                                : prev.matchNotification?.frequency ?? "daily",
+                            includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
+                          },
+                        }));
+                      }}
+                      className="h-2 w-full cursor-pointer accent-ink my-auto disabled:cursor-not-allowed"
+                    />
+                    <span className="font-mono text-[13px] font-bold text-ink w-8 shrink-0 text-right">
                       {draft.matchNotification?.minScore ?? 75}%
                     </span>
-                  </span>
-                  <input
-                    type="range"
-                    min={50}
-                    max={95}
-                    step={5}
-                    disabled={!draft.matchNotification?.enabled}
-                    value={draft.matchNotification?.minScore ?? 75}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      setDraft((prev) => ({
-                        ...prev,
-                        matchNotification: {
-                          enabled: prev.matchNotification?.enabled ?? true,
-                          minScore: val,
-                          frequency:
-                            prev.matchNotification?.frequency === "instant"
-                              ? "daily"
-                              : prev.matchNotification?.frequency ?? "daily",
-                          includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
-                        },
-                      }));
-                    }}
-                    className="h-2 w-full max-w-xs cursor-pointer accent-ink my-auto disabled:cursor-not-allowed"
-                  />
+                  </div>
                 </div>
 
-                <div>
-                  <Label>ความถี่ในการแจ้งเตือน:</Label>
-                  <div className="mt-1.5 flex gap-4 text-[12.5px] text-ink-2">
+                {/* Setting 2: Notification Frequency */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                  <span className="text-[13px] font-medium text-ink sm:w-[200px] shrink-0">
+                    ความถี่ในการแจ้งเตือน:
+                  </span>
+                  <div className="flex items-center gap-5 text-[13px]">
                     {[
                       { id: "daily", label: "วันละครั้ง" },
                       { id: "weekly", label: "สัปดาห์ละครั้ง" },
                     ].map((freq) => (
                       <label
                         key={freq.id}
-                        className={`flex items-center gap-1.5 ${
-                          draft.matchNotification?.enabled ? "cursor-pointer" : "cursor-not-allowed"
+                        className={`flex items-center gap-2 ${
+                          draft.matchNotification?.enabled
+                            ? "cursor-pointer text-ink"
+                            : "cursor-not-allowed text-ink-3"
                         }`}
                       >
                         <input
