@@ -934,8 +934,8 @@ export function ProfileEditForm({
                   }`}
               >
                 {/* Setting 1: Minimum Score Threshold */}
-                <div>
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                  <div className="flex items-center gap-2 shrink-0">
                     <span className="text-[12px] font-medium text-ink-2">
                       เกณฑ์คะแนนขั้นต่ำในการแจ้งเตือน:
                     </span>
@@ -943,7 +943,7 @@ export function ProfileEditForm({
                       {draft.matchNotification?.minScore ?? 75}%
                     </span>
                   </div>
-                  <div className="mt-1.5 flex items-center gap-2.5 w-full max-w-xs">
+                  <div className="flex items-center gap-2.5 w-full max-w-xs">
                     <input
                       type="range"
                       min={50}
@@ -971,204 +971,204 @@ export function ProfileEditForm({
                   </div>
                 </div>
 
-                {/* Setting 2: Notification Frequency */}
-                <div>
-                  <span className="text-[12px] font-medium text-ink-2 block">
-                    ความถี่ในการแจ้งเตือน:
-                  </span>
-                  <div className="mt-1.5 flex items-center gap-4 text-[12.5px]">
-                    {[
-                      { id: "daily", label: "วันละครั้ง" },
-                      { id: "weekly", label: "สัปดาห์ละครั้ง" },
-                    ].map((freq) => (
-                      <label
-                        key={freq.id}
-                        className={`flex items-center gap-1.5 ${draft.matchNotification?.enabled
-                          ? "cursor-pointer text-ink"
-                          : "cursor-not-allowed text-ink-3"
-                          }`}
-                      >
-                        <input
-                          type="radio"
-                          name="notif-frequency"
-                          disabled={!draft.matchNotification?.enabled}
-                          checked={
-                            (draft.matchNotification?.frequency ?? "daily") === freq.id ||
-                            (draft.matchNotification?.frequency === "instant" && freq.id === "daily")
-                          }
-                          onChange={() => {
-                            setDraft((prev) => ({
-                              ...prev,
-                              matchNotification: {
-                                enabled: prev.matchNotification?.enabled ?? true,
-                                minScore: prev.matchNotification?.minScore ?? 75,
-                                frequency: freq.id as "daily" | "weekly",
-                                includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
-                              },
-                            }));
-                          }}
-                          className="accent-ink cursor-pointer disabled:cursor-not-allowed"
-                        />
-                        <span>{freq.label}</span>
-                      </label>
-                    ))}
+                  {/* Setting 2: Notification Frequency */}
+                  <div>
+                    <span className="text-[12px] font-medium text-ink-2 block">
+                      ความถี่ในการแจ้งเตือน:
+                    </span>
+                    <div className="mt-1.5 flex items-center gap-4 text-[12.5px]">
+                      {[
+                        { id: "daily", label: "วันละครั้ง" },
+                        { id: "weekly", label: "สัปดาห์ละครั้ง" },
+                      ].map((freq) => (
+                        <label
+                          key={freq.id}
+                          className={`flex items-center gap-1.5 ${draft.matchNotification?.enabled
+                            ? "cursor-pointer text-ink"
+                            : "cursor-not-allowed text-ink-3"
+                            }`}
+                        >
+                          <input
+                            type="radio"
+                            name="notif-frequency"
+                            disabled={!draft.matchNotification?.enabled}
+                            checked={
+                              (draft.matchNotification?.frequency ?? "daily") === freq.id ||
+                              (draft.matchNotification?.frequency === "instant" && freq.id === "daily")
+                            }
+                            onChange={() => {
+                              setDraft((prev) => ({
+                                ...prev,
+                                matchNotification: {
+                                  enabled: prev.matchNotification?.enabled ?? true,
+                                  minScore: prev.matchNotification?.minScore ?? 75,
+                                  frequency: freq.id as "daily" | "weekly",
+                                  includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
+                                },
+                              }));
+                            }}
+                            className="accent-ink cursor-pointer disabled:cursor-not-allowed"
+                          />
+                          <span>{freq.label}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
         )}
-      </Panel>
+          </Panel>
 
       {/* Bottom Save / Cancel Bar */}
-      <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
-        <button
-          type="button"
-          onClick={() => {
-            if (isDirty) {
-              setCancelConfirmOpen(true);
-            } else {
-              onCancel();
-            }
-          }}
-          disabled={saving}
-          className={btn.secondary}
-        >
-          ยกเลิก
-        </button>
-        <button
-          type="submit"
-          disabled={saving || !!budgetError}
-          className={btn.primary}
-        >
-          {saving ? "กำลังบันทึก…" : "✓ บันทึกข้อมูลโปรไฟล์"}
-        </button>
-      </div>
-
-      {/* Floating Unsaved Changes Bar */}
-      {isDirty && (
-        <aside
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full border border-line bg-surface/95 px-4 py-2.5 shadow-xl backdrop-blur-md transition-all"
-        >
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
-            </span>
-            <span className="text-[12.5px] font-medium text-ink whitespace-nowrap">
-              คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก
-            </span>
-          </div>
-
-          <div className="h-4 w-px bg-line" />
-
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setCancelConfirmOpen(true)}
-              disabled={saving}
-              className="rounded-full px-2.5 py-1 text-[12px] font-medium text-ink-3 hover:bg-surface-2 hover:text-ink transition-colors"
-            >
-              ยกเลิก
-            </button>
-            <button
-              type="submit"
-              disabled={saving || !!budgetError}
-              className="rounded-full bg-ink px-3.5 py-1 text-[12px] font-medium text-surface hover:opacity-90 transition-opacity"
-            >
-              {saving ? "กำลังบันทึก…" : "✓ บันทึกข้อมูล"}
-            </button>
-          </div>
-        </aside>
-      )}
-
-      {/* Cancel Confirmation Modal */}
-      {cancelConfirmOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
-          onClick={() => setCancelConfirmOpen(false)}
-        >
-          <div
-            className="w-full max-w-sm rounded-[4px] border border-line bg-surface p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+        <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
+          <button
+            type="button"
+            onClick={() => {
+              if (isDirty) {
+                setCancelConfirmOpen(true);
+              } else {
+                onCancel();
+              }
+            }}
+            disabled={saving}
+            className={btn.secondary}
           >
-            <h3 className="text-[15px] font-semibold text-ink">
-              ยกเลิกการแก้ไขข้อมูล?
-            </h3>
-            <p className="mt-2 text-[12.5px] leading-thai text-ink-2">
-              คุณมีการเปลี่ยนแปลงข้อมูลโปรไฟล์ที่ยังไม่ได้บันทึก หากยกเลิก ข้อมูลที่แก้ไขไว้จะถูกละทิ้งทั้งหมด
-            </p>
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setCancelConfirmOpen(false)}
-                className={btn.secondary}
-              >
-                แก้ไขต่อ
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCancelConfirmOpen(false);
-                  onCancel();
-                }}
-                className={`${btn.primary} bg-red-600 hover:bg-red-700`}
-              >
-                ยืนยันยกเลิก
-              </button>
-            </div>
-          </div>
+            ยกเลิก
+          </button>
+          <button
+            type="submit"
+            disabled={saving || !!budgetError}
+            className={btn.primary}
+          >
+            {saving ? "กำลังบันทึก…" : "✓ บันทึกข้อมูลโปรไฟล์"}
+          </button>
         </div>
-      )}
 
-      {/* Clear Confirmation Modal */}
-      {clearConfirmTarget && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
-          onClick={() => setClearConfirmTarget(null)}
-        >
-          <div
-            className="w-full max-w-sm rounded-[4px] border border-line bg-surface p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+        {/* Floating Unsaved Changes Bar */}
+        {isDirty && (
+          <aside
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full border border-line bg-surface/95 px-4 py-2.5 shadow-xl backdrop-blur-md transition-all"
           >
-            <h3 className="text-[15px] font-semibold text-ink">
-              ยืนยันการล้างข้อมูล
-            </h3>
-            <p className="mt-2 text-[12.5px] leading-thai text-ink-2">
-              คุณต้องการลบรายการ{clearConfirmTarget === "skills" ? "ทักษะทั้งหมด" : "ใบรับรองทั้งหมด"}ที่เลือกไว้ออกใช่หรือไม่?
-            </p>
-            <div className="mt-4 flex items-center justify-end gap-2">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+              </span>
+              <span className="text-[12.5px] font-medium text-ink whitespace-nowrap">
+                คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก
+              </span>
+            </div>
+
+            <div className="h-4 w-px bg-line" />
+
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => setClearConfirmTarget(null)}
-                className={btn.secondary}
+                onClick={() => setCancelConfirmOpen(true)}
+                disabled={saving}
+                className="rounded-full px-2.5 py-1 text-[12px] font-medium text-ink-3 hover:bg-surface-2 hover:text-ink transition-colors"
               >
                 ยกเลิก
               </button>
               <button
-                type="button"
-                onClick={() => {
-                  if (clearConfirmTarget === "skills") {
-                    setDraft((prev) => ({ ...prev, skills: [] }));
-                  } else {
-                    setDraft((prev) => ({ ...prev, certifications: [] }));
-                  }
-                  setClearConfirmTarget(null);
-                }}
-                className={`${btn.primary} bg-red-600 hover:bg-red-700`}
+                type="submit"
+                disabled={saving || !!budgetError}
+                className="rounded-full bg-ink px-3.5 py-1 text-[12px] font-medium text-surface hover:opacity-90 transition-opacity"
               >
-                ยืนยันการล้าง
+                {saving ? "กำลังบันทึก…" : "✓ บันทึกข้อมูล"}
               </button>
             </div>
+          </aside>
+        )}
+
+        {/* Cancel Confirmation Modal */}
+        {cancelConfirmOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
+            onClick={() => setCancelConfirmOpen(false)}
+          >
+            <div
+              className="w-full max-w-sm rounded-[4px] border border-line bg-surface p-5 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-[15px] font-semibold text-ink">
+                ยกเลิกการแก้ไขข้อมูล?
+              </h3>
+              <p className="mt-2 text-[12.5px] leading-thai text-ink-2">
+                คุณมีการเปลี่ยนแปลงข้อมูลโปรไฟล์ที่ยังไม่ได้บันทึก หากยกเลิก ข้อมูลที่แก้ไขไว้จะถูกละทิ้งทั้งหมด
+              </p>
+              <div className="mt-4 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCancelConfirmOpen(false)}
+                  className={btn.secondary}
+                >
+                  แก้ไขต่อ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCancelConfirmOpen(false);
+                    onCancel();
+                  }}
+                  className={`${btn.primary} bg-red-600 hover:bg-red-700`}
+                >
+                  ยืนยันยกเลิก
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Clear Confirmation Modal */}
+        {clearConfirmTarget && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
+            onClick={() => setClearConfirmTarget(null)}
+          >
+            <div
+              className="w-full max-w-sm rounded-[4px] border border-line bg-surface p-5 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-[15px] font-semibold text-ink">
+                ยืนยันการล้างข้อมูล
+              </h3>
+              <p className="mt-2 text-[12.5px] leading-thai text-ink-2">
+                คุณต้องการลบรายการ{clearConfirmTarget === "skills" ? "ทักษะทั้งหมด" : "ใบรับรองทั้งหมด"}ที่เลือกไว้ออกใช่หรือไม่?
+              </p>
+              <div className="mt-4 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setClearConfirmTarget(null)}
+                  className={btn.secondary}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (clearConfirmTarget === "skills") {
+                      setDraft((prev) => ({ ...prev, skills: [] }));
+                    } else {
+                      setDraft((prev) => ({ ...prev, certifications: [] }));
+                    }
+                    setClearConfirmTarget(null);
+                  }}
+                  className={`${btn.primary} bg-red-600 hover:bg-red-700`}
+                >
+                  ยืนยันการล้าง
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </form>
   );
 }
