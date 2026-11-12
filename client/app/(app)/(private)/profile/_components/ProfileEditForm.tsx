@@ -343,22 +343,20 @@ export function ProfileEditForm({
           <button
             type="button"
             onClick={() => setDraft((prev) => ({ ...prev, entityType: "juristic" }))}
-            className={`flex flex-col items-start gap-1.5 rounded-[4px] border p-3.5 text-left transition-colors cursor-pointer ${
-              (draft.entityType ?? "juristic") === "juristic"
-                ? "border-ink bg-surface-2 shadow-xs"
-                : "border-line bg-surface hover:border-ink/40 hover:bg-surface-2"
-            }`}
+            className={`flex flex-col items-start gap-1.5 rounded-[4px] border p-3.5 text-left transition-colors cursor-pointer ${(draft.entityType ?? "juristic") === "juristic"
+              ? "border-ink bg-surface-2 shadow-xs"
+              : "border-line bg-surface hover:border-ink/40 hover:bg-surface-2"
+              }`}
           >
             <div className="flex w-full items-center justify-between">
               <span className="text-[13px] font-semibold text-ink">
                 🏢 นิติบุคคล (บริษัท / หจก.)
               </span>
               <span
-                className={`inline-block h-3.5 w-3.5 rounded-full border ${
-                  (draft.entityType ?? "juristic") === "juristic"
-                    ? "border-4 border-ink bg-surface"
-                    : "border-line bg-surface"
-                }`}
+                className={`inline-block h-3.5 w-3.5 rounded-full border ${(draft.entityType ?? "juristic") === "juristic"
+                  ? "border-4 border-ink bg-surface"
+                  : "border-line bg-surface"
+                  }`}
               />
             </div>
             <p className="text-[11.5px] leading-thai text-ink-3">
@@ -369,22 +367,20 @@ export function ProfileEditForm({
           <button
             type="button"
             onClick={() => setDraft((prev) => ({ ...prev, entityType: "individual" }))}
-            className={`flex flex-col items-start gap-1.5 rounded-[4px] border p-3.5 text-left transition-colors cursor-pointer ${
-              draft.entityType === "individual"
-                ? "border-ink bg-surface-2 shadow-xs"
-                : "border-line bg-surface hover:border-ink/40 hover:bg-surface-2"
-            }`}
+            className={`flex flex-col items-start gap-1.5 rounded-[4px] border p-3.5 text-left transition-colors cursor-pointer ${draft.entityType === "individual"
+              ? "border-ink bg-surface-2 shadow-xs"
+              : "border-line bg-surface hover:border-ink/40 hover:bg-surface-2"
+              }`}
           >
             <div className="flex w-full items-center justify-between">
               <span className="text-[13px] font-semibold text-ink">
                 👤 บุคคลธรรมดา / ฟรีแลนซ์
               </span>
               <span
-                className={`inline-block h-3.5 w-3.5 rounded-full border ${
-                  draft.entityType === "individual"
-                    ? "border-4 border-ink bg-surface"
-                    : "border-line bg-surface"
-                }`}
+                className={`inline-block h-3.5 w-3.5 rounded-full border ${draft.entityType === "individual"
+                  ? "border-4 border-ink bg-surface"
+                  : "border-line bg-surface"
+                  }`}
               />
             </div>
             <p className="text-[11.5px] leading-thai text-ink-3">
@@ -441,11 +437,11 @@ export function ProfileEditForm({
 
         <p className="mt-2 font-mono tnum text-[12px] text-ink-3">
           {draft.budgetMin === 0 &&
-          (draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET)
+            (draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET)
             ? "ไม่จำกัดช่วงงบประมาณ (รับทุกขนาดงาน)"
             : draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET
-            ? `${formatTHB(draft.budgetMin)} ขึ้นไป (ไม่จำกัดเพดาน)`
-            : `${formatTHB(draft.budgetMin)} – ${formatTHB(draft.budgetMax)}`}
+              ? `${formatTHB(draft.budgetMin)} ขึ้นไป (ไม่จำกัดเพดาน)`
+              : `${formatTHB(draft.budgetMin)} – ${formatTHB(draft.budgetMax)}`}
         </p>
 
         {/* Quick Budget Presets */}
@@ -469,11 +465,10 @@ export function ProfileEditForm({
                     }))
                   }
                   title={preset.hint}
-                  className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                    active
-                      ? "border-ink bg-ink text-surface shadow-xs"
-                      : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
-                  }`}
+                  className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${active
+                    ? "border-ink bg-ink text-surface shadow-xs"
+                    : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
+                    }`}
                 >
                   {preset.label}
                 </button>
@@ -525,11 +520,10 @@ export function ProfileEditForm({
                       maxPastPortfolioTHB: preset.value,
                     }))
                   }
-                  className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                    active
-                      ? "border-ink bg-ink text-surface shadow-xs"
-                      : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
-                  }`}
+                  className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${active
+                    ? "border-ink bg-ink text-surface shadow-xs"
+                    : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
+                    }`}
                 >
                   {preset.label}
                 </button>
@@ -571,16 +565,15 @@ export function ProfileEditForm({
                     const next = selected
                       ? current.filter((id) => id !== arch.id)
                       : current.length < 10
-                      ? [...current, arch.id]
-                      : current;
+                        ? [...current, arch.id]
+                        : current;
                     return { ...prev, preferredArchetypes: next };
                   });
                 }}
-                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-[4px] border px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                  selected
-                    ? "border-ink bg-ink text-surface shadow-xs"
-                    : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
-                }`}
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-[4px] border px-3 py-1.5 text-[12px] font-medium transition-colors ${selected
+                  ? "border-ink bg-ink text-surface shadow-xs"
+                  : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
+                  }`}
               >
                 <span>{selected ? "✓" : "+"}</span>
                 <span>{arch.label}</span>
@@ -696,11 +689,10 @@ export function ProfileEditForm({
                 key={grp.id}
                 type="button"
                 onClick={() => setSelectedTechCategory(grp.id)}
-                className={`cursor-pointer rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  selectedTechCategory === grp.id
-                    ? "bg-ink text-surface"
-                    : "text-ink-3 hover:bg-surface-2 hover:text-ink"
-                }`}
+                className={`cursor-pointer rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${selectedTechCategory === grp.id
+                  ? "bg-ink text-surface"
+                  : "text-ink-3 hover:bg-surface-2 hover:text-ink"
+                  }`}
               >
                 {grp.label}
               </button>
@@ -715,11 +707,10 @@ export function ProfileEditForm({
                   key={skill}
                   type="button"
                   onClick={() => handleToggleSkill(skill)}
-                  className={`cursor-pointer inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 font-mono text-[11px] transition-colors ${
-                    on
-                      ? "border-ink bg-ink text-surface"
-                      : "border-line bg-surface-2 text-ink-2 hover:border-ink/40"
-                  }`}
+                  className={`cursor-pointer inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 font-mono text-[11px] transition-colors ${on
+                    ? "border-ink bg-ink text-surface"
+                    : "border-line bg-surface-2 text-ink-2 hover:border-ink/40"
+                    }`}
                 >
                   <span>{on ? "✓" : "+"}</span>
                   <span>{skill}</span>
@@ -850,11 +841,10 @@ export function ProfileEditForm({
                       key={item}
                       type="button"
                       onClick={() => handleToggleCert(item)}
-                      className={`cursor-pointer inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 text-[11px] transition-colors ${
-                        on
-                          ? "border-ink bg-ink text-surface"
-                          : "border-line bg-surface-2 text-ink-2 hover:border-ink/40"
-                      }`}
+                      className={`cursor-pointer inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 text-[11px] transition-colors ${on
+                        ? "border-ink bg-ink text-surface"
+                        : "border-line bg-surface-2 text-ink-2 hover:border-ink/40"
+                        }`}
                     >
                       <span>{on ? "✓" : "+"}</span>
                       <span>{item}</span>
@@ -897,7 +887,7 @@ export function ProfileEditForm({
             className="h-[18px] w-[18px] rounded border-line text-ink cursor-pointer accent-ink"
           />
           <label htmlFor="master-notif-consent" className="cursor-pointer select-none">
-            <span className="text-[15px] font-semibold text-ink">
+            <span className="text-[13px] font-semibold text-ink">
               ยินยอมรับการแจ้งเตือนทางอีเมล (Email Consent)
             </span>
           </label>
@@ -927,7 +917,7 @@ export function ProfileEditForm({
                   className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-pointer accent-ink"
                 />
                 <label htmlFor="tor-match-toggle" className="text-[13.5px] leading-thai text-ink cursor-pointer select-none">
-                  <span className="font-medium text-ink">
+                  <span className="text-[12px] font-semibold text-ink">
                     เปิดรับการแจ้งเตือนประกาศที่ตรงกับโปรไฟล์ (TOR Matching)
                   </span>
                   <span className="block text-[12px] text-ink-3 mt-0.5">
@@ -938,18 +928,22 @@ export function ProfileEditForm({
 
               {/* Sub-options: Always visible together, grayed out if TOR Matching is not checked */}
               <div
-                className={`mt-3.5 ml-7 space-y-3.5 transition-all ${
-                  draft.matchNotification?.enabled
-                    ? "opacity-100"
-                    : "opacity-40 pointer-events-none select-none"
-                }`}
+                className={`mt-2.5 ml-7 space-y-2.5 transition-all ${draft.matchNotification?.enabled
+                  ? "opacity-100"
+                  : "opacity-40 pointer-events-none select-none"
+                  }`}
               >
                 {/* Setting 1: Minimum Score Threshold */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                  <span className="text-[13px] font-medium text-ink sm:w-[200px] shrink-0">
-                    เกณฑ์คะแนนขั้นต่ำในการแจ้งเตือน:
-                  </span>
-                  <div className="flex items-center gap-3 w-full max-w-xs">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] font-medium text-ink-2">
+                      เกณฑ์คะแนนขั้นต่ำในการแจ้งเตือน:
+                    </span>
+                    <span className="rounded-[3px] border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink">
+                      {draft.matchNotification?.minScore ?? 75}%
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-2.5 w-full max-w-xs">
                     <input
                       type="range"
                       min={50}
@@ -972,31 +966,27 @@ export function ProfileEditForm({
                           },
                         }));
                       }}
-                      className="h-2 w-full cursor-pointer accent-ink my-auto disabled:cursor-not-allowed"
+                      className="h-1.5 w-full cursor-pointer accent-ink my-auto disabled:cursor-not-allowed"
                     />
-                    <span className="font-mono text-[13px] font-bold text-ink w-8 shrink-0 text-right">
-                      {draft.matchNotification?.minScore ?? 75}%
-                    </span>
                   </div>
                 </div>
 
                 {/* Setting 2: Notification Frequency */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                  <span className="text-[13px] font-medium text-ink sm:w-[200px] shrink-0">
+                <div>
+                  <span className="text-[12px] font-medium text-ink-2 block">
                     ความถี่ในการแจ้งเตือน:
                   </span>
-                  <div className="flex items-center gap-5 text-[13px]">
+                  <div className="mt-1.5 flex items-center gap-4 text-[12.5px]">
                     {[
                       { id: "daily", label: "วันละครั้ง" },
                       { id: "weekly", label: "สัปดาห์ละครั้ง" },
                     ].map((freq) => (
                       <label
                         key={freq.id}
-                        className={`flex items-center gap-2 ${
-                          draft.matchNotification?.enabled
-                            ? "cursor-pointer text-ink"
-                            : "cursor-not-allowed text-ink-3"
-                        }`}
+                        className={`flex items-center gap-1.5 ${draft.matchNotification?.enabled
+                          ? "cursor-pointer text-ink"
+                          : "cursor-not-allowed text-ink-3"
+                          }`}
                       >
                         <input
                           type="radio"
