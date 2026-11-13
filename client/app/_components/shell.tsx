@@ -41,11 +41,12 @@ export function HeaderControls({ className = "" }: { className?: string }) {
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [showCallout, setShowCallout] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const autoCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch unread count when user is authenticated
   useEffect(() => {
-    if (status !== "authenticated") {
+    if (status !== "authenticated" || !user?.id) {
       setUnreadCount(0);
       setShowCallout(false);
       return;
@@ -57,10 +58,12 @@ export function HeaderControls({ className = "" }: { className?: string }) {
       const count = res.data.unreadCount;
       setUnreadCount(count);
 
-      // Check if callout was already dismissed in this session
+      // Check if callout was already dismissed for THIS user in this browser session
       try {
-        const alreadyDismissed = sessionStorage.getItem("gipdp_bell_callout_dismissed");
-        if (count > 0 && !alreadyDismissed) {
+        sessionStorage.removeItem("gipdp_bell_callout_dismissed"); // Clean up old un-scoped key
+        const storageKey = `gipdp_bell_callout_dismissed_${user.id}`;
+        const dismissedCount = Number(sessionStorage.getItem(storageKey) || 0);
+        if (count > 0 && count > dismissedCount) {
           setShowCallout(true);
         }
       } catch {
@@ -71,39 +74,42 @@ export function HeaderControls({ className = "" }: { className?: string }) {
     return () => {
       active = false;
     };
-  }, [status, pathname]);
+  }, [status, pathname, user?.id]);
 
-  // Auto-close callout after 7 seconds
+  // Auto-close callout after 6 seconds (pauses on hover)
   useEffect(() => {
-    if (!showCallout) return;
+    if (!showCallout || isPaused) {
+      if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+      return;
+    }
 
     autoCloseTimerRef.current = setTimeout(() => {
       handleDismissCallout();
-    }, 7000);
+    }, 6200);
 
     return () => {
       if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
     };
-  }, [showCallout]);
+  }, [showCallout, isPaused, user?.id, unreadCount]);
 
   function handleDismissCallout() {
     setShowCallout(false);
-    try {
-      sessionStorage.setItem("gipdp_bell_callout_dismissed", "true");
-    } catch {
-      // Ignore sessionStorage availability errors
+    if (user?.id) {
+      try {
+        const storageKey = `gipdp_bell_callout_dismissed_${user.id}`;
+        sessionStorage.setItem(storageKey, String(unreadCount));
+      } catch {
+        // Ignore sessionStorage availability errors
+      }
     }
   }
 
   function handlePauseTimer() {
-    if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+    setIsPaused(true);
   }
 
   function handleResumeTimer() {
-    if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
-    autoCloseTimerRef.current = setTimeout(() => {
-      handleDismissCallout();
-    }, 4000);
+    setIsPaused(false);
   }
 
   return (
@@ -150,7 +156,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
             aria-live="polite"
             onMouseEnter={handlePauseTimer}
             onMouseLeave={handleResumeTimer}
-            className="absolute right-0 top-full z-50 mt-2 w-max max-w-[280px] rounded-md border border-line-2 bg-surface-2 p-2.5 shadow-lg animate-in fade-in slide-in-from-top-1"
+            className="absolute right-0 top-full z-50 mt-2 w-max max-w-[280px] rounded-md border border-line-2 bg-surface-2 p-2.5 pb-3.5 shadow-lg animate-in fade-in slide-in-from-top-1"
           >
             {/* The little upward arrow pointing to the bell */}
             <div
@@ -170,12 +176,21 @@ export function HeaderControls({ className = "" }: { className?: string }) {
                 type="button"
                 onClick={handleDismissCallout}
                 aria-label="ปิด"
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink cursor-pointer"
               >
                 <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M4 4l8 8M12 4l-8 8" />
                 </svg>
               </button>
+            </div>
+
+            {/* Countdown bar at bottom: drains from right to left */}
+            <div className="absolute bottom-0 left-0 right-0 h-[2.5px] overflow-hidden rounded-b-md bg-line">
+              <div
+                onAnimationEnd={handleDismissCallout}
+                className="h-full w-full bg-red-600/85 animate-toast-progress origin-left"
+                style={{ animationPlayState: isPaused ? "paused" : "running" }}
+              />
             </div>
           </div>
         ) : null}
