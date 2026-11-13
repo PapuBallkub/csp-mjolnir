@@ -76,6 +76,38 @@ export function HeaderControls({ className = "" }: { className?: string }) {
     };
   }, [status, pathname, user?.id]);
 
+  // Listen for realtime notification updates (e.g. entering /notifications/[id] or marking read)
+  useEffect(() => {
+    function handleNotificationsUpdated(e: Event) {
+      const customEvent = e as CustomEvent<{ unreadCount?: number }>;
+      if (typeof customEvent?.detail?.unreadCount === "number") {
+        const count = customEvent.detail.unreadCount;
+        setUnreadCount(count);
+        if (count === 0) {
+          setShowCallout(false);
+        }
+        return;
+      }
+
+      if (status === "authenticated" && user?.id) {
+        fetchNotifications({ limit: 1 }).then((res) => {
+          if (res.ok) {
+            const count = res.data.unreadCount;
+            setUnreadCount(count);
+            if (count === 0) {
+              setShowCallout(false);
+            }
+          }
+        });
+      }
+    }
+
+    window.addEventListener("notifications-updated", handleNotificationsUpdated);
+    return () => {
+      window.removeEventListener("notifications-updated", handleNotificationsUpdated);
+    };
+  }, [status, user?.id]);
+
   // Auto-close callout after 6 seconds (pauses on hover)
   useEffect(() => {
     if (!showCallout || isPaused) {

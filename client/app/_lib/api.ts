@@ -1414,19 +1414,19 @@ export function fetchNotifications(params: { type?: string; limit?: number; skip
 }
 
 export function fetchNotificationById(id: string) {
-  return request<NotificationFeedItem>(`/api/notifications/${encodeURIComponent(id)}`, {
+  return request<NotificationFeedItem & { unreadCount?: number }>(`/api/notifications/${encodeURIComponent(id)}`, {
     cache: "no-store",
   });
 }
 
 export function markNotificationRead(id: string) {
-  return request<{ updated: boolean; id: string }>(`/api/notifications/${encodeURIComponent(id)}/read`, {
+  return request<{ updated: boolean; id: string; unreadCount?: number }>(`/api/notifications/${encodeURIComponent(id)}/read`, {
     method: "PATCH",
   });
 }
 
 export function markAllNotificationsRead() {
-  return request<{ updatedCount: number }>("/api/notifications/read-all", {
+  return request<{ updatedCount: number; unreadCount?: number }>("/api/notifications/read-all", {
     method: "PATCH",
   });
 }

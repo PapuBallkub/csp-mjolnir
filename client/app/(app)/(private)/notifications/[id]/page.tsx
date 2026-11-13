@@ -82,6 +82,13 @@ export default function NotificationDetailPage() {
         const payload = res.data as any;
         const item: NotificationFeedItem = payload?.notification || payload;
         setNotification(item);
+
+        // Immediately notify navigation bar shell with the updated unread count
+        const unreadCount =
+          typeof payload?.unreadCount === "number" ? payload.unreadCount : undefined;
+        window.dispatchEvent(
+          new CustomEvent("notifications-updated", { detail: { unreadCount } })
+        );
       } else {
         setError(res.error.message || "Failed to load notification");
       }

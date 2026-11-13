@@ -57,7 +57,12 @@ export async function getNotificationById(id, userId) {
     await notification.save();
   }
 
-  return notification.toObject();
+  const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+
+  return {
+    ...notification.toObject(),
+    unreadCount,
+  };
 }
 
 /**
@@ -66,7 +71,7 @@ export async function getNotificationById(id, userId) {
  *
  * @param {string} id - Notification ID
  * @param {string|mongoose.Types.ObjectId} userId - Requesting user's ID
- * @returns {Promise<{ updated: boolean, id: string }>}
+ * @returns {Promise<{ updated: boolean, id: string, unreadCount: number }>}
  */
 export async function markAsRead(id, userId) {
   const result = await Notification.updateOne(
@@ -74,9 +79,12 @@ export async function markAsRead(id, userId) {
     { $set: { isRead: true, readAt: new Date() } },
   );
 
+  const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+
   return {
     updated: result.modifiedCount > 0,
     id,
+    unreadCount,
   };
 }
 
@@ -85,7 +93,7 @@ export async function markAsRead(id, userId) {
  * Called by "ทำเครื่องหมายว่าอ่านทั้งหมดแล้ว" in the notifications feed.
  *
  * @param {string|mongoose.Types.ObjectId} userId
- * @returns {Promise<{ updatedCount: number }>}
+ * @returns {Promise<{ updatedCount: number, unreadCount: number }>}
  */
 export async function markAllAsRead(userId) {
   const result = await Notification.updateMany(
@@ -95,6 +103,7 @@ export async function markAllAsRead(userId) {
 
   return {
     updatedCount: result.modifiedCount,
+    unreadCount: 0,
   };
 }
 

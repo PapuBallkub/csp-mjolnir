@@ -136,6 +136,9 @@ export default function NotificationsPage() {
     if (res.ok) {
       setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
       setUnreadCount(0);
+      window.dispatchEvent(
+        new CustomEvent("notifications-updated", { detail: { unreadCount: 0 } })
+      );
     }
   }
 
@@ -147,7 +150,13 @@ export default function NotificationsPage() {
       setNotifications((prev) =>
         prev.map((item) => (item._id === id ? { ...item, isRead: true } : item))
       );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+      setUnreadCount((prev) => {
+        const next = typeof res.data.unreadCount === "number" ? res.data.unreadCount : Math.max(0, prev - 1);
+        window.dispatchEvent(
+          new CustomEvent("notifications-updated", { detail: { unreadCount: next } })
+        );
+        return next;
+      });
     }
   }
 
