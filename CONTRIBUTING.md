@@ -128,7 +128,10 @@ docs/contributing-and-decisions
 ```
 
 Open a pull request into `main` and have one of the other two look at it before
-merging. A one-line typo fix is not worth the ceremony — merge your own.
+merging. The description starts from
+[the template](.github/pull_request_template.md): what changed, why, how to
+test it, and which docs changed. Give the commands you ran, not only their
+result, so the reviewer can run them too. A one-line typo fix is not worth the ceremony — merge your own.
 
 ## Commits
 
@@ -193,8 +196,8 @@ In the same PR:
   Put it on the page they'd open first. If no page fits, ask where it should
   go.
 
-In the PR description, say which docs you updated, or that none were
-affected. Reviewers check that line against the diff.
+The PR template's Docs section asks which docs you updated. If none, write
+"none affected". Reviewers check it against the diff.
 
 Docs-only PRs are welcome. A doc that's out of date is worth a PR on its own,
 with the commit type `docs`. How to write them is in

@@ -103,7 +103,8 @@ nightly `process` job runs the same steps in priority order
 | [docker-compose.yml](../docker-compose.yml) | Production stack: server and client containers. |
 | [docker-compose.override.yml](../docker-compose.override.yml) | Adds local MongoDB for development; Compose loads it automatically. |
 | [.github/workflows/fullstack-ci-setup.yml](../.github/workflows/fullstack-ci-setup.yml) | CI: client lint, test, build; server tests against a MongoDB service. |
-| `.gitignore` | Keeps out `.env`, `node_modules`, `context/`, downloaded documents. |
+| [.github/pull_request_template.md](../.github/pull_request_template.md) | What a PR description starts with: what changed, why, how to test (commands for your machine and for Docker), docs. |
+| `.gitignore` | Keeps out `.env`, `node_modules`, `context/`, downloaded documents, `.claude/settings.local.json`. |
 | `context/` | Not in git. Full SRS and working notes, local only. Never commit or link it. |
 
 ---
