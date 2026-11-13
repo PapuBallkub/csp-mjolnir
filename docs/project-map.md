@@ -526,6 +526,9 @@ here may contain JSX or path aliases. One file per `_lib` module: `api`,
 | [pipeline.md](pipeline.md) | Every pipeline command, its options and settings. |
 | [pipeline-guide.md](pipeline-guide.md) | The pipeline in plain words: how a project travels, running it, reading its output, costs. |
 | [system-overview.md](system-overview.md) | GIPDP on one page: the parts and how a TOR travels through them, the day's schedule, who uses what, what isn't built yet. |
+| [README.md](README.md) | The front door to `docs/`: what to read first, where to look for what, every page in one line, and how to write docs here. |
+| [analysis-overview.md](analysis-overview.md) | How the price check (FR-19) and lock-spec (FR-20, FR-21) reach their verdicts, when they run, and their known limits. |
+| [glossary.md](glossary.md) | Thai procurement terms, e-GP announcement codes and statuses, the sites, and the platform's own words. |
 | [what-the-public-sees.md](what-the-public-sees.md) | The gate between the database and the public: what hides a TOR, pilot mode, what a visible TOR carries, what stays internal. |
 | [server-features.md](server-features.md) | How the server is put together: the layers in a feature, what each feature owns, how features and pipelines depend on each other, what's shared, where the layout's rules bend. |
 | [data-model.md](data-model.md) | The 12 collections: an ER diagram of how they connect by `projectId`, the pipeline's bookkeeping, who writes and reads each. |
