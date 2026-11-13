@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { Bell, LogOut, User, X } from "lucide-react";
 import { displayName, useAuth } from "./auth";
 import { ThemeToggle } from "./prefs";
 import { fetchNotifications } from "../_lib/api";
@@ -34,6 +35,10 @@ const NAV = [
   { href: "/watchdog", label: "ตรวจสอบราคา/การแก้ไข" },
 ] as const;
 
+// In-memory dismissal state for current page session (resets on full browser reload)
+let calloutDismissedInSession = false;
+let lastSeenUnreadCount = 0;
+
 export function HeaderControls({ className = "" }: { className?: string }) {
   const pathname = usePathname();
   const { status, user, signOut } = useAuth();
@@ -58,16 +63,23 @@ export function HeaderControls({ className = "" }: { className?: string }) {
       const count = res.data.unreadCount;
       setUnreadCount(count);
 
-      // Check if callout was already dismissed for THIS user in this browser session
+      // If new unread notifications arrive while browsing, allow callout to show
+      if (count > lastSeenUnreadCount && lastSeenUnreadCount > 0) {
+        calloutDismissedInSession = false;
+      }
+      lastSeenUnreadCount = count;
+
+      // Clean up legacy storage keys
       try {
-        sessionStorage.removeItem("gipdp_bell_callout_dismissed"); // Clean up old un-scoped key
-        const storageKey = `gipdp_bell_callout_dismissed_${user.id}`;
-        const dismissedCount = Number(sessionStorage.getItem(storageKey) || 0);
-        if (count > 0 && count > dismissedCount) {
-          setShowCallout(true);
-        }
+        sessionStorage.removeItem("gipdp_bell_callout_dismissed");
+        sessionStorage.removeItem(`gipdp_bell_callout_dismissed_${user.id}`);
       } catch {
-        // Ignore sessionStorage availability errors
+        // Ignore
+      }
+
+      // Show callout if there are unread items and user hasn't closed it during this page session
+      if (count > 0 && !calloutDismissedInSession) {
+        setShowCallout(true);
       }
     });
 
@@ -125,15 +137,8 @@ export function HeaderControls({ className = "" }: { className?: string }) {
   }, [showCallout, isPaused, user?.id, unreadCount]);
 
   function handleDismissCallout() {
+    calloutDismissedInSession = true;
     setShowCallout(false);
-    if (user?.id) {
-      try {
-        const storageKey = `gipdp_bell_callout_dismissed_${user.id}`;
-        sessionStorage.setItem(storageKey, String(unreadCount));
-      } catch {
-        // Ignore sessionStorage availability errors
-      }
-    }
   }
 
   function handlePauseTimer() {
@@ -159,19 +164,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
           title="การแจ้งเตือน"
           className="relative flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
         >
-          <svg
-            viewBox="0 0 24 24"
-            className="h-3.5 w-3.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-          </svg>
+          <Bell className="h-3.5 w-3.5" />
           {unreadCount > 0 ? (
             <span
               className="absolute -top-1.5 -right-1.5 z-10 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-xs pointer-events-none"
@@ -210,9 +203,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
                 aria-label="ปิด"
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink cursor-pointer"
               >
-                <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 4l8 8M12 4l-8 8" />
-                </svg>
+                <X className="h-3 w-3" />
               </button>
             </div>
 
@@ -248,19 +239,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
                 : "border-line bg-surface-2 text-ink-2 hover:text-ink"
             }`}
           >
-            <svg
-              viewBox="0 0 24 24"
-              className="sm:hidden h-3.5 w-3.5 text-ink shrink-0"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+            <User className="sm:hidden h-3.5 w-3.5 text-ink shrink-0" />
             <span className="hidden sm:inline max-w-[130px] truncate">
               {displayName(user)}
             </span>
@@ -272,16 +251,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
             title="ออกจากระบบ"
             className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-3 transition-colors hover:text-ink cursor-pointer shrink-0"
           >
-            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
-              <path
-                d="M6 13.5H3.5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1H6M10 11l3-3-3-3M13 8H6.5"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <LogOut className="h-3.5 w-3.5" />
           </button>
         </span>
       ) : (

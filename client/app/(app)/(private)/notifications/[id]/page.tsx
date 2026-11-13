@@ -3,39 +3,18 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Mail,
+  Target,
+} from "lucide-react";
 import { useLang } from "../../../../_components/prefs";
 import { btn, Panel } from "../../../../_components/ui";
 import { formatTHB } from "../../../../_data/tors";
 import * as api from "../../../../_lib/api";
 import type { NotificationFeedItem, MatchedTorSummary } from "../../../../_lib/api";
-
-function IconAlertTriangle({ className = "h-5 w-5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M8 2.2 1.8 13h12.4L8 2.2Z" />
-      <path d="M8 6.5v3M8 11.5h.01" />
-    </svg>
-  );
-}
-
-function IconTarget({ className = "h-3.5 w-3.5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
-      <circle cx="8" cy="8" r="5.5" />
-      <circle cx="8" cy="8" r="2.2" />
-      <path d="M8 1v2M8 13v2M1 8h2M13 8h2" />
-    </svg>
-  );
-}
-
-function IconMail({ className = "h-3.5 w-3.5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2" y="3.5" width="12" height="9" rx="1" />
-      <path d="M2.5 4.5 8 9l5.5-4.5" />
-    </svg>
-  );
-}
 
 function formatThaiDate(dateStr?: string | null, lang: "th" | "en" = "th") {
   if (!dateStr) return "-";
@@ -119,12 +98,12 @@ export default function NotificationDetailPage() {
           href="/notifications"
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-2 hover:text-ink"
         >
-          <span>←</span>
+          <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
           <span>{lang === "th" ? "กลับไปยังรายการแจ้งเตือน" : "Back to notifications"}</span>
         </Link>
         <Panel className="mt-4 p-8 text-center">
           <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
-            <IconAlertTriangle className="h-5 w-5" />
+            <AlertTriangle className="h-5 w-5" />
           </div>
           <h2 className="text-[16px] font-semibold text-ink">
             {lang === "th" ? "ไม่พบข้อมูลการแจ้งเตือน" : "Notification Not Found"}
@@ -155,7 +134,7 @@ export default function NotificationDetailPage() {
           href="/notifications"
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-2 transition-colors hover:text-ink"
         >
-          <span>←</span>
+          <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
           <span>{lang === "th" ? "กลับไปยังรายการแจ้งเตือน" : "Back to notifications"}</span>
         </Link>
       </div>
@@ -165,7 +144,7 @@ export default function NotificationDetailPage() {
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded bg-open-bg px-2.5 py-0.5 text-[11px] font-semibold text-open border border-open-line">
-              <IconTarget className="h-3.5 w-3.5" />
+              <Target className="h-3.5 w-3.5" />
               <span>
                 {notification.type === "match"
                   ? lang === "th"
@@ -180,7 +159,7 @@ export default function NotificationDetailPage() {
           </div>
           {notification.emailSent && notification.emailSentAt ? (
             <span className="inline-flex items-center gap-1.5 text-[11px] text-ink-3">
-              <IconMail className="h-3.5 w-3.5" />
+              <Mail className="h-3.5 w-3.5" />
               <span>{lang === "th" ? "ส่งอีเมลสรุปแล้ว" : "Email digest sent"}</span>
             </span>
           ) : null}
@@ -300,9 +279,10 @@ export default function NotificationDetailPage() {
                     {item.projectId ? (
                       <Link
                         href={`/tor/${encodeURIComponent(item.projectId)}`}
-                        className={`${btn.primary} text-[12px] py-1.5 px-3`}
+                        className={`${btn.primary} inline-flex items-center gap-1.5 text-[12px] py-1.5 px-3`}
                       >
-                        {lang === "th" ? "ดูประกาศ TOR →" : "View full TOR →"}
+                        <span>{lang === "th" ? "ดูประกาศ TOR" : "View full TOR"}</span>
+                        <ArrowRight className="h-3.5 w-3.5 shrink-0" />
                       </Link>
                     ) : null}
                   </div>

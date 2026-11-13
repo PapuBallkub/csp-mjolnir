@@ -2,83 +2,29 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import {
+  Bell,
+  Check,
+  ChevronRight,
+  FileText,
+  Mail,
+  Target,
+  Wrench,
+} from "lucide-react";
 import { useLang } from "../../../_components/prefs";
 import { btn, Panel } from "../../../_components/ui";
 import { formatTHBCompact } from "../../../_data/tors";
 import * as api from "../../../_lib/api";
 import type { NotificationFeedItem } from "../../../_lib/api";
 
-function IconBell({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-      <path d="M4 6.5a4 4 0 1 1 8 0c0 3 1 4 1 4H3s1-1 1-4Z" />
-      <path d="M6.5 13a1.6 1.6 0 0 0 3 0" />
-    </svg>
-  );
-}
-
-function IconWrench({ className = "h-3.5 w-3.5" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-    </svg>
-  );
-}
-
-function IconTarget({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
-      <circle cx="8" cy="8" r="5.5" />
-      <circle cx="8" cy="8" r="2.2" />
-      <path d="M8 1v2M8 13v2M1 8h2M13 8h2" />
-    </svg>
-  );
-}
-
-function IconAmendment({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3.5 2.5h6l3 3v8h-9z" />
-      <path d="M9.5 2.5v3h3" />
-      <path d="M6 9h4M6 11.5h2.5" />
-    </svg>
-  );
-}
-
-function IconMail({ className = "h-3.5 w-3.5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2" y="3.5" width="12" height="9" rx="1" />
-      <path d="M2.5 4.5 8 9l5.5-4.5" />
-    </svg>
-  );
-}
-
-function IconCheck({ className = "h-3.5 w-3.5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
-    </svg>
-  );
-}
-
 function NotificationTypeIcon({ type }: { type: string }) {
   if (type === "match") {
-    return <IconTarget className="h-4 w-4 text-open" />;
+    return <Target className="h-4 w-4 text-open" />;
   }
   if (type === "amendment") {
-    return <IconAmendment className="h-4 w-4 text-amber-600 dark:text-amber-400" />;
+    return <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />;
   }
-  return <IconBell className="h-4 w-4 text-ink-2" />;
+  return <Bell className="h-4 w-4 text-ink-2" />;
 }
 
 function formatRelativeTime(dateStr: string, lang: "th" | "en") {
@@ -186,7 +132,7 @@ export default function NotificationsPage() {
             href="/profile"
             className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2 hover:text-ink transition-colors"
           >
-            <IconWrench className="h-3.5 w-3.5" />
+            <Wrench className="h-3.5 w-3.5" />
             <span>{lang === "th" ? "ตั้งค่าโปรไฟล์และทักษะ" : "Profile & Skills Settings"}</span>
           </Link>
         </div>
@@ -226,7 +172,7 @@ export default function NotificationsPage() {
             disabled={markingAll}
             className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2 hover:text-ink hover:underline disabled:opacity-50"
           >
-            <IconCheck className="h-3.5 w-3.5 text-open" />
+            <Check className="h-3.5 w-3.5 text-open" />
             <span>
               {markingAll
                 ? lang === "th"
@@ -250,7 +196,7 @@ export default function NotificationsPage() {
       ) : filteredNotifications.length === 0 ? (
         <Panel className="p-12 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface-2 text-ink-3">
-            <IconBell className="h-6 w-6" />
+            <Bell className="h-6 w-6" />
           </div>
           <h3 className="text-[15px] font-semibold text-ink">
             {filterMode === "unread"
@@ -331,7 +277,7 @@ export default function NotificationsPage() {
                         <span>{formatRelativeTime(item.createdAt, lang)}</span>
                         {item.emailSent && item.emailSentAt ? (
                           <span className="inline-flex items-center gap-1">
-                            <IconMail className="h-3 w-3" />
+                            <Mail className="h-3 w-3" />
                             <span>{lang === "th" ? "ส่งอีเมลแล้ว" : "Emailed"}</span>
                           </span>
                         ) : null}
@@ -346,16 +292,12 @@ export default function NotificationsPage() {
                         type="button"
                         onClick={(e) => handleMarkSingleRead(item._id, e)}
                         title={lang === "th" ? "ทำเครื่องหมายว่าอ่านแล้ว" : "Mark as read"}
-                        className="rounded p-1 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink"
+                        className="rounded p-1 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink cursor-pointer"
                       >
-                        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M3 8.5l3.5 3.5L13 5" />
-                        </svg>
+                        <Check className="h-4 w-4" />
                       </button>
                     ) : null}
-                    <span className="text-[13px] text-ink-3 group-hover:translate-x-0.5 transition-transform">
-                      →
-                    </span>
+                    <ChevronRight className="h-4 w-4 text-ink-3 transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
                   </div>
                 </div>
               </Link>
