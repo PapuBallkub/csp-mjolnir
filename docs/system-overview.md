@@ -123,7 +123,6 @@ The public sees a TOR only once it has passed review:
 | In-app notifications (FR-18) | `/notifications` shows sample data |
 | The historical dashboard (FR-19, FR-16) | `/watchdog` shows sample data. Each TOR's own price comparison is real, on its detail page |
 | Comparing a TOR's requirements with similar past projects (FR-20) | Lock-spec checks fixed rules only ([reality-check-and-benchmarking.md](features/reality-check-and-benchmarking.md)) |
-| The English interface (NFR-15) | The language toggle is off |
 | A host | Nothing is deployed; the choice is open ([deployment-checklist.md](deployment-checklist.md)) |
 | The schedule on a server | Only `npm run schedule` on someone's computer |
 

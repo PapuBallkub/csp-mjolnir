@@ -98,7 +98,7 @@ what's built; the last column says which:
 
 ### Decisions
 
-[decisions/](decisions/) holds 35 decision records (ADRs), one per file,
+[decisions/](decisions/) holds 36 decision records (ADRs), one per file,
 numbered in the order they were made. Each says what was decided, why, and
 what it costs. [project-map.md](project-map.md) lists them all with a line
 each. Lock-spec's record was 0030 until 2026-11-13 and is now 0035, so an

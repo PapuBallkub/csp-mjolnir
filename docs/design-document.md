@@ -1667,17 +1667,11 @@ client/app/
     └── tor-detail/tabs/           # 4 Modular TOR tabs: OverviewTab, TechnicalSpecsTab, DecisionSupportTab, EligibilityHistoryTab
 ```
 
-### 6.5.2 Thai-First Localization Strategy (NFR-15)
-In strict compliance with **NFR-15 (Localization)**, Thai is the primary locale across all user-facing interfaces, navigation menus, AI-generated summary sections, and notifications.
+### 6.5.2 Thai-Only Localization (NFR-15, ADR 0036)
+In compliance with **NFR-15 (Localization)**, every user-facing interface, navigation menu, AI-generated summary section, and notification is in Thai.
 * Typography is tuned for dual-script readability (mixed Thai script and Latin technical terms such as *"ระบบฐานข้อมูล PostgreSQL 14 บน Windows Server 2019"*).
-* Dates are rendered natively in both Buddhist Era (พ.ศ. 256x) and Common Era (CE).
-* English is supported as a secondary locale behind the top-level language switcher.
-
-### 6.5.2 Thai-First Localization Strategy (NFR-15)
-In strict compliance with **NFR-15 (Localization)**, Thai is the primary locale across all user-facing interfaces, navigation menus, AI-generated summary sections, and notifications.
-* Typography is tuned for dual-script readability (mixed Thai script and Latin technical terms such as *"ระบบฐานข้อมูล PostgreSQL 14 บน Windows Server 2019"*).
-* Dates are rendered natively in both Buddhist Era (พ.ศ. 256x) and Common Era (CE).
-* English is supported as a secondary locale behind the top-level language switcher.
+* Dates are shown in the Buddhist Era (e.g. `13 พ.ย. 2569`, from `formatDate` in `client/app/_lib/format.ts`).
+* There is no English locale and no language switcher ([ADR 0036](decisions/0036-thai-only-interface.md)). The client's dormant English strings are not shown.
 
 ---
 

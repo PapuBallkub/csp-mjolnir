@@ -607,3 +607,4 @@ write a new one that supersedes it ([CONTRIBUTING](../CONTRIBUTING.md#decisions)
 | [0033](decisions/0033-capability-profile-and-match-scoring.md) | Capability profile and match scoring |
 | [0034](decisions/0034-a-tor-can-have-several-categories.md) | A TOR can have several categories, main one first |
 | [0035](decisions/0035-lock-spec-risk-criteria-and-scoring.md) | Lock-spec risk criteria and scoring (0030 until 2026-11-13) |
+| [0036](decisions/0036-thai-only-interface.md) | The interface is Thai only |

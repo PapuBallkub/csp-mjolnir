@@ -41,7 +41,7 @@ Users range widely in technical proficiency, and every one of them must be able 
 
 Overall design personality: **the opposite of the bureaucratic PDF it replaces.** Where the source documents are dense, scanned, and jargon-heavy, this product should feel legible, fast, and honest. Avoid corporate-SaaS-dashboard blandness on one side and government-form starchiness on the other. This is a tool built *for* the underdog applicant, so it should feel like it's on their side: clear verdicts, not just raw data dumps.
 
-**Thai first (NFR-15).** Thai is the primary locale for the whole interface, including navigation, labels, notifications, and AI summaries, not just document content. English is a complete secondary locale behind the language toggle. Thai text will often run alongside English tech terms (e.g. "NGINX Plus," "Windows Server 2019"), so set type scale, line height, and truncation rules for Thai script with Latin mixed in, never for Latin-only strings.
+**Thai only (NFR-15).** The whole interface is in Thai, including navigation, labels, notifications, and AI summaries, not just document content. There is no English locale and no language toggle, so don't design one ([0036](docs/decisions/0036-thai-only-interface.md)). The client still carries dormant English strings (`Bi` values, `lang === "th" ? … : …`); nothing shows them. Write new copy in Thai; where a type still asks for `{ th, en }`, fill both halves until that type is cleaned up. Thai text will often run alongside English tech terms (e.g. "NGINX Plus," "Windows Server 2019"), so set type scale, line height, and truncation rules for Thai script with Latin mixed in, never for Latin-only strings.
 
 ## 4. Core screens
 
