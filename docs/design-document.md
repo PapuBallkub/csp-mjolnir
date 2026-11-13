@@ -1275,7 +1275,7 @@ sequenceDiagram
 
 # Section 5: Analytical & Decision Support Engines
 
-## 5.1 Lock-Spec Risk Detection Subsystem (FR-20, FR-21, ADR 0030)
+## 5.1 Lock-Spec Risk Detection Subsystem (FR-20, FR-21, ADR 0035)
 
 The **Lock-Spec Risk Detection Engine** (`server/src/features/reality-check/lock-spec.service.js`) evaluates procurement requirements to identify "bid tailoring" (การล็อคสเปก) — where an agency crafts qualifications or technical specifications so narrowly that only a single favored vendor or incumbent can satisfy them.
 
@@ -1291,7 +1291,7 @@ The engine executes three statutory rule detectors against extracted data:
 | `detectQualificationBarriers` | **Circular ว 214 Clause 2** | Evaluates whether minimum required past single-contract experience (`eligibility.previousExperienceMinTHB`) exceeds 50% of the project's allocated reference price (ราคากลาง). | High (35 pts) | Circular ว 214 Clause 2 establishes that past contract experience requirements must not exceed 50% of the project budget or reference price. |
 | `detectSpecificationTailoring` | **Circular ว 214 Clause 3 & Act B.E. 2560 Section 9** | Evaluates whether proprietary operating systems or legacy database runtimes (Windows Server, Red Hat / RHEL, Oracle) require exact specific version numbers without permitting equivalent alternatives (`allowsEquivalent: false` or omitting "หรือเทียบเท่า"). | High (35 pts) | Circular ว 214 Clause 3 mandates that where specific brands or models are cited, the phrase "หรือเทียบเท่า" (or equivalent) must always be explicitly stated. |
 
-### 5.1.2 Scoring Weights & Risk Thresholds (ADR 0030)
+### 5.1.2 Scoring Weights & Risk Thresholds (ADR 0035)
 
 Individual findings carry severity point values:
 * `high`: **35 points**

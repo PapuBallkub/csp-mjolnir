@@ -9,7 +9,7 @@
 - [`0010 · Normalized TOR Detail Information`](../decisions/0010-normalized-tor-detail-Information.md)  
 - [`0014 · Price names and data rules for TorInsight`](../decisions/0014-price-names-and-insight-data-rules.md)  
 - [`0021 · Define comparable projects by architecture and complexity`](../decisions/0021-find-comparable-projects.md)  
-- [`0030 · Lock-spec risk criteria and scoring algorithm`](../decisions/0030-lock-spec-risk-criteria-and-scoring.md)  
+- [`0035 · Lock-spec risk criteria and scoring algorithm`](../decisions/0035-lock-spec-risk-criteria-and-scoring.md)  
 **Status:** Approved  
 **Audience:** Product Owners, Developers, Domain Experts, SME Bidders, and Platform Users  
 

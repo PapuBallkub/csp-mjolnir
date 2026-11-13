@@ -58,7 +58,7 @@ flowchart TD
 Ingestion writes `Tor`; extraction writes `TorInsight`. The two never import
 each other ([0013](decisions/0013-split-ingestion-and-ai-extraction.md)). The
 nightly `process` job runs the same steps in priority order
-([0030 night waves](decisions/0030-run-the-night-in-priority-waves.md)).
+([0030](decisions/0030-run-the-night-in-priority-waves.md)).
 
 ## Before you trust a file
 
@@ -67,11 +67,10 @@ nightly `process` job runs the same steps in priority order
   browser. The server copy in
   [features/match/matchmaker.js](../server/src/features/match/matchmaker.js)
   is not called by any route yet, only by its test. Change both together.
-- **"ADR 0030" means two decisions.** Two records share the number:
-  [lock-spec scoring](decisions/0030-lock-spec-risk-criteria-and-scoring.md)
-  and [night waves](decisions/0030-run-the-night-in-priority-waves.md).
-  `lock-spec.service.js` means the first; `queues.js` and `run-job.js` mean
-  the second.
+- **"ADR 0030" in a lock-spec file means 0035.** Lock-spec's decision was
+  numbered 0030 until 2026-11-13, a number the night waves already had. A
+  comment written before then that cites "ADR 0030" for lock-spec means
+  [0035](decisions/0035-lock-spec-risk-criteria-and-scoring.md).
 - **Old requirement IDs.** Code written before the SRS cites the proposal's
   numbering (`FR07` is match scoring, not extraction). Translate with the table
   at the end of [requirements.md](requirements.md).
@@ -218,7 +217,7 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 | :--- | :--- |
 | [similarity.service.js](../server/src/features/reality-check/similarity.service.js) | Finds comparable past projects for a TOR, without an LLM ([0021](decisions/0021-find-comparable-projects.md)). |
 | [benchmark.service.js](../server/src/features/reality-check/benchmark.service.js) | Median, average and deviation against those projects, with sample-size bands ([0024](decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md)). |
-| [lock-spec.service.js](../server/src/features/reality-check/lock-spec.service.js) | Lock-spec findings and risk score ([0030 lock-spec](decisions/0030-lock-spec-risk-criteria-and-scoring.md)). Called from extraction's `assemble.js`. |
+| [lock-spec.service.js](../server/src/features/reality-check/lock-spec.service.js) | Lock-spec findings and risk score ([0035](decisions/0035-lock-spec-risk-criteria-and-scoring.md)). Called from extraction's `assemble.js`. |
 | [index.js](../server/src/features/reality-check/index.js) | Exports the three, plus `FULL_EXTRACTION` / `isFullExtraction`. |
 
 **technologies**: `/api/technologies`
@@ -602,9 +601,9 @@ write a new one that supersedes it ([CONTRIBUTING](../CONTRIBUTING.md#decisions)
 | [0027](decisions/0027-run-the-pipeline-on-a-schedule.md) | Run the pipeline on a schedule |
 | [0028](decisions/0028-past-projects-from-data-go-th.md) | Past projects from data.go.th, as ordinary projects |
 | [0029](decisions/0029-admin-monitoring-and-review-fields.md) | Admin monitoring metrics and review workspace fields |
-| [0030](decisions/0030-lock-spec-risk-criteria-and-scoring.md) | Lock-spec risk criteria and scoring |
-| [0030](decisions/0030-run-the-night-in-priority-waves.md) | Run the night in priority waves (same number, different decision) |
+| [0030](decisions/0030-run-the-night-in-priority-waves.md) | Run the night in priority waves |
 | [0031](decisions/0031-keep-the-summary-a-change-replaces.md) | Keep the summary a change replaces |
 | [0032](decisions/0032-record-what-changed-in-a-tor.md) | Record what changed in a TOR |
 | [0033](decisions/0033-capability-profile-and-match-scoring.md) | Capability profile and match scoring |
 | [0034](decisions/0034-a-tor-can-have-several-categories.md) | A TOR can have several categories, main one first |
+| [0035](decisions/0035-lock-spec-risk-criteria-and-scoring.md) | Lock-spec risk criteria and scoring (0030 until 2026-11-13) |

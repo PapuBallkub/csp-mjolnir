@@ -166,5 +166,5 @@ The full rules, and why each one matters to a small bidder:
 | Why matching is done in code | [0021](decisions/0021-find-comparable-projects.md) |
 | Why results are worked out in advance | [0022](decisions/0022-precompute-benchmarks-in-the-pipeline.md) |
 | The verdict bands and sample sizes | [0024](decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md) |
-| The lock-spec criteria and scoring | [0030](decisions/0030-lock-spec-risk-criteria-and-scoring.md) |
+| The lock-spec criteria and scoring | [0035](decisions/0035-lock-spec-risk-criteria-and-scoring.md) |
 | What the fields mean | [tor-insight-schema.md](database/tor-insight-schema.md) |

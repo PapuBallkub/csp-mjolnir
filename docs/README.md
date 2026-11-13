@@ -101,8 +101,8 @@ what's built; the last column says which:
 [decisions/](decisions/) holds 35 decision records (ADRs), one per file,
 numbered in the order they were made. Each says what was decided, why, and
 what it costs. [project-map.md](project-map.md) lists them all with a line
-each. Two share the number 0030 for now (night waves, and lock-spec); the
-lock-spec one is to become 0035.
+each. Lock-spec's record was 0030 until 2026-11-13 and is now 0035, so an
+older comment citing "ADR 0030" for lock-spec means 0035.
 
 ## Writing docs here
 
