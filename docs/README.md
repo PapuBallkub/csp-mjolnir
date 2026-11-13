@@ -122,4 +122,6 @@ older comment citing "ADR 0030" for lock-spec means 0035.
 - **Add a new file to [project-map.md](project-map.md)**, and to this page if
   it's a doc.
 
-Commit conventions and the rest: [CONTRIBUTING.md](../CONTRIBUTING.md).
+When a change needs a doc written or updated, and where a newcomer starts:
+[CONTRIBUTING.md](../CONTRIBUTING.md#docs-are-part-of-the-change), with the
+commit conventions.
