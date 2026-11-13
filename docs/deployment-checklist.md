@@ -28,6 +28,12 @@ are open questions rather than instructions.
       connection string says. Point production at the same cluster and
       production *is* development — same database, same documents. Use a
       separate cluster, or pass a different `dbName`.
+- [ ] **DECIDE — how long a session lasts.** NFR-11 says a session expires
+      within 24 hours; `SESSION_TTL_DAYS` in
+      `server/src/features/auth/session.js` gives 7 days. The team will settle
+      it with the client first. Either the constant changes or the SRS does.
+      The length matters more than usual, because a session can't be revoked
+      before it expires (§6).
 
 ---
 
