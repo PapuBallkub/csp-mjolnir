@@ -157,7 +157,7 @@ export default function NotificationDetailPage() {
       <header className="mb-6 rounded-md border border-line bg-surface p-5 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold text-accent">
+            <span className="inline-flex items-center gap-1.5 rounded bg-open-bg px-2.5 py-0.5 text-[11px] font-semibold text-open border border-open-line">
               <IconTarget className="h-3.5 w-3.5" />
               <span>
                 {notification.type === "match"
@@ -282,7 +282,7 @@ export default function NotificationDetailPage() {
                   {/* Match Score & Action */}
                   <div className="flex shrink-0 flex-row items-center justify-between gap-3 border-t border-line pt-3 sm:flex-col sm:items-end sm:border-0 sm:pt-0">
                     <div className="text-right">
-                      <div className="inline-flex items-center gap-1 rounded-md bg-accent/15 px-2.5 py-1 text-[13px] font-bold text-accent">
+                      <div className="inline-flex items-center gap-1 rounded-md bg-open-bg px-2.5 py-1 text-[13px] font-bold text-open border border-open-line">
                         <span>{item.matchScore}%</span>
                         <span className="text-[11px] font-normal">
                           {lang === "th" ? "ตรงกัน" : "match"}

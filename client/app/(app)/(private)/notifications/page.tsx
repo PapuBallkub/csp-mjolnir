@@ -73,7 +73,7 @@ function IconCheck({ className = "h-3.5 w-3.5" }: { className?: string }) {
 
 function NotificationTypeIcon({ type }: { type: string }) {
   if (type === "match") {
-    return <IconTarget className="h-4 w-4 text-accent" />;
+    return <IconTarget className="h-4 w-4 text-open" />;
   }
   if (type === "amendment") {
     return <IconAmendment className="h-4 w-4 text-amber-600 dark:text-amber-400" />;
@@ -217,7 +217,7 @@ export default function NotificationsPage() {
             disabled={markingAll}
             className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2 hover:text-ink hover:underline disabled:opacity-50"
           >
-            <IconCheck className="h-3.5 w-3.5 text-accent" />
+            <IconCheck className="h-3.5 w-3.5 text-open" />
             <span>
               {markingAll
                 ? lang === "th"
@@ -279,7 +279,7 @@ export default function NotificationsPage() {
                 href={`/notifications/${item._id}`}
                 className={`group relative block rounded-md border p-4 transition-all hover:border-line-2 hover:shadow-xs ${
                   !item.isRead
-                    ? "border-accent/40 bg-accent/5 dark:bg-accent/10"
+                    ? "border-line-2 bg-surface-2/60"
                     : "border-line bg-surface"
                 }`}
               >
@@ -293,7 +293,7 @@ export default function NotificationsPage() {
                     {/* Title & Preview */}
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[14px] font-semibold text-ink group-hover:text-accent transition-colors">
+                        <span className="text-[14px] font-semibold text-ink group-hover:underline transition-colors">
                           {item.type === "match"
                             ? lang === "th"
                               ? `พบ ${matchedItems.length} โครงการใหม่ที่ตรงกับโปรไฟล์ของคุณ`
@@ -305,7 +305,7 @@ export default function NotificationsPage() {
                             : item.type}
                         </span>
                         {!item.isRead ? (
-                          <span className="flex h-2 w-2 rounded-full bg-accent" aria-label="Unread" />
+                          <span className="flex h-2 w-2 rounded-full bg-red-600" aria-label="Unread" />
                         ) : null}
                       </div>
 
