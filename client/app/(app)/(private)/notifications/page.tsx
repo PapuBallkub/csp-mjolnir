@@ -102,9 +102,10 @@ export default function NotificationsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-[1000px] px-4 py-6">
-      {/* Page Header */}
-      <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="mx-auto flex min-h-[calc(100vh-140px)] max-w-[1000px] flex-col justify-between px-4 py-6">
+      <div>
+        {/* Page Header */}
+        <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-ink">
             {lang === "th" ? "การแจ้งเตือน" : "Notifications"}
@@ -281,16 +282,17 @@ export default function NotificationsPage() {
           })}
         </div>
       )}
+      </div>
 
-      {/* Profile unconfigured callout */}
+      {/* Profile unconfigured callout: styled in warm amber-yellow, resting slightly above the bottom footer */}
       {isProfileEmpty ? (
-        <div className="mt-6 rounded-[4px] border border-line bg-surface p-4 shadow-xs">
-          <p className="text-[13px] font-semibold text-ink">
+        <div className="mt-8 mb-2 rounded-[4px] border border-amber-300 bg-amber-50 px-4 py-3.5 shadow-xs dark:border-amber-800 dark:bg-amber-950/40">
+          <p className="text-[13px] font-semibold text-amber-950 dark:text-amber-100">
             {lang === "th"
               ? "คุณยังไม่ได้ระบุทักษะหรือเงื่อนไขในโปรไฟล์"
               : "You haven't set up your profile skills or preferences yet"}
           </p>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] leading-thai text-ink-3">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] leading-thai text-amber-900/90 dark:text-amber-200/90">
             <span>
               {lang === "th"
                 ? "ระบบจะไม่สามารถค้นหาและแจ้งเตือนโครงการที่ตรงกับคุณได้ จนกว่าจะมีการบันทึกทักษะในโปรไฟล์"
@@ -299,7 +301,7 @@ export default function NotificationsPage() {
             <span>·</span>
             <Link
               href="/profile"
-              className="font-medium text-ink underline underline-offset-2 hover:opacity-80 cursor-pointer"
+              className="font-semibold text-amber-950 underline underline-offset-2 hover:opacity-80 cursor-pointer dark:text-amber-100"
             >
               {lang === "th" ? "ไปที่หน้าตั้งค่าโปรไฟล์และทักษะ →" : "Go to Profile Settings →"}
             </Link>
