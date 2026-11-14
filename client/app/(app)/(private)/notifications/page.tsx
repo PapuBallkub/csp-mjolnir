@@ -11,7 +11,7 @@ import {
   Mail,
   Wrench,
 } from "lucide-react";
-import { useLang } from "../../../_components/prefs";
+import { useLang, useProfile } from "../../../_components/prefs";
 import { btn, Panel } from "../../../_components/ui";
 import { formatTHBCompact } from "../../../_data/tors";
 import * as api from "../../../_lib/api";
@@ -47,6 +47,12 @@ function formatRelativeTime(dateStr: string, lang: "th" | "en") {
 
 export default function NotificationsPage() {
   const { lang } = useLang();
+  const { profile } = useProfile();
+
+  const isProfileEmpty =
+    (!profile.skills || profile.skills.length === 0) &&
+    (!profile.preferredArchetypes || profile.preferredArchetypes.length === 0) &&
+    (!profile.budgetMax || profile.budgetMax === 0);
 
   // Inbox Feed State
   const [notifications, setNotifications] = useState<NotificationFeedItem[]>([]);
@@ -196,14 +202,6 @@ export default function NotificationsPage() {
               ? "เมื่อมีประกาศจัดซื้อจัดจ้างใหม่ตรงกับทักษะของคุณ หรือโครงการในรายการติดตามมีการแก้ไข ระบบจะแจ้งเตือนให้คุณทราบที่นี่"
               : "When new procurement notices match your skills or watched projects change, alerts will appear here."}
           </p>
-          <div className="mt-4 flex justify-center gap-2">
-            <Link href="/profile" className={btn.secondary}>
-              {lang === "th" ? "จัดการทักษะในโปรไฟล์" : "Update Profile Skills"}
-            </Link>
-            <Link href="/search" className={btn.ghost}>
-              {lang === "th" ? "ค้นหาประกาศ TOR" : "Browse Tenders"}
-            </Link>
-          </div>
         </Panel>
       ) : (
         <div className="space-y-3">
@@ -222,6 +220,13 @@ export default function NotificationsPage() {
                     : "border-line/70 bg-surface-2/60 opacity-80 hover:opacity-100"
                 }`}
               >
+                {!item.isRead ? (
+                  <span
+                    className="absolute top-3.5 right-3.5 h-2 w-2 rounded-full bg-red-600"
+                    aria-label="Unread"
+                  />
+                ) : null}
+
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
                     {/* Icon */}
@@ -266,14 +271,8 @@ export default function NotificationsPage() {
                     </div>
                   </div>
 
-                  {/* Right side: unread indicator + chevron */}
-                  <div className="flex shrink-0 items-center gap-3 self-center">
-                    {!item.isRead ? (
-                      <span
-                        className="h-2 w-2 rounded-full bg-red-600 shrink-0"
-                        aria-label="Unread"
-                      />
-                    ) : null}
+                  {/* Right side: chevron */}
+                  <div className="flex shrink-0 items-center self-center pr-0.5">
                     <ChevronRight className="h-4 w-4 text-ink-3 transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
                   </div>
                 </div>
@@ -282,6 +281,31 @@ export default function NotificationsPage() {
           })}
         </div>
       )}
+
+      {/* Profile unconfigured callout */}
+      {isProfileEmpty ? (
+        <div className="mt-6 rounded-[4px] border border-line bg-surface p-4 shadow-xs">
+          <p className="text-[13px] font-semibold text-ink">
+            {lang === "th"
+              ? "คุณยังไม่ได้ระบุทักษะหรือเงื่อนไขในโปรไฟล์"
+              : "You haven't set up your profile skills or preferences yet"}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] leading-thai text-ink-3">
+            <span>
+              {lang === "th"
+                ? "ระบบจะไม่สามารถค้นหาและแจ้งเตือนโครงการที่ตรงกับคุณได้ จนกว่าจะมีการบันทึกทักษะในโปรไฟล์"
+                : "The system cannot match and notify you of tenders until you save your skills in your profile."}
+            </span>
+            <span>·</span>
+            <Link
+              href="/profile"
+              className="font-medium text-ink underline underline-offset-2 hover:opacity-80 cursor-pointer"
+            >
+              {lang === "th" ? "ไปที่หน้าตั้งค่าโปรไฟล์และทักษะ →" : "Go to Profile Settings →"}
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       {/* Confirmation Modal for Mark All Read */}
       {showConfirmModal ? (
