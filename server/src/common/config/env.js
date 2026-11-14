@@ -58,6 +58,15 @@ export const env = {
     process.env.SHOW_UNREVIEWED_INSIGHTS,
     (process.env.NODE_ENV ?? 'development') !== 'production',
   ),
+  // Email dispatch settings (FR-14, FR-18). Works with Gmail SMTP or standard SMTP.
+  // Optional: when user or pass is omitted, email dispatch is disabled.
+  email: {
+    host: process.env.SMTP_HOST ?? 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT ?? 465),
+    user: process.env.SMTP_USER ?? '',
+    pass: process.env.SMTP_PASS ?? '',
+    from: process.env.EMAIL_FROM ?? 'GIPDP Procurement Alerts <no-reply@gipdp.go.th>',
+  },
 };
 
 export const isProduction = env.nodeEnv === 'production';
@@ -65,3 +74,5 @@ export const isProduction = env.nodeEnv === 'production';
 export const isGoogleConfigured = Boolean(
   env.google.clientId && env.google.clientSecret && env.google.redirectUri,
 );
+
+export const isEmailConfigured = Boolean(env.email.user && env.email.pass);

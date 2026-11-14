@@ -1,4 +1,23 @@
 /**
+ * Evaluates whether a user's capability profile is in its fresh/unconfigured baseline state
+ * (i.e. no skills, default zero budget, no preferred archetypes, zero portfolio, no certifications).
+ *
+ * @param {Object} [profile]
+ * @returns {boolean}
+ */
+export function isProfileBaseline(profile) {
+  if (!profile) return true;
+  const noSkills = (profile.skills ?? []).length === 0;
+  const noBudget =
+    (!profile.budgetMin || profile.budgetMin === 0) &&
+    (!profile.budgetMax || profile.budgetMax === 0);
+  const noArchetypes = (profile.preferredArchetypes ?? []).length === 0;
+  const noPortfolio = !profile.maxPastPortfolioTHB || profile.maxPastPortfolioTHB === 0;
+  const noCerts = (profile.certifications ?? []).length === 0;
+  return noSkills && noBudget && noArchetypes && noPortfolio && noCerts;
+}
+
+/**
  * Normalizes technology/skill names for resilient comparison (trims, collapses whitespace, lowercase).
  */
 function normalizeName(name) {
@@ -26,20 +45,19 @@ export function calculateMatchScore(tor, profile) {
   const warningsEn = [];
 
   // 1. Technical Skills Fit (40% Weight)
-  const userSkillSet = new Set((profile?.skills ?? []).map(normalizeName));
+  const userSkillList = profile?.skills ?? [];
   const rawRequired = (tor.technicalRequirements?.requiredTechnologies ?? []).map((t) =>
     typeof t === 'string' ? t.trim() : (t?.name || '').trim()
   );
   const requiredUnique = [...new Set(rawRequired.filter(Boolean))];
 
+  const userSkillSet = new Set(userSkillList.map(normalizeName));
   const matched = requiredUnique.filter((name) => userSkillSet.has(normalizeName(name)));
   const missing = requiredUnique.filter((name) => !userSkillSet.has(normalizeName(name)));
 
   let skillScore = 0;
   if (requiredUnique.length === 0) {
     skillScore = 75; // Neutral baseline if TOR requires no specific software tech stack
-  } else if ((profile?.skills ?? []).length === 0) {
-    skillScore = 0;
   } else {
     skillScore = Math.round((matched.length / requiredUnique.length) * 100);
   }

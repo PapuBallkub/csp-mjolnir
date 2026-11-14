@@ -270,3 +270,18 @@ button:disabled * {
   animation: bookmark-pulse-ring 0.4s ease-out forwards;
 }
 
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.animate-toast-progress {
+  animation: toast-progress 6s linear forwards;
+  transform-origin: left;
+}
+
+

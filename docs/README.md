@@ -98,6 +98,7 @@ what's built; the last column says which:
 | [lock-spec-risk-detection.md](features/lock-spec-risk-detection.md) | The lock-spec rules and scoring | Spec, built |
 | [pipeline-administration.md](features/pipeline-administration.md) | Admin monitoring, failures and recovery | Spec, built |
 | [watchlist-changes.md](features/watchlist-changes.md) | "Changed since you saved" on the watchlist | Handoff: the data and API are ready; the UI isn't |
+| [notifications-and-alerts.md](features/notifications-and-alerts.md) | In-app notification feed and email match digest | Guide to what's built |
 
 ### Decisions
 
