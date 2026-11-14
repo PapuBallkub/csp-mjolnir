@@ -7,6 +7,7 @@ without opening ten. It says **where** things are; the decision records say
 Snapshot of `main` at `f9cceeb` (2026-11-11). When a PR adds, moves or deletes
 a file, update its row in the same PR.
 
+- [Folders at a glance](#folders-at-a-glance): the main folders, and what lives in each
 - [Start here](#start-here): the file to open for common tasks
 - [How a TOR moves through the code](#how-a-tor-moves-through-the-code)
 - [Before you trust a file](#before-you-trust-a-file): duplicates, leftovers, fixtures
@@ -14,6 +15,58 @@ a file, update its row in the same PR.
 - [Server](#server): [common](#servercommon) · [models](#servermodels) · [features](#serverfeatures) · [pipeline](#serverpipeline) · [scripts](#serverscripts) · [tests](#servertest)
 - [Client](#client): [routes](#routes) · [route files](#route-files) · [shared components](#client_components) · [lib](#client_lib) · [tests](#clienttest)
 - [Docs](#docs): [guides](#guides) · [data sources](#docsdata-sources) · [database](#docsdatabase) · [features](#docsfeatures) · [decisions](#docsdecisions)
+
+---
+
+## Folders at a glance
+
+The main folders only. Each has its own section below, with a row per file.
+
+```text
+.
+├── AGENTS.md               frontend design guide; AI agents read it first
+├── CONTRIBUTING.md         where to start, branches, commits, when docs change
+├── docker-compose*.yml     the stack; the override adds a local MongoDB
+├── .github/                CI workflow and the PR template
+│
+├── server/                 Node + Express API, and the pipeline
+│   ├── src/
+│   │   ├── server.js       entry point: connects to MongoDB, then listens
+│   │   ├── app.js          builds the app, mounts each feature under /api
+│   │   ├── common/         config, database connection, errors, middleware
+│   │   ├── models/         every Mongoose schema, shape only
+│   │   ├── features/       one folder per API feature: routes → controller → service
+│   │   │                   admin, auth, health, match, profile, reality-check,
+│   │   │                   technologies, tors, watchlist
+│   │   └── pipeline/       the scheduled work, from e-GP to a summary
+│   │       ├── ingestion/  e-GP feed, document download, OCR, data.go.th import
+│   │       ├── extraction/ Gemini reads the TOR text; checks set the confidence
+│   │       ├── jobs/       the schedule, and the night in waves
+│   │       └── shared/     status engine, request pacing, queues, Thai text
+│   ├── scripts/            commands run by hand or nightly (seed, rollback, …)
+│   ├── seed/               real e-GP notices for demos, with made-up insights
+│   └── test/               node:test; test/pipeline/ follows src/pipeline/
+│
+├── client/                 Next.js frontend
+│   ├── app/
+│   │   ├── page.tsx        the introduction page (/)
+│   │   ├── auth/           sign-in (/auth)
+│   │   ├── (app)/          pages inside the shell: search, tor/[id], watchdog, admin
+│   │   │   └── (private)/  signed-in only: profile, watchlist, notifications
+│   │   ├── _components/    shared UI: shell, badges, the TOR detail sections
+│   │   ├── _lib/           the API client (api.ts), formatting, status, matching
+│   │   └── _data/          fixture TORs, and types many files import
+│   └── test/               node:test
+│
+└── docs/                   start at docs/README.md
+    ├── decisions/          why things are built the way they are (ADRs)
+    ├── features/           specs and guides, one per feature
+    ├── database/           every field, one page per collection
+    └── data-sources/       e-GP and data.go.th: what each source gives
+```
+
+Folders in brackets, `(app)` and `(private)`, are Next.js route groups: they
+group pages and share a layout, but don't appear in the URL.
 
 ---
 
