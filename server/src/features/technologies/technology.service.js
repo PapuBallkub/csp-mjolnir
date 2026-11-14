@@ -31,12 +31,12 @@ export async function getAllTechnologies() {
 export async function requestTechnology({ name, category, userId }) {
   const trimmed = name?.trim();
   if (!trimmed || trimmed.length === 0) {
-    const error = new Error('Name is required');
+    const error = new Error('กรุณาระบุชื่อเทคโนโลยี');
     error.status = 400;
     throw error;
   }
   if (trimmed.length > 100) {
-    const error = new Error('Name cannot exceed 100 characters');
+    const error = new Error('ชื่อเทคโนโลยีต้องมีความยาวไม่เกิน 100 ตัวอักษร');
     error.status = 400;
     throw error;
   }

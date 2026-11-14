@@ -48,8 +48,8 @@ export async function registerWithPassword({ email, password, name, notification
     // Left to the unique index rather than a lookup first, which two
     // simultaneous signups would both pass before either one writes.
     if (error.code === DUPLICATE_KEY) {
-      throw new HttpError(409, 'That email already has an account.', {
-        email: 'That email already has an account.',
+      throw new HttpError(409, 'อีเมลนี้ถูกใช้งานแล้ว', {
+        email: 'อีเมลนี้ถูกใช้งานแล้ว',
       });
     }
     throw error;
@@ -63,7 +63,7 @@ export async function signInWithPassword({ email, password }) {
   // One message for a missing account and a wrong password. Separate ones tell
   // anyone who asks which addresses are registered. See 0004.
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
-    throw unauthorized('Invalid email or password.');
+    throw unauthorized('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
   }
 
   return toPublicUser(user);
@@ -82,7 +82,7 @@ export async function signInWithGoogle({ googleId, email, emailVerified, name })
   // Without this, an account claiming an address it does not own could take
   // over the password account already using it.
   if (!emailVerified) {
-    throw new HttpError(403, 'Your Google account has no verified email address.');
+    throw new HttpError(403, 'บัญชี Google ของคุณยังไม่ได้ยืนยันที่อยู่อีเมล');
   }
 
   // Link-or-create in one atomic write, so two callbacks arriving together

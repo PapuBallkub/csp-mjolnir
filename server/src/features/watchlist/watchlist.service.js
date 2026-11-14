@@ -10,7 +10,7 @@ const MAX_WATCHLIST_ITEMS = 200;
  */
 export async function getWatchlist(userId, now = new Date()) {
   const user = await User.findById(userId).select('watchlist').lean();
-  if (!user) throw notFound('User not found.');
+  if (!user) throw notFound('ไม่พบผู้ใช้งาน');
 
   const items = user.watchlist ?? [];
   if (items.length === 0) {
@@ -57,11 +57,11 @@ export async function addToWatchlist(userId, projectId) {
   // the catalog never shows would leave an entry the watchlist hides
   const exists = await TorInsight.exists({ projectId, ...visibilityFilter() });
   if (!exists) {
-    throw notFound('TOR project not found.');
+    throw notFound('ไม่พบข้อมูลโครงการ TOR');
   }
 
   const user = await User.findById(userId).select('watchlist');
-  if (!user) throw notFound('User not found.');
+  if (!user) throw notFound('ไม่พบผู้ใช้งาน');
 
   const current = user.watchlist ?? [];
   const isAlreadySaved = current.some((item) => item.projectId === projectId);
@@ -71,8 +71,8 @@ export async function addToWatchlist(userId, projectId) {
   }
 
   if (current.length >= MAX_WATCHLIST_ITEMS) {
-    throw badRequest(`You can save at most ${MAX_WATCHLIST_ITEMS} items to your watchlist.`, {
-      watchlist: `Watchlist limit of ${MAX_WATCHLIST_ITEMS} items reached.`,
+    throw badRequest(`คุณสามารถบันทึกโครงการในรายการติดตามได้สูงสุด ${MAX_WATCHLIST_ITEMS} รายการ`, {
+      watchlist: `คุณบันทึกโครงการในรายการติดตามครบตามจำนวนสูงสุด ${MAX_WATCHLIST_ITEMS} รายการแล้ว`,
     });
   }
 
@@ -95,7 +95,7 @@ export async function removeFromWatchlist(userId, projectId) {
     .select('watchlist')
     .lean();
 
-  if (!result) throw notFound('User not found.');
+  if (!result) throw notFound('ไม่พบผู้ใช้งาน');
 
   return {
     saved: false,

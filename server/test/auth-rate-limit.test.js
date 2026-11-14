@@ -68,7 +68,7 @@ test('failed sign-ins for one account are cut off, as JSON like every other erro
       assert.match(blocked.headers.get('content-type'), /application\/json/);
 
       const body = await blocked.json();
-      assert.match(body.error.message, /too many/i, 'a 429 must use the { error: { message } } envelope');
+      assert.match(body.error.message, /มากเกินไป|too many/i, 'a 429 must use the { error: { message } } envelope');
       assert.ok(blocked.headers.get('retry-after'), 'the client should be told how long to wait');
     },
   );

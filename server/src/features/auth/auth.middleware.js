@@ -12,7 +12,7 @@ export async function requireAuth(req, res, next) {
   const userId = readSessionToken(req.cookies?.[SESSION_COOKIE]);
 
   if (!userId) {
-    throw unauthorized('Sign in to continue.');
+    throw unauthorized('กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ');
   }
 
   const user = await findUserById(userId);
@@ -21,7 +21,7 @@ export async function requireAuth(req, res, next) {
     // Our token, unexpired, but the account behind it is gone. Drop the cookie
     // so the browser stops replaying it on every request.
     clearSessionCookie(res);
-    throw unauthorized('Sign in to continue.');
+    throw unauthorized('กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ');
   }
 
   req.user = user;
@@ -42,11 +42,11 @@ export async function requireAuth(req, res, next) {
 export function requireRole(...roles) {
   return function requireRoleMiddleware(req, res, next) {
     if (!req.user) {
-      throw unauthorized('Sign in to continue.');
+      throw unauthorized('กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ');
     }
 
     if (!roles.includes(req.user.role)) {
-      throw forbidden('This area is for administrators.');
+      throw forbidden('พื้นที่นี้สำหรับผู้ดูแลระบบเท่านั้น');
     }
 
     next();

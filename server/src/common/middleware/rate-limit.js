@@ -38,7 +38,7 @@ function build({ windowMs, limit, message, keyGenerator, skip, skipSuccessfulReq
 
 function defaultMessage(windowMs) {
   const minutes = Math.ceil(windowMs / 60_000);
-  return `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`;
+  return `มีการพยายามทำรายการมากเกินไป กรุณาลองใหม่ในอีก ${minutes} นาที`;
 }
 
 // For routes anyone can reach, where the caller's address is all we have.
