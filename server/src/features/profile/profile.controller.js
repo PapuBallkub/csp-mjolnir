@@ -1,4 +1,5 @@
 import { toPublicUser } from '#features/auth/auth.service.js';
+import { generateMatchNotificationsForUser } from '#features/notifications/index.js';
 
 import { parseProfileUpdate } from './profile.validation.js';
 import { updateProfile } from './profile.service.js';
@@ -13,5 +14,13 @@ export async function update(req, res) {
   }
 
   const user = await updateProfile(req.user.id, fields);
+
+  // If user enabled notifications, proactively stage match notifications for them
+  if (user.notificationConsent && user.profile?.matchNotification?.enabled) {
+    generateMatchNotificationsForUser(user).catch((err) => {
+      console.warn('[profile.controller] generateMatchNotificationsForUser error:', err.message);
+    });
+  }
+
   res.json({ user: toPublicUser(user) });
 }

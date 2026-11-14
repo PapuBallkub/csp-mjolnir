@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { Bell, LogOut, User, X } from "lucide-react";
 import { displayName, useAuth } from "./auth";
 import { ThemeToggle } from "./prefs";
+import { fetchNotifications } from "../_lib/api";
 
 /**
  * The hammer, drawn flat and geometric rather than mythic — this is an
@@ -32,30 +35,195 @@ const NAV = [
   { href: "/watchdog", label: "ตรวจสอบราคา/การแก้ไข" },
 ] as const;
 
+// In-memory dismissal state for current page session (resets on full browser reload)
+let calloutDismissedInSession = false;
+let lastSeenUnreadCount = 0;
+
 export function HeaderControls({ className = "" }: { className?: string }) {
   const pathname = usePathname();
   const { status, user, signOut } = useAuth();
   const signInHref = `/auth?next=${encodeURIComponent(pathname || "/")}`;
 
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showCallout, setShowCallout] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const autoCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const isAuthenticated = status === "authenticated" && Boolean(user?.id);
+  const activeUnreadCount = isAuthenticated ? unreadCount : 0;
+  const activeShowCallout = isAuthenticated ? showCallout : false;
+
+  // Fetch unread count when user is authenticated
+  useEffect(() => {
+    if (status !== "authenticated" || !user?.id) {
+      return;
+    }
+
+    let active = true;
+    fetchNotifications({ limit: 1 }).then((res) => {
+      if (!active || !res.ok) return;
+      const count = res.data.unreadCount;
+      setUnreadCount(count);
+
+      // If new unread notifications arrive while browsing, allow callout to show
+      if (count > lastSeenUnreadCount && lastSeenUnreadCount > 0) {
+        calloutDismissedInSession = false;
+      }
+      lastSeenUnreadCount = count;
+
+      // Clean up legacy storage keys
+      try {
+        sessionStorage.removeItem("gipdp_bell_callout_dismissed");
+        sessionStorage.removeItem(`gipdp_bell_callout_dismissed_${user.id}`);
+      } catch {
+        // Ignore
+      }
+
+      // Show callout if there are unread items and user hasn't closed it during this page session
+      if (count > 0 && !calloutDismissedInSession) {
+        setShowCallout(true);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [status, pathname, user?.id]);
+
+  // Listen for realtime notification updates (e.g. entering /notifications/[id] or marking read)
+  useEffect(() => {
+    function handleNotificationsUpdated(e: Event) {
+      const customEvent = e as CustomEvent<{ unreadCount?: number }>;
+      if (typeof customEvent?.detail?.unreadCount === "number") {
+        const count = customEvent.detail.unreadCount;
+        setUnreadCount(count);
+        if (count === 0) {
+          setShowCallout(false);
+        }
+        return;
+      }
+
+      if (status === "authenticated" && user?.id) {
+        fetchNotifications({ limit: 1 }).then((res) => {
+          if (res.ok) {
+            const count = res.data.unreadCount;
+            setUnreadCount(count);
+            if (count === 0) {
+              setShowCallout(false);
+            }
+          }
+        });
+      }
+    }
+
+    window.addEventListener("notifications-updated", handleNotificationsUpdated);
+    return () => {
+      window.removeEventListener("notifications-updated", handleNotificationsUpdated);
+    };
+  }, [status, user?.id]);
+
+  // Auto-close callout after 6 seconds (pauses on hover)
+  useEffect(() => {
+    if (!activeShowCallout || isPaused) {
+      if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+      return;
+    }
+
+    autoCloseTimerRef.current = setTimeout(() => {
+      handleDismissCallout();
+    }, 6200);
+
+    return () => {
+      if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+    };
+  }, [activeShowCallout, isPaused, user?.id, activeUnreadCount]);
+
+  function handleDismissCallout() {
+    calloutDismissedInSession = true;
+    setShowCallout(false);
+  }
+
+  function handlePauseTimer() {
+    setIsPaused(true);
+  }
+
+  function handleResumeTimer() {
+    setIsPaused(false);
+  }
+
+  const isNotificationInbox = pathname === "/notifications";
+  const badgeColor = isNotificationInbox ? "bg-pink-500" : "bg-red-600";
+  const toastProgressColor = isNotificationInbox ? "bg-pink-500/85" : "bg-red-600/85";
+
   return (
     <div className={`flex shrink-0 items-center gap-2 ${className}`}>
       <ThemeToggle />
-      <Link
-        href="/notifications"
-        aria-label="ตั้งค่าการแจ้งเตือน"
-        title="การแจ้งเตือน"
-        className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
-      >
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
-          <path
-            d="M4 6.5a4 4 0 1 1 8 0c0 3 1 4 1 4H3s1-1 1-4Z"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            fill="none"
-          />
-          <path d="M6.5 13a1.6 1.6 0 0 0 3 0" stroke="currentColor" strokeWidth="1.3" />
-        </svg>
-      </Link>
+      <div className="relative">
+        <Link
+          href="/notifications"
+          onClick={handleDismissCallout}
+          aria-label={
+            activeUnreadCount > 0
+              ? `การแจ้งเตือน (${activeUnreadCount} รายการใหม่)`
+              : "การแจ้งเตือน"
+          }
+          title="การแจ้งเตือน"
+          className="relative flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
+        >
+          <Bell className="h-3.5 w-3.5" />
+          {activeUnreadCount > 0 ? (
+            <span
+              className={`absolute -top-1.5 -right-1.5 z-10 flex h-4 min-w-[16px] items-center justify-center rounded-full ${badgeColor} px-1 text-[10px] font-bold text-white shadow-xs pointer-events-none transition-colors duration-150`}
+              aria-hidden="true"
+            >
+              {activeUnreadCount > 99 ? "99+" : activeUnreadCount}
+            </span>
+          ) : null}
+        </Link>
+
+        {activeShowCallout && activeUnreadCount > 0 ? (
+          <div
+            role="status"
+            aria-live="polite"
+            onMouseEnter={handlePauseTimer}
+            onMouseLeave={handleResumeTimer}
+            className="absolute right-0 top-full z-50 mt-2 w-max max-w-[280px] rounded-md border border-line-2 bg-surface-2 p-2.5 pb-3.5 shadow-lg animate-in fade-in slide-in-from-top-1"
+          >
+            {/* The little upward arrow pointing to the bell */}
+            <div
+              className="absolute -top-1.5 right-2 h-2.5 w-2.5 rotate-45 border-l border-t border-line-2 bg-surface-2"
+              aria-hidden="true"
+            />
+
+            <div className="relative flex items-center justify-between gap-3">
+              <Link
+                href="/notifications"
+                onClick={handleDismissCallout}
+                className="text-[12px] font-medium leading-tight text-ink hover:underline"
+              >
+                {`คุณมี ${activeUnreadCount} การแจ้งเตือนที่ยังไม่ได้อ่าน`}
+              </Link>
+              <button
+                type="button"
+                onClick={handleDismissCallout}
+                aria-label="ปิด"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink cursor-pointer"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+
+            {/* Countdown bar at bottom: drains from right to left */}
+            <div className="absolute bottom-0 left-0 right-0 h-[2.5px] overflow-hidden rounded-b-md bg-line">
+              <div
+                onAnimationEnd={handleDismissCallout}
+                className={`h-full w-full ${toastProgressColor} animate-toast-progress origin-left`}
+                style={{ animationPlayState: isPaused ? "paused" : "running" }}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
       {status === "loading" ? (
         // A fixed-size placeholder, not "Sign in": the answer is not
         // known yet, and guessing wrong flashes the wrong thing at
@@ -77,9 +245,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
                 : "border-line bg-surface-2 text-ink-2 hover:text-ink"
             }`}
           >
-            <span className="sm:hidden font-mono text-[11px] font-semibold text-ink" aria-hidden="true">
-              👤
-            </span>
+            <User className="sm:hidden h-3.5 w-3.5 text-ink shrink-0" />
             <span className="hidden sm:inline max-w-[130px] truncate">
               {displayName(user)}
             </span>
@@ -91,16 +257,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
             title="ออกจากระบบ"
             className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-3 transition-colors hover:text-ink cursor-pointer shrink-0"
           >
-            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
-              <path
-                d="M6 13.5H3.5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1H6M10 11l3-3-3-3M13 8H6.5"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <LogOut className="h-3.5 w-3.5" />
           </button>
         </span>
       ) : (
@@ -187,7 +344,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 bg-canvas">{children}</main>
+      <main className="flex flex-1 flex-col bg-canvas">{children}</main>
 
       <footer className="mt-auto border-t border-line bg-surface">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 text-[11px] text-ink-3">

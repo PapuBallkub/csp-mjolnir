@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Lang } from "../../../_data/tors";
 import { pick } from "../../../_data/tors";
 import type { ApiResult, TorFacets, TorStatus } from "../../../_lib/api";
@@ -16,6 +17,10 @@ export function FilterRail({
   setAmendedOnly,
   hideHighRisk,
   setHideHighRisk,
+  minScore,
+  setMinScore,
+  canMatch,
+  hasSkills = true,
   budgetBand,
   setBudgetBand,
   deadlineBand,
@@ -36,6 +41,10 @@ export function FilterRail({
   setAmendedOnly: (amendedOnly: boolean) => void;
   hideHighRisk: boolean;
   setHideHighRisk: (hideHighRisk: boolean) => void;
+  minScore: number;
+  setMinScore: (score: number) => void;
+  canMatch: boolean;
+  hasSkills?: boolean;
   budgetBand: string;
   setBudgetBand: (band: string) => void;
   deadlineBand: string;
@@ -59,7 +68,7 @@ export function FilterRail({
           <button
             type="button"
             onClick={clearAll}
-            className="text-[11px] text-ink-2 underline underline-offset-2 hover:text-ink"
+            className="text-[11px] text-ink-2 underline underline-offset-2 hover:text-ink cursor-pointer"
           >
             {lang === "th" ? `ล้างทั้งหมด (${activeCount})` : `Clear all (${activeCount})`}
           </button>
@@ -81,7 +90,7 @@ export function FilterRail({
           <button
             type="button"
             onClick={() => setStatuses(STATUSES)}
-            className="self-start text-[11px] leading-thai text-ink-2 underline underline-offset-2 hover:text-ink"
+            className="self-start text-[11px] leading-thai text-ink-2 underline underline-offset-2 hover:text-ink cursor-pointer"
           >
             {lang === "th" ? "แสดงทุกสถานะ รวมโครงการในอดีต" : "Show every status, past projects too"}
           </button>
@@ -101,6 +110,76 @@ export function FilterRail({
             count={facets?.ok ? facets.data.amended : undefined}
           />
         </div>
+      </FilterGroup>
+
+      <FilterGroup title={lang === "th" ? "ความตรงกับโปรไฟล์" : "Profile fit"}>
+        {!canMatch ? (
+          <div className="space-y-1.5">
+            <p className="text-[11.5px] leading-thai text-ink-3">
+              {lang === "th"
+                ? "ลงชื่อเข้าใช้เพื่อกรองและจัดอันดับตามทักษะและงบประมาณของคุณ"
+                : "Sign in to filter and rank tenders by your skills and budget"}
+            </p>
+            <Link
+              href="/auth"
+              className="inline-block text-[11.5px] font-medium text-ink underline underline-offset-2 hover:opacity-80 cursor-pointer"
+            >
+              {lang === "th" ? "ลงชื่อเข้าใช้ →" : "Sign in →"}
+            </Link>
+          </div>
+        ) : !hasSkills ? (
+          <div className="space-y-1.5">
+            <span className="inline-block rounded-[3px] border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              {lang === "th" ? "ยังไม่ได้ตั้งค่าโปรไฟล์" : "Profile not configured yet"}
+            </span>
+            <p className="text-[11.5px] leading-thai text-ink-3">
+              {lang === "th"
+                ? "ตั้งค่าเงื่อนไขในโปรไฟล์เพื่อเปิดใช้งานการคำนวณและกรองคะแนนความตรง"
+                : "Set up your profile preferences to activate match scoring and filtering."}
+            </p>
+            <Link
+              href="/profile"
+              className="inline-block text-[11.5px] font-medium text-ink underline underline-offset-2 hover:opacity-80 cursor-pointer"
+            >
+              {lang === "th" ? "ไปที่หน้าตั้งค่าโปรไฟล์ →" : "Go to Profile Settings →"}
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            <div>
+              <span className="text-[13px] leading-thai text-ink-2">
+                {minScore > 0 ? (
+                  lang === "th" ? (
+                    `ตั้งแต่ ${minScore}% ขึ้นไป`
+                  ) : (
+                    `${minScore}%+ and up`
+                  )
+                ) : lang === "th" ? (
+                  "ทุกคะแนน (0%)"
+                ) : (
+                  "All scores (0%)"
+                )}
+              </span>
+            </div>
+
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={minScore}
+              onChange={(e) => setMinScore(Number(e.target.value))}
+              aria-label={lang === "th" ? "คะแนนขั้นต่ำในการจับคู่" : "Minimum match score"}
+              className="h-1.5 w-full cursor-pointer accent-ink my-1"
+            />
+
+            <div className="flex justify-between text-[10.5px] font-mono text-ink-3">
+              <span>0%</span>
+              <span className="text-ink-2">50%</span>
+              <span>100%</span>
+            </div>
+          </div>
+        )}
       </FilterGroup>
 
       <FilterGroup title={lang === "th" ? "คัดกรองความเสี่ยง" : "Risk"}>
