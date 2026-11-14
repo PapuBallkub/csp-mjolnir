@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { listTors, type ApiResult, type TorInsightSummary } from "../../../_lib/api";
-import { matchFor } from "../../../_lib/match";
+import { isProfileBaseline, matchFor } from "../../../_lib/match";
 import { useAuth } from "../../../_components/auth";
 import { useProfile } from "../../../_components/prefs";
 import { CatalogRow, CatalogRowSkeleton } from "../../../_components/catalog-row";
@@ -231,13 +231,13 @@ export function MatchModeView({
     }
 
     const noSkillsBanner =
-      profile.skills.length === 0 ? (
+      isProfileBaseline(profile) ? (
         <div className="mb-2.5 flex items-center justify-between rounded-[3px] border border-amber-300 bg-amber-50 px-3.5 py-2 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           <span>
-            💡 คุณยังไม่ได้ระบุทักษะในโปรไฟล์ — ระบบกำลังจัดอันดับจากงบประมาณ สถาปัตยกรรม และเกณฑ์ทั่วไป
+            💡 คุณยังไม่ได้ตั้งค่าโปรไฟล์ — ตั้งค่าทักษะและเงื่อนไขการรับงานเพื่อจัดอันดับประกาศที่ตรงกับคุณ
           </span>
           <Link href="/profile" className="ml-2 shrink-0 font-semibold underline hover:opacity-80">
-            ตั้งค่าทักษะ →
+            ตั้งค่าโปรไฟล์ →
           </Link>
         </div>
       ) : null;

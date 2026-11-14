@@ -1,4 +1,23 @@
 /**
+ * Evaluates whether a user's capability profile is in its fresh/unconfigured baseline state
+ * (i.e. no skills, default zero budget, no preferred archetypes, zero portfolio, no certifications).
+ *
+ * @param {Object} [profile]
+ * @returns {boolean}
+ */
+export function isProfileBaseline(profile) {
+  if (!profile) return true;
+  const noSkills = (profile.skills ?? []).length === 0;
+  const noBudget =
+    (!profile.budgetMin || profile.budgetMin === 0) &&
+    (!profile.budgetMax || profile.budgetMax === 0);
+  const noArchetypes = (profile.preferredArchetypes ?? []).length === 0;
+  const noPortfolio = !profile.maxPastPortfolioTHB || profile.maxPastPortfolioTHB === 0;
+  const noCerts = (profile.certifications ?? []).length === 0;
+  return noSkills && noBudget && noArchetypes && noPortfolio && noCerts;
+}
+
+/**
  * Normalizes technology/skill names for resilient comparison (trims, collapses whitespace, lowercase).
  */
 function normalizeName(name) {
@@ -25,47 +44,12 @@ export function calculateMatchScore(tor, profile) {
   const warningsTh = [];
   const warningsEn = [];
 
-  // 1. Technical Skills Fit (40% Weight) & Required Anchor
+  // 1. Technical Skills Fit (40% Weight)
   const userSkillList = profile?.skills ?? [];
   const rawRequired = (tor.technicalRequirements?.requiredTechnologies ?? []).map((t) =>
     typeof t === 'string' ? t.trim() : (t?.name || '').trim()
   );
   const requiredUnique = [...new Set(rawRequired.filter(Boolean))];
-
-  // If user has not specified any skills, matching is inactive -> score 0!
-  if (userSkillList.length === 0) {
-    const isCompaniesOnly = Boolean(
-      tor.companiesOnly ?? (tor.eligibility?.standardConditions ?? []).includes('juristic-person')
-    );
-    const userEntity = profile?.entityType ?? 'juristic';
-    const disqualifiedDirectBid = isCompaniesOnly && userEntity === 'individual';
-    const torArchetype = (tor.overview?.systemArchetype || tor.identification?.archetype || '').trim().toLowerCase() || null;
-    const price = tor.facts?.referencePriceTHB ?? tor.facts?.budgetTHB ?? null;
-    const torExpMin = tor.eligibility?.previousExperienceMinTHB ?? null;
-    const estimatedRequired = torExpMin ?? (price !== null ? Math.round(price * 0.4) : 0);
-
-    return {
-      score: 0,
-      tier: 'low',
-      matched: [],
-      missing: requiredUnique,
-      disqualifiedDirectBid,
-      breakdown: {
-        score: 0,
-        tier: 'low',
-        skills: { score: 0, matched: [], missing: requiredUnique, totalRequired: requiredUnique.length },
-        archetype: { score: 0, torArchetype, isPreferred: false },
-        budget: { score: 0, status: 'unknown', price },
-        portfolio: { score: 0, userMax: profile?.maxPastPortfolioTHB ?? 0, estimatedRequired, meetsThreshold: false },
-        entity: { score: 0, userEntityType: userEntity, companiesOnly: isCompaniesOnly, disqualifiedDirectBid },
-        certifications: { score: 0, matched: [], missing: [], totalRequired: 0 },
-        highlightsTh: [],
-        highlightsEn: [],
-        warningsTh: ['ยังไม่ได้ระบุทักษะในโปรไฟล์ — ระบบไม่สามารถคำนวณคะแนนความตรงได้'],
-        warningsEn: ['No skills specified in profile — match score cannot be calculated'],
-      },
-    };
-  }
 
   const userSkillSet = new Set(userSkillList.map(normalizeName));
   const matched = requiredUnique.filter((name) => userSkillSet.has(normalizeName(name)));

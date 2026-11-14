@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { listTors, torFacets, type ApiError, type ApiResult, type TorFacets, type TorListParams, type TorStatus } from "../../../_lib/api";
-import { matchFor } from "../../../_lib/match";
+import { isProfileBaseline, matchFor } from "../../../_lib/match";
 import { useAuth } from "../../../_components/auth";
 import { useProfile } from "../../../_components/prefs";
 import { CatalogRow, CatalogRowSkeleton } from "../../../_components/catalog-row";
@@ -419,7 +419,7 @@ export function FilterModeView() {
       minScore={minScore}
       setMinScore={setMinScore}
       canMatch={canMatch}
-      hasSkills={profile.skills.length > 0}
+      hasSkills={!isProfileBaseline(profile)}
       activeCount={activeCount}
       clearAll={clearAll}
       facets={facets}

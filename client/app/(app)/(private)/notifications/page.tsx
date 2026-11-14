@@ -15,6 +15,7 @@ import {
 import { useLang, useProfile } from "../../../_components/prefs";
 import { btn, Panel } from "../../../_components/ui";
 import { formatTHBCompact } from "../../../_data/tors";
+import { isProfileBaseline } from "../../../_lib/match";
 import * as api from "../../../_lib/api";
 import type { NotificationFeedItem } from "../../../_lib/api";
 
@@ -50,10 +51,7 @@ export default function NotificationsPage() {
   const { lang } = useLang();
   const { profile } = useProfile();
 
-  const isProfileEmpty =
-    (!profile.skills || profile.skills.length === 0) &&
-    (!profile.preferredArchetypes || profile.preferredArchetypes.length === 0) &&
-    (!profile.budgetMax || profile.budgetMax === 0);
+  const isProfileEmpty = isProfileBaseline(profile);
 
   // Inbox Feed State
   const [notifications, setNotifications] = useState<NotificationFeedItem[]>([]);

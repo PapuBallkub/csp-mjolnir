@@ -1,2 +1,2 @@
-export { calculateMatchScore } from './matchmaker.js';
+export { calculateMatchScore, isProfileBaseline } from './matchmaker.js';
 

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { AuthUser, UserProfile } from "../../../../_lib/api";
 import { formatTHB } from "../../../../_data/tors";
+import { isProfileBaseline } from "../../../../_lib/match";
 import { btn, Chip, Panel, SectionHeading } from "../../../../_components/ui";
 
 const ARCHETYPE_LABELS: Record<string, string> = {
@@ -207,8 +208,8 @@ export function ProfileDisplay({
         </div>
       </Panel>
 
-      {/* 2. CAPABILITY SECTION: SINGLE SETUP BLOCK (IF NO SKILLS) OR FULL 5-CARD DASHBOARD */}
-      {profile.skills.length === 0 ? (
+      {/* 2. CAPABILITY SECTION: SINGLE SETUP BLOCK (IF UNCONFIGURED BASELINE) OR FULL 5-CARD DASHBOARD */}
+      {isProfileBaseline(profile) ? (
         <section className="rounded-[3px] border border-line bg-surface-2 p-6 text-center sm:p-9 shadow-xs dark:bg-surface-2/50">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-amber-300/80 bg-amber-100/70 text-amber-700 shadow-2xs dark:border-amber-700/60 dark:bg-amber-950/50 dark:text-amber-400">
             <AlertTriangle className="h-5 w-5" />

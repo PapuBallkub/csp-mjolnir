@@ -130,12 +130,12 @@ export function FilterRail({
         ) : !hasSkills ? (
           <div className="space-y-1.5">
             <span className="inline-block rounded-[3px] border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-              {lang === "th" ? "ยังไม่ได้ระบุทักษะในโปรไฟล์" : "Didn't set up skills yet"}
+              {lang === "th" ? "ยังไม่ได้ตั้งค่าโปรไฟล์" : "Profile not configured yet"}
             </span>
             <p className="text-[11.5px] leading-thai text-ink-3">
               {lang === "th"
-                ? "ระบุทักษะในโปรไฟล์เพื่อเปิดใช้งานการคำนวณและกรองคะแนนความตรง"
-                : "Set up your skills in profile to activate match scoring and filtering."}
+                ? "ตั้งค่าเงื่อนไขในโปรไฟล์เพื่อเปิดใช้งานการคำนวณและกรองคะแนนความตรง"
+                : "Set up your profile preferences to activate match scoring and filtering."}
             </p>
             <Link
               href="/profile"
