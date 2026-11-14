@@ -418,56 +418,74 @@ export function ProfileDisplay({
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Channel 1: In-App Job Match Alerts */}
-          <div className="rounded-[4px] border border-line bg-surface-2/40 p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-semibold text-ink">
-                การแจ้งเตือนในระบบ (In-App Feed)
-              </span>
-              <span
-                className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
-                  profile.matchNotification?.enabled
-                    ? "bg-open-bg text-open border border-open-line"
-                    : "bg-surface-2 text-ink-3 border border-line"
-                }`}
-              >
-                {profile.matchNotification?.enabled ? "เปิดใช้งาน" : "ปิดอยู่"}
-              </span>
+        <div className="mt-4">
+          {!user.notificationConsent ? (
+            <div className="rounded-[4px] border border-line bg-surface-2/40 p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] font-semibold text-ink">
+                  ความยินยอมรับการแจ้งเตือน (PDPA Consent)
+                </span>
+                <span className="rounded px-2 py-0.5 text-[11px] font-semibold bg-surface-2 text-ink-3 border border-line">
+                  ปิดรับการแจ้งเตือน
+                </span>
+              </div>
+              <p className="mt-2 text-[12.5px] text-ink-2">
+                คุณยังไม่ได้เปิดรับการแจ้งเตือนจากระบบ (ปิดการแจ้งเตือนทั้งในระบบและทางอีเมลตามความยินยอม PDPA)
+              </p>
             </div>
-            <p className="mt-2 text-[12.5px] text-ink-2">
-              {profile.matchNotification?.enabled
-                ? `แจ้งเตือนโครงการที่ตรงตั้งแต่ ${profile.matchNotification.minScore}% ขึ้นไป`
-                : "ปิดรับการแจ้งเตือนโครงการในระบบ (กล่องข้อความและกระดิ่ง)"}
-            </p>
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Channel 1: In-App Job Match Alerts */}
+              <div className="rounded-[4px] border border-line bg-surface-2/40 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-semibold text-ink">
+                    การแจ้งเตือนในระบบ (In-App Feed)
+                  </span>
+                  <span
+                    className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
+                      profile.matchNotification?.enabled
+                        ? "bg-open-bg text-open border border-open-line"
+                        : "bg-surface-2 text-ink-3 border border-line"
+                    }`}
+                  >
+                    {profile.matchNotification?.enabled ? "เปิดใช้งาน" : "ปิดอยู่"}
+                  </span>
+                </div>
+                <p className="mt-2 text-[12.5px] text-ink-2">
+                  {profile.matchNotification?.enabled
+                    ? `แจ้งเตือนโครงการที่ตรงตั้งแต่ ${profile.matchNotification.minScore}% ขึ้นไป`
+                    : "ปิดรับการแจ้งเตือนโครงการในระบบ (กล่องข้อความและกระดิ่ง)"}
+                </p>
+              </div>
 
-          {/* Channel 2: Email Digest */}
-          <div className="rounded-[4px] border border-line bg-surface-2/40 p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-semibold text-ink">
-                การรับข้อมูลทางอีเมล (Email Digest)
-              </span>
-              <span
-                className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
-                  user.notificationConsent
-                    ? "bg-open-bg text-open border border-open-line"
-                    : "bg-surface-2 text-ink-3 border border-line"
-                }`}
-              >
-                {user.notificationConsent ? "ยินยอมรับอีเมล" : "ไม่รับอีเมล"}
-              </span>
+              {/* Channel 2: Email Digest */}
+              <div className="rounded-[4px] border border-line bg-surface-2/40 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-semibold text-ink">
+                    การรับข้อมูลทางอีเมล (Email Digest)
+                  </span>
+                  <span
+                    className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
+                      profile.matchNotification?.enabled
+                        ? "bg-open-bg text-open border border-open-line"
+                        : "bg-surface-2 text-ink-3 border border-line"
+                    }`}
+                  >
+                    {profile.matchNotification?.enabled ? "เปิดใช้งาน" : "ปิดอยู่"}
+                  </span>
+                </div>
+                <p className="mt-2 text-[12.5px] text-ink-2">
+                  {profile.matchNotification?.enabled
+                    ? `ส่งสรุปโครงการใหม่แบบ${
+                        profile.matchNotification?.frequency === "weekly"
+                          ? "รายสัปดาห์ (วันจันทร์)"
+                          : "รายวัน (ทุกเช้า)"
+                      } ไปยัง ${user.email}`
+                    : "ปิดรับสรุปทางอีเมล"}
+                </p>
+              </div>
             </div>
-            <p className="mt-2 text-[12.5px] text-ink-2">
-              {user.notificationConsent
-                ? `ส่งสรุปโครงการใหม่แบบ${
-                    profile.matchNotification?.frequency === "weekly"
-                      ? "รายสัปดาห์ (วันจันทร์)"
-                      : "รายวัน (ทุกเช้า)"
-                  } ไปยัง ${user.email}`
-                : "ไม่ส่งข้อมูลโครงการไปยังอีเมลภายนอก (ตามความยินยอม PDPA)"}
-            </p>
-          </div>
+          )}
         </div>
       </Panel>
     </div>
