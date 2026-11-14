@@ -2,12 +2,8 @@ import Link from "next/link";
 import { useMemo } from "react";
 import {
   Award,
-  Banknote,
-  Briefcase,
   Building2,
   Check,
-  Code2,
-  Layers,
   Pencil,
   Search,
   Sparkles,
@@ -213,82 +209,64 @@ export function ProfileDisplay({
 
       {/* 2. CAPABILITY SECTION: SINGLE SETUP BLOCK (IF NO SKILLS) OR FULL 5-CARD DASHBOARD */}
       {profile.skills.length === 0 ? (
-        <Panel className="border-dashed p-6 text-center sm:p-9 bg-surface-2/50 border-line/90 opacity-80">
-          <div className="mx-auto flex h-13 w-13 items-center justify-center rounded-full border border-line bg-surface text-ink-3 dark:border-line dark:bg-surface-2 dark:text-ink-3">
-            <Sparkles className="h-6 w-6 opacity-60" />
+        <Panel className="border-dashed p-6 text-center sm:p-9 bg-surface-2/30">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface-2 text-ink-2">
+            <Sparkles className="h-5 w-5" />
           </div>
-          <h3 className="mt-3.5 text-[17px] font-semibold text-ink-2">
+          <h3 className="mt-3.5 text-[17px] font-semibold text-ink">
             ยังไม่ได้ตั้งค่าโปรไฟล์ความสามารถ
           </h3>
-          <p className="mx-auto mt-2 max-w-xl text-[13px] leading-thai text-ink-3">
+          <p className="mx-auto mt-2 max-w-xl text-[13px] leading-thai text-ink-2">
             ระบบจับคู่ประกาศ TOR (Match Scoring) และการแจ้งเตือนงานใหม่ยังไม่ทำงาน
-            คุณสามารถกดปุ่ม <span className="font-medium text-ink-2">&ldquo;แก้ไขข้อมูลโปรไฟล์&rdquo;</span> ด้านบนเพื่อระบุทักษะ เครื่องมือ และเงื่อนไขการรับงานของคุณ
+            คุณสามารถกดปุ่ม <span className="font-medium text-ink">&ldquo;แก้ไขข้อมูลโปรไฟล์&rdquo;</span> ด้านบนเพื่อระบุทักษะ เครื่องมือ และเงื่อนไขการรับงานของคุณ
           </p>
 
           <div className="mx-auto mt-7 grid max-w-3xl grid-cols-1 gap-3 border-t border-line/60 pt-6 text-left sm:grid-cols-2 lg:grid-cols-3">
             {/* 1. Skills (40%) */}
-            <div className="rounded-[4px] border border-line/70 bg-surface/70 p-3.5 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-ink-2">
-                <Code2 className="h-3.5 w-3.5 text-ink-3 shrink-0" />
-                <span className="text-[12px] font-semibold">1. ทักษะเทคโนโลยี (40%)</span>
-              </div>
-              <p className="mt-1 text-[11px] leading-thai text-ink-3">
-                ภาษา เฟรมเวิร์ก เครื่องมือ และซอฟต์แวร์สแตกที่คุณเชี่ยวชาญ
+            <div className="rounded-[4px] border border-line/70 bg-surface p-3.5 shadow-2xs">
+              <span className="text-[12px] font-semibold text-ink">1. ทักษะเทคโนโลยี (40%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-2">
+                ภาษาโปรแกรม เฟรมเวิร์ก และเครื่องมือพัฒนาซอฟต์แวร์
               </p>
             </div>
 
             {/* 2. Budget (20%) */}
-            <div className="rounded-[4px] border border-line/70 bg-surface/70 p-3.5 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-ink-2">
-                <Banknote className="h-3.5 w-3.5 text-ink-3 shrink-0" />
-                <span className="text-[12px] font-semibold">2. ช่วงงบประมาณที่รับงาน (20%)</span>
-              </div>
-              <p className="mt-1 text-[11px] leading-thai text-ink-3">
-                กำหนดวงเงินขั้นต่ำและเพดานราคากลางโครงการที่พร้อมรับ
+            <div className="rounded-[4px] border border-line/70 bg-surface p-3.5 shadow-2xs">
+              <span className="text-[12px] font-semibold text-ink">2. ช่วงงบประมาณที่รับงาน (20%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-2">
+                วงเงินขั้นต่ำและเพดานราคากลางโครงการที่พร้อมรับ
               </p>
             </div>
 
             {/* 3. Archetypes (15%) */}
-            <div className="rounded-[4px] border border-line/70 bg-surface/70 p-3.5 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-ink-2">
-                <Layers className="h-3.5 w-3.5 text-ink-3 shrink-0" />
-                <span className="text-[12px] font-semibold">3. สถาปัตยกรรมระบบ (15%)</span>
-              </div>
-              <p className="mt-1 text-[11px] leading-thai text-ink-3">
-                ประเภทระบบ เช่น เว็บพอร์ทัล, ERP, แอปพลิเคชัน, หรือคลาวด์
+            <div className="rounded-[4px] border border-line/70 bg-surface p-3.5 shadow-2xs">
+              <span className="text-[12px] font-semibold text-ink">3. สถาปัตยกรรมระบบ (15%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-2">
+                รูปแบบและประเภทสถาปัตยกรรมระบบงานที่ถนัด
               </p>
             </div>
 
             {/* 4. Past Experience (10%) */}
-            <div className="rounded-[4px] border border-line/70 bg-surface/70 p-3.5 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-ink-2">
-                <Briefcase className="h-3.5 w-3.5 text-ink-3 shrink-0" />
-                <span className="text-[12px] font-semibold">4. มูลค่าผลงานสัญญาเดิม (10%)</span>
-              </div>
-              <p className="mt-1 text-[11px] leading-thai text-ink-3">
-                มูลค่าสัญญาเดียวสูงสุดในอดีต สำหรับเกณฑ์คุณสมบัติ ~40%
+            <div className="rounded-[4px] border border-line/70 bg-surface p-3.5 shadow-2xs">
+              <span className="text-[12px] font-semibold text-ink">4. มูลค่าผลงานสัญญาเดิม (10%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-2">
+                มูลค่าสัญญาเดียวสูงสุดในอดีตเทียบกับเกณฑ์คุณสมบัติ
               </p>
             </div>
 
             {/* 5. Entity Type (10%) */}
-            <div className="rounded-[4px] border border-line/70 bg-surface/70 p-3.5 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-ink-2">
-                <Building2 className="h-3.5 w-3.5 text-ink-3 shrink-0" />
-                <span className="text-[12px] font-semibold">5. สถานะนิติบุคคล / ฟรีแลนซ์ (10%)</span>
-              </div>
-              <p className="mt-1 text-[11px] leading-thai text-ink-3">
-                ตรวจสอบความเข้ากันได้กับเงื่อนไขเฉพาะนิติบุคคลของ TOR
+            <div className="rounded-[4px] border border-line/70 bg-surface p-3.5 shadow-2xs">
+              <span className="text-[12px] font-semibold text-ink">5. สถานะนิติบุคคล / ฟรีแลนซ์ (10%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-2">
+                ความเข้ากันได้กับเงื่อนไขเฉพาะนิติบุคคลของโครงการ
               </p>
             </div>
 
             {/* 6. Certifications (5%) */}
-            <div className="rounded-[4px] border border-line/70 bg-surface/70 p-3.5 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-ink-2">
-                <Award className="h-3.5 w-3.5 text-ink-3 shrink-0" />
-                <span className="text-[12px] font-semibold">6. ใบรับรองและมาตรฐานสากล (5%)</span>
-              </div>
-              <p className="mt-1 text-[11px] leading-thai text-ink-3">
-                มาตรฐานที่ได้รับการรับรอง เช่น ISO/IEC 29110, ISO 27001
+            <div className="rounded-[4px] border border-line/70 bg-surface p-3.5 shadow-2xs">
+              <span className="text-[12px] font-semibold text-ink">6. ใบรับรองและมาตรฐานสากล (5%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-2">
+                มาตรฐานคุณภาพและกระบวนการทำงานที่ได้รับการรับรอง
               </p>
             </div>
           </div>
