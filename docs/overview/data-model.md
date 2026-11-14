@@ -2,7 +2,7 @@
 
 GIPDP keeps everything in one MongoDB database: 12 collections, each with a
 Mongoose schema in `server/src/models/`. This page shows how they connect and
-who writes each one. The field-by-field detail is in [database/](database/).
+who writes each one. The field-by-field detail is in [database/](../database/).
 
 ## The one key: `projectId`
 
@@ -94,14 +94,14 @@ Reading it:
   writes. Many TORs have none yet: not downloaded, not IT, or waiting for OCR.
 - **When a change replaces a summary, the old one becomes a
   `TorInsightVersion`** with the `Tor` state that went with it, so an admin
-  can roll back (NFR-07, [0031](decisions/0031-keep-the-summary-a-change-replaces.md)).
+  can roll back (NFR-07, [0031](../decisions/0031-keep-the-summary-a-change-replaces.md)).
   `Tor.amendments[].insightVersion` says which version a change replaced.
 - **The watchlist lives inside `User`**: an array of `{ projectId, savedAt }`.
   `savedAt` is what "changed since you saved it" compares against
-  ([watchlist-changes.md](features/watchlist-changes.md)).
+  ([watchlist-changes.md](../features/watchlist-changes.md)).
 - **Technologies link by name.** Extraction maps every spelling a TOR uses
   ("Postgres", "PostgreSQL 14") to one canonical `Technology.name`, and
-  stores that name in the insight ([0014](decisions/0014-price-names-and-insight-data-rules.md)).
+  stores that name in the insight ([0014](../decisions/0014-price-names-and-insight-data-rules.md)).
 - **Comparable projects are copied, not linked.**
   `analytics.priceAnalysis.comparableProjects` holds each one's title, year
   and price as they were when the nightly comparison ran.
@@ -125,7 +125,7 @@ answered. The admin dashboard reads both.
 
 ## Who writes what, and who sees it
 
-[0003](decisions/0003-feature-based-server-layout.md) says a collection has one
+[0003](../decisions/0003-feature-based-server-layout.md) says a collection has one
 owner that writes it. In practice some have more than one writer; this table
 lists them all. [server-features.md](server-features.md#where-the-rules-bend)
 explains why.
@@ -133,7 +133,7 @@ explains why.
 | Collection | Main writer | Also written by | Read by | Public? |
 | :--- | :--- | :--- | :--- | :--- |
 | `tors` | Ingestion (fetch, download, OCR, `history:import`) | `pipeline/shared/amendments.js` | `tors`, extraction, `admin` | Yes, through `toPublic` |
-| `torinsights` | Extraction (`process-tor.js`; `screen.js` for title-only records) | `admin` (corrections), `insight-versions.js` (rollback), `find-comparable.js` (`analytics`) | `tors`, `watchlist`, `admin`, `reality-check` | Yes, once visible ([0015](decisions/0015-pilot-mode-and-demo-data.md), NFR-17) |
+| `torinsights` | Extraction (`process-tor.js`; `screen.js` for title-only records) | `admin` (corrections), `insight-versions.js` (rollback), `find-comparable.js` (`analytics`) | `tors`, `watchlist`, `admin`, `reality-check` | Yes, once visible ([0015](../decisions/0015-pilot-mode-and-demo-data.md), NFR-17) |
 | `torinsightversions` | `pipeline/shared/insight-versions.js` | — | The same file, for `admin`'s version list and rollback | No |
 | `titlescreens` | `pipeline/extraction/screen.js` | `admin` | Ingestion (what to download), `admin` | No |
 | `users` | `auth` (the account) | `profile` (`profile`), `watchlist` (`watchlist`), `npm run role` | `auth` on every signed-in request | Only to that user |
@@ -147,11 +147,11 @@ explains why.
 
 ## Where to go next
 
-- Every field of a collection: [tor-schema.md](database/tor-schema.md),
-  [tor-insight-schema.md](database/tor-insight-schema.md),
-  [user-schema.md](database/user-schema.md),
-  [technology-schema.md](database/technology-schema.md),
-  [pipeline-run-schema.md](database/pipeline-run-schema.md).
+- Every field of a collection: [tor-schema.md](../database/tor-schema.md),
+  [tor-insight-schema.md](../database/tor-insight-schema.md),
+  [user-schema.md](../database/user-schema.md),
+  [technology-schema.md](../database/technology-schema.md),
+  [pipeline-run-schema.md](../database/pipeline-run-schema.md).
   `TitleScreen`, `FeedPoll`, `RequestStreak` and `IngestionLog` have no page
   yet; read their model files.
 - How the code that writes them is laid out: [server-features.md](server-features.md).

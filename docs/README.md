@@ -7,11 +7,11 @@ you need them.
 
 ## Start here
 
-1. [system-overview.md](system-overview.md): the parts, how a TOR travels
+1. [system-overview.md](overview/system-overview.md): the parts, how a TOR travels
    through them, the day's schedule, what isn't built yet.
-2. [server-features.md](server-features.md): how the server is laid out by
+2. [server-features.md](overview/server-features.md): how the server is laid out by
    feature, which parts depend on which, and what they share.
-3. [data-model.md](data-model.md): the 12 collections and how they connect.
+3. [data-model.md](overview/data-model.md): the 12 collections and how they connect.
 4. [pipeline-guide.md](pipeline-guide.md): the pipeline in plain words, and
    how to run it.
 
@@ -24,9 +24,9 @@ the platform's own words are all there.
 | :--- | :--- |
 | Know what the product has to do | [requirements.md](requirements.md) |
 | Find a file, or what a file does | [project-map.md](project-map.md) |
-| Add a feature or a route to the server | [server-features.md](server-features.md#adding-a-feature) |
-| Know why a TOR is or isn't on the public site | [what-the-public-sees.md](what-the-public-sees.md) |
-| Understand a price verdict or a lock-spec flag | [analysis-overview.md](analysis-overview.md) |
+| Add a feature or a route to the server | [server-features.md](overview/server-features.md#adding-a-feature) |
+| Know why a TOR is or isn't on the public site | [what-the-public-sees.md](overview/what-the-public-sees.md) |
+| Understand a price verdict or a lock-spec flag | [analysis-overview.md](overview/analysis-overview.md) |
 | Run the pipeline, or check last night's run | [pipeline-guide.md](pipeline-guide.md) |
 | Look up a pipeline command or setting | [pipeline.md](pipeline.md) |
 | Know where a fact comes from on e-GP | [data-sources/data_flow_architecture.md](data-sources/data_flow_architecture.md) |
@@ -39,13 +39,16 @@ the platform's own words are all there.
 
 ### Overviews
 
+In [overview/](overview/), except the last two: `pipeline-guide.md` and
+`glossary.md` stay at the root because they're opened often.
+
 | Page | What it covers |
 | :--- | :--- |
-| [system-overview.md](system-overview.md) | GIPDP on one page |
-| [server-features.md](server-features.md) | The server's features, how they relate, and the shared parts |
-| [data-model.md](data-model.md) | The collections, with an ER diagram, and who writes each |
-| [what-the-public-sees.md](what-the-public-sees.md) | The gate between the database and the public |
-| [analysis-overview.md](analysis-overview.md) | How the price check and lock-spec reach their verdicts |
+| [system-overview.md](overview/system-overview.md) | GIPDP on one page |
+| [server-features.md](overview/server-features.md) | The server's features, how they relate, and the shared parts |
+| [data-model.md](overview/data-model.md) | The collections, with an ER diagram, and who writes each |
+| [what-the-public-sees.md](overview/what-the-public-sees.md) | The gate between the database and the public |
+| [analysis-overview.md](overview/analysis-overview.md) | How the price check and lock-spec reach their verdicts |
 | [pipeline-guide.md](pipeline-guide.md) | The pipeline in plain words |
 | [glossary.md](glossary.md) | Thai procurement terms, e-GP codes, the platform's own words |
 
@@ -119,6 +122,10 @@ older comment citing "ADR 0030" for lock-spec means 0035.
   repository: don't quote it or link to it.
 - **A decision takes the next free number**, never one already used.
 - **A spec for something not built yet says so** in its status line.
+- **Where a page goes.** At the `docs/` root if people open it often, or if
+  fewer than three pages share its kind. Otherwise in its kind's folder:
+  `overview/`, `features/`, `database/`, `data-sources/` or `decisions/`.
+  When a third page of a new kind arrives, give the kind a folder.
 - **Add a new file to [project-map.md](project-map.md)**, and to this page if
   it's a doc.
 

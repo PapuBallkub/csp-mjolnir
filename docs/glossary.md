@@ -21,7 +21,7 @@ agree with it.
 | **Procurement method** (วิธีจัดซื้อจัดจ้าง) | How the agency buys: e-bidding (ประกวดราคาอิเล็กทรอนิกส์), price inquiry (สอบราคา) and others. Stored as the agency writes it |
 | **Procurement kind** | Hire (จ้าง), buy (ซื้อ) or rent (เช่า), read from the project's title. Lock-spec's MAF rule reads it |
 | **Agency** (หน่วยงาน) | The government body buying. e-GP gives each one a code, `deptId` |
-| **Project ID** (เลขที่โครงการ) | e-GP's 11-digit number for a project, such as `68049205582`. The first two digits are the Buddhist-era year (68 → 2568). Every collection links by it ([data-model.md](data-model.md)) |
+| **Project ID** (เลขที่โครงการ) | e-GP's 11-digit number for a project, such as `68049205582`. The first two digits are the Buddhist-era year (68 → 2568). Every collection links by it ([data-model.md](overview/data-model.md)) |
 | **นิติบุคคล** (juristic person) | A registered company or partnership. When a TOR admits only these, a freelancer can't bid: the API marks it `companiesOnly` |
 | **ผลงาน** (past work) | A past contract of the same kind. TORs often require one of at least a stated value |
 | **MAF** (หนังสือแต่งตั้งตัวแทนจำหน่าย) | A manufacturer authorization: a letter from the maker naming the bidder as its reseller or partner |
@@ -84,7 +84,7 @@ How they're shown: [0019](decisions/0019-stage-badges-and-deadlines-that-say-wha
 | Term | Meaning |
 | :--- | :--- |
 | **Tor** | A project as ingestion knows it: from the feed, the documents, and OCR. One per project ID |
-| **Summary**, **insight** (`TorInsight`) | The normalized summary extraction writes. The public reads these ([data-model.md](data-model.md)) |
+| **Summary**, **insight** (`TorInsight`) | The normalized summary extraction writes. The public reads these ([data-model.md](overview/data-model.md)) |
 | **Version** (`TorInsightVersion`) | A summary as it was before a change replaced it, kept so an admin can roll back (NFR-07, [0031](decisions/0031-keep-the-summary-a-change-replaces.md)) |
 | **Change**, **amendment** | A difference GIPDP found in a TOR: announced by the feed (`D2`, source `feed`) or found by comparing files (source `package`) ([0032](decisions/0032-record-what-changed-in-a-tor.md)) |
 | **Re-read pending** | A change the summary doesn't reflect yet |
@@ -102,7 +102,7 @@ These are the others:
 | **Ingestion** | The pipeline that finds projects, downloads their files and reads them with OCR. Writes `Tor` |
 | **Extraction** | The pipeline that screens titles, decides whether a project is IT, and writes the summary with Gemini. Writes `TorInsight` ([0013](decisions/0013-split-ingestion-and-ai-extraction.md)) |
 | **Poll** | One look at the national feed |
-| **Job** | A set of steps run together at a set time: `poll`, `sweep` or `process` ([system-overview.md](system-overview.md#a-day-of-the-pipeline)) |
+| **Job** | A set of steps run together at a set time: `poll`, `sweep` or `process` ([system-overview.md](overview/system-overview.md#a-day-of-the-pipeline)) |
 | **Wave** | One part of the night's `process` job. The waves run in the order a day's delay costs most ([0030](decisions/0030-run-the-night-in-priority-waves.md)) |
 | **Time box**, `--until` | The time after which a step takes no new work. A job stops 5 minutes before the next one starts |
 | **Queue** | One kind of work: `new`, `changed` or `past` |
@@ -121,7 +121,7 @@ These are the others:
 
 ### Analysis
 
-How these fit together: [analysis-overview.md](analysis-overview.md).
+How these fit together: [analysis-overview.md](overview/analysis-overview.md).
 
 | Term | Meaning |
 | :--- | :--- |
@@ -138,7 +138,7 @@ How these fit together: [analysis-overview.md](analysis-overview.md).
 
 ### Review and visibility
 
-What these decide: [what-the-public-sees.md](what-the-public-sees.md).
+What these decide: [what-the-public-sees.md](overview/what-the-public-sees.md).
 
 | Term | Meaning |
 | :--- | :--- |

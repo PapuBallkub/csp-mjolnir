@@ -185,7 +185,7 @@ In the same PR:
 
 - **Update the reference page.** A field goes on its page in
   `docs/database/`. A pipeline command, option or setting goes in
-  `docs/pipeline.md`. A feature goes in `docs/server-features.md` and on its
+  `docs/pipeline.md`. A feature goes in `docs/overview/server-features.md` and on its
   page in `docs/features/`.
 - **Add a new file to [project-map.md](docs/project-map.md).** If it's a doc,
   add it to [docs/README.md](docs/README.md) as well.

@@ -18,11 +18,11 @@ Three rules hold for both:
 
 - **Code decides, not the AI.** Gemini extracts the facts (categories, prices,
   eligibility clauses, technologies); plain code compares them
-  ([0021](decisions/0021-find-comparable-projects.md)). The same inputs always
+  ([0021](../decisions/0021-find-comparable-projects.md)). The same inputs always
   give the same verdict, and every step can be checked by hand.
 - **Worked out in the pipeline, served as stored.** The API does no
   arithmetic; it reads what the pipeline saved
-  ([0022](decisions/0022-precompute-benchmarks-in-the-pipeline.md)).
+  ([0022](../decisions/0022-precompute-benchmarks-in-the-pipeline.md)).
 - **A conclusion, not a fact.** The page shows both as GIPDP's analysis,
   apart from what the TOR states, and each says what it compared
   (`AGENTS.md` §6). Neither ever claims intent (§7).
@@ -42,7 +42,7 @@ flowchart LR
   twice: first, so the night knows which open TORs still lack similar
   projects and can choose past projects for them; then again after those are
   read, so they count by morning
-  ([0030](decisions/0030-run-the-night-in-priority-waves.md)). A TOR extracted
+  ([0030](../decisions/0030-run-the-night-in-priority-waves.md)). A TOR extracted
   during the day has no price check until then, and none at all on a night
   the job doesn't run ([system-overview.md](system-overview.md#a-day-of-the-pipeline)).
 - **Every fully read summary is analysed.** Title-only records, preview-only
@@ -60,13 +60,13 @@ flowchart TD
 ```
 
 1. **This TOR's price** is its ราคากลาง, or its budget when there's no
-   ราคากลาง ([0014](decisions/0014-price-names-and-insight-data-rules.md)).
+   ราคากลาง ([0014](../decisions/0014-price-names-and-insight-data-rules.md)).
    With neither, or with no category, there's nothing to compare.
 2. **Candidates** are summaries that are:
    - fully read, with a confidence score of 80 or more (NFR-17);
    - concluded: stored status Closed or Awarded;
    - in at least one of this TOR's categories
-     ([0034](decisions/0034-a-tor-can-have-several-categories.md));
+     ([0034](../decisions/0034-a-tor-can-have-several-categories.md));
    - priced.
 3. **Each candidate gets a similarity score** from 0 to 1:
 
@@ -92,7 +92,7 @@ flowchart TD
    | Within 15% | In line with similar past projects |
 
    **How much to trust it** depends on how many projects it rests on
-   ([0024](decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md)):
+   ([0024](../decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md)):
    none gives no verdict; 1 or 2 give one with a note that the sample is
    small; 3 or more count as enough. Three is the minimum the procurement
    rules ask for when a committee sets a ราคากลาง from market prices
@@ -106,13 +106,13 @@ project's record does, until the next night's run.
 data.go.th (`npm run history:import`). Every night, up to 20 of them have
 their documents read in full, chosen for the open TORs closing soonest, until
 each has 5 similar projects
-([0028](decisions/0028-past-projects-from-data-go-th.md),
-[pipeline-guide.md](pipeline-guide.md)).
+([0028](../decisions/0028-past-projects-from-data-go-th.md),
+[pipeline-guide.md](../pipeline-guide.md)).
 
 The calculation, with a worked example:
-[price-benchmark-calculations.md](features/price-benchmark-calculations.md).
+[price-benchmark-calculations.md](../features/price-benchmark-calculations.md).
 How the candidates are scored:
-[comparable-projects-matching.md](features/comparable-projects-matching.md).
+[comparable-projects-matching.md](../features/comparable-projects-matching.md).
 
 ### Known limits
 
@@ -156,15 +156,15 @@ there are enough fully read projects of each type. Until then the baseline
 is the rulebook, not history.
 
 The full rules, and why each one matters to a small bidder:
-[lock-spec-risk-detection.md](features/lock-spec-risk-detection.md).
+[lock-spec-risk-detection.md](../features/lock-spec-risk-detection.md).
 
 ## Where to go next
 
 | To read… | Go to |
 | :--- | :--- |
-| The whole analysis feature, its data fields and flow | [reality-check-and-benchmarking.md](features/reality-check-and-benchmarking.md) |
-| Why matching is done in code | [0021](decisions/0021-find-comparable-projects.md) |
-| Why results are worked out in advance | [0022](decisions/0022-precompute-benchmarks-in-the-pipeline.md) |
-| The verdict bands and sample sizes | [0024](decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md) |
-| The lock-spec criteria and scoring | [0035](decisions/0035-lock-spec-risk-criteria-and-scoring.md) |
-| What the fields mean | [tor-insight-schema.md](database/tor-insight-schema.md) |
+| The whole analysis feature, its data fields and flow | [reality-check-and-benchmarking.md](../features/reality-check-and-benchmarking.md) |
+| Why matching is done in code | [0021](../decisions/0021-find-comparable-projects.md) |
+| Why results are worked out in advance | [0022](../decisions/0022-precompute-benchmarks-in-the-pipeline.md) |
+| The verdict bands and sample sizes | [0024](../decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md) |
+| The lock-spec criteria and scoring | [0035](../decisions/0035-lock-spec-risk-criteria-and-scoring.md) |
+| What the fields mean | [tor-insight-schema.md](../database/tor-insight-schema.md) |

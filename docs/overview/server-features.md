@@ -1,13 +1,13 @@
 # How the server is put together
 
 `server/src/` is sliced by feature
-([0003](decisions/0003-feature-based-server-layout.md)). Each feature folder
+([0003](../decisions/0003-feature-based-server-layout.md)). Each feature folder
 owns its URLs and the work behind them. The two pipelines sit beside the
 features in `pipeline/`, and everything shares `common/` and `models/`.
 
 This page covers what each part owns, which parts use which, and the few places
 the rules bend. For a one-line description of every file, see the
-[project map](project-map.md#server).
+[project map](../project-map.md#server).
 
 ```
 server/src/
@@ -51,7 +51,7 @@ flowchart LR
 | `tors` | `/api/tors` | The catalog with its filters and facets, one TOR's detail, its PDF. Decides what the public may see (`visibilityFilter`, `toPublic`) | nothing: reads `Tor` and `TorInsight` |
 | `technologies` | `/api/technologies` | The technology names search can filter by; a signed-in user can ask for a new one | `Technology` (requests) |
 | `admin` | `/api/admin` | The admin dashboard (FR-22), the review workspace (FR-23), pipeline controls: retry, skip, dismiss, add a project, run a fetch | `TorInsight` (corrections), `Technology`, `TitleScreen`, `PipelineFailure`, `IngestionLog` |
-| `health` | `/health` | Liveness and the database's connection state, outside `/api` on purpose ([0009](decisions/0009-api-prefix-without-a-version.md)) | nothing |
+| `health` | `/health` | Liveness and the database's connection state, outside `/api` on purpose ([0009](../decisions/0009-api-prefix-without-a-version.md)) | nothing |
 | `reality-check` | no routes | A library: comparable projects, the price benchmark, lock-spec risk. The pipelines call it and save what it returns | nothing itself |
 | `match` | no routes | A server-side match score. **Only its test calls it**; the score users see is computed in the browser by `client/app/_lib/match.ts` | nothing |
 
@@ -74,7 +74,7 @@ flowchart LR
 ```
 
 Solid arrows go through the other feature's `index.js`. The two dotted ones
-reach past it, which [0003](decisions/0003-feature-based-server-layout.md)
+reach past it, which [0003](../decisions/0003-feature-based-server-layout.md)
 forbids (see [where the rules bend](#where-the-rules-bend)).
 
 `health` and `match` use nothing. `tors` uses no other feature: it's public, so
@@ -84,9 +84,9 @@ it needs no `auth`.
 
 The pipelines aren't features. They have no routes and run as their own
 processes, on a schedule or from the command line
-([pipeline-guide.md](pipeline-guide.md)). Ingestion writes `Tor`, extraction
+([pipeline-guide.md](../pipeline-guide.md)). Ingestion writes `Tor`, extraction
 writes `TorInsight`, and the two meet only in the database
-([0013](decisions/0013-split-ingestion-and-ai-extraction.md)).
+([0013](../decisions/0013-split-ingestion-and-ai-extraction.md)).
 
 Features and pipelines still import each other in a few places:
 
@@ -139,7 +139,7 @@ Three things here are worth knowing before you change one of these files:
 
 Plumbing with no knowledge of any feature. It imports nothing from
 `features/` or `pipeline/` (rule 3 of
-[0003](decisions/0003-feature-based-server-layout.md), and it holds).
+[0003](../decisions/0003-feature-based-server-layout.md), and it holds).
 
 | File | What it gives you |
 | :--- | :--- |
@@ -148,7 +148,7 @@ Plumbing with no knowledge of any feature. It imports nothing from
 | `errors/http-error.js` | `HttpError`, and `badRequest`, `unauthorized`, `forbidden`, `notFound`. Throw one from a controller or service; the error handler turns it into a JSON reply |
 | `middleware/error-handler.js` | Every error becomes JSON. In production a 500 says "Internal server error" and nothing more |
 | `middleware/not-found.js` | Unknown routes get a JSON 404, not an HTML page |
-| `middleware/rate-limit.js` | `limitByIp` (and `limitByUser`, unused so far): the building blocks of auth's limits ([0007](decisions/0007-rate-limiting-on-the-auth-routes.md)) |
+| `middleware/rate-limit.js` | `limitByIp` (and `limitByUser`, unused so far): the building blocks of auth's limits ([0007](../decisions/0007-rate-limiting-on-the-auth-routes.md)) |
 
 ### `models/`
 
@@ -157,7 +157,7 @@ defaults, enums, indexes. The rules that fill them live with whoever writes
 them. Two files hold shared lists rather than schemas:
 
 - `project-categories.js`: the 7 kinds of IT project a TOR can have, up to 3
-  ([0034](decisions/0034-a-tor-can-have-several-categories.md))
+  ([0034](../decisions/0034-a-tor-can-have-several-categories.md))
 - `standard-conditions.js`: the eligibility conditions every e-GP TOR repeats,
   as keys, so matching can compare them exactly
 
@@ -169,18 +169,18 @@ Used by both pipelines, and by `admin`:
 
 | File | What it does |
 | :--- | :--- |
-| `request-pacer.js` | At most one request a second per government site, counted across processes (NFR-03, [0016](decisions/0016-pipeline-runs-are-safe-to-repeat.md)) |
+| `request-pacer.js` | At most one request a second per government site, counted across processes (NFR-03, [0016](../decisions/0016-pipeline-runs-are-safe-to-repeat.md)) |
 | `run-lock.js` | One run of each pipeline at a time |
 | `failures.js` | Counts a TOR's failures per step, and gives up after 3 |
-| `status-engine.js`, `announcement-codes.js` | A TOR's status from its e-GP codes ([0017](decisions/0017-read-the-egp-feed-as-egp-defines-it.md)) |
-| `insight-versions.js`, `amendments.js` | Keeps the summary a change replaces, records what changed, rolls back ([0031](decisions/0031-keep-the-summary-a-change-replaces.md), [0032](decisions/0032-record-what-changed-in-a-tor.md)) |
-| `workable.js`, `queues.js` | Which projects are worth the work, and the three kinds of work in the order a day's delay costs most ([0030](decisions/0030-run-the-night-in-priority-waves.md)) |
-| `deadline.js` | The time box: with `--until`, a step takes no new work after that time ([0027](decisions/0027-run-the-pipeline-on-a-schedule.md)) |
+| `status-engine.js`, `announcement-codes.js` | A TOR's status from its e-GP codes ([0017](../decisions/0017-read-the-egp-feed-as-egp-defines-it.md)) |
+| `insight-versions.js`, `amendments.js` | Keeps the summary a change replaces, records what changed, rolls back ([0031](../decisions/0031-keep-the-summary-a-change-replaces.md), [0032](../decisions/0032-record-what-changed-in-a-tor.md)) |
+| `workable.js`, `queues.js` | Which projects are worth the work, and the three kinds of work in the order a day's delay costs most ([0030](../decisions/0030-run-the-night-in-priority-waves.md)) |
+| `deadline.js` | The time box: with `--until`, a step takes no new work after that time ([0027](../decisions/0027-run-the-pipeline-on-a-schedule.md)) |
 | `egp-links.js`, `user-agent.js`, `thai-text.js`, `thai-number-words.js` | e-GP URLs, our honest User-Agent, Thai text helpers |
 
 ## Where the rules bend
 
-[0003](decisions/0003-feature-based-server-layout.md) sets three rules. Here
+[0003](../decisions/0003-feature-based-server-layout.md) sets three rules. Here
 is how the code stands against each, so you know which exceptions are
 deliberate and which are debts:
 
@@ -189,7 +189,7 @@ deliberate and which are debts:
    - `User` has three writers: `auth` (the account), `profile`
      (`User.profile`), `watchlist` (`User.watchlist`). Each keeps to its own
      fields, so ownership is by field.
-   - `TorInsight` is extraction's ([0013](decisions/0013-split-ingestion-and-ai-extraction.md)),
+   - `TorInsight` is extraction's ([0013](../decisions/0013-split-ingestion-and-ai-extraction.md)),
      but `admin` writes corrections, `pipeline/shared/insight-versions.js`
      writes rollbacks, and `scripts/find-comparable.js` writes `analytics`.
    - `Technology` is extraction's vocabulary, but `technologies` adds requests
@@ -215,4 +215,4 @@ deliberate and which are debts:
 5. Throw `HttpError`s for failures; don't send error responses by hand.
 6. Write tests in `server/test/` against the `mjolnir_test` database, as
    `admin.test.js` does.
-7. Add the new files to the [project map](project-map.md).
+7. Add the new files to the [project map](../project-map.md).
