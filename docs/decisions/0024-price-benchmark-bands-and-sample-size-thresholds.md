@@ -4,7 +4,7 @@ Status: accepted · 2026-10-12
 
 ## Context
 
-Once comparable IT procurement projects are identified (FR-19, ADR 0021), the platform evaluates the target TOR's declared budget or reference price against these historical peers (FR-20, Price Reality Check).
+Once comparable IT procurement projects are identified (ADR 0021), the platform evaluates the target TOR's declared budget or reference price against these historical peers (FR-19, Price Reality Check). (Corrected 2026-11-12: this first cited FR-20 for the price check.)
 
 Four questions arise for public display on the TOR Detail / Summary page:
 1. **Which price point should be evaluated?** Government tenders state an approved budget (*งบประมาณ*), a reference price (*ราคากลาง*), and past tenders record winning contract prices (*ราคาตามสัญญา*). Evaluating the wrong price point risks false alarms.

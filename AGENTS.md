@@ -6,7 +6,7 @@ This file guides any AI coding agent (Claude Code, Cursor, etc.) working on **fr
 
 We are building **GIPDP — the Government IT Procurement Discovery Platform**: a web platform that collects Thai government software/IT procurement notices, reads the TOR documents behind them, and normalizes them into plain-language summaries. The source documents are otherwise scattered across e-GP and agency sites as scanned PDFs in dense Thai bureaucratic language. The platform surfaces relevant opportunities to small Thai tech companies and freelance developers who currently have no realistic way to find them. It also flags risk signals that a first-time bidder wouldn't otherwise catch: price outliers, "lock-spec" bid-tailoring, and silent amendments. Coverage is any Thai government agency's IT procurement, not only Bangkok. It works alongside the official systems and never replaces them. It is a **discovery tool, not a bidding/application assistant**: never design flows that draft, submit, or manage a bid, and never flows that offer legal advice.
 
-**Requirements:** [`docs/requirements.md`](docs/requirements.md) is the public summary of the team's SRS (v0.3). It covers scope, user classes, interfaces, and every requirement by ID (`FR-01`–`FR-23`, `NFR-01`–`NFR-17`). Cite those IDs in new code and docs. Older code cites the proposal's numbering (`FR07`, `US11`), which does **not** line up with the SRS; translate it with the crosswalk at the bottom of that file.
+**Requirements:** [`docs/requirements.md`](docs/requirements.md) is the public summary of the team's SRS (v0.3, plus FR-24, agreed for v0.4). It covers scope, user classes, interfaces, and every requirement by ID (`FR-01`–`FR-24`, `NFR-01`–`NFR-17`). Cite those IDs in new code and docs. Older code cites the proposal's numbering (`FR07`, `US11`), which does **not** line up with the SRS; translate it with the crosswalk at the bottom of that file.
 
 **Local context:** if `context/` exists in your checkout, it holds the full SRS and working notes. It is gitignored on purpose. Read it for ground truth, but never copy its text into committed files, link to it, or stage it.
 
@@ -17,8 +17,8 @@ We are building **GIPDP — the Government IT Procurement Discovery Platform**: 
 - **Frontend:** Next.js (React). Pages live under `client/app/(app)/` (shell-wrapped routes), with `client/app/(app)/(private)/` for signed-in-only routes, and `client/app/` for standalone pages (auth, the introduction page).
 - **Styling:** Tailwind CSS utility classes.
 - **Shared components:** `client/app/_components/`: shared UI, verdict badges, shell, and preference toggles.
-- **API client:** `client/app/_lib/api.ts`. Auth and the admin dashboard already run against the real API.
-- **Fixture data:** `client/app/_data/`: typed fixtures mirroring the normalized TOR schema (see §5). TOR screens still read from here until their endpoints land. Replace fixtures endpoint by endpoint rather than in one sweep. Don't grow a fixture field the pipeline won't produce.
+- **API client:** `client/app/_lib/api.ts`. The catalog, TOR detail, profile, watchlist, auth and admin screens run against the real API.
+- **Fixture data:** `client/app/_data/`: typed fixtures mirroring the normalized TOR schema (see §5). Two screens still read fixture records: `/watchdog` and `/notifications`. Everything else imports only its types and helpers (`pick`, `formatTHB`), and a signed-out visitor's profile starts from `demoProfile`. Replace the remaining fixtures endpoint by endpoint rather than in one sweep. Don't grow a fixture field the pipeline won't produce.
 
 ## 3. Audience and tone
 
@@ -41,7 +41,7 @@ Users range widely in technical proficiency, and every one of them must be able 
 
 Overall design personality: **the opposite of the bureaucratic PDF it replaces.** Where the source documents are dense, scanned, and jargon-heavy, this product should feel legible, fast, and honest. Avoid corporate-SaaS-dashboard blandness on one side and government-form starchiness on the other. This is a tool built *for* the underdog applicant, so it should feel like it's on their side: clear verdicts, not just raw data dumps.
 
-**Thai first (NFR-15).** Thai is the primary locale for the whole interface, including navigation, labels, notifications, and AI summaries, not just document content. English is a complete secondary locale behind the language toggle. The current shell keeps its navigation in English; treat that as a gap to close, not a pattern to copy. Thai text will often run alongside English tech terms (e.g. "NGINX Plus," "Windows Server 2019"), so set type scale, line height, and truncation rules for Thai script with Latin mixed in, never for Latin-only strings.
+**Thai only (NFR-15).** The whole interface is in Thai, including navigation, labels, notifications, and AI summaries, not just document content. There is no English locale and no language toggle, so don't design one ([0036](docs/decisions/0036-thai-only-interface.md)). The client still carries dormant English strings (`Bi` values, `lang === "th" ? … : …`); nothing shows them. Write new copy in Thai; where a type still asks for `{ th, en }`, fill both halves until that type is cleaned up. Thai text will often run alongside English tech terms (e.g. "NGINX Plus," "Windows Server 2019"), so set type scale, line height, and truncation rules for Thai script with Latin mixed in, never for Latin-only strings.
 
 ## 4. Core screens
 
@@ -55,9 +55,9 @@ These map to the interfaces the SRS names (see the route table in `docs/requirem
 6. **Notifications** (`/notifications`): in-app alerts for watchlisted TORs that changed status or were amended (FR-18), plus email preferences. Email for matches (FR-14) and for watchlist changes needs explicit consent: off by default, easy to withdraw (PDPA).
 7. **Auth** (`/auth`): email/password and "Sign in with Google" (FR-08, FR-09). Keep it minimal; this is a utility screen, not a design showcase.
 8. **Historical procurement dashboard & analysis** (`/watchdog`): historical median and average prices for similar past projects (FR-19) and the amendment diff viewer (FR-16). It is public. Build it for scanning evidence, not persuasion.
-9. **Admin** (`/admin`): the administration dashboard shows ingestion uptime, polling health, and feed request failures per source (FR-22). The data management side, not yet built, covers:
+9. **Admin** (`/admin`): the administration dashboard shows ingestion uptime, polling health, and feed request failures per source (FR-22). The data management side, the review workspace at `/admin/review/[id]`, covers:
    - a **review queue** for extractions under 80% confidence, which stay hidden from the public until an admin clears them (NFR-17)
-   - editing extracted fields and reclassifying misclassified TORs (FR-23)
+   - editing extracted fields, reclassifying misclassified TORs, and re-extracting (FR-23)
    - rolling a TOR back to a previous version when an amendment was processed wrongly (NFR-07)
 
    Design it as an operational tool: dense tables, clear failure states, not a marketing surface.
@@ -89,7 +89,7 @@ The detail page carries more than this (deliverables, eligibility, contract cond
 | Closed | **Inferred** by the platform: past the deadline with no update from the agency |
 | *Amended* (flag) | e-GP code `D2`: invitation changed. Overlaid on whichever status applies, because a TOR can be amended repeatedly while it stays Open. `D1` is a cancellation, not an amendment. |
 
-The server model already enforces these five statuses plus `isAmended`. The client fixture still uses a three-value status, so bring it up to the server's shape rather than the reverse.
+The server model enforces these five statuses plus `isAmended`, and the client's `Status` type matches. If they ever drift, bring the client up to the server's shape rather than the reverse.
 
 **Confidence never reaches public UI.** Anything under 80% is withheld (NFR-17), so public screens can assume every TOR they show has passed review. Confidence scores are admin-only.
 

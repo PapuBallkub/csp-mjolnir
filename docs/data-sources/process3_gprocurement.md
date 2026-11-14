@@ -221,8 +221,8 @@ The version merged in #204 said several things that turned out to be wrong:
 - **Encoding:** the XML declares Windows-874, not UTF-8.
 - **Item format:** the description holds no budget, and `pubDate` has no time.
 - **No fallback:** the pipeline doesn't switch to data.go.th when the feed is
-  empty. `--source all` queries both, and `--source process3` queries only the
-  feed ([pipeline.md](../pipeline.md)).
+  empty. The feed is the only source of open projects, so `--source all` and
+  `--source process3` both query only the feed ([pipeline.md](../pipeline.md)).
 
 ## Not verified yet
 

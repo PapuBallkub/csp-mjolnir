@@ -1,6 +1,6 @@
-# 0030 · Lock-spec risk criteria and scoring algorithm
+# 0035 · Lock-spec risk criteria and scoring algorithm
 
-Status: accepted · 2026-10-25 (updated 2026-11-06, [0034](0034-a-tor-can-have-several-categories.md))
+Status: accepted · 2026-10-25 (updated 2026-11-06, [0034](0034-a-tor-can-have-several-categories.md)) · numbered 0030 until 2026-11-13, when it moved to 0035 because [0030](0030-run-the-night-in-priority-waves.md) had the number first
 
 ## Context
 

@@ -1,8 +1,8 @@
 /**
  * server/src/features/reality-check/benchmark.service.js
  *
- * Implements FR-20: Historical price benchmarking and price deviation calculations
- * for a TOR against comparable projects identified by FR-19.
+ * Implements FR-19: Historical price benchmarking and price deviation calculations
+ * for a TOR against comparable projects found by similarity.service.js.
  *
  * Conforms to ADR 0014, ADR 0022, ADR 0024, and
  * docs/features/price-benchmark-calculations.md.
@@ -152,10 +152,10 @@ export function formatPriceInterpretation({
 }
 
 /**
- * End-to-end historical price benchmarking for a TOR against comparable projects (FR-20).
+ * End-to-end historical price benchmarking for a TOR against comparable projects (FR-19).
  *
  * @param {object} targetTor - Target TorInsight document or plain object
- * @param {Array<object>} comparableProjects - Peer projects found by FR-19
+ * @param {Array<object>} comparableProjects - Peer projects found by similarity.service.js
  * @returns {object} Full priceAnalysis object ready for TorInsight.analytics.priceAnalysis
  */
 export function calculatePriceBenchmarks(targetTor, comparableProjects = []) {

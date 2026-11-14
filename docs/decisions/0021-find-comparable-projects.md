@@ -4,7 +4,9 @@ Status: accepted · 2026-10-11 (updated 2026-11-06, [0034](0034-a-tor-can-have-s
 
 ## Context
 
-FR-19 requires grouping similar historical IT procurement projects to serve as the baseline for price reality checks (FR-20) and lock-spec detection (FR-21).
+FR-19 asks for the historical median and average price of similar past IT projects, so the platform first has to find which past projects are similar. The same group is meant to be the baseline for comparing requirements (FR-20), which isn't built yet.
+
+*Corrected 2026-11-12:* this record first cited FR-20 for the price check and FR-21 for lock-spec detection, following an earlier wording of the requirements. The IDs above are the SRS's; lock-spec reads only the TOR itself and doesn't use these projects.
 
 In Thai government procurement, defining what makes two software projects "comparable" faces three major hurdles:
 
