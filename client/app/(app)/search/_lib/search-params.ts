@@ -60,6 +60,12 @@ export function parseFilterParams(sp: SearchParamReader): FilterState {
   const amendedOnly = sp.get("amended") === "true";
   const hideHighRisk = sp.get("hideRisk") === "true";
 
+  const rawMinScore = Number(sp.get("minScore"));
+  const minScore =
+    Number.isInteger(rawMinScore) && rawMinScore >= 0 && rawMinScore <= 100
+      ? rawMinScore
+      : 0;
+
   const rawPage = Number(sp.get("page"));
   const page = Number.isInteger(rawPage) && rawPage >= 1 ? rawPage : 1;
 
@@ -78,6 +84,7 @@ export function parseFilterParams(sp: SearchParamReader): FilterState {
     deadlineBand,
     hideHighRisk,
     sort,
+    minScore,
     page,
     pageSize,
   };
@@ -153,6 +160,10 @@ export function buildFilterQueryString(filters: FilterState): string {
 
   if (filters.hideHighRisk) {
     p.set("hideRisk", "true");
+  }
+
+  if (filters.minScore && filters.minScore > 0) {
+    p.set("minScore", String(filters.minScore));
   }
 
   if (filters.page && filters.page > 1) {

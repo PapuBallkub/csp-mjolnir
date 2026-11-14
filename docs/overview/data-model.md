@@ -1,6 +1,6 @@
 # The data model
 
-GIPDP keeps everything in one MongoDB database: 12 collections, each with a
+GIPDP keeps everything in one MongoDB database: 13 collections, each with a
 Mongoose schema in `server/src/models/`. This page shows how they connect and
 who writes each one. The field-by-field detail is in [database/](../database/).
 
@@ -25,6 +25,7 @@ erDiagram
     TOR |o--o{ TOR : "historyRequestedFor: a past project chosen for an open TOR"
     TOR_INSIGHT ||--o{ TOR_INSIGHT_VERSION : "keeps what a change replaced in"
     USER ||--o{ WATCHLIST_ENTRY : "saves (embedded in User)"
+    USER ||--o{ NOTIFICATION : "receives"
     WATCHLIST_ENTRY }o--|| TOR : "points to"
     USER |o--o{ TOR_INSIGHT : "reviewedBy (an admin)"
     USER |o--o{ TOR_INSIGHT_VERSION : "supersededBy (an admin)"
@@ -84,6 +85,14 @@ erDiagram
         array aliases "other spellings that map to it"
         string status "confirmed, new or rejected"
     }
+    NOTIFICATION {
+        objectId _id PK
+        objectId userId FK "User._id"
+        string type "match, amendment, deadline, status_change"
+        mixed snapshot "polymorphic event payload"
+        boolean isRead "unread state in web UI"
+        boolean emailSent "delivery state for scheduled digest"
+    }
 ```
 
 Reading it:
@@ -138,6 +147,7 @@ explains why.
 | `titlescreens` | `pipeline/extraction/screen.js` | `admin` | Ingestion (what to download), `admin` | No |
 | `users` | `auth` (the account) | `profile` (`profile`), `watchlist` (`watchlist`), `npm run role` | `auth` on every signed-in request | Only to that user |
 | `technologies` | Extraction (`vocabulary.js`) | `technologies` (requests, as `new`), `admin` (curation) | Search filters, extraction | Yes, `GET /api/technologies` |
+| `notifications` | `notifications` (`notification-feed.service.js`, `match-notification.service.js`) | — | `notifications` (`GET /api/notifications`) | Only to that user |
 | `pipelinefailures` | `pipeline/shared/failures.js` | `admin` (retry, skip, dismiss) | The pipelines, `admin` | No |
 | `pipelinelocks` | `pipeline/shared/run-lock.js` | — | The pipelines | No |
 | `pipelineruns` | `pipeline/jobs/run-job.js` | — | `admin`, `npm run report` | No |

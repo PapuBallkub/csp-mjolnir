@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { calculateMatchScore } from '#features/match/index.js';
+import { calculateMatchScore, isProfileBaseline } from '#features/match/index.js';
 
 function createMockTor(overrides = {}) {
   return {
@@ -89,5 +89,56 @@ test('calculateMatchScore: evaluates continuous budget curves', () => {
   const highMatch = calculateMatchScore(highTor, profile);
   assert.equal(highMatch.breakdown.budget.status, 'above_max');
   assert.equal(highMatch.breakdown.budget.score, 0);
+});
+
+test('isProfileBaseline: accurately detects fresh unconfigured profiles', () => {
+  assert.equal(isProfileBaseline(null), true);
+  assert.equal(isProfileBaseline(undefined), true);
+  assert.equal(
+    isProfileBaseline({
+      skills: [],
+      budgetMin: 0,
+      budgetMax: 0,
+      preferredArchetypes: [],
+      maxPastPortfolioTHB: 0,
+      certifications: [],
+    }),
+    true
+  );
+  // Setting skills marks it as configured
+  assert.equal(
+    isProfileBaseline({
+      skills: ['React'],
+      budgetMin: 0,
+      budgetMax: 0,
+      preferredArchetypes: [],
+      maxPastPortfolioTHB: 0,
+      certifications: [],
+    }),
+    false
+  );
+  // Setting budget marks it as configured
+  assert.equal(
+    isProfileBaseline({
+      skills: [],
+      budgetMin: 1_000_000,
+      budgetMax: 5_000_000,
+      preferredArchetypes: [],
+      maxPastPortfolioTHB: 0,
+      certifications: [],
+    }),
+    false
+  );
+});
+
+test('calculateMatchScore: evaluates pure multi-factor calculation when skills list is empty', () => {
+  const tor = createMockTor();
+  const profile = createMockProfile({ skills: [] });
+
+  const match = calculateMatchScore(tor, profile);
+
+  assert.equal(match.breakdown.skills.score, 0);
+  assert.equal(match.matched.length, 0);
+  assert.ok(match.score > 0, 'calculates composite score from other 5 dimensions');
 });
 

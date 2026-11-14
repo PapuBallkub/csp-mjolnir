@@ -50,6 +50,7 @@ flowchart LR
 | `watchlist` | `/api/watchlist` | Saves and removes TORs, and lists them with what changed since they were saved (FR-17) | `User.watchlist` |
 | `tors` | `/api/tors` | The catalog with its filters and facets, one TOR's detail, its PDF. Decides what the public may see (`visibilityFilter`, `toPublic`) | nothing: reads `Tor` and `TorInsight` |
 | `technologies` | `/api/technologies` | The technology names search can filter by; a signed-in user can ask for a new one | `Technology` (requests) |
+| `notifications` | `/api/notifications` | In-app notification feed, read/unread states, and scheduled email match digest dispatch (FR-14, FR-18) | `Notification`: immutable events and delivery state (`emailSent`, `isRead`) |
 | `admin` | `/api/admin` | The admin dashboard (FR-22), the review workspace (FR-23), pipeline controls: retry, skip, dismiss, add a project, run a fetch | `TorInsight` (corrections), `Technology`, `TitleScreen`, `PipelineFailure`, `IngestionLog` |
 | `health` | `/health` | Liveness and the database's connection state, outside `/api` on purpose ([0009](../decisions/0009-api-prefix-without-a-version.md)) | nothing |
 | `reality-check` | no routes | A library: comparable projects, the price benchmark, lock-spec risk. The pipelines call it and save what it returns | nothing itself |
@@ -65,6 +66,7 @@ flowchart LR
     profile --> auth
     watchlist --> auth
     technologies --> auth
+    notifications --> auth
     admin --> auth
     watchlist -.->|"imports tor.service.js<br/>directly"| tors
     profile -.->|"also imports auth.service.js<br/>directly"| auth

@@ -300,6 +300,19 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 | [watchlist.validation.js](../server/src/features/watchlist/watchlist.validation.js) | Project ID checks. |
 | [index.js](../server/src/features/watchlist/index.js) | Exports routes and service functions. |
 
+**notifications**: `/api/notifications`, signed in
+
+| File | What it is |
+| :--- | :--- |
+| [notification.routes.js](../server/src/features/notifications/notification.routes.js) | Feed list, read status, and 1-click unsubscribe. |
+| [notification.controller.js](../server/src/features/notifications/notification.controller.js) | HTTP endpoints for the notification feed and unread tracking. |
+| [notification-feed.service.js](../server/src/features/notifications/notification-feed.service.js) | Notification queries, unread count badge, and mark-as-read transitions. |
+| [email.service.js](../server/src/features/notifications/email.service.js) | Nodemailer transport with HMAC-signed PDPA 1-click unsubscribe links. |
+| [templates/match-digest.template.js](../server/src/features/notifications/templates/match-digest.template.js) | HTML/text email digest templates with zero-width URL defanging. |
+| [creators/match-notification.service.js](../server/src/features/notifications/creators/match-notification.service.js) | Evaluates candidate matches and triggers digest notifications. |
+| [creators/find-notification-duplication.js](../server/src/features/notifications/creators/find-notification-duplication.js) | De-duplication check against past notifications. |
+| [index.js](../server/src/features/notifications/index.js) | Public surface for notifications. |
+
 ### server/pipeline
 
 [index.js](../server/src/pipeline/index.js) is the public surface of both
@@ -387,6 +400,8 @@ Run with `npm run <name>`, or `node scripts/<file>` for the one-off ones.
 | [run-schedule.js](../server/scripts/run-schedule.js) | `npm run schedule`: runs the jobs on their schedule from your machine. |
 | [pipeline-report.js](../server/scripts/pipeline-report.js) | `npm run report`: what the scheduled pipeline did in the last 24 hours. |
 | [rollback.js](../server/scripts/rollback.js) | `npm run rollback`: lists or restores a TOR's replaced summaries. |
+| [notify.js](../server/scripts/notify.js) | `npm run notify` (or `notify:send`, `notify:all`): batch evaluation and scheduled email digest dispatch. |
+| [test-notify.js](../server/scripts/test-notify.js) | `npm run test:notify` (or `node scripts/test-notify.js <email>`): one-shot end-to-end notification & email test runner. |
 | [migrate-categories.js](../server/scripts/migrate-categories.js) | `npm run migrate:categories`: one-off move to `categories` ([0034](decisions/0034-a-tor-can-have-several-categories.md)). Converts versions too. |
 | [remove-datago-records.js](../server/scripts/remove-datago-records.js) | One-off: deletes records the removed data.go.th reader made. |
 | [seed/tors.json](../server/seed/tors.json) | 28 real e-GP notices for demos. |
@@ -444,7 +459,7 @@ never appears in the URL.
 | `/watchdog` | `(app)/watchdog/page.tsx` | **fixtures** | everyone |
 | `/profile` | `(app)/(private)/profile/` | API | signed in |
 | `/watchlist` | `(app)/(private)/watchlist/page.tsx` | API | signed in |
-| `/notifications` | `(app)/(private)/notifications/page.tsx` | **fixtures** for alerts; email settings save through the profile API | signed in |
+| `/notifications` | `(app)/(private)/notifications/page.tsx`, `notifications/[id]/page.tsx` | API | signed in |
 | `/admin` | `(app)/admin/page.tsx`, `(app)/admin/_components/` | API | admin |
 | `/admin/review/[id]` | `(app)/admin/review/[id]/` | API | admin |
 
@@ -493,7 +508,7 @@ never appears in the URL.
 | [profile/_components/ProfileDisplay.tsx](../client/app/(app)/(private)/profile/_components/ProfileDisplay.tsx) | Read-only profile. |
 | [profile/_components/ProfileEditForm.tsx](../client/app/(app)/(private)/profile/_components/ProfileEditForm.tsx) | ~1,100 lines. Skills from the vocabulary, budget, certifications, entity type, archetypes. |
 | [watchlist/page.tsx](../client/app/(app)/(private)/watchlist/page.tsx) | Saved TORs, with a notice on those that changed since saving. |
-| [notifications/page.tsx](../client/app/(app)/(private)/notifications/page.tsx) | Alert list (fixtures) and match-email settings (saved to the profile). |
+| [notifications/page.tsx](../client/app/(app)/(private)/notifications/page.tsx), [notifications/[id]/page.tsx](../client/app/(app)/(private)/notifications/[id]/page.tsx) | In-app notification feed, unread tracking, single notification view, and email alert settings. |
 
 **admin**
 

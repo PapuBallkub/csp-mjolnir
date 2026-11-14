@@ -131,6 +131,15 @@ export function parseProfileUpdate(body) {
     }
   }
 
+  // --- notificationConsent (PDPA Master Switch) ---
+  if (body.notificationConsent !== undefined) {
+    if (typeof body.notificationConsent !== 'boolean') {
+      errors.notificationConsent = 'notificationConsent must be a boolean.';
+    } else {
+      update.notificationConsent = body.notificationConsent;
+    }
+  }
+
   // --- matchNotification (FR-14 Preparation) ---
   if (body.matchNotification !== undefined) {
     if (typeof body.matchNotification !== 'object' || body.matchNotification === null || Array.isArray(body.matchNotification)) {

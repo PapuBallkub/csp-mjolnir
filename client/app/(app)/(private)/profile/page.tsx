@@ -46,8 +46,14 @@ export default function ProfilePage() {
     };
   }, []);
 
-  const handleSave = async (updatedDraft: UserProfile): Promise<ApiError | null> => {
-    const error = await updateProfile(updatedDraft);
+  const handleSave = async (
+    updatedDraft: UserProfile,
+    notificationConsent?: boolean
+  ): Promise<ApiError | null> => {
+    const error = await updateProfile({
+      ...updatedDraft,
+      notificationConsent,
+    });
     if (!error) {
       setSavedSuccess(true);
       setMode("view");
