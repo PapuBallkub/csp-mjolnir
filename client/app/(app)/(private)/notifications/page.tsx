@@ -102,8 +102,8 @@ export default function NotificationsPage() {
   });
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-140px)] max-w-[1000px] flex-col px-4 py-6">
-      <div className="flex-1">
+    <div className="flex min-h-[calc(100vh-140px)] flex-col justify-between">
+      <div className="mx-auto w-full max-w-[1000px] flex-1 px-4 pt-6 pb-8">
         {/* Page Header */}
         <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -284,24 +284,26 @@ export default function NotificationsPage() {
       )}
       </div>
 
-      {/* Profile unconfigured callout (pinned right above footer, warm yellow/amber tone) */}
+      {/* Profile unconfigured callout (pinned flush directly above footer) */}
       {isProfileEmpty ? (
-        <div className="mt-8 rounded-[4px] border border-amber-300 bg-amber-50 p-4 shadow-xs dark:border-amber-800/80 dark:bg-amber-950/30">
-          <p className="text-[13px] font-semibold text-amber-900 dark:text-amber-200">
-            {lang === "th"
-              ? "คุณยังไม่ได้ระบุทักษะหรือเงื่อนไขในโปรไฟล์"
-              : "You haven't set up your profile skills or preferences yet"}
-          </p>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] leading-thai text-amber-800/90 dark:text-amber-300/80">
-            <span>
-              {lang === "th"
-                ? "ระบบจะไม่สามารถค้นหาและแจ้งเตือนโครงการที่ตรงกับคุณได้ จนกว่าจะมีการบันทึกทักษะในโปรไฟล์"
-                : "The system cannot match and notify you of tenders until you save your skills in your profile."}
-            </span>
-            <span>·</span>
+        <div className="border-t border-amber-300/80 bg-amber-50/90 px-4 py-3 dark:border-amber-800/70 dark:bg-amber-950/40">
+          <div className="mx-auto flex max-w-[1000px] flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between text-[12.5px] leading-thai">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="font-semibold text-amber-950 dark:text-amber-200">
+                {lang === "th"
+                  ? "คุณยังไม่ได้ระบุทักษะหรือเงื่อนไขในโปรไฟล์"
+                  : "You haven't set up your profile skills or preferences yet"}
+              </span>
+              <span className="hidden sm:inline text-amber-600 dark:text-amber-400">·</span>
+              <span className="text-amber-900/90 dark:text-amber-300/80">
+                {lang === "th"
+                  ? "ระบบจะไม่สามารถค้นหาและแจ้งเตือนโครงการที่ตรงกับคุณได้ จนกว่าจะมีการบันทึกทักษะในโปรไฟล์"
+                  : "The system cannot match and notify you of tenders until you save your skills in your profile."}
+              </span>
+            </div>
             <Link
               href="/profile"
-              className="font-medium text-amber-950 underline underline-offset-2 hover:opacity-80 cursor-pointer dark:text-amber-100"
+              className="shrink-0 font-medium text-amber-950 underline underline-offset-2 hover:opacity-80 cursor-pointer dark:text-amber-100"
             >
               {lang === "th" ? "ไปที่หน้าตั้งค่าโปรไฟล์และทักษะ →" : "Go to Profile Settings →"}
             </Link>
