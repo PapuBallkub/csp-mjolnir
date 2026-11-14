@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import {
+  AlertTriangle,
   Award,
   Building2,
   Check,
   Pencil,
   Search,
-  Sparkles,
   User,
 } from "lucide-react";
 import type { AuthUser, UserProfile } from "../../../../_lib/api";
@@ -210,8 +210,8 @@ export function ProfileDisplay({
       {/* 2. CAPABILITY SECTION: SINGLE SETUP BLOCK (IF NO SKILLS) OR FULL 5-CARD DASHBOARD */}
       {profile.skills.length === 0 ? (
         <section className="rounded-[3px] border border-line bg-surface-2 p-6 text-center sm:p-9 shadow-xs dark:bg-surface-2/50">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface text-ink-2 shadow-2xs">
-            <Sparkles className="h-5 w-5" />
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-amber-300/80 bg-amber-100/70 text-amber-700 shadow-2xs dark:border-amber-700/60 dark:bg-amber-950/50 dark:text-amber-400">
+            <AlertTriangle className="h-5 w-5" />
           </div>
           <h3 className="mt-3.5 text-[17px] font-semibold text-ink">
             ยังไม่ได้ตั้งค่าโปรไฟล์ความสามารถ
