@@ -4,6 +4,7 @@ import { Readable } from 'node:stream';
 import axios from 'axios';
 import AdmZip from 'adm-zip';
 import { env } from '#common/config/env.js';
+import { getDocumentsDir } from '#common/paths.js';
 import { Tor, TorInsight } from '#models/index.js';
 import { USER_AGENT } from '#pipeline/shared/user-agent.js';
 
@@ -718,7 +719,7 @@ export async function getTorPdfStream(projectId, { part = 0, role = null, zipId 
 
   // Check project directory on disk if it exists (e.g. server/data/documents/<projectId>/)
   if (!localPath && (targetRole === 'bidding' || targetRole === 'announcement')) {
-    const documentsDir = path.resolve('server/data/documents');
+    const documentsDir = getDocumentsDir();
     const projectDir = path.join(documentsDir, id);
     if (fs.existsSync(projectDir)) {
       try {

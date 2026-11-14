@@ -2,6 +2,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import axios from 'axios';
 import { badRequest, notFound } from '#common/errors/http-error.js';
+import { getDocumentsDir } from '#common/paths.js';
 import {
   FeedPoll,
   IngestionLog,
@@ -1220,7 +1221,7 @@ export async function triggerIngestion({ source = 'all', limit = 2 } = {}) {
     };
   }
 
-  const documentsDir = process.env.DOCUMENTS_DIR || './data/documents';
+  const documentsDir = getDocumentsDir();
   const total = await runFetchStep({
     query: 'คอมพิวเตอร์',
     limit,
@@ -1390,7 +1391,7 @@ export async function retryPipelineStep(projectId, step, { runNow = false } = {}
 
   let executedImmediately = false;
   if (runNow) {
-    const documentsDir = process.env.DOCUMENTS_DIR || './data/documents';
+    const documentsDir = getDocumentsDir();
     if (step === 'download') {
       await runDownloadStep({ id: projectId, documentsDir });
       executedImmediately = true;
@@ -1683,7 +1684,7 @@ export async function addManualProcurementRecord({ projectId }) {
     throw error;
   }
 
-  const documentsDir = process.env.DOCUMENTS_DIR || './data/documents';
+  const documentsDir = getDocumentsDir();
 
   let tor;
   try {
