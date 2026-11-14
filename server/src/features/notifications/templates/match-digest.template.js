@@ -21,6 +21,29 @@ function formatThaiDate(date) {
 }
 
 /**
+ * Escapes HTML characters and defangs embedded URLs/domains in untrusted text
+ * (e.g. project titles like "ดูแลระบบ www.virus.com").
+ *
+ * Inserting zero-width spaces (&#8203;) after dots and protocols prevents email
+ * clients (Gmail, Outlook, iOS Mail) from autolinking suspicious strings into
+ * clickable hyperlinks, while keeping the text completely natural to the reader.
+ */
+export function escapeAndDefang(text) {
+  if (!text) return '';
+  const escaped = String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  return escaped
+    .replace(/https?:\/\//gi, (match) => `${match.slice(0, -2)}&#8203;//`)
+    .replace(/www\./gi, 'www&#8203;.')
+    .replace(/([a-zA-Z0-9-]{2,})\.([a-zA-Z]{2,10}(?:\.[a-zA-Z]{2,4})?)/g, '$1.&#8203;$2');
+}
+
+/**
  * Renders the email subject line and HTML body for a profile-match digest.
  *
  * @param {Object} options
@@ -28,7 +51,7 @@ function formatThaiDate(date) {
  * @param {Array} options.matchedItems - Matched tender snapshot receipts
  * @param {string} options.unsubscribeUrl - 1-click PDPA unsubscribe URL
  * @param {string} options.appUrl - Base web app URL (e.g. https://gipdp.go.th)
- * @returns {{ subject: string, html: string }}
+ * @returns {{ subject: string, html: string, text: string }}
  */
 export function renderMatchDigestEmail({
   recipientName = 'ผู้ประกอบการ',
@@ -38,15 +61,18 @@ export function renderMatchDigestEmail({
 }) {
   const count = matchedItems.length;
   const subject = `[GIPDP] สรุปพบ ${count} โครงการจัดซื้อจัดจ้างภาครัฐที่ตรงกับโปรไฟล์ของคุณ`;
+  const safeRecipientName = escapeAndDefang(recipientName);
 
   const itemCardsHtml = matchedItems
     .map((item) => {
+      const safeTitle = escapeAndDefang(item.projectTitle);
+      const safeAgency = escapeAndDefang(item.agency);
       const budgetText = formatTHB(item.budget);
       const deadlineText = formatThaiDate(item.submissionDeadline);
       const skillsHtml = (item.matchedSkills || [])
         .map(
           (s) =>
-            `<span style="display:inline-block;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:2px 8px;border-radius:3px;font-size:12px;margin:2px 4px 2px 0;font-family:monospace;">✓ ${s}</span>`,
+            `<span style="display:inline-block;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:2px 8px;border-radius:3px;font-size:12px;margin:2px 4px 2px 0;font-family:monospace;">✓ ${escapeAndDefang(s)}</span>`,
         )
         .join('');
 
@@ -56,21 +82,21 @@ export function renderMatchDigestEmail({
           <tr>
             <td>
               <span style="display:inline-block;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;font-size:12px;font-weight:bold;padding:2px 8px;border-radius:4px;">
-                ${item.matchScore}% ตรงกัน
+                ${Number(item.matchScore)}% ตรงกัน
               </span>
             </td>
             <td style="text-align:right;font-size:12px;color:#64748b;font-family:monospace;">
-              ID: ${item.projectId}
+              ID: ${escapeAndDefang(item.projectId)}
             </td>
           </tr>
         </table>
         
         <h3 style="margin:10px 0 4px 0;font-size:16px;line-height:1.4;color:#0f172a;">
-          ${item.projectTitle}
+          ${safeTitle}
         </h3>
         
         <p style="margin:0 0 12px 0;font-size:13px;color:#475569;">
-          ${item.agency}
+          ${safeAgency}
         </p>
 
         <div style="font-size:13px;color:#334155;margin-bottom:10px;">
@@ -90,7 +116,7 @@ export function renderMatchDigestEmail({
         }
 
         <div>
-          <a href="${appUrl}/tor/${item.projectId}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:8px 16px;border-radius:4px;font-size:13px;font-weight:500;">
+          <a href="${appUrl}/tor/${encodeURIComponent(item.projectId)}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:8px 16px;border-radius:4px;font-size:13px;font-weight:500;">
             เปิดดูสรุป TOR ฉบับเต็ม &rarr;
           </a>
         </div>
@@ -105,7 +131,19 @@ export function renderMatchDigestEmail({
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no">
   <title>${subject}</title>
+  <style>
+    /* Prevent email clients from autolinking unrecognized text in titles */
+    a[x-apple-data-detectors] {
+      color: inherit !important;
+      text-decoration: none !important;
+      font-size: inherit !important;
+      font-family: inherit !important;
+      font-weight: inherit !important;
+      line-height: inherit !important;
+    }
+  </style>
 </head>
 <body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans Thai',sans-serif;color:#0f172a;line-height:1.5;">
   <div style="max-width:620px;margin:24px auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
@@ -123,7 +161,7 @@ export function renderMatchDigestEmail({
     <!-- Body Content -->
     <div style="padding:28px;">
       <p style="margin:0 0 16px 0;font-size:15px;color:#1e293b;">
-        สวัสดีคุณ <strong>${recipientName}</strong>,
+        สวัสดีคุณ <strong>${safeRecipientName}</strong>,
       </p>
       
       <p style="margin:0 0 20px 0;font-size:14px;color:#334155;line-height:1.6;">
@@ -160,5 +198,30 @@ export function renderMatchDigestEmail({
 </html>
   `.trim();
 
-  return { subject, html };
+  const textCards = matchedItems
+    .map(
+      (item, idx) =>
+        `${idx + 1}. [${item.matchScore}% ตรงกัน] ${item.projectTitle}\n   หน่วยงาน: ${item.agency}\n   งบประมาณ: ${formatTHB(item.budget)}${item.submissionDeadline ? ` · ปิดรับซอง: ${formatThaiDate(item.submissionDeadline)}` : ''}\n   ดูรายละเอียด: ${appUrl}/tor/${encodeURIComponent(item.projectId)}`,
+    )
+    .join('\n\n');
+
+  const text = `
+GIPDP · Government IT Procurement Discovery Platform
+รายงานสรุปโครงการใหม่ที่ตรงกับคุณ
+
+สวัสดีคุณ ${recipientName},
+
+ระบบ GIPDP ได้ประมวลผลประกาศจัดซื้อจัดจ้างด้าน IT ภาครัฐล่าสุด และตรวจพบ ${count} โครงการที่ตรงกับโปรไฟล์ความถนัดของคุณ:
+
+${textCards}
+
+ดูรายการแจ้งเตือนทั้งหมดในระบบเว็บ: ${appUrl}/notifications
+
+---
+ข้อความปฏิเสธความรับผิดชอบ (Disclaimer): GIPDP เป็นเครื่องมืออิสระสำหรับค้นหาและวิเคราะห์ TOR เพื่อช่วยผู้ประกอบการและนักพัฒนาเทคโนโลยี ไม่ใช่ระบบยื่นข้อเสนอของทางราชการ การยื่นซองข้อเสนอและการประมูลอย่างเป็นทางการต้องกระทำผ่านระบบ e-GP เท่านั้น
+
+ยกเลิกการรับอีเมลแจ้งเตือน: ${unsubscribeUrl}
+  `.trim();
+
+  return { subject, html, text };
 }

@@ -10,7 +10,10 @@ import {
   evaluateUserCandidateMatches,
 } from '#features/notifications/creators/match-notification.service.js';
 import { extractNotifiedProjectIds } from '#features/notifications/creators/find-notification-duplication.js';
-import { renderMatchDigestEmail } from '#features/notifications/templates/match-digest.template.js';
+import {
+  escapeAndDefang,
+  renderMatchDigestEmail,
+} from '#features/notifications/templates/match-digest.template.js';
 
 test('notifications: creates and verifies HMAC unsubscribe token', () => {
   const userId = '654321098765432109876543';
@@ -38,7 +41,7 @@ test('notifications: renders match digest email template with subject and Thai c
     },
   ];
 
-  const { subject, html } = renderMatchDigestEmail({
+  const { subject, html, text } = renderMatchDigestEmail({
     recipientName: 'สมชาย',
     matchedItems,
     unsubscribeUrl: 'https://gipdp.go.th/unsubscribe?token=123',
@@ -50,8 +53,50 @@ test('notifications: renders match digest email template with subject and Thai c
   assert.ok(html.includes('โครงการพัฒนาระบบ e-Service Portal'));
   assert.ok(html.includes('88% ตรงกัน'));
   assert.ok(html.includes('฿3,200,000'));
-  assert.ok(html.includes('Next.js'));
+  assert.ok(html.includes('Next.&#8203;js'));
   assert.ok(html.includes('https://gipdp.go.th/unsubscribe?token=123'));
+  assert.ok(text.includes('สมชาย'));
+  assert.ok(text.includes('โครงการพัฒนาระบบ e-Service Portal'));
+});
+
+test('notifications: escapeAndDefang neutralizes embedded URLs in titles to prevent autolinking', () => {
+  // 1. Defangs www. domain names by inserting zero-width space
+  const title1 = 'จ้างดูแลระบบ www.virus.com';
+  const defanged1 = escapeAndDefang(title1);
+  assert.equal(defanged1, 'จ้างดูแลระบบ www&#8203;.virus.&#8203;com');
+  // Email clients scan for standard domain regex: with &#8203;, it will NOT match
+  assert.ok(!defanged1.includes('www.virus.com'));
+
+  // 2. Defangs https:// protocols
+  const title2 = 'ระบบจัดซื้อ https://malware.org/bad';
+  const defanged2 = escapeAndDefang(title2);
+  assert.ok(defanged2.includes('https:&#8203;//'));
+  assert.ok(!defanged2.includes('https://'));
+
+  // 3. Escapes HTML injection tags
+  const title3 = '<script>alert("hack")</script> & <b>test</b>';
+  const defanged3 = escapeAndDefang(title3);
+  assert.ok(!defanged3.includes('<script>'));
+  assert.ok(defanged3.includes('&lt;script&gt;'));
+  assert.ok(defanged3.includes('&amp;'));
+
+  // 4. In email template, title with virus.com is rendered defanged
+  const { html } = renderMatchDigestEmail({
+    recipientName: 'ผู้ใช้',
+    matchedItems: [
+      {
+        projectId: '69000000001',
+        projectTitle: 'ดูแลระบบ www.virus.com',
+        agency: 'กรมทดสอบ',
+        budget: 1_000_000,
+        matchScore: 90,
+      },
+    ],
+    appUrl: 'https://gipdp.go.th',
+  });
+
+  assert.ok(html.includes('www&#8203;.virus.&#8203;com'));
+  assert.ok(!html.includes('<h3>\n          ดูแลระบบ www.virus.com'));
 });
 
 test('notifications: buildMatchSnapshot correctly formats receipt fields', () => {

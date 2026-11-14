@@ -53,15 +53,16 @@ export function verifyUnsubscribeToken(userId, token) {
 }
 
 /**
- * Core generic sender: delivers any email with any subject and HTML content.
+ * Core generic sender: delivers any email with subject, HTML content, and optional plain-text fallback.
  *
  * @param {Object} options
  * @param {string} options.to - Recipient email address
  * @param {string} options.subject - Email subject line
  * @param {string} options.html - HTML body string
+ * @param {string} [options.text] - Optional plain text alternative
  * @returns {Promise<{ sent: boolean, reason?: string, messageId?: string }>}
  */
-export async function sendEmail({ to, subject, html }) {
+export async function sendEmail({ to, subject, html, text }) {
   if (!isEmailConfigured) {
     console.warn('[email.service] Email skipped: SMTP credentials are not configured in server/.env.');
     return { sent: false, reason: 'not_configured' };
@@ -73,12 +74,17 @@ export async function sendEmail({ to, subject, html }) {
 
   const transporter = getTransporter();
 
-  const info = await transporter.sendMail({
+  const mailOptions = {
     from: env.email.from,
     to,
     subject,
     html,
-  });
+  };
+  if (text) {
+    mailOptions.text = text;
+  }
+
+  const info = await transporter.sendMail(mailOptions);
 
   return { sent: true, messageId: info.messageId };
 }
@@ -108,7 +114,7 @@ export async function sendMatchDigestEmail({ user, matchedItems }) {
 
   const recipientName = user.name?.trim() || user.email.split('@')[0];
 
-  const { subject, html } = renderMatchDigestEmail({
+  const { subject, html, text } = renderMatchDigestEmail({
     recipientName,
     matchedItems,
     unsubscribeUrl,
@@ -119,5 +125,6 @@ export async function sendMatchDigestEmail({ user, matchedItems }) {
     to: user.email,
     subject,
     html,
+    text,
   });
 }
