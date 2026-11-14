@@ -1,16 +1,16 @@
 # Data Dictionary & Schema Specification: pipeline runs
 
-**Files:** `server/src/models/pipeline-lock.model.js`, `server/src/models/pipeline-failure.model.js`
-**Model Names:** `PipelineLock`, `PipelineFailure`
-**Collection Names:** `pipelinelocks`, `pipelinefailures`
-**Related Documents:** [0016 · Pipeline runs are safe to repeat](../decisions/0016-pipeline-runs-are-safe-to-repeat.md), [Pipeline commands](../pipeline.md)
+**Files:** `server/src/models/pipeline-lock.model.js`, `server/src/models/pipeline-failure.model.js`, `server/src/models/pipeline-run.model.js`
+**Model Names:** `PipelineLock`, `PipelineFailure`, `PipelineRun`
+**Collection Names:** `pipelinelocks`, `pipelinefailures`, `pipelineruns`
+**Related Documents:** [0016 · Pipeline runs are safe to repeat](../decisions/0016-pipeline-runs-are-safe-to-repeat.md), [0027 · Run the pipeline on a schedule](../decisions/0027-run-the-pipeline-on-a-schedule.md), [Pipeline commands](../pipeline.md)
 **Status:** Active
 
 ---
 
 ## 1. Overview
 
-Bookkeeping for pipeline runs, not TOR data. Both pipelines write these two collections. They let the pipelines run on a schedule without overlapping and without retrying a broken TOR for ever.
+Bookkeeping for pipeline runs, not TOR data. Both pipelines write the first two collections: they let the pipelines run on a schedule without overlapping and without retrying a broken TOR for ever. The scheduled jobs write the third, so a day of runs can be read back.
 
 ---
 
@@ -45,3 +45,24 @@ One document per TOR and step that is failing. It is deleted when the step succe
 | `lastFailedAt` | `Date` | Yes | — | Latest failure | `"2026-10-07T07:38:16.000Z"` |
 
 **Indexes:** `{ projectId, step }` unique; `{ step, attempts }` for finding the TORs a step gave up on.
+
+---
+
+## 4. `pipelineruns`
+
+One document per scheduled job (`poll`, `sweep` or `process`), written by `pipeline/jobs/run-job.js`: which steps ran, how each ended, and how the database moved. It's created when the job starts and finished when it ends. Read by the admin dashboard (FR-22) and `npm run report`.
+
+| Field | Type | Required | Default | Description | Example |
+| :--- | :--- | :---: | :--- | :--- | :--- |
+| `job` | `String` | Yes | — | `'poll'`, `'sweep'` or `'process'` | `"process"` |
+| `host` | `String` | No | `""` | The machine that ran it | `"LAPTOP-1"` |
+| `startedAt` | `Date` | Yes | — | When the job started. Indexed | `"2026-11-11T15:00:00.000Z"` |
+| `finishedAt` | `Date` | No | `null` | When it ended; `null` while running, or if the process died | `"2026-11-11T19:42:10.000Z"` |
+| `until` | `Date` | No | `null` | The time box: no new step starts after it. Five minutes before the next job's slot (`schedule.js`) | `"2026-11-12T00:55:00.000Z"` |
+| `outcome` | `String` | No | `'running'` | `done`: every step ran. `timed-out`: time was up first. `skipped`: another job held the lock too long. `failed`: the runner itself broke | `"done"` |
+| `steps` | `Array` | No | `[]` | One entry per step: `name`, `exitCode` (`null`: not run, time was up), `startedAt`, `ms` | `[{ "name": "screen", "exitCode": 0, … }]` |
+| `before`, `after` | `Mixed` | No | `null` | Counts at the start and end: `stages` (projects by `pipelineStatus`), `screens` (title-screen verdicts), `insights` (extracted, excluded, awaiting full text). Kept when empty: no projects at a stage is a count too | `{ "stages": { "ocr_done": 812, … }, … }` |
+| `logFile` | `String` | No | `""` | Where the job's output was written: `server/data/logs/<day>/<HHMM>-<job>.log`, or under `LOGS_DIR` when set | `".../data/logs/2026-11-11/2200-process.log"` |
+| `error` | `String` | No | `""` | Why the runner failed, for `outcome: 'failed'` | `""` |
+
+**Indexes:** `{ startedAt }`.

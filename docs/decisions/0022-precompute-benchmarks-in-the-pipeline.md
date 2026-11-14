@@ -5,7 +5,8 @@ Status: accepted · 2026-10-11
 ## Context
 
 Once comparable projects can be identified (ADR 0021), the system must compute price
-benchmarks (FR-20) and lock-spec risk indicators (FR-21).
+benchmarks (FR-19) and lock-spec risk indicators (FR-21). (Corrected 2026-11-12:
+this first cited FR-20 for the benchmarks.)
 
 Two architectural questions arise:
 1. **When should benchmarks be computed?** Should the API calculate median prices and

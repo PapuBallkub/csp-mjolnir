@@ -1,6 +1,8 @@
 # 0002 · MongoDB Atlas over a local Docker instance
 
-Status: accepted · 2026-08-31
+Status: accepted · 2026-08-31 · partly superseded by
+[0006](0006-local-mongodb-for-development.md): development now defaults to a
+local database; Atlas stays the shared cluster
 
 ## Context
 

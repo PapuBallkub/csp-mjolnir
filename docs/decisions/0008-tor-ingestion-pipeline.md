@@ -1,6 +1,7 @@
 # 0008 · TOR Ingestion Pipeline, Multi-Source Scrapers, and Local OCR
 
-Status: accepted · 2026-09-16 (updated 2026-09-17)
+Status: accepted · 2026-09-16 (updated 2026-09-17) · layout and OCR limits
+superseded by [0013](0013-split-ingestion-and-ai-extraction.md)
 
 ## Context
 

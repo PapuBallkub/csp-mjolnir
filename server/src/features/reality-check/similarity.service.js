@@ -1,8 +1,8 @@
 /**
  * server/src/features/reality-check/similarity.service.js
  *
- * Implements FR-19: Grouping and identifying comparable historical IT
- * procurement projects for a given TOR without calling an external LLM.
+ * Finds the comparable historical IT procurement projects that FR-19's price
+ * benchmark is computed from, without calling an external LLM.
  *
  * Conforms to ADR 0021 & docs/features/reality-check-and-benchmarking.md
  */

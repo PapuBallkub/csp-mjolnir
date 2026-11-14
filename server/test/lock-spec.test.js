@@ -3,7 +3,7 @@
  *
  * Tests for FR-21: Automated lock-spec risk detection, qualification barriers,
  * and non-accusatory evidence generation.
- * Conforms to ADR 0014, ADR 0021, ADR 0030, and Circular ว 214.
+ * Conforms to ADR 0014, ADR 0021, ADR 0035, and Circular ว 214.
  */
 
 import test from 'node:test';

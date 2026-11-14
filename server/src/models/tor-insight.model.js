@@ -221,7 +221,8 @@ const torInsightSchema = new mongoose.Schema(
     },
 
     // 4.10 - 4.12 Decision Support & Intelligence Analytics
-    // Reshaped when price analysis (FR-19) and lock-spec (FR-20, FR-21) are built.
+    // Price analysis (FR-19) and lock-spec (FR-20's rules, FR-21), written by
+    // extraction and the nightly scripts/find-comparable.js.
     analytics: {
       lockSpec: {
         riskScore: { type: Number, default: 0, min: 0, max: 100 },

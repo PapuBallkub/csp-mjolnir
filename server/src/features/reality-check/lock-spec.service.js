@@ -5,13 +5,13 @@
  * qualification barriers, and non-accusatory evidence generation.
  *
  * Grounded in Comptroller General's Circular ว 214 and Act B.E. 2560 Section 9.
- * Conforms to ADR 0014, ADR 0021, ADR 0030, and docs/features/lock-spec-risk-detection.md.
+ * Conforms to ADR 0014, ADR 0021, ADR 0035, and docs/features/lock-spec-risk-detection.md.
  */
 
 import { getProjectPrice } from './similarity.service.js';
 
 /**
- * Severity point weights (ADR 0030)
+ * Severity point weights (ADR 0035)
  * With 3 statutory categories from Circular ว 214:
  * 1 violation (35 pts) => Medium Risk
  * 2+ violations (>= 70 pts) => High Risk
@@ -23,7 +23,7 @@ export const SEVERITY_POINTS = {
 };
 
 /**
- * Lock-spec risk thresholds (ADR 0030)
+ * Lock-spec risk thresholds (ADR 0035)
  */
 export const RISK_THRESHOLDS = {
   HIGH: 70,

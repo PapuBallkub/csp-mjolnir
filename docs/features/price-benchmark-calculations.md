@@ -1,9 +1,8 @@
-# Feature Specification: Price Benchmark Calculations (FR-20)
+# Feature Specification: Price Benchmark Calculations (FR-19)
 
 **Feature:** Price Benchmark Calculations & Reality Check  
 **Related Requirements:**  
-- `FR-19`: Identify and group historical IT procurement projects similar to a given TOR.  
-- `FR-20`: Analyze a TOR against similar historical IT procurement projects by calculating price benchmarks and identifying deviations in price.  
+- `FR-19`: Show the historical median and average price of similar past IT projects, from data.go.th ([requirements.md](../requirements.md)). How the similar projects are found is in [comparable-projects-matching.md](comparable-projects-matching.md).  
 - `NFR-15`: Thai primary locale with transparent, non-accusing copy ("Describe, don't accuse").  
 **Related Decisions:**  
 - [`0010 · Normalized TOR Detail Information`](../decisions/0010-normalized-tor-detail-Information.md)  
@@ -27,7 +26,7 @@ In Thai government IT procurement, small software companies (SMEs), freelance de
 ### 1.2 What This Feature Does
 The **Price Reality Check** feature gives every user instant price transparency:
 1. It takes the target project's reference price (or approved budget).
-2. It looks up comparable past government IT projects identified by the similarity matching engine (FR-19).
+2. It looks up comparable past government IT projects identified by the similarity matching engine ([comparable-projects-matching.md](comparable-projects-matching.md)).
 3. It calculates objective market benchmarks (**Historical Median** and **Historical Average**).
 4. It calculates the **difference** (both in Baht and as a percentage) between this project's price and past market norms.
 5. It evaluates how much historical evidence exists (Sample Size & Reliability).

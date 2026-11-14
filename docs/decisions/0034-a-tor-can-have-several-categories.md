@@ -1,6 +1,6 @@
 # 0034 · A TOR can have several categories, main one first
 
-Status: accepted · 2026-11-06 · updates [0021](0021-find-comparable-projects.md), [0022](0022-precompute-benchmarks-in-the-pipeline.md), [0030](0030-lock-spec-risk-criteria-and-scoring.md) and [0031](0031-keep-the-summary-a-change-replaces.md)
+Status: accepted · 2026-11-06 · updates [0021](0021-find-comparable-projects.md), [0022](0022-precompute-benchmarks-in-the-pipeline.md), [0035](0035-lock-spec-risk-criteria-and-scoring.md) and [0031](0031-keep-the-summary-a-change-replaces.md)
 
 ## Context
 
@@ -55,7 +55,7 @@ In this order:
 1. `categories[0]` is `software-licenses`: not flagged, because a reseller letter can belong to buying licences.
 2. `categories[0]` is `software-development` or `systems-integration`, or the contract is `hire`: flagged, even with licences further down the list. In that case the finding says why the letter still matters: it may fit the licence part, but ว 214 ข้อ 1.3 doesn't let it limit who can bid on the rest.
 
-The rule had always read `procurementKind`, but that field lives on `Tor` and lock-spec runs on the TorInsight record, so the `hire` half never fired. `facts.procurementKind` is now copied from the `Tor`. Every `hire` TOR asking for a reseller letter now gets the `high` finding ADR 0030 always described, and the findings change accordingly.
+The rule had always read `procurementKind`, but that field lives on `Tor` and lock-spec runs on the TorInsight record, so the `hire` half never fired. `facts.procurementKind` is now copied from the `Tor`. Every `hire` TOR asking for a reseller letter now gets the `high` finding ADR 0035 always described, and the findings change accordingly.
 
 ### 5. Reclassify stops overwriting the category
 
@@ -85,4 +85,4 @@ A summary replaced after the migration needs nothing, because `keepVersion` copi
 
 ## Still to check
 
-ADR 0030's summary of ว 214 says ข้อ 1.1 allows a reseller letter only for งานซื้อครุภัณฑ์หลัก, and that ข้อ 1.3 also covers งานซื้อพัสดุทั่วไป. Whether a software licence counts as ครุภัณฑ์หลัก has to be read from the circular itself. Rule 1 stands either way, because it only means we don't flag the TOR. It's not a statement that the letter is allowed, and the docs and the page shouldn't say so.
+ADR 0035's summary of ว 214 says ข้อ 1.1 allows a reseller letter only for งานซื้อครุภัณฑ์หลัก, and that ข้อ 1.3 also covers งานซื้อพัสดุทั่วไป. Whether a software licence counts as ครุภัณฑ์หลัก has to be read from the circular itself. Rule 1 stands either way, because it only means we don't flag the TOR. It's not a statement that the letter is allowed, and the docs and the page shouldn't say so.

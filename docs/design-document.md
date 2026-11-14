@@ -1275,7 +1275,7 @@ sequenceDiagram
 
 # Section 5: Analytical & Decision Support Engines
 
-## 5.1 Lock-Spec Risk Detection Subsystem (FR-20, FR-21, ADR 0030)
+## 5.1 Lock-Spec Risk Detection Subsystem (FR-20, FR-21, ADR 0035)
 
 The **Lock-Spec Risk Detection Engine** (`server/src/features/reality-check/lock-spec.service.js`) evaluates procurement requirements to identify "bid tailoring" (การล็อคสเปก) — where an agency crafts qualifications or technical specifications so narrowly that only a single favored vendor or incumbent can satisfy them.
 
@@ -1291,7 +1291,7 @@ The engine executes three statutory rule detectors against extracted data:
 | `detectQualificationBarriers` | **Circular ว 214 Clause 2** | Evaluates whether minimum required past single-contract experience (`eligibility.previousExperienceMinTHB`) exceeds 50% of the project's allocated reference price (ราคากลาง). | High (35 pts) | Circular ว 214 Clause 2 establishes that past contract experience requirements must not exceed 50% of the project budget or reference price. |
 | `detectSpecificationTailoring` | **Circular ว 214 Clause 3 & Act B.E. 2560 Section 9** | Evaluates whether proprietary operating systems or legacy database runtimes (Windows Server, Red Hat / RHEL, Oracle) require exact specific version numbers without permitting equivalent alternatives (`allowsEquivalent: false` or omitting "หรือเทียบเท่า"). | High (35 pts) | Circular ว 214 Clause 3 mandates that where specific brands or models are cited, the phrase "หรือเทียบเท่า" (or equivalent) must always be explicitly stated. |
 
-### 5.1.2 Scoring Weights & Risk Thresholds (ADR 0030)
+### 5.1.2 Scoring Weights & Risk Thresholds (ADR 0035)
 
 Individual findings carry severity point values:
 * `high`: **35 points**
@@ -1566,7 +1566,7 @@ In compliance with **NFR-08** (TLS 1.2+), **NFR-09** (Bcrypt Hashing), **NFR-10*
    * `secure: isProduction` (enforces HTTPS transmission).
    * `sameSite: isProduction ? 'none' : 'lax'` (handles cross-domain deployment in production while ensuring security).
    * `path: '/'`.
-   * *Note on NFR-11 Alignment:* The active codebase defines `SESSION_TTL_DAYS = 7` (7-day duration for developer convenience). Full compliance with SRS `NFR-11` (which mandates session expiration $\le 24$ hours) is targeted for production staging by setting `SESSION_TTL_DAYS = 1`.
+   * *Note on NFR-11 Alignment:* The code sets `SESSION_TTL_DAYS = 7`. SRS `NFR-11` says a session expires within 24 hours. Which one changes is undecided until the team has discussed it with the client (`docs/deployment-checklist.md` §0).
 4. **Role-Based Access Control Middleware (`server/src/features/auth/auth.middleware.js`):**
    * `requireAuth`: Verifies token signature and attaches `req.user`.
    * `requireRole('admin')`: Strict role boundary enforcing `req.user.role === 'admin'` (**NFR-10**). Non-admin users receive `403 Forbidden`.
@@ -1667,17 +1667,11 @@ client/app/
     └── tor-detail/tabs/           # 4 Modular TOR tabs: OverviewTab, TechnicalSpecsTab, DecisionSupportTab, EligibilityHistoryTab
 ```
 
-### 6.5.2 Thai-First Localization Strategy (NFR-15)
-In strict compliance with **NFR-15 (Localization)**, Thai is the primary locale across all user-facing interfaces, navigation menus, AI-generated summary sections, and notifications.
+### 6.5.2 Thai-Only Localization (NFR-15, ADR 0036)
+In compliance with **NFR-15 (Localization)**, every user-facing interface, navigation menu, AI-generated summary section, and notification is in Thai.
 * Typography is tuned for dual-script readability (mixed Thai script and Latin technical terms such as *"ระบบฐานข้อมูล PostgreSQL 14 บน Windows Server 2019"*).
-* Dates are rendered natively in both Buddhist Era (พ.ศ. 256x) and Common Era (CE).
-* English is supported as a secondary locale behind the top-level language switcher.
-
-### 6.5.2 Thai-First Localization Strategy (NFR-15)
-In strict compliance with **NFR-15 (Localization)**, Thai is the primary locale across all user-facing interfaces, navigation menus, AI-generated summary sections, and notifications.
-* Typography is tuned for dual-script readability (mixed Thai script and Latin technical terms such as *"ระบบฐานข้อมูล PostgreSQL 14 บน Windows Server 2019"*).
-* Dates are rendered natively in both Buddhist Era (พ.ศ. 256x) and Common Era (CE).
-* English is supported as a secondary locale behind the top-level language switcher.
+* Dates are shown in the Buddhist Era (e.g. `13 พ.ย. 2569`, from `formatDate` in `client/app/_lib/format.ts`).
+* There is no English locale and no language switcher ([ADR 0036](decisions/0036-thai-only-interface.md)). The client's dormant English strings are not shown.
 
 ---
 
@@ -1885,7 +1879,7 @@ stateDiagram-v2
 * **NFR-10 (Strict Role-Based Access Control):**
   * Separation between standard users (`role: 'user'`) and internal operators (`role: 'admin'`) is enforced at the router layer via `requireAdmin` middleware. Admin tokens cannot be obtained through self-service registration.
 * **NFR-11 (JWT Session Expiration ≤ 24 Hours):**
-  * Signed JWT session token is delivered in a secure, HTTP-only, SameSite=Lax cookie named `mjolnir_session` (`server/src/features/auth/session.js`). The current implementation uses a 7-day TTL (`expiresIn: '7d'`); alignment with SRS NFR-11 requires setting `SESSION_TTL = '24h'`.
+  * Signed JWT session token is delivered in a secure, HTTP-only, SameSite=Lax cookie named `mjolnir_session` (`server/src/features/auth/session.js`). The current implementation uses a 7-day TTL (`SESSION_TTL_DAYS = 7`), against NFR-11's 24 hours. Undecided until the team has discussed it with the client.
 
 ---
 
@@ -2006,7 +2000,7 @@ If an e-GP feed schema change occurs or an upstream service fails:
 | **NFR-08** | TLS 1.2+ for all data in transit | Reverse proxy TLS termination with modern cipher suites; TLS 1.2+ to MongoDB Atlas. | SSL Labs SSL/TLS automated security assessment rating A+. |
 | **NFR-09** | Passwords hashed and salted | Bcrypt hashing with a salt work factor of 12 (`WORK_FACTOR = 12`) and 72-byte maximum length limit. | Automated authentication unit test verifying salted cryptographic format. |
 | **NFR-10** | Strict Role-Based Access Control | Express `requireAdmin` middleware enforcing binary role boundary; no self-service admin. | Penetration testing verifying 403 Forbidden on admin routes with user token. |
-| **NFR-11** | JWT sessions expiring in ≤ 24 hours | Signed JWT tokens delivered in `mjolnir_session` HTTP-only cookies (7d TTL in implementation; targets 24h). | Unit tests validating token signature and cookie expiration headers. |
+| **NFR-11** | JWT sessions expiring in ≤ 24 hours | Signed JWT tokens delivered in `mjolnir_session` HTTP-only cookies (7-day TTL in the code; NFR-11's 24 hours undecided, pending the client). | Unit tests validating token signature and cookie expiration headers. |
 | **NFR-12** | 99.9% web application uptime | Stateless API architecture, isolated batch worker containers, redundant Atlas replica set. | Synthetic uptime monitoring probes on `/health`. |
 | **NFR-13** | Fully responsive UX/UI (mobile/desktop) | Tailwind CSS responsive utility breakpoints (`sm`, `md`, `lg`, `xl`) across all routes. | Cross-device testing on Chrome Mobile, Safari iOS, and Desktop viewports. |
 | **NFR-14** | Decouple AI pipeline from web backend | Standalone CLI/cron batch worker communicating with web API strictly through MongoDB. | Verification of zero in-memory dependencies between `server/src/pipeline` and `server/src/app.js`. |

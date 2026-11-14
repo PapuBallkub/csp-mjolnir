@@ -3,7 +3,7 @@
 This document provides the operational and mathematical reference for finding and ranking **comparable historical IT procurement projects** in GIPDP.
 
 **Related Requirements & Decisions:**
-- Requirements: `FR-19` (Grouping similar historical projects), `FR-20` (Price reality check), `FR-21` (Lock-spec risk analysis)
+- Requirements: `FR-19` (the historical median and average price of similar past projects: this guide covers how those projects are found). `FR-20`'s comparison of requirements with similar projects would use them too, but isn't built yet. Lock-spec (`FR-21`) doesn't use them.
 - Architectural Decisions: [`ADR 0021 · Define comparable projects by architecture and complexity`](../decisions/0021-find-comparable-projects.md), [`ADR 0034 · A TOR can have several categories, main one first`](../decisions/0034-a-tor-can-have-several-categories.md)
 - Schema Specification: [`tor-insight-schema.md`](../database/tor-insight-schema.md)
 
@@ -243,15 +243,15 @@ Below is an illustrative schema snippet (assuming we take the top 2 peers from t
 
 ```javascript
 "priceAnalysis": {
-  // --- Fields evaluated by FR-20 (Price Reality Check) using these peers ---
-  "targetPriceTHB": 4000000,
+  // --- Fields evaluated by the price reality check (FR-19) using these peers ---
+  "referencePriceTHB": 4000000,
   "historicalMedianTHB": 4000000,    // Median of [3,800,000, 4,200,000]
-  "historicalAvgTHB": 4000000,       // Mean of [3,800,000, 4,200,000]
+  "historicalAverageTHB": 4000000,   // Mean of [3,800,000, 4,200,000]
   "diffPercentage": 0.0,             // Price deviation vs. historical median
   "sampleSize": 2,                   // Number of comparable peers found
   "reliability": "low",              // 'low' because N < 3 (ADR 0024)
 
-  // --- Output produced by this Matching Engine (FR-19) ---
+  // --- Output produced by this Matching Engine (FR-19's sample) ---
   "comparableProjects": [
     {
       "projectId": "PROJECT-A",
