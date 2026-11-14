@@ -33,8 +33,7 @@ export async function requireAuth(req, res, next) {
 //   router.get('/sources', requireAuth, requireRole('admin'), readSources);
 //
 // Mounted before, req.user is undefined and this throws 401 on every request,
-// including an admin's — the same ordering trap limitByUser warns about in
-// common/middleware/rate-limit.js.
+// including an admin's.
 //
 // It reads req.user.role, which is whatever toPublicUser returned, so the two
 // have to stay in step. There is no production caller yet: the admin routes
