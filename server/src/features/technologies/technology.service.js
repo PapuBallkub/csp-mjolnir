@@ -10,7 +10,9 @@ import { STARTER_TECHNOLOGIES } from '#pipeline/extraction/references/technologi
 export async function getAllTechnologies() {
   if (mongoose.connection.readyState === 1) {
     try {
-      const fromDb = await Technology.find({}, { name: 1, category: 1, _id: 0 }).sort({ name: 1 }).lean();
+      const fromDb = await Technology.find({ status: 'confirmed' }, { name: 1, category: 1, _id: 0 })
+        .sort({ name: 1 })
+        .lean();
       if (fromDb.length > 0) {
         return fromDb;
       }

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Technology } from '#models/index.js';
+import { getAllTechnologies } from '#features/technologies/index.js';
 
 test('Technology schema: matches on lower-cased keys and aliases, and starts as new', async () => {
   const tech = new Technology({
@@ -60,5 +62,44 @@ test('POST /api/technologies/request: returns 401 when not authenticated', async
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('getAllTechnologies: returns only confirmed technologies and ignores new or rejected ones (FR-10, #317)', async (t) => {
+  let isDbConnected = false;
+  const TEST_DB = 'mjolnir_test';
+  const runId = crypto.randomUUID().slice(0, 8);
+  const confirmedKey = `test-confirmed-tech-${runId}`;
+  const newKey = `test-new-tech-${runId}`;
+  const rejectedKey = `test-rejected-tech-${runId}`;
+
+  try {
+    const connPromise = connectDatabase({ dbName: TEST_DB });
+    const timer = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000));
+    await Promise.race([connPromise, timer]);
+    isDbConnected = true;
+  } catch {
+    return t.skip('MongoDB is not reachable');
+  }
+
+  try {
+    await Technology.create([
+      { name: `Confirmed Tech ${runId}`, key: confirmedKey, status: 'confirmed' },
+      { name: `New Tech ${runId}`, key: newKey, status: 'new' },
+      { name: `Rejected Tech ${runId}`, key: rejectedKey, status: 'rejected' },
+    ]);
+
+    const result = await getAllTechnologies();
+    const names = result.map((item) => item.name);
+
+    assert.ok(names.includes(`Confirmed Tech ${runId}`), 'confirmed technology must be included');
+    assert.ok(!names.includes(`New Tech ${runId}`), 'new/unreviewed technology must NOT be included');
+    assert.ok(!names.includes(`Rejected Tech ${runId}`), 'rejected technology must NOT be included');
+  } finally {
+    if (isDbConnected) {
+      await Technology.deleteMany({ key: { $in: [confirmedKey, newKey, rejectedKey] } });
+      await disconnectDatabase();
+    }
+  }
+});
+
 
 
