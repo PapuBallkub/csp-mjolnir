@@ -440,12 +440,6 @@ export function ProfileDisplay({
                 ? `แจ้งเตือนโครงการที่ตรงตั้งแต่ ${profile.matchNotification.minScore}% ขึ้นไป`
                 : "ปิดรับการแจ้งเตือนโครงการในระบบ (กล่องข้อความและกระดิ่ง)"}
             </p>
-            {profile.matchNotification?.enabled && profile.matchNotification.includeSubcontract && (
-              <p className="mt-1 text-[11.5px] text-ink-3 inline-flex items-center gap-1">
-                <Check className="h-3 w-3 text-open shrink-0" />
-                <span>รวมโอกาสรับงานช่วง (Subcontract) และกิจการร่วมค้า</span>
-              </p>
-            )}
           </div>
 
           {/* Channel 2: Email Digest */}

@@ -66,9 +66,8 @@ export function evaluateUserCandidateMatches(user, candidateTors, { minScore = 7
     }
 
     // Filter strictly by the user's entity type (Company vs Individual):
-    // If user is a single person (individual), respect includeSubcontract setting
-    const includeSubcontract = profile.matchNotification?.includeSubcontract ?? true;
-    if (matchResult.breakdown?.entity?.disqualifiedDirectBid && !includeSubcontract) {
+    // If user is a single person (individual), do not notify them for companies-only tenders
+    if (matchResult.breakdown?.entity?.disqualifiedDirectBid) {
       continue;
     }
 
