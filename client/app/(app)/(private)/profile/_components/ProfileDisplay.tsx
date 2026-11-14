@@ -197,20 +197,10 @@ export function ProfileDisplay({
           </h3>
           <p className="mx-auto mt-2 max-w-xl text-[13.5px] leading-thai text-ink-2">
             ระบบจับคู่ประกาศ TOR (Match Scoring) และการแจ้งเตือนงานใหม่ ต้องอาศัยทักษะความเชี่ยวชาญเป็นเกณฑ์หลัก
-            ระบุทักษะ เครื่องมือ และเงื่อนไขการรับงานของคุณเพื่อเริ่มต้นใช้งานระบบค้นหาและแจ้งเตือนอย่างเต็มประสิทธิภาพ
+            คุณสามารถกดปุ่ม <span className="font-semibold text-ink">&ldquo;แก้ไขข้อมูลโปรไฟล์&rdquo;</span> ด้านบนเพื่อระบุทักษะ เครื่องมือ และเงื่อนไขการรับงานของคุณ
           </p>
 
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={onEdit}
-              className={`${btn.primary} px-5 py-2.5 text-[13.5px] cursor-pointer`}
-            >
-              ✏️ เริ่มต้นตั้งค่าโปรไฟล์ตอนนี้
-            </button>
-          </div>
-
-          <div className="mx-auto mt-8 grid max-w-2xl grid-cols-1 gap-3 border-t border-line/60 pt-6 text-left sm:grid-cols-3">
+          <div className="mx-auto mt-6 grid max-w-2xl grid-cols-1 gap-3 border-t border-line/60 pt-6 text-left sm:grid-cols-3">
             <div className="rounded-[4px] border border-line/60 bg-surface-2/40 p-3.5">
               <span className="text-[12px] font-semibold text-ink">1. ทักษะเทคโนโลยี (40%)</span>
               <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
@@ -218,15 +208,15 @@ export function ProfileDisplay({
               </p>
             </div>
             <div className="rounded-[4px] border border-line/60 bg-surface-2/40 p-3.5">
-              <span className="text-[12px] font-semibold text-ink">2. งบประมาณ & ผลงาน (30%)</span>
+              <span className="text-[12px] font-semibold text-ink">2. ช่วงงบประมาณ & ผลงานเดิม (30%)</span>
               <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
-                กรองช่วงมูลค่างานที่พร้อมรับ และสัญญาเดิมสูงสุด
+                ช่วงงบประมาณที่รับงาน (20%) และสัญญาเดิมสูงสุด (10%)
               </p>
             </div>
             <div className="rounded-[4px] border border-line/60 bg-surface-2/40 p-3.5">
-              <span className="text-[12px] font-semibold text-ink">3. สถาปัตยกรรม & มาตรฐาน (30%)</span>
+              <span className="text-[12px] font-semibold text-ink">3. สถาปัตยกรรม & ใบรับรอง (20%)</span>
               <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
-                ระบุประเภทระบบที่ถนัด และมาตรฐานสากลที่ได้รับ
+                ประเภทระบบที่ถนัด (15%) และมาตรฐานรับรอง เช่น ISO (5%)
               </p>
             </div>
           </div>
