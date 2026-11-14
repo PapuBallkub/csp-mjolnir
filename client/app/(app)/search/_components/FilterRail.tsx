@@ -73,69 +73,6 @@ export function FilterRail({
         ) : null}
       </div>
 
-      <FilterGroup title={lang === "th" ? "ความตรงกับโปรไฟล์" : "Profile fit"}>
-        {canMatch ? (
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[12px] font-medium text-ink">
-                {minScore > 0 ? (
-                  lang === "th" ? (
-                    `ตั้งแต่ ${minScore}% ขึ้นไป`
-                  ) : (
-                    `${minScore}%+ and up`
-                  )
-                ) : lang === "th" ? (
-                  "ทุกคะแนน (0%)"
-                ) : (
-                  "All scores (0%)"
-                )}
-              </span>
-              {minScore > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setMinScore(0)}
-                  className="text-[11px] text-ink-3 underline hover:text-ink cursor-pointer"
-                >
-                  {lang === "th" ? "แสดงทั้งหมด" : "Reset"}
-                </button>
-              ) : null}
-            </div>
-
-            <input
-              type="range"
-              min={0}
-              max={95}
-              step={5}
-              value={minScore}
-              onChange={(e) => setMinScore(Number(e.target.value))}
-              aria-label={lang === "th" ? "คะแนนขั้นต่ำในการจับคู่" : "Minimum match score"}
-              className="h-1.5 w-full cursor-pointer accent-ink my-1"
-            />
-
-            <div className="flex justify-between text-[10.5px] font-mono text-ink-3">
-              <span>0%</span>
-              <span className="text-ink-2">50%</span>
-              <span className="text-ink-2">75%</span>
-              <span>95%</span>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-1.5">
-            <p className="text-[11.5px] leading-thai text-ink-3">
-              {lang === "th"
-                ? "ลงชื่อเข้าใช้เพื่อกรองและจัดอันดับตามทักษะและงบประมาณของคุณ"
-                : "Sign in to filter and rank tenders by your skills and budget"}
-            </p>
-            <Link
-              href="/auth"
-              className="inline-block text-[11.5px] font-medium text-ink underline underline-offset-2 hover:opacity-80 cursor-pointer"
-            >
-              {lang === "th" ? "ลงชื่อเข้าใช้ →" : "Sign in →"}
-            </Link>
-          </div>
-        )}
-      </FilterGroup>
-
       <FilterGroup title={lang === "th" ? "สถานะ" : "Status"}>
         {STATUSES.map((status) => (
           <Check
@@ -151,7 +88,7 @@ export function FilterRail({
           <button
             type="button"
             onClick={() => setStatuses(STATUSES)}
-            className="self-start text-[11px] leading-thai text-ink-2 underline underline-offset-2 hover:text-ink"
+            className="self-start text-[11px] leading-thai text-ink-2 underline underline-offset-2 hover:text-ink cursor-pointer"
           >
             {lang === "th" ? "แสดงทุกสถานะ รวมโครงการในอดีต" : "Show every status, past projects too"}
           </button>
@@ -171,6 +108,59 @@ export function FilterRail({
             count={facets?.ok ? facets.data.amended : undefined}
           />
         </div>
+      </FilterGroup>
+
+      <FilterGroup title={lang === "th" ? "ความตรงกับโปรไฟล์" : "Profile fit"}>
+        {canMatch ? (
+          <div className="space-y-2.5">
+            <div>
+              <span className="text-[13px] leading-thai text-ink-2">
+                {minScore > 0 ? (
+                  lang === "th" ? (
+                    `ตั้งแต่ ${minScore}% ขึ้นไป`
+                  ) : (
+                    `${minScore}%+ and up`
+                  )
+                ) : lang === "th" ? (
+                  "ทุกคะแนน (0%)"
+                ) : (
+                  "All scores (0%)"
+                )}
+              </span>
+            </div>
+
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={minScore}
+              onChange={(e) => setMinScore(Number(e.target.value))}
+              aria-label={lang === "th" ? "คะแนนขั้นต่ำในการจับคู่" : "Minimum match score"}
+              className="h-1.5 w-full cursor-pointer accent-ink my-1"
+            />
+
+            <div className="flex justify-between text-[10.5px] font-mono text-ink-3">
+              <span>0%</span>
+              <span className="text-ink-2">50%</span>
+              <span>100%</span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <p className="text-[11.5px] leading-thai text-ink-3">
+              {lang === "th"
+                ? "ลงชื่อเข้าใช้เพื่อกรองและจัดอันดับตามทักษะและงบประมาณของคุณ"
+                : "Sign in to filter and rank tenders by your skills and budget"}
+            </p>
+            <Link
+              href="/auth"
+              className="inline-block text-[11.5px] font-medium text-ink underline underline-offset-2 hover:opacity-80 cursor-pointer"
+            >
+              {lang === "th" ? "ลงชื่อเข้าใช้ →" : "Sign in →"}
+            </Link>
+          </div>
+        )}
       </FilterGroup>
 
       <FilterGroup title={lang === "th" ? "คัดกรองความเสี่ยง" : "Risk"}>
