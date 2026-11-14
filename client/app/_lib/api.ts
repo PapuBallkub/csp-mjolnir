@@ -1414,7 +1414,7 @@ export function fetchNotifications(params: { type?: string; limit?: number; skip
 }
 
 export function fetchNotificationById(id: string) {
-  return request<NotificationFeedItem & { unreadCount?: number }>(`/api/notifications/${encodeURIComponent(id)}`, {
+  return request<NotificationFeedItem & { notification?: NotificationFeedItem; unreadCount?: number }>(`/api/notifications/${encodeURIComponent(id)}`, {
     cache: "no-store",
   });
 }

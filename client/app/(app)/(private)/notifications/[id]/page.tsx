@@ -51,20 +51,17 @@ export default function NotificationDetailPage() {
     if (!params?.id) return;
 
     let active = true;
-    setLoading(true);
-    setError(null);
 
     api.fetchNotificationById(params.id).then((res) => {
       if (!active) return;
       setLoading(false);
       if (res.ok) {
-        const payload = res.data as any;
-        const item: NotificationFeedItem = payload?.notification || payload;
+        const item = res.data.notification || res.data;
         setNotification(item);
 
         // Immediately notify navigation bar shell with the updated unread count
         const unreadCount =
-          typeof payload?.unreadCount === "number" ? payload.unreadCount : undefined;
+          typeof res.data.unreadCount === "number" ? res.data.unreadCount : undefined;
         window.dispatchEvent(
           new CustomEvent("notifications-updated", { detail: { unreadCount } })
         );

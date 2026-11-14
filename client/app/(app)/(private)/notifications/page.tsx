@@ -64,7 +64,6 @@ export default function NotificationsPage() {
   // Fetch notifications on mount
   useEffect(() => {
     let active = true;
-    setFeedLoading(true);
 
     api.fetchNotifications().then((res) => {
       if (!active) return;

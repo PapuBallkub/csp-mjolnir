@@ -49,11 +49,13 @@ export function HeaderControls({ className = "" }: { className?: string }) {
   const [isPaused, setIsPaused] = useState(false);
   const autoCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const isAuthenticated = status === "authenticated" && Boolean(user?.id);
+  const activeUnreadCount = isAuthenticated ? unreadCount : 0;
+  const activeShowCallout = isAuthenticated ? showCallout : false;
+
   // Fetch unread count when user is authenticated
   useEffect(() => {
     if (status !== "authenticated" || !user?.id) {
-      setUnreadCount(0);
-      setShowCallout(false);
       return;
     }
 
@@ -122,7 +124,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
 
   // Auto-close callout after 6 seconds (pauses on hover)
   useEffect(() => {
-    if (!showCallout || isPaused) {
+    if (!activeShowCallout || isPaused) {
       if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
       return;
     }
@@ -134,7 +136,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
     return () => {
       if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
     };
-  }, [showCallout, isPaused, user?.id, unreadCount]);
+  }, [activeShowCallout, isPaused, user?.id, activeUnreadCount]);
 
   function handleDismissCallout() {
     calloutDismissedInSession = true;
@@ -161,25 +163,25 @@ export function HeaderControls({ className = "" }: { className?: string }) {
           href="/notifications"
           onClick={handleDismissCallout}
           aria-label={
-            unreadCount > 0
-              ? `การแจ้งเตือน (${unreadCount} รายการใหม่)`
+            activeUnreadCount > 0
+              ? `การแจ้งเตือน (${activeUnreadCount} รายการใหม่)`
               : "การแจ้งเตือน"
           }
           title="การแจ้งเตือน"
           className="relative flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
         >
           <Bell className="h-3.5 w-3.5" />
-          {unreadCount > 0 ? (
+          {activeUnreadCount > 0 ? (
             <span
               className={`absolute -top-1.5 -right-1.5 z-10 flex h-4 min-w-[16px] items-center justify-center rounded-full ${badgeColor} px-1 text-[10px] font-bold text-white shadow-xs pointer-events-none transition-colors duration-150`}
               aria-hidden="true"
             >
-              {unreadCount > 99 ? "99+" : unreadCount}
+              {activeUnreadCount > 99 ? "99+" : activeUnreadCount}
             </span>
           ) : null}
         </Link>
 
-        {showCallout && unreadCount > 0 ? (
+        {activeShowCallout && activeUnreadCount > 0 ? (
           <div
             role="status"
             aria-live="polite"
@@ -199,7 +201,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
                 onClick={handleDismissCallout}
                 className="text-[12px] font-medium leading-tight text-ink hover:underline"
               >
-                {`คุณมี ${unreadCount} การแจ้งเตือนที่ยังไม่ได้อ่าน`}
+                {`คุณมี ${activeUnreadCount} การแจ้งเตือนที่ยังไม่ได้อ่าน`}
               </Link>
               <button
                 type="button"
