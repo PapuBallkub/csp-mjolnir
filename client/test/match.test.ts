@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { Profile } from "../app/_data/tors.ts";
 import type { TorInsightSummary } from "../app/_lib/api.ts";
-import { matchFor } from "../app/_lib/match.ts";
+import { isProfileBaseline, matchFor } from "../app/_lib/match.ts";
 
 function createMockTor(overrides: Partial<TorInsightSummary> = {}): TorInsightSummary {
   return {
@@ -249,5 +249,56 @@ test("sort by match: Highest match (match-desc) and Lowest match (match-asc) cor
   const lowestFirst = [...tors].sort((a, b) => matchFor(a, profile).score - matchFor(b, profile).score);
   assert.equal(lowestFirst[0].projectId, "LOW-MATCH");
   assert.equal(lowestFirst[1].projectId, "HIGH-MATCH");
+});
+
+test("isProfileBaseline: accurately detects fresh unconfigured profiles", () => {
+  assert.equal(isProfileBaseline(null), true);
+  assert.equal(isProfileBaseline(undefined), true);
+  assert.equal(
+    isProfileBaseline({
+      skills: [],
+      budgetMin: 0,
+      budgetMax: 0,
+      preferredArchetypes: [],
+      maxPastPortfolioTHB: 0,
+      certifications: [],
+    }),
+    true
+  );
+  // Setting skills marks it as configured
+  assert.equal(
+    isProfileBaseline({
+      skills: ["React"],
+      budgetMin: 0,
+      budgetMax: 0,
+      preferredArchetypes: [],
+      maxPastPortfolioTHB: 0,
+      certifications: [],
+    }),
+    false
+  );
+  // Setting budget marks it as configured
+  assert.equal(
+    isProfileBaseline({
+      skills: [],
+      budgetMin: 1_000_000,
+      budgetMax: 5_000_000,
+      preferredArchetypes: [],
+      maxPastPortfolioTHB: 0,
+      certifications: [],
+    }),
+    false
+  );
+});
+
+test("matchFor: evaluates pure multi-factor calculation when skills list is empty", () => {
+  const tor = createMockTor();
+  const profile = createMockProfile({ skills: [] });
+
+  const match = matchFor(tor, profile);
+
+  assert.equal(match.breakdown.skills.score, 0);
+  assert.equal(match.matched.length, 0);
+  assert.ok(match.score > 0, "calculates composite score from other 5 dimensions");
 });
 

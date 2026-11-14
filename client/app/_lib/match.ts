@@ -64,6 +64,31 @@ export type Match = {
 };
 
 /**
+ * Evaluates whether a user's capability profile is in its fresh/unconfigured baseline state
+ * (i.e. no skills, default zero budget, no preferred archetypes, zero portfolio, no certifications).
+ */
+export function isProfileBaseline(
+  profile?: Profile | {
+    skills?: string[];
+    budgetMin?: number;
+    budgetMax?: number;
+    preferredArchetypes?: string[];
+    maxPastPortfolioTHB?: number;
+    certifications?: string[];
+  } | null
+): boolean {
+  if (!profile) return true;
+  const noSkills = (profile.skills ?? []).length === 0;
+  const noBudget =
+    (!profile.budgetMin || profile.budgetMin === 0) &&
+    (!profile.budgetMax || profile.budgetMax === 0);
+  const noArchetypes = (profile.preferredArchetypes ?? []).length === 0;
+  const noPortfolio = !profile.maxPastPortfolioTHB || profile.maxPastPortfolioTHB === 0;
+  const noCerts = (profile.certifications ?? []).length === 0;
+  return noSkills && noBudget && noArchetypes && noPortfolio && noCerts;
+}
+
+/**
  * Normalizes technology/skill names for resilient comparison (trims, collapses whitespace, lowercase).
  */
 function normalizeName(name: string): string {
@@ -92,10 +117,11 @@ export function matchFor(
   // -------------------------------------------------------------
   // 1. Technical Skills Fit (40% Weight)
   // -------------------------------------------------------------
-  const userSkillSet = new Set((profile.skills ?? []).map(normalizeName));
+  const userSkillList = profile.skills ?? [];
   const rawRequired = (tor.technicalRequirements?.requiredTechnologies ?? []).map((t) => t.name.trim());
   const requiredUnique = [...new Set(rawRequired.filter(Boolean))];
 
+  const userSkillSet = new Set(userSkillList.map(normalizeName));
   const matched = requiredUnique.filter((name) => userSkillSet.has(normalizeName(name)));
   const missing = requiredUnique.filter((name) => !userSkillSet.has(normalizeName(name)));
 
@@ -103,8 +129,6 @@ export function matchFor(
   if (requiredUnique.length === 0) {
     // Neutral baseline if TOR requires no specific software tech stack
     skillScore = 75;
-  } else if (profile.skills.length === 0) {
-    skillScore = 0;
   } else {
     skillScore = Math.round((matched.length / requiredUnique.length) * 100);
   }

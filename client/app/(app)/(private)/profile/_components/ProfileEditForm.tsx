@@ -159,10 +159,11 @@ export function ProfileEditForm({
   initialDraft: UserProfile;
   techList: TechnologyItem[];
   techsLoading: boolean;
-  onSave: (draft: UserProfile) => Promise<ApiError | null>;
+  onSave: (draft: UserProfile, consent: boolean) => Promise<ApiError | null>;
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState<UserProfile>(initialDraft);
+  const [consent, setConsent] = useState<boolean>(user.notificationConsent ?? false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -182,8 +183,11 @@ export function ProfileEditForm({
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
   const isDirty = useMemo(() => {
-    return JSON.stringify(draft) !== JSON.stringify(initialDraft);
-  }, [draft, initialDraft]);
+    return (
+      JSON.stringify(draft) !== JSON.stringify(initialDraft) ||
+      consent !== (user.notificationConsent ?? false)
+    );
+  }, [draft, initialDraft, consent, user.notificationConsent]);
 
   const budgetError =
     draft.budgetMin > 0 && draft.budgetMax > 0 && draft.budgetMin > draft.budgetMax
@@ -268,7 +272,7 @@ export function ProfileEditForm({
     if (budgetError) return;
     setSaving(true);
     setSaveError(null);
-    const err = await onSave(draft);
+    const err = await onSave(draft, consent);
     setSaving(false);
     if (err) {
       setSaveError(err.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูล");
@@ -339,22 +343,20 @@ export function ProfileEditForm({
           <button
             type="button"
             onClick={() => setDraft((prev) => ({ ...prev, entityType: "juristic" }))}
-            className={`flex flex-col items-start gap-1.5 rounded-[4px] border p-3.5 text-left transition-colors cursor-pointer ${
-              (draft.entityType ?? "juristic") === "juristic"
-                ? "border-ink bg-surface-2 shadow-xs"
-                : "border-line bg-surface hover:border-ink/40 hover:bg-surface-2"
-            }`}
+            className={`flex flex-col items-start gap-1.5 rounded-[4px] border p-3.5 text-left transition-colors cursor-pointer ${(draft.entityType ?? "juristic") === "juristic"
+              ? "border-ink bg-surface-2 shadow-xs"
+              : "border-line bg-surface hover:border-ink/40 hover:bg-surface-2"
+              }`}
           >
             <div className="flex w-full items-center justify-between">
               <span className="text-[13px] font-semibold text-ink">
                 🏢 นิติบุคคล (บริษัท / หจก.)
               </span>
               <span
-                className={`inline-block h-3.5 w-3.5 rounded-full border ${
-                  (draft.entityType ?? "juristic") === "juristic"
-                    ? "border-4 border-ink bg-surface"
-                    : "border-line bg-surface"
-                }`}
+                className={`inline-block h-3.5 w-3.5 rounded-full border ${(draft.entityType ?? "juristic") === "juristic"
+                  ? "border-4 border-ink bg-surface"
+                  : "border-line bg-surface"
+                  }`}
               />
             </div>
             <p className="text-[11.5px] leading-thai text-ink-3">
@@ -365,22 +367,20 @@ export function ProfileEditForm({
           <button
             type="button"
             onClick={() => setDraft((prev) => ({ ...prev, entityType: "individual" }))}
-            className={`flex flex-col items-start gap-1.5 rounded-[4px] border p-3.5 text-left transition-colors cursor-pointer ${
-              draft.entityType === "individual"
-                ? "border-ink bg-surface-2 shadow-xs"
-                : "border-line bg-surface hover:border-ink/40 hover:bg-surface-2"
-            }`}
+            className={`flex flex-col items-start gap-1.5 rounded-[4px] border p-3.5 text-left transition-colors cursor-pointer ${draft.entityType === "individual"
+              ? "border-ink bg-surface-2 shadow-xs"
+              : "border-line bg-surface hover:border-ink/40 hover:bg-surface-2"
+              }`}
           >
             <div className="flex w-full items-center justify-between">
               <span className="text-[13px] font-semibold text-ink">
                 👤 บุคคลธรรมดา / ฟรีแลนซ์
               </span>
               <span
-                className={`inline-block h-3.5 w-3.5 rounded-full border ${
-                  draft.entityType === "individual"
-                    ? "border-4 border-ink bg-surface"
-                    : "border-line bg-surface"
-                }`}
+                className={`inline-block h-3.5 w-3.5 rounded-full border ${draft.entityType === "individual"
+                  ? "border-4 border-ink bg-surface"
+                  : "border-line bg-surface"
+                  }`}
               />
             </div>
             <p className="text-[11.5px] leading-thai text-ink-3">
@@ -437,11 +437,11 @@ export function ProfileEditForm({
 
         <p className="mt-2 font-mono tnum text-[12px] text-ink-3">
           {draft.budgetMin === 0 &&
-          (draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET)
+            (draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET)
             ? "ไม่จำกัดช่วงงบประมาณ (รับทุกขนาดงาน)"
             : draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET
-            ? `${formatTHB(draft.budgetMin)} ขึ้นไป (ไม่จำกัดเพดาน)`
-            : `${formatTHB(draft.budgetMin)} – ${formatTHB(draft.budgetMax)}`}
+              ? `${formatTHB(draft.budgetMin)} ขึ้นไป (ไม่จำกัดเพดาน)`
+              : `${formatTHB(draft.budgetMin)} – ${formatTHB(draft.budgetMax)}`}
         </p>
 
         {/* Quick Budget Presets */}
@@ -465,11 +465,10 @@ export function ProfileEditForm({
                     }))
                   }
                   title={preset.hint}
-                  className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                    active
-                      ? "border-ink bg-ink text-surface shadow-xs"
-                      : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
-                  }`}
+                  className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${active
+                    ? "border-ink bg-ink text-surface shadow-xs"
+                    : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
+                    }`}
                 >
                   {preset.label}
                 </button>
@@ -521,11 +520,10 @@ export function ProfileEditForm({
                       maxPastPortfolioTHB: preset.value,
                     }))
                   }
-                  className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                    active
-                      ? "border-ink bg-ink text-surface shadow-xs"
-                      : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
-                  }`}
+                  className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${active
+                    ? "border-ink bg-ink text-surface shadow-xs"
+                    : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
+                    }`}
                 >
                   {preset.label}
                 </button>
@@ -567,16 +565,15 @@ export function ProfileEditForm({
                     const next = selected
                       ? current.filter((id) => id !== arch.id)
                       : current.length < 10
-                      ? [...current, arch.id]
-                      : current;
+                        ? [...current, arch.id]
+                        : current;
                     return { ...prev, preferredArchetypes: next };
                   });
                 }}
-                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-[4px] border px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                  selected
-                    ? "border-ink bg-ink text-surface shadow-xs"
-                    : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
-                }`}
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-[4px] border px-3 py-1.5 text-[12px] font-medium transition-colors ${selected
+                  ? "border-ink bg-ink text-surface shadow-xs"
+                  : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
+                  }`}
               >
                 <span>{selected ? "✓" : "+"}</span>
                 <span>{arch.label}</span>
@@ -692,11 +689,10 @@ export function ProfileEditForm({
                 key={grp.id}
                 type="button"
                 onClick={() => setSelectedTechCategory(grp.id)}
-                className={`cursor-pointer rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  selectedTechCategory === grp.id
-                    ? "bg-ink text-surface"
-                    : "text-ink-3 hover:bg-surface-2 hover:text-ink"
-                }`}
+                className={`cursor-pointer rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${selectedTechCategory === grp.id
+                  ? "bg-ink text-surface"
+                  : "text-ink-3 hover:bg-surface-2 hover:text-ink"
+                  }`}
               >
                 {grp.label}
               </button>
@@ -711,11 +707,10 @@ export function ProfileEditForm({
                   key={skill}
                   type="button"
                   onClick={() => handleToggleSkill(skill)}
-                  className={`cursor-pointer inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 font-mono text-[11px] transition-colors ${
-                    on
-                      ? "border-ink bg-ink text-surface"
-                      : "border-line bg-surface-2 text-ink-2 hover:border-ink/40"
-                  }`}
+                  className={`cursor-pointer inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 font-mono text-[11px] transition-colors ${on
+                    ? "border-ink bg-ink text-surface"
+                    : "border-line bg-surface-2 text-ink-2 hover:border-ink/40"
+                    }`}
                 >
                   <span>{on ? "✓" : "+"}</span>
                   <span>{skill}</span>
@@ -846,11 +841,10 @@ export function ProfileEditForm({
                       key={item}
                       type="button"
                       onClick={() => handleToggleCert(item)}
-                      className={`cursor-pointer inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 text-[11px] transition-colors ${
-                        on
-                          ? "border-ink bg-ink text-surface"
-                          : "border-line bg-surface-2 text-ink-2 hover:border-ink/40"
-                      }`}
+                      className={`cursor-pointer inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 text-[11px] transition-colors ${on
+                        ? "border-ink bg-ink text-surface"
+                        : "border-line bg-surface-2 text-ink-2 hover:border-ink/40"
+                        }`}
                     >
                       <span>{on ? "✓" : "+"}</span>
                       <span>{item}</span>
@@ -863,107 +857,197 @@ export function ProfileEditForm({
         </div>
       </Panel>
 
-      {/* 7. Match Notification Settings (PDPA Explicit Consent) */}
+      {/* 7. Notification Preferences */}
       <Panel className="px-5 py-6 sm:px-7 sm:py-6">
-        <SectionHeading sub="ตั้งค่าการแจ้งเตือนอีเมลเมื่อมีประกาศจัดซื้อจัดจ้างภาครัฐที่ตรงกับโปรไฟล์ของคุณ">
-          การแจ้งเตือนงานที่ตรงกับคุณ (Match Alerts)
+        <SectionHeading sub="จัดการความยินยอมและเกณฑ์การแจ้งเตือนโครงการที่ตรงกับคุณ">
+          การตั้งค่าการแจ้งเตือน (Notification Preferences)
         </SectionHeading>
 
-        <div className="mt-3 flex items-start gap-3">
-          <input
-            type="checkbox"
-            id="notif-toggle"
-            checked={draft.matchNotification?.enabled ?? false}
-            onChange={(e) =>
-              setDraft((prev) => ({
-                ...prev,
-                matchNotification: {
-                  enabled: e.target.checked,
-                  minScore: prev.matchNotification?.minScore ?? 75,
-                  frequency: prev.matchNotification?.frequency ?? "daily",
-                  includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
-                },
-              }))
-            }
-            className="mt-1 h-4 w-4 rounded border-line text-ink cursor-pointer"
-          />
-          <label htmlFor="notif-toggle" className="text-[13px] leading-thai text-ink cursor-pointer">
-            <span className="font-medium">เปิดรับการแจ้งเตือนประกาศที่ตรงกับโปรไฟล์ทางอีเมล</span>
-            <span className="block text-[11.5px] text-ink-3">
-              ระบบจะส่งสรุปรายการโครงการที่คะแนนความตรงถึงเกณฑ์ที่กำหนดไปยัง {user.email} (สามารถยกเลิกได้ตลอดเวลาตาม PDPA)
-            </span>
-          </label>
-        </div>
-
-        {draft.matchNotification?.enabled && (
-          <div className="mt-4 ml-7 space-y-4 border-l-2 border-line pl-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-              <span className="text-[12.5px] font-medium text-ink whitespace-nowrap leading-none">
-                เกณฑ์คะแนนขั้นต่ำในการแจ้งเตือน:{" "}
-                <span className="font-mono text-[13px] font-bold text-ink">
-                  {draft.matchNotification.minScore}%
-                </span>
-              </span>
-              <input
-                type="range"
-                min={40}
-                max={100}
-                step={5}
-                value={draft.matchNotification.minScore}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setDraft((prev) => ({
-                    ...prev,
-                    matchNotification: {
-                      enabled: prev.matchNotification?.enabled ?? true,
-                      minScore: val,
-                      frequency:
-                        prev.matchNotification?.frequency === "instant"
-                          ? "daily"
-                          : prev.matchNotification?.frequency ?? "daily",
-                      includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
-                    },
-                  }));
-                }}
-                className="h-2 w-full max-w-xs cursor-pointer accent-ink my-auto"
-              />
-            </div>
-
-            <div>
-              <Label>ความถี่ในการแจ้งเตือน:</Label>
-              <div className="mt-1.5 flex gap-4 text-[12.5px] text-ink-2">
-                {[
-                  { id: "daily", label: "วันละครั้ง (สรุปช่วงเช้า)" },
-                  { id: "weekly", label: "สัปดาห์ละครั้ง" },
-                ].map((freq) => (
-                  <label key={freq.id} className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="notif-frequency"
-                      checked={
-                        (draft.matchNotification?.frequency ?? "daily") === freq.id ||
-                        (draft.matchNotification?.frequency === "instant" && freq.id === "daily")
-                      }
-                      onChange={() => {
-                        setDraft((prev) => ({
-                          ...prev,
-                          matchNotification: {
-                            enabled: prev.matchNotification?.enabled ?? true,
-                            minScore: prev.matchNotification?.minScore ?? 75,
-                            frequency: freq.id as "daily" | "weekly",
-                            includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
-                          },
-                        }));
-                      }}
-                      className="accent-ink cursor-pointer"
-                    />
-                    <span>{freq.label}</span>
-                  </label>
-                ))}
+        <div className="mt-5 space-y-5">
+          {/* Master Notification Consent (PDPA) */}
+          <div className="rounded-[4px] border border-line bg-surface-2/40 p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <label
+                  htmlFor="master-notification-consent"
+                  className="text-[13.5px] font-semibold text-ink cursor-pointer select-none block"
+                >
+                  ยินยอมรับการแจ้งเตือนจากระบบ (Receive System Notifications)
+                </label>
+                <p className="mt-1 text-[12px] leading-thai text-ink-3">
+                  ยินยอมให้ระบบ GIPDP ส่งการแจ้งเตือนโครงการจัดซื้อจัดจ้างภาครัฐที่ตรงกับโปรไฟล์และการอัปเดตประกาศ (ความยินยอมตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล PDPA)
+                </p>
+              </div>
+              <div className="shrink-0 pt-0.5">
+                <input
+                  type="checkbox"
+                  id="master-notification-consent"
+                  checked={consent}
+                  onChange={(e) => setConsent(e.target.checked)}
+                  className="h-4 w-4 rounded border-line text-ink cursor-pointer accent-ink"
+                />
               </div>
             </div>
           </div>
-        )}
+
+          {/* Conditional parts: Hidden when consent is not true */}
+          {!consent ? (
+            <div className="rounded-[4px] border border-line-2 bg-surface-2/20 p-4 text-center">
+              <p className="text-[12.5px] text-ink-3">
+                ปิดรับการแจ้งเตือนอยู่ — เปิดตัวเลือกความยินยอมด้านบนเพื่อตั้งค่าการแจ้งเตือนโครงการที่ตรงกับโปรไฟล์ของคุณ
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Group: TOR Matching Notifications */}
+              <div className="rounded-[4px] border border-line bg-surface-2/30 p-4 sm:p-5">
+                <div className="border-b border-line/60 pb-3">
+                  <h4 className="text-[14px] font-semibold text-ink">
+                    การแจ้งเตือนประกาศที่ตรงกับโปรไฟล์ (TOR Matching Notifications)
+                  </h4>
+                  <p className="mt-0.5 text-[12px] text-ink-3">
+                    ระบบจะประเมินคะแนนความตรงกับโปรไฟล์ของคุณจาก 6 เกณฑ์ (ทักษะเทคโนโลยี, ช่วงงบประมาณ, สถาปัตยกรรมระบบ, ผลงานสัญญาเดิม, สถานะนิติบุคคล, และมาตรฐาน/ใบรับรอง)
+                  </p>
+                </div>
+
+                <div className="mt-4 space-y-5">
+                  {/* Score Threshold */}
+                  <div>
+                    <span className="text-[12.5px] font-semibold text-ink block">
+                      เกณฑ์คะแนนความตรงขั้นต่ำ (Match Score Threshold)
+                    </span>
+                    <div className="mt-2.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[12px] font-medium text-ink-2">
+                          แจ้งเตือนเมื่อคะแนนถึง:
+                        </span>
+                        <span className="rounded-[3px] border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink">
+                          {draft.matchNotification?.minScore ?? 75}%
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2.5 w-full max-w-xs">
+                        <input
+                          type="range"
+                          min={50}
+                          max={95}
+                          step={5}
+                          value={draft.matchNotification?.minScore ?? 75}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setDraft((prev) => ({
+                              ...prev,
+                              matchNotification: {
+                                enabled: prev.matchNotification?.enabled ?? false,
+                                minScore: val,
+                                frequency: prev.matchNotification?.frequency ?? "daily",
+                                includeSubcontract: true,
+                              },
+                            }));
+                          }}
+                          className="h-1.5 w-full cursor-pointer accent-ink my-auto"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-line/50" />
+
+                  {/* Channels */}
+                  <div>
+                    <span className="text-[12.5px] font-semibold text-ink block">
+                      ช่องทางการรับการแจ้งเตือน (Delivery Channels)
+                    </span>
+                    <p className="mt-0.5 text-[11.5px] text-ink-3">
+                      เลือกช่องทางที่ต้องการรับการแจ้งเตือนเมื่อพบประกาศที่ตรงตามเกณฑ์
+                    </p>
+
+                    <div className="mt-3 space-y-3.5">
+                      {/* Channel: In-App Match Alerts */}
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          id="tor-match-toggle"
+                          checked={draft.matchNotification?.enabled ?? false}
+                          onChange={(e) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              matchNotification: {
+                                enabled: e.target.checked,
+                                minScore: prev.matchNotification?.minScore ?? 75,
+                                frequency: prev.matchNotification?.frequency ?? "daily",
+                                includeSubcontract: true,
+                              },
+                            }))
+                          }
+                          className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-pointer accent-ink"
+                        />
+                        <label htmlFor="tor-match-toggle" className="text-[13px] leading-thai text-ink cursor-pointer select-none">
+                          <span className="font-medium text-ink">
+                            แจ้งเตือนในระบบ (In-App Feed & Bell)
+                          </span>
+                          <span className="block text-[11.5px] text-ink-3 mt-0.5">
+                            แสดงการแจ้งเตือนในกล่องข้อความและไอคอนกระดิ่งบนเว็บไซต์
+                          </span>
+                        </label>
+                      </div>
+
+                      {/* Channel: Email Digest */}
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 h-4 w-4 flex items-center justify-center">
+                          <span className="block h-2 w-2 rounded-full bg-ink" />
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-[13px] font-medium leading-thai text-ink block">
+                            ส่งสรุปทางอีเมล (Email Digest)
+                          </span>
+                          <span className="block text-[11.5px] text-ink-3 mt-0.5">
+                            ส่งสรุปโครงการใหม่ไปยัง <span className="font-mono text-ink-2">{user.email}</span>
+                          </span>
+
+                          {/* Frequency */}
+                          <div className="mt-2.5 flex items-center gap-5 text-[12px]">
+                            <span className="font-medium text-ink-2">ความถี่:</span>
+                            {[
+                              { id: "daily", label: "สรุปรายวัน (08:00 น.)" },
+                              { id: "weekly", label: "สรุปรายสัปดาห์ (วันจันทร์)" },
+                            ].map((freq) => (
+                              <label
+                                key={freq.id}
+                                className="flex items-center gap-1.5 cursor-pointer text-ink"
+                              >
+                                <input
+                                  type="radio"
+                                  name="notif-frequency"
+                                  checked={
+                                    (draft.matchNotification?.frequency ?? "daily") === freq.id ||
+                                    (draft.matchNotification?.frequency === "instant" && freq.id === "daily")
+                                  }
+                                  onChange={() => {
+                                    setDraft((prev) => ({
+                                      ...prev,
+                                      matchNotification: {
+                                        enabled: prev.matchNotification?.enabled ?? false,
+                                        minScore: prev.matchNotification?.minScore ?? 75,
+                                        frequency: freq.id as "daily" | "weekly",
+                                        includeSubcontract: true,
+                                      },
+                                    }));
+                                  }}
+                                  className="accent-ink cursor-pointer"
+                                />
+                                <span>{freq.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </Panel>
 
       {/* Bottom Save / Cancel Bar */}

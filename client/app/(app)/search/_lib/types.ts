@@ -76,6 +76,7 @@ export interface FilterState {
   deadlineBand: string;
   hideHighRisk: boolean;
   sort: Sort;
+  minScore?: number;
   page?: number;
   pageSize?: number;
 }

@@ -11,7 +11,9 @@ import { User } from '#models/index.js';
 export async function updateProfile(userId, fields) {
   const setOps = {};
   for (const [key, value] of Object.entries(fields)) {
-    if (key === 'matchNotification' && typeof value === 'object' && value !== null) {
+    if (key === 'notificationConsent') {
+      setOps.notificationConsent = Boolean(value);
+    } else if (key === 'matchNotification' && typeof value === 'object' && value !== null) {
       for (const [subKey, subVal] of Object.entries(value)) {
         setOps[`profile.matchNotification.${subKey}`] = subVal;
       }
