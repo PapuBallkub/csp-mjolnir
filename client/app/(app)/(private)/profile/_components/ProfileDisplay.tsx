@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useMemo } from "react";
+import { Sparkles } from "lucide-react";
 import type { AuthUser, UserProfile } from "../../../../_lib/api";
 import { formatTHB } from "../../../../_data/tors";
 import { btn, Chip, Panel, SectionHeading } from "../../../../_components/ui";
@@ -185,150 +186,181 @@ export function ProfileDisplay({
         </div>
       </Panel>
 
-      {/* 2. CORE CAPABILITY CARDS GRID */}
-      <div className="grid gap-5 sm:grid-cols-2">
-        {/* Card 1: Budget Range */}
-        <Panel className="p-5">
-          <div className="flex items-center justify-between border-b border-line/60 pb-3">
-            <SectionHeading sub="ช่วงมูลค่าโครงการภาครัฐที่คุณรับงานได้">
-              ช่วงงบประมาณที่รับงาน
-            </SectionHeading>
+      {/* 2. CAPABILITY SECTION: SINGLE SETUP BLOCK (IF NO SKILLS) OR FULL 5-CARD DASHBOARD */}
+      {profile.skills.length === 0 ? (
+        <Panel className="border-dashed p-8 text-center sm:p-10">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            <Sparkles className="h-7 w-7" />
           </div>
-          <div className="mt-4">
-            <p className="font-mono text-[22px] font-bold text-ink">
-              {profile.budgetMin === 0 && (profile.budgetMax === 0 || profile.budgetMax >= 10_000_000_000)
-                ? "ไม่จำกัดช่วงงบประมาณ"
-                : profile.budgetMax === 0 || profile.budgetMax >= 10_000_000_000
-                ? `${formatTHB(profile.budgetMin)} ขึ้นไป`
-                : `${formatTHB(profile.budgetMin)} – ${formatTHB(profile.budgetMax)}`}
-            </p>
-            <p className="mt-1 text-[12px] leading-thai text-ink-3">
-              ใช้คำนวณคะแนน Financial Budget Fit (น้ำหนัก 20%) เทียบกับราคากลางโครงการ
-            </p>
+          <h3 className="mt-4 text-[18px] font-semibold text-ink">
+            ยังไม่ได้ตั้งค่าโปรไฟล์ความสามารถ
+          </h3>
+          <p className="mx-auto mt-2 max-w-xl text-[13.5px] leading-thai text-ink-2">
+            ระบบจับคู่ประกาศ TOR (Match Scoring) และการแจ้งเตือนงานใหม่ ต้องอาศัยทักษะความเชี่ยวชาญเป็นเกณฑ์หลัก
+            ระบุทักษะ เครื่องมือ และเงื่อนไขการรับงานของคุณเพื่อเริ่มต้นใช้งานระบบค้นหาและแจ้งเตือนอย่างเต็มประสิทธิภาพ
+          </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={onEdit}
+              className={`${btn.primary} px-5 py-2.5 text-[13.5px] cursor-pointer`}
+            >
+              ✏️ เริ่มต้นตั้งค่าโปรไฟล์ตอนนี้
+            </button>
+          </div>
+
+          <div className="mx-auto mt-8 grid max-w-2xl grid-cols-1 gap-3 border-t border-line/60 pt-6 text-left sm:grid-cols-3">
+            <div className="rounded-[4px] border border-line/60 bg-surface-2/40 p-3.5">
+              <span className="text-[12px] font-semibold text-ink">1. ทักษะเทคโนโลยี (40%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
+                กำหนดภาษา เฟรมเวิร์ก และเครื่องมือที่คุณและทีมถนัด
+              </p>
+            </div>
+            <div className="rounded-[4px] border border-line/60 bg-surface-2/40 p-3.5">
+              <span className="text-[12px] font-semibold text-ink">2. งบประมาณ & ผลงาน (30%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
+                กรองช่วงมูลค่างานที่พร้อมรับ และสัญญาเดิมสูงสุด
+              </p>
+            </div>
+            <div className="rounded-[4px] border border-line/60 bg-surface-2/40 p-3.5">
+              <span className="text-[12px] font-semibold text-ink">3. สถาปัตยกรรม & มาตรฐาน (30%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
+                ระบุประเภทระบบที่ถนัด และมาตรฐานสากลที่ได้รับ
+              </p>
+            </div>
           </div>
         </Panel>
+      ) : (
+        <>
+          {/* 2. CORE CAPABILITY CARDS GRID */}
+          <div className="grid gap-5 sm:grid-cols-2">
+            {/* Card 1: Budget Range */}
+            <Panel className="p-5">
+              <div className="flex items-center justify-between border-b border-line/60 pb-3">
+                <SectionHeading sub="ช่วงมูลค่าโครงการภาครัฐที่คุณรับงานได้">
+                  ช่วงงบประมาณที่รับงาน
+                </SectionHeading>
+              </div>
+              <div className="mt-4">
+                <p className="font-mono text-[22px] font-bold text-ink">
+                  {profile.budgetMin === 0 && (profile.budgetMax === 0 || profile.budgetMax >= 10_000_000_000)
+                    ? "ไม่จำกัดช่วงงบประมาณ"
+                    : profile.budgetMax === 0 || profile.budgetMax >= 10_000_000_000
+                    ? `${formatTHB(profile.budgetMin)} ขึ้นไป`
+                    : `${formatTHB(profile.budgetMin)} – ${formatTHB(profile.budgetMax)}`}
+                </p>
+                <p className="mt-1 text-[12px] leading-thai text-ink-3">
+                  ใช้คำนวณคะแนน Financial Budget Fit (น้ำหนัก 20%) เทียบกับราคากลางโครงการ
+                </p>
+              </div>
+            </Panel>
 
-        {/* Card 2: Past Single Contract */}
-        <Panel className="p-5">
-          <div className="flex items-center justify-between border-b border-line/60 pb-3">
-            <SectionHeading sub="ผลงานสัญญาเดียวสูงสุดในอดีต (เพื่อประเมินเกณฑ์ ~40%)">
-              มูลค่าผลงานสัญญาเดิมสูงสุด
-            </SectionHeading>
-          </div>
-          <div className="mt-4">
-            <p className="font-mono text-[22px] font-bold text-ink">
-              {(profile.maxPastPortfolioTHB ?? 0) > 0
-                ? formatTHB(profile.maxPastPortfolioTHB ?? 0)
-                : "ยังไม่ได้ระบุ"}
-            </p>
-            <p className="mt-1 text-[12px] leading-thai text-ink-3">
-              งานจัดซื้อจัดจ้างภาครัฐมักกำหนดผลงานสัญญาเดียวไม่น้อยกว่า 30%–50% ของราคากลาง
-            </p>
-          </div>
-        </Panel>
+            {/* Card 2: Past Single Contract */}
+            <Panel className="p-5">
+              <div className="flex items-center justify-between border-b border-line/60 pb-3">
+                <SectionHeading sub="ผลงานสัญญาเดียวสูงสุดในอดีต (เพื่อประเมินเกณฑ์ ~40%)">
+                  มูลค่าผลงานสัญญาเดิมสูงสุด
+                </SectionHeading>
+              </div>
+              <div className="mt-4">
+                <p className="font-mono text-[22px] font-bold text-ink">
+                  {(profile.maxPastPortfolioTHB ?? 0) > 0
+                    ? formatTHB(profile.maxPastPortfolioTHB ?? 0)
+                    : "ยังไม่ได้ระบุ"}
+                </p>
+                <p className="mt-1 text-[12px] leading-thai text-ink-3">
+                  งานจัดซื้อจัดจ้างภาครัฐมักกำหนดผลงานสัญญาเดียวไม่น้อยกว่า 30%–50% ของราคากลาง
+                </p>
+              </div>
+            </Panel>
 
-        {/* Card 3: Preferred Archetypes */}
-        <Panel className="p-5">
-          <div className="flex items-center justify-between border-b border-line/60 pb-3">
-            <SectionHeading sub="ประเภทสถาปัตยกรรมระบบที่คุณมีความเชี่ยวชาญ">
-              สถาปัตยกรรมระบบที่ถนัด
-            </SectionHeading>
-            <span className="font-mono text-[12px] text-ink-3">
-              {(profile.preferredArchetypes ?? []).length} ประเภท
-            </span>
+            {/* Card 3: Preferred Archetypes */}
+            <Panel className="p-5">
+              <div className="flex items-center justify-between border-b border-line/60 pb-3">
+                <SectionHeading sub="ประเภทสถาปัตยกรรมระบบที่คุณมีความเชี่ยวชาญ">
+                  สถาปัตยกรรมระบบที่ถนัด
+                </SectionHeading>
+                <span className="font-mono text-[12px] text-ink-3">
+                  {(profile.preferredArchetypes ?? []).length} ประเภท
+                </span>
+              </div>
+              <div className="mt-4">
+                {(profile.preferredArchetypes ?? []).length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(profile.preferredArchetypes ?? []).map((id) => (
+                      <span
+                        key={id}
+                        className="inline-flex items-center gap-1 rounded-[3px] border border-line bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-ink"
+                      >
+                        <span>✓</span>
+                        <span>{ARCHETYPE_LABELS[id] || id}</span>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[13px] text-ink-3">
+                    ยังไม่ได้ระบุ (ระบบจะพิจารณาให้คะแนนพื้นฐานในทุกประเภทระบบ)
+                  </p>
+                )}
+              </div>
+            </Panel>
+
+            {/* Card 4: Certifications & Standards */}
+            <Panel className="p-5">
+              <div className="flex items-center justify-between border-b border-line/60 pb-3">
+                <SectionHeading sub="มาตรฐานการพัฒนาและบริหารจัดการที่ได้รับรอง">
+                  ใบรับรองและมาตรฐานสากล
+                </SectionHeading>
+                <span className="font-mono text-[12px] text-ink-3">
+                  {(profile.certifications ?? []).length} รายการ
+                </span>
+              </div>
+              <div className="mt-4">
+                {(profile.certifications ?? []).length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(profile.certifications ?? []).map((cert) => (
+                      <span
+                        key={cert}
+                        className="inline-flex items-center gap-1 rounded-[3px] border border-line bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-ink"
+                      >
+                        <span>🎖️</span>
+                        <span>{cert}</span>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[13px] text-ink-3">
+                    ยังไม่ได้ระบุใบรับรอง (หากมี ISO 29110, ISO 27001 จะช่วยเพิ่มคะแนนความตรง)
+                  </p>
+                )}
+              </div>
+            </Panel>
           </div>
-          <div className="mt-4">
-            {(profile.preferredArchetypes ?? []).length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {(profile.preferredArchetypes ?? []).map((id) => (
-                  <span
-                    key={id}
-                    className="inline-flex items-center gap-1 rounded-[3px] border border-line bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-ink"
-                  >
-                    <span>✓</span>
-                    <span>{ARCHETYPE_LABELS[id] || id}</span>
-                  </span>
+
+          {/* 3. TECHNICAL SKILLS & STACK CARD */}
+          <Panel className="p-5 sm:p-6">
+            <div className="flex items-center justify-between border-b border-line/60 pb-3">
+              <SectionHeading sub="เทคโนโลยี เครื่องมือ และภาษาโปรแกรมที่คุณและทีมเชี่ยวชาญ (น้ำหนัก 40%)">
+                ทักษะและเทคโนโลยีที่คุณเชี่ยวชาญ
+              </SectionHeading>
+              <span className="font-mono text-[13px] font-semibold text-ink">
+                {profile.skills.length} ทักษะ
+              </span>
+            </div>
+
+            <div className="mt-4">
+              <div className="flex flex-wrap gap-2">
+                {profile.skills.map((skill) => (
+                  <Chip key={skill} className="px-2.5 py-1 text-[12px]">
+                    {skill}
+                  </Chip>
                 ))}
               </div>
-            ) : (
-              <p className="text-[13px] text-ink-3">
-                ยังไม่ได้ระบุ (ระบบจะพิจารณาให้คะแนนพื้นฐานในทุกประเภทระบบ)
-              </p>
-            )}
-          </div>
-        </Panel>
-
-        {/* Card 4: Certifications & Standards */}
-        <Panel className="p-5">
-          <div className="flex items-center justify-between border-b border-line/60 pb-3">
-            <SectionHeading sub="มาตรฐานการพัฒนาและบริหารจัดการที่ได้รับรอง">
-              ใบรับรองและมาตรฐานสากล
-            </SectionHeading>
-            <span className="font-mono text-[12px] text-ink-3">
-              {(profile.certifications ?? []).length} รายการ
-            </span>
-          </div>
-          <div className="mt-4">
-            {(profile.certifications ?? []).length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {(profile.certifications ?? []).map((cert) => (
-                  <span
-                    key={cert}
-                    className="inline-flex items-center gap-1 rounded-[3px] border border-line bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-ink"
-                  >
-                    <span>🎖️</span>
-                    <span>{cert}</span>
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-[13px] text-ink-3">
-                ยังไม่ได้ระบุใบรับรอง (หากมี ISO 29110, ISO 27001 จะช่วยเพิ่มคะแนนความตรง)
-              </p>
-            )}
-          </div>
-        </Panel>
-      </div>
-
-      {/* 3. TECHNICAL SKILLS & STACK CARD */}
-      <Panel className="p-5 sm:p-6">
-        <div className="flex items-center justify-between border-b border-line/60 pb-3">
-          <SectionHeading sub="เทคโนโลยี เครื่องมือ และภาษาโปรแกรมที่คุณและทีมเชี่ยวชาญ (น้ำหนัก 40%)">
-            ทักษะและเทคโนโลยีที่คุณเชี่ยวชาญ
-          </SectionHeading>
-          <span className="font-mono text-[13px] font-semibold text-ink">
-            {profile.skills.length} ทักษะ
-          </span>
-        </div>
-
-        <div className="mt-4">
-          {profile.skills.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {profile.skills.map((skill) => (
-                <Chip key={skill} className="px-2.5 py-1 text-[12px]">
-                  {skill}
-                </Chip>
-              ))}
             </div>
-          ) : (
-            <div className="rounded-[4px] border border-amber-300 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950/40">
-              <p className="text-[14px] font-semibold text-amber-950 dark:text-amber-100">
-                ⚠️ ยังไม่ได้ระบุทักษะในโปรไฟล์ (Didn&apos;t set up skills yet)
-              </p>
-              <p className="mt-1.5 text-[13px] leading-thai text-amber-900/90 dark:text-amber-300/80">
-                ระบบใช้ทักษะเป็นเกณฑ์หลักในการคำนวณความตรงกับงาน TOR (Match Score) และการแจ้งเตือน หากยังไม่ระบุทักษะ ระบบจะไม่สามารถคำนวณคะแนนความตรงและแจ้งเตือนโครงการให้คุณได้
-              </p>
-              <button
-                type="button"
-                onClick={onEdit}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-[3px] border border-amber-400/90 bg-surface px-3 py-1.5 text-[12.5px] font-medium text-amber-950 transition-colors hover:bg-amber-100/80 cursor-pointer dark:border-amber-700 dark:bg-surface dark:text-amber-100 dark:hover:bg-amber-900/50"
-              >
-                + ระบุทักษะความเชี่ยวชาญของคุณ
-              </button>
-            </div>
-          )}
-        </div>
-      </Panel>
+          </Panel>
+        </>
+      )}
 
       {/* 4. MATCH NOTIFICATION SETTINGS CARD */}
       <Panel className="p-5 sm:p-6">
