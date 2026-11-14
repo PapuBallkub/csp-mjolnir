@@ -401,6 +401,8 @@ Run with `npm run <name>`, or `node scripts/<file>` for the one-off ones.
 | [run-schedule.js](../server/scripts/run-schedule.js) | `npm run schedule`: runs the jobs on their schedule from your machine. |
 | [pipeline-report.js](../server/scripts/pipeline-report.js) | `npm run report`: what the scheduled pipeline did in the last 24 hours. |
 | [rollback.js](../server/scripts/rollback.js) | `npm run rollback`: lists or restores a TOR's replaced summaries. |
+| [notify.js](../server/scripts/notify.js) | `npm run notify` (or `notify:send`, `notify:all`): batch evaluation and scheduled email digest dispatch. |
+| [test-notify.js](../server/scripts/test-notify.js) | `npm run test:notify` (or `node scripts/test-notify.js <email>`): one-shot end-to-end notification & email test runner. |
 | [migrate-categories.js](../server/scripts/migrate-categories.js) | `npm run migrate:categories`: one-off move to `categories` ([0034](decisions/0034-a-tor-can-have-several-categories.md)). Converts versions too. |
 | [remove-datago-records.js](../server/scripts/remove-datago-records.js) | One-off: deletes records the removed data.go.th reader made. |
 | [seed/tors.json](../server/seed/tors.json) | 28 real e-GP notices for demos. |

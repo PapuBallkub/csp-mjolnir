@@ -133,13 +133,71 @@ All routes require user authentication via cookie (`requireAuth`), except the un
 
 ## 7. Verification & Testing
 
+### 7.1 Automated Tests
+
+Run unit tests from the project root:
+
 ```powershell
 # Client tests (profile display, preferences, match ranking)
 npm --prefix client test
 
 # Server tests (defanging, HMAC tokens, snapshot formatting, matchmaker)
-$env:MONGO_URI="mongodb://localhost:27017/test"; $env:JWT_SECRET="testsecret"; node --test "server/test/notifications.test.js" "server/test/matchmaker.test.js"
-
-# Manual test digest dispatch
-node server/scripts/test-notify.js
+$env:MONGO_URI="mongodb://localhost:27017/test"; $env:JWT_SECRET="testjwtsecret"; node --test "server/test/notifications.test.js" "server/test/matchmaker.test.js"
 ```
+
+### 7.2 CLI & NPM Commands
+
+This feature adds dedicated scripts in `server/package.json` for batch evaluation, scheduled cron jobs, and manual testing:
+
+| Command | Script | Description |
+|---|---|---|
+| `npm run notify` | `server/scripts/notify.js` (or `--stage`) | Evaluates active TORs against user profiles and stages new in-app notifications in MongoDB. |
+| `npm run notify:send` | `server/scripts/notify.js --send` | Scans for pending unstaged match emails and dispatches email digests to users with `notificationConsent: true`. |
+| `npm run notify:all` | `server/scripts/notify.js --all` | Runs both staging and email dispatch in a single pass (scheduled daily cron at 08:00 AM). |
+| `npm run test:notify` | `server/scripts/test-notify.js <email>` | One-shot end-to-end test runner: prepares test user, stages matches, and dispatches a live email via SMTP to verify formatting and anti-autolinking. |
+
+### 7.3 How to Test by Hand (Step-by-Step)
+
+#### Step 1: Configure PDPA Consent and Profile
+1. Start the services:
+   ```powershell
+   docker compose up -d mongo
+   npm --prefix server run dev
+   npm --prefix client run dev
+   ```
+2. Open `http://localhost:3000/profile?edit=true` and sign in.
+3. Scroll to **ส่วนที่ 7: การตั้งค่าการแจ้งเตือน (Notifications & Alerts)**:
+   - Notice that notification preference sub-cards are hidden when `"ยินยอมรับการแจ้งเตือนทางอีเมล"` is unticked.
+   - Toggle **ยินยอมรับการแจ้งเตือนทางอีเมล (Notification Consent)** to **เปิด (ON)**.
+   - The TOR Matching notification preferences immediately appear.
+4. Set preferences:
+   - Budget range: e.g. ฿0 - ฿10,000,000
+   - Preferred archetypes: select `web-portal` and `mobile-app`
+   - Minimum match score: e.g. `50%`
+5. Click **บันทึกโปรไฟล์ (Save Profile)**. Proactive match evaluation immediately runs in the background.
+
+#### Step 2: Verify In-App Notification Feed & Unread Badge
+1. Observe the top navigation header: the notification bell icon updates with an unread badge counter.
+2. Click the bell or navigate to `http://localhost:3000/notifications`:
+   - Matching TORs above your score threshold (≥ 50%) are displayed in the feed.
+   - Cards display match percentage, project title, agency, and formatted Thai budget.
+3. Click a notification card to view the single notification view (`/notifications/[id]`), which automatically marks it as read.
+4. Click **"ทำเครื่องหมายอ่านแล้วทั้งหมด"** on `/notifications`: verify the unread badge resets to zero.
+
+#### Step 3: Test Real Email Digest & Autolink Neutralization
+1. Ensure SMTP credentials exist in `server/.env` (e.g. `SMTP_USER` and `SMTP_PASS`).
+2. Run the manual test runner:
+   ```powershell
+   node server/scripts/test-notify.js your_email@gmail.com
+   ```
+3. Open the incoming email in Gmail, Outlook, or webmail:
+   - Verify project cards render with match badges, agency, and formatted budget.
+   - Inspect any tender title containing URLs/domains (e.g. `www.boi.go.th`): verify that the domain name renders as regular readable text **without** being turned into an underline blue hyperlink.
+   - Inspect the footer: verify the presence of the 1-click unsubscribe link.
+
+#### Step 4: Verify 1-Click PDPA Unsubscribe
+1. In the received test email, click the unsubscribe link (**"ยกเลิกการรับการแจ้งเตือนนี้"**).
+2. The browser navigates to `/api/notifications/unsubscribe?token=...`.
+3. Verify that the response confirms successful opt-out and sets `notificationConsent = false` in the database.
+4. Reload `http://localhost:3000/profile`: confirm that notification consent is now switched off and matching alerts are stopped.
+
