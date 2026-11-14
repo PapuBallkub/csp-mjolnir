@@ -37,10 +37,17 @@ export function escapeAndDefang(text) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-  return escaped
+  let defanged = escaped
     .replace(/https?:\/\//gi, (match) => `${match.slice(0, -2)}&#8203;//`)
-    .replace(/www\./gi, 'www&#8203;.')
-    .replace(/([a-zA-Z0-9-]{2,})\.([a-zA-Z]{2,10}(?:\.[a-zA-Z]{2,4})?)/g, '$1.&#8203;$2');
+    .replace(/www\./gi, 'www&#8203;.&#8203;');
+
+  // Neutralize every dot between alphanumeric characters (e.g. boi.go.th -> boi&#8203;.&#8203;go&#8203;.&#8203;th)
+  // Repeat to ensure consecutive multi-segment domain dots (like .go.th or .co.th) are all neutralized
+  for (let i = 0; i < 3; i++) {
+    defanged = defanged.replace(/([a-zA-Z0-9])\.([a-zA-Z0-9])/g, '$1&#8203;.&#8203;$2');
+  }
+
+  return defanged;
 }
 
 /**
@@ -91,8 +98,8 @@ export function renderMatchDigestEmail({
           </tr>
         </table>
         
-        <h3 style="margin:10px 0 4px 0;font-size:16px;line-height:1.4;color:#0f172a;">
-          ${safeTitle}
+        <h3 class="no-autolink" style="margin:10px 0 4px 0;font-size:16px;line-height:1.4;color:#0f172a;">
+          <span style="color:#0f172a !important;text-decoration:none !important;">${safeTitle}</span>
         </h3>
         
         <p style="margin:0 0 12px 0;font-size:13px;color:#475569;">
@@ -135,13 +142,17 @@ export function renderMatchDigestEmail({
   <title>${subject}</title>
   <style>
     /* Prevent email clients from autolinking unrecognized text in titles */
-    a[x-apple-data-detectors] {
-      color: inherit !important;
+    a[x-apple-data-detectors],
+    .no-autolink a,
+    h3 a {
+      color: #0f172a !important;
       text-decoration: none !important;
       font-size: inherit !important;
       font-family: inherit !important;
       font-weight: inherit !important;
       line-height: inherit !important;
+      pointer-events: none !important;
+      cursor: default !important;
     }
   </style>
 </head>

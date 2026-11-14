@@ -53,34 +53,41 @@ test('notifications: renders match digest email template with subject and Thai c
   assert.ok(html.includes('โครงการพัฒนาระบบ e-Service Portal'));
   assert.ok(html.includes('88% ตรงกัน'));
   assert.ok(html.includes('฿3,200,000'));
-  assert.ok(html.includes('Next.&#8203;js'));
+  assert.ok(html.includes('Next&#8203;.&#8203;js'));
   assert.ok(html.includes('https://gipdp.go.th/unsubscribe?token=123'));
   assert.ok(text.includes('สมชาย'));
   assert.ok(text.includes('โครงการพัฒนาระบบ e-Service Portal'));
 });
 
 test('notifications: escapeAndDefang neutralizes embedded URLs in titles to prevent autolinking', () => {
-  // 1. Defangs www. domain names by inserting zero-width space
+  // 1. Defangs www. domain names by inserting zero-width space around every dot
   const title1 = 'จ้างดูแลระบบ www.virus.com';
   const defanged1 = escapeAndDefang(title1);
-  assert.equal(defanged1, 'จ้างดูแลระบบ www&#8203;.virus.&#8203;com');
-  // Email clients scan for standard domain regex: with &#8203;, it will NOT match
+  assert.equal(defanged1, 'จ้างดูแลระบบ www&#8203;.&#8203;virus&#8203;.&#8203;com');
   assert.ok(!defanged1.includes('www.virus.com'));
 
-  // 2. Defangs https:// protocols
+  // 2. Defangs multi-level domains like .go.th or .co.th so "go.th" is NOT autolinked
+  const titleBoi = 'จ้างจัดทำและปรับปรุงข้อมูลเพื่อเผยแพร่บนเว็บไซต์ www.boi.go.th ประจำปีงบประมาณ 2570';
+  const defangedBoi = escapeAndDefang(titleBoi);
+  assert.equal(defangedBoi.includes('go.th'), false);
+  assert.equal(defangedBoi.includes('boi.go'), false);
+  assert.equal(defangedBoi.includes('www.'), false);
+  assert.ok(defangedBoi.includes('boi&#8203;.&#8203;go&#8203;.&#8203;th'));
+
+  // 3. Defangs https:// protocols
   const title2 = 'ระบบจัดซื้อ https://malware.org/bad';
   const defanged2 = escapeAndDefang(title2);
   assert.ok(defanged2.includes('https:&#8203;//'));
   assert.ok(!defanged2.includes('https://'));
 
-  // 3. Escapes HTML injection tags
+  // 4. Escapes HTML injection tags
   const title3 = '<script>alert("hack")</script> & <b>test</b>';
   const defanged3 = escapeAndDefang(title3);
   assert.ok(!defanged3.includes('<script>'));
   assert.ok(defanged3.includes('&lt;script&gt;'));
   assert.ok(defanged3.includes('&amp;'));
 
-  // 4. In email template, title with virus.com is rendered defanged
+  // 5. In email template, title with virus.com is rendered defanged
   const { html } = renderMatchDigestEmail({
     recipientName: 'ผู้ใช้',
     matchedItems: [
@@ -95,8 +102,8 @@ test('notifications: escapeAndDefang neutralizes embedded URLs in titles to prev
     appUrl: 'https://gipdp.go.th',
   });
 
-  assert.ok(html.includes('www&#8203;.virus.&#8203;com'));
-  assert.ok(!html.includes('<h3>\n          ดูแลระบบ www.virus.com'));
+  assert.ok(html.includes('www&#8203;.&#8203;virus&#8203;.&#8203;com'));
+  assert.ok(!html.includes('ดูแลระบบ www.virus.com'));
 });
 
 test('notifications: buildMatchSnapshot correctly formats receipt fields', () => {
