@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { listTors, torFacets, type ApiError, type ApiResult, type TorFacets, type TorListParams, type TorStatus } from "../../../_lib/api";
 import { matchFor } from "../../../_lib/match";
@@ -42,6 +43,7 @@ export function FilterModeView() {
   const [budgetBand, setBudgetBand] = useState(() => initialParsed.budgetBand);
   const [deadlineBand, setDeadlineBand] = useState(() => initialParsed.deadlineBand);
   const [hideHighRisk, setHideHighRisk] = useState(() => initialParsed.hideHighRisk);
+  const [minScore, setMinScore] = useState<number>(() => initialParsed.minScore ?? 0);
   const [rawSort, setSort] = useState<Sort>(() => initialParsed.sort);
   const [page, setPage] = useState<number>(() => initialParsed.page ?? 1);
   const [pageSize, setPageSize] = useState<number>(() => initialParsed.pageSize ?? DEFAULT_PAGE_SIZE);
@@ -66,6 +68,7 @@ export function FilterModeView() {
       setStatuses(parsed.statuses);
       setAmendedOnly(parsed.amendedOnly);
       setHideHighRisk(parsed.hideHighRisk);
+      setMinScore(parsed.minScore ?? 0);
       setPage(parsed.page ?? 1);
       setPageSize(parsed.pageSize ?? DEFAULT_PAGE_SIZE);
     };
@@ -78,8 +81,8 @@ export function FilterModeView() {
 
   // Reset to page 1 when search filters change
   const filterSignature = useMemo(
-    () => `${debouncedQuery}:${statuses.join(",")}:${amendedOnly}:${techFilter.join(",")}:${agencyFilter.join(",")}:${budgetBand}:${deadlineBand}:${hideHighRisk}:${sort}`,
-    [debouncedQuery, statuses, amendedOnly, techFilter, agencyFilter, budgetBand, deadlineBand, hideHighRisk, sort]
+    () => `${debouncedQuery}:${statuses.join(",")}:${amendedOnly}:${techFilter.join(",")}:${agencyFilter.join(",")}:${budgetBand}:${deadlineBand}:${hideHighRisk}:${sort}:${minScore}`,
+    [debouncedQuery, statuses, amendedOnly, techFilter, agencyFilter, budgetBand, deadlineBand, hideHighRisk, sort, minScore]
   );
   const prevFilterSig = useRef(filterSignature);
   useEffect(() => {
@@ -108,6 +111,7 @@ export function FilterModeView() {
       deadlineBand,
       hideHighRisk,
       sort,
+      minScore,
       page,
       pageSize,
     });
@@ -122,6 +126,7 @@ export function FilterModeView() {
     deadlineBand,
     hideHighRisk,
     sort,
+    minScore,
     page,
     pageSize,
   ]);
@@ -133,7 +138,8 @@ export function FilterModeView() {
     agencyFilter.length +
     (budgetBand === "any" ? 0 : 1) +
     (deadlineBand === "any" ? 0 : 1) +
-    (hideHighRisk ? 1 : 0);
+    (hideHighRisk ? 1 : 0) +
+    (minScore > 0 ? 1 : 0);
 
   function clearAll() {
     setQuery("");
@@ -144,6 +150,7 @@ export function FilterModeView() {
     setBudgetBand("any");
     setDeadlineBand("any");
     setHideHighRisk(false);
+    setMinScore(0);
     setPage(1);
   }
 
@@ -164,6 +171,8 @@ export function FilterModeView() {
   /* ------------------------------ search list ----------------------------- */
 
   const isMatchSort = sort === "match-desc" || sort === "match-asc";
+  const canMatch = authStatus === "authenticated";
+  const needsClientMatching = canMatch && (isMatchSort || minScore > 0);
 
   const params = useMemo<TorListParams>(() => {
     const band = BUDGET_BANDS.find((b) => b.id === budgetBand);
@@ -178,10 +187,23 @@ export function FilterModeView() {
       closingWithin: DEADLINE_BANDS.find((b) => b.id === deadlineBand)?.days,
       excludeHighRisk: hideHighRisk,
       sort,
-      limit: isMatchSort ? 100 : pageSize,
-      page: isMatchSort ? 1 : page,
+      limit: needsClientMatching ? 100 : pageSize,
+      page: needsClientMatching ? 1 : page,
     };
-  }, [debouncedQuery, statuses, amendedOnly, techFilter, agencyFilter, budgetBand, deadlineBand, hideHighRisk, sort, pageSize, page, isMatchSort]);
+  }, [
+    debouncedQuery,
+    statuses,
+    amendedOnly,
+    techFilter,
+    agencyFilter,
+    budgetBand,
+    deadlineBand,
+    hideHighRisk,
+    sort,
+    pageSize,
+    page,
+    needsClientMatching,
+  ]);
 
   const key = useMemo(() => JSON.stringify(params), [params]);
 
@@ -216,7 +238,27 @@ export function FilterModeView() {
 
   const current = list?.key === key ? list : null;
   const failed = listError?.key === key ? listError.error : null;
-  const canMatch = authStatus === "authenticated";
+
+  const matchedTors = useMemo(() => {
+    const shown = current ?? list;
+    if (!shown || !needsClientMatching) return null;
+    let items = shown.tors;
+    if (minScore > 0) {
+      items = items.filter((tor) => matchFor(tor, profile).score >= minScore);
+    }
+    if (isMatchSort) {
+      items = [...items].sort((a, b) => {
+        const scoreA = matchFor(a, profile).score;
+        const scoreB = matchFor(b, profile).score;
+        return sort === "match-desc" ? scoreB - scoreA : scoreA - scoreB;
+      });
+    }
+    return items;
+  }, [current, list, needsClientMatching, minScore, isMatchSort, sort, profile]);
+
+  const effectiveTotal = matchedTors !== null ? matchedTors.length : (current?.total ?? list?.total ?? 0);
+  const effectivePages = matchedTors !== null ? Math.ceil(effectiveTotal / pageSize) : (current?.pages ?? list?.pages ?? 0);
+  const displayedTors = matchedTors !== null ? matchedTors.slice((page - 1) * pageSize, page * pageSize) : (current?.tors ?? list?.tors ?? []);
 
   /* ------------------------------- results -------------------------------- */
 
@@ -283,28 +325,40 @@ export function FilterModeView() {
       );
     }
 
-    let displayedTors = shown.tors;
-    let effectiveTotal = shown.total;
-    let effectivePages = shown.pages;
-
-    if (isMatchSort) {
-      const sorted = [...shown.tors].sort((a, b) => {
-        const scoreA = matchFor(a, profile).score;
-        const scoreB = matchFor(b, profile).score;
-        return sort === "match-desc" ? scoreB - scoreA : scoreA - scoreB;
-      });
-      effectiveTotal = sorted.length;
-      effectivePages = Math.ceil(effectiveTotal / pageSize);
-      displayedTors = sorted.slice((page - 1) * pageSize, page * pageSize);
+    if (matchedTors !== null && matchedTors.length === 0 && shown.tors.length > 0) {
+      return (
+        <EmptyState
+          headline="ไม่มีประกาศที่ได้คะแนนถึงเกณฑ์นี้"
+          body={`ไม่มีประกาศที่คะแนนความตรงกับโปรไฟล์ถึง ${minScore}% ขึ้นไป ลองปรับลดแถบเลื่อนคะแนนหรือเลือกดูทุกระดับคะแนน`}
+          action={
+            <button type="button" onClick={() => setMinScore(0)} className={btn.secondary}>
+              แสดงทุกคะแนน (รีเซ็ตเกณฑ์)
+            </button>
+          }
+        />
+      );
     }
+
+    const noSkillsBanner =
+      canMatch && profile.skills.length === 0 && minScore > 0 ? (
+        <div className="mb-2.5 flex items-center justify-between rounded-[3px] border border-amber-300 bg-amber-50 px-3.5 py-2 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          <span>
+            💡 คุณยังไม่ได้ระบุทักษะในโปรไฟล์ — ระบบกำลังคำนวณคะแนนจากงบประมาณ สถาปัตยกรรม และเกณฑ์ทั่วไป
+          </span>
+          <Link href="/profile" className="ml-2 shrink-0 font-semibold underline hover:opacity-80">
+            ตั้งค่าทักษะ →
+          </Link>
+        </div>
+      ) : null;
 
     return (
       <>
         <div aria-busy={!current}>
+          {noSkillsBanner}
           <div className={`flex flex-col gap-3 transition-opacity ${current ? "" : "opacity-60"}`}>
             {displayedTors.map((tor) => {
               const match =
-                canMatch || isMatchSort
+                canMatch || isMatchSort || minScore > 0
                   ? matchFor(tor, profile)
                   : undefined;
               return <CatalogRow key={tor.projectId} tor={tor} now={shown.at} match={match} />;
@@ -362,6 +416,9 @@ export function FilterModeView() {
       setDeadlineBand={setDeadlineBand}
       hideHighRisk={hideHighRisk}
       setHideHighRisk={setHideHighRisk}
+      minScore={minScore}
+      setMinScore={setMinScore}
+      canMatch={canMatch}
       activeCount={activeCount}
       clearAll={clearAll}
       facets={facets}
@@ -371,9 +428,9 @@ export function FilterModeView() {
 
   const countLine = (() => {
     if (!current) return "กำลังค้นหา…";
-    const totalStr = current.total.toLocaleString();
+    const totalStr = effectiveTotal.toLocaleString();
     const searched = Boolean(debouncedQuery.trim());
-    if (current.total === 0) return "ไม่พบประกาศ";
+    if (effectiveTotal === 0) return "ไม่พบประกาศ";
     if (activeCount === 0 && !searched && showsEveryStatus(statuses)) {
       return `ทั้งหมด ${totalStr} ประกาศ`;
     }
