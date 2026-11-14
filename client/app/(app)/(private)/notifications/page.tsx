@@ -285,31 +285,33 @@ export default function NotificationsPage() {
       )}
       </div>
 
-      {/* Profile unconfigured callout (pinned flush directly above footer) */}
+      {/* Profile unconfigured callout (pinned flush directly above footer, constrained to content width) */}
       {isProfileEmpty ? (
-        <div className="border-t border-amber-300 bg-amber-50 px-4 py-4 dark:border-amber-800/80 dark:bg-amber-950/40">
-          <div className="mx-auto flex max-w-[1000px] flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-1.5">
-                <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400 shrink-0" />
-                <h4 className="text-[13.5px] font-semibold text-amber-950 dark:text-amber-100">
+        <div className="mx-auto w-full max-w-[1000px] px-4">
+          <div className="rounded-t-[6px] border-t border-x border-amber-300 bg-amber-50 p-4 shadow-xs dark:border-amber-800/80 dark:bg-amber-950/40">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400 shrink-0" />
+                  <h4 className="text-[13.5px] font-semibold text-amber-950 dark:text-amber-100">
+                    {lang === "th"
+                      ? "คุณยังไม่ได้ระบุทักษะหรือเงื่อนไขในโปรไฟล์"
+                      : "You haven't set up your profile skills or preferences yet"}
+                  </h4>
+                </div>
+                <p className="mt-1 text-[12.5px] leading-thai text-amber-900/90 dark:text-amber-300/80">
                   {lang === "th"
-                    ? "คุณยังไม่ได้ระบุทักษะหรือเงื่อนไขในโปรไฟล์"
-                    : "You haven't set up your profile skills or preferences yet"}
-                </h4>
+                    ? "ระบบจะไม่สามารถค้นหาและแจ้งเตือนโครงการที่ตรงกับคุณได้ จนกว่าจะมีการบันทึกทักษะในโปรไฟล์"
+                    : "The system cannot match and notify you of tenders until you save your skills in your profile."}
+                </p>
               </div>
-              <p className="mt-1 text-[12.5px] leading-thai text-amber-900/90 dark:text-amber-300/80">
-                {lang === "th"
-                  ? "ระบบจะไม่สามารถค้นหาและแจ้งเตือนโครงการที่ตรงกับคุณได้ จนกว่าจะมีการบันทึกทักษะในโปรไฟล์"
-                  : "The system cannot match and notify you of tenders until you save your skills in your profile."}
-              </p>
+              <Link
+                href="/profile"
+                className="inline-flex shrink-0 items-center justify-center rounded-[3px] border border-amber-400/90 bg-amber-100/90 px-3.5 py-1.5 text-[12.5px] font-medium text-amber-950 transition-colors hover:bg-amber-200/90 cursor-pointer dark:border-amber-700 dark:bg-amber-900/60 dark:text-amber-100 dark:hover:bg-amber-900"
+              >
+                {lang === "th" ? "ไปที่หน้าตั้งค่าโปรไฟล์และทักษะ →" : "Go to Profile Settings →"}
+              </Link>
             </div>
-            <Link
-              href="/profile"
-              className="inline-flex shrink-0 items-center justify-center rounded-[3px] border border-amber-400/90 bg-amber-100/90 px-3.5 py-1.5 text-[12.5px] font-medium text-amber-950 transition-colors hover:bg-amber-200/90 cursor-pointer dark:border-amber-700 dark:bg-amber-900/60 dark:text-amber-100 dark:hover:bg-amber-900"
-            >
-              {lang === "th" ? "ไปที่หน้าตั้งค่าโปรไฟล์และทักษะ →" : "Go to Profile Settings →"}
-            </Link>
           </div>
         </div>
       ) : null}
