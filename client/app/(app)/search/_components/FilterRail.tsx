@@ -20,6 +20,7 @@ export function FilterRail({
   minScore,
   setMinScore,
   canMatch,
+  hasSkills = true,
   budgetBand,
   setBudgetBand,
   deadlineBand,
@@ -43,6 +44,7 @@ export function FilterRail({
   minScore: number;
   setMinScore: (score: number) => void;
   canMatch: boolean;
+  hasSkills?: boolean;
   budgetBand: string;
   setBudgetBand: (band: string) => void;
   deadlineBand: string;
@@ -111,7 +113,38 @@ export function FilterRail({
       </FilterGroup>
 
       <FilterGroup title={lang === "th" ? "ความตรงกับโปรไฟล์" : "Profile fit"}>
-        {canMatch ? (
+        {!canMatch ? (
+          <div className="space-y-1.5">
+            <p className="text-[11.5px] leading-thai text-ink-3">
+              {lang === "th"
+                ? "ลงชื่อเข้าใช้เพื่อกรองและจัดอันดับตามทักษะและงบประมาณของคุณ"
+                : "Sign in to filter and rank tenders by your skills and budget"}
+            </p>
+            <Link
+              href="/auth"
+              className="inline-block text-[11.5px] font-medium text-ink underline underline-offset-2 hover:opacity-80 cursor-pointer"
+            >
+              {lang === "th" ? "ลงชื่อเข้าใช้ →" : "Sign in →"}
+            </Link>
+          </div>
+        ) : !hasSkills ? (
+          <div className="space-y-1.5">
+            <span className="inline-block rounded-[3px] border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              {lang === "th" ? "ยังไม่ได้ระบุทักษะในโปรไฟล์" : "Didn't set up skills yet"}
+            </span>
+            <p className="text-[11.5px] leading-thai text-ink-3">
+              {lang === "th"
+                ? "ระบุทักษะในโปรไฟล์เพื่อเปิดใช้งานการคำนวณและกรองคะแนนความตรง"
+                : "Set up your skills in profile to activate match scoring and filtering."}
+            </p>
+            <Link
+              href="/profile"
+              className="inline-block text-[11.5px] font-medium text-ink underline underline-offset-2 hover:opacity-80 cursor-pointer"
+            >
+              {lang === "th" ? "ไปที่หน้าตั้งค่าโปรไฟล์ →" : "Go to Profile Settings →"}
+            </Link>
+          </div>
+        ) : (
           <div className="space-y-2.5">
             <div>
               <span className="text-[13px] leading-thai text-ink-2">
@@ -145,20 +178,6 @@ export function FilterRail({
               <span className="text-ink-2">50%</span>
               <span>100%</span>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-1.5">
-            <p className="text-[11.5px] leading-thai text-ink-3">
-              {lang === "th"
-                ? "ลงชื่อเข้าใช้เพื่อกรองและจัดอันดับตามทักษะและงบประมาณของคุณ"
-                : "Sign in to filter and rank tenders by your skills and budget"}
-            </p>
-            <Link
-              href="/auth"
-              className="inline-block text-[11.5px] font-medium text-ink underline underline-offset-2 hover:opacity-80 cursor-pointer"
-            >
-              {lang === "th" ? "ลงชื่อเข้าใช้ →" : "Sign in →"}
-            </Link>
           </div>
         )}
       </FilterGroup>

@@ -251,3 +251,15 @@ test("sort by match: Highest match (match-desc) and Lowest match (match-asc) cor
   assert.equal(lowestFirst[1].projectId, "HIGH-MATCH");
 });
 
+test("matchFor: returns 0 score when profile has no skills set", () => {
+  const tor = createMockTor();
+  const profile = createMockProfile({ skills: [] });
+
+  const match = matchFor(tor, profile);
+
+  assert.equal(match.score, 0);
+  assert.equal(match.tier, "low");
+  assert.equal(match.matched.length, 0);
+  assert.ok(match.breakdown.warningsTh.some((w) => w.includes("ยังไม่ได้ระบุทักษะ")));
+});
+

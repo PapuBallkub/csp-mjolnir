@@ -419,6 +419,7 @@ export function FilterModeView() {
       minScore={minScore}
       setMinScore={setMinScore}
       canMatch={canMatch}
+      hasSkills={profile.skills.length > 0}
       activeCount={activeCount}
       clearAll={clearAll}
       facets={facets}

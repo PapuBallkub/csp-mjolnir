@@ -311,14 +311,19 @@ export function ProfileDisplay({
               ))}
             </div>
           ) : (
-            <div className="rounded border border-dashed border-line p-6 text-center text-ink-3">
-              <p className="text-[14px]">ยังไม่ได้เลือกทักษะเทคโนโลยี</p>
+            <div className="rounded-[4px] border border-amber-300 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950/40">
+              <p className="text-[14px] font-semibold text-amber-950 dark:text-amber-100">
+                ⚠️ ยังไม่ได้ระบุทักษะในโปรไฟล์ (Didn&apos;t set up skills yet)
+              </p>
+              <p className="mt-1.5 text-[13px] leading-thai text-amber-900/90 dark:text-amber-300/80">
+                ระบบใช้ทักษะเป็นเกณฑ์หลักในการคำนวณความตรงกับงาน TOR (Match Score) และการแจ้งเตือน หากยังไม่ระบุทักษะ ระบบจะไม่สามารถคำนวณคะแนนความตรงและแจ้งเตือนโครงการให้คุณได้
+              </p>
               <button
                 type="button"
                 onClick={onEdit}
-                className={`${btn.secondary} mt-3 text-[12px]`}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-[3px] border border-amber-400/90 bg-surface px-3 py-1.5 text-[12.5px] font-medium text-amber-950 transition-colors hover:bg-amber-100/80 cursor-pointer dark:border-amber-700 dark:bg-surface dark:text-amber-100 dark:hover:bg-amber-900/50"
               >
-                + เพิ่มทักษะของคุณ
+                + ระบุทักษะความเชี่ยวชาญของคุณ
               </button>
             </div>
           )}

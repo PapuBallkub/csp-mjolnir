@@ -91,3 +91,15 @@ test('calculateMatchScore: evaluates continuous budget curves', () => {
   assert.equal(highMatch.breakdown.budget.score, 0);
 });
 
+test('calculateMatchScore: returns 0 score when profile has no skills set', () => {
+  const tor = createMockTor();
+  const profile = createMockProfile({ skills: [] });
+
+  const match = calculateMatchScore(tor, profile);
+
+  assert.equal(match.score, 0);
+  assert.equal(match.tier, 'low');
+  assert.equal(match.matched.length, 0);
+  assert.ok(match.breakdown.warningsTh.some((w) => w.includes('ยังไม่ได้ระบุทักษะ')));
+});
+

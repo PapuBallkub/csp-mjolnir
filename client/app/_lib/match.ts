@@ -90,12 +90,47 @@ export function matchFor(
   const warningsEn: string[] = [];
 
   // -------------------------------------------------------------
-  // 1. Technical Skills Fit (40% Weight)
+  // 1. Technical Skills Fit (40% Weight) & Required Anchor
   // -------------------------------------------------------------
-  const userSkillSet = new Set((profile.skills ?? []).map(normalizeName));
+  const userSkillList = profile.skills ?? [];
   const rawRequired = (tor.technicalRequirements?.requiredTechnologies ?? []).map((t) => t.name.trim());
   const requiredUnique = [...new Set(rawRequired.filter(Boolean))];
 
+  // If user has not specified any skills, matching is inactive -> score 0!
+  if (userSkillList.length === 0) {
+    const isCompaniesOnly = Boolean(tor.companiesOnly);
+    const userEntity = profile.entityType ?? "juristic";
+    const disqualifiedDirectBid = isCompaniesOnly && userEntity === "individual";
+    const torArchetype = tor.overview?.systemArchetype?.trim().toLowerCase() ?? null;
+    const price = tor.facts.referencePriceTHB ?? tor.facts.budgetTHB ?? null;
+    const torExpMin = tor.eligibility?.previousExperienceMinTHB ?? null;
+    const estimatedRequired = torExpMin ?? (price !== null ? Math.round(price * 0.4) : 0);
+    const requiredCerts = tor.eligibility?.requiredCertifications ?? [];
+
+    return {
+      score: 0,
+      matched: [],
+      missing: requiredUnique,
+      tier: "low",
+      disqualifiedDirectBid,
+      breakdown: {
+        score: 0,
+        tier: "low",
+        skills: { score: 0, matched: [], missing: requiredUnique, totalRequired: requiredUnique.length },
+        archetype: { score: 0, torArchetype, isPreferred: false },
+        budget: { score: 0, status: "unknown", price },
+        portfolio: { score: 0, userMax: profile.maxPastPortfolioTHB ?? 0, estimatedRequired, meetsThreshold: false },
+        entity: { score: 0, userEntityType: userEntity, companiesOnly: isCompaniesOnly, disqualifiedDirectBid },
+        certifications: { score: 0, matched: [], missing: requiredCerts, totalRequired: requiredCerts.length },
+        highlightsTh: [],
+        highlightsEn: [],
+        warningsTh: ["ยังไม่ได้ระบุทักษะในโปรไฟล์ — ระบบไม่สามารถคำนวณคะแนนความตรงได้จนกว่าจะมีการระบุทักษะ"],
+        warningsEn: ["No skills specified in profile — match score cannot be calculated until skills are added"],
+      },
+    };
+  }
+
+  const userSkillSet = new Set(userSkillList.map(normalizeName));
   const matched = requiredUnique.filter((name) => userSkillSet.has(normalizeName(name)));
   const missing = requiredUnique.filter((name) => !userSkillSet.has(normalizeName(name)));
 
@@ -103,8 +138,6 @@ export function matchFor(
   if (requiredUnique.length === 0) {
     // Neutral baseline if TOR requires no specific software tech stack
     skillScore = 75;
-  } else if (profile.skills.length === 0) {
-    skillScore = 0;
   } else {
     skillScore = Math.round((matched.length / requiredUnique.length) * 100);
   }
