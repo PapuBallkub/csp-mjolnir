@@ -209,8 +209,8 @@ export function ProfileDisplay({
 
       {/* 2. CAPABILITY SECTION: SINGLE SETUP BLOCK (IF NO SKILLS) OR FULL 5-CARD DASHBOARD */}
       {profile.skills.length === 0 ? (
-        <Panel className="border-dashed p-6 text-center sm:p-9 bg-surface-2/30">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface-2 text-ink-2">
+        <section className="rounded-[3px] border border-line bg-surface-2 p-6 text-center sm:p-9 shadow-xs dark:bg-surface-2/50">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface text-ink-2 shadow-2xs">
             <Sparkles className="h-5 w-5" />
           </div>
           <h3 className="mt-3.5 text-[17px] font-semibold text-ink">
@@ -223,54 +223,54 @@ export function ProfileDisplay({
 
           <div className="mx-auto mt-7 grid max-w-3xl grid-cols-1 gap-3 border-t border-line/60 pt-6 text-left sm:grid-cols-2 lg:grid-cols-3">
             {/* 1. Skills (40%) */}
-            <div className="rounded-[4px] border border-line/70 bg-surface p-3.5 shadow-2xs">
-              <span className="text-[12px] font-semibold text-ink">1. ทักษะเทคโนโลยี (40%)</span>
-              <p className="mt-1 text-[11.5px] leading-thai text-ink-2">
+            <div className="rounded-[4px] border border-line/90 bg-surface-3 p-3.5 dark:bg-surface-3/60">
+              <span className="text-[12px] font-semibold text-ink-2">1. ทักษะเทคโนโลยี (40%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
                 ภาษาโปรแกรม เฟรมเวิร์ก และเครื่องมือพัฒนาซอฟต์แวร์
               </p>
             </div>
 
             {/* 2. Budget (20%) */}
-            <div className="rounded-[4px] border border-line/70 bg-surface p-3.5 shadow-2xs">
-              <span className="text-[12px] font-semibold text-ink">2. ช่วงงบประมาณที่รับงาน (20%)</span>
-              <p className="mt-1 text-[11.5px] leading-thai text-ink-2">
+            <div className="rounded-[4px] border border-line/90 bg-surface-3 p-3.5 dark:bg-surface-3/60">
+              <span className="text-[12px] font-semibold text-ink-2">2. ช่วงงบประมาณที่รับงาน (20%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
                 วงเงินขั้นต่ำและเพดานราคากลางโครงการที่พร้อมรับ
               </p>
             </div>
 
             {/* 3. Archetypes (15%) */}
-            <div className="rounded-[4px] border border-line/70 bg-surface p-3.5 shadow-2xs">
-              <span className="text-[12px] font-semibold text-ink">3. สถาปัตยกรรมระบบ (15%)</span>
-              <p className="mt-1 text-[11.5px] leading-thai text-ink-2">
+            <div className="rounded-[4px] border border-line/90 bg-surface-3 p-3.5 dark:bg-surface-3/60">
+              <span className="text-[12px] font-semibold text-ink-2">3. สถาปัตยกรรมระบบ (15%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
                 รูปแบบและประเภทสถาปัตยกรรมระบบงานที่ถนัด
               </p>
             </div>
 
             {/* 4. Past Experience (10%) */}
-            <div className="rounded-[4px] border border-line/70 bg-surface p-3.5 shadow-2xs">
-              <span className="text-[12px] font-semibold text-ink">4. มูลค่าผลงานสัญญาเดิม (10%)</span>
-              <p className="mt-1 text-[11.5px] leading-thai text-ink-2">
+            <div className="rounded-[4px] border border-line/90 bg-surface-3 p-3.5 dark:bg-surface-3/60">
+              <span className="text-[12px] font-semibold text-ink-2">4. มูลค่าผลงานสัญญาเดิม (10%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
                 มูลค่าสัญญาเดียวสูงสุดในอดีตเทียบกับเกณฑ์คุณสมบัติ
               </p>
             </div>
 
             {/* 5. Entity Type (10%) */}
-            <div className="rounded-[4px] border border-line/70 bg-surface p-3.5 shadow-2xs">
-              <span className="text-[12px] font-semibold text-ink">5. สถานะนิติบุคคล / ฟรีแลนซ์ (10%)</span>
-              <p className="mt-1 text-[11.5px] leading-thai text-ink-2">
+            <div className="rounded-[4px] border border-line/90 bg-surface-3 p-3.5 dark:bg-surface-3/60">
+              <span className="text-[12px] font-semibold text-ink-2">5. สถานะนิติบุคคล / ฟรีแลนซ์ (10%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
                 ความเข้ากันได้กับเงื่อนไขเฉพาะนิติบุคคลของโครงการ
               </p>
             </div>
 
             {/* 6. Certifications (5%) */}
-            <div className="rounded-[4px] border border-line/70 bg-surface p-3.5 shadow-2xs">
-              <span className="text-[12px] font-semibold text-ink">6. ใบรับรองและมาตรฐานสากล (5%)</span>
-              <p className="mt-1 text-[11.5px] leading-thai text-ink-2">
+            <div className="rounded-[4px] border border-line/90 bg-surface-3 p-3.5 dark:bg-surface-3/60">
+              <span className="text-[12px] font-semibold text-ink-2">6. ใบรับรองและมาตรฐานสากล (5%)</span>
+              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
                 มาตรฐานคุณภาพและกระบวนการทำงานที่ได้รับการรับรอง
               </p>
             </div>
           </div>
-        </Panel>
+        </section>
       ) : (
         <>
           {/* 2. CORE CAPABILITY CARDS GRID */}
