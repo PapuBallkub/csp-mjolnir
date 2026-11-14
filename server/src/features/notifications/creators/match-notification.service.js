@@ -120,7 +120,8 @@ export async function generateMatchNotifications({ minScore = 70 } = {}) {
   const [candidateTors, candidateUsers] = await Promise.all([
     getActiveCandidateTors(),
     User.find({
-      'profile.skills.0': { $exists: true },
+      notificationConsent: true,
+      'profile.matchNotification.enabled': true,
     }).lean(),
   ]);
 
@@ -171,6 +172,50 @@ export async function generateMatchNotifications({ minScore = 70 } = {}) {
   }
 
   return summary;
+}
+
+/**
+ * Evaluates active candidate TORs for a single user and generates notifications immediately.
+ * Called when a user saves profile preferences or opens the notifications feed.
+ *
+ * @param {Object} user - User document or lean object
+ * @returns {Promise<Object|null>} Created notification document or null
+ */
+export async function generateMatchNotificationsForUser(user) {
+  if (!user) return null;
+
+  // Must have notification consent and match notification enabled
+  const hasConsent = Boolean(user.notificationConsent);
+  const isEnabled = user.profile?.matchNotification?.enabled !== false;
+  if (!hasConsent || !isEnabled) {
+    return null;
+  }
+
+  const candidateTors = await getActiveCandidateTors();
+  if (candidateTors.length === 0) return null;
+
+  const matchedPairs = evaluateUserCandidateMatches(user, candidateTors);
+  if (matchedPairs.length === 0) return null;
+
+  const userId = user._id ?? user.id;
+  const alreadyNotifiedIds = await getNotifiedProjectIds(userId, { type: 'match' });
+
+  const newMatchedPairs = matchedPairs.filter(({ tor }) => {
+    const pId = String(tor.projectId || tor.identification?.egpReference || '');
+    return pId && !alreadyNotifiedIds.has(pId);
+  });
+
+  if (newMatchedPairs.length === 0) return null;
+
+  const snapshot = buildMatchSnapshot(newMatchedPairs);
+
+  return Notification.create({
+    userId,
+    type: 'match',
+    snapshot,
+    isRead: false,
+    emailSent: false,
+  });
 }
 
 /**

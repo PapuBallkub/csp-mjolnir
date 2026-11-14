@@ -3,6 +3,7 @@ export { createNotificationRoutes } from './notification.routes.js';
 export { getTransporter, sendEmail, sendMatchDigestEmail } from './email.service.js';
 export {
   generateMatchNotifications,
+  generateMatchNotificationsForUser,
   dispatchPendingMatchEmails,
   runMatchNotificationCycle,
 } from './creators/match-notification.service.js';
