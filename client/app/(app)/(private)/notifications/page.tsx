@@ -54,6 +54,7 @@ export default function NotificationsPage() {
   const [feedLoading, setFeedLoading] = useState(true);
   const [filterMode, setFilterMode] = useState<"all" | "unread">("all");
   const [markingAll, setMarkingAll] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Fetch notifications on mount
   useEffect(() => {
@@ -79,30 +80,13 @@ export default function NotificationsPage() {
     setMarkingAll(true);
     const res = await api.markAllNotificationsRead();
     setMarkingAll(false);
+    setShowConfirmModal(false);
     if (res.ok) {
       setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
       setUnreadCount(0);
       window.dispatchEvent(
         new CustomEvent("notifications-updated", { detail: { unreadCount: 0 } })
       );
-    }
-  }
-
-  async function handleMarkSingleRead(id: string, e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    const res = await api.markNotificationRead(id);
-    if (res.ok) {
-      setNotifications((prev) =>
-        prev.map((item) => (item._id === id ? { ...item, isRead: true } : item))
-      );
-      setUnreadCount((prev) => {
-        const next = typeof res.data.unreadCount === "number" ? res.data.unreadCount : Math.max(0, prev - 1);
-        window.dispatchEvent(
-          new CustomEvent("notifications-updated", { detail: { unreadCount: next } })
-        );
-        return next;
-      });
     }
   }
 
@@ -168,9 +152,9 @@ export default function NotificationsPage() {
         {unreadCount > 0 ? (
           <button
             type="button"
-            onClick={handleMarkAllRead}
+            onClick={() => setShowConfirmModal(true)}
             disabled={markingAll}
-            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2 hover:text-ink hover:underline disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2 hover:text-ink hover:underline disabled:opacity-50 cursor-pointer"
           >
             <Check className="h-3.5 w-3.5 text-open" />
             <span>
@@ -234,8 +218,8 @@ export default function NotificationsPage() {
                 href={`/notifications/${item._id}`}
                 className={`group relative block rounded-md border p-4 transition-all hover:border-line-2 hover:shadow-xs ${
                   !item.isRead
-                    ? "border-line-2 bg-surface-2/60"
-                    : "border-line bg-surface"
+                    ? "border-line-2 bg-surface shadow-xs"
+                    : "border-line/70 bg-surface-2/60 opacity-80 hover:opacity-100"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -286,17 +270,7 @@ export default function NotificationsPage() {
                   </div>
 
                   {/* Right quick actions */}
-                  <div className="flex shrink-0 items-center gap-2">
-                    {!item.isRead ? (
-                      <button
-                        type="button"
-                        onClick={(e) => handleMarkSingleRead(item._id, e)}
-                        title={lang === "th" ? "ทำเครื่องหมายว่าอ่านแล้ว" : "Mark as read"}
-                        className="rounded p-1 text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink cursor-pointer"
-                      >
-                        <Check className="h-4 w-4" />
-                      </button>
-                    ) : null}
+                  <div className="flex shrink-0 items-center">
                     <ChevronRight className="h-4 w-4 text-ink-3 transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
                   </div>
                 </div>
@@ -305,6 +279,55 @@ export default function NotificationsPage() {
           })}
         </div>
       )}
+
+      {/* Confirmation Modal for Mark All Read */}
+      {showConfirmModal ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-[2px] animate-in fade-in duration-150"
+          onClick={() => setShowConfirmModal(false)}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-[4px] border border-line bg-surface p-5 shadow-xl transition-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="confirm-modal-title" className="text-[15px] font-semibold text-ink">
+              {lang === "th" ? "ทำเครื่องหมายว่าอ่านแล้วทั้งหมด?" : "Mark all as read?"}
+            </h3>
+            <p className="mt-2 text-[13px] leading-thai text-ink-2">
+              {lang === "th"
+                ? `ต้องการทำเครื่องหมายว่าอ่านแล้วสำหรับการแจ้งเตือนทั้งหมด (${unreadCount} รายการ) ใช่หรือไม่?`
+                : `Are you sure you want to mark all ${unreadCount} unread notifications as read?`}
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={markingAll}
+                className={`${btn.ghost} cursor-pointer`}
+              >
+                {lang === "th" ? "ยกเลิก" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                onClick={handleMarkAllRead}
+                disabled={markingAll}
+                className={`${btn.primary} cursor-pointer`}
+              >
+                {markingAll
+                  ? lang === "th"
+                    ? "กำลังดำเนินการ…"
+                    : "Marking…"
+                  : lang === "th"
+                  ? "ยืนยัน"
+                  : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
