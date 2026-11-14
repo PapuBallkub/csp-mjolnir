@@ -7,8 +7,8 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  BowArrow,
   Mail,
-  Target,
 } from "lucide-react";
 import { useLang } from "../../../../_components/prefs";
 import { btn, Panel } from "../../../../_components/ui";
@@ -144,7 +144,7 @@ export default function NotificationDetailPage() {
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded bg-open-bg px-2.5 py-0.5 text-[11px] font-semibold text-open border border-open-line">
-              <Target className="h-3.5 w-3.5" />
+              <BowArrow className="h-3.5 w-3.5" />
               <span>
                 {notification.type === "match"
                   ? lang === "th"

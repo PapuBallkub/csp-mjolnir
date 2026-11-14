@@ -149,6 +149,10 @@ export function HeaderControls({ className = "" }: { className?: string }) {
     setIsPaused(false);
   }
 
+  const isNotificationInbox = pathname === "/notifications";
+  const badgeColor = isNotificationInbox ? "bg-pink-500" : "bg-red-600";
+  const toastProgressColor = isNotificationInbox ? "bg-pink-500/85" : "bg-red-600/85";
+
   return (
     <div className={`flex shrink-0 items-center gap-2 ${className}`}>
       <ThemeToggle />
@@ -167,7 +171,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
           <Bell className="h-3.5 w-3.5" />
           {unreadCount > 0 ? (
             <span
-              className="absolute -top-1.5 -right-1.5 z-10 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-xs pointer-events-none"
+              className={`absolute -top-1.5 -right-1.5 z-10 flex h-4 min-w-[16px] items-center justify-center rounded-full ${badgeColor} px-1 text-[10px] font-bold text-white shadow-xs pointer-events-none transition-colors duration-150`}
               aria-hidden="true"
             >
               {unreadCount > 99 ? "99+" : unreadCount}
@@ -211,7 +215,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
             <div className="absolute bottom-0 left-0 right-0 h-[2.5px] overflow-hidden rounded-b-md bg-line">
               <div
                 onAnimationEnd={handleDismissCallout}
-                className="h-full w-full bg-red-600/85 animate-toast-progress origin-left"
+                className={`h-full w-full ${toastProgressColor} animate-toast-progress origin-left`}
                 style={{ animationPlayState: isPaused ? "paused" : "running" }}
               />
             </div>

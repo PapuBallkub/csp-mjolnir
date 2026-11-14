@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   Bell,
+  BowArrow,
   Check,
   ChevronRight,
   FileText,
   Mail,
-  Target,
   Wrench,
 } from "lucide-react";
 import { useLang } from "../../../_components/prefs";
@@ -19,7 +19,7 @@ import type { NotificationFeedItem } from "../../../_lib/api";
 
 function NotificationTypeIcon({ type }: { type: string }) {
   if (type === "match") {
-    return <Target className="h-4 w-4 text-open" />;
+    return <BowArrow className="h-4 w-4 text-open" />;
   }
   if (type === "amendment") {
     return <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />;
@@ -243,9 +243,6 @@ export default function NotificationsPage() {
                               : "A watched project was amended"
                             : item.type}
                         </span>
-                        {!item.isRead ? (
-                          <span className="flex h-2 w-2 rounded-full bg-red-600" aria-label="Unread" />
-                        ) : null}
                       </div>
 
                       {/* Subtitle / summary */}
@@ -269,8 +266,14 @@ export default function NotificationsPage() {
                     </div>
                   </div>
 
-                  {/* Right quick actions */}
-                  <div className="flex shrink-0 items-center">
+                  {/* Right side: unread indicator + chevron */}
+                  <div className="flex shrink-0 items-center gap-3 self-center">
+                    {!item.isRead ? (
+                      <span
+                        className="h-2 w-2 rounded-full bg-red-600 shrink-0"
+                        aria-label="Unread"
+                      />
+                    ) : null}
                     <ChevronRight className="h-4 w-4 text-ink-3 transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
                   </div>
                 </div>
