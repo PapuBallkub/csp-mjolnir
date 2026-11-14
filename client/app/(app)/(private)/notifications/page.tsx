@@ -199,8 +199,8 @@ export default function NotificationsPage() {
           </h3>
           <p className="mx-auto mt-1 max-w-md text-[13px] leading-relaxed text-ink-3">
             {lang === "th"
-              ? "เมื่อมีประกาศจัดซื้อจัดจ้างใหม่ตรงกับทักษะของคุณ หรือโครงการในรายการติดตามมีการแก้ไข ระบบจะแจ้งเตือนให้คุณทราบที่นี่"
-              : "When new procurement notices match your skills or watched projects change, alerts will appear here."}
+              ? "เมื่อมีประกาศจัดซื้อจัดจ้างใหม่ตรงกับโปรไฟล์ของคุณ หรือโครงการในรายการติดตามมีการแก้ไข ระบบจะแจ้งเตือนให้คุณทราบที่นี่"
+              : "When new procurement notices match your profile or watched projects change, alerts will appear here."}
           </p>
         </Panel>
       ) : (

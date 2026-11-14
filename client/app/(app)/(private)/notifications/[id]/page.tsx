@@ -169,12 +169,12 @@ export default function NotificationDetailPage() {
           <h1 className="text-[20px] font-semibold tracking-tight text-ink">
             {lang === "th"
               ? `สรุป ${matchedItems.length} โครงการจัดซื้อจัดจ้างที่ตรงกับคุณ`
-              : `Summary: ${matchedItems.length} procurement tenders matching your skills`}
+              : `Summary: ${matchedItems.length} procurement tenders matching your profile`}
           </h1>
           <p className="mt-1 text-[13px] leading-relaxed text-ink-2">
             {lang === "th"
-              ? "ระบบตรวจพบคัดกรองโครงการประกาศใหม่บนระบบ e-GP ที่มีข้อกำหนดทางเทคนิคตรงกับทักษะในโปรไฟล์ของคุณ ข้อมูลด้านล่างถูกบันทึกภาพถ่าย (Snapshot) ณ เวลาที่แจ้งเตือน"
-              : "Procurement notices detected on e-GP matching your technical capability profile. Data below reflects the frozen snapshot at alert time."}
+              ? "ระบบตรวจพบคัดกรองโครงการประกาศใหม่บนระบบ e-GP ที่มีข้อกำหนดทางเทคนิคและงบประมาณตรงกับโปรไฟล์ความสามารถของคุณ ข้อมูลด้านล่างถูกบันทึกภาพถ่าย (Snapshot) ณ เวลาที่แจ้งเตือน"
+              : "Procurement notices detected on e-GP matching your capability profile. Data below reflects the frozen snapshot at alert time."}
           </p>
         </div>
       </header>

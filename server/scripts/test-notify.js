@@ -15,6 +15,7 @@
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { env, isEmailConfigured } from '#common/config/env.js';
 import { User, TorInsight } from '#models/index.js';
+import { isProfileBaseline } from '#features/match/matchmaker.js';
 import {
   generateMatchNotifications,
   dispatchPendingMatchEmails,
@@ -68,7 +69,7 @@ try {
   } else {
     // Update existing user with consent & skills for test
     user.notificationConsent = true;
-    if (!user.profile?.skills || user.profile.skills.length === 0) {
+    if (isProfileBaseline(user.profile)) {
       user.profile = user.profile || {};
       user.profile.skills = ['Next.js', 'React', 'Node.js', 'PostgreSQL', 'Docker', 'TypeScript'];
     }
@@ -78,7 +79,7 @@ try {
     await user.save();
   }
   console.log(`✓ User ready: ${user.email} (notificationConsent: true)`);
-  console.log(`  Skills: ${user.profile.skills.join(', ')}`);
+  console.log(`  Skills: ${user.profile.skills?.length ? user.profile.skills.join(', ') : '(None - evaluated by other criteria)'}`);
 
   // 2. Check available TORs in DB
   const torCount = await TorInsight.countDocuments();
