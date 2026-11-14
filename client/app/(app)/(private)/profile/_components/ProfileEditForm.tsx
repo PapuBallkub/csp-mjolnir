@@ -857,167 +857,191 @@ export function ProfileEditForm({
         </div>
       </Panel>
 
-      {/* 7. Notification Settings & Consent (PDPA) */}
+      {/* 7. In-App Match Notification Settings */}
       <Panel className="px-5 py-6 sm:px-7 sm:py-6">
-        <SectionHeading sub="จัดการช่องทางและความยินยอมในการรับข้อมูลข่าวสารโครงการจากระบบ">
-          การตั้งค่าการแจ้งเตือน (Notification Preferences)
+        <SectionHeading sub="ระบบจะแจ้งเตือนเมื่อพบประกาศ TOR ใหม่ที่มีคะแนนความตรงถึงเกณฑ์ที่คุณกำหนด">
+          การแจ้งเตือนโครงการที่ตรงกับโปรไฟล์ (In-App Job Match Alerts)
         </SectionHeading>
 
-        {/* Master Consent Toggle */}
-        <div className="mt-3.5 flex items-center gap-2.5">
-          <input
-            type="checkbox"
-            id="master-notif-consent"
-            checked={consent}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              setConsent(checked);
-              if (!checked) {
+        <div className="mt-4 space-y-4">
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="tor-match-toggle"
+              checked={draft.matchNotification?.enabled ?? false}
+              onChange={(e) =>
                 setDraft((prev) => ({
                   ...prev,
                   matchNotification: {
-                    enabled: false,
+                    enabled: e.target.checked,
                     minScore: prev.matchNotification?.minScore ?? 75,
                     frequency: prev.matchNotification?.frequency ?? "daily",
                     includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
                   },
-                }));
+                }))
               }
-            }}
-            className="h-[18px] w-[18px] rounded border-line text-ink cursor-pointer accent-ink"
-          />
-          <label htmlFor="master-notif-consent" className="cursor-pointer select-none">
-            <span className="text-[13px] font-semibold text-ink">
-              ยินยอมรับการแจ้งเตือนทางอีเมล (Email Consent)
-            </span>
-          </label>
-        </div>
+              className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-pointer accent-ink"
+            />
+            <label htmlFor="tor-match-toggle" className="text-[13px] leading-thai text-ink cursor-pointer select-none">
+              <span className="font-semibold text-ink">
+                เปิดรับการแจ้งเตือนประกาศที่ตรงกับโปรไฟล์ (In-App & Bell Feed)
+              </span>
+              <span className="block text-[12px] text-ink-3 mt-0.5">
+                เมื่อมีโครงการใหม่ที่ตรงกับโปรไฟล์ ระบบจะแจ้งเตือนผ่านกล่องข้อความและไอคอนกระดิ่งในเว็บไซต์
+              </span>
+            </label>
+          </div>
 
-        {/* Expanded Specific Notification Settings */}
-        {consent && (
-          <div className="mt-3.5 ml-2.5 space-y-4 border-l-2 border-line/60 pl-4 sm:pl-5">
-            {/* Specific Type: TOR Matching */}
-            <div>
-              <div className="flex items-start gap-2.5">
+          {/* Sub-options for Match Notifications */}
+          <div
+            className={`ml-7 space-y-3.5 transition-all ${
+              draft.matchNotification?.enabled
+                ? "opacity-100"
+                : "opacity-40 pointer-events-none select-none"
+            }`}
+          >
+            {/* Setting 1: Minimum Score Threshold */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[12px] font-medium text-ink-2">
+                  เกณฑ์คะแนนขั้นต่ำในการแจ้งเตือน:
+                </span>
+                <span className="rounded-[3px] border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink">
+                  {draft.matchNotification?.minScore ?? 75}%
+                </span>
+              </div>
+              <div className="flex items-center gap-2.5 w-full max-w-xs">
                 <input
-                  type="checkbox"
-                  id="tor-match-toggle"
-                  checked={draft.matchNotification?.enabled ?? false}
-                  onChange={(e) =>
+                  type="range"
+                  min={50}
+                  max={95}
+                  step={5}
+                  disabled={!draft.matchNotification?.enabled}
+                  value={draft.matchNotification?.minScore ?? 75}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
                     setDraft((prev) => ({
                       ...prev,
                       matchNotification: {
-                        enabled: e.target.checked,
-                        minScore: prev.matchNotification?.minScore ?? 75,
+                        enabled: prev.matchNotification?.enabled ?? true,
+                        minScore: val,
                         frequency: prev.matchNotification?.frequency ?? "daily",
                         includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
                       },
-                    }))
-                  }
-                  className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-pointer accent-ink"
+                    }));
+                  }}
+                  className="h-1.5 w-full cursor-pointer accent-ink my-auto disabled:cursor-not-allowed"
                 />
-                <label htmlFor="tor-match-toggle" className="text-[13.5px] leading-thai text-ink cursor-pointer select-none">
-                  <span className="text-[12px] font-semibold text-ink">
-                    เปิดรับการแจ้งเตือนประกาศที่ตรงกับโปรไฟล์ (TOR Matching)
-                  </span>
-                  <span className="block text-[12px] text-ink-3 mt-0.5">
-                    ระบบจะส่งสรุปรายการโครงการที่คะแนนความตรงถึงเกณฑ์ที่กำหนดไปยังอีเมลของคุณ
-                  </span>
-                </label>
-              </div>
-
-              {/* Sub-options: Always visible together, grayed out if TOR Matching is not checked */}
-              <div
-                className={`mt-2.5 ml-7 space-y-0.5 transition-all ${draft.matchNotification?.enabled
-                  ? "opacity-100"
-                  : "opacity-40 pointer-events-none select-none"
-                  }`}
-              >
-                {/* Setting 1: Minimum Score Threshold */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[12px] font-medium text-ink-2">
-                      เกณฑ์คะแนนขั้นต่ำในการแจ้งเตือน:
-                    </span>
-                    <span className="rounded-[3px] border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink">
-                      {draft.matchNotification?.minScore ?? 75}%
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2.5 w-full max-w-xs">
-                    <input
-                      type="range"
-                      min={50}
-                      max={95}
-                      step={5}
-                      disabled={!draft.matchNotification?.enabled}
-                      value={draft.matchNotification?.minScore ?? 75}
-                      onChange={(e) => {
-                        const val = Number(e.target.value);
-                        setDraft((prev) => ({
-                          ...prev,
-                          matchNotification: {
-                            enabled: prev.matchNotification?.enabled ?? true,
-                            minScore: val,
-                            frequency:
-                              prev.matchNotification?.frequency === "instant"
-                                ? "daily"
-                                : prev.matchNotification?.frequency ?? "daily",
-                            includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
-                          },
-                        }));
-                      }}
-                      className="h-1.5 w-full cursor-pointer accent-ink my-auto disabled:cursor-not-allowed"
-                    />
-                  </div>
-                </div>
-
-                {/* Setting 2: Notification Frequency */}
-                <div>
-                  <span className="text-[12px] font-medium text-ink-2 block">
-                    ความถี่ในการแจ้งเตือน:
-                  </span>
-                  <div className="mt-1.5 flex items-center gap-4 text-[12.5px]">
-                    {[
-                      { id: "daily", label: "วันละครั้ง" },
-                      { id: "weekly", label: "สัปดาห์ละครั้ง" },
-                    ].map((freq) => (
-                      <label
-                        key={freq.id}
-                        className={`flex items-center gap-1.5 ${draft.matchNotification?.enabled
-                          ? "cursor-pointer text-ink"
-                          : "cursor-not-allowed text-ink-3"
-                          }`}
-                      >
-                        <input
-                          type="radio"
-                          name="notif-frequency"
-                          disabled={!draft.matchNotification?.enabled}
-                          checked={
-                            (draft.matchNotification?.frequency ?? "daily") === freq.id ||
-                            (draft.matchNotification?.frequency === "instant" && freq.id === "daily")
-                          }
-                          onChange={() => {
-                            setDraft((prev) => ({
-                              ...prev,
-                              matchNotification: {
-                                enabled: prev.matchNotification?.enabled ?? true,
-                                minScore: prev.matchNotification?.minScore ?? 75,
-                                frequency: freq.id as "daily" | "weekly",
-                                includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
-                              },
-                            }));
-                          }}
-                          className="accent-ink cursor-pointer disabled:cursor-not-allowed"
-                        />
-                        <span>{freq.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
               </div>
             </div>
+
+            {/* Setting 2: Include Subcontracting */}
+            <div className="flex items-start gap-2.5">
+              <input
+                type="checkbox"
+                id="include-subcontract-toggle"
+                disabled={!draft.matchNotification?.enabled}
+                checked={draft.matchNotification?.includeSubcontract ?? true}
+                onChange={(e) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    matchNotification: {
+                      enabled: prev.matchNotification?.enabled ?? true,
+                      minScore: prev.matchNotification?.minScore ?? 75,
+                      frequency: prev.matchNotification?.frequency ?? "daily",
+                      includeSubcontract: e.target.checked,
+                    },
+                  }))
+                }
+                className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-pointer accent-ink"
+              />
+              <label htmlFor="include-subcontract-toggle" className="text-[12px] leading-thai text-ink cursor-pointer select-none">
+                <span className="font-medium text-ink-2">
+                  รวมโอกาสรับงานช่วง / กิจการร่วมค้า (Subcontracting & Joint Venture)
+                </span>
+                <span className="block text-[11.5px] text-ink-3">
+                  แจ้งเตือนโครงการขนาดใหญ่หรือโครงการเฉพาะนิติบุคคลที่คุณสามารถเข้าร่วมเป็นพาร์ตเนอร์ได้
+                </span>
+              </label>
+            </div>
           </div>
-        )}
+        </div>
+      </Panel>
+
+      {/* 8. Email Delivery & PDPA Consent */}
+      <Panel className="px-5 py-6 sm:px-7 sm:py-6">
+        <SectionHeading sub="ช่องทางรับอีเมลสรุปโครงการใหม่และอัปเดตโครงการที่คุณติดตาม">
+          การรับข้อมูลทางอีเมล (Email Digest & PDPA Consent)
+        </SectionHeading>
+
+        <div className="mt-4 space-y-4">
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="master-notif-consent"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-pointer accent-ink"
+            />
+            <label htmlFor="master-notif-consent" className="text-[13px] leading-thai text-ink cursor-pointer select-none">
+              <span className="font-semibold text-ink">
+                ยินยอมรับอีเมลสรุปโครงการ (Email Consent)
+              </span>
+              <span className="block text-[12px] text-ink-3 mt-0.5">
+                ระบบจะส่งอีเมลสรุปโครงการที่ตรงกับคุณและโครงการที่คุณติดตามไปยัง <span className="font-mono text-ink-2">{user.email}</span> (สามารถยกเลิกความยินยอมได้ตลอดเวลา)
+              </span>
+            </label>
+          </div>
+
+          {/* Email Frequency: Only available if email consent is checked */}
+          <div
+            className={`ml-7 space-y-2 transition-all ${
+              consent
+                ? "opacity-100"
+                : "opacity-40 pointer-events-none select-none"
+            }`}
+          >
+            <span className="text-[12px] font-medium text-ink-2 block">
+              ความถี่ในการส่งอีเมล:
+            </span>
+            <div className="flex items-center gap-5 text-[12.5px]">
+              {[
+                { id: "daily", label: "สรุปรายวัน (ทุกเช้า 08:00 น.)" },
+                { id: "weekly", label: "สรุปรายสัปดาห์ (ทุกวันจันทร์)" },
+              ].map((freq) => (
+                <label
+                  key={freq.id}
+                  className={`flex items-center gap-1.5 ${
+                    consent ? "cursor-pointer text-ink" : "cursor-not-allowed text-ink-3"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="notif-frequency"
+                    disabled={!consent}
+                    checked={
+                      (draft.matchNotification?.frequency ?? "daily") === freq.id ||
+                      (draft.matchNotification?.frequency === "instant" && freq.id === "daily")
+                    }
+                    onChange={() => {
+                      setDraft((prev) => ({
+                        ...prev,
+                        matchNotification: {
+                          enabled: prev.matchNotification?.enabled ?? false,
+                          minScore: prev.matchNotification?.minScore ?? 75,
+                          frequency: freq.id as "daily" | "weekly",
+                          includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
+                        },
+                      }));
+                    }}
+                    className="accent-ink cursor-pointer disabled:cursor-not-allowed"
+                  />
+                  <span>{freq.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
       </Panel>
 
       {/* Bottom Save / Cancel Bar */}

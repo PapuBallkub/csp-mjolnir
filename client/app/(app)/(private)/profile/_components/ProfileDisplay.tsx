@@ -406,52 +406,74 @@ export function ProfileDisplay({
       {/* 4. MATCH NOTIFICATION SETTINGS CARD */}
       <Panel className="p-5 sm:p-6">
         <div className="flex items-center justify-between border-b border-line/60 pb-3">
-          <SectionHeading sub="จัดการช่องทางและความยินยอมในการรับข้อมูลข่าวสารโครงการจากระบบ">
+          <SectionHeading sub="สถานะการแจ้งเตือนงานใหม่ในระบบและช่องทางอีเมล">
             การตั้งค่าการแจ้งเตือน (Notification Preferences)
           </SectionHeading>
-          <span
-            className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
-              user.notificationConsent && profile.matchNotification?.enabled
-                ? "bg-open-bg text-open border border-open-line"
-                : "bg-surface-2 text-ink-3 border border-line"
-            }`}
-          >
-            {user.notificationConsent && profile.matchNotification?.enabled
-              ? "เปิดใช้งาน"
-              : "ปิดอยู่"}
-          </span>
-        </div>
-
-        <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[13px] text-ink-2">
-          <div>
-            <p>
-              {!user.notificationConsent
-                ? "ยังไม่ยินยอมรับการแจ้งเตือนทางอีเมล"
-                : profile.matchNotification?.enabled
-                ? `ส่งสรุปงานที่ตรงตั้งแต่ ${profile.matchNotification.minScore}% ขึ้นไป (${
-                    profile.matchNotification.frequency === "weekly"
-                      ? "สัปดาห์ละครั้ง"
-                      : "วันละครั้ง"
-                  })`
-                : "ยินยอมรับการแจ้งเตือนทางอีเมลแล้ว แต่ปิดการแจ้งเตือนประกาศตรงโปรไฟล์"}
-            </p>
-            {user.notificationConsent &&
-              profile.matchNotification?.enabled &&
-              profile.matchNotification.includeSubcontract && (
-                <p className="mt-1 text-[11.5px] text-ink-3 inline-flex items-center gap-1">
-                  <Check className="h-3 w-3 text-open shrink-0" />
-                  <span>รวมโอกาสรับงานช่วง (Subcontract) และกิจการร่วมค้า</span>
-                </p>
-              )}
-          </div>
-
           <button
             type="button"
             onClick={onEdit}
             className={`${btn.secondary} text-[12px] shrink-0`}
           >
-            ตั้งค่าการแจ้งเตือน
+            แก้ไขการตั้งค่า
           </button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Channel 1: In-App Job Match Alerts */}
+          <div className="rounded-[4px] border border-line bg-surface-2/40 p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-ink">
+                การแจ้งเตือนในระบบ (In-App Feed)
+              </span>
+              <span
+                className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
+                  profile.matchNotification?.enabled
+                    ? "bg-open-bg text-open border border-open-line"
+                    : "bg-surface-2 text-ink-3 border border-line"
+                }`}
+              >
+                {profile.matchNotification?.enabled ? "เปิดใช้งาน" : "ปิดอยู่"}
+              </span>
+            </div>
+            <p className="mt-2 text-[12.5px] text-ink-2">
+              {profile.matchNotification?.enabled
+                ? `แจ้งเตือนโครงการที่ตรงตั้งแต่ ${profile.matchNotification.minScore}% ขึ้นไป`
+                : "ปิดรับการแจ้งเตือนโครงการในระบบ (กล่องข้อความและกระดิ่ง)"}
+            </p>
+            {profile.matchNotification?.enabled && profile.matchNotification.includeSubcontract && (
+              <p className="mt-1 text-[11.5px] text-ink-3 inline-flex items-center gap-1">
+                <Check className="h-3 w-3 text-open shrink-0" />
+                <span>รวมโอกาสรับงานช่วง (Subcontract) และกิจการร่วมค้า</span>
+              </p>
+            )}
+          </div>
+
+          {/* Channel 2: Email Digest */}
+          <div className="rounded-[4px] border border-line bg-surface-2/40 p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-ink">
+                การรับข้อมูลทางอีเมล (Email Digest)
+              </span>
+              <span
+                className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
+                  user.notificationConsent
+                    ? "bg-open-bg text-open border border-open-line"
+                    : "bg-surface-2 text-ink-3 border border-line"
+                }`}
+              >
+                {user.notificationConsent ? "ยินยอมรับอีเมล" : "ไม่รับอีเมล"}
+              </span>
+            </div>
+            <p className="mt-2 text-[12.5px] text-ink-2">
+              {user.notificationConsent
+                ? `ส่งสรุปโครงการใหม่แบบ${
+                    profile.matchNotification?.frequency === "weekly"
+                      ? "รายสัปดาห์ (วันจันทร์)"
+                      : "รายวัน (ทุกเช้า)"
+                  } ไปยัง ${user.email}`
+                : "ไม่ส่งข้อมูลโครงการไปยังอีเมลภายนอก (ตามความยินยอม PDPA)"}
+            </p>
+          </div>
         </div>
       </Panel>
     </div>

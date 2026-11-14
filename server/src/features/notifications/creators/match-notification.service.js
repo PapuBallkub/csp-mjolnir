@@ -1,5 +1,5 @@
 import { env } from '#common/config/env.js';
-import { calculateMatchScore } from '#features/match/matchmaker.js';
+import { calculateMatchScore, isProfileBaseline } from '#features/match/matchmaker.js';
 import { Notification, TorInsight, User } from '#models/index.js';
 import { sendMatchDigestEmail } from '../email.service.js';
 import { getNotifiedProjectIds } from './find-notification-duplication.js';
@@ -50,9 +50,9 @@ export function buildMatchSnapshot(matchedPairs) {
  */
 export function evaluateUserCandidateMatches(user, candidateTors, { minScore = 70 } = {}) {
   const profile = user.profile ?? {};
-  const userSkills = profile.skills ?? [];
 
-  if (!userSkills || userSkills.length === 0) {
+  // If match notifications are disabled by the user or profile is completely unconfigured
+  if (profile.matchNotification?.enabled === false || isProfileBaseline(profile)) {
     return [];
   }
 
@@ -66,8 +66,9 @@ export function evaluateUserCandidateMatches(user, candidateTors, { minScore = 7
     }
 
     // Filter strictly by the user's entity type (Company vs Individual):
-    // If user is a single person (individual), do not notify them for companies-only tenders
-    if (matchResult.breakdown?.entity?.disqualifiedDirectBid) {
+    // If user is a single person (individual), respect includeSubcontract setting
+    const includeSubcontract = profile.matchNotification?.includeSubcontract ?? true;
+    if (matchResult.breakdown?.entity?.disqualifiedDirectBid && !includeSubcontract) {
       continue;
     }
 
