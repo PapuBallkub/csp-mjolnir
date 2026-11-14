@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  AlertCircle,
   Bell,
   BowArrow,
   Check,
@@ -102,7 +103,7 @@ export default function NotificationsPage() {
   });
 
   return (
-    <div className="flex min-h-[calc(100vh-140px)] flex-col justify-between">
+    <div className="flex flex-1 flex-col justify-between">
       <div className="mx-auto w-full max-w-[1000px] flex-1 px-4 pt-6 pb-8">
         {/* Page Header */}
         <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -286,24 +287,26 @@ export default function NotificationsPage() {
 
       {/* Profile unconfigured callout (pinned flush directly above footer) */}
       {isProfileEmpty ? (
-        <div className="border-t border-amber-300/80 bg-amber-50/90 px-4 py-3 dark:border-amber-800/70 dark:bg-amber-950/40">
-          <div className="mx-auto flex max-w-[1000px] flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between text-[12.5px] leading-thai">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span className="font-semibold text-amber-950 dark:text-amber-200">
-                {lang === "th"
-                  ? "คุณยังไม่ได้ระบุทักษะหรือเงื่อนไขในโปรไฟล์"
-                  : "You haven't set up your profile skills or preferences yet"}
-              </span>
-              <span className="hidden sm:inline text-amber-600 dark:text-amber-400">·</span>
-              <span className="text-amber-900/90 dark:text-amber-300/80">
+        <div className="border-t border-amber-300 bg-amber-50 px-4 py-4 dark:border-amber-800/80 dark:bg-amber-950/40">
+          <div className="mx-auto flex max-w-[1000px] flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400 shrink-0" />
+                <h4 className="text-[13.5px] font-semibold text-amber-950 dark:text-amber-100">
+                  {lang === "th"
+                    ? "คุณยังไม่ได้ระบุทักษะหรือเงื่อนไขในโปรไฟล์"
+                    : "You haven't set up your profile skills or preferences yet"}
+                </h4>
+              </div>
+              <p className="mt-1 text-[12.5px] leading-thai text-amber-900/90 dark:text-amber-300/80">
                 {lang === "th"
                   ? "ระบบจะไม่สามารถค้นหาและแจ้งเตือนโครงการที่ตรงกับคุณได้ จนกว่าจะมีการบันทึกทักษะในโปรไฟล์"
                   : "The system cannot match and notify you of tenders until you save your skills in your profile."}
-              </span>
+              </p>
             </div>
             <Link
               href="/profile"
-              className="shrink-0 font-medium text-amber-950 underline underline-offset-2 hover:opacity-80 cursor-pointer dark:text-amber-100"
+              className="inline-flex shrink-0 items-center justify-center rounded-[3px] border border-amber-400/90 bg-amber-100/90 px-3.5 py-1.5 text-[12.5px] font-medium text-amber-950 transition-colors hover:bg-amber-200/90 cursor-pointer dark:border-amber-700 dark:bg-amber-900/60 dark:text-amber-100 dark:hover:bg-amber-900"
             >
               {lang === "th" ? "ไปที่หน้าตั้งค่าโปรไฟล์และทักษะ →" : "Go to Profile Settings →"}
             </Link>

@@ -342,7 +342,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 bg-canvas">{children}</main>
+      <main className="flex flex-1 flex-col bg-canvas">{children}</main>
 
       <footer className="mt-auto border-t border-line bg-surface">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 text-[11px] text-ink-3">
