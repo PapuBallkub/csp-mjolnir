@@ -428,13 +428,13 @@ export default function WatchdogPage() {
       <header className="mb-5">
         <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-ink">
           {lang === "th"
-            ? "แนวโน้มราคากลางและสัญญาณล็อกสเปก"
-            : "Reference price trends & lock-spec signals"}
+            ? "ภาพรวมราคาและความเสี่ยง"
+            : "Market Pricing & Risk Overview"}
         </h1>
         <p className="mt-1.5 max-w-2xl text-[14px] leading-thai text-ink-2">
           {lang === "th"
-            ? "เปรียบเทียบแนวโน้มราคากลางตามประเภทงาน และตรวจดูข้อกำหนดที่อาจจำกัดการแข่งขัน"
-            : "Compare reference price trends by project type and inspect requirements that may restrict competition."}
+            ? "วิเคราะห์ภาพรวมราคากลางเปรียบเทียบกับราคาตลาด และตรวจดูข้อกำหนดที่อาจจำกัดการแข่งขัน"
+            : "Analyze macro reference price trends against market baselines and inspect procurement risk signals."}
         </p>
       </header>
 
@@ -476,8 +476,8 @@ export default function WatchdogPage() {
           }
           body={
             lang === "th"
-              ? "ยังไม่พบประกาศจัดซื้อจัดจ้างในระบบ เมื่อมีข้อมูลประกาศเข้ามาแดชบอร์ดจะสรุปแนวโน้มราคากลางและสัญญาณล็อกสเปกโดยอัตโนมัติ"
-              : "No procurement projects have been ingested yet. Trends and lock-spec signals will appear automatically once data is available."
+              ? "ยังไม่พบประกาศจัดซื้อจัดจ้างในระบบ เมื่อมีข้อมูลประกาศเข้ามาแดชบอร์ดจะสรุปภาพรวมราคาและความเสี่ยงโดยอัตโนมัติ"
+              : "No procurement projects have been ingested yet. Trends and risk signals will appear automatically once data is available."
           }
           action={
             <button
