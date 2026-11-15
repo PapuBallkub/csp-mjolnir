@@ -12,17 +12,18 @@ import {
   type SystemArchetype,
   type WatchdogProjectRecord,
 } from "../../_data/watchdog";
-import { type RiskLevel } from "../../_data/tors";
+import { type RiskLevel, type Status } from "../../_data/tors";
 import { listTors, type TorInsightSummary } from "../../_lib/api";
-import { LockSpecBreakdown } from "./_components/LockSpecBreakdown";
+import { LockSpecOverview } from "./_components/LockSpecOverview";
+import { PriceRealitySummary } from "./_components/PriceRealitySummary";
 import { PriceTrendLineChart } from "./_components/PriceTrendLineChart";
 import { WatchdogEvidenceTable } from "./_components/WatchdogEvidenceTable";
 import { WatchdogFilterBar } from "./_components/WatchdogFilterBar";
-import { WatchdogKpiStrip } from "./_components/WatchdogKpiStrip";
 import {
   NORMAL_BAND_PCT,
   PRICE_BAND_OPTIONS,
   type PriceBandId,
+  type PriceRealityMetrics,
   type TableTab,
   type TimeGrain,
   type TimePoint,
@@ -33,6 +34,10 @@ import {
   formatMonthBucket,
   mapApiTorToWatchdog,
 } from "./_lib/watchdog-helpers";
+
+const ALL_STATUSES: Status[] = ["Open", "Draft", "Awarded", "Closed"];
+const ALL_RISK_LEVELS: RiskLevel[] = ["high", "medium", "low"];
+const ALL_COMPLEXITIES: ComplexityTier[] = ["basic", "standard", "enterprise"];
 
 export default function WatchdogPage() {
   const { lang } = useLang();
@@ -105,7 +110,7 @@ export default function WatchdogPage() {
 
   const allProjects = liveProjects ?? [];
 
-  // Dynamic timeline months derived from the active dataset
+  // Dynamic timeline months derived from active dataset
   const availableMonths = useMemo(() => {
     if (allProjects.length === 0) return TIMELINE_MONTHS;
     const uniqueKeys = Array.from(new Set(allProjects.map((p) => p.month))).sort();
@@ -118,10 +123,12 @@ export default function WatchdogPage() {
     availableMonths[availableMonths.length - 1]?.key ??
     TIMELINE_MONTHS[TIMELINE_MONTHS.length - 1].key;
 
-  // Global Filter State
-  const [category, setCategory] = useState<ProjectCategory | "all">("all");
-  const [archetype, setArchetype] = useState<SystemArchetype | "all">("all");
-  const [complexity, setComplexity] = useState<ComplexityTier | "all">("all");
+  // Universal Section 1 Filter States
+  const [selectedStatuses, setSelectedStatuses] = useState<Status[]>(ALL_STATUSES);
+  const [selectedRiskLevels, setSelectedRiskLevels] = useState<RiskLevel[]>(ALL_RISK_LEVELS);
+  const [selectedComplexities, setSelectedComplexities] = useState<ComplexityTier[]>(ALL_COMPLEXITIES);
+  const [selectedCategories, setSelectedCategories] = useState<ProjectCategory[]>([]);
+  const [selectedArchetypes, setSelectedArchetypes] = useState<SystemArchetype[]>([]);
   const [agencyFilter, setAgencyFilter] = useState<string>("all");
   const [priceBand, setPriceBand] = useState<PriceBandId>("all");
   const [startMonth, setStartMonth] = useState<string>("");
@@ -137,14 +144,40 @@ export default function WatchdogPage() {
       ? endMonth
       : defaultEndMonth;
 
-  // Interactive drill-down filters from charts/cards
-  const [selectedBucket, setSelectedBucket] = useState<string | null>(null);
-  const [selectedTrigger, setSelectedTrigger] = useState<LockSpecTriggerId | null>(null);
-  const [selectedRiskTier, setSelectedRiskTier] = useState<RiskLevel | null>(null);
-
-  // Bottom Table State
+  // Bottom Table View Mode State
   const [tableTab, setTableTab] = useState<TableTab>("flagged");
   const [rowLimit, setRowLimit] = useState<number>(10);
+
+  // Toggle Handlers
+  function toggleStatus(st: Status) {
+    setSelectedStatuses((prev) =>
+      prev.includes(st) ? (prev.length > 1 ? prev.filter((s) => s !== st) : prev) : [...prev, st],
+    );
+  }
+
+  function toggleRiskLevel(level: RiskLevel) {
+    setSelectedRiskLevels((prev) =>
+      prev.includes(level) ? (prev.length > 1 ? prev.filter((l) => l !== level) : prev) : [...prev, level],
+    );
+  }
+
+  function toggleComplexity(tier: ComplexityTier) {
+    setSelectedComplexities((prev) =>
+      prev.includes(tier) ? (prev.length > 1 ? prev.filter((t) => t !== tier) : prev) : [...prev, tier],
+    );
+  }
+
+  function toggleCategory(cat: ProjectCategory) {
+    setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
+    );
+  }
+
+  function toggleArchetype(arch: SystemArchetype) {
+    setSelectedArchetypes((prev) =>
+      prev.includes(arch) ? prev.filter((a) => a !== arch) : [...prev, arch],
+    );
+  }
 
   // Unique agencies for dropdown
   const agencies = useMemo(() => {
@@ -161,24 +194,36 @@ export default function WatchdogPage() {
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
   }, [allProjects]);
 
-  // 1. Filter projects by top global filter bar
+  // 1. Single Top Filter Bar drives the entire dataset
   const filteredByTopBar = useMemo(() => {
     const band = PRICE_BAND_OPTIONS.find((b) => b.id === priceBand);
     return allProjects.filter((p) => {
-      if (category !== "all" && p.category !== category) return false;
-      if (archetype !== "all" && p.archetype !== archetype) return false;
-      if (complexity !== "all" && p.complexity !== complexity) return false;
+      // Status
+      if (!selectedStatuses.includes(p.status)) return false;
+      // Lock-Spec Risk Level
+      if (!selectedRiskLevels.includes(p.lockSpecLevel)) return false;
+      // Complexity Tier
+      if (!selectedComplexities.includes(p.complexity)) return false;
+      // Category
+      if (selectedCategories.length > 0 && !selectedCategories.includes(p.category)) return false;
+      // System Archetype
+      if (selectedArchetypes.length > 0 && !selectedArchetypes.includes(p.archetype)) return false;
+      // Agency
       if (agencyFilter !== "all" && p.agency.th !== agencyFilter) return false;
+      // Price Band
       if (band?.min !== undefined && p.referencePriceTHB < band.min) return false;
       if (band?.max !== undefined && p.referencePriceTHB > band.max) return false;
+      // Time Period
       if (p.month < effectiveStartMonth || p.month > effectiveEndMonth) return false;
       return true;
     });
   }, [
     allProjects,
-    category,
-    archetype,
-    complexity,
+    selectedStatuses,
+    selectedRiskLevels,
+    selectedComplexities,
+    selectedCategories,
+    selectedArchetypes,
     agencyFilter,
     priceBand,
     effectiveStartMonth,
@@ -244,24 +289,65 @@ export default function WatchdogPage() {
     effectiveEndMonth,
   ]);
 
-  // 3. Summary KPI metrics for the current slice
-  const kpis = useMemo(() => {
+  // 3. Financial Metrics for Section 3 (Price Reality Check Summary)
+  const priceMetrics = useMemo<PriceRealityMetrics>(() => {
+    const torCount = filteredByTopBar.length;
+    if (torCount === 0) {
+      return {
+        torCount: 0,
+        overallMedian: 0,
+        overallAverage: 0,
+        avgDeltaPct: 0,
+        outlierCount: 0,
+        outlierRatePct: 0,
+        highOutlierCount: 0,
+        lowOutlierCount: 0,
+        minPrice: 0,
+        maxPrice: 0,
+      };
+    }
+
+    const prices = filteredByTopBar.map((p) => p.referencePriceTHB);
+    const medians = filteredByTopBar.map((p) => p.peerMedianTHB);
+    const averages = filteredByTopBar.map((p) => p.peerAverageTHB);
+
+    const overallMedian = computeMedian(medians);
+    const overallAverage = computeAverage(averages);
+    const avgDeltaPct = overallMedian > 0
+      ? Number((((overallAverage - overallMedian) / overallMedian) * 100).toFixed(1))
+      : 0;
+
+    let highOutlierCount = 0;
+    let lowOutlierCount = 0;
+    for (const p of filteredByTopBar) {
+      const delta = calcPriceDeltaPct(p);
+      if (delta > NORMAL_BAND_PCT) highOutlierCount += 1;
+      else if (delta < -NORMAL_BAND_PCT) lowOutlierCount += 1;
+    }
+
+    const outlierCount = highOutlierCount + lowOutlierCount;
+    const outlierRatePct = Math.round((outlierCount / torCount) * 100);
+
+    return {
+      torCount,
+      overallMedian,
+      overallAverage,
+      avgDeltaPct,
+      outlierCount,
+      outlierRatePct,
+      highOutlierCount,
+      lowOutlierCount,
+      minPrice: Math.min(...prices),
+      maxPrice: Math.max(...prices),
+    };
+  }, [filteredByTopBar]);
+
+  // 4. Compliance and Statutory Metrics for Section 4 (Lock-Spec Overview)
+  const lockSpecMetrics = useMemo(() => {
     const extractedCount = filteredByTopBar.length;
-    const activeCount = filteredByTopBar.filter(
-      (p) => p.status === "Open" || p.status === "Draft",
-    ).length;
-    const completedCount = extractedCount - activeCount;
-
-    const overallMedian = computeMedian(filteredByTopBar.map((p) => p.peerMedianTHB));
-    const overallAverage = computeAverage(filteredByTopBar.map((p) => p.peerAverageTHB));
-
     const lowCount = filteredByTopBar.filter((p) => p.lockSpecLevel === "low").length;
     const medCount = filteredByTopBar.filter((p) => p.lockSpecLevel === "medium").length;
     const highCount = filteredByTopBar.filter((p) => p.lockSpecLevel === "high").length;
-
-    const flaggedRiskCount = medCount + highCount;
-    const riskRatePct =
-      extractedCount > 0 ? Math.round((flaggedRiskCount / extractedCount) * 100) : 0;
 
     const triggerCounts: Record<LockSpecTriggerId, number> = {
       "Specification Tailoring": 0,
@@ -276,41 +362,16 @@ export default function WatchdogPage() {
 
     return {
       extractedCount,
-      activeCount,
-      completedCount,
-      overallMedian,
-      overallAverage,
       lowCount,
       medCount,
       highCount,
-      flaggedRiskCount,
-      riskRatePct,
       triggerCounts,
     };
   }, [filteredByTopBar]);
 
-  // 4. Filter projects for the bottom table
+  // 5. Projects for Section 5 (Evidence Board Table)
   const tableProjects = useMemo(() => {
     let list = [...filteredByTopBar];
-
-    if (selectedBucket) {
-      if (timeGrain === "monthly") {
-        list = list.filter((p) => p.month === selectedBucket);
-      } else {
-        const monthKeys = availableMonths
-          .filter((m) => m.quarter === selectedBucket)
-          .map((m) => m.key);
-        list = list.filter((p) => monthKeys.includes(p.month));
-      }
-    }
-
-    if (selectedRiskTier) {
-      list = list.filter((p) => p.lockSpecLevel === selectedRiskTier);
-    }
-
-    if (selectedTrigger) {
-      list = list.filter((p) => p.triggers.some((t) => t.category === selectedTrigger));
-    }
 
     if (tableTab === "flagged") {
       list = list
@@ -336,39 +397,29 @@ export default function WatchdogPage() {
     }
 
     return list;
-  }, [
-    availableMonths,
-    filteredByTopBar,
-    selectedBucket,
-    selectedRiskTier,
-    selectedTrigger,
-    tableTab,
-    timeGrain,
-  ]);
+  }, [filteredByTopBar, tableTab]);
 
   const hasActiveFilters =
-    category !== "all" ||
-    archetype !== "all" ||
-    complexity !== "all" ||
+    selectedStatuses.length < ALL_STATUSES.length ||
+    selectedRiskLevels.length < ALL_RISK_LEVELS.length ||
+    selectedComplexities.length < ALL_COMPLEXITIES.length ||
+    selectedCategories.length > 0 ||
+    selectedArchetypes.length > 0 ||
     agencyFilter !== "all" ||
     priceBand !== "all" ||
     effectiveStartMonth !== defaultStartMonth ||
-    effectiveEndMonth !== defaultEndMonth ||
-    selectedBucket !== null ||
-    selectedTrigger !== null ||
-    selectedRiskTier !== null;
+    effectiveEndMonth !== defaultEndMonth;
 
   function resetAllFilters() {
-    setCategory("all");
-    setArchetype("all");
-    setComplexity("all");
+    setSelectedStatuses(ALL_STATUSES);
+    setSelectedRiskLevels(ALL_RISK_LEVELS);
+    setSelectedComplexities(ALL_COMPLEXITIES);
+    setSelectedCategories([]);
+    setSelectedArchetypes([]);
     setAgencyFilter("all");
     setPriceBand("all");
     setStartMonth(defaultStartMonth);
     setEndMonth(defaultEndMonth);
-    setSelectedBucket(null);
-    setSelectedTrigger(null);
-    setSelectedRiskTier(null);
   }
 
   return (
@@ -440,35 +491,31 @@ export default function WatchdogPage() {
         />
       ) : (
         <>
-          {/* 1. Global Filter Bar */}
+          {/* SECTION 1: Universal Top Filter Bar (The only place to influence data) */}
           <WatchdogFilterBar
             lang={lang}
-            category={category}
-            onCategoryChange={(val) => {
-              setCategory(val);
-              setSelectedBucket(null);
-            }}
-            archetype={archetype}
-            onArchetypeChange={(val) => {
-              setArchetype(val);
-              setSelectedBucket(null);
-            }}
-            complexity={complexity}
-            onComplexityChange={(val) => {
-              setComplexity(val);
-              setSelectedBucket(null);
-            }}
+            selectedStatuses={selectedStatuses}
+            onToggleStatus={toggleStatus}
+            onSelectAllStatuses={() => setSelectedStatuses(ALL_STATUSES)}
+            selectedRiskLevels={selectedRiskLevels}
+            onToggleRiskLevel={toggleRiskLevel}
+            onSelectAllRiskLevels={() => setSelectedRiskLevels(ALL_RISK_LEVELS)}
+            selectedComplexities={selectedComplexities}
+            onToggleComplexity={toggleComplexity}
+            onSelectAllComplexities={() => setSelectedComplexities(ALL_COMPLEXITIES)}
+            selectedCategories={selectedCategories}
+            onToggleCategory={toggleCategory}
+            onSelectAllCategories={() => setSelectedCategories(allProjects.map((p) => p.category))}
+            onClearCategories={() => setSelectedCategories([])}
+            selectedArchetypes={selectedArchetypes}
+            onToggleArchetype={toggleArchetype}
+            onSelectAllArchetypes={() => setSelectedArchetypes(allProjects.map((p) => p.archetype))}
+            onClearArchetypes={() => setSelectedArchetypes([])}
             agencyFilter={agencyFilter}
-            onAgencyChange={(val) => {
-              setAgencyFilter(val);
-              setSelectedBucket(null);
-            }}
+            onAgencyChange={setAgencyFilter}
             agencies={agencies}
             priceBand={priceBand}
-            onPriceBandChange={(val) => {
-              setPriceBand(val);
-              setSelectedBucket(null);
-            }}
+            onPriceBandChange={setPriceBand}
             effectiveStartMonth={effectiveStartMonth}
             effectiveEndMonth={effectiveEndMonth}
             defaultStartMonth={defaultStartMonth}
@@ -476,23 +523,18 @@ export default function WatchdogPage() {
             onStartMonthChange={(val) => {
               setStartMonth(val);
               if (val > effectiveEndMonth) setEndMonth(val);
-              setSelectedBucket(null);
             }}
             onEndMonthChange={(val) => {
               setEndMonth(val);
               if (val < effectiveStartMonth) setStartMonth(val);
-              setSelectedBucket(null);
             }}
             availableMonths={availableMonths}
-            selectedBucket={selectedBucket}
-            selectedTrigger={selectedTrigger}
-            selectedRiskTier={selectedRiskTier}
             hasActiveFilters={hasActiveFilters}
             onResetFilters={resetAllFilters}
           />
 
-          {/* 2. Main Time-Series Visualization */}
-          <section className="mb-5">
+          {/* SECTION 2: Macro Trend Line Chart */}
+          <section className="mb-8">
             <SectionHeading
               sub={
                 lang === "th"
@@ -503,10 +545,7 @@ export default function WatchdogPage() {
                 <div className="inline-flex rounded-[3px] border border-line bg-surface-2 p-0.5">
                   <button
                     type="button"
-                    onClick={() => {
-                      setTimeGrain("monthly");
-                      setSelectedBucket(null);
-                    }}
+                    onClick={() => setTimeGrain("monthly")}
                     className={`rounded-[2px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
                       timeGrain === "monthly"
                         ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
@@ -517,10 +556,7 @@ export default function WatchdogPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setTimeGrain("quarterly");
-                      setSelectedBucket(null);
-                    }}
+                    onClick={() => setTimeGrain("quarterly")}
                     className={`rounded-[2px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
                       timeGrain === "quarterly"
                         ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
@@ -534,43 +570,33 @@ export default function WatchdogPage() {
             >
               {lang === "th"
                 ? "แนวโน้มราคากลางและกรอบราคาตลาดย้อนหลัง"
-                : "Historical price trend & market band"}
+                : "Historical Price Trend & Market Band"}
             </SectionHeading>
 
             <Panel className="p-4">
               <PriceTrendLineChart
                 series={timeSeries}
                 lang={lang}
-                activeBucket={selectedBucket}
-                onSelectBucket={setSelectedBucket}
+                activeBucket={null}
+                onSelectBucket={() => {}}
               />
             </Panel>
           </section>
 
-          {/* 3. KPI Summary Strip */}
-          <WatchdogKpiStrip kpis={kpis} lang={lang} />
+          {/* SECTION 3: Price Reality Check Summary (Clearly emphasizes Reference Price vs Budget) */}
+          <PriceRealitySummary lang={lang} metrics={priceMetrics} />
 
-          {/* 4. Macro Lock-Spec Risk Breakdown */}
-          <LockSpecBreakdown
+          {/* SECTION 4: Lock-Spec Statutory Overview (Read-Only Status Gauge) */}
+          <LockSpecOverview
             lang={lang}
-            extractedCount={kpis.extractedCount}
-            lowCount={kpis.lowCount}
-            medCount={kpis.medCount}
-            highCount={kpis.highCount}
-            triggerCounts={kpis.triggerCounts}
-            selectedRiskTier={selectedRiskTier}
-            onSelectRiskTier={(level) => {
-              setSelectedRiskTier(level);
-              if (level) setTableTab("all");
-            }}
-            selectedTrigger={selectedTrigger}
-            onSelectTrigger={(trig) => {
-              setSelectedTrigger(trig);
-              if (trig) setTableTab("lockspec");
-            }}
+            extractedCount={lockSpecMetrics.extractedCount}
+            lowCount={lockSpecMetrics.lowCount}
+            medCount={lockSpecMetrics.medCount}
+            highCount={lockSpecMetrics.highCount}
+            triggerCounts={lockSpecMetrics.triggerCounts}
           />
 
-          {/* 5. Notable & Flagged Projects Table */}
+          {/* SECTION 5: Evidence Board Table (Audit Trail) */}
           <WatchdogEvidenceTable
             lang={lang}
             tableProjects={tableProjects}
@@ -580,7 +606,7 @@ export default function WatchdogPage() {
             onRowLimitChange={setRowLimit}
             onResetFilters={resetAllFilters}
             dataSource={dataSource}
-            totalProjectsCount={allProjects.length}
+            totalProjectsCount={filteredByTopBar.length}
           />
         </>
       )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "lucide-react";
 import {
   formatTHB,
   formatTHBCompact,
@@ -27,8 +28,8 @@ export function PriceTrendLineChart({
 }: {
   series: TimePoint[];
   lang: Lang;
-  activeBucket: string | null;
-  onSelectBucket: (key: string | null) => void;
+  activeBucket?: string | null;
+  onSelectBucket?: (key: string | null) => void;
 }) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
@@ -43,7 +44,7 @@ export function PriceTrendLineChart({
         }
         body={
           lang === "th"
-            ? "ลองเปลี่ยนหมวดหมู่งาน รูปแบบระบบ หรือล้างตัวกรองเพื่อดูภาพรวมทั้งหมด"
+            ? "ลองปรับเปลี่ยนสถานะ หมวดหมู่งาน รูปแบบระบบ หรือล้างตัวกรองเพื่อดูภาพรวมทั้งหมด"
             : "Try broadening the category, system archetype, or resetting filters."
         }
       />
@@ -51,7 +52,6 @@ export function PriceTrendLineChart({
   }
 
   // Compute Y-axis domain from all medians, averages, bands including realistic scale
-  // Use P92 ceiling if extreme outliers exist so a single outlier doesn't flatten ฿1M–฿15M trends
   const bandAndLinePrices: number[] = [];
   const allProjectPrices: number[] = [];
   for (const pt of series) {
@@ -155,7 +155,7 @@ export function PriceTrendLineChart({
           </span>
         </div>
 
-        {activeBucket ? (
+        {activeBucket && onSelectBucket ? (
           <button
             type="button"
             onClick={() => onSelectBucket(null)}
@@ -166,13 +166,13 @@ export function PriceTrendLineChart({
                 ? `กำลังกรองเฉพาะช่วง: ${series.find((s) => s.key === activeBucket)?.label}`
                 : `Filtered to: ${series.find((s) => s.key === activeBucket)?.label}`}
             </span>
-            <span className="text-ink-3">✕</span>
+            <X className="h-3 w-3 text-ink-3" />
           </button>
         ) : (
           <span className="text-[11.5px] text-ink-3">
             {lang === "th"
-              ? "คลิกที่จุดบนกราฟเพื่อกรองตารางด้านล่างตามช่วงเวลา"
-              : "Click any point on the chart to filter the project list below"}
+              ? "ชี้เมาส์เหนือจุดบนกราฟเพื่อดูรายละเอียดราคาและโครงการ"
+              : "Hover over points on the chart to inspect details"}
           </span>
         )}
       </div>
@@ -289,7 +289,7 @@ export function PriceTrendLineChart({
                 className="cursor-pointer"
                 onMouseEnter={() => setHoveredKey(pt.key)}
                 onMouseLeave={() => setHoveredKey(null)}
-                onClick={() => onSelectBucket(activeBucket === pt.key ? null : pt.key)}
+                onClick={() => onSelectBucket?.(activeBucket === pt.key ? null : pt.key)}
               >
                 {/* Active or hovered vertical highlight column */}
                 {isSelected || isHovered ? (

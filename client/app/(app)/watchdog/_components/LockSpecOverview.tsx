@@ -1,5 +1,6 @@
 "use client";
 
+import { FileText, Scale, ShieldAlert } from "lucide-react";
 import { pick, type Lang, type RiskLevel } from "../../../_data/tors";
 import {
   LOCK_SPEC_TRIGGERS_META,
@@ -8,31 +9,27 @@ import {
 import { Panel, SectionHeading } from "../../../_components/ui";
 import { RiskMeter, TONE } from "../../../_components/verdict";
 
-export type LockSpecBreakdownProps = {
+export type LockSpecOverviewProps = {
   lang: Lang;
   extractedCount: number;
   lowCount: number;
   medCount: number;
   highCount: number;
   triggerCounts: Record<LockSpecTriggerId, number>;
-  selectedRiskTier: RiskLevel | null;
-  onSelectRiskTier: (level: RiskLevel | null) => void;
-  selectedTrigger: LockSpecTriggerId | null;
-  onSelectTrigger: (trig: LockSpecTriggerId | null) => void;
 };
 
-export function LockSpecBreakdown({
+export function LockSpecOverview({
   lang,
   extractedCount,
   lowCount,
   medCount,
   highCount,
   triggerCounts,
-  selectedRiskTier,
-  onSelectRiskTier,
-  selectedTrigger,
-  onSelectTrigger,
-}: LockSpecBreakdownProps) {
+}: LockSpecOverviewProps) {
+  const highPct = extractedCount > 0 ? Math.round((highCount / extractedCount) * 100) : 0;
+  const medPct = extractedCount > 0 ? Math.round((medCount / extractedCount) * 100) : 0;
+  const lowPct = extractedCount > 0 ? Math.round((lowCount / extractedCount) * 100) : 0;
+
   return (
     <section className="mb-8">
       <SectionHeading
@@ -44,18 +41,18 @@ export function LockSpecBreakdown({
       >
         {lang === "th"
           ? "ภาพรวมความเสี่ยงล็อกสเปกและเงื่อนไขจำกัดการแข่งขัน"
-          : "Lock-spec risk distribution & statutory triggers"}
+          : "Lock-Spec Statutory Risk Overview"}
       </SectionHeading>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        {/* Left Card (5 cols): Risk Tier Breakdown */}
+        {/* Left Card (5 cols): Risk Tier Breakdown (Read-Only) */}
         <Panel className="flex flex-col justify-between p-4 lg:col-span-5">
           <div>
             <div className="flex items-baseline justify-between gap-2">
               <h3 className="text-[14px] font-semibold text-ink">
                 {lang === "th"
                   ? "สัดส่วนระดับความเสี่ยงในกลุ่มนี้"
-                  : "Risk tier breakdown in this slice"}
+                  : "Risk tier distribution in this slice"}
               </h3>
               <span className="font-mono text-[11px] text-ink-3">
                 {extractedCount}{" "}
@@ -70,27 +67,27 @@ export function LockSpecBreakdown({
                   <div
                     style={{ width: `${(highCount / extractedCount) * 100}%` }}
                     className="bg-risk transition-all"
-                    title={`High Risk: ${highCount}`}
+                    title={`High Risk: ${highCount} (${highPct}%)`}
                   />
                 ) : null}
                 {medCount > 0 ? (
                   <div
                     style={{ width: `${(medCount / extractedCount) * 100}%` }}
                     className="bg-amend transition-all"
-                    title={`Medium Risk: ${medCount}`}
+                    title={`Medium Risk: ${medCount} (${medPct}%)`}
                   />
                 ) : null}
                 {lowCount > 0 ? (
                   <div
                     style={{ width: `${(lowCount / extractedCount) * 100}%` }}
                     className="bg-open transition-all"
-                    title={`Low Risk: ${lowCount}`}
+                    title={`Low Risk: ${lowCount} (${lowPct}%)`}
                   />
                 ) : null}
               </div>
             ) : null}
 
-            {/* Interactive Tier Rows */}
+            {/* Tier Rows (Read-Only Gauge) */}
             <div className="mt-4 flex flex-col divide-y divide-line border-t border-line">
               {(
                 [
@@ -105,6 +102,7 @@ export function LockSpecBreakdown({
                       en: "Triggers 2 or more Circular ว 214 barriers",
                     },
                     count: highCount,
+                    pct: highPct,
                   },
                   {
                     level: "medium" as RiskLevel,
@@ -117,6 +115,7 @@ export function LockSpecBreakdown({
                       en: "Triggers 1 Circular ว 214 barrier",
                     },
                     count: medCount,
+                    pct: medPct,
                   },
                   {
                     level: "low" as RiskLevel,
@@ -129,64 +128,54 @@ export function LockSpecBreakdown({
                       en: "No statutory lock-spec barriers detected",
                     },
                     count: lowCount,
+                    pct: lowPct,
                   },
                 ] as const
-              ).map((row) => {
-                const pct =
-                  extractedCount > 0
-                    ? Math.round((row.count / extractedCount) * 100)
-                    : 0;
-                const active = selectedRiskTier === row.level;
-                return (
-                  <button
-                    key={row.level}
-                    type="button"
-                    onClick={() => onSelectRiskTier(active ? null : row.level)}
-                    className={`flex w-full items-center justify-between gap-3 px-2 py-2.5 text-left transition-colors cursor-pointer ${
-                      active ? "bg-surface-3" : "hover:bg-surface-2"
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <RiskMeter level={row.level} />
-                        <span className="text-[13px] font-medium text-ink">
-                          {pick(row.label, lang)}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-[11.5px] leading-thai text-ink-3">
-                        {pick(row.desc, lang)}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-right font-mono tnum">
-                      <span className="text-[14px] font-semibold text-ink">
-                        {row.count}
+              ).map((row) => (
+                <div
+                  key={row.level}
+                  className="flex w-full items-center justify-between gap-3 px-2 py-2.5 text-left"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <RiskMeter level={row.level} />
+                      <span className="text-[13px] font-medium text-ink">
+                        {pick(row.label, lang)}
                       </span>
-                      <span className="ml-1.5 text-[11.5px] text-ink-3">({pct}%)</span>
                     </div>
-                  </button>
-                );
-              })}
+                    <p className="mt-0.5 text-[11.5px] leading-thai text-ink-3">
+                      {pick(row.desc, lang)}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right font-mono tnum">
+                    <span className="text-[14px] font-semibold text-ink">
+                      {row.count}
+                    </span>
+                    <span className="ml-1.5 text-[11.5px] text-ink-3">({row.pct}%)</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
           <p className="mt-3 border-t border-line pt-2.5 text-[11px] leading-thai text-ink-3">
             {lang === "th"
-              ? "คลิกที่แถวระดับความเสี่ยงเพื่อกรองตารางโครงการด้านล่าง"
-              : "Click any risk tier row to filter the project list below."}
+              ? "เกณฑ์จำแนกอิงตามหนังสือเวียน ว 214 เพื่อเปิดเผยระดับการแข่งขันที่เป็นธรรม"
+              : "Classified per Circular ว 214 to surface competitive neutrality."}
           </p>
         </Panel>
 
-        {/* Right Card (7 cols): The 3 Circular ว 214 Trigger Categories */}
+        {/* Right Card (7 cols): The 3 Circular ว 214 Trigger Categories (Read-Only) */}
         <Panel className="flex flex-col justify-between p-4 lg:col-span-7">
           <div>
             <div className="flex items-baseline justify-between gap-2">
               <h3 className="text-[14px] font-semibold text-ink">
                 {lang === "th"
                   ? "จำแนกตามเกณฑ์หนังสือเวียน ว 214 (3 หมวดหลัก)"
-                  : "Breakdown by Circular ว 214 statutory criteria"}
+                  : "Circular ว 214 statutory criteria breakdown"}
               </h3>
               <span className="text-[11.5px] text-ink-3">
-                {lang === "th" ? "คลิกเพื่อดูโครงการที่เข้าเกณฑ์" : "Click to filter projects"}
+                {lang === "th" ? "ข้อกำหนดจำกัดการแข่งขันที่พบบ่อย" : "Frequently detected barriers"}
               </span>
             </div>
 
@@ -195,18 +184,11 @@ export function LockSpecBreakdown({
                 const count = triggerCounts[trig.id] ?? 0;
                 const maxTrig = Math.max(1, ...Object.values(triggerCounts));
                 const barPct = Math.round((count / maxTrig) * 100);
-                const active = selectedTrigger === trig.id;
 
                 return (
-                  <button
+                  <div
                     key={trig.id}
-                    type="button"
-                    onClick={() => onSelectTrigger(active ? null : trig.id)}
-                    className={`flex flex-col gap-1.5 rounded-[3px] border p-3 text-left transition-colors cursor-pointer ${
-                      active
-                        ? "border-ink bg-surface-3"
-                        : "border-line bg-surface-2 hover:border-line-2"
-                    }`}
+                    className="flex flex-col gap-1.5 rounded-[3px] border border-line bg-surface-2 p-3 text-left"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
@@ -243,7 +225,7 @@ export function LockSpecBreakdown({
                         {pick(trig.legalRef, lang)}
                       </span>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>

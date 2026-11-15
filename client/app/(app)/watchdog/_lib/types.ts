@@ -41,3 +41,16 @@ export type TimePoint = {
   highRiskCount: number;
   projects: WatchdogProjectRecord[];
 };
+
+export type PriceRealityMetrics = {
+  torCount: number;
+  overallMedian: number;
+  overallAverage: number;
+  avgDeltaPct: number;
+  outlierCount: number;
+  outlierRatePct: number;
+  highOutlierCount: number;
+  lowOutlierCount: number;
+  minPrice: number;
+  maxPrice: number;
+};

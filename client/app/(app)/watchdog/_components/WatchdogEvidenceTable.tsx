@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AlertTriangle, ExternalLink, FileSearch } from "lucide-react";
 import {
   formatDate,
   formatTHB,
@@ -52,8 +53,8 @@ export function WatchdogEvidenceTable({
       <SectionHeading
         sub={
           lang === "th"
-            ? "แสดงเฉพาะโครงการสำคัญในกลุ่มตัวกรองที่เลือก เพื่อตรวจสอบราคากลางเทียบค่ามัธยฐานและหลักฐานข้อกำหนดที่สุ่มเสี่ยง"
-            : "Inspect notable projects in the active filter slice, comparing reference prices against peer medians and reviewing extracted lock-spec clauses."
+            ? "หลักฐานและรายละเอียดโครงการที่ตรวจพบ เพื่อตรวจสอบราคากลางเทียบค่ามัธยฐานและข้อกำหนดจริงจากเอกสาร TOR"
+            : "Audit trail and evidence table: compare reference prices against historical peer medians and examine extracted TOR clauses."
         }
         right={
           <div className="flex flex-wrap items-center gap-2">
@@ -79,8 +80,8 @@ export function WatchdogEvidenceTable({
         }
       >
         {lang === "th"
-          ? "โครงการที่ควรจับตาในกลุ่มนี้"
-          : "Notable & flagged projects in this slice"}
+          ? "กระดานหลักฐานโครงการ (Evidence & Audit Trail)"
+          : "Evidence Board & Audit Trail"}
       </SectionHeading>
 
       {/* View Mode Tabs */}
@@ -149,8 +150,8 @@ export function WatchdogEvidenceTable({
           }
           body={
             lang === "th"
-              ? "ลองสลับแท็บเป็น “ทุกโครงการในกลุ่มนี้” หรือล้างตัวกรองย่อยด้านบน"
-              : "Try switching to the “All projects in slice” tab or clearing active sub-filters."
+              ? "ลองสลับแท็บเป็น “ทุกโครงการในกลุ่มนี้” หรือปรับเปลี่ยนตัวกรองหลักด้านบน"
+              : "Try switching to the “All projects in slice” tab or adjusting top-level filters."
           }
           action={
             <button type="button" onClick={onResetFilters} className={btn.secondary}>
@@ -160,7 +161,7 @@ export function WatchdogEvidenceTable({
         />
       ) : (
         <Panel className="overflow-x-auto">
-          <table className="w-full min-w-[820px] border-collapse text-left">
+          <table className="w-full min-w-[840px] border-collapse text-left">
             <thead>
               <tr className="border-b border-line bg-surface-2">
                 <th className="px-3.5 py-2.5 text-[11.5px] font-medium text-ink-3">
@@ -171,16 +172,16 @@ export function WatchdogEvidenceTable({
                 </th>
                 <th className="px-3 py-2.5 text-right text-[11.5px] font-medium text-ink-3">
                   {lang === "th"
-                    ? "ราคากลาง vs ค่ามัธยฐานกลุ่ม"
-                    : "Reference vs peer median"}
+                    ? "ราคากลาง vs มัธยฐานตลาด"
+                    : "Reference price vs peer median"}
                 </th>
                 <th className="px-3 py-2.5 text-[11.5px] font-medium text-ink-3">
-                  {lang === "th" ? "ส่วนต่างราคา" : "Price check"}
+                  {lang === "th" ? "ส่วนต่างราคากลาง" : "Price check"}
                 </th>
                 <th className="px-3.5 py-2.5 text-[11.5px] font-medium text-ink-3">
                   {lang === "th"
-                    ? "ความเสี่ยงล็อกสเปกและข้อกำหนดที่พบ"
-                    : "Lock-spec verdict & findings"}
+                    ? "ผลการตรวจล็อกสเปกและหลักฐานข้อกำหนด"
+                    : "Lock-spec verdict & evidence"}
                 </th>
               </tr>
             </thead>
@@ -193,7 +194,7 @@ export function WatchdogEvidenceTable({
                     className="align-top transition-colors hover:bg-surface-2/60"
                   >
                     {/* Col 1: Project Title, ID, Agency, Status */}
-                    <td className="max-w-[330px] px-3.5 py-3">
+                    <td className="max-w-[320px] px-3.5 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <StatusBadge status={proj.status} lang={lang} />
                         <span className="font-mono tnum text-[11px] text-ink-3">
@@ -224,18 +225,20 @@ export function WatchdogEvidenceTable({
                       </div>
                     </td>
 
-                    {/* Col 3: Reference Price vs Peer Median */}
+                    {/* Col 3: Reference Price (ราคากลาง) vs Peer Median */}
                     <td className="px-3 py-3 text-right font-mono tnum whitespace-nowrap">
                       <div className="text-[13.5px] font-semibold text-ink">
                         {formatTHB(proj.referencePriceTHB)}
                       </div>
-                      <div className="mt-0.5 text-[11.5px] text-ink-3">
-                        {lang === "th" ? "ค่ากลาง " : "Median "}
+                      <div className="mt-0.5 text-[11px] text-ink-3">
+                        <span className="font-sans text-[10.5px] font-medium text-ink-3">
+                          {lang === "th" ? "ราคากลาง · กลางตลาด " : "Ref. price · Median "}
+                        </span>
                         {formatTHBCompact(proj.peerMedianTHB)}
                       </div>
                       {proj.agreedPriceTHB ? (
                         <div className="mt-0.5 text-[11px] text-ink-2">
-                          {lang === "th" ? "ชนะที่ " : "Won at "}
+                          {lang === "th" ? "สัญญาชนะที่ " : "Won at "}
                           {formatTHBCompact(proj.agreedPriceTHB)}
                         </div>
                       ) : null}
@@ -246,8 +249,8 @@ export function WatchdogEvidenceTable({
                       <PriceDeltaBadge delta={delta} lang={lang} />
                     </td>
 
-                    {/* Col 5: Lock-Spec Risk Badge & Compact Trigger Category Tags */}
-                    <td className="max-w-[340px] px-3.5 py-3">
+                    {/* Col 5: Lock-Spec Risk Badge & Verbatim Trigger Findings */}
+                    <td className="max-w-[350px] px-3.5 py-3">
                       <div className="flex flex-col items-start gap-1.5">
                         <LockSpecBadge
                           level={proj.lockSpecLevel}
@@ -256,15 +259,24 @@ export function WatchdogEvidenceTable({
                           outOf100
                         />
                         {proj.triggers.length > 0 ? (
-                          <div className="mt-0.5 flex flex-wrap gap-1.5">
+                          <div className="mt-1 flex flex-col gap-1 w-full">
                             {proj.triggers.map((t) => (
-                              <span
+                              <div
                                 key={t.category}
-                                title={pick(t.summary, lang)}
-                                className="font-mono text-[11px] font-medium text-risk"
+                                className="rounded-[2px] border border-line bg-surface-2 p-1.5 text-[11.5px]"
                               >
-                                [{t.category}]
-                              </span>
+                                <span className="font-mono text-[10.5px] font-semibold text-risk">
+                                  [{t.category}]
+                                </span>{" "}
+                                <span className="text-ink-2 leading-tight">
+                                  {pick(t.summary, lang)}
+                                </span>
+                                {t.clauseExcerpt ? (
+                                  <p className="mt-1 font-mono text-[10px] text-ink-3 italic line-clamp-2">
+                                    “{t.clauseExcerpt}”
+                                  </p>
+                                ) : null}
+                              </div>
                             ))}
                           </div>
                         ) : (
