@@ -129,20 +129,20 @@ export default function WatchdogPage() {
   const [selectedComplexities, setSelectedComplexities] = useState<ComplexityTier[]>(ALL_COMPLEXITIES);
   const [selectedCategories, setSelectedCategories] = useState<ProjectCategory[]>([]);
   const [selectedArchetypes, setSelectedArchetypes] = useState<SystemArchetype[]>([]);
-  const [agencyFilter, setAgencyFilter] = useState<string>("all");
-  const [priceBand, setPriceBand] = useState<PriceBandId>("all");
+  const [selectedAgencies, setSelectedAgencies] = useState<string[]>([]);
+  const [minPriceTHB, setMinPriceTHB] = useState<number>(0);
+  const [maxPriceTHB, setMaxPriceTHB] = useState<number>(0);
   const [startMonth, setStartMonth] = useState<string>("");
   const [endMonth, setEndMonth] = useState<string>("");
   const [timeGrain, setTimeGrain] = useState<TimeGrain>("monthly");
 
-  const effectiveStartMonth =
-    startMonth && availableMonths.some((m) => m.key === startMonth)
-      ? startMonth
-      : defaultStartMonth;
-  const effectiveEndMonth =
-    endMonth && availableMonths.some((m) => m.key === endMonth)
-      ? endMonth
-      : defaultEndMonth;
+  const effectiveStartMonth = startMonth || defaultStartMonth;
+  const effectiveEndMonth = endMonth || defaultEndMonth;
+
+  // Validation: end date must not be before start date
+  const isDateRangeInvalid = Boolean(
+    effectiveStartMonth && effectiveEndMonth && effectiveStartMonth > effectiveEndMonth,
+  );
 
   // Bottom Table View Mode State
   const [tableTab, setTableTab] = useState<TableTab>("flagged");
@@ -179,6 +179,12 @@ export default function WatchdogPage() {
     );
   }
 
+  function toggleAgency(agency: string) {
+    setSelectedAgencies((prev) =>
+      prev.includes(agency) ? prev.filter((a) => a !== agency) : [...prev, agency],
+    );
+  }
+
   // Unique agencies for dropdown
   const agencies = useMemo(() => {
     const map = new Map<string, { th: string; en: string; count: number }>();
@@ -196,7 +202,6 @@ export default function WatchdogPage() {
 
   // 1. Single Top Filter Bar drives the entire dataset
   const filteredByTopBar = useMemo(() => {
-    const band = PRICE_BAND_OPTIONS.find((b) => b.id === priceBand);
     return allProjects.filter((p) => {
       // Status
       if (!selectedStatuses.includes(p.status)) return false;
@@ -208,13 +213,16 @@ export default function WatchdogPage() {
       if (selectedCategories.length > 0 && !selectedCategories.includes(p.category)) return false;
       // System Archetype
       if (selectedArchetypes.length > 0 && !selectedArchetypes.includes(p.archetype)) return false;
-      // Agency
-      if (agencyFilter !== "all" && p.agency.th !== agencyFilter) return false;
-      // Price Band
-      if (band?.min !== undefined && p.referencePriceTHB < band.min) return false;
-      if (band?.max !== undefined && p.referencePriceTHB > band.max) return false;
-      // Time Period
-      if (p.month < effectiveStartMonth || p.month > effectiveEndMonth) return false;
+      // Agency (Multi-select)
+      if (selectedAgencies.length > 0 && !selectedAgencies.includes(p.agency.th)) return false;
+      // Price Range (min and max)
+      if (minPriceTHB > 0 && p.referencePriceTHB < minPriceTHB) return false;
+      if (maxPriceTHB > 0 && p.referencePriceTHB > maxPriceTHB) return false;
+      // Time Period (only filter if date range is valid)
+      if (!isDateRangeInvalid) {
+        if (effectiveStartMonth && p.month < effectiveStartMonth) return false;
+        if (effectiveEndMonth && p.month > effectiveEndMonth) return false;
+      }
       return true;
     });
   }, [
@@ -224,17 +232,23 @@ export default function WatchdogPage() {
     selectedComplexities,
     selectedCategories,
     selectedArchetypes,
-    agencyFilter,
-    priceBand,
+    selectedAgencies,
+    minPriceTHB,
+    maxPriceTHB,
     effectiveStartMonth,
     effectiveEndMonth,
+    isDateRangeInvalid,
   ]);
 
   // 2. Build time-series points (Monthly or Quarterly) from filteredByTopBar
   const timeSeries = useMemo<TimePoint[]>(() => {
-    const activeMonths = availableMonths.filter(
-      (m) => m.key >= effectiveStartMonth && m.key <= effectiveEndMonth,
-    );
+    const activeMonths = isDateRangeInvalid
+      ? availableMonths
+      : availableMonths.filter(
+          (m) =>
+            (!effectiveStartMonth || m.key >= effectiveStartMonth) &&
+            (!effectiveEndMonth || m.key <= effectiveEndMonth),
+        );
 
     if (timeGrain === "monthly") {
       return activeMonths.map((m) => {
@@ -405,8 +419,9 @@ export default function WatchdogPage() {
     selectedComplexities.length < ALL_COMPLEXITIES.length ||
     selectedCategories.length > 0 ||
     selectedArchetypes.length > 0 ||
-    agencyFilter !== "all" ||
-    priceBand !== "all" ||
+    selectedAgencies.length > 0 ||
+    minPriceTHB > 0 ||
+    maxPriceTHB > 0 ||
     effectiveStartMonth !== defaultStartMonth ||
     effectiveEndMonth !== defaultEndMonth;
 
@@ -416,14 +431,15 @@ export default function WatchdogPage() {
     setSelectedComplexities(ALL_COMPLEXITIES);
     setSelectedCategories([]);
     setSelectedArchetypes([]);
-    setAgencyFilter("all");
-    setPriceBand("all");
+    setSelectedAgencies([]);
+    setMinPriceTHB(0);
+    setMaxPriceTHB(0);
     setStartMonth(defaultStartMonth);
     setEndMonth(defaultEndMonth);
   }
 
   return (
-    <div className="mx-auto max-w-[1240px] px-4 py-6">
+    <div className="mx-auto max-w-[1100px] px-4 sm:px-6 py-6">
       {/* Page Header */}
       <header className="mb-5">
         <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-ink">
@@ -511,23 +527,23 @@ export default function WatchdogPage() {
             onToggleArchetype={toggleArchetype}
             onSelectAllArchetypes={() => setSelectedArchetypes(allProjects.map((p) => p.archetype))}
             onClearArchetypes={() => setSelectedArchetypes([])}
-            agencyFilter={agencyFilter}
-            onAgencyChange={setAgencyFilter}
+            selectedAgencies={selectedAgencies}
+            onToggleAgency={toggleAgency}
+            onSelectAllAgencies={() => setSelectedAgencies(agencies.map((a) => a.th))}
+            onClearAgencies={() => setSelectedAgencies([])}
             agencies={agencies}
-            priceBand={priceBand}
-            onPriceBandChange={setPriceBand}
+            minPriceTHB={minPriceTHB}
+            maxPriceTHB={maxPriceTHB}
+            onPriceRangeChange={(min, max) => {
+              setMinPriceTHB(min);
+              setMaxPriceTHB(max);
+            }}
             effectiveStartMonth={effectiveStartMonth}
             effectiveEndMonth={effectiveEndMonth}
             defaultStartMonth={defaultStartMonth}
             defaultEndMonth={defaultEndMonth}
-            onStartMonthChange={(val) => {
-              setStartMonth(val);
-              if (val > effectiveEndMonth) setEndMonth(val);
-            }}
-            onEndMonthChange={(val) => {
-              setEndMonth(val);
-              if (val < effectiveStartMonth) setStartMonth(val);
-            }}
+            onStartMonthChange={(val) => setStartMonth(val)}
+            onEndMonthChange={(val) => setEndMonth(val)}
             availableMonths={availableMonths}
             hasActiveFilters={hasActiveFilters}
             onResetFilters={resetAllFilters}
