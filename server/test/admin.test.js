@@ -98,6 +98,22 @@ test('an ordinary signed-in user is forbidden, and gets no data with it', async 
 });
 
 test('an admin gets the operations payload', async () => {
+  const misclassifiedId = `TEST-${runId}-MISCLASS-01`;
+  await TorInsight.create({
+    projectId: misclassifiedId,
+    identification: {
+      titleTh: 'จัดซื้อครุภัณฑ์ยานพาหนะและขนส่ง',
+      agency: 'สำนักการจราจรและขนส่ง',
+      status: 'Open',
+    },
+    metadata: {
+      origin: 'pipeline',
+      reviewStatus: 'pending',
+      excluded: { reason: 'Vehicles — out of scope' },
+      confidenceScore: 65,
+    },
+  });
+
   const response = await operations(await signUp('an-admin', { role: 'admin' }));
 
   assert.equal(response.status, 200);
@@ -116,6 +132,19 @@ test('an admin gets the operations payload', async () => {
     body.reviewQueue.some((item) => item.misclassified),
     'a misclassified document must arrive flagged',
   );
+});
+
+test('Issue #316: operations returns empty reviewQueue and honest zero/null stats when DB is empty, never falling back to sample fixtures', async () => {
+  await TorInsight.deleteMany({ projectId: new RegExp(`^TEST-${runId}`) });
+  const cookie = await signUp('admin-empty-ops', { role: 'admin' });
+  const response = await operations(cookie);
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.deepEqual(body.reviewQueue, []);
+  assert.equal(body.stats.docsAwaitingReview, 0);
+  for (const src of body.sources) {
+    assert.notEqual(src.lastRun, '2026-10-06 02:11');
+  }
 });
 
 test('losing the role closes the door again on the next request', async () => {
