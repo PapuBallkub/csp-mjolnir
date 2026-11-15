@@ -132,10 +132,11 @@ nightly `process` job runs the same steps in priority order
   [client/app/_data/tors.ts](../client/app/_data/tors.ts) supplies the TORs
   shown on `/watchdog` and `/notifications`. Every other page uses it only for
   types and helpers (`pick`, `formatTHB`, `Lang`).
-- **The admin dashboard shows authentic data.**
-  [admin.service.js](../server/src/features/admin/admin.service.js) previously fell back
-  to sample fixtures when the review queue was empty or a query failed. That fallback
-  was removed (#316) so empty review queues and live telemetry are reported honestly.
+- **The admin dashboard can show sample data.**
+  [admin.service.js](../server/src/features/admin/admin.service.js) falls back
+  to [ops.fixtures.js](../server/src/features/admin/ops.fixtures.js) when the
+  review queue is empty or a query fails. A dashboard full of numbers does not
+  prove the pipeline ran.
 - **Unused files.** [tor-row.tsx](../client/app/_components/tor-row.tsx) is
   imported by nothing; [catalog-row.tsx](../client/app/_components/catalog-row.tsx)
   replaced it. In [modules.tsx](../client/app/_components/modules.tsx) only
@@ -224,7 +225,7 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 | [admin.routes.js](../server/src/features/admin/admin.routes.js) | Every admin URL. Guards the whole router with `requireAuth` and `requireRole('admin')`. |
 | [admin.controller.js](../server/src/features/admin/admin.controller.js) | Reads params and body, calls the service. |
 | [admin.service.js](../server/src/features/admin/admin.service.js) | ~2,200 lines; search it by function name. Dashboard data, review queue and workspace (edit, approve, reclassify, re-extract), version rollback, pipeline retry/skip/dismiss, record inspector, manual add, technology vocabulary. |
-| [ops.fixtures.js](../server/src/features/admin/ops.fixtures.js) | Legacy sample dashboard data (retained as fixture reference, no longer loaded by admin service). |
+| [ops.fixtures.js](../server/src/features/admin/ops.fixtures.js) | Sample dashboard data the service falls back to. See [Before you trust a file](#before-you-trust-a-file). |
 | [index.js](../server/src/features/admin/index.js) | Exports `adminRoutes`. |
 
 **auth**: `/api/auth`
