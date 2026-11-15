@@ -31,7 +31,7 @@ type AuthValue = AuthState & {
   }) => Promise<ApiError | null>;
   signOut: () => Promise<ApiError | null>;
   /** FR-12: saves profile fields and updates the in-memory user. */
-  updateProfile: (fields: Partial<api.UserProfile>) => Promise<ApiError | null>;
+  updateProfile: (fields: api.UpdateProfilePayload) => Promise<ApiError | null>;
   /** FR-17: Saves a TOR project to personal watchlist. */
   addToWatchlist: (projectId: string) => Promise<ApiError | null>;
   /** FR-17: Removes a TOR project from personal watchlist. */

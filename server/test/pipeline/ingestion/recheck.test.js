@@ -51,7 +51,7 @@ beforeEach(async () => {
   await TorInsight.collection.insertMany(
     Object.values(TORS).map((tor) => ({
       projectId: tor.projectId,
-      identification: { titleTh: 'จ้างพัฒนาระบบสารสนเทศ', category: 'software-development' },
+      identification: { titleTh: 'จ้างพัฒนาระบบสารสนเทศ', categories: ['software-development'] },
       metadata: { excluded: tor.excluded ? { reason: 'ซื้อครุภัณฑ์' } : null },
     })),
   );

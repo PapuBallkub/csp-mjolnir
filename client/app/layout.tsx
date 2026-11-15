@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans_Thai, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
-import Script from "next/script";
 import { AuthProvider } from "./_components/auth";
 import { PrefsProvider } from "./_components/prefs";
 import "./globals.css";
@@ -27,9 +26,9 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mjölnir — BMA procurement discovery",
+  title: "GIPDP (Mjölnir) — แพลตฟอร์มค้นหาและวิเคราะห์ประกาศจัดซื้อจัดจ้าง IT ภาครัฐ",
   description:
-    "Find, read and sanity-check Bangkok government IT procurement documents without opening the PDF.",
+    "ค้นหา อ่าน และตรวจสอบความเสี่ยงประกาศจัดซื้อจัดจ้างโครงการเทคโนโลยีภาครัฐไทย โดยไม่ต้องเปิดเอกสาร PDF",
 };
 
 // Applies the stored theme before first paint so the page never flashes.
@@ -48,9 +47,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <head>
-        <Script id="mjolnir-theme" strategy="beforeInteractive">
-          {themeScript}
-        </Script>
+        <script
+          id="mjolnir-theme"
+          dangerouslySetInnerHTML={{
+            __html: themeScript,
+          }}
+        />
       </head>
       <body className="min-h-screen flex flex-col">
         {/*

@@ -38,7 +38,7 @@ information categories from the source document:
 - Contract and commercial conditions
 - Decision-support analysis
 - Amendment/status information
-- Source and traceability
+- Source and traceability (provenance metadata such as page, section, and verbatim excerpts, alongside direct access to original document artifacts—TOR specifications, bidding rules, and announcements—for in-place verification)
 
 The original TOR document remains the authoritative source.
 
@@ -50,8 +50,7 @@ The original TOR document remains the authoritative source.
 present in the source document.
 - The information requirements can serve as the basis for later extraction,
 validation, database, and API design.
-- Source information can be retained so that captured information remains
-verifiable against the original TOR.
+- Source information and original document artifacts can be retained so that captured information remains verifiable against the original TOR.
 - Information generated completely by the system, such as profile matching, price analysis,
 or lock-spec analysis, is treated separately from information stated in the
 source document.

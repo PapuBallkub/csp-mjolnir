@@ -11,12 +11,25 @@
  * what to do next, rather than a screen that silently renders nothing.
  */
 
+export type EntityType = "juristic" | "individual";
+
+export type MatchNotificationSettings = {
+  enabled: boolean;
+  minScore: number;
+  frequency: "instant" | "daily" | "weekly";
+  includeSubcontract: boolean;
+};
+
 /** FR-12. Stored server-side and returned inside every AuthUser. */
 export type UserProfile = {
   skills: string[];
   budgetMin: number;
   budgetMax: number;
   certifications: string[];
+  entityType?: EntityType;
+  preferredArchetypes?: string[];
+  maxPastPortfolioTHB?: number;
+  matchNotification?: MatchNotificationSettings;
 };
 
 /** Mirrors `toPublicUser` on the server. Adding a field there means adding it here. */
@@ -165,7 +178,11 @@ export function me() {
  * FR-12. Saves profile preferences. PATCH, so only the fields sent are updated.
  * Returns the full updated user — the caller replaces its AuthUser with this.
  */
-export function updateProfile(body: Partial<UserProfile>) {
+export type UpdateProfilePayload = Partial<UserProfile> & {
+  notificationConsent?: boolean;
+};
+
+export function updateProfile(body: UpdateProfilePayload) {
   return request<UserResponse>("/api/profile", {
     method: "PATCH",
     body: JSON.stringify(body),
@@ -257,7 +274,7 @@ export type ReviewItemDetails = {
   // 1. Identification
   titleEn?: string | null;
   department?: string | null;
-  category?: string | null;
+  categories?: string[];
   status?: string | null;
 
   // 2. Key Facts
@@ -327,6 +344,7 @@ export type ReviewItem = {
   /** Fields the model itself was unsure about. */
   lowFields: { field: string; value: string; confidence: number }[];
   details?: ReviewItemDetails;
+  procurementMethod?: string | null;
   /** Set when the classifier's IT/non-IT call looks wrong. */
   misclassified?: { predicted: string; likely: string };
 };
@@ -411,7 +429,7 @@ export type UpdateReviewPayload = {
     titleEn?: string | null;
     agency?: string;
     department?: string | null;
-    category?: string | null;
+    categories?: string[];
     status?: string | null;
 
     // 2. Key Facts
@@ -735,6 +753,7 @@ export type PipelineRecordDiagnostics = {
   submissionDeadline: string | null;
   status: string;
   isAmended: boolean;
+  procurementMethod?: string | null;
   wavePriority?: string;
   pipelineStatus: string;
   source: string;
@@ -1048,7 +1067,7 @@ export type TorInsightSummary = {
     titleEn: string | null;
     agency: string;
     department: string | null;
-    category: string | null;
+    categories: string[];
     status: TorStatus;
   };
   facts: {
@@ -1069,6 +1088,14 @@ export type TorInsightSummary = {
   };
   technicalRequirements?: {
     requiredTechnologies: { name: string; version: string | null }[];
+  };
+  overview?: {
+    systemArchetype?: string | null;
+    objective?: string | null;
+  };
+  eligibility?: {
+    requiredCertifications?: string[];
+    previousExperienceMinTHB?: number | null;
   };
   /** null: the analysis hasn't been run, never a measured 0 */
   analytics: {
@@ -1108,7 +1135,7 @@ export type TorInsightDetail = {
     agency: string;
     department: string | null;
     egpReference: string | null;
-    category: string | null;
+    categories: string[];
     status: TorStatus;
   };
   facts: {
@@ -1131,6 +1158,7 @@ export type TorInsightDetail = {
     objective: string | null;
     majorComponents: string[];
     highLevelScope: string | null;
+    systemArchetype?: string | null;
   };
   deliverables: {
     system: string[];
@@ -1225,7 +1253,7 @@ export type TorListParams = {
   /** Still open, and closing within this many days */
   closingWithin?: number;
   excludeHighRisk?: boolean;
-  sort?: "newest" | "deadline" | "budget-desc" | "budget-asc";
+  sort?: "newest" | "deadline" | "budget-desc" | "budget-asc" | "match-desc" | "match-asc";
   page?: number;
   limit?: number;
 };
@@ -1296,6 +1324,18 @@ export function getTorInsight(projectId: string) {
   });
 }
 
+/**
+ * Returns the URL to stream the PDF document preview for a TOR project on demand.
+ * The endpoint streams binary PDF directly from memory without saving to DB.
+ */
+export function getTorPdfPreviewUrl(projectId: string, part = 0, role?: string): string {
+  const params = new URLSearchParams();
+  if (part > 0) params.set("part", String(part));
+  if (role) params.set("role", role);
+  const qs = params.toString();
+  return `${PUBLIC_API}/api/tors/${encodeURIComponent(projectId)}/preview${qs ? `?${qs}` : ""}`;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Watchlist (FR-17)                                                 */
 /* ------------------------------------------------------------------ */
@@ -1329,4 +1369,88 @@ export function removeFromWatchlist(projectId: string) {
     method: "DELETE",
   });
 }
+
+/* ------------------------------------------------------------------ */
+/*  Notifications (FR-13, FR-14, FR-18)                              */
+/* ------------------------------------------------------------------ */
+
+export type MatchedTorSummary = {
+  projectId: string;
+  projectTitle: string;
+  agency: string;
+  budget: number | null;
+  matchScore: number;
+  matchedSkills: string[];
+  submissionDeadline?: string | null;
+  daysLeft?: number;
+};
+
+export type NotificationSnapshot = {
+  matchedItems?: MatchedTorSummary[];
+  projectId?: string;
+  projectTitle?: string;
+  agency?: string;
+  budget?: number | null;
+  matchScore?: number;
+  matchedSkills?: string[];
+  amendmentId?: string;
+  reason?: string;
+  [key: string]: unknown;
+};
+
+export type NotificationFeedItem = {
+  _id: string;
+  userId: string;
+  type: "match" | "amendment" | "deadline" | "priceOutlier" | string;
+  snapshot: NotificationSnapshot;
+  isRead: boolean;
+  readAt?: string | null;
+  emailSent?: boolean;
+  emailSentAt?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+export type NotificationFeedResponse = {
+  notifications: NotificationFeedItem[];
+  unreadCount: number;
+  total: number;
+};
+
+export function fetchNotifications(params: { type?: string; limit?: number; skip?: number } = {}) {
+  const qs = new URLSearchParams();
+  if (params.type) qs.set("type", params.type);
+  if (params.limit) qs.set("limit", String(params.limit));
+  if (params.skip) qs.set("skip", String(params.skip));
+  const query = qs.toString();
+  return request<NotificationFeedResponse>(`/api/notifications${query ? `?${query}` : ""}`, {
+    cache: "no-store",
+  });
+}
+
+export function fetchNotificationById(id: string) {
+  return request<NotificationFeedItem & { notification?: NotificationFeedItem; unreadCount?: number }>(`/api/notifications/${encodeURIComponent(id)}`, {
+    cache: "no-store",
+  });
+}
+
+export function markNotificationRead(id: string) {
+  return request<{ updated: boolean; id: string; unreadCount?: number }>(`/api/notifications/${encodeURIComponent(id)}/read`, {
+    method: "PATCH",
+  });
+}
+
+export function markAllNotificationsRead() {
+  return request<{ updatedCount: number; unreadCount?: number }>("/api/notifications/read-all", {
+    method: "PATCH",
+  });
+}
+
+export function unsubscribeByToken(token: string) {
+  return request<{ success: boolean; message: string }>(
+    `/api/notifications/unsubscribe?token=${encodeURIComponent(token)}`,
+    { cache: "no-store" }
+  );
+}
+
 

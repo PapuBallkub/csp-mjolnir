@@ -591,11 +591,6 @@ function AdminDashboard({
     return true;
   });
 
-  const inMaintenance = (() => {
-    const bangkokHour = (new Date().getUTCHours() + 7) % 24;
-    return bangkokHour >= 0 && bangkokHour < 4;
-  })();
-
   const handleHealthCheck = async (sourceId: string = "all") => {
     const targets = sourceId === "all" ? scraperSources.map((s) => s.id) : [sourceId];
     setCheckingSourceIds(targets);
@@ -991,11 +986,6 @@ function AdminDashboard({
         <SectionHeading
           right={
             <div className="flex items-center gap-3">
-              {inMaintenance ? (
-                <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-1 text-[11px] font-medium text-amend">
-                  {lang === "th" ? "⚠️ ปิดปรับปรุง 00:00–04:00" : "⚠️ Maintenance 00:00–04:00"}
-                </span>
-              ) : null}
               <button
                 type="button"
                 onClick={() => handleHealthCheck("all")}
@@ -1061,11 +1051,6 @@ function AdminDashboard({
                       <span className="block text-[13px] leading-thai text-ink font-medium">
                         {source.name}
                       </span>
-                      {inMaintenance && source.id === "process3" ? (
-                        <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-[1px] text-[10px] text-amend">
-                          {lang === "th" ? "ปิดปรับปรุง 00:00–04:00" : "Maintenance 00:00–04:00"}
-                        </span>
-                      ) : null}
                     </div>
                     <span className="mt-0.5 block text-[10px] text-ink-3">
                       {source.portal} · {source.format}

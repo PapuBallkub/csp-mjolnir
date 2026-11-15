@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { Bell, LogOut, User, X } from "lucide-react";
 import { displayName, useAuth } from "./auth";
-import { useLang, LangToggle, ThemeToggle } from "./prefs";
+import { ThemeToggle } from "./prefs";
+import { fetchNotifications } from "../_lib/api";
 
 /**
  * The hammer, drawn flat and geometric rather than mythic — this is an
@@ -27,37 +30,200 @@ export function Wordmark({ className = "" }: { className?: string }) {
 }
 
 const NAV = [
-  { href: "/search", label: { th: "ค้นหาประกาศ", en: "Search" } },
-  { href: "/watchlist", label: { th: "รายการติดตาม", en: "Watchlist" } },
-  { href: "/watchdog", label: { th: "แนวโน้มราคา/ล็อกสเปก", en: "Watchdog" } },
+  { href: "/search", label: "ค้นหาประกาศ" },
+  { href: "/watchlist", label: "รายการติดตาม" },
+  { href: "/watchdog", label: "แนวโน้มราคา/ล็อกสเปก" },
 ] as const;
+
+// In-memory dismissal state for current page session (resets on full browser reload)
+let calloutDismissedInSession = false;
+let lastSeenUnreadCount = 0;
 
 export function HeaderControls({ className = "" }: { className?: string }) {
   const pathname = usePathname();
-  const { lang } = useLang();
   const { status, user, signOut } = useAuth();
   const signInHref = `/auth?next=${encodeURIComponent(pathname || "/")}`;
 
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showCallout, setShowCallout] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const autoCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const isAuthenticated = status === "authenticated" && Boolean(user?.id);
+  const activeUnreadCount = isAuthenticated ? unreadCount : 0;
+  const activeShowCallout = isAuthenticated ? showCallout : false;
+
+  // Fetch unread count when user is authenticated
+  useEffect(() => {
+    if (status !== "authenticated" || !user?.id) {
+      return;
+    }
+
+    let active = true;
+    fetchNotifications({ limit: 1 }).then((res) => {
+      if (!active || !res.ok) return;
+      const count = res.data.unreadCount;
+      setUnreadCount(count);
+
+      // If new unread notifications arrive while browsing, allow callout to show
+      if (count > lastSeenUnreadCount && lastSeenUnreadCount > 0) {
+        calloutDismissedInSession = false;
+      }
+      lastSeenUnreadCount = count;
+
+      // Clean up legacy storage keys
+      try {
+        sessionStorage.removeItem("gipdp_bell_callout_dismissed");
+        sessionStorage.removeItem(`gipdp_bell_callout_dismissed_${user.id}`);
+      } catch {
+        // Ignore
+      }
+
+      // Show callout if there are unread items and user hasn't closed it during this page session
+      if (count > 0 && !calloutDismissedInSession) {
+        setShowCallout(true);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [status, pathname, user?.id]);
+
+  // Listen for realtime notification updates (e.g. entering /notifications/[id] or marking read)
+  useEffect(() => {
+    function handleNotificationsUpdated(e: Event) {
+      const customEvent = e as CustomEvent<{ unreadCount?: number }>;
+      if (typeof customEvent?.detail?.unreadCount === "number") {
+        const count = customEvent.detail.unreadCount;
+        setUnreadCount(count);
+        if (count === 0) {
+          setShowCallout(false);
+        }
+        return;
+      }
+
+      if (status === "authenticated" && user?.id) {
+        fetchNotifications({ limit: 1 }).then((res) => {
+          if (res.ok) {
+            const count = res.data.unreadCount;
+            setUnreadCount(count);
+            if (count === 0) {
+              setShowCallout(false);
+            }
+          }
+        });
+      }
+    }
+
+    window.addEventListener("notifications-updated", handleNotificationsUpdated);
+    return () => {
+      window.removeEventListener("notifications-updated", handleNotificationsUpdated);
+    };
+  }, [status, user?.id]);
+
+  // Auto-close callout after 6 seconds (pauses on hover)
+  useEffect(() => {
+    if (!activeShowCallout || isPaused) {
+      if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+      return;
+    }
+
+    autoCloseTimerRef.current = setTimeout(() => {
+      handleDismissCallout();
+    }, 6200);
+
+    return () => {
+      if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+    };
+  }, [activeShowCallout, isPaused, user?.id, activeUnreadCount]);
+
+  function handleDismissCallout() {
+    calloutDismissedInSession = true;
+    setShowCallout(false);
+  }
+
+  function handlePauseTimer() {
+    setIsPaused(true);
+  }
+
+  function handleResumeTimer() {
+    setIsPaused(false);
+  }
+
+  const isNotificationInbox = pathname === "/notifications";
+  const badgeColor = isNotificationInbox ? "bg-pink-500" : "bg-red-600";
+  const toastProgressColor = isNotificationInbox ? "bg-pink-500/85" : "bg-red-600/85";
+
   return (
     <div className={`flex shrink-0 items-center gap-2 ${className}`}>
-      <LangToggle />
       <ThemeToggle />
-      <Link
-        href="/notifications"
-        aria-label={lang === "th" ? "ตั้งค่าการแจ้งเตือน" : "Notification preferences"}
-        title={lang === "th" ? "การแจ้งเตือน" : "Notifications"}
-        className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
-      >
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
-          <path
-            d="M4 6.5a4 4 0 1 1 8 0c0 3 1 4 1 4H3s1-1 1-4Z"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            fill="none"
-          />
-          <path d="M6.5 13a1.6 1.6 0 0 0 3 0" stroke="currentColor" strokeWidth="1.3" />
-        </svg>
-      </Link>
+      <div className="relative">
+        <Link
+          href="/notifications"
+          onClick={handleDismissCallout}
+          aria-label={
+            activeUnreadCount > 0
+              ? `การแจ้งเตือน (${activeUnreadCount} รายการใหม่)`
+              : "การแจ้งเตือน"
+          }
+          title="การแจ้งเตือน"
+          className="relative flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
+        >
+          <Bell className="h-3.5 w-3.5" />
+          {activeUnreadCount > 0 ? (
+            <span
+              className={`absolute -top-1.5 -right-1.5 z-10 flex h-4 min-w-[16px] items-center justify-center rounded-full ${badgeColor} px-1 text-[10px] font-bold text-white shadow-xs pointer-events-none transition-colors duration-150`}
+              aria-hidden="true"
+            >
+              {activeUnreadCount > 99 ? "99+" : activeUnreadCount}
+            </span>
+          ) : null}
+        </Link>
+
+        {activeShowCallout && activeUnreadCount > 0 ? (
+          <div
+            role="status"
+            aria-live="polite"
+            onMouseEnter={handlePauseTimer}
+            onMouseLeave={handleResumeTimer}
+            className="absolute right-0 top-full z-50 mt-2 w-max max-w-[280px] rounded-md border border-line-2 bg-surface-2 p-2.5 pb-3.5 shadow-lg animate-in fade-in slide-in-from-top-1"
+          >
+            {/* The little upward arrow pointing to the bell */}
+            <div
+              className="absolute -top-1.5 right-2 h-2.5 w-2.5 rotate-45 border-l border-t border-line-2 bg-surface-2"
+              aria-hidden="true"
+            />
+
+            <div className="relative flex items-center justify-between gap-3">
+              <Link
+                href="/notifications"
+                onClick={handleDismissCallout}
+                className="text-[12px] font-medium leading-tight text-ink hover:underline"
+              >
+                {`คุณมี ${activeUnreadCount} การแจ้งเตือนที่ยังไม่ได้อ่าน`}
+              </Link>
+              <button
+                type="button"
+                onClick={handleDismissCallout}
+                aria-label="ปิด"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink cursor-pointer"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+
+            {/* Countdown bar at bottom: drains from right to left */}
+            <div className="absolute bottom-0 left-0 right-0 h-[2.5px] overflow-hidden rounded-b-md bg-line">
+              <div
+                onAnimationEnd={handleDismissCallout}
+                className={`h-full w-full ${toastProgressColor} animate-toast-progress origin-left`}
+                style={{ animationPlayState: isPaused ? "paused" : "running" }}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
       {status === "loading" ? (
         // A fixed-size placeholder, not "Sign in": the answer is not
         // known yet, and guessing wrong flashes the wrong thing at
@@ -65,38 +231,33 @@ export function HeaderControls({ className = "" }: { className?: string }) {
         // resolving it moves nothing.
         <span
           aria-hidden="true"
-          className="h-[26px] w-[92px] rounded-[3px] border border-line bg-surface-2"
+          className="h-[26px] w-[26px] sm:w-[92px] rounded-[3px] border border-line bg-surface-2"
         />
       ) : status === "authenticated" ? (
         <span className="flex items-center gap-1">
           <Link
             href="/profile"
             title={user.email}
-            className={`flex h-[26px] max-w-[140px] items-center truncate rounded-[3px] border px-2 text-[12px] transition-colors ${
+            aria-label={`โปรไฟล์ของ ${displayName(user)}`}
+            className={`flex h-[26px] items-center rounded-[3px] border px-2 text-[12px] transition-colors ${
               pathname?.startsWith("/profile")
                 ? "border-line-2 bg-surface-3 text-ink"
                 : "border-line bg-surface-2 text-ink-2 hover:text-ink"
             }`}
           >
-            {displayName(user)}
+            <User className="sm:hidden h-3.5 w-3.5 text-ink shrink-0" />
+            <span className="hidden sm:inline max-w-[130px] truncate">
+              {displayName(user)}
+            </span>
           </Link>
           <button
             type="button"
             onClick={() => signOut()}
-            aria-label={lang === "th" ? "ออกจากระบบ" : "Sign out"}
-            title={lang === "th" ? "ออกจากระบบ" : "Sign out"}
-            className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-3 transition-colors hover:text-ink"
+            aria-label="ออกจากระบบ"
+            title="ออกจากระบบ"
+            className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-3 transition-colors hover:text-ink cursor-pointer shrink-0"
           >
-            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
-              <path
-                d="M6 13.5H3.5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1H6M10 11l3-3-3-3M13 8H6.5"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <LogOut className="h-3.5 w-3.5" />
           </button>
         </span>
       ) : (
@@ -104,7 +265,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
           href={signInHref}
           className="flex h-[26px] items-center rounded-[3px] border border-line-2 bg-surface px-2.5 text-[12px] font-medium text-ink transition-colors hover:bg-surface-2"
         >
-          {lang === "th" ? "เข้าสู่ระบบ" : "Sign in"}
+          เข้าสู่ระบบ
         </Link>
       )}
     </div>
@@ -113,18 +274,17 @@ export function HeaderControls({ className = "" }: { className?: string }) {
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { lang } = useLang();
   const { status, user } = useAuth();
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-surface">
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex min-h-[52px] max-w-[1240px] items-center gap-4 px-4 py-2.5">
+        <div className="mx-auto flex min-h-[52px] max-w-[1240px] items-center gap-2.5 sm:gap-4 px-3 sm:px-4 py-2.5">
           <Link
             href="/"
-            className="flex h-[26px] items-center text-ink transition-opacity hover:opacity-70"
-            title={lang === "th" ? "หน้าแรก" : "Home"}
-            aria-label={lang === "th" ? "หน้าแรก" : "Home"}
+            className="flex h-[26px] items-center text-ink transition-opacity hover:opacity-70 shrink-0"
+            title="หน้าแรก"
+            aria-label="หน้าแรก"
           >
             <svg
               viewBox="0 0 20 20"
@@ -141,7 +301,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </svg>
           </Link>
 
-          <nav className="-mx-1 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-1">
+          <nav className="-mx-1 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-1 [mask-image:linear-gradient(to_right,black_calc(100%-18px),transparent_100%)] sm:[mask-image:none]">
             {NAV.map((item) => {
               const active = pathname.startsWith(item.href);
               return (
@@ -154,10 +314,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
                       : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                   }`}
                 >
-                  {item.label[lang]}
+                  {item.label}
                 </Link>
               );
             })}
+
             {/* The divider goes with the link, or an orphan hairline is left
                 floating in the nav. This takes the admin surface off the public
                 page; it does not make /admin private, since that page reads
@@ -173,7 +334,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                       : "text-ink-3 hover:bg-surface-2 hover:text-ink"
                   }`}
                 >
-                  {lang === "th" ? "ผู้ดูแลระบบ" : "Admin"}
+                  ผู้ดูแลระบบ
                 </Link>
               </>
             ) : null}
@@ -183,14 +344,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1">{children}</main>
+      <main className="flex flex-1 flex-col bg-canvas">{children}</main>
 
       <footer className="mt-auto border-t border-line bg-surface">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 text-[11px] text-ink-3">
           <Wordmark className="opacity-60" />
           <span className="leading-thai">
-            เครื่องมือค้นหาโครงการ ไม่ใช่ระบบยื่นข้อเสนอ · A discovery tool, not a bidding
-            assistant.
+            เครื่องมือค้นหาและวิเคราะห์ประกาศจัดซื้อจัดจ้างภาครัฐด้าน IT (ไม่ใช่ระบบยื่นข้อเสนอทางการของ e-GP)
           </span>
           <span className="ml-auto font-mono">01219346 · Kasetsart University</span>
         </div>

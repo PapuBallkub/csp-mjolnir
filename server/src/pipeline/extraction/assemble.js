@@ -10,6 +10,7 @@
  * - Status comes from the feed alone; Closed is worked out when read (ADR 0013).
  */
 
+import { cleanCategories } from '#models/project-categories.js';
 import { egpAnnouncementUrl } from '../shared/egp-links.js';
 import { feedAmount, feedDate, toAmount, toDate, toNumber, toText } from './convert.js';
 import { DOCUMENTS } from './documents.js';
@@ -33,7 +34,7 @@ function identity(tor, agency, extra = {}) {
     agency,
     department: extra.department ?? null,
     egpReference: tor.projectId,
-    category: extra.category ?? null,
+    categories: extra.categories ?? [],
     // A copy as of now; the API reads the live status from the Tor, since the
     // feed keeps changing it after extraction
     status: tor.status,
@@ -132,13 +133,17 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
   const aiTitle = toText(ai.identification?.titleTh);
   const titleTh = aiTitle && (!titleDisagrees || !tor.title) ? aiTitle : tor.title;
 
+  // Answers saved before extract-v6 have the classify step's one category,
+  // and `--recheck` rebuilds from them (ADR 0034)
+  const categories = cleanCategories(ai.identification?.categories);
+
   const facts = ai.facts ?? {};
   const insight = {
     projectId: tor.projectId,
     identification: identity(tor, tor.agency || toText(ai.identification?.agency) || classification.agency, {
       titleTh,
       department: ai.identification?.department ?? null,
-      category: classification.category ?? null,
+      categories: categories.length ? categories : cleanCategories([classification.category]),
     }),
     facts: {
       budgetTHB: feedFirst(feedAmount(tor.budgetTHB), 'budgetTHB', facts.budget, toAmount(facts.budget), stated.budgetTHB),
@@ -169,6 +174,7 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
         facts.procurementMethod,
         toText(facts.procurementMethod),
       ),
+      procurementKind: tor.procurementKind ?? null,
       penaltyClause: fromAi('penaltyClause', facts.penaltyClause, toText(facts.penaltyClause)),
       ...links(tor),
     },
@@ -215,7 +221,7 @@ export function buildInsight({ tor, classification, extracted, technologies, cer
 export function buildAwaitingFullText({ tor, classification, run }) {
   return {
     projectId: tor.projectId,
-    identification: identity(tor, tor.agency || classification.agency, { category: classification.category ?? null }),
+    identification: identity(tor, tor.agency || classification.agency),
     facts: links(tor),
     metadata: runMetadata(run, { confidenceScore: null, checks: [], awaitingFullText: true }),
   };
@@ -248,7 +254,7 @@ export function buildExcluded({ tor, classification, run }) {
 export function buildTitleLevel({ tor, screen, run }) {
   return {
     projectId: tor.projectId,
-    identification: identity(tor, tor.agency, { category: screen.category ?? null, department: tor.subAgency || null }),
+    identification: identity(tor, tor.agency, { categories: cleanCategories([screen.category]), department: tor.subAgency || null }),
     facts: {
       ...links(tor),
       budgetTHB: feedAmount(tor.budgetTHB),

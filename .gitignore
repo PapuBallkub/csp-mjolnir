@@ -39,5 +39,11 @@ server/data/
 # local context files
 context/
 
+# local dev environment
+only_for_local_dev/
+
+# Claude Code: each person's own settings (a shared .claude/settings.json stays tracked)
+.claude/settings.local.json
+
 # manual testing datasets
 testdata/

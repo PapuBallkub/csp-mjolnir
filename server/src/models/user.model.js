@@ -51,7 +51,8 @@ const userSchema = new mongoose.Schema(
       default: 'user',
       index: true,
     },
-    // FR-12. What the user can build: skills, budget range, and certifications.
+    // FR-12. What the user can build: skills, budget range, certifications,
+    // entity type, preferred archetypes, and max past portfolio.
     // Read by the match scorer (FR-13) and used to rank the catalog.
     // Stored as a subdocument, not a separate collection, because every
     // read of the user (requireAuth on every request) should carry it.
@@ -60,8 +61,8 @@ const userSchema = new mongoose.Schema(
         type: [String],
         default: [],
         validate: {
-          validator: (v) => v.length <= 50,
-          message: 'You can save at most 50 skills.',
+          validator: (v) => v.length <= 150,
+          message: 'You can save at most 150 skills.',
         },
       },
       budgetMin: { type: Number, default: 0, min: 0, max: 10_000_000_000 },
@@ -70,9 +71,40 @@ const userSchema = new mongoose.Schema(
         type: [String],
         default: [],
         validate: {
-          validator: (v) => v.length <= 30,
-          message: 'You can save at most 30 certifications.',
+          validator: (v) => v.length <= 50,
+          message: 'You can save at most 50 certifications.',
         },
+      },
+      entityType: {
+        type: String,
+        enum: ['juristic', 'individual'],
+        default: 'juristic',
+      },
+      preferredArchetypes: {
+        type: [String],
+        default: [],
+        validate: {
+          validator: (v) => v.length <= 10,
+          message: 'You can save at most 10 preferred archetypes.',
+        },
+      },
+      maxPastPortfolioTHB: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 10_000_000_000,
+      },
+      // FR-14. Preparation for consent-based match notification alerts.
+      // Explicit opt-in consent (PDPA), score threshold, and alert frequency.
+      matchNotification: {
+        enabled: { type: Boolean, default: false },
+        minScore: { type: Number, default: 75, min: 50, max: 95 },
+        frequency: {
+          type: String,
+          enum: ['instant', 'daily', 'weekly'],
+          default: 'daily',
+        },
+        includeSubcontract: { type: Boolean, default: true },
       },
     },
     // FR-17. Personal watchlist of saved TOR projects.

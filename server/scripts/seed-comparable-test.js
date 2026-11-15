@@ -25,7 +25,7 @@ export const TEST_HISTORICAL_PROJECTS = [
     identification: {
       titleTh: 'จ้างบำรุงรักษาและซ่อมแซมแก้ไขระบบคอมพิวเตอร์แม่ข่าย (Server) และอุปกรณ์เครือข่าย',
       agency: 'กรมการค้าต่างประเทศ',
-      category: 'maintenance-and-support',
+      categories: ['maintenance-and-support'],
       status: 'Awarded',
     },
     facts: {
@@ -52,14 +52,14 @@ export const TEST_HISTORICAL_PROJECTS = [
       ],
       requiredCapabilities: ['บำรุงรักษาแบบรวมศูนย์', 'ระบบป้องกันไวรัส'],
     },
-    metadata: { origin: 'pipeline' },
+    metadata: { origin: 'pipeline', confidenceScore: 90 },
   },
   {
     projectId: '67082000202',
     identification: {
       titleTh: 'จ้างเหมาบริการบำรุงรักษาเครื่องคอมพิวเตอร์และระบบเครือข่าย LAN ประจำปีงบประมาณ 2567',
       agency: 'สำนักงานปลัดกระทรวงพาณิชย์',
-      category: 'maintenance-and-support',
+      categories: ['maintenance-and-support'],
       status: 'Awarded',
     },
     facts: {
@@ -83,7 +83,7 @@ export const TEST_HISTORICAL_PROJECTS = [
         { name: 'Windows', version: '10' },
       ],
     },
-    metadata: { origin: 'pipeline' },
+    metadata: { origin: 'pipeline', confidenceScore: 90 },
   },
 
   // ---------------------------------------------------------------------------
@@ -94,7 +94,7 @@ export const TEST_HISTORICAL_PROJECTS = [
     identification: {
       titleTh: 'จ้างพัฒนาระบบบริการดิจิทัลและ AI Chatbot อัจฉริยะสำหรับบริการประชาชน',
       agency: 'กรมทรัพยากรน้ำ',
-      category: 'software-development',
+      categories: ['software-development'],
       status: 'Awarded',
     },
     facts: {
@@ -120,14 +120,14 @@ export const TEST_HISTORICAL_PROJECTS = [
         { name: 'Windows Server', version: '2022' },
       ],
     },
-    metadata: { origin: 'pipeline' },
+    metadata: { origin: 'pipeline', confidenceScore: 90 },
   },
   {
     projectId: '67094000404',
     identification: {
       titleTh: 'โครงการพัฒนาเว็บพอร์ทัลและระบบบริการข้อมูลประชาชน (e-Service)',
       agency: 'กรมส่งเสริมคุณภาพสิ่งแวดล้อม',
-      category: 'software-development',
+      categories: ['software-development'],
       status: 'Awarded',
     },
     facts: {
@@ -151,7 +151,7 @@ export const TEST_HISTORICAL_PROJECTS = [
         { name: 'Microsoft SQL Server', version: null },
       ],
     },
-    metadata: { origin: 'pipeline' },
+    metadata: { origin: 'pipeline', confidenceScore: 90 },
   },
 
   // ---------------------------------------------------------------------------
@@ -162,7 +162,7 @@ export const TEST_HISTORICAL_PROJECTS = [
     identification: {
       titleTh: 'โครงการจัดหาและติดตั้งระบบเครือข่ายสื่อสารความเร็วสูงและ SD-WAN ประจำสำนักงานสาขา',
       agency: 'กรมศุลกากร',
-      category: 'network-and-security',
+      categories: ['network-and-security'],
       status: 'Awarded',
     },
     facts: {
@@ -188,7 +188,7 @@ export const TEST_HISTORICAL_PROJECTS = [
         { name: 'VMware vSphere ESXi', version: null },
       ],
     },
-    metadata: { origin: 'pipeline' },
+    metadata: { origin: 'pipeline', confidenceScore: 90 },
   },
 ];
 

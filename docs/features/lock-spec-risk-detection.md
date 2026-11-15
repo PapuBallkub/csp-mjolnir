@@ -2,14 +2,14 @@
 
 **Feature:** Lock-Specification Risk Scoring & Qualification Barrier Detection  
 **Related Requirements:**  
-- `FR-20`: Compare a TOR's technical and qualification requirements against normalized historical baselines.  
+- `FR-20`: Compare a TOR's technical and qualification requirements against normalized historical baselines. **Partly met:** this feature compares them with the fixed rules of Circular ว 214, not with similar past projects. The comparison with past projects isn't built yet; it needs enough processed TORs of each type to be meaningful.  
 - `FR-21`: Visibly flag "high lock-spec risk" on TORs with statistically unusual or hyper-specific requirements.  
 - `NFR-15`: Thai primary locale with transparent, non-accusatory copy ("Describe, don't accuse").  
 **Related Decisions:**  
 - [`0010 · Normalized TOR Detail Information`](../decisions/0010-normalized-tor-detail-Information.md)  
 - [`0014 · Price names and data rules for TorInsight`](../decisions/0014-price-names-and-insight-data-rules.md)  
 - [`0021 · Define comparable projects by architecture and complexity`](../decisions/0021-find-comparable-projects.md)  
-- [`0030 · Lock-spec risk criteria and scoring algorithm`](../decisions/0030-lock-spec-risk-criteria-and-scoring.md)  
+- [`0035 · Lock-spec risk criteria and scoring algorithm`](../decisions/0035-lock-spec-risk-criteria-and-scoring.md)  
 **Status:** Approved  
 **Audience:** Product Owners, Developers, Domain Experts, SME Bidders, and Platform Users  
 
@@ -55,7 +55,9 @@ In strict adherence to GIPDP design guidelines:
 ```
 
 ### Category 1: Vendor Lock-in & Reseller Letters (`Vendor Lock-in`)
-- **What it is:** Requiring a Manufacturer Authorization Form (MAF / หนังสือแต่งตั้งตัวแทนจำหน่าย) or official partnership certificate on a custom software development contract (`software-development[เป็นงานพัฒนา หรือดูแลระบบซอฟแวร์]` or `procurementKind === 'hire'[เป็นงานจัดจ้าง]`).
+- **What it is:** Requiring a Manufacturer Authorization Form (MAF / หนังสือแต่งตั้งตัวแทนจำหน่าย) or official partnership certificate on a custom software development contract. The rule reads the main category, `identification.categories[0]` ([ADR 0034](../decisions/0034-a-tor-can-have-several-categories.md)):
+  1. `software-licenses` is the main category: not flagged. A reseller letter can belong to buying licences.
+  2. `software-development` or `systems-integration` is the main category, or `facts.procurementKind === 'hire'` (งานจัดจ้าง): flagged, even with `software-licenses` further down the list. In that case the finding says the letter may fit the licence part, but can't limit who bids on the rest.
 - **Severity & Points:** `high` (**35 points**).
 - **Governing Legal Instruments & What Each Document Mandates:**
   - 📜 **พ.ร.บ. การจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560 (มาตรา 8 และมาตรา 9):** มาตรา 8 กำหนดหลักการแข่งขันอย่างเป็นธรรม; มาตรา 9 บัญญัติห้ามมิให้กำหนดคุณลักษณะเฉพาะให้ใกล้เคียงกับยี่ห้อใดยี่ห้อหนึ่ง หรือของผู้ขายรายใดรายหนึ่งโดยเฉพาะ หรือกำหนดเงื่อนไขที่ทำให้เกิดการได้เปรียบเสียเปรียบ

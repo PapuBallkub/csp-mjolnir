@@ -1,8 +1,8 @@
 /**
  * server/src/features/reality-check/similarity.service.js
  *
- * Implements FR-19: Grouping and identifying comparable historical IT
- * procurement projects for a given TOR without calling an external LLM.
+ * Finds the comparable historical IT procurement projects that FR-19's price
+ * benchmark is computed from, without calling an external LLM.
  *
  * Conforms to ADR 0021 & docs/features/reality-check-and-benchmarking.md
  */
@@ -91,6 +91,41 @@ export const FULL_EXTRACTION = {
 /** The same, for a record already in hand. */
 export const isFullExtraction = (tor) =>
   !tor?.metadata?.titleOnly && !tor?.metadata?.awaitingFullText && !tor?.metadata?.excluded;
+
+/**
+ * Concluded procurement statuses considered stable for historical peer benchmarking.
+ * Excludes Draft (still in hearing), Open (active tender subject to change/amendments),
+ * and Cancelled (failed procurements).
+ */
+export const STABLE_STATUSES = ['Closed', 'Awarded'];
+
+/** Minimum OCR/LLM confidence score required for candidate peers (NFR-17). */
+export const MIN_CONFIDENCE_SCORE = 80;
+
+/** Query filters for candidate peer selection in MongoDB (ADR 0021 & NFR-17). */
+export const CANDIDATE_FILTERS = {
+  ...FULL_EXTRACTION,
+  'identification.status': { $in: STABLE_STATUSES },
+  'metadata.confidenceScore': { $gte: MIN_CONFIDENCE_SCORE },
+};
+
+/**
+ * Checks whether an in-memory project candidate meets stability and quality criteria:
+ * 1. Full extraction (ADR 0028)
+ * 2. Concluded status: 'Closed' or 'Awarded' only
+ * 3. Confidence score >= 80% (NFR-17)
+ *
+ * @param {object} tor
+ * @returns {boolean}
+ */
+export const isEligibleCandidate = (tor) => {
+  if (!isFullExtraction(tor)) return false;
+  const status = tor?.identification?.status;
+  if (!STABLE_STATUSES.includes(status)) return false;
+  const score = tor?.metadata?.confidenceScore;
+  if (typeof score !== 'number' || score < MIN_CONFIDENCE_SCORE) return false;
+  return true;
+};
 
 /**
  * Resolves the primary reference price for a TOR document.
@@ -234,14 +269,61 @@ export function calculateComplexitySimilarity(torA, torB) {
 }
 
 /**
+ * A project's categories, the main one first (ADR 0034).
+ *
+ * @param {object} tor
+ * @returns {string[]}
+ */
+const getProjectCategories = (tor) => tor?.identification?.categories ?? [];
+
+/**
+ * Whether two projects share at least one category: the comparison's domain
+ * filter (ADR 0021 & 0034).
+ *
+ * @param {object} torA
+ * @param {object} torB
+ * @returns {boolean}
+ */
+export function sharesCategory(torA, torB) {
+  const categoriesB = getProjectCategories(torB);
+  return getProjectCategories(torA).some((category) => categoriesB.includes(category));
+}
+
+/**
+ * Calculates category similarity between two projects (ADR 0034).
+ * S_category = overlap * order in [0, 1].
+ * - overlap: |A ∩ B| / |A ∪ B|, as for the tech stack, so sharing more scores more
+ * - order: the average, over shared categories, of how close their positions
+ *   are: same position 1.00, one apart 0.75, two apart 0.50
+ * - Unspecified: neutral 0.50
+ *
+ * @param {object} torA
+ * @param {object} torB
+ * @returns {number}
+ */
+export function calculateCategorySimilarity(torA, torB) {
+  const categoriesA = getProjectCategories(torA);
+  const categoriesB = getProjectCategories(torB);
+  if (categoriesA.length === 0 || categoriesB.length === 0) return 0.5;
+
+  const shared = categoriesA.filter((category) => categoriesB.includes(category));
+  if (shared.length === 0) return 0;
+
+  const overlap = shared.length / new Set([...categoriesA, ...categoriesB]).size;
+  const closeness = shared.map((category) => 1 - Math.abs(categoriesA.indexOf(category) - categoriesB.indexOf(category)) / 4);
+  const order = closeness.reduce((sum, value) => sum + value, 0) / shared.length;
+  return Number((overlap * order).toFixed(4));
+}
+
+/**
  * Computes composite similarity score between target TOR and a candidate TOR.
- * S = 0.40 * Archetype + 0.35 * Complexity + 0.25 * Tech
+ * S = 0.35 * Archetype + 0.30 * Complexity + 0.20 * Tech + 0.15 * Category
  *
  * Peers are selected 100% on technical specifications without inspecting price.
  *
  * @param {object} targetTor
  * @param {object} candidateTor
- * @returns {{ score: number, breakdown: { archetypeSim: number, complexitySim: number, techSim: number, scopeSim: number, scaleSim: number } }}
+ * @returns {{ score: number, breakdown: { archetypeSim: number, complexitySim: number, techSim: number, categorySim: number, scopeSim: number, scaleSim: number } }}
  */
 export function calculateCompositeSimilarity(targetTor, candidateTor) {
   const archetypeSim = calculateScopeSimilarity(targetTor, candidateTor);
@@ -250,8 +332,9 @@ export function calculateCompositeSimilarity(targetTor, candidateTor) {
     targetTor?.technicalRequirements?.requiredTechnologies,
     candidateTor?.technicalRequirements?.requiredTechnologies,
   );
+  const categorySim = calculateCategorySimilarity(targetTor, candidateTor);
 
-  const score = Number((archetypeSim * 0.40 + complexitySim * 0.35 + techSim * 0.25).toFixed(4));
+  const score = Number((archetypeSim * 0.35 + complexitySim * 0.30 + techSim * 0.20 + categorySim * 0.15).toFixed(4));
 
   return {
     score,
@@ -259,6 +342,7 @@ export function calculateCompositeSimilarity(targetTor, candidateTor) {
       archetypeSim: Number(archetypeSim.toFixed(4)),
       complexitySim: Number(complexitySim.toFixed(4)),
       techSim: Number(techSim.toFixed(4)),
+      categorySim,
       // Backwards-compatibility aliases:
       scopeSim: Number(archetypeSim.toFixed(4)),
       scaleSim: Number(complexitySim.toFixed(4)),
@@ -270,7 +354,7 @@ export function calculateCompositeSimilarity(targetTor, candidateTor) {
  * FR-19: Finds and ranks comparable historical projects for a target TOR.
  *
  * Non-circular matching: Candidates are chosen strictly from technical specifications
- * (Category -> Archetype -> Complexity Tier -> Tech Stack). The circular budget bracket
+ * (a shared Category -> Archetype -> Complexity Tier -> Tech Stack -> Category order). The circular budget bracket
  * filter is eliminated so price anomalies remain detectable without peer corruption.
  *
  * @param {object} targetTor - A TorInsight document or plain object
@@ -293,11 +377,11 @@ export async function findComparableProjects(targetTor, options = {}) {
     candidatesPool = null,
   } = options;
 
-  const targetCategory = targetTor?.identification?.category;
+  const targetCategories = getProjectCategories(targetTor);
   const targetPrice = getProjectPrice(targetTor);
 
   // Without a category or valid price, reliable benchmarking cannot be established
-  if (!targetCategory || !targetPrice || targetPrice <= 0) {
+  if (targetCategories.length === 0 || !targetPrice || targetPrice <= 0) {
     return [];
   }
 
@@ -306,16 +390,16 @@ export async function findComparableProjects(targetTor, options = {}) {
   if (Array.isArray(candidatesPool)) {
     candidates = candidatesPool.filter((cand) => {
       if (cand.projectId === targetTor.projectId) return false;
-      if (!isFullExtraction(cand)) return false;
-      if (cand.identification?.category !== targetCategory) return false;
+      if (!isEligibleCandidate(cand)) return false;
+      if (!sharesCategory(targetTor, cand)) return false;
       const price = getProjectPrice(cand);
       return price !== null && price > 0;
     });
   } else {
     candidates = await TorInsight.find({
       projectId: { $ne: targetTor.projectId },
-      ...FULL_EXTRACTION,
-      'identification.category': targetCategory,
+      ...CANDIDATE_FILTERS,
+      'identification.categories': { $in: targetCategories },
       $or: [
         { 'facts.referencePriceTHB': { $gt: 0 } },
         { 'facts.budgetTHB': { $gt: 0 } },
@@ -327,6 +411,7 @@ export async function findComparableProjects(targetTor, options = {}) {
         facts: 1,
         overview: 1,
         technicalRequirements: 1,
+        metadata: 1,
       })
       .lean();
   }

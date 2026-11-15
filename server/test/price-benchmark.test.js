@@ -1,7 +1,7 @@
 /**
  * server/test/price-benchmark.test.js
  *
- * Tests for FR-20: Historical price benchmarking, median & average calculation,
+ * Tests for FR-19: Historical price benchmarking, median & average calculation,
  * and price deviation calculations.
  * Conforms to ADR 0014, ADR 0022, ADR 0024.
  */
@@ -159,7 +159,7 @@ test('formatPriceInterpretation: generates appropriate non-accusatory Thai copy'
 test('calculatePriceBenchmarks: integrates target price resolution, peers, deviations, and reliability', () => {
   const targetTor = {
     projectId: '68039469567',
-    identification: { titleTh: 'โครงการพัฒนาระบบ Portal', category: 'software-development' },
+    identification: { titleTh: 'โครงการพัฒนาระบบ Portal', categories: ['software-development'] },
     facts: { referencePriceTHB: 2_400_000, budgetTHB: 2_500_000 },
   };
 

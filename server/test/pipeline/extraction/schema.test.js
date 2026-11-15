@@ -37,11 +37,18 @@ for (const [name, schema] of Object.entries({ classifySchema, extractSchema, scr
   });
 }
 
-test('classifySchema: the category is one of the fixed project kinds, and null for non-IT', () => {
+test('classifySchema: only decides what is in scope; categories need the whole TOR (ADR 0034)', () => {
   const { category, isIT } = classifySchema.properties;
   assert.equal(isIT.type, Type.BOOLEAN);
-  assert.deepEqual(category.enum, PROJECT_CATEGORIES);
-  assert.equal(category.nullable, true);
+  assert.equal(category, undefined);
+});
+
+test('extractSchema: categories are a list of the fixed project kinds, each kind explained', () => {
+  const { properties, required } = extractSchema.properties.identification;
+  assert.equal(properties.categories.type, Type.ARRAY);
+  assert.deepEqual(properties.categories.items.enum, PROJECT_CATEGORIES);
+  assert.ok(required.includes('categories'));
+  for (const category of PROJECT_CATEGORIES) assert.match(properties.categories.description, new RegExp(`^${category}: `, 'm'));
 });
 
 test('extractSchema: offers exactly the standard condition keys the model stores', () => {

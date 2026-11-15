@@ -14,21 +14,10 @@
  */
 
 import { Type } from '@google/genai';
+import { MAX_CATEGORIES, PROJECT_CATEGORIES, PROJECT_CATEGORY_MEANINGS } from '#models/project-categories.js';
 import { STANDARD_CONDITIONS, STANDARD_CONDITION_KEYS } from '#models/standard-conditions.js';
 
-/**
- * Kinds of IT project. Price analysis (FR-19) uses this to find similar past
- * projects: the AI picks the label, and code does the comparing.
- */
-export const PROJECT_CATEGORIES = [
-  'software-development', // building or customizing software, web or mobile apps
-  'systems-integration', // hardware and software delivered and set up as one working system
-  'software-licenses', // buying or renting software licenses or subscriptions
-  'maintenance-and-support', // running, maintaining or supporting an existing system
-  'network-and-security', // network or security systems, with their setup
-  'data-and-ai', // data platforms, analytics, AI
-  'other-it',
-];
+export { PROJECT_CATEGORIES };
 
 /**
  * System archetypes for comparable project grouping (FR-19 & ADR 0021).
@@ -174,16 +163,9 @@ export const classifySchema = {
         'false for buying hardware alone (computers, printers, parts) with no system work, and for ' +
         'work that is not IT at all.',
     },
-    category: {
-      type: Type.STRING,
-      nullable: true,
-      format: 'enum',
-      enum: PROJECT_CATEGORIES,
-      description: 'The kind of IT project. null when isIT is false.',
-    },
   },
-  required: ['quote', 'reason', 'agency', 'isIT', 'category'],
-  propertyOrdering: ['quote', 'reason', 'agency', 'isIT', 'category'],
+  required: ['quote', 'reason', 'agency', 'isIT'],
+  propertyOrdering: ['quote', 'reason', 'agency', 'isIT'],
 };
 
 /**
@@ -238,8 +220,18 @@ export const extractSchema = {
         titleTh: evidenced({ type: Type.STRING }, 'The project title as the document writes it.'),
         agency: evidenced({ type: Type.STRING }, 'The government organization that is buying.'),
         department: text('The division or office responsible, when the document names one.'),
+        categories: {
+          type: Type.ARRAY,
+          description:
+            `The kinds of IT work this project buys, 1 to ${MAX_CATEGORIES}, the main one first: the one most ` +
+            'of the work and money goes to. List another only when it is a real part of the scope, not ' +
+            'when the document just mentions it: a warranty that comes with the system is not ' +
+            'maintenance-and-support, and a license needed to run what is built is not software-licenses.\n' +
+            PROJECT_CATEGORY_MEANINGS.map(({ key, means }) => `${key}: ${means}`).join('\n'),
+          items: { type: Type.STRING, format: 'enum', enum: PROJECT_CATEGORIES },
+        },
       },
-      required: ['titleTh', 'agency', 'department'],
+      required: ['titleTh', 'agency', 'department', 'categories'],
     },
     facts: {
       type: Type.OBJECT,

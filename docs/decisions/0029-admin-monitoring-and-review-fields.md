@@ -1,14 +1,14 @@
 # 0029 · Admin monitoring metrics, review workspace fields, and dataset integrity
 
-Status: accepted · 2026-10-25 · amended to cover the full 10-section review workspace, pipeline monitoring control center, and version rollback (amends [0010](0010-normalized-tor-detail-Information.md), [0013](0013-confidence-scoring.md); aligns with [0030](0030-run-the-night-in-priority-waves.md), [0031](0031-keep-the-summary-a-change-replaces.md), and [0032](0032-record-what-changed-in-a-tor.md))
+Status: accepted · 2026-10-25 · amended to cover the full 10-section review workspace, pipeline monitoring control center, and version rollback (amends [0010](0010-normalized-tor-detail-Information.md), [0013](0013-split-ingestion-and-ai-extraction.md); aligns with [0030](0030-run-the-night-in-priority-waves.md), [0031](0031-keep-the-summary-a-change-replaces.md), and [0032](0032-record-what-changed-in-a-tor.md))
 
 ## Context
 
 GIPDP surfaces Thai government IT procurement opportunities by automatically
 ingesting announcements from official portals (e-GP, data.go.th, and agency feeds),
 downloading PDF terms of reference (TOR), extracting text via OCR, and structuring
-key procurement criteria via an LLM extraction pipeline ([0008](0008-ocr-gemini-pipeline.md),
-[0010](0010-normalized-tor-detail-Information.md), [0013](0013-confidence-scoring.md)).
+key procurement criteria via an LLM extraction pipeline ([0008](0008-tor-ingestion-pipeline.md),
+[0010](0010-normalized-tor-detail-Information.md), [0013](0013-split-ingestion-and-ai-extraction.md)).
 
 However, government source feeds and probabilistic AI extractions present two
 critical operational challenges that cannot be handled by fully automated flows:
@@ -127,7 +127,7 @@ Rather than exposing an arbitrary subset of fields, the dedicated review workspa
    - Enforces strict positive numeric validation to prevent phantom or corrupt prices.
 3. **Overview & Scope**:
    - `objective`, `systemArchetype`, `complexityTier`, `majorComponents`, `highLevelScope`.
-   - Directly drives similarity matching and price reality checks ([0021](0021-compare-realistic-projects.md)).
+   - Directly drives similarity matching and price reality checks ([0021](0021-find-comparable-projects.md)).
 4. **Deliverables Breakdown**:
    - Managed via `DynamicListEditor` across `system`, `implementation`, and `validation` deliverables.
 5. **Technical Requirements & Stack**:
@@ -158,7 +158,7 @@ the editing surface.
 
 Confidence scores are no longer synthetic deductions. Instead, field-level confidence
 badges map directly to verification check failures stored in `insight.metadata.checks`
-([0013](0013-confidence-scoring.md)):
+([0013](0013-split-ingestion-and-ai-extraction.md)):
 - A failed price check flags `referencePriceTHB` and `budgetTHB`.
 - A failed deadline check flags `submissionDeadline`.
 - A low OCR score flags company eligibility and narrative fields.

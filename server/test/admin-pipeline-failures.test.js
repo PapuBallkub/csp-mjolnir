@@ -360,7 +360,7 @@ test('FR-24: GET /api/admin/pipeline/record/:projectId aggregates full lifecycle
     projectId: projId,
     title: 'โครงการพัฒนาระบบคลาวด์ภาครัฐ',
     verdict: 'it',
-    category: 'Software/IT',
+    categories: ['software-development'],
     reason: 'Government cloud system infrastructure and migration',
     modelName: 'gemini-1.5-flash',
     promptVersion: 'screen-v2',

@@ -79,19 +79,19 @@ async function inspectOne(projectId, { limit, save }) {
     return;
   }
 
-  const category = tor.identification?.category ?? 'Not specified';
+  const categories = tor.identification?.categories?.join(', ') || 'Not specified';
   const price = getProjectPrice(tor);
 
   console.log(`\n======================================================`);
   console.log(`Target TOR: [${tor.projectId}] ${tor.identification?.titleTh}`);
-  console.log(`Category:   ${category}`);
+  console.log(`Categories: ${categories}`);
   console.log(`Price:      ${formatTHB(price)}`);
   console.log(`======================================================\n`);
 
   const results = await findComparableProjects(tor, { limit });
 
   if (results.length === 0) {
-    console.log(`No comparable projects found matching category "${category}".`);
+    console.log(`No comparable projects found sharing a category with "${categories}".`);
     return;
   }
 
@@ -104,14 +104,15 @@ async function inspectOne(projectId, { limit, save }) {
       `    Score:  ${(item.score * 100).toFixed(1)}% ` +
       `(Archetype: ${(item.breakdown.archetypeSim * 100).toFixed(0)}%, ` +
       `Complexity: ${(item.breakdown.complexitySim * 100).toFixed(0)}%, ` +
-      `Tech: ${(item.breakdown.techSim * 100).toFixed(0)}%)\n`
+      `Tech: ${(item.breakdown.techSim * 100).toFixed(0)}%, ` +
+      `Category: ${(item.breakdown.categorySim * 100).toFixed(0)}%)\n`
     );
   });
 
   const priceAnalysis = calculatePriceBenchmarks(tor, results);
 
   console.log(`------------------------------------------------------`);
-  console.log(`Historical Benchmarks & Deviations (FR-20):`);
+  console.log(`Historical Benchmarks & Deviations (FR-19):`);
   console.log(`  Sample Size:       ${priceAnalysis.sampleSize} (${priceAnalysis.reliability})`);
   console.log(`  Historical Median: ${formatTHB(priceAnalysis.historicalMedianTHB)}`);
   console.log(`  Historical Mean:   ${formatTHB(priceAnalysis.historicalAverageTHB)}`);
@@ -151,7 +152,7 @@ async function processAll({ limit, save }) {
   // Comparables are worked out for full extractions only (ADR 0028)
   const tors = await TorInsight.find({
     ...FULL_EXTRACTION,
-    'identification.category': { $ne: null },
+    'identification.categories.0': { $exists: true },
     $or: [
       { 'facts.referencePriceTHB': { $gt: 0 } },
       { 'facts.budgetTHB': { $gt: 0 } },
