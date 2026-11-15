@@ -271,14 +271,15 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 
 | File | What it is |
 | :--- | :--- |
-| [similarity.service.js](../server/src/features/similarity/similarity.service.js) | Finds comparable past projects for a TOR, without an LLM ([0021](decisions/0021-find-comparable-projects.md)). |
+| [similarity-scoring.js](../server/src/features/similarity/similarity-scoring.js) | Pure similarity math: Jaccard tech stack, archetype matching, complexity step distance, category order ([0021](decisions/0021-find-comparable-projects.md), [0034](decisions/0034-a-tor-can-have-several-categories.md)). |
+| [candidate-search.js](../server/src/features/similarity/candidate-search.js) | Finds and ranks comparable historical candidate tenders from MongoDB without circular price filtering ([0021](decisions/0021-find-comparable-projects.md), [0028](decisions/0028-past-projects-from-data-go-th.md)). |
 | [index.js](../server/src/features/similarity/index.js) | Exports similarity math, candidate filters, plus `FULL_EXTRACTION` / `isFullExtraction`. |
 
 **price-reality-check**: no route; called by the pipeline and scripts
 
 | File | What it is |
 | :--- | :--- |
-| [benchmark.service.js](../server/src/features/price-reality-check/benchmark.service.js) | Median, average and deviation against comparable projects, with sample-size bands ([0024](decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md)). |
+| [price-reality-check.service.js](../server/src/features/price-reality-check/price-reality-check.service.js) | Median, average and deviation against comparable projects, with sample-size bands ([0024](decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md)). |
 | [index.js](../server/src/features/price-reality-check/index.js) | Exports price benchmarking functions. |
 
 **lock-spec**: no route; called by extraction and scripts
