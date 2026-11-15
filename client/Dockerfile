@@ -8,6 +8,9 @@ RUN npm ci
 
 COPY . .
 
+# Ensure public directory exists for Docker build resilience
+RUN mkdir -p /app/public
+
 # Inlined at build time by Next.js
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
