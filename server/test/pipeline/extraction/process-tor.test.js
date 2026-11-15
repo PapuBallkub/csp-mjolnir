@@ -134,13 +134,14 @@ test('a TOR with no OCR text fails before any call is made', async () => {
 });
 
 // saveInsight needs a database: skipped, not failed, when none is running
+const TEST_DB = 'mjolnir_test';
 let isDbConnected = false;
 const { tor: savedTor } = fixture();
 
 before(async () => {
   try {
     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000));
-    await Promise.race([connectDatabase(), timeout]);
+    await Promise.race([connectDatabase({ dbName: TEST_DB }), timeout]);
     isDbConnected = true;
     await TorInsight.deleteOne({ projectId: savedTor.projectId });
   } catch {

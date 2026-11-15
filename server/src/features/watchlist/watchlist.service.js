@@ -1,6 +1,6 @@
 import { badRequest, notFound } from '#common/errors/http-error.js';
 import { TorInsight, User } from '#models/index.js';
-import { LIVE_STATUS, toPublic, visibilityFilter } from '#features/tors/tor.service.js';
+import { LIVE_STATUS, toPublic, visibilityFilter } from '#features/tors/index.js';
 
 const MAX_WATCHLIST_ITEMS = 200;
 
