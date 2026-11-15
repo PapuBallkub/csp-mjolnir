@@ -51,7 +51,7 @@ function limitByEmail({ windowMs, limit }) {
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     handler: (req, res, next) => {
-      next(new HttpError(429, 'Too many sign-in attempts for this account. Try again in 15 minutes.'));
+      next(new HttpError(429, 'มีการพยายามเข้าสู่ระบบสำหรับบัญชีนี้มากเกินไป กรุณาลองใหม่ในอีก 15 นาที'));
     },
   });
 }

@@ -23,18 +23,18 @@ function collectCredentials(body) {
   const password = typeof body?.password === 'string' ? body.password : '';
 
   if (!email) {
-    errors.email = 'Email is required.';
+    errors.email = 'กรุณากรอกอีเมล';
   } else if (!EMAIL_PATTERN.test(email)) {
-    errors.email = 'That does not look like an email address.';
+    errors.email = 'รูปแบบอีเมลไม่ถูกต้อง';
   }
 
   if (!password) {
-    errors.password = 'Password is required.';
+    errors.password = 'กรุณากรอกรหัสผ่าน';
   } else if (password.length < MIN_PASSWORD_LENGTH) {
-    errors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+    errors.password = `รหัสผ่านต้องมีความยาวอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`;
   } else if (Buffer.byteLength(password) > MAX_PASSWORD_BYTES) {
     // Bytes, not characters: Thai is three bytes each, so this arrives at ~24.
-    errors.password = `Password must be at most ${MAX_PASSWORD_BYTES} bytes.`;
+    errors.password = `รหัสผ่านต้องมีขนาดไม่เกิน ${MAX_PASSWORD_BYTES} ไบต์`;
   }
 
   return { email, password, errors };
@@ -42,7 +42,7 @@ function collectCredentials(body) {
 
 function throwIfAny(errors) {
   if (Object.keys(errors).length > 0) {
-    throw badRequest('Check the details you entered.', errors);
+    throw badRequest('กรุณาตรวจสอบข้อมูลที่กรอก', errors);
   }
 }
 
@@ -63,9 +63,9 @@ export function parseRegistration(body) {
   const name = typeof body?.name === 'string' ? body.name.trim() : '';
 
   if (!name) {
-    errors.name = 'Your name is required.';
+    errors.name = 'กรุณากรอกชื่อของคุณ';
   } else if (name.length > MAX_NAME_LENGTH) {
-    errors.name = `Your name must be at most ${MAX_NAME_LENGTH} characters.`;
+    errors.name = `ชื่อต้องมีความยาวไม่เกิน ${MAX_NAME_LENGTH} ตัวอักษร`;
   }
 
   throwIfAny(errors);

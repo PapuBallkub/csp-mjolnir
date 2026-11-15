@@ -38,7 +38,7 @@ function build({ windowMs, limit, message, keyGenerator, skip, skipSuccessfulReq
 
 function defaultMessage(windowMs) {
   const minutes = Math.ceil(windowMs / 60_000);
-  return `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`;
+  return `มีการพยายามทำรายการมากเกินไป กรุณาลองใหม่ในอีก ${minutes} นาที`;
 }
 
 // For routes anyone can reach, where the caller's address is all we have.
@@ -48,16 +48,3 @@ export function limitByIp(options) {
   return build({ ...options, keyGenerator: (req) => ipKeyGenerator(req.ip) });
 }
 
-// For routes behind requireAuth. The account is a better key than the address:
-// it follows someone between networks, and it does not punish everyone sharing
-// an office or a mobile carrier's NAT for one person's behaviour.
-//
-// Mount it after requireAuth. Mounted before, req.user is undefined and every
-// caller silently shares one bucket, which is worse than not limiting at all.
-export function limitByUser(options) {
-  return build({
-    ...options,
-    keyGenerator: (req) => req.user.id,
-    skip: (req) => !req.user?.id,
-  });
-}

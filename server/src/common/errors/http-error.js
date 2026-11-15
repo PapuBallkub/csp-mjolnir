@@ -8,6 +8,6 @@ export class HttpError extends Error {
 }
 
 export const badRequest = (message, details) => new HttpError(400, message, details);
-export const unauthorized = (message = 'Unauthorized') => new HttpError(401, message);
-export const forbidden = (message = 'Forbidden') => new HttpError(403, message);
-export const notFound = (message = 'Not found') => new HttpError(404, message);
+export const unauthorized = (message = 'กรุณาเข้าสู่ระบบ') => new HttpError(401, message);
+export const forbidden = (message = 'ไม่มีสิทธิ์เข้าถึง') => new HttpError(403, message);
+export const notFound = (message = 'ไม่พบข้อมูล') => new HttpError(404, message);

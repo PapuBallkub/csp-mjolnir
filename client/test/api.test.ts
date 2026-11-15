@@ -40,8 +40,8 @@ test("a validation error keeps its per-field details", async () => {
   stubFetch(
     json(400, {
       error: {
-        message: "Check the details you entered.",
-        details: { email: "That does not look like an email address." },
+        message: "กรุณาตรวจสอบข้อมูลที่กรอก",
+        details: { email: "รูปแบบอีเมลไม่ถูกต้อง" },
       },
     }),
   );
@@ -52,30 +52,30 @@ test("a validation error keeps its per-field details", async () => {
   if (result.ok) return;
 
   assert.equal(result.error.status, 400);
-  assert.equal(result.error.details?.email, "That does not look like an email address.");
+  assert.equal(result.error.details?.email, "รูปแบบอีเมลไม่ถูกต้อง");
 });
 
 test("an error without details does not invent any", async () => {
-  stubFetch(json(401, { error: { message: "Invalid email or password." } }));
+  stubFetch(json(401, { error: { message: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" } }));
 
   const result = await login({ email: "a@b.com", password: "correct horse battery" });
 
   assert.equal(result.ok, false);
   if (result.ok) return;
 
-  assert.equal(result.error.message, "Invalid email or password.");
+  assert.equal(result.error.message, "อีเมลหรือรหัสผ่านไม่ถูกต้อง");
   assert.equal(result.error.details, undefined);
 });
 
 test("a 429 arrives as prose, since CORS hides the Retry-After header", async () => {
-  stubFetch(json(429, { error: { message: "Too many attempts. Try again in 15 minutes." } }));
+  stubFetch(json(429, { error: { message: "มีการพยายามทำรายการมากเกินไป กรุณาลองใหม่ในอีก 15 นาที" } }));
 
   const result = await login({ email: "a@b.com", password: "correct horse battery" });
 
   assert.equal(result.ok, false);
   if (result.ok) return;
 
-  assert.match(result.error.message, /15 minutes/);
+  assert.match(result.error.message, /15 นาที/);
 });
 
 test("a non-JSON error body still yields a usable message", async () => {

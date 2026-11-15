@@ -80,7 +80,7 @@ test('an anonymous caller gets 401, not 403', async () => {
   // 403 would tell someone who is nobody that they are the wrong kind of
   // person. 401 is the honest answer and matches the rest of the API.
   assert.equal(response.status, 401);
-  assert.match((await response.json()).error.message, /Sign in/i);
+  assert.match((await response.json()).error.message, /เข้าสู่ระบบ|Sign in/i);
 });
 
 test('an ordinary signed-in user is forbidden, and gets no data with it', async () => {
@@ -89,7 +89,7 @@ test('an ordinary signed-in user is forbidden, and gets no data with it', async 
   assert.equal(response.status, 403);
 
   const body = await response.json();
-  assert.match(body.error.message, /administrator/i);
+  assert.match(body.error.message, /ผู้ดูแลระบบ|administrator/i);
 
   // The whole point: the payload must not ride along with the refusal.
   const raw = JSON.stringify(body);
