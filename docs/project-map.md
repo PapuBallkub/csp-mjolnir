@@ -129,9 +129,9 @@ nightly `process` job runs the same steps in priority order
 - **Old requirement IDs.** Code written before the SRS cites the proposal's
   numbering (`FR07` is match scoring, not extraction). Translate with the table
   at the end of [requirements.md](requirements.md).
-- **Fixture data is still live in two pages.**
-  [client/app/_data/tors.ts](../client/app/_data/tors.ts) supplies the TORs
-  shown on `/watchdog` and `/notifications`. Every other page uses it only for
+- **Fixture data has been removed from all pages.**
+  Every screen (`/search`, `/tor/[id]`, `/profile`, `/watchlist`, `/notifications`, `/watchdog`, `/admin`) runs on real API endpoints.
+  [client/app/_data/tors.ts](../client/app/_data/tors.ts) is retained only for
   types and helpers (`pick`, `formatTHB`, `Lang`).
 - **The admin dashboard can show sample data.**
   [admin.service.js](../server/src/features/admin/admin.service.js) falls back
@@ -471,7 +471,7 @@ never appears in the URL.
 | `/auth` | `auth/page.tsx`, `_components/auth-form.tsx` | API | everyone |
 | `/search` | `(app)/search/` | API | everyone; match mode needs a profile |
 | `/tor/[id]` | `(app)/tor/[id]/`, `_components/tor-detail/` | API | everyone |
-| `/watchdog` | `(app)/watchdog/page.tsx` | **fixtures** | everyone |
+| `/watchdog` | `(app)/watchdog/` | API | everyone |
 | `/profile` | `(app)/(private)/profile/` | API | signed in |
 | `/watchlist` | `(app)/(private)/watchlist/page.tsx` | API | signed in |
 | `/notifications` | `(app)/(private)/notifications/page.tsx`, `notifications/[id]/page.tsx` | API | signed in |
@@ -518,7 +518,7 @@ never appears in the URL.
 
 | File | What it is |
 | :--- | :--- |
-| [watchdog/page.tsx](../client/app/(app)/watchdog/page.tsx) | Price deviation from the historical median, and amendment examples. Fixture data. |
+| [watchdog/page.tsx](../client/app/(app)/watchdog/page.tsx) | Price reality check & lock-spec trends dashboard. Queries live API TORs, aggregates historical price distributions and Circular ว 214 signals across modular subcomponents in `_components/` and `_lib/`. |
 | [profile/page.tsx](../client/app/(app)/(private)/profile/page.tsx) | Shows the capability profile, or edits it with `?edit=true`. |
 | [profile/_components/ProfileDisplay.tsx](../client/app/(app)/(private)/profile/_components/ProfileDisplay.tsx) | Read-only profile. |
 | [profile/_components/ProfileEditForm.tsx](../client/app/(app)/(private)/profile/_components/ProfileEditForm.tsx) | ~1,100 lines. Skills from the vocabulary, budget, certifications, entity type, archetypes. |
