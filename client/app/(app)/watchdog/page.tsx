@@ -259,7 +259,7 @@ function mapApiTorToWatchdog(tor: TorInsightSummary): WatchdogProjectRecord | nu
     : "2026-10-01";
   const month = isoDate.slice(0, 7);
 
-  const category = normalizeCategory(tor.identification.category);
+  const category = normalizeCategory(tor.identification.categories?.[0]);
   const archetype = normalizeArchetype(tor.overview?.systemArchetype, category);
   const complexity = normalizeComplexity(tor.overview?.complexityTier, refPrice);
 

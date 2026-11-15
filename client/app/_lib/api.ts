@@ -1085,13 +1085,10 @@ export type TorInsightSummary = {
   overview?: {
     systemArchetype?: string | null;
     complexityTier?: string | null;
+    objective?: string | null;
   };
   technicalRequirements?: {
     requiredTechnologies: { name: string; version: string | null }[];
-  };
-  overview?: {
-    systemArchetype?: string | null;
-    objective?: string | null;
   };
   eligibility?: {
     requiredCertifications?: string[];
