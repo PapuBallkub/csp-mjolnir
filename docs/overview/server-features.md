@@ -53,7 +53,9 @@ flowchart LR
 | `notifications` | `/api/notifications` | In-app notification feed, read/unread states, and scheduled email match digest dispatch (FR-14, FR-18) | `Notification`: immutable events and delivery state (`emailSent`, `isRead`) |
 | `admin` | `/api/admin` | The admin dashboard (FR-22), the review workspace (FR-23), pipeline controls: retry, skip, dismiss, add a project, run a fetch | `TorInsight` (corrections), `Technology`, `TitleScreen`, `PipelineFailure`, `IngestionLog` |
 | `health` | `/health` | Liveness and the database's connection state, outside `/api` on purpose ([0009](../decisions/0009-api-prefix-without-a-version.md)) | nothing |
-| `reality-check` | no routes | A library: comparable projects, the price benchmark, lock-spec risk. The pipelines call it and save what it returns | nothing itself |
+| `similarity` | no routes | A library: candidate pooling and composite similarity scoring for comparable projects (FR-19) | nothing itself |
+| `price-reality-check` | no routes | A library: historical price median, mean, and deviation calculations (FR-19, FR-20) | nothing itself |
+| `lock-spec` | no routes | A library: Circular ว 214 lock-spec risk detection and findings (FR-21) | nothing itself |
 | `match` | no routes | A server-side match score. **Only its test calls it**; the score users see is computed in the browser by `client/app/_lib/match.ts` | nothing |
 
 ## How the features depend on each other
@@ -70,7 +72,7 @@ flowchart LR
     admin --> auth
     watchlist -.->|"imports tor.service.js<br/>directly"| tors
     profile -.->|"also imports auth.service.js<br/>directly"| auth
-    admin --> RC["reality-check"]
+    admin --> SIM["similarity"]
     health
     match
 ```
@@ -99,7 +101,9 @@ flowchart LR
         tors
         profile
         technologies
-        RC["reality-check"]
+        SIM["similarity"]
+        PRC["price-reality-check"]
+        LS["lock-spec"]
     end
     subgraph P["pipeline/"]
         ingestion
@@ -113,10 +117,11 @@ flowchart LR
     tors -->|"user-agent"| shared
     profile -->|"SYSTEM_ARCHETYPES"| extraction
     technologies -->|"starter vocabulary"| extraction
-    RC -->|"SYSTEM_ARCHETYPES,<br/>COMPLEXITY_TIERS"| extraction
-    extraction -->|"analyzeLockSpec,<br/>isFullExtraction"| RC
-    ingestion -->|"similarity and price,<br/>to pick past projects"| RC
-    shared -->|"insight-versions"| RC
+    SIM -->|"SYSTEM_ARCHETYPES,<br/>COMPLEXITY_TIERS"| extraction
+    extraction -->|"analyzeLockSpec"| LS
+    extraction -->|"isFullExtraction"| SIM
+    ingestion -->|"similarity to pick past projects"| SIM
+    shared -->|"insight-versions"| SIM
 ```
 
 Three things here are worth knowing before you change one of these files:
@@ -126,14 +131,14 @@ Three things here are worth knowing before you change one of these files:
   `runDownloadStep` or `runOcrStep` directly and wait for them. They don't
   start a job, so a slow step holds the API request open for as long as it
   takes.
-- **`reality-check` and `extraction` import each other.** Extraction calls
-  `analyzeLockSpec` when it assembles an insight; reality-check reads
+- **`lock-spec` and `extraction` import each other.** Extraction calls
+  `analyzeLockSpec` when it assembles an insight; similarity reads
   extraction's lists of system archetypes and complexity tiers. It works
   because neither uses the other's values while the modules load. Keep it that
   way, or move the shared lists somewhere both can import.
-- **`scripts/find-comparable.js`**, the nightly comparison run, is the main
-  caller of `reality-check`. It writes `analytics.priceAnalysis` and refreshes
-  `analytics.lockSpec` on every TOR.
+- **`scripts/find-comparable.js`**, the nightly comparison run, calls
+  `similarity`, `price-reality-check`, and `lock-spec`. It writes
+  `analytics.priceAnalysis` and refreshes `analytics.lockSpec` on every TOR.
 
 ## What everything shares
 

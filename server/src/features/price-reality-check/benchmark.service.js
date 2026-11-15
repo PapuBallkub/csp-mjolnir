@@ -1,5 +1,5 @@
 /**
- * server/src/features/reality-check/benchmark.service.js
+ * server/src/features/price-reality-check/benchmark.service.js
  *
  * Implements FR-19: Historical price benchmarking and price deviation calculations
  * for a TOR against comparable projects found by similarity.service.js.
@@ -8,7 +8,7 @@
  * docs/features/price-benchmark-calculations.md.
  */
 
-import { getProjectPrice } from './similarity.service.js';
+import { getProjectPrice } from '#features/similarity/index.js';
 
 /**
  * Calculates the historical median price from an array of numeric prices.

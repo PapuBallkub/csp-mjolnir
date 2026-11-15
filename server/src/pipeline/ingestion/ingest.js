@@ -48,7 +48,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { FeedPoll, IngestionLog, TitleScreen, Tor, TorInsight } from '#models/index.js';
-import { FULL_EXTRACTION } from '#features/reality-check/index.js';
+import { FULL_EXTRACTION } from '#features/similarity/index.js';
 import { EGP_ANNOUNCEMENT_CODES, classifyAnnouncement } from '../shared/announcement-codes.js';
 import { MAX_ATTEMPTS, clearFailure, isTooBig, loadGivenUp, recordFailure } from '../shared/failures.js';
 import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';

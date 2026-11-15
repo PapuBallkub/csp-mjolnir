@@ -14,7 +14,7 @@ import { cleanCategories } from '#models/project-categories.js';
 import { egpAnnouncementUrl } from '../shared/egp-links.js';
 import { feedAmount, feedDate, toAmount, toDate, toNumber, toText } from './convert.js';
 import { DOCUMENTS } from './documents.js';
-import { analyzeLockSpec } from '../../features/reality-check/index.js';
+import { analyzeLockSpec } from '#features/lock-spec/index.js';
 
 const unique = (items) => [...new Set(items ?? [])];
 

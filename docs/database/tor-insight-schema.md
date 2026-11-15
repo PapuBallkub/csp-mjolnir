@@ -253,7 +253,7 @@ Our own conclusions, computed in code; the TOR states none of them. `lockSpec` i
 - `findings` (`[findingSchema]`): Array of specific flagged clauses with evidence (see §2.1).
 
 #### `analytics.priceAnalysis` (Price Reality Check)
-Computed by `features/reality-check/benchmark.service.js` ([0024](../decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md)). A difference is `null` when either price is missing or not above zero.
+Computed by `features/price-reality-check/benchmark.service.js` ([0024](../decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md)). A difference is `null` when either price is missing or not above zero.
 - `referencePriceTHB` (`Number`, default `null`): The price compared: the TOR's ราคากลาง, or its budget when there is no ราคากลาง.
 - `historicalMedianTHB` (`Number`, default `null`): Median price of the comparable projects, each taken the same way (ราคากลาง, else budget).
 - `historicalAverageTHB` (`Number`, default `null`): Their average.

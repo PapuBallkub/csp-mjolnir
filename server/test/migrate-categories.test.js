@@ -3,7 +3,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import mongoose from 'mongoose';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { findComparableProjects } from '#features/reality-check/index.js';
+import { findComparableProjects } from '#features/similarity/index.js';
 import { Tor, TorInsight, TorInsightVersion } from '#models/index.js';
 import { saveInsight } from '#pipeline/extraction/process-tor.js';
 import { keepVersion, rollbackTor } from '#pipeline/shared/insight-versions.js';

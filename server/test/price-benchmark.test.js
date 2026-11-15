@@ -15,7 +15,7 @@ import {
   assessPriceReliability,
   formatPriceInterpretation,
   calculatePriceBenchmarks,
-} from '#features/reality-check/index.js';
+} from '#features/price-reality-check/index.js';
 
 test('calculateHistoricalMedian: calculates correct median for odd sample size', () => {
   // Odd: 5 items

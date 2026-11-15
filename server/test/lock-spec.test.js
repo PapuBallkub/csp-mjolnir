@@ -15,7 +15,7 @@ import {
   calculateLockSpecScore,
   formatLockSpecVerdict,
   analyzeLockSpec,
-} from '#features/reality-check/index.js';
+} from '#features/lock-spec/index.js';
 
 test('detectVendorLockin: flags MAF on software-development as high severity', () => {
   const tor = {
