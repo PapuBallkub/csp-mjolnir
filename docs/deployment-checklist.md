@@ -28,12 +28,10 @@ are open questions rather than instructions.
       connection string says. Point production at the same cluster and
       production *is* development — same database, same documents. Use a
       separate cluster, or pass a different `dbName`.
-- [ ] **DECIDE — how long a session lasts.** NFR-11 says a session expires
-      within 24 hours; `SESSION_TTL_DAYS` in
-      `server/src/features/auth/session.js` gives 7 days. The team will settle
-      it with the client first. Either the constant changes or the SRS does.
-      The length matters more than usual, because a session can't be revoked
-      before it expires (§6).
+- [x] **RESOLVED — how long a session lasts.** Aligned with SRS NFR-11:
+      `SESSION_TTL_HOURS = 24` in `server/src/features/auth/session.js`. In
+      addition, token versioning (`tokenVersion` on `User`) allows immediate
+      server-side revocation upon logout.
 
 ---
 
@@ -167,9 +165,9 @@ Do not assume these are handled just because the app works.
       not let a green limiter suggest otherwise.
 - [ ] **`/api/auth/google/callback` is unlimited**, and does a token exchange
       against Google for an anonymous caller. Deliberate, per 0007.
-- [ ] **Sessions cannot be revoked** before they expire, seven days out.
-      Deleting an account works; changing a password does not sign out other
-      browsers.
+- [x] **Session revocation is enforced via Token Versioning.** When a user logs
+      out, `tokenVersion` increments in the database, invalidating the session
+      token immediately.
 - [ ] **No password reset and no email verification.** A locked-out user has no
       self-service recovery. Both belong with FR08.
 - [ ] **Registration reveals whether an address already has an account**,
