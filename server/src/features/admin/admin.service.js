@@ -3,6 +3,7 @@ import path from 'node:path';
 import axios from 'axios';
 import { badRequest, notFound } from '#common/errors/http-error.js';
 import { getDocumentsDir } from '#common/paths.js';
+import { escapeRegex } from '#common/utils/escape-regex.js';
 import {
   FeedPoll,
   IngestionLog,
@@ -1884,7 +1885,7 @@ export async function createAdminTechnology({ name, category, aliases = [], stat
     : [];
 
   const existing = await Technology.findOne({
-    $or: [{ key }, { name: new RegExp(`^${trimmed}$`, 'i') }],
+    $or: [{ key }, { name: new RegExp(`^${escapeRegex(trimmed)}$`, 'i') }],
   });
   if (existing) {
     const error = new Error(`Technology or standard '${trimmed}' already exists`);
@@ -1937,7 +1938,7 @@ export async function updateAdminTechnology(id, { name, category, aliases, statu
     const key = trimmed.toLowerCase().replace(/\s+/g, ' ');
     const clash = await Technology.findOne({
       _id: { $ne: tech._id },
-      $or: [{ key }, { name: new RegExp(`^${trimmed}$`, 'i') }],
+      $or: [{ key }, { name: new RegExp(`^${escapeRegex(trimmed)}$`, 'i') }],
     });
     if (clash) {
       const error = new Error(`Technology '${trimmed}' already exists with different ID`);

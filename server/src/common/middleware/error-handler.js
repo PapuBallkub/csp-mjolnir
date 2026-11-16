@@ -6,7 +6,14 @@ import { HttpError } from '#common/errors/http-error.js';
 // `next` is required: Express only treats a 4-arity function as an error handler.
 // eslint-disable-next-line no-unused-vars
 export function errorHandler(err, req, res, next) {
-  const status = err instanceof HttpError ? err.status : 500;
+  const status =
+    err instanceof HttpError
+      ? err.status
+      : typeof err.status === 'number'
+        ? err.status
+        : typeof err.statusCode === 'number'
+          ? err.statusCode
+          : 500;
 
   if (status >= 500) {
     console.error(err);

@@ -15,6 +15,8 @@ export function toPublicUser(user) {
     // Load-bearing: requireRole reads req.user.role, and req.user is whatever
     // this returned. Drop it here and every admin is silently forbidden.
     role: user.role,
+    // ASVS V7.4.1: tokenVersion for session invalidation
+    tokenVersion: user.tokenVersion ?? 0,
     notificationConsent: user.notificationConsent,
     // FR-12. The profile ships with every authed response, so the client
     // always has it and the match scorer (FR-13) can run on any page.

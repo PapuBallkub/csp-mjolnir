@@ -1,5 +1,6 @@
 import { env } from '#common/config/env.js';
 import { HttpError } from '#common/errors/http-error.js';
+import { User } from '#models/index.js';
 
 import { registerWithPassword, signInWithGoogle, signInWithPassword } from './auth.service.js';
 import {
@@ -11,7 +12,7 @@ import {
   OAUTH_STATE_COOKIE,
 } from './google.js';
 import { parseCredentials, parseRegistration } from './auth.validation.js';
-import { clearSessionCookie, setSessionCookie, signSessionToken } from './session.js';
+import { clearSessionCookie, readSessionToken, SESSION_COOKIE, setSessionCookie, signSessionToken } from './session.js';
 
 // Registering signs you in: the password was just chosen by whoever owns the
 // account, so a second form asking for it again proves nothing.
@@ -40,7 +41,17 @@ export async function login(req, res) {
 
 // Succeeds whether or not anyone was signed in. A logout that can fail leaves
 // someone signed in on a shared machine.
-export function logout(req, res) {
+export async function logout(req, res) {
+  // ASVS V7.4.1, V14.3.1: Command browser to clear storage, cache, and cookies
+  res.set('Clear-Site-Data', '"cache", "cookies", "storage"');
+
+  const token = req.cookies?.[SESSION_COOKIE];
+  const session = readSessionToken(token);
+  if (session?.userId) {
+    // ASVS V7.4.1: Invalidate active tokens by bumping tokenVersion
+    await User.updateOne({ _id: session.userId }, { $inc: { tokenVersion: 1 } }).catch(() => {});
+  }
+
   clearSessionCookie(res);
   res.status(204).end();
 }

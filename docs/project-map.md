@@ -188,6 +188,7 @@ Plumbing every feature uses. Never imports from `features/` ([0003](decisions/00
 | [middleware/error-handler.js](../server/src/common/middleware/error-handler.js) | Turns any thrown error into JSON; hides 500 details in production. |
 | [middleware/not-found.js](../server/src/common/middleware/not-found.js) | JSON 404 for an unknown route. |
 | [middleware/rate-limit.js](../server/src/common/middleware/rate-limit.js) | The counting mechanism for rate limits, in memory. Features choose the numbers ([0007](decisions/0007-rate-limiting-on-the-auth-routes.md)). |
+| [utils/escape-regex.js](../server/src/common/utils/escape-regex.js) | Escapes characters with special meaning in regular expressions to prevent ReDoS and regex syntax errors. |
 
 ### server/models
 

@@ -51,6 +51,11 @@ const userSchema = new mongoose.Schema(
       default: 'user',
       index: true,
     },
+    // ASVS V7.4.1, V7.4.5: Incremented on logout to invalidate active JWT sessions
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
     // FR-12. What the user can build: skills, budget range, certifications,
     // entity type, preferred archetypes, and max past portfolio.
     // Read by the match scorer (FR-13) and used to rank the catalog.

@@ -1566,7 +1566,7 @@ In compliance with **NFR-08** (TLS 1.2+), **NFR-09** (Bcrypt Hashing), **NFR-10*
    * `secure: isProduction` (enforces HTTPS transmission).
    * `sameSite: isProduction ? 'none' : 'lax'` (handles cross-domain deployment in production while ensuring security).
    * `path: '/'`.
-   * *Note on NFR-11 Alignment:* The code sets `SESSION_TTL_DAYS = 7`. SRS `NFR-11` says a session expires within 24 hours. Which one changes is undecided until the team has discussed it with the client (`docs/deployment-checklist.md` §0).
+   * *NFR-11 Alignment:* The code sets `SESSION_TTL_HOURS = 24`, strictly matching SRS `NFR-11` (a session expires within 24 hours). Token versioning allows immediate revocation upon logout.
 4. **Role-Based Access Control Middleware (`server/src/features/auth/auth.middleware.js`):**
    * `requireAuth`: Verifies token signature and attaches `req.user`.
    * `requireRole('admin')`: Strict role boundary enforcing `req.user.role === 'admin'` (**NFR-10**). Non-admin users receive `403 Forbidden`.
@@ -1879,7 +1879,7 @@ stateDiagram-v2
 * **NFR-10 (Strict Role-Based Access Control):**
   * Separation between standard users (`role: 'user'`) and internal operators (`role: 'admin'`) is enforced at the router layer via `requireAdmin` middleware. Admin tokens cannot be obtained through self-service registration.
 * **NFR-11 (JWT Session Expiration ≤ 24 Hours):**
-  * Signed JWT session token is delivered in a secure, HTTP-only, SameSite=Lax cookie named `mjolnir_session` (`server/src/features/auth/session.js`). The current implementation uses a 7-day TTL (`SESSION_TTL_DAYS = 7`), against NFR-11's 24 hours. Undecided until the team has discussed it with the client.
+  * Signed JWT session token is delivered in a secure, HTTP-only, SameSite=Lax cookie named `mjolnir_session` (`server/src/features/auth/session.js`). The session TTL is 24 hours (`SESSION_TTL_HOURS = 24`), matching NFR-11, with token versioning for immediate revocation on logout.
 
 ---
 

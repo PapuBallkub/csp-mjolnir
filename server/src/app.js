@@ -2,7 +2,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 
-import { env } from '#common/config/env.js';
+import { env, isProduction } from '#common/config/env.js';
 import { errorHandler } from '#common/middleware/error-handler.js';
 import { notFoundHandler } from '#common/middleware/not-found.js';
 import { adminRoutes } from '#features/admin/index.js';
@@ -21,6 +21,20 @@ import { createWatchlistRoutes } from '#features/watchlist/index.js';
 export function createApp({ rateLimits = authRateLimits } = {}) {
   const app = express();
 
+  // ASVS V13.4.6: Disable X-Powered-By header to avoid disclosing server framework.
+  app.disable('x-powered-by');
+
+  // ASVS V12.2.1, V13.4, V14.3, V15.2: Core HTTP Security Headers
+  app.use((req, res, next) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('X-Frame-Options', 'SAMEORIGIN');
+    res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    if (isProduction) {
+      res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    next();
+  });
+
   // Without this every request behind a proxy reports the proxy's address, so
   // the whole internet would share one rate limit bucket. A count, never
   // `true` — see the note in config/env.js.
@@ -29,7 +43,8 @@ export function createApp({ rateLimits = authRateLimits } = {}) {
   // credentials is what sends the session cookie cross-origin at all, and it
   // needs a named origin: with '*' the browser rejects every response.
   app.use(cors({ origin: env.corsOrigin, credentials: true }));
-  app.use(express.json());
+  // ASVS V13.1.3, V15.2.2: Enforce request body size limit to prevent memory exhaustion DoS
+  app.use(express.json({ limit: '50kb' }));
   app.use(cookieParser());
 
   // One mount per feature, all under /api. The prefix is what lets a reverse

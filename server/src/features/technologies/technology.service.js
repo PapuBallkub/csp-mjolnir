@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { escapeRegex } from '#common/utils/escape-regex.js';
 import { Technology } from '#models/index.js';
 import { STARTER_TECHNOLOGIES } from '#pipeline/extraction/references/technologies.js';
 
@@ -47,7 +48,7 @@ export async function requestTechnology({ name, category, userId }) {
 
   if (mongoose.connection.readyState === 1) {
     const existing = await Technology.findOne({
-      $or: [{ key }, { aliases: key }, { name: new RegExp(`^${trimmed}$`, 'i') }],
+      $or: [{ key }, { aliases: key }, { name: new RegExp(`^${escapeRegex(trimmed)}$`, 'i') }],
     }).lean();
 
     if (existing) {
