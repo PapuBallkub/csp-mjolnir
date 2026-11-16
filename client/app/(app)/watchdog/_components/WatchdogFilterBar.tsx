@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, RotateCcw } from "lucide-react";
 import { formatTHBCompact, pick, type Lang, type RiskLevel, type Status } from "../../../_data/tors";
 import {
@@ -96,6 +96,11 @@ const ALL_MONTHS = [
   { value: "12", th: "ธ.ค.", en: "Dec" },
 ];
 
+/** Available years in dropdown: current and upcoming budget year down to the past 10 years */
+const BASE_AVAILABLE_YEARS_CE = [
+  2027, 2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016,
+];
+
 export function WatchdogFilterBar({
   lang,
   selectedStatuses,
@@ -187,7 +192,7 @@ export function WatchdogFilterBar({
   const maxPercent = Math.min(100, Math.max(0, (effectiveMaxSlider / MAX_SLIDER_PRICE) * 100));
   const isMinCloserToMax = minPriceTHB > MAX_SLIDER_PRICE - 3_000_000;
 
-  // Month & Year parsing for flexible typing/selecting
+  // Month & Year parsing for dropdown selects
   const [startYearStr, startMonthStr] = (effectiveStartMonth || "2023-10").split("-");
   const [endYearStr, endMonthStr] = (effectiveEndMonth || "2024-09").split("-");
 
@@ -196,79 +201,31 @@ export function WatchdogFilterBar({
   const startMonthVal = startMonthStr || "10";
   const endMonthVal = endMonthStr || "09";
 
-  const startYearDisplay = lang === "th" ? startYearNum + 543 : startYearNum;
-  const endYearDisplay = lang === "th" ? endYearNum + 543 : endYearNum;
+  const availableYears = useMemo<number[]>(() => {
+    const set = new Set<number>(BASE_AVAILABLE_YEARS_CE);
+    if (startYearNum) set.add(startYearNum);
+    if (endYearNum) set.add(endYearNum);
+    return Array.from(set).sort((a, b) => b - a);
+  }, [startYearNum, endYearNum]);
 
-  const [typedStartYear, setTypedStartYear] = useState<string>(String(startYearDisplay));
-  const [typedEndYear, setTypedEndYear] = useState<string>(String(endYearDisplay));
   const [lastEditedField, setLastEditedField] = useState<"start" | "end">("start");
 
-  useEffect(() => {
-    setTypedStartYear(String(startYearDisplay));
-  }, [startYearDisplay]);
-
-  useEffect(() => {
-    setTypedEndYear(String(endYearDisplay));
-  }, [endYearDisplay]);
-
   // Validation: end date must not be before start date
-  const isDateRangeInvalid = `${endYearStr}-${endMonthVal}` < `${startYearStr}-${startMonthVal}`;
+  const isDateRangeInvalid = Boolean(
+    startYearNum &&
+    endYearNum &&
+    (endYearNum < startYearNum || (endYearNum === startYearNum && Number(endMonthVal) < Number(startMonthVal)))
+  );
   const isStartInvalid = isDateRangeInvalid && lastEditedField === "start";
   const isEndInvalid = isDateRangeInvalid && lastEditedField === "end";
 
-  function parseYearInput(val: string, currentLang: Lang): number | null {
-    const trimmed = val.trim();
-    const raw = Number(trimmed);
-    if (!raw || isNaN(raw)) return null;
-
-    // 4-digit BE (2400..2600):
-    if (raw >= 2400 && raw <= 2600) {
-      return raw - 543;
-    }
-
-    // 4-digit CE (2000..2100):
-    if (raw >= 2000 && raw <= 2100) {
-      return raw;
-    }
-
-    // 2-digit shortcuts:
-    if (raw >= 1 && raw <= 99) {
-      if (currentLang === "th") {
-        if (raw >= 50) {
-          return (2500 + raw) - 543; // e.g. 66..68 -> 2566..2568 -> CE 2023..2025
-        }
-        return 2000 + raw; // e.g. 26..28 -> CE 2026..2028
-      } else {
-        return 2000 + raw;
-      }
-    }
-
-    return null;
-  }
-
-  function commitStartYear(val: string) {
-    const ceYear = parseYearInput(val, lang);
-    if (ceYear) {
-      setLastEditedField("start");
-      onStartMonthChange(`${ceYear}-${startMonthVal}`);
-      const displayYear = lang === "th" ? ceYear + 543 : ceYear;
-      setTypedStartYear(String(displayYear));
-    } else {
-      setTypedStartYear(String(startYearDisplay));
-    }
-  }
-
-  function commitEndYear(val: string) {
-    const ceYear = parseYearInput(val, lang);
-    if (ceYear) {
-      setLastEditedField("end");
-      onEndMonthChange(`${ceYear}-${endMonthVal}`);
-      const displayYear = lang === "th" ? ceYear + 543 : ceYear;
-      setTypedEndYear(String(displayYear));
-    } else {
-      setTypedEndYear(String(endYearDisplay));
-    }
-  }
+  // Filtered state flags to give buttons subtle gray background when actively selected
+  const isCatFiltered = selectedCategories.length > 0 && selectedCategories.length < allCategories.length;
+  const isArchFiltered = selectedArchetypes.length > 0 && selectedArchetypes.length < allArchetypes.length;
+  const isAgencyFiltered = selectedAgencies.length > 0 && selectedAgencies.length < agencies.length;
+  const isStatusFiltered = selectedStatuses.length > 0 && selectedStatuses.length < STATUS_ITEMS.length;
+  const isRiskFiltered = selectedRiskLevels.length > 0 && selectedRiskLevels.length < RISK_ITEMS.length;
+  const isCompFiltered = selectedComplexities.length > 0 && selectedComplexities.length < COMPLEXITY_ITEMS.length;
 
   return (
     <Panel className="mb-6 p-4">
@@ -309,36 +266,44 @@ export function WatchdogFilterBar({
               setRiskOpen(false);
               setCompOpen(false);
             }}
-            className="flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 bg-surface px-2.5 text-left text-[12.5px] text-ink hover:border-ink cursor-pointer"
+            className={`flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 px-2.5 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
+              isCatFiltered || catOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
+            }`}
           >
-            <span className="truncate">
-              {selectedCategories.length === 0
-                ? lang === "th"
-                  ? "ทุกหมวดหมู่งาน IT"
-                  : "All categories"
-                : lang === "th"
-                  ? `เลือก ${selectedCategories.length} หมวดหมู่`
-                  : `${selectedCategories.length} categories`}
-            </span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3" />
+            {selectedCategories.length === 0 || selectedCategories.length === allCategories.length ? (
+              <span className="truncate flex-1 text-center font-medium text-ink-2">
+                {lang === "th" ? "-- ทุกหมวดหมู่งาน IT --" : "-- All Categories --"}
+              </span>
+            ) : (
+              <span className="truncate text-left text-ink">
+                {selectedCategories.length === 1
+                  ? pick(
+                      allCategories.find((c) => c.id === selectedCategories[0])?.label ?? {
+                        th: selectedCategories[0],
+                        en: selectedCategories[0],
+                      },
+                      lang,
+                    )
+                  : lang === "th"
+                    ? `เลือก ${selectedCategories.length} หมวดหมู่`
+                    : `${selectedCategories.length} categories`}
+              </span>
+            )}
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3 ml-1.5" />
           </button>
 
           {catOpen ? (
             <div className="absolute top-[62px] left-0 z-30 w-full min-w-[280px] rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
+                <span className="text-ink-3 font-normal">
+                  {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
+                </span>
                 <button
                   type="button"
                   onClick={onSelectAllCategories}
-                  className="text-ink-2 hover:text-ink cursor-pointer"
+                  className="text-ink-2 hover:text-ink underline cursor-pointer"
                 >
                   {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
-                </button>
-                <button
-                  type="button"
-                  onClick={onClearCategories}
-                  className="text-ink-3 hover:text-ink cursor-pointer"
-                >
-                  {lang === "th" ? "ล้างการเลือก" : "Clear"}
                 </button>
               </div>
               <div className="max-h-56 overflow-y-auto flex flex-col gap-1">
@@ -380,36 +345,44 @@ export function WatchdogFilterBar({
               setRiskOpen(false);
               setCompOpen(false);
             }}
-            className="flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 bg-surface px-2.5 text-left text-[12.5px] text-ink hover:border-ink cursor-pointer"
+            className={`flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 px-2.5 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
+              isArchFiltered || archOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
+            }`}
           >
-            <span className="truncate">
-              {selectedArchetypes.length === 0
-                ? lang === "th"
-                  ? "ทุกรูปแบบระบบ"
-                  : "All archetypes"
-                : lang === "th"
-                  ? `เลือก ${selectedArchetypes.length} รูปแบบ`
-                  : `${selectedArchetypes.length} archetypes`}
-            </span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3" />
+            {selectedArchetypes.length === 0 || selectedArchetypes.length === allArchetypes.length ? (
+              <span className="truncate flex-1 text-center font-medium text-ink-2">
+                {lang === "th" ? "-- ทุกรูปแบบระบบ --" : "-- All Archetypes --"}
+              </span>
+            ) : (
+              <span className="truncate text-left text-ink">
+                {selectedArchetypes.length === 1
+                  ? pick(
+                      allArchetypes.find((a) => a.id === selectedArchetypes[0])?.label ?? {
+                        th: selectedArchetypes[0],
+                        en: selectedArchetypes[0],
+                      },
+                      lang,
+                    )
+                  : lang === "th"
+                    ? `เลือก ${selectedArchetypes.length} รูปแบบ`
+                    : `${selectedArchetypes.length} archetypes`}
+              </span>
+            )}
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3 ml-1.5" />
           </button>
 
           {archOpen ? (
             <div className="absolute top-[62px] left-0 z-30 w-full min-w-[280px] rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
+                <span className="text-ink-3 font-normal">
+                  {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
+                </span>
                 <button
                   type="button"
                   onClick={onSelectAllArchetypes}
-                  className="text-ink-2 hover:text-ink cursor-pointer"
+                  className="text-ink-2 hover:text-ink underline cursor-pointer"
                 >
                   {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
-                </button>
-                <button
-                  type="button"
-                  onClick={onClearArchetypes}
-                  className="text-ink-3 hover:text-ink cursor-pointer"
-                >
-                  {lang === "th" ? "ล้างการเลือก" : "Clear"}
                 </button>
               </div>
               <div className="max-h-56 overflow-y-auto flex flex-col gap-1">
@@ -451,20 +424,24 @@ export function WatchdogFilterBar({
               setRiskOpen(false);
               setCompOpen(false);
             }}
-            className="flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 bg-surface px-2.5 text-left text-[12.5px] text-ink hover:border-ink cursor-pointer"
+            className={`flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 px-2.5 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
+              isAgencyFiltered || agencyOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
+            }`}
           >
-            <span className="truncate">
-              {selectedAgencies.length === 0
-                ? lang === "th"
-                  ? `ทุกหน่วยงาน (${agencies.length})`
-                  : `All agencies (${agencies.length})`
-                : selectedAgencies.length === 1
+            {selectedAgencies.length === 0 || selectedAgencies.length === agencies.length ? (
+              <span className="truncate flex-1 text-center font-medium text-ink-2">
+                {lang === "th" ? "-- ทุกหน่วยงาน --" : "-- All Agencies --"}
+              </span>
+            ) : (
+              <span className="truncate text-left text-ink">
+                {selectedAgencies.length === 1
                   ? selectedAgencies[0]
                   : lang === "th"
                     ? `เลือก ${selectedAgencies.length} หน่วยงาน`
                     : `${selectedAgencies.length} agencies`}
-            </span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3" />
+              </span>
+            )}
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3 ml-1.5" />
           </button>
 
           {agencyOpen ? (
@@ -477,19 +454,15 @@ export function WatchdogFilterBar({
                 className="mb-1.5 w-full rounded border border-line-2 bg-surface px-2 py-1 text-[11.5px] text-ink focus:outline-none focus:border-ink"
               />
               <div className="mb-1.5 flex items-center justify-between border-b border-line pb-1 text-[11px]">
+                <span className="text-ink-3 font-normal">
+                  {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
+                </span>
                 <button
                   type="button"
                   onClick={onSelectAllAgencies}
-                  className="text-ink-2 hover:text-ink cursor-pointer"
+                  className="text-ink-2 hover:text-ink underline cursor-pointer"
                 >
                   {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
-                </button>
-                <button
-                  type="button"
-                  onClick={onClearAgencies}
-                  className="text-ink-3 hover:text-ink cursor-pointer"
-                >
-                  {lang === "th" ? "ล้างการเลือก" : "Clear"}
                 </button>
               </div>
               <div className="max-h-56 overflow-y-auto flex flex-col gap-0.5">
@@ -658,15 +631,15 @@ export function WatchdogFilterBar({
           </div>
 
           <div className="flex items-center gap-1.5 flex-nowrap h-9">
-            {/* Start Month + Typeable Year */}
-            <div className="flex items-center gap-0.5 flex-1 min-w-0">
+            {/* Start Month + Year Dropdowns */}
+            <div className="flex items-center gap-1 flex-1 min-w-0">
               <select
                 id="wd-start-month-select"
                 aria-label={lang === "th" ? "ตั้งแต่เดือน" : "Start month"}
                 value={startMonthVal}
                 onChange={(e) => {
                   setLastEditedField("start");
-                  onStartMonthChange(`${startYearStr}-${e.target.value}`);
+                  onStartMonthChange(`${startYearNum}-${e.target.value}`);
                 }}
                 className={`h-9 rounded-[3px] border bg-surface px-1.5 text-[11.5px] cursor-pointer focus:outline-none flex-1 min-w-0 ${
                   isStartInvalid
@@ -680,37 +653,27 @@ export function WatchdogFilterBar({
                   </option>
                 ))}
               </select>
-              <input
-                type="text"
-                aria-label={lang === "th" ? "ปี พ.ศ. เริ่มต้น" : "Start year"}
-                value={typedStartYear}
+
+              <select
+                id="wd-start-year-select"
+                aria-label={lang === "th" ? "ปีเริ่มต้น" : "Start year"}
+                value={startYearNum}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  setTypedStartYear(val);
                   setLastEditedField("start");
-                  if (val.trim().length === 4) {
-                    const ce = parseYearInput(val, lang);
-                    if (ce) {
-                      onStartMonthChange(`${ce}-${startMonthVal}`);
-                    }
-                  }
+                  onStartMonthChange(`${e.target.value}-${startMonthVal}`);
                 }}
-                onBlur={(e) => {
-                  setLastEditedField("start");
-                  commitStartYear(e.target.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    setLastEditedField("start");
-                    commitStartYear((e.target as HTMLInputElement).value);
-                  }
-                }}
-                className={`h-9 w-14 rounded-[3px] border bg-surface px-1 text-center font-mono text-[11.5px] focus:outline-none shrink-0 ${
+                className={`h-9 rounded-[3px] border bg-surface px-1.5 text-[11.5px] cursor-pointer focus:outline-none w-[68px] shrink-0 font-mono ${
                   isStartInvalid
-                    ? "border-risk text-risk bg-risk/5 font-semibold focus:border-risk ring-1 ring-risk/40"
-                    : "border-line-2 text-ink focus:border-ink"
+                    ? "border-risk text-risk bg-risk/5 focus:border-risk ring-1 ring-risk/40 font-semibold"
+                    : "border-line-2 text-ink hover:border-ink"
                 }`}
-              />
+              >
+                {availableYears.map((y) => (
+                  <option key={y} value={y}>
+                    {lang === "th" ? y + 543 : y}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <span
@@ -721,15 +684,15 @@ export function WatchdogFilterBar({
               –
             </span>
 
-            {/* End Month + Typeable Year */}
-            <div className="flex items-center gap-0.5 flex-1 min-w-0">
+            {/* End Month + Year Dropdowns */}
+            <div className="flex items-center gap-1 flex-1 min-w-0">
               <select
                 id="wd-end-month-select"
                 aria-label={lang === "th" ? "ถึงเดือน" : "End month"}
                 value={endMonthVal}
                 onChange={(e) => {
                   setLastEditedField("end");
-                  onEndMonthChange(`${endYearStr}-${e.target.value}`);
+                  onEndMonthChange(`${endYearNum}-${e.target.value}`);
                 }}
                 className={`h-9 rounded-[3px] border bg-surface px-1.5 text-[11.5px] cursor-pointer focus:outline-none flex-1 min-w-0 ${
                   isEndInvalid
@@ -743,37 +706,27 @@ export function WatchdogFilterBar({
                   </option>
                 ))}
               </select>
-              <input
-                type="text"
-                aria-label={lang === "th" ? "ปี พ.ศ. สิ้นสุด" : "End year"}
-                value={typedEndYear}
+
+              <select
+                id="wd-end-year-select"
+                aria-label={lang === "th" ? "ปีสิ้นสุด" : "End year"}
+                value={endYearNum}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  setTypedEndYear(val);
                   setLastEditedField("end");
-                  if (val.trim().length === 4) {
-                    const ce = parseYearInput(val, lang);
-                    if (ce) {
-                      onEndMonthChange(`${ce}-${endMonthVal}`);
-                    }
-                  }
+                  onEndMonthChange(`${e.target.value}-${endMonthVal}`);
                 }}
-                onBlur={(e) => {
-                  setLastEditedField("end");
-                  commitEndYear(e.target.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    setLastEditedField("end");
-                    commitEndYear((e.target as HTMLInputElement).value);
-                  }
-                }}
-                className={`h-9 w-14 rounded-[3px] border bg-surface px-1 text-center font-mono text-[11.5px] focus:outline-none shrink-0 ${
+                className={`h-9 rounded-[3px] border bg-surface px-1.5 text-[11.5px] cursor-pointer focus:outline-none w-[68px] shrink-0 font-mono ${
                   isEndInvalid
-                    ? "border-risk text-risk bg-risk/5 font-semibold focus:border-risk ring-1 ring-risk/40"
-                    : "border-line-2 text-ink focus:border-ink"
+                    ? "border-risk text-risk bg-risk/5 focus:border-risk ring-1 ring-risk/40 font-semibold"
+                    : "border-line-2 text-ink hover:border-ink"
                 }`}
-              />
+              >
+                {availableYears.map((y) => (
+                  <option key={y} value={y}>
+                    {lang === "th" ? y + 543 : y}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -797,23 +750,38 @@ export function WatchdogFilterBar({
               setArchOpen(false);
               setAgencyOpen(false);
             }}
-            className="flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 bg-surface px-2.5 text-left text-[12.5px] text-ink hover:border-ink cursor-pointer"
+            className={`flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 px-2.5 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
+              isStatusFiltered || statusOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
+            }`}
           >
-            <span className="truncate">
-              {selectedStatuses.length === STATUS_ITEMS.length
-                ? lang === "th" ? "ทุกสถานะประกาศ (5)" : "All statuses (5)"
-                : lang === "th" ? `เลือก ${selectedStatuses.length} สถานะ` : `${selectedStatuses.length} statuses`}
-            </span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3" />
+            {selectedStatuses.length === 0 || selectedStatuses.length === STATUS_ITEMS.length ? (
+              <span className="truncate flex-1 text-center font-medium text-ink-2">
+                {lang === "th" ? "-- ทุกสถานะประกาศ --" : "-- All Statuses --"}
+              </span>
+            ) : (
+              <span className="truncate text-left text-ink">
+                {selectedStatuses.length === 1
+                  ? (lang === "th"
+                      ? STATUS_ITEMS.find((s) => s.id === selectedStatuses[0])?.labelTh
+                      : STATUS_ITEMS.find((s) => s.id === selectedStatuses[0])?.labelEn) ?? selectedStatuses[0]
+                  : lang === "th"
+                    ? `เลือก ${selectedStatuses.length} สถานะ`
+                    : `${selectedStatuses.length} statuses`}
+              </span>
+            )}
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3 ml-1.5" />
           </button>
 
           {statusOpen ? (
             <div className="absolute top-[62px] left-0 z-30 w-full rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
+                <span className="text-ink-3 font-normal">
+                  {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
+                </span>
                 <button
                   type="button"
                   onClick={onSelectAllStatuses}
-                  className="text-ink-2 hover:text-ink cursor-pointer"
+                  className="text-ink-2 hover:text-ink underline cursor-pointer"
                 >
                   {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
                 </button>
@@ -854,23 +822,38 @@ export function WatchdogFilterBar({
               setArchOpen(false);
               setAgencyOpen(false);
             }}
-            className="flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 bg-surface px-2.5 text-left text-[12.5px] text-ink hover:border-ink cursor-pointer"
+            className={`flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 px-2.5 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
+              isRiskFiltered || riskOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
+            }`}
           >
-            <span className="truncate">
-              {selectedRiskLevels.length === RISK_ITEMS.length
-                ? lang === "th" ? "ทุกระดับความเสี่ยง (3)" : "All risk levels (3)"
-                : lang === "th" ? `เลือก ${selectedRiskLevels.length} ระดับ` : `${selectedRiskLevels.length} levels`}
-            </span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3" />
+            {selectedRiskLevels.length === 0 || selectedRiskLevels.length === RISK_ITEMS.length ? (
+              <span className="truncate flex-1 text-center font-medium text-ink-2">
+                {lang === "th" ? "-- ทุกระดับความเสี่ยง --" : "-- All Risk Levels --"}
+              </span>
+            ) : (
+              <span className="truncate text-left text-ink">
+                {selectedRiskLevels.length === 1
+                  ? (lang === "th"
+                      ? RISK_ITEMS.find((r) => r.id === selectedRiskLevels[0])?.labelTh
+                      : RISK_ITEMS.find((r) => r.id === selectedRiskLevels[0])?.labelEn) ?? selectedRiskLevels[0]
+                  : lang === "th"
+                    ? `เลือก ${selectedRiskLevels.length} ระดับ`
+                    : `${selectedRiskLevels.length} levels`}
+              </span>
+            )}
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3 ml-1.5" />
           </button>
 
           {riskOpen ? (
             <div className="absolute top-[62px] left-0 z-30 w-full rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
+                <span className="text-ink-3 font-normal">
+                  {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
+                </span>
                 <button
                   type="button"
                   onClick={onSelectAllRiskLevels}
-                  className="text-ink-2 hover:text-ink cursor-pointer"
+                  className="text-ink-2 hover:text-ink underline cursor-pointer"
                 >
                   {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
                 </button>
@@ -913,23 +896,38 @@ export function WatchdogFilterBar({
               setArchOpen(false);
               setAgencyOpen(false);
             }}
-            className="flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 bg-surface px-2.5 text-left text-[12.5px] text-ink hover:border-ink cursor-pointer"
+            className={`flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 px-2.5 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
+              isCompFiltered || compOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
+            }`}
           >
-            <span className="truncate">
-              {selectedComplexities.length === COMPLEXITY_ITEMS.length
-                ? lang === "th" ? "ทุกขนาดความซับซ้อน (3)" : "All complexity tiers (3)"
-                : lang === "th" ? `เลือก ${selectedComplexities.length} ขนาด` : `${selectedComplexities.length} tiers`}
-            </span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3" />
+            {selectedComplexities.length === 0 || selectedComplexities.length === COMPLEXITY_ITEMS.length ? (
+              <span className="truncate flex-1 text-center font-medium text-ink-2">
+                {lang === "th" ? "-- ทุกขนาดความซับซ้อน --" : "-- All Complexity Tiers --"}
+              </span>
+            ) : (
+              <span className="truncate text-left text-ink">
+                {selectedComplexities.length === 1
+                  ? (lang === "th"
+                      ? COMPLEXITY_ITEMS.find((c) => c.id === selectedComplexities[0])?.th
+                      : COMPLEXITY_ITEMS.find((c) => c.id === selectedComplexities[0])?.en) ?? selectedComplexities[0]
+                  : lang === "th"
+                    ? `เลือก ${selectedComplexities.length} ขนาด`
+                    : `${selectedComplexities.length} tiers`}
+              </span>
+            )}
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3 ml-1.5" />
           </button>
 
           {compOpen ? (
             <div className="absolute top-[62px] left-0 z-30 w-full rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
+                <span className="text-ink-3 font-normal">
+                  {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
+                </span>
                 <button
                   type="button"
                   onClick={onSelectAllComplexities}
-                  className="text-ink-2 hover:text-ink cursor-pointer"
+                  className="text-ink-2 hover:text-ink underline cursor-pointer"
                 >
                   {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
                 </button>

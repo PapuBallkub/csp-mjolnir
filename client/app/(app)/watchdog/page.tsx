@@ -32,10 +32,11 @@ import {
   computeAverage,
   computeMedian,
   formatMonthBucket,
+  generateMonthRange,
   mapApiTorToWatchdog,
 } from "./_lib/watchdog-helpers";
 
-const ALL_STATUSES: Status[] = ["Open", "Draft", "Awarded", "Closed"];
+const ALL_STATUSES: Status[] = ["Open", "Draft", "Awarded", "Closed", "Cancelled"];
 const ALL_RISK_LEVELS: RiskLevel[] = ["high", "medium", "low"];
 const ALL_COMPLEXITIES: ComplexityTier[] = ["basic", "standard", "enterprise"];
 
@@ -135,6 +136,7 @@ export default function WatchdogPage() {
   const [startMonth, setStartMonth] = useState<string>("");
   const [endMonth, setEndMonth] = useState<string>("");
   const [timeGrain, setTimeGrain] = useState<TimeGrain>("monthly");
+  const [showOnlyExistingProjects, setShowOnlyExistingProjects] = useState<boolean>(false);
 
   const effectiveStartMonth = startMonth || defaultStartMonth;
   const effectiveEndMonth = endMonth || defaultEndMonth;
@@ -242,13 +244,39 @@ export default function WatchdogPage() {
 
   // 2. Build time-series points (Monthly or Quarterly) from filteredByTopBar
   const timeSeries = useMemo<TimePoint[]>(() => {
-    const activeMonths = isDateRangeInvalid
-      ? availableMonths
-      : availableMonths.filter(
-          (m) =>
-            (!effectiveStartMonth || m.key >= effectiveStartMonth) &&
-            (!effectiveEndMonth || m.key <= effectiveEndMonth),
-        );
+    let activeMonths: Array<{
+      key: string;
+      labelTh: string;
+      labelEn: string;
+      quarter: string;
+    }>;
+
+    if (showOnlyExistingProjects) {
+      // Data-driven compressed mode: only buckets with existing projects
+      activeMonths = isDateRangeInvalid
+        ? availableMonths
+        : availableMonths.filter(
+            (m) =>
+              (!effectiveStartMonth || m.key >= effectiveStartMonth) &&
+              (!effectiveEndMonth || m.key <= effectiveEndMonth),
+          );
+    } else {
+      // Continuous timeline mode (Option A default): full span from start to end
+      const continuous =
+        !isDateRangeInvalid && effectiveStartMonth && effectiveEndMonth
+          ? generateMonthRange(effectiveStartMonth, effectiveEndMonth)
+          : [];
+      activeMonths =
+        continuous.length > 0
+          ? continuous
+          : isDateRangeInvalid
+            ? availableMonths
+            : availableMonths.filter(
+                (m) =>
+                  (!effectiveStartMonth || m.key >= effectiveStartMonth) &&
+                  (!effectiveEndMonth || m.key <= effectiveEndMonth),
+              );
+    }
 
     if (timeGrain === "monthly") {
       return activeMonths.map((m) => {
@@ -301,6 +329,8 @@ export default function WatchdogPage() {
     lang,
     effectiveStartMonth,
     effectiveEndMonth,
+    isDateRangeInvalid,
+    showOnlyExistingProjects,
   ]);
 
   // 3. Financial Metrics for Section 3 (Price Reality Check Summary)
@@ -436,6 +466,7 @@ export default function WatchdogPage() {
     setMaxPriceTHB(0);
     setStartMonth(defaultStartMonth);
     setEndMonth(defaultEndMonth);
+    setShowOnlyExistingProjects(false);
   }
 
   return (
@@ -554,8 +585,8 @@ export default function WatchdogPage() {
             <SectionHeading
               sub={
                 lang === "th"
-                  ? "เปรียบเทียบแนวโน้มค่ามัธยฐาน (เส้นทึบ) และค่าเฉลี่ย (เส้นประ) ของราคากลางตามช่วงเวลา พร้อมจุดแสดงโครงการจริงในกลุ่มที่เลือก"
-                  : "Historical median (solid) and average (dashed) reference price trend over time, with individual TORs plotted against the ±15% normal band."
+                  ? "เปรียบเทียบแนวโน้มราคากลางผ่านค่ามัธยฐาน (เส้นทึบ) และค่าเฉลี่ย (เส้นประ) ตามตัวกรองข้อมูล พร้อมจุดแสดงโครงการจริงในแต่ละช่วงเวลา"
+                  : "Compare reference price trends via historical median (solid) and average (dashed) lines across active filters, with individual project dots plotted over time."
               }
               right={
                 <div className="inline-flex rounded-[3px] border border-line bg-surface-2 p-0.5">
@@ -585,8 +616,8 @@ export default function WatchdogPage() {
               }
             >
               {lang === "th"
-                ? "แนวโน้มราคากลางและกรอบราคาตลาดย้อนหลัง"
-                : "Historical Price Trend & Market Band"}
+                ? "แนวโน้มราคากลางภายในตลาด (Market Reference Price Trends)"
+                : "Market Reference Price Trends"}
             </SectionHeading>
 
             <Panel className="p-4">
@@ -595,6 +626,10 @@ export default function WatchdogPage() {
                 lang={lang}
                 activeBucket={null}
                 onSelectBucket={() => {}}
+                showOnlyExisting={showOnlyExistingProjects}
+                onToggleShowOnlyExisting={setShowOnlyExistingProjects}
+                filterMinPrice={minPriceTHB}
+                filterMaxPrice={maxPriceTHB}
               />
             </Panel>
           </section>

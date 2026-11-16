@@ -69,6 +69,38 @@ export function formatMonthBucket(monthKey: string): {
   };
 }
 
+/**
+ * Generate a continuous sequence of monthly buckets between start and end inclusive.
+ * Capped at 72 months (6 years) to guarantee smooth charting performance.
+ */
+export function generateMonthRange(startMonthKey: string, endMonthKey: string): Array<{
+  key: string;
+  labelTh: string;
+  labelEn: string;
+  quarter: string;
+}> {
+  if (!startMonthKey || !endMonthKey || startMonthKey > endMonthKey) return [];
+  const [startY, startM] = startMonthKey.split("-").map(Number);
+  const [endY, endM] = endMonthKey.split("-").map(Number);
+  if (!startY || !startM || !endY || !endM) return [];
+
+  const months: Array<{ key: string; labelTh: string; labelEn: string; quarter: string }> = [];
+  let curY = startY;
+  let curM = startM;
+  let count = 0;
+  while ((curY < endY || (curY === endY && curM <= endM)) && count < 72) {
+    const key = `${curY}-${String(curM).padStart(2, "0")}`;
+    months.push(formatMonthBucket(key));
+    curM += 1;
+    if (curM > 12) {
+      curM = 1;
+      curY += 1;
+    }
+    count += 1;
+  }
+  return months;
+}
+
 export function normalizeCategory(raw: string | null | undefined): ProjectCategory {
   const valid: ProjectCategory[] = [
     "software-development",

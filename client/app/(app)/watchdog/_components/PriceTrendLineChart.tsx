@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import {
   formatTHB,
@@ -8,7 +8,6 @@ import {
   pick,
   type Lang,
 } from "../../../_data/tors";
-import { calcPriceDeltaPct } from "../../../_data/watchdog";
 import { EmptyState, Well } from "../../../_components/ui";
 import { NORMAL_BAND_PCT, type TimePoint } from "../_lib/types";
 
@@ -25,13 +24,80 @@ export function PriceTrendLineChart({
   lang,
   activeBucket,
   onSelectBucket,
+  showOnlyExisting = false,
+  onToggleShowOnlyExisting,
+  filterMinPrice = 0,
+  filterMaxPrice = 0,
 }: {
   series: TimePoint[];
   lang: Lang;
   activeBucket?: string | null;
   onSelectBucket?: (key: string | null) => void;
+  showOnlyExisting?: boolean;
+  onToggleShowOnlyExisting?: (val: boolean) => void;
+  filterMinPrice?: number;
+  filterMaxPrice?: number;
 }) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+
+  // Lock the number of visible X-axis labels to a comfortable 6–8 ticks maximum.
+  // Scales cleanly across months, quarters, half-years, and years for wide multi-year ranges.
+  const labelStep = useMemo(() => {
+    const len = series.length;
+    if (len <= 8) return 1;
+    if (len <= 16) return 2;
+    if (len <= 28) return 3; // quarterly
+    if (len <= 54) return 6; // semi-annually
+    if (len <= 96) return 12; // annually
+    return Math.max(12, Math.ceil(len / 8));
+  }, [series.length]);
+
+  // Set of indices that show their full month label
+  const fullLabelIndices = useMemo(() => {
+    const indices = new Set<number>();
+    if (series.length > 0) {
+      indices.add(0);
+      indices.add(series.length - 1);
+      for (let i = 0; i < series.length; i++) {
+        if (i % labelStep === 0 && series.length - 1 - i >= labelStep) {
+          indices.add(i);
+        }
+      }
+    }
+    return Array.from(indices).sort((a, b) => a - b);
+  }, [series.length, labelStep]);
+
+  // Compute the most frequent gap (normal cadence, e.g. 2 months).
+  // Only display "..." when a gap is strictly LARGER than this normal frequency!
+  const gapEllipses = useMemo<{ key: string; prevIdx: number; nextIdx: number }[]>(() => {
+    if (fullLabelIndices.length < 2) return [];
+
+    const gapCounts = new Map<number, number>();
+    for (let i = 0; i < fullLabelIndices.length - 1; i++) {
+      const diff = fullLabelIndices[i + 1] - fullLabelIndices[i];
+      gapCounts.set(diff, (gapCounts.get(diff) ?? 0) + 1);
+    }
+
+    let normalGap = labelStep;
+    let maxCount = 0;
+    gapCounts.forEach((count, gap) => {
+      if (count > maxCount) {
+        maxCount = count;
+        normalGap = gap;
+      }
+    });
+
+    const results: { key: string; prevIdx: number; nextIdx: number }[] = [];
+    for (let i = 0; i < fullLabelIndices.length - 1; i++) {
+      const prev = fullLabelIndices[i];
+      const next = fullLabelIndices[i + 1];
+      const diff = next - prev;
+      if (diff > normalGap) {
+        results.push({ key: `gap-${prev}-${next}`, prevIdx: prev, nextIdx: next });
+      }
+    }
+    return results;
+  }, [fullLabelIndices, labelStep]);
 
   const nonEmpty = series.filter((pt) => pt.torCount > 0);
   if (nonEmpty.length === 0) {
@@ -51,7 +117,10 @@ export function PriceTrendLineChart({
     );
   }
 
-  // Compute Y-axis domain from all medians, averages, bands including realistic scale
+  // Compute Y-axis domain from filter inputs and project prices
+  const filterMin = filterMinPrice ?? 0;
+  const filterMax = filterMaxPrice ?? 0;
+
   const bandAndLinePrices: number[] = [];
   const allProjectPrices: number[] = [];
   for (const pt of series) {
@@ -69,7 +138,13 @@ export function PriceTrendLineChart({
       : Math.max(...sortedProj, 5_000_000);
   const maxLine = Math.max(...bandAndLinePrices, p92, 5_000_000);
   const step = maxLine > 40_000_000 ? 10_000_000 : 5_000_000;
-  const yMax = Math.ceil((maxLine * 1.1) / step) * step;
+
+  const yMin = filterMin > 0 ? filterMin : 0;
+  let yMax = filterMax > 0 ? filterMax : Math.ceil((maxLine * 1.1) / step) * step;
+  if (yMax <= yMin) {
+    yMax = yMin + 5_000_000;
+  }
+  const yDomain = Math.max(1_000_000, yMax - yMin);
 
   // SVG coordinate system
   const width = 920;
@@ -87,7 +162,7 @@ export function PriceTrendLineChart({
       : padLeft + (i / (series.length - 1)) * plotW;
 
   const yForPrice = (val: number) =>
-    padTop + plotH - Math.min(1, Math.max(0, val / yMax)) * plotH;
+    padTop + plotH - Math.min(1, Math.max(0, (val - yMin) / yDomain)) * plotH;
 
   // Collect valid points with data for polyline/polygon paths
   const validPoints = series
@@ -116,7 +191,7 @@ export function PriceTrendLineChart({
         ].join(" ")
       : "";
 
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((t) => Math.round(yMax * t));
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((t) => Math.round(yMin + yDomain * t));
 
   const inspectedKey = hoveredKey ?? activeBucket ?? validPoints.at(-1)?.pt.key ?? null;
   const inspectedPoint = series.find((pt) => pt.key === inspectedKey) ?? validPoints.at(-1)?.pt;
@@ -124,57 +199,64 @@ export function PriceTrendLineChart({
   return (
     <div className="flex flex-col gap-3">
       {/* Legend & Inspected Period Callout */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5 border-b border-line pb-3">
+        {/* Left Side: Lines & Normal Band */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] text-ink-2">
           <span className="inline-flex items-center gap-2">
             <span className="h-[2.5px] w-5 bg-ink" />
             <span>
-              {lang === "th" ? "ค่ามัธยฐานย้อนหลัง (Median)" : "Historical median"}
+              {lang === "th" ? "ค่ามัธยฐานราคากลาง (Median)" : "Reference price median"}
             </span>
           </span>
           <span className="inline-flex items-center gap-2">
             <span className="h-0 w-5 border-t-2 border-dashed border-ink-3" />
             <span>
-              {lang === "th" ? "ค่าเฉลี่ยย้อนหลัง (Average)" : "Historical average"}
+              {lang === "th" ? "ค่าเฉลี่ยราคากลาง (Average)" : "Reference price average"}
             </span>
           </span>
           <span className="inline-flex items-center gap-2">
             <span className="h-3 w-5 rounded-[2px] border border-line-2 bg-surface-3" />
             <span>
               {lang === "th"
-                ? `กรอบราคาปกติ (±${NORMAL_BAND_PCT}% จากค่ากลาง)`
-                : `Normal band (±${NORMAL_BAND_PCT}% of median)`}
-            </span>
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-amend" />
-            <span className="h-2.5 w-2.5 rounded-full bg-risk" />
-            <span>
-              {lang === "th" ? "ราคากลาง TOR รายโครงการ" : "Individual TOR price"}
+                ? `กรอบราคาปกติ (±${NORMAL_BAND_PCT}% จากค่ามัธยฐาน)`
+                : `Normal corridor (±${NORMAL_BAND_PCT}% of median)`}
             </span>
           </span>
         </div>
 
-        {activeBucket && onSelectBucket ? (
-          <button
-            type="button"
-            onClick={() => onSelectBucket(null)}
-            className="inline-flex items-center gap-1.5 rounded-[2px] border border-line-2 bg-surface-2 px-2 py-1 text-[11.5px] font-medium text-ink hover:bg-surface-3 cursor-pointer"
-          >
-            <span>
-              {lang === "th"
-                ? `กำลังกรองเฉพาะช่วง: ${series.find((s) => s.key === activeBucket)?.label}`
-                : `Filtered to: ${series.find((s) => s.key === activeBucket)?.label}`}
-            </span>
-            <X className="h-3 w-3 text-ink-3" />
-          </button>
-        ) : (
-          <span className="text-[11.5px] text-ink-3">
-            {lang === "th"
-              ? "ชี้เมาส์เหนือจุดบนกราฟเพื่อดูรายละเอียดราคาและโครงการ"
-              : "Hover over points on the chart to inspect details"}
+        {/* Right Side: Lock-Spec Risk Dots Legend & Active Bucket Filter */}
+        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-[11.5px] text-ink-2">
+          {activeBucket && onSelectBucket ? (
+            <button
+              type="button"
+              onClick={() => onSelectBucket(null)}
+              className="inline-flex items-center gap-1.5 rounded-[2px] border border-line-2 bg-surface-2 px-2 py-0.5 font-medium text-ink hover:bg-surface-3 cursor-pointer mr-1"
+            >
+              <span>
+                {lang === "th"
+                  ? `กรองเฉพาะช่วง: ${series.find((s) => s.key === activeBucket)?.label}`
+                  : `Filtered to: ${series.find((s) => s.key === activeBucket)?.label}`}
+              </span>
+              <X className="h-3 w-3 text-ink-3" />
+            </button>
+          ) : null}
+
+          <span className="text-ink-3 font-medium">
+            {lang === "th" ? "ระดับความเสี่ยงล็อกสเปก:" : "Lock-spec risk:"}
           </span>
-        )}
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-open" />
+            <span>{lang === "th" ? "เปิดกว้าง (Low)" : "Low"}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-amend" />
+            <span>{lang === "th" ? "ปานกลาง (Medium)" : "Medium"}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-risk" />
+            <span>{lang === "th" ? "เสี่ยงสูง (High)" : "High"}</span>
+          </span>
+        </div>
       </div>
 
       {/* SVG Line Chart */}
@@ -189,27 +271,52 @@ export function PriceTrendLineChart({
               : "Line chart showing historical median and average reference price over time"
           }
         >
-          {/* Horizontal grid lines & Y-axis labels */}
-          {yTicks.map((tick) => {
+          {/* Horizontal grid lines & Y-axis labels with filter change indicators */}
+          {yTicks.map((tick, tIdx) => {
             const y = yForPrice(tick);
+            const isBottom = tIdx === 0;
+            const isTop = tIdx === yTicks.length - 1;
+            const hasMinIndicator = isBottom && filterMin > 0;
+            const hasMaxIndicator = isTop && filterMax > 0;
+
             return (
-              <g key={tick}>
+              <g key={`${tick}-${tIdx}`}>
                 <line
                   x1={padLeft}
                   y1={y}
                   x2={width - padRight}
                   y2={y}
                   stroke="var(--color-line)"
-                  strokeDasharray={tick === 0 ? undefined : "3 3"}
+                  strokeDasharray={isBottom ? undefined : "3 3"}
                   strokeWidth="1"
                 />
                 <text
                   x={padLeft - 8}
                   y={y + 3.5}
                   textAnchor="end"
-                  className="fill-ink-3 font-mono text-[10px]"
+                  className="font-mono text-[10px]"
                 >
-                  {tick === 0 ? "฿0" : formatTHBCompact(tick)}
+                  {hasMinIndicator ? (
+                    <tspan fill="var(--color-open)" fontWeight="bold" dx="-3">
+                      ↑{" "}
+                    </tspan>
+                  ) : null}
+                  {hasMaxIndicator ? (
+                    <tspan fill="var(--color-risk)" fontWeight="bold" dx="-3">
+                      ↓{" "}
+                    </tspan>
+                  ) : null}
+                  <tspan
+                    className={
+                      hasMinIndicator
+                        ? "fill-open font-semibold"
+                        : hasMaxIndicator
+                          ? "fill-risk font-semibold"
+                          : "fill-ink-3"
+                    }
+                  >
+                    {tick === 0 ? "฿0" : formatTHBCompact(tick)}
+                  </tspan>
                 </text>
               </g>
             );
@@ -305,13 +412,24 @@ export function PriceTrendLineChart({
 
                 {/* Individual TOR price dots in this time bucket */}
                 {plottedProjects.map((proj, pIdx) => {
-                  const delta = calcPriceDeltaPct(proj);
                   const dotColor =
-                    delta > NORMAL_BAND_PCT
-                      ? "var(--color-amend)"
-                      : delta < -NORMAL_BAND_PCT
-                        ? "var(--color-risk)"
+                    proj.lockSpecLevel === "high"
+                      ? "var(--color-risk)"
+                      : proj.lockSpecLevel === "medium"
+                        ? "var(--color-amend)"
                         : "var(--color-open)";
+                  const riskLabel =
+                    proj.lockSpecLevel === "high"
+                      ? lang === "th"
+                        ? "เสี่ยงสูง (High Risk)"
+                        : "High Risk"
+                      : proj.lockSpecLevel === "medium"
+                        ? lang === "th"
+                          ? "ปานกลาง (Medium Risk)"
+                          : "Medium Risk"
+                        : lang === "th"
+                          ? "เปิดกว้าง (Low Risk)"
+                          : "Low Risk";
                   // Slight horizontal jitter when multiple projects share the same bucket
                   const spread = Math.min(24, plottedProjects.length * 4);
                   const offset =
@@ -329,7 +447,7 @@ export function PriceTrendLineChart({
                       strokeWidth="1.2"
                     >
                       <title>
-                        {`${pick(proj.title, lang)} — ${formatTHB(proj.referencePriceTHB)} (${delta >= 0 ? "+" : ""}${delta}%)`}
+                        {`${pick(proj.title, lang)} — ${formatTHB(proj.referencePriceTHB)} · ${riskLabel}`}
                       </title>
                     </circle>
                   );
@@ -359,21 +477,17 @@ export function PriceTrendLineChart({
                   />
                 ) : null}
 
-                {/* X-axis label */}
-                <text
-                  x={x}
-                  y={height - 8}
-                  textAnchor="middle"
-                  className={`font-mono text-[10.5px] ${
-                    isSelected
-                      ? "fill-ink font-semibold"
-                      : isHovered
-                        ? "fill-ink"
-                        : "fill-ink-3"
-                  }`}
-                >
-                  {pt.label}
-                </text>
+                {/* Static X-axis label (only when not actively hovered/selected) */}
+                {!isHovered && !isSelected && fullLabelIndices.includes(idx) ? (
+                  <text
+                    x={x}
+                    y={height - 8}
+                    textAnchor="middle"
+                    className="font-mono text-[10.5px] fill-ink-3 select-none"
+                  >
+                    {pt.label}
+                  </text>
+                ) : null}
 
                 {/* Invisible wider hit target for easy hover/click */}
                 <rect
@@ -386,16 +500,72 @@ export function PriceTrendLineChart({
               </g>
             );
           })}
+
+          {/* Ellipsis ("...") positioned at the EXACT geometric pixel midpoint between irregular gap labels */}
+          {gapEllipses.map((gap) => {
+            const activeKey = hoveredKey ?? activeBucket;
+            const activeIdx = activeKey ? series.findIndex((pt) => pt.key === activeKey) : -1;
+            // Hide ellipsis if hovered month falls inside this gap so there is zero overlap
+            if (activeIdx > gap.prevIdx && activeIdx < gap.nextIdx) return null;
+
+            const x1 = xForIndex(gap.prevIdx);
+            const x2 = xForIndex(gap.nextIdx);
+            const midX = (x1 + x2) / 2;
+
+            return (
+              <text
+                key={gap.key}
+                x={midX}
+                y={height - 8}
+                textAnchor="middle"
+                className="font-mono text-[10.5px] fill-ink-3/70 select-none tracking-widest font-bold"
+              >
+                ...
+              </text>
+            );
+          })}
+
+          {/* Active / Hovered month label badge with solid background pill to prevent any text overlap */}
+          {(() => {
+            const activeKey = hoveredKey ?? activeBucket;
+            if (!activeKey) return null;
+            const activeIdx = series.findIndex((pt) => pt.key === activeKey);
+            if (activeIdx === -1) return null;
+            const pt = series[activeIdx];
+            const x = xForIndex(activeIdx);
+            return (
+              <g pointerEvents="none">
+                <rect
+                  x={x - 24}
+                  y={height - 21}
+                  width={48}
+                  height={17}
+                  rx={3}
+                  fill="var(--color-surface)"
+                  stroke="var(--color-ink)"
+                  strokeWidth="1.2"
+                />
+                <text
+                  x={x}
+                  y={height - 8}
+                  textAnchor="middle"
+                  className="font-mono text-[10.5px] font-bold fill-ink select-none"
+                >
+                  {pt.label}
+                </text>
+              </g>
+            );
+          })()}
         </svg>
       </div>
 
       {/* Inspected Period Readout Bar */}
-      {inspectedPoint && inspectedPoint.medianTHB > 0 ? (
+      {inspectedPoint ? (
         <Well className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-3.5 py-2.5 text-[12px]">
           <div className="flex items-center gap-2">
             <span className="font-mono font-semibold text-ink">{inspectedPoint.label}</span>
             <span className="text-ink-3">·</span>
-            <span className="text-ink-2">
+            <span className={inspectedPoint.torCount === 0 ? "text-ink-3 italic" : "text-ink-2"}>
               {lang === "th"
                 ? `${inspectedPoint.torCount} โครงการที่ตรวจวิเคราะห์ในช่วงเวลานี้`
                 : `${inspectedPoint.torCount} analyzed TORs in this period`}
@@ -406,26 +576,48 @@ export function PriceTrendLineChart({
               <span className="font-sans text-ink-3">
                 {lang === "th" ? "ค่ามัธยฐาน: " : "Median: "}
               </span>
-              <strong className="text-ink">{formatTHB(inspectedPoint.medianTHB)}</strong>
+              <strong className={inspectedPoint.medianTHB > 0 ? "text-ink" : "text-ink-3 font-normal"}>
+                {formatTHB(inspectedPoint.medianTHB)}
+              </strong>
             </span>
             <span>
               <span className="font-sans text-ink-3">
                 {lang === "th" ? "ค่าเฉลี่ย: " : "Average: "}
               </span>
-              <span className="text-ink-2">{formatTHB(inspectedPoint.averageTHB)}</span>
+              <span className={inspectedPoint.averageTHB > 0 ? "text-ink-2" : "text-ink-3"}>
+                {formatTHB(inspectedPoint.averageTHB)}
+              </span>
             </span>
             <span>
               <span className="font-sans text-ink-3">
                 {lang === "th" ? "กรอบปกติ (±15%): " : "Normal band (±15%): "}
               </span>
-              <span className="text-ink-2">
-                {formatTHBCompact(inspectedPoint.bandLowTHB)}–
-                {formatTHBCompact(inspectedPoint.bandHighTHB)}
+              <span className={inspectedPoint.medianTHB > 0 ? "text-ink-2" : "text-ink-3"}>
+                {inspectedPoint.medianTHB > 0
+                  ? `${formatTHBCompact(inspectedPoint.bandLowTHB)}–${formatTHBCompact(inspectedPoint.bandHighTHB)}`
+                  : "—"}
               </span>
             </span>
           </div>
         </Well>
       ) : null}
+
+      {/* Timeline Mode Toggle (Continuous vs Data-driven) */}
+      <div className="flex items-center pt-2 border-t border-line text-[11.5px] text-ink-3">
+        <label className="inline-flex items-center gap-2 cursor-pointer select-none text-ink-2 hover:text-ink">
+          <input
+            type="checkbox"
+            checked={showOnlyExisting}
+            onChange={(e) => onToggleShowOnlyExisting?.(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-line-2 text-ink focus:ring-0 cursor-pointer"
+          />
+          <span>
+            {lang === "th"
+              ? "แสดงเฉพาะช่วงเวลาที่มีข้อมูลโครงการ (ย่อแกนเวลาตามข้อมูลจริง)"
+              : "Show only periods with projects (Data-driven timeline)"}
+          </span>
+        </label>
+      </div>
     </div>
   );
 }
