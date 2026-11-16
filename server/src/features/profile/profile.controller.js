@@ -1,4 +1,4 @@
-import { toPublicUser } from '#features/auth/auth.service.js';
+import { toPublicUser } from '#features/auth/index.js';
 import { generateMatchNotificationsForUser } from '#features/notifications/index.js';
 
 import { parseProfileUpdate } from './profile.validation.js';

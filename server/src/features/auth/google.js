@@ -25,7 +25,7 @@ const stateCookieOptions = {
 
 export function assertGoogleConfigured() {
   if (!isGoogleConfigured) {
-    throw new HttpError(503, 'Google sign-in is not configured on this server.');
+    throw new HttpError(503, 'ระบบเข้าสู่ระบบด้วย Google ยังไม่ได้ตั้งค่าบนเซิร์ฟเวอร์นี้');
   }
 }
 
@@ -72,7 +72,7 @@ export async function exchangeCodeForProfile(code) {
   });
 
   if (!response.ok) {
-    throw badRequest('Google rejected the sign-in attempt.');
+    throw badRequest('การเข้าสู่ระบบด้วย Google ถูกปฏิเสธ');
   }
 
   const { id_token: idToken } = await response.json();
@@ -83,7 +83,7 @@ export async function exchangeCodeForProfile(code) {
   const claims = idToken ? jwt.decode(idToken) : null;
 
   if (!claims?.sub || !claims.email) {
-    throw badRequest('Google returned an unusable profile.');
+    throw badRequest('ข้อมูลโปรไฟล์จาก Google ไม่ถูกต้อง');
   }
 
   return {

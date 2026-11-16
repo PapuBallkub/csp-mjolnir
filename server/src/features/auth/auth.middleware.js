@@ -12,7 +12,7 @@ export async function requireAuth(req, res, next) {
   const userId = readSessionToken(req.cookies?.[SESSION_COOKIE]);
 
   if (!userId) {
-    throw unauthorized('Sign in to continue.');
+    throw unauthorized('กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ');
   }
 
   const user = await findUserById(userId);
@@ -21,7 +21,7 @@ export async function requireAuth(req, res, next) {
     // Our token, unexpired, but the account behind it is gone. Drop the cookie
     // so the browser stops replaying it on every request.
     clearSessionCookie(res);
-    throw unauthorized('Sign in to continue.');
+    throw unauthorized('กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ');
   }
 
   req.user = user;
@@ -33,8 +33,7 @@ export async function requireAuth(req, res, next) {
 //   router.get('/sources', requireAuth, requireRole('admin'), readSources);
 //
 // Mounted before, req.user is undefined and this throws 401 on every request,
-// including an admin's — the same ordering trap limitByUser warns about in
-// common/middleware/rate-limit.js.
+// including an admin's.
 //
 // It reads req.user.role, which is whatever toPublicUser returned, so the two
 // have to stay in step. There is no production caller yet: the admin routes
@@ -43,11 +42,11 @@ export async function requireAuth(req, res, next) {
 export function requireRole(...roles) {
   return function requireRoleMiddleware(req, res, next) {
     if (!req.user) {
-      throw unauthorized('Sign in to continue.');
+      throw unauthorized('กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ');
     }
 
     if (!roles.includes(req.user.role)) {
-      throw forbidden('This area is for administrators.');
+      throw forbidden('พื้นที่นี้สำหรับผู้ดูแลระบบเท่านั้น');
     }
 
     next();

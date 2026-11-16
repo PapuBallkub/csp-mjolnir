@@ -5,13 +5,14 @@ import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { TorInsight } from '#models/index.js';
 import { MAX_CATEGORIES, cleanCategories } from '#models/project-categories.js';
 
+const TEST_DB = 'mjolnir_test';
 const TEST_PROJECT_ID = 'test-insight-99999999999';
 
 let isDbConnected = false;
 
 before(async () => {
   try {
-    const connPromise = connectDatabase();
+    const connPromise = connectDatabase({ dbName: TEST_DB });
     // 2-second timeout so offline unit test passes instantly if Mongo daemon is not running
     const timer = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000));
     await Promise.race([connPromise, timer]);

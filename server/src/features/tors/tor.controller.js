@@ -28,7 +28,7 @@ export async function getTorDetailHandler(req, res, next) {
     if (!tor) {
       return res.status(404).json({
         error: {
-          message: `TOR project '${projectId}' not found`,
+          message: `ไม่พบข้อมูลโครงการ TOR '${projectId}'`,
         },
       });
     }
@@ -57,7 +57,7 @@ export async function getTorPreviewHandler(req, res, next) {
 
       return res.status(404).json({
         error: {
-          message: `PDF document for project '${projectId}' is not available`,
+          message: `ไม่มีเอกสาร PDF สำหรับโครงการ '${projectId}'`,
           code: isNonBidding ? 'NO_PUBLIC_DOCUMENT_FOR_METHOD' : 'PDF_NOT_FOUND',
           procurementMethod: method || null,
           title: rawTor?.title || null,

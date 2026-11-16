@@ -58,7 +58,7 @@ test('requireRole forbids a role that does not match, and does not continue', ()
 
   assert.throws(
     () => requireRole('admin')({ user: { role: 'user' } }, {}, next),
-    (error) => error.status === 403 && /administrator/i.test(error.message),
+    (error) => error.status === 403 && /ผู้ดูแลระบบ|administrator/i.test(error.message),
   );
 
   assert.equal(calls.length, 0, 'a refused request must never reach the handler');

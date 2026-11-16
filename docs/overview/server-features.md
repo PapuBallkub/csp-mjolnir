@@ -70,8 +70,7 @@ flowchart LR
     technologies --> auth
     notifications --> auth
     admin --> auth
-    watchlist -.->|"imports tor.service.js<br/>directly"| tors
-    profile -.->|"also imports auth.service.js<br/>directly"| auth
+    watchlist --> tors
     admin --> SIM["similarity"]
     health
     match
@@ -204,11 +203,9 @@ deliberate and which are debts:
 
    The 0003 example, a pipeline calling `upsertTorFromExtraction()`, never
    existed: the pipelines write their collections directly.
-2. **"Cross-feature imports go through the feature's `index.js`."** Two
-   exceptions, both debts: `profile.controller.js` imports
-   `auth/auth.service.js`, and `watchlist.service.js` imports
-   `tors/tor.service.js`. The fix for each is to export what's needed from the
-   other feature's `index.js`.
+2. **"Cross-feature imports go through the feature's `index.js`."** Holds.
+   `watchlist` imports `LIVE_STATUS`, `toPublic`, and `visibilityFilter` from
+   `tors/index.js`, and `profile` imports `toPublicUser` from `auth/index.js`.
 3. **"`common/` never imports from `features/` or `pipeline/`."** Holds.
 
 ## Adding a feature

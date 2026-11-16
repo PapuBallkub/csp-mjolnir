@@ -265,7 +265,7 @@ test('GET /api/tors/:projectId: returns 404 for unknown project ID', async () =>
   assert.equal(res.status, 404);
 
   const data = await res.json();
-  assert.ok(data.error?.message?.includes('not found'));
+  assert.ok(data.error?.message?.includes('ไม่พบ') || data.error?.message?.includes('not found'));
 });
 
 const listedIds = async (options, query = { q: 'ทดสอบการแสดงผล', limit: 50 }) =>
@@ -546,7 +546,7 @@ test('GET /api/tors/:projectId/preview: returns 404 when project or document not
   const res = await fetch(`${baseUrl}/api/tors/nonexistent_project/preview`);
   assert.equal(res.status, 404);
   const data = await res.json();
-  assert.ok(data.error?.message?.includes('not available'));
+  assert.ok(data.error?.message?.includes('ไม่มี') || data.error?.message?.includes('not available'));
 });
 
 test('GET /api/tors/:projectId/preview: returns NO_PUBLIC_DOCUMENT_FOR_METHOD for direct/selective procurement without documents', async () => {

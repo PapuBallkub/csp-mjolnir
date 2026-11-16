@@ -32,8 +32,8 @@ export async function updateProfile(userId, fields) {
     const effectiveMin = fields.budgetMin ?? existing?.profile?.budgetMin ?? 0;
     const effectiveMax = fields.budgetMax ?? existing?.profile?.budgetMax ?? 0;
     if (effectiveMax !== 0 && effectiveMin > effectiveMax) {
-      throw badRequest('Check the details you entered.', {
-        budgetMin: 'Minimum budget cannot be greater than maximum budget.',
+      throw badRequest('กรุณาตรวจสอบข้อมูลที่กรอก', {
+        budgetMin: 'งบประมาณขั้นต่ำต้องไม่เกินงบประมาณสูงสุด',
       });
     }
   }

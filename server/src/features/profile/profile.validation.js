@@ -23,7 +23,7 @@ export function parseProfileUpdate(body) {
   // --- entityType ---
   if (body.entityType !== undefined) {
     if (typeof body.entityType !== 'string' || !VALID_ENTITY_TYPES.includes(body.entityType.trim())) {
-      errors.entityType = `Entity type must be either 'juristic' or 'individual'.`;
+      errors.entityType = `ประเภทนิติบุคคลต้องเป็น 'juristic' หรือ 'individual'`;
     } else {
       update.entityType = body.entityType.trim();
     }
@@ -32,7 +32,7 @@ export function parseProfileUpdate(body) {
   // --- preferredArchetypes ---
   if (body.preferredArchetypes !== undefined) {
     if (!Array.isArray(body.preferredArchetypes)) {
-      errors.preferredArchetypes = 'Preferred archetypes must be an array.';
+      errors.preferredArchetypes = 'ประเภทงานที่สนใจต้องอยู่ในรูปแบบรายการ';
     } else {
       const cleaned = [
         ...new Set(
@@ -43,7 +43,7 @@ export function parseProfileUpdate(body) {
         ),
       ];
       if (cleaned.length > MAX_PREFERRED_ARCHETYPES) {
-        errors.preferredArchetypes = `You can save at most ${MAX_PREFERRED_ARCHETYPES} preferred archetypes.`;
+        errors.preferredArchetypes = `คุณสามารถบันทึกประเภทงานที่สนใจได้สูงสุด ${MAX_PREFERRED_ARCHETYPES} รายการ`;
       } else {
         update.preferredArchetypes = cleaned;
       }
@@ -54,7 +54,7 @@ export function parseProfileUpdate(body) {
   if (body.maxPastPortfolioTHB !== undefined) {
     const n = Number(body.maxPastPortfolioTHB);
     if (!Number.isFinite(n) || n < 0 || n > MAX_BUDGET || !Number.isInteger(n)) {
-      errors.maxPastPortfolioTHB = `Max past portfolio must be an integer between 0 and ${MAX_BUDGET.toLocaleString()} THB.`;
+      errors.maxPastPortfolioTHB = `มูลค่าผลงานสูงสุดต้องเป็นจำนวนเต็มระหว่าง 0 ถึง ${MAX_BUDGET.toLocaleString()} บาท`;
     } else {
       update.maxPastPortfolioTHB = n;
     }
@@ -63,7 +63,7 @@ export function parseProfileUpdate(body) {
   // --- skills ---
   if (body.skills !== undefined) {
     if (!Array.isArray(body.skills)) {
-      errors.skills = 'Skills must be an array.';
+      errors.skills = 'ทักษะต้องอยู่ในรูปแบบรายการ';
     } else {
       const cleaned = [
         ...new Set(
@@ -74,7 +74,7 @@ export function parseProfileUpdate(body) {
         ),
       ];
       if (cleaned.length > MAX_SKILLS) {
-        errors.skills = `You can save at most ${MAX_SKILLS} skills.`;
+        errors.skills = `คุณสามารถบันทึกทักษะได้สูงสุด ${MAX_SKILLS} รายการ`;
       } else {
         update.skills = cleaned;
       }
@@ -88,7 +88,7 @@ export function parseProfileUpdate(body) {
   if (hasMin) {
     const n = Number(body.budgetMin);
     if (!Number.isFinite(n) || n < 0 || n > MAX_BUDGET || !Number.isInteger(n)) {
-      errors.budgetMin = `Budget minimum must be an integer between 0 and ${MAX_BUDGET.toLocaleString()}.`;
+      errors.budgetMin = `งบประมาณขั้นต่ำต้องเป็นจำนวนเต็มระหว่าง 0 ถึง ${MAX_BUDGET.toLocaleString()}`;
     } else {
       update.budgetMin = n;
     }
@@ -97,7 +97,7 @@ export function parseProfileUpdate(body) {
   if (hasMax) {
     const n = Number(body.budgetMax);
     if (!Number.isFinite(n) || n < 0 || n > MAX_BUDGET || !Number.isInteger(n)) {
-      errors.budgetMax = `Budget maximum must be an integer between 0 and ${MAX_BUDGET.toLocaleString()}.`;
+      errors.budgetMax = `งบประมาณสูงสุดต้องเป็นจำนวนเต็มระหว่าง 0 ถึง ${MAX_BUDGET.toLocaleString()}`;
     } else {
       update.budgetMax = n;
     }
@@ -106,14 +106,14 @@ export function parseProfileUpdate(body) {
   // Cross-field: min <= max when both are sent in body (0 means no upper limit)
   if (update.budgetMin !== undefined && update.budgetMax !== undefined) {
     if (update.budgetMax !== 0 && update.budgetMin > update.budgetMax) {
-      errors.budgetMin = 'Minimum budget cannot be greater than maximum budget.';
+      errors.budgetMin = 'งบประมาณขั้นต่ำต้องไม่มากกว่างบประมาณสูงสุด';
     }
   }
 
   // --- certifications ---
   if (body.certifications !== undefined) {
     if (!Array.isArray(body.certifications)) {
-      errors.certifications = 'Certifications must be an array.';
+      errors.certifications = 'ใบรับรองต้องอยู่ในรูปแบบรายการ';
     } else {
       const cleaned = [
         ...new Set(
@@ -124,7 +124,7 @@ export function parseProfileUpdate(body) {
         ),
       ];
       if (cleaned.length > MAX_CERTIFICATIONS) {
-        errors.certifications = `You can save at most ${MAX_CERTIFICATIONS} certifications.`;
+        errors.certifications = `คุณสามารถบันทึกใบรับรองได้สูงสุด ${MAX_CERTIFICATIONS} รายการ`;
       } else {
         update.certifications = cleaned;
       }
@@ -143,14 +143,14 @@ export function parseProfileUpdate(body) {
   // --- matchNotification (FR-14 Preparation) ---
   if (body.matchNotification !== undefined) {
     if (typeof body.matchNotification !== 'object' || body.matchNotification === null || Array.isArray(body.matchNotification)) {
-      errors.matchNotification = 'Match notification settings must be an object.';
+      errors.matchNotification = 'การตั้งค่าแจ้งเตือนต้องอยู่ในรูปแบบ object';
     } else {
       const mn = body.matchNotification;
       const validatedMn = {};
 
       if (mn.enabled !== undefined) {
         if (typeof mn.enabled !== 'boolean') {
-          errors['matchNotification.enabled'] = 'Enabled must be a boolean.';
+          errors['matchNotification.enabled'] = 'ค่าเปิดใช้งานต้องเป็น boolean';
         } else {
           validatedMn.enabled = mn.enabled;
         }
@@ -159,7 +159,7 @@ export function parseProfileUpdate(body) {
       if (mn.minScore !== undefined) {
         const score = Number(mn.minScore);
         if (!Number.isFinite(score) || score < 50 || score > 95) {
-          errors['matchNotification.minScore'] = 'Minimum match score must be an integer between 50 and 95.';
+          errors['matchNotification.minScore'] = 'คะแนนขั้นต่ำต้องเป็นจำนวนเต็มระหว่าง 50 ถึง 95';
         } else {
           validatedMn.minScore = Math.round(score);
         }
@@ -168,7 +168,7 @@ export function parseProfileUpdate(body) {
       if (mn.frequency !== undefined) {
         const validFreq = ['instant', 'daily', 'weekly'];
         if (typeof mn.frequency !== 'string' || !validFreq.includes(mn.frequency.trim())) {
-          errors['matchNotification.frequency'] = "Frequency must be 'instant', 'daily', or 'weekly'.";
+          errors['matchNotification.frequency'] = "ความถี่ต้องเป็น 'instant', 'daily' หรือ 'weekly'";
         } else {
           validatedMn.frequency = mn.frequency.trim();
         }
@@ -176,7 +176,7 @@ export function parseProfileUpdate(body) {
 
       if (mn.includeSubcontract !== undefined) {
         if (typeof mn.includeSubcontract !== 'boolean') {
-          errors['matchNotification.includeSubcontract'] = 'includeSubcontract must be a boolean.';
+          errors['matchNotification.includeSubcontract'] = 'includeSubcontract ต้องเป็น boolean';
         } else {
           validatedMn.includeSubcontract = mn.includeSubcontract;
         }
@@ -187,7 +187,7 @@ export function parseProfileUpdate(body) {
   }
 
   if (Object.keys(errors).length > 0) {
-    throw badRequest('Check the details you entered.', errors);
+    throw badRequest('กรุณาตรวจสอบข้อมูลที่กรอก', errors);
   }
 
   return update;

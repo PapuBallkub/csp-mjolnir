@@ -62,12 +62,11 @@ import { isPastDeadline, parseUntil } from '../shared/deadline.js';
 import { requestPastProjects, selectPastProjects } from './lib/past-requests.js';
 import { FEED_HOURS, ROUTINE_TYPES, fetchFromProcess3, procurementKindOf } from './sources/process3.js';
 import { isDraftAnnouncement, readPostedDate, readTitle } from './lib/egp-package.js';
+import { getDocumentsDir } from '#common/paths.js';
 import { PREVIEW_PAGES, extractText, isPreviewRead } from './lib/ocr.js';
 import { downloadEgpPackage, downloadEgpPricePackage, lookupPackage } from './lib/tor-downloader.js';
 
-const DOCUMENTS_DIR =
-  process.env.DOCUMENTS_DIR ||
-  path.resolve(import.meta.dirname, '../../../data/documents');
+const DOCUMENTS_DIR = getDocumentsDir();
 
 function parseCliArgs() {
   const argv = process.argv.slice(2);

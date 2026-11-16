@@ -7,13 +7,13 @@ const MAX_PROJECT_ID_LENGTH = 64;
  */
 export function validateProjectId(projectId) {
   if (!projectId || typeof projectId !== 'string' || !projectId.trim()) {
-    throw badRequest('Project ID is required.', { projectId: 'Project ID cannot be empty.' });
+    throw badRequest('กรุณาระบุรหัสโครงการ', { projectId: 'รหัสโครงการต้องไม่เว้นว่าง' });
   }
 
   const cleaned = projectId.trim();
   if (cleaned.length > MAX_PROJECT_ID_LENGTH) {
-    throw badRequest('Project ID is too long.', {
-      projectId: `Project ID must not exceed ${MAX_PROJECT_ID_LENGTH} characters.`,
+    throw badRequest('รหัสโครงการยาวเกินไป', {
+      projectId: `รหัสโครงการต้องมีความยาวไม่เกิน ${MAX_PROJECT_ID_LENGTH} ตัวอักษร`,
     });
   }
 

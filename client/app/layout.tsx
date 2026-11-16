@@ -29,6 +29,12 @@ export const metadata: Metadata = {
   title: "GIPDP (Mjölnir) — แพลตฟอร์มค้นหาและวิเคราะห์ประกาศจัดซื้อจัดจ้าง IT ภาครัฐ",
   description:
     "ค้นหา อ่าน และตรวจสอบความเสี่ยงประกาศจัดซื้อจัดจ้างโครงการเทคโนโลยีภาครัฐไทย โดยไม่ต้องเปิดเอกสาร PDF",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+  },
 };
 
 // Applies the stored theme before first paint so the page never flashes.

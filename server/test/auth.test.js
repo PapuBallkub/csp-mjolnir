@@ -114,7 +114,7 @@ test('a bad password is refused per field, and writes nothing', async () => {
   assert.equal(response.status, 400);
 
   const { error } = await response.json();
-  assert.match(error.details.password, /at least 8/);
+  assert.match(error.details.password, /อย่างน้อย 8/);
   assert.equal(error.details.email, undefined, 'a valid field should not be reported as an error');
 
   assert.equal(await User.countDocuments({ email }), 0);
@@ -126,7 +126,7 @@ test('a password past the bcrypt 72-byte ceiling is refused, not truncated', asy
   });
 
   assert.equal(response.status, 400);
-  assert.match((await response.json()).error.details.password, /72 bytes/);
+  assert.match((await response.json()).error.details.password, /72 ไบต์/);
 });
 
 test('signing in needs the right password, and says no more than that', async () => {
@@ -208,7 +208,7 @@ test('registering needs a name, and reports it beside every other bad field', as
     body: { email: emailFor('noname'), password: PASSWORD },
   });
   assert.equal(missing.status, 400);
-  assert.match((await missing.json()).error.details.name, /name is required/i);
+  assert.match((await missing.json()).error.details.name, /กรุณากรอกชื่อ/);
 
   // One 400 carrying both, not the first failure it happens to reach. The
   // validation split is the easiest way to lose this property.
@@ -218,8 +218,8 @@ test('registering needs a name, and reports it beside every other bad field', as
   assert.equal(both.status, 400);
 
   const { error } = await both.json();
-  assert.match(error.details.name, /name is required/i);
-  assert.match(error.details.password, /at least 8/);
+  assert.match(error.details.name, /กรุณากรอกชื่อ/);
+  assert.match(error.details.password, /อย่างน้อย 8/);
   assert.equal(error.details.email, undefined, 'a valid field should not be reported');
 });
 
@@ -237,7 +237,7 @@ test('a name past 80 characters is refused by length, not by bytes', async () =>
     body: { email: emailFor('longname'), password: PASSWORD, name: 'a'.repeat(81) },
   });
   assert.equal(tooLong.status, 400);
-  assert.match((await tooLong.json()).error.details.name, /at most 80/);
+  assert.match((await tooLong.json()).error.details.name, /80/);
 });
 
 // The direct regression guard for the validation split: parseCredentials is
