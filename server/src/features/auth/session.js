@@ -4,8 +4,9 @@ import { env, isProduction } from '#common/config/env.js';
 
 export const SESSION_COOKIE = 'mjolnir_session';
 
-const SESSION_TTL_DAYS = 7;
-const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
+// Sessions are JWTs that expire within 24 hours (SRS NFR-11, ASVS V7.1.1, V7.3.2)
+const SESSION_TTL_HOURS = 24;
+const SESSION_TTL_MS = SESSION_TTL_HOURS * 60 * 60 * 1000;
 
 // Shared, because a cookie is cleared by matching the attributes it was set
 // with. If these two drift apart, logout stops working.
@@ -19,23 +20,30 @@ const cookieOptions = {
   path: '/',
 };
 
-// JWT claims are readable without the secret, so the payload is the id and
-// nothing else. Anything that changes is read from the database per request.
+// JWT claims are readable without the secret, so the payload contains the
+// user id and tokenVersion (ASVS V7.4.1). Anything else is read per request.
 export function signSessionToken(user) {
-  return jwt.sign({}, env.jwtSecret, {
+  return jwt.sign({ v: user.tokenVersion ?? 0 }, env.jwtSecret, {
     subject: user.id,
-    expiresIn: `${SESSION_TTL_DAYS}d`,
+    expiresIn: `${SESSION_TTL_HOURS}h`,
   });
 }
 
-// The user id, or null if the token is missing, expired, or not ours.
+// The session payload ({ userId, tokenVersion }), or null if missing, expired, or not ours.
 export function readSessionToken(token) {
   if (!token) {
     return null;
   }
 
   try {
-    return jwt.verify(token, env.jwtSecret).sub;
+    const payload = jwt.verify(token, env.jwtSecret);
+    if (!payload.sub) {
+      return null;
+    }
+    return {
+      userId: payload.sub,
+      tokenVersion: payload.v ?? 0,
+    };
   } catch {
     return null;
   }

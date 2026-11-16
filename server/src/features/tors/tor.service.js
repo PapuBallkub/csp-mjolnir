@@ -5,6 +5,7 @@ import axios from 'axios';
 import AdmZip from 'adm-zip';
 import { env } from '#common/config/env.js';
 import { getDocumentsDir } from '#common/paths.js';
+import { escapeRegex } from '#common/utils/escape-regex.js';
 import { Tor, TorInsight } from '#models/index.js';
 import { USER_AGENT } from '#pipeline/shared/user-agent.js';
 
@@ -569,11 +570,6 @@ function publicDocument(document) {
   if (!document) return null;
   const { fileName = null, sizeBytes = null, pages = null, documentType = null } = document;
   return { fileName, sizeBytes, pages, documentType };
-}
-
-// A search box is user input: its text is matched literally, not as a pattern
-function escapeRegex(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 const PROCESS5 = 'https://process5.gprocurement.go.th';

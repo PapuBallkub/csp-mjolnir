@@ -268,3 +268,64 @@ test('the name is trimmed on the way in and comes back from /me, with a role', a
   assert.equal(user.passwordHash, undefined);
   assert.equal(user.googleId, undefined);
 });
+
+test('security hardening: X-Powered-By is disabled, session TTL is 24 hours, and private routes set anti-caching headers', async () => {
+  // 1. ASVS V13.4.6: X-Powered-By must not be advertised
+  const rootRes = await send('GET', '/');
+  assert.equal(rootRes.headers.get('x-powered-by'), null, 'X-Powered-By must be disabled');
+
+  // 2. SRS NFR-11, ASVS V7.1.1, V7.3.2: Session TTL must be 24 hours (86400 seconds)
+  const email = emailFor('sec-ttl');
+  const loginRes = await send('POST', '/api/auth/register', {
+    body: { email, password: PASSWORD, name: NAME },
+  });
+  const setCookie = loginRes.headers.getSetCookie().find((c) => c.startsWith('mjolnir_session='));
+  assert.ok(setCookie);
+  assert.match(setCookie, /Max-Age=86400/i, 'Session cookie Max-Age must be 86400s (24h)');
+
+  // 3. ASVS V14.3.2, V14.2.2: Authenticated responses must not be cached by browsers/proxies
+  const meRes = await send('GET', '/api/auth/me', { cookie: sessionCookie(loginRes) });
+  assert.equal(meRes.status, 200);
+  const cacheControl = meRes.headers.get('cache-control') || '';
+  assert.match(cacheControl, /no-store/i, 'Cache-Control must contain no-store');
+  assert.match(cacheControl, /no-cache/i, 'Cache-Control must contain no-cache');
+  assert.equal(meRes.headers.get('pragma'), 'no-cache', 'Pragma must be no-cache');
+});
+
+test('security hardening: security headers, 50kb body limit, Clear-Site-Data and token versioning on logout', async () => {
+  // 1. ASVS V13.4, V14.3, V15.2: Core security headers present globally
+  const rootRes = await send('GET', '/');
+  assert.equal(rootRes.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(rootRes.headers.get('x-frame-options'), 'SAMEORIGIN');
+  assert.equal(rootRes.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
+
+  // 2. ASVS V13.1.3, V15.2.2: Body size limit enforces 50kb ceiling
+  const oversizedEmail = emailFor('oversized');
+  const hugePayload = {
+    email: oversizedEmail,
+    password: PASSWORD,
+    name: 'A'.repeat(55 * 1024), // 55 KB
+  };
+  const oversizedRes = await send('POST', '/api/auth/register', { body: hugePayload });
+  assert.equal(oversizedRes.status, 413, 'payloads exceeding 50kb must be rejected with 413');
+
+  // 3. ASVS V7.4.1, V14.3.1: Token Versioning & Clear-Site-Data on logout
+  const email = emailFor('tokenversion');
+  const regRes = await send('POST', '/api/auth/register', {
+    body: { email, password: PASSWORD, name: NAME },
+  });
+  const cookie = sessionCookie(regRes);
+
+  // Authenticated call succeeds before logout
+  const meBefore = await send('GET', '/api/auth/me', { cookie });
+  assert.equal(meBefore.status, 200);
+
+  // Logout responds with 204 and Clear-Site-Data header
+  const logoutRes = await send('POST', '/api/auth/logout', { cookie });
+  assert.equal(logoutRes.status, 204);
+  assert.match(logoutRes.headers.get('clear-site-data') || '', /"storage"/);
+
+  // Replaying the old cookie after logout MUST return 401 because tokenVersion incremented
+  const meAfter = await send('GET', '/api/auth/me', { cookie });
+  assert.equal(meAfter.status, 401, 'stolen or replayed JWT after logout must be rejected');
+});

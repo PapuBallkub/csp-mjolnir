@@ -1,2 +1,2 @@
 export { technologyRoutes } from './technology.routes.js';
-export { getAllTechnologies } from './technology.service.js';
+export { getAllTechnologies, requestTechnology } from './technology.service.js';
