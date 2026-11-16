@@ -20,14 +20,17 @@ export type WatchdogFilterBarProps = {
   selectedStatuses: Status[];
   onToggleStatus: (status: Status) => void;
   onSelectAllStatuses: () => void;
+  onClearStatuses?: () => void;
   // Multi-select lock-spec risk level
   selectedRiskLevels: RiskLevel[];
   onToggleRiskLevel: (level: RiskLevel) => void;
   onSelectAllRiskLevels: () => void;
+  onClearRiskLevels?: () => void;
   // Multi-select complexity
   selectedComplexities: ComplexityTier[];
   onToggleComplexity: (tier: ComplexityTier) => void;
   onSelectAllComplexities: () => void;
+  onClearComplexities?: () => void;
   // Multi-select categories
   selectedCategories: ProjectCategory[];
   onToggleCategory: (cat: ProjectCategory) => void;
@@ -106,12 +109,15 @@ export function WatchdogFilterBar({
   selectedStatuses,
   onToggleStatus,
   onSelectAllStatuses,
+  onClearStatuses,
   selectedRiskLevels,
   onToggleRiskLevel,
   onSelectAllRiskLevels,
+  onClearRiskLevels,
   selectedComplexities,
   onToggleComplexity,
   onSelectAllComplexities,
+  onClearComplexities,
   selectedCategories,
   onToggleCategory,
   onSelectAllCategories,
@@ -130,11 +136,8 @@ export function WatchdogFilterBar({
   onPriceRangeChange,
   effectiveStartMonth,
   effectiveEndMonth,
-  defaultStartMonth: _defaultStartMonth,
-  defaultEndMonth: _defaultEndMonth,
   onStartMonthChange,
   onEndMonthChange,
-  availableMonths: _availableMonths,
   hasActiveFilters,
   onResetFilters,
 }: WatchdogFilterBarProps) {
@@ -220,12 +223,12 @@ export function WatchdogFilterBar({
   const isEndInvalid = isDateRangeInvalid && lastEditedField === "end";
 
   // Filtered state flags to give buttons subtle gray background when actively selected
-  const isCatFiltered = selectedCategories.length > 0 && selectedCategories.length < allCategories.length;
-  const isArchFiltered = selectedArchetypes.length > 0 && selectedArchetypes.length < allArchetypes.length;
-  const isAgencyFiltered = selectedAgencies.length > 0 && selectedAgencies.length < agencies.length;
-  const isStatusFiltered = selectedStatuses.length > 0 && selectedStatuses.length < STATUS_ITEMS.length;
-  const isRiskFiltered = selectedRiskLevels.length > 0 && selectedRiskLevels.length < RISK_ITEMS.length;
-  const isCompFiltered = selectedComplexities.length > 0 && selectedComplexities.length < COMPLEXITY_ITEMS.length;
+  const isCatFiltered = selectedCategories.length < allCategories.length;
+  const isArchFiltered = selectedArchetypes.length < allArchetypes.length;
+  const isAgencyFiltered = agencies.length > 0 && selectedAgencies.length < agencies.length;
+  const isStatusFiltered = selectedStatuses.length < STATUS_ITEMS.length;
+  const isRiskFiltered = selectedRiskLevels.length < RISK_ITEMS.length;
+  const isCompFiltered = selectedComplexities.length < COMPLEXITY_ITEMS.length;
 
   return (
     <Panel className="mb-6 p-4">
@@ -270,9 +273,13 @@ export function WatchdogFilterBar({
               isCatFiltered || catOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
             }`}
           >
-            {selectedCategories.length === 0 || selectedCategories.length === allCategories.length ? (
+            {selectedCategories.length === allCategories.length ? (
               <span className="truncate flex-1 text-center font-medium text-ink-2">
                 {lang === "th" ? "-- ทุกหมวดหมู่งาน IT --" : "-- All Categories --"}
+              </span>
+            ) : selectedCategories.length === 0 ? (
+              <span className="truncate flex-1 text-center font-medium text-ink-3">
+                {lang === "th" ? "ไม่ได้เลือกหมวดหมู่" : "No category selected"}
               </span>
             ) : (
               <span className="truncate text-left text-ink">
@@ -298,13 +305,23 @@ export function WatchdogFilterBar({
                 <span className="text-ink-3 font-normal">
                   {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
                 </span>
-                <button
-                  type="button"
-                  onClick={onSelectAllCategories}
-                  className="text-ink-2 hover:text-ink underline cursor-pointer"
-                >
-                  {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
-                </button>
+                {selectedCategories.length === allCategories.length ? (
+                  <button
+                    type="button"
+                    onClick={onClearCategories}
+                    className="text-ink-2 hover:text-ink underline cursor-pointer"
+                  >
+                    {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onSelectAllCategories}
+                    className="text-ink-2 hover:text-ink underline cursor-pointer"
+                  >
+                    {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
+                  </button>
+                )}
               </div>
               <div className="max-h-56 overflow-y-auto flex flex-col gap-1">
                 {allCategories.map((opt) => {
@@ -349,9 +366,13 @@ export function WatchdogFilterBar({
               isArchFiltered || archOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
             }`}
           >
-            {selectedArchetypes.length === 0 || selectedArchetypes.length === allArchetypes.length ? (
+            {selectedArchetypes.length === allArchetypes.length ? (
               <span className="truncate flex-1 text-center font-medium text-ink-2">
                 {lang === "th" ? "-- ทุกรูปแบบระบบ --" : "-- All Archetypes --"}
+              </span>
+            ) : selectedArchetypes.length === 0 ? (
+              <span className="truncate flex-1 text-center font-medium text-ink-3">
+                {lang === "th" ? "ไม่ได้เลือกรูปแบบ" : "No archetype selected"}
               </span>
             ) : (
               <span className="truncate text-left text-ink">
@@ -377,13 +398,23 @@ export function WatchdogFilterBar({
                 <span className="text-ink-3 font-normal">
                   {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
                 </span>
-                <button
-                  type="button"
-                  onClick={onSelectAllArchetypes}
-                  className="text-ink-2 hover:text-ink underline cursor-pointer"
-                >
-                  {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
-                </button>
+                {selectedArchetypes.length === allArchetypes.length ? (
+                  <button
+                    type="button"
+                    onClick={onClearArchetypes}
+                    className="text-ink-2 hover:text-ink underline cursor-pointer"
+                  >
+                    {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onSelectAllArchetypes}
+                    className="text-ink-2 hover:text-ink underline cursor-pointer"
+                  >
+                    {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
+                  </button>
+                )}
               </div>
               <div className="max-h-56 overflow-y-auto flex flex-col gap-1">
                 {allArchetypes.map((opt) => {
@@ -428,9 +459,13 @@ export function WatchdogFilterBar({
               isAgencyFiltered || agencyOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
             }`}
           >
-            {selectedAgencies.length === 0 || selectedAgencies.length === agencies.length ? (
+            {agencies.length === 0 || selectedAgencies.length === agencies.length ? (
               <span className="truncate flex-1 text-center font-medium text-ink-2">
                 {lang === "th" ? "-- ทุกหน่วยงาน --" : "-- All Agencies --"}
+              </span>
+            ) : selectedAgencies.length === 0 ? (
+              <span className="truncate flex-1 text-center font-medium text-ink-3">
+                {lang === "th" ? "ไม่ได้เลือกหน่วยงาน" : "No agency selected"}
               </span>
             ) : (
               <span className="truncate text-left text-ink">
@@ -457,13 +492,23 @@ export function WatchdogFilterBar({
                 <span className="text-ink-3 font-normal">
                   {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
                 </span>
-                <button
-                  type="button"
-                  onClick={onSelectAllAgencies}
-                  className="text-ink-2 hover:text-ink underline cursor-pointer"
-                >
-                  {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
-                </button>
+                {agencies.length > 0 && selectedAgencies.length === agencies.length ? (
+                  <button
+                    type="button"
+                    onClick={onClearAgencies}
+                    className="text-ink-2 hover:text-ink underline cursor-pointer"
+                  >
+                    {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onSelectAllAgencies}
+                    className="text-ink-2 hover:text-ink underline cursor-pointer"
+                  >
+                    {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
+                  </button>
+                )}
               </div>
               <div className="max-h-56 overflow-y-auto flex flex-col gap-0.5">
                 {filteredAgencies.map((agency) => (
@@ -754,9 +799,13 @@ export function WatchdogFilterBar({
               isStatusFiltered || statusOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
             }`}
           >
-            {selectedStatuses.length === 0 || selectedStatuses.length === STATUS_ITEMS.length ? (
+            {selectedStatuses.length === STATUS_ITEMS.length ? (
               <span className="truncate flex-1 text-center font-medium text-ink-2">
                 {lang === "th" ? "-- ทุกสถานะประกาศ --" : "-- All Statuses --"}
+              </span>
+            ) : selectedStatuses.length === 0 ? (
+              <span className="truncate flex-1 text-center font-medium text-ink-3">
+                {lang === "th" ? "ไม่ได้เลือกสถานะ" : "No status selected"}
               </span>
             ) : (
               <span className="truncate text-left text-ink">
@@ -778,13 +827,23 @@ export function WatchdogFilterBar({
                 <span className="text-ink-3 font-normal">
                   {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
                 </span>
-                <button
-                  type="button"
-                  onClick={onSelectAllStatuses}
-                  className="text-ink-2 hover:text-ink underline cursor-pointer"
-                >
-                  {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
-                </button>
+                {selectedStatuses.length === STATUS_ITEMS.length && onClearStatuses ? (
+                  <button
+                    type="button"
+                    onClick={onClearStatuses}
+                    className="text-ink-2 hover:text-ink underline cursor-pointer"
+                  >
+                    {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onSelectAllStatuses}
+                    className="text-ink-2 hover:text-ink underline cursor-pointer"
+                  >
+                    {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
+                  </button>
+                )}
               </div>
               <div className="flex flex-col gap-1">
                 {STATUS_ITEMS.map((item) => (
@@ -826,9 +885,13 @@ export function WatchdogFilterBar({
               isRiskFiltered || riskOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
             }`}
           >
-            {selectedRiskLevels.length === 0 || selectedRiskLevels.length === RISK_ITEMS.length ? (
+            {selectedRiskLevels.length === RISK_ITEMS.length ? (
               <span className="truncate flex-1 text-center font-medium text-ink-2">
                 {lang === "th" ? "-- ทุกระดับความเสี่ยง --" : "-- All Risk Levels --"}
+              </span>
+            ) : selectedRiskLevels.length === 0 ? (
+              <span className="truncate flex-1 text-center font-medium text-ink-3">
+                {lang === "th" ? "ไม่ได้เลือกระดับ" : "No level selected"}
               </span>
             ) : (
               <span className="truncate text-left text-ink">
@@ -850,13 +913,23 @@ export function WatchdogFilterBar({
                 <span className="text-ink-3 font-normal">
                   {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
                 </span>
-                <button
-                  type="button"
-                  onClick={onSelectAllRiskLevels}
-                  className="text-ink-2 hover:text-ink underline cursor-pointer"
-                >
-                  {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
-                </button>
+                {selectedRiskLevels.length === RISK_ITEMS.length && onClearRiskLevels ? (
+                  <button
+                    type="button"
+                    onClick={onClearRiskLevels}
+                    className="text-ink-2 hover:text-ink underline cursor-pointer"
+                  >
+                    {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onSelectAllRiskLevels}
+                    className="text-ink-2 hover:text-ink underline cursor-pointer"
+                  >
+                    {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
+                  </button>
+                )}
               </div>
               <div className="flex flex-col gap-1">
                 {RISK_ITEMS.map((item) => (
@@ -900,9 +973,13 @@ export function WatchdogFilterBar({
               isCompFiltered || compOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
             }`}
           >
-            {selectedComplexities.length === 0 || selectedComplexities.length === COMPLEXITY_ITEMS.length ? (
+            {selectedComplexities.length === COMPLEXITY_ITEMS.length ? (
               <span className="truncate flex-1 text-center font-medium text-ink-2">
                 {lang === "th" ? "-- ทุกขนาดความซับซ้อน --" : "-- All Complexity Tiers --"}
+              </span>
+            ) : selectedComplexities.length === 0 ? (
+              <span className="truncate flex-1 text-center font-medium text-ink-3">
+                {lang === "th" ? "ไม่ได้เลือกขนาด" : "No tier selected"}
               </span>
             ) : (
               <span className="truncate text-left text-ink">
@@ -924,13 +1001,23 @@ export function WatchdogFilterBar({
                 <span className="text-ink-3 font-normal">
                   {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
                 </span>
-                <button
-                  type="button"
-                  onClick={onSelectAllComplexities}
-                  className="text-ink-2 hover:text-ink underline cursor-pointer"
-                >
-                  {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
-                </button>
+                {selectedComplexities.length === COMPLEXITY_ITEMS.length && onClearComplexities ? (
+                  <button
+                    type="button"
+                    onClick={onClearComplexities}
+                    className="text-ink-2 hover:text-ink underline cursor-pointer"
+                  >
+                    {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onSelectAllComplexities}
+                    className="text-ink-2 hover:text-ink underline cursor-pointer"
+                  >
+                    {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
+                  </button>
+                )}
               </div>
               <div className="flex flex-col gap-1">
                 {COMPLEXITY_ITEMS.map((item) => (

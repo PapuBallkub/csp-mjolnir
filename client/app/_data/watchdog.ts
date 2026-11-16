@@ -189,7 +189,7 @@ export const LOCK_SPEC_TRIGGERS_META: {
       en: "Locked brand/version without “or equivalent”",
     },
     legalRef: {
-      th: "พ.ร.บ. จัดซื้อจัดจ้างฯ ม.9 · หนังสือเวียน ว 214 ข้อ 3",
+      th: "พ.ร.บ. จัดซื้อจัดจ้างฯ ม.9 · ว 214 ข้อ 3",
       en: "Procurement Act §9 · Circular ว 214 Clause 3",
     },
     description: {
@@ -205,7 +205,7 @@ export const LOCK_SPEC_TRIGGERS_META: {
       en: "Past contract requirement exceeds 50% of budget",
     },
     legalRef: {
-      th: "พ.ร.บ. จัดซื้อจัดจ้างฯ ม.9 · หนังสือเวียน ว 214 ข้อ 2",
+      th: "พ.ร.บ. จัดซื้อจัดจ้างฯ ม.9 · ว 214 ข้อ 2",
       en: "Procurement Act §9 · Circular ว 214 Clause 2",
     },
     description: {
@@ -221,7 +221,7 @@ export const LOCK_SPEC_TRIGGERS_META: {
       en: "Requires OEM reseller letter (MAF) on software hire",
     },
     legalRef: {
-      th: "พ.ร.บ. จัดซื้อจัดจ้างฯ ม.8, 9 · หนังสือเวียน ว 214 ข้อ 1.1, 1.3",
+      th: "พ.ร.บ. จัดซื้อจัดจ้างฯ ม.8, 9 · ว 214 ข้อ 1.3",
       en: "Procurement Act §8–9 · Circular ว 214 Clause 1.3",
     },
     description: {

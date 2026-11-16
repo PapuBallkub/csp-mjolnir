@@ -10,6 +10,7 @@ import {
 } from "../../../_data/tors";
 import { EmptyState, Well } from "../../../_components/ui";
 import { NORMAL_BAND_PCT, type TimePoint } from "../_lib/types";
+import { computeAverage, computeMedian } from "../_lib/watchdog-helpers";
 
 /**
  * Interactive SVG Line + Shaded Normal Band Chart (Option A: Time-Series Trend).
@@ -98,6 +99,40 @@ export function PriceTrendLineChart({
     }
     return results;
   }, [fullLabelIndices, labelStep]);
+
+  // Aggregate summary across all periods/projects matching the active filter.
+  // Displayed in the readout bar when the user's cursor is not hovering over a specific time bucket.
+  const allDataSummary = useMemo<TimePoint>(() => {
+    const allProjects = series.flatMap((pt) => pt.projects);
+    const torCount = allProjects.length;
+    if (torCount === 0) {
+      return {
+        key: "all",
+        label: lang === "th" ? "ทุกช่วงเวลา (ภาพรวม)" : "All periods (Overview)",
+        torCount: 0,
+        medianTHB: 0,
+        averageTHB: 0,
+        bandLowTHB: 0,
+        bandHighTHB: 0,
+        highRiskCount: 0,
+        projects: [],
+      };
+    }
+    const prices = allProjects.map((p) => p.referencePriceTHB);
+    const med = computeMedian(prices);
+    const avg = computeAverage(prices);
+    return {
+      key: "all",
+      label: lang === "th" ? "ทุกช่วงเวลา (ภาพรวม)" : "All periods (Overview)",
+      torCount,
+      medianTHB: med,
+      averageTHB: avg,
+      bandLowTHB: Math.round(med * (1 - NORMAL_BAND_PCT / 100)),
+      bandHighTHB: Math.round(med * (1 + NORMAL_BAND_PCT / 100)),
+      highRiskCount: allProjects.filter((p) => p.lockSpecLevel === "high").length,
+      projects: allProjects,
+    };
+  }, [series, lang]);
 
   const nonEmpty = series.filter((pt) => pt.torCount > 0);
   if (nonEmpty.length === 0) {
@@ -193,8 +228,11 @@ export function PriceTrendLineChart({
 
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((t) => Math.round(yMin + yDomain * t));
 
-  const inspectedKey = hoveredKey ?? activeBucket ?? validPoints.at(-1)?.pt.key ?? null;
-  const inspectedPoint = series.find((pt) => pt.key === inspectedKey) ?? validPoints.at(-1)?.pt;
+  // If hovering or filtered to a bucket, show that bucket; otherwise show the aggregate "All Data" summary.
+  const inspectedKey = hoveredKey ?? activeBucket ?? null;
+  const inspectedPoint = inspectedKey
+    ? (series.find((pt) => pt.key === inspectedKey) ?? allDataSummary)
+    : allDataSummary;
 
   return (
     <div className="flex flex-col gap-3">
@@ -265,6 +303,7 @@ export function PriceTrendLineChart({
           viewBox={`0 0 ${width} ${height}`}
           className="h-auto w-full min-w-[640px] select-none"
           role="img"
+          onMouseLeave={() => setHoveredKey(null)}
           aria-label={
             lang === "th"
               ? "กราฟเส้นแสดงแนวโน้มค่ามัธยฐานและค่าเฉลี่ยราคากลางตามช่วงเวลา"
@@ -567,8 +606,8 @@ export function PriceTrendLineChart({
             <span className="text-ink-3">·</span>
             <span className={inspectedPoint.torCount === 0 ? "text-ink-3 italic" : "text-ink-2"}>
               {lang === "th"
-                ? `${inspectedPoint.torCount} โครงการที่ตรวจวิเคราะห์ในช่วงเวลานี้`
-                : `${inspectedPoint.torCount} analyzed TORs in this period`}
+                ? `${inspectedPoint.torCount.toLocaleString()} โครงการที่ตรวจวิเคราะห์ในช่วงเวลานี้`
+                : `${inspectedPoint.torCount.toLocaleString()} analyzed TORs in this period`}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 font-mono tnum">

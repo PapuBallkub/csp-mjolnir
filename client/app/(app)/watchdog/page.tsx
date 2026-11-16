@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useLang } from "../../_components/prefs";
 import { btn, EmptyState, Panel, SectionHeading } from "../../_components/ui";
 import {
+  ARCHETYPE_OPTIONS,
   calcPriceDeltaPct,
+  CATEGORY_OPTIONS,
   TIMELINE_MONTHS,
   type ComplexityTier,
   type LockSpecTriggerId,
@@ -21,10 +23,7 @@ import { WatchdogEvidenceTable } from "./_components/WatchdogEvidenceTable";
 import { WatchdogFilterBar } from "./_components/WatchdogFilterBar";
 import {
   NORMAL_BAND_PCT,
-  PRICE_BAND_OPTIONS,
-  type PriceBandId,
   type PriceRealityMetrics,
-  type TableTab,
   type TimeGrain,
   type TimePoint,
 } from "./_lib/types";
@@ -39,6 +38,12 @@ import {
 const ALL_STATUSES: Status[] = ["Open", "Draft", "Awarded", "Closed", "Cancelled"];
 const ALL_RISK_LEVELS: RiskLevel[] = ["high", "medium", "low"];
 const ALL_COMPLEXITIES: ComplexityTier[] = ["basic", "standard", "enterprise"];
+const ALL_CATEGORIES: ProjectCategory[] = CATEGORY_OPTIONS.filter((c) => c.id !== "all").map(
+  (c) => c.id as ProjectCategory,
+);
+const ALL_ARCHETYPES: SystemArchetype[] = ARCHETYPE_OPTIONS.filter((a) => a.id !== "all").map(
+  (a) => a.id as SystemArchetype,
+);
 
 export default function WatchdogPage() {
   const { lang } = useLang();
@@ -109,7 +114,7 @@ export default function WatchdogPage() {
     };
   }, [fetchTrigger]);
 
-  const allProjects = liveProjects ?? [];
+  const allProjects = useMemo(() => liveProjects ?? [], [liveProjects]);
 
   // Dynamic timeline months derived from active dataset
   const availableMonths = useMemo(() => {
@@ -128,8 +133,8 @@ export default function WatchdogPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<Status[]>(ALL_STATUSES);
   const [selectedRiskLevels, setSelectedRiskLevels] = useState<RiskLevel[]>(ALL_RISK_LEVELS);
   const [selectedComplexities, setSelectedComplexities] = useState<ComplexityTier[]>(ALL_COMPLEXITIES);
-  const [selectedCategories, setSelectedCategories] = useState<ProjectCategory[]>([]);
-  const [selectedArchetypes, setSelectedArchetypes] = useState<SystemArchetype[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<ProjectCategory[]>(ALL_CATEGORIES);
+  const [selectedArchetypes, setSelectedArchetypes] = useState<SystemArchetype[]>(ALL_ARCHETYPES);
   const [selectedAgencies, setSelectedAgencies] = useState<string[]>([]);
   const [minPriceTHB, setMinPriceTHB] = useState<number>(0);
   const [maxPriceTHB, setMaxPriceTHB] = useState<number>(0);
@@ -146,26 +151,22 @@ export default function WatchdogPage() {
     effectiveStartMonth && effectiveEndMonth && effectiveStartMonth > effectiveEndMonth,
   );
 
-  // Bottom Table View Mode State
-  const [tableTab, setTableTab] = useState<TableTab>("flagged");
-  const [rowLimit, setRowLimit] = useState<number>(10);
-
   // Toggle Handlers
   function toggleStatus(st: Status) {
     setSelectedStatuses((prev) =>
-      prev.includes(st) ? (prev.length > 1 ? prev.filter((s) => s !== st) : prev) : [...prev, st],
+      prev.includes(st) ? prev.filter((s) => s !== st) : [...prev, st],
     );
   }
 
   function toggleRiskLevel(level: RiskLevel) {
     setSelectedRiskLevels((prev) =>
-      prev.includes(level) ? (prev.length > 1 ? prev.filter((l) => l !== level) : prev) : [...prev, level],
+      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level],
     );
   }
 
   function toggleComplexity(tier: ComplexityTier) {
     setSelectedComplexities((prev) =>
-      prev.includes(tier) ? (prev.length > 1 ? prev.filter((t) => t !== tier) : prev) : [...prev, tier],
+      prev.includes(tier) ? prev.filter((t) => t !== tier) : [...prev, tier],
     );
   }
 
@@ -202,6 +203,13 @@ export default function WatchdogPage() {
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
   }, [allProjects]);
 
+  // Initialize selectedAgencies to all agencies by default
+  const [prevAgenciesCount, setPrevAgenciesCount] = useState(0);
+  if (agencies.length > 0 && prevAgenciesCount === 0) {
+    setPrevAgenciesCount(agencies.length);
+    setSelectedAgencies(agencies.map((a) => a.th));
+  }
+
   // 1. Single Top Filter Bar drives the entire dataset
   const filteredByTopBar = useMemo(() => {
     return allProjects.filter((p) => {
@@ -212,11 +220,11 @@ export default function WatchdogPage() {
       // Complexity Tier
       if (!selectedComplexities.includes(p.complexity)) return false;
       // Category
-      if (selectedCategories.length > 0 && !selectedCategories.includes(p.category)) return false;
+      if (!selectedCategories.includes(p.category)) return false;
       // System Archetype
-      if (selectedArchetypes.length > 0 && !selectedArchetypes.includes(p.archetype)) return false;
+      if (!selectedArchetypes.includes(p.archetype)) return false;
       // Agency (Multi-select)
-      if (selectedAgencies.length > 0 && !selectedAgencies.includes(p.agency.th)) return false;
+      if (agencies.length > 0 && !selectedAgencies.includes(p.agency.th)) return false;
       // Price Range (min and max)
       if (minPriceTHB > 0 && p.referencePriceTHB < minPriceTHB) return false;
       if (maxPriceTHB > 0 && p.referencePriceTHB > maxPriceTHB) return false;
@@ -235,6 +243,7 @@ export default function WatchdogPage() {
     selectedCategories,
     selectedArchetypes,
     selectedAgencies,
+    agencies.length,
     minPriceTHB,
     maxPriceTHB,
     effectiveStartMonth,
@@ -281,10 +290,9 @@ export default function WatchdogPage() {
     if (timeGrain === "monthly") {
       return activeMonths.map((m) => {
         const inMonth = filteredByTopBar.filter((p) => p.month === m.key);
-        const medians = inMonth.map((p) => p.peerMedianTHB);
-        const averages = inMonth.map((p) => p.peerAverageTHB);
-        const med = computeMedian(medians);
-        const avg = computeAverage(averages);
+        const prices = inMonth.map((p) => p.referencePriceTHB);
+        const med = computeMedian(prices);
+        const avg = computeAverage(prices);
 
         return {
           key: m.key,
@@ -305,10 +313,9 @@ export default function WatchdogPage() {
     return quarters.map((q) => {
       const monthKeys = activeMonths.filter((m) => m.quarter === q).map((m) => m.key);
       const inQuarter = filteredByTopBar.filter((p) => monthKeys.includes(p.month));
-      const medians = inQuarter.map((p) => p.peerMedianTHB);
-      const averages = inQuarter.map((p) => p.peerAverageTHB);
-      const med = computeMedian(medians);
-      const avg = computeAverage(averages);
+      const prices = inQuarter.map((p) => p.referencePriceTHB);
+      const med = computeMedian(prices);
+      const avg = computeAverage(prices);
 
       return {
         key: q,
@@ -352,11 +359,9 @@ export default function WatchdogPage() {
     }
 
     const prices = filteredByTopBar.map((p) => p.referencePriceTHB);
-    const medians = filteredByTopBar.map((p) => p.peerMedianTHB);
-    const averages = filteredByTopBar.map((p) => p.peerAverageTHB);
 
-    const overallMedian = computeMedian(medians);
-    const overallAverage = computeAverage(averages);
+    const overallMedian = computeMedian(prices);
+    const overallAverage = computeAverage(prices);
     const avgDeltaPct = overallMedian > 0
       ? Number((((overallAverage - overallMedian) / overallMedian) * 100).toFixed(1))
       : 0;
@@ -413,43 +418,13 @@ export default function WatchdogPage() {
     };
   }, [filteredByTopBar]);
 
-  // 5. Projects for Section 5 (Evidence Board Table)
-  const tableProjects = useMemo(() => {
-    let list = [...filteredByTopBar];
-
-    if (tableTab === "flagged") {
-      list = list
-        .filter(
-          (p) =>
-            Math.abs(calcPriceDeltaPct(p)) > NORMAL_BAND_PCT || p.lockSpecScore >= 35,
-        )
-        .sort((a, b) => {
-          const scoreDiff = b.lockSpecScore - a.lockSpecScore;
-          if (scoreDiff !== 0) return scoreDiff;
-          return Math.abs(calcPriceDeltaPct(b)) - Math.abs(calcPriceDeltaPct(a));
-        });
-    } else if (tableTab === "price") {
-      list = list.sort(
-        (a, b) => Math.abs(calcPriceDeltaPct(b)) - Math.abs(calcPriceDeltaPct(a)),
-      );
-    } else if (tableTab === "lockspec") {
-      list = list
-        .filter((p) => p.lockSpecScore > 0)
-        .sort((a, b) => b.lockSpecScore - a.lockSpecScore);
-    } else {
-      list = list.sort((a, b) => b.postedAt.localeCompare(a.postedAt));
-    }
-
-    return list;
-  }, [filteredByTopBar, tableTab]);
-
   const hasActiveFilters =
     selectedStatuses.length < ALL_STATUSES.length ||
     selectedRiskLevels.length < ALL_RISK_LEVELS.length ||
     selectedComplexities.length < ALL_COMPLEXITIES.length ||
-    selectedCategories.length > 0 ||
-    selectedArchetypes.length > 0 ||
-    selectedAgencies.length > 0 ||
+    selectedCategories.length < ALL_CATEGORIES.length ||
+    selectedArchetypes.length < ALL_ARCHETYPES.length ||
+    (agencies.length > 0 && selectedAgencies.length < agencies.length) ||
     minPriceTHB > 0 ||
     maxPriceTHB > 0 ||
     effectiveStartMonth !== defaultStartMonth ||
@@ -459,9 +434,9 @@ export default function WatchdogPage() {
     setSelectedStatuses(ALL_STATUSES);
     setSelectedRiskLevels(ALL_RISK_LEVELS);
     setSelectedComplexities(ALL_COMPLEXITIES);
-    setSelectedCategories([]);
-    setSelectedArchetypes([]);
-    setSelectedAgencies([]);
+    setSelectedCategories(ALL_CATEGORIES);
+    setSelectedArchetypes(ALL_ARCHETYPES);
+    setSelectedAgencies(agencies.map((a) => a.th));
     setMinPriceTHB(0);
     setMaxPriceTHB(0);
     setStartMonth(defaultStartMonth);
@@ -544,19 +519,22 @@ export default function WatchdogPage() {
             selectedStatuses={selectedStatuses}
             onToggleStatus={toggleStatus}
             onSelectAllStatuses={() => setSelectedStatuses(ALL_STATUSES)}
+            onClearStatuses={() => setSelectedStatuses([])}
             selectedRiskLevels={selectedRiskLevels}
             onToggleRiskLevel={toggleRiskLevel}
             onSelectAllRiskLevels={() => setSelectedRiskLevels(ALL_RISK_LEVELS)}
+            onClearRiskLevels={() => setSelectedRiskLevels([])}
             selectedComplexities={selectedComplexities}
             onToggleComplexity={toggleComplexity}
             onSelectAllComplexities={() => setSelectedComplexities(ALL_COMPLEXITIES)}
+            onClearComplexities={() => setSelectedComplexities([])}
             selectedCategories={selectedCategories}
             onToggleCategory={toggleCategory}
-            onSelectAllCategories={() => setSelectedCategories(allProjects.map((p) => p.category))}
+            onSelectAllCategories={() => setSelectedCategories(ALL_CATEGORIES)}
             onClearCategories={() => setSelectedCategories([])}
             selectedArchetypes={selectedArchetypes}
             onToggleArchetype={toggleArchetype}
-            onSelectAllArchetypes={() => setSelectedArchetypes(allProjects.map((p) => p.archetype))}
+            onSelectAllArchetypes={() => setSelectedArchetypes(ALL_ARCHETYPES)}
             onClearArchetypes={() => setSelectedArchetypes([])}
             selectedAgencies={selectedAgencies}
             onToggleAgency={toggleAgency}
@@ -650,11 +628,7 @@ export default function WatchdogPage() {
           {/* SECTION 5: Evidence Board Table (Audit Trail) */}
           <WatchdogEvidenceTable
             lang={lang}
-            tableProjects={tableProjects}
-            tableTab={tableTab}
-            onTabChange={setTableTab}
-            rowLimit={rowLimit}
-            onRowLimitChange={setRowLimit}
+            tableProjects={filteredByTopBar}
             onResetFilters={resetAllFilters}
             dataSource={dataSource}
             totalProjectsCount={filteredByTopBar.length}

@@ -1,8 +1,8 @@
 "use client";
 
-import { AlertCircle, Coins, Info, TrendingDown, TrendingUp } from "lucide-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
 import { formatTHBCompact, type Lang } from "../../../_data/tors";
-import { Label, Panel, SectionHeading, Well } from "../../../_components/ui";
+import { Label, Panel, SectionHeading } from "../../../_components/ui";
 import { type PriceRealityMetrics } from "../_lib/types";
 
 export type PriceRealitySummaryProps = {
@@ -30,134 +30,163 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
           : "Reference Price Reality Check Summary"}
       </SectionHeading>
 
-      {/* Clarification Callout: Reference Price vs. Budget */}
-      <Well className="mb-4 flex flex-col gap-2 p-3 sm:flex-row sm:items-start sm:gap-3">
-        <div className="mt-0.5 shrink-0 rounded-full bg-surface-2 p-1 text-ink-2">
-          <Info className="h-4 w-4" />
+      {/* 5 Summary Metric Cards in 2 Rows */}
+      <div className="flex flex-col gap-3.5">
+        {/* Row 1: 3 Core Baseline Metric Cards */}
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+          {/* Card 1: Total Analyzed Projects */}
+          <Panel className="p-3.5 flex flex-col">
+            <div className="min-h-[20px]">
+              <Label>
+                {lang === "th" ? "จำนวนโครงการที่ตรวจวิเคราะห์ (Sample Size)" : "Analyzed tenders (Sample Size)"}
+              </Label>
+            </div>
+            <div className="mt-1.5 h-8 flex items-baseline">
+              <span className="font-mono tnum text-[24px] font-semibold leading-none text-ink">
+                {metrics.torCount.toLocaleString()}
+              </span>
+              <span className="ml-1.5 font-sans text-[13px] font-normal text-ink-3">
+                {lang === "th" ? "โครงการ" : "tenders"}
+              </span>
+            </div>
+            <div className="mt-2 h-5" />
+            <div className="mt-3.5 pt-3 border-t border-line/60 flex-1">
+              <p className="text-[11.5px] leading-thai text-ink-3">
+                {lang === "th"
+                  ? "จำนวนประกาศจัดซื้อจัดจ้างทั้งหมดที่ตรงตามเงื่อนไขตัวกรอง ช่วยสะท้อนขนาดกลุ่มตัวอย่างเพื่อยืนยันความน่าเชื่อถือของสถิติราคาในตลาด"
+                  : "Total procurement notices matching the active filter criteria, reflecting the sample size to verify market price statistical reliability."}
+              </p>
+            </div>
+          </Panel>
+
+          {/* Card 2: Median */}
+          <Panel className="p-3.5 flex flex-col">
+            <div className="min-h-[20px]">
+              <Label>
+                {lang === "th" ? "ค่ามัธยฐานราคากลาง (Median)" : "Historical median"}
+              </Label>
+            </div>
+            <div className="mt-1.5 h-8 flex items-baseline">
+              <span className="font-mono tnum text-[24px] font-semibold leading-none text-ink">
+                {metrics.torCount > 0 ? formatTHBCompact(metrics.overallMedian) : "—"}
+              </span>
+            </div>
+            <div className="mt-2 h-5" />
+            <div className="mt-3.5 pt-3 border-t border-line/60 flex-1">
+              <p className="text-[11.5px] leading-thai text-ink-3">
+                {lang === "th"
+                  ? "ราคากึ่งกลางของกลุ่มโครงการที่ไม่ถูกทำให้ผิดเพี้ยนจากโครงการที่ราคาสูงผิดปกติ ช่วยให้เห็นว่าโครงการขนาดทั่วไปควรมีราคากลางประมาณเท่าใด"
+                  : "The midpoint price of this project group unskewed by extreme high-budget projects, showing what a typical project should roughly cost."}
+              </p>
+            </div>
+          </Panel>
+
+          {/* Card 3: Average */}
+          <Panel className="p-3.5 flex flex-col">
+            <div className="min-h-[20px]">
+              <Label>
+                {lang === "th" ? "ค่าเฉลี่ยราคากลาง (Average)" : "Historical average"}
+              </Label>
+            </div>
+            <div className="mt-1.5 h-8 flex items-baseline">
+              <span className="font-mono tnum text-[24px] font-semibold leading-none text-ink">
+                {metrics.torCount > 0 ? formatTHBCompact(metrics.overallAverage) : "—"}
+              </span>
+            </div>
+            <div className="mt-2 h-5 flex items-center">
+              {metrics.torCount > 0 && metrics.overallMedian > 0 && metrics.overallAverage > 0 ? (
+                <div className="flex items-center gap-1 font-mono text-[11.5px] leading-none">
+                  {isAvgHigher ? (
+                    <TrendingUp className="h-3.5 w-3.5 text-amend" />
+                  ) : (
+                    <TrendingDown className="h-3.5 w-3.5 text-open" />
+                  )}
+                  <span className={isAvgHigher ? "text-amend font-medium" : "text-open font-medium"}>
+                    {isAvgHigher ? "+" : ""}{avgDelta}%
+                  </span>
+                  <span className="font-sans text-ink-3">
+                    {lang === "th" ? "เทียบกับค่ามัธยฐาน" : "vs median"}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-ink-3 text-[11.5px] leading-none">—</span>
+              )}
+            </div>
+            <div className="mt-3.5 pt-3 border-t border-line/60 flex-1">
+              <p className="text-[11.5px] leading-thai text-ink-3">
+                {lang === "th"
+                  ? isAvgHigher && avgDelta >= 15
+                    ? "มูลค่าราคากลางเฉลี่ยทางคณิตศาสตร์ที่สูงกว่ามัธยฐานอย่างมีนัยสำคัญ ช่วยชี้ว่ามีโครงการขนาดใหญ่พิเศษดึงค่าเฉลี่ยของทั้งกลุ่มตลาดขึ้น"
+                    : "มูลค่าราคากลางเฉลี่ยทางคณิตศาสตร์ของทุกโครงการ ช่วยสะท้อนภาพรวมงบประมาณและยืนยันว่าการกระจายตัวของราคามีความสม่ำเสมอ"
+                  : "Arithmetic mean across all projects, showing overall budget magnitude and whether mega-projects skew the market average."}
+              </p>
+            </div>
+          </Panel>
         </div>
-        <div className="flex-1 text-[12px] leading-thai text-ink-2">
-          <div className="flex flex-wrap items-center gap-1.5 font-semibold text-ink">
-            <Coins className="h-3.5 w-3.5 text-ink-2" />
-            <span>
-              {lang === "th"
-                ? "ข้อควรรู้: การเปรียบเทียบในหน้านี้ใช้ “ราคากลาง” ไม่ใช่ “งบประมาณ”"
-                : "Important: This analysis evaluates “Reference Price”, not total budget"}
-            </span>
-          </div>
-          <p className="mt-0.5">
-            {lang === "th"
-              ? "“ราคากลาง” (Reference Price) คือราคาประเมินที่คณะกรรมการกำหนดขึ้นเพื่อใช้เป็นเกณฑ์ตั้งต้นประกวดราคา ซึ่งอาจแตกต่างจาก “งบประมาณรวม” (Approved Budget) การวิเคราะห์นี้วัดว่าราคาประเมินของรัฐสอดคล้องกับราคาตลาดในอดีต (±15% ของค่ามัธยฐาน) หรือไม่"
-              : "“Reference Price” (ราคากลาง) is the official baseline calculated by the government committee to evaluate bids, which differs from the total allocated budget. We compare this baseline against historical peer medians."}
-          </p>
+
+        {/* Row 2: 2 Market Distribution & Price Deviation Cards */}
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          {/* Card 4: Price Deviation */}
+          <Panel className="p-3.5 flex flex-col">
+            <div className="min-h-[20px]">
+              <Label>
+                {lang === "th" ? "อัตราราคาเบี่ยงเบน (Price Deviation)" : "Market Price Deviation"}
+              </Label>
+            </div>
+            <div className="mt-1.5 h-8 flex items-baseline">
+              <span
+                className={`font-mono tnum text-[24px] font-semibold leading-none ${metrics.outlierRatePct > 20 ? "text-risk" : "text-ink"
+                  }`}
+              >
+                {metrics.outlierRatePct}%
+              </span>
+            </div>
+            <div className="mt-2 h-5 flex items-center">
+              <span className="text-[11.5px] leading-none text-ink-2 font-medium">
+                {lang === "th"
+                  ? `ราคาสูงเกินกรอบ ${metrics.highOutlierCount} · ต่ำผิดปกติ ${metrics.lowOutlierCount}`
+                  : `High outliers ${metrics.highOutlierCount} · Low outliers ${metrics.lowOutlierCount}`}
+              </span>
+            </div>
+            <div className="mt-3.5 pt-3 border-t border-line/60 flex-1">
+              <p className="text-[11.5px] leading-thai text-ink-3">
+                {lang === "th"
+                  ? "สัดส่วนโครงการที่ราคากลางเบี่ยงเบนเกิน ±15% จากมัธยฐาน ช่วยตรวจจับโครงการที่ตั้งราคาสูงหรือต่ำผิดปกติ เพื่อเฝ้าระวังความเสี่ยงด้านงบประมาณ"
+                  : "Share of projects with reference prices deviating beyond ±15% of median, helping detect abnormal price points to monitor budgetary risk."}
+              </p>
+            </div>
+          </Panel>
+
+          {/* Card 5: Price Span */}
+          <Panel className="p-3.5 flex flex-col">
+            <div className="min-h-[20px]">
+              <Label>
+                {lang === "th" ? "ช่วงราคากลางที่พบ (Price Span)" : "Reference price range"}
+              </Label>
+            </div>
+            <div className="mt-1.5 h-8 flex items-baseline">
+              <span className="font-mono tnum text-[24px] font-semibold leading-none text-ink">
+                {metrics.torCount > 0
+                  ? `${formatTHBCompact(metrics.minPrice)} – ${formatTHBCompact(metrics.maxPrice)}`
+                  : "—"}
+              </span>
+            </div>
+            <div className="mt-2 h-5 flex items-center">
+              <span className="text-[11.5px] leading-none text-ink-2 font-medium">
+                {lang === "th"
+                  ? "ราคากลางต่ำสุด – สูงสุดในกลุ่มตัวกรองนี้"
+                  : "Minimum and maximum reference prices"}
+              </span>
+            </div>
+            <div className="mt-3.5 pt-3 border-t border-line/60 flex-1">
+              <p className="text-[11.5px] leading-thai text-ink-3">
+                {lang === "th"
+                  ? "ขอบเขตขนาดราคากลางต่ำสุดถึงสูงสุดของโครงการในกลุ่มนี้ ช่วยให้เห็นสเกลขนาดงบประมาณจัดซื้อจัดจ้างจริงที่พบในตลาด"
+                  : "Minimum to maximum reference price boundaries in this group, showing the actual scale of procurement budgets found in the market."}
+              </p>
+            </div>
+          </Panel>
         </div>
-      </Well>
-
-      {/* 4 Summary Metric Cards */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Peer Median */}
-        <Panel className="p-3.5">
-          <Label>
-            {lang === "th" ? "ค่ามัธยฐานราคากลาง (Peer Median)" : "Historical peer median"}
-          </Label>
-          <p className="mt-1.5 font-mono tnum text-[24px] font-semibold leading-none text-ink">
-            {metrics.overallMedian > 0 ? formatTHBCompact(metrics.overallMedian) : "—"}
-          </p>
-          <p className="mt-1.5 text-[11.5px] leading-thai text-ink-3">
-            {metrics.torCount > 0
-              ? lang === "th"
-                ? `จาก ${metrics.torCount.toLocaleString()} โครงการในกลุ่มตัวกรองนี้`
-                : `From ${metrics.torCount.toLocaleString()} peer projects`
-              : "—"}
-          </p>
-          <p className="mt-1 text-[11px] leading-thai text-ink-3">
-            {lang === "th"
-              ? "หมุดอ้างอิงหลักที่ไม่ถูกบิดเบือนโดยโครงการที่ราคาสูงหรือต่ำผิดปกติ"
-              : "Core benchmark immune to extreme price skew"}
-          </p>
-        </Panel>
-
-        {/* Card 2: Peer Average */}
-        <Panel className="p-3.5">
-          <Label>
-            {lang === "th" ? "ค่าเฉลี่ยราคากลาง (Peer Average)" : "Historical peer average"}
-          </Label>
-          <p className="mt-1.5 font-mono tnum text-[24px] font-semibold leading-none text-ink">
-            {metrics.overallAverage > 0 ? formatTHBCompact(metrics.overallAverage) : "—"}
-          </p>
-          <div className="mt-1.5 flex items-center gap-1 font-mono text-[11.5px]">
-            {metrics.overallMedian > 0 && metrics.overallAverage > 0 ? (
-              <>
-                {isAvgHigher ? (
-                  <TrendingUp className="h-3.5 w-3.5 text-amend" />
-                ) : (
-                  <TrendingDown className="h-3.5 w-3.5 text-open" />
-                )}
-                <span className={isAvgHigher ? "text-amend font-medium" : "text-open font-medium"}>
-                  {isAvgHigher ? "+" : ""}{avgDelta}%
-                </span>
-                <span className="font-sans text-ink-3">
-                  {lang === "th" ? "เทียบกับค่ามัธยฐาน" : "vs median"}
-                </span>
-              </>
-            ) : (
-              <span className="text-ink-3">—</span>
-            )}
-          </div>
-          <p className="mt-1 text-[11px] leading-thai text-ink-3">
-            {lang === "th"
-              ? isAvgHigher && avgDelta >= 15
-                ? "ค่าเฉลี่ยสูงกว่ามัธยฐานอย่างมีนัยสำคัญ บ่งชี้ว่ามีโครงการราคาสูงดึงค่าเฉลี่ยขึ้น"
-                : "สะท้อนมูลค่าเฉลี่ยทางคณิตศาสตร์ของโครงการทั้งหมดในกลุ่ม"
-              : "Arithmetic mean across all matching projects"}
-          </p>
-        </Panel>
-
-        {/* Card 3: Outlier Rate */}
-        <Panel className="p-3.5">
-          <Label>
-            {lang === "th" ? "อัตราหลุดกรอบตลาดปกติ (Outlier Rate)" : "Market outlier rate"}
-          </Label>
-          <p className="mt-1.5 font-mono tnum text-[24px] font-semibold leading-none">
-            <span className={metrics.outlierRatePct > 20 ? "text-risk" : "text-ink"}>
-              {metrics.outlierRatePct}%
-            </span>
-            <span className="ml-1.5 font-sans text-[13px] font-normal text-ink-3">
-              ({metrics.outlierCount}/{metrics.torCount})
-            </span>
-          </p>
-          <p className="mt-1.5 text-[11.5px] leading-thai text-ink-3">
-            {lang === "th"
-              ? `ราคาสูงเกินกรอบ ${metrics.highOutlierCount} · ต่ำผิดปกติ ${metrics.lowOutlierCount}`
-              : `High outliers ${metrics.highOutlierCount} · Low outliers ${metrics.lowOutlierCount}`}
-          </p>
-          <p className="mt-1 text-[11px] leading-thai text-ink-3">
-            {lang === "th"
-              ? "โครงการที่ราคากลางเบี่ยงเบนเกิน ±15% จากค่ามัธยฐาน"
-              : "Projects deviating beyond ±15% from the median"}
-          </p>
-        </Panel>
-
-        {/* Card 4: Price Span */}
-        <Panel className="p-3.5">
-          <Label>
-            {lang === "th" ? "ช่วงราคากลางที่พบ (Price Span)" : "Reference price range"}
-          </Label>
-          <p className="mt-1.5 font-mono tnum text-[20px] font-semibold leading-none text-ink">
-            {metrics.minPrice > 0
-              ? `${formatTHBCompact(metrics.minPrice)} – ${formatTHBCompact(metrics.maxPrice)}`
-              : "—"}
-          </p>
-          <p className="mt-2 text-[11.5px] leading-thai text-ink-3">
-            {lang === "th"
-              ? "ราคากลางต่ำสุด – สูงสุดในกลุ่มตัวกรองนี้"
-              : "Minimum and maximum reference prices"}
-          </p>
-          <p className="mt-1 text-[11px] leading-thai text-ink-3">
-            {lang === "th"
-              ? "แสดงขอบเขตขนาดงบของโครงการที่นำมาวิเคราะห์ร่วมกัน"
-              : "Shows the scope breadth of analyzed tenders"}
-          </p>
-        </Panel>
       </div>
     </section>
   );

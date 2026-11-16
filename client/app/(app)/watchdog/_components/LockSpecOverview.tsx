@@ -1,6 +1,5 @@
 "use client";
 
-import { FileText, Scale, ShieldAlert } from "lucide-react";
 import { pick, type Lang, type RiskLevel } from "../../../_data/tors";
 import {
   LOCK_SPEC_TRIGGERS_META,
@@ -174,37 +173,45 @@ export function LockSpecOverview({
                   ? "จำแนกตามเกณฑ์หนังสือเวียน ว 214 (3 หมวดหลัก)"
                   : "Circular ว 214 statutory criteria breakdown"}
               </h3>
-              <span className="text-[11.5px] text-ink-3">
-                {lang === "th" ? "ข้อกำหนดจำกัดการแข่งขันที่พบบ่อย" : "Frequently detected barriers"}
-              </span>
             </div>
 
             <div className="mt-3 flex flex-col gap-2.5">
               {LOCK_SPEC_TRIGGERS_META.map((trig) => {
                 const count = triggerCounts[trig.id] ?? 0;
-                const maxTrig = Math.max(1, ...Object.values(triggerCounts));
-                const barPct = Math.round((count / maxTrig) * 100);
+                const pct = extractedCount > 0 ? Math.round((count / extractedCount) * 100) : 0;
+                const barWidth = extractedCount > 0 ? (count / extractedCount) * 100 : 0;
 
                 return (
                   <div
                     key={trig.id}
                     className="flex flex-col gap-1.5 rounded-[3px] border border-line bg-surface-2 p-3 text-left"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-2">
                         <span
-                          className={`rounded-[2px] border px-1.5 py-0.5 font-mono text-[10.5px] font-medium ${TONE.risk.bg} ${TONE.risk.border} ${TONE.risk.text}`}
+                          className={`mt-0.5 shrink-0 rounded-[2px] border px-1.5 py-0.5 font-mono text-[10.5px] font-medium ${TONE.risk.bg} ${TONE.risk.border} ${TONE.risk.text}`}
                         >
                           {trig.code}
                         </span>
-                        <span className="text-[13.5px] font-semibold text-ink">
-                          {pick(trig.title, lang)}
+                        <span className="text-[13px] font-semibold leading-snug text-ink sm:text-[13.5px]">
+                          {trig.id === "Vendor Lock-in" && lang === "th" ? (
+                            <>
+                              เรียกหนังสือแต่งตั้งตัวแทนจำหน่าย (MAF)
+                              <br />
+                              <span>ในงานจ้างพัฒนาระบบ</span>
+                            </>
+                          ) : (
+                            pick(trig.title, lang)
+                          )}
                         </span>
                       </div>
-                      <span className="font-mono tnum text-[13px] font-semibold text-ink">
+                      <span className="shrink-0 whitespace-nowrap pt-0.5 font-mono tnum text-[13px] font-semibold text-ink">
                         {count}{" "}
                         <span className="font-sans text-[11.5px] font-normal text-ink-3">
                           {lang === "th" ? "โครงการ" : "TORs"}
+                        </span>
+                        <span className="ml-1 text-[11.5px] font-normal text-ink-3">
+                          ({pct}%)
                         </span>
                       </span>
                     </div>
@@ -213,15 +220,15 @@ export function LockSpecOverview({
                       {pick(trig.description, lang)}
                     </p>
 
-                    {/* Frequency bar */}
-                    <div className="mt-1 flex items-center gap-3">
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+                    {/* Frequency bar: exact same width across all 3 cards */}
+                    <div className="mt-1 flex items-center justify-between gap-3">
+                      <div className="h-1.5 w-[160px] shrink-0 overflow-hidden rounded-full bg-line sm:w-[220px]">
                         <div
                           className="h-full bg-risk transition-all"
-                          style={{ width: `${count > 0 ? Math.max(8, barPct) : 0}%` }}
+                          style={{ width: `${Math.min(100, Math.max(count > 0 ? 3 : 0, barWidth))}%` }}
                         />
                       </div>
-                      <span className="font-mono text-[10.5px] text-ink-3">
+                      <span className="truncate text-right font-mono text-[10.5px] text-ink-3 sm:whitespace-normal">
                         {pick(trig.legalRef, lang)}
                       </span>
                     </div>

@@ -1,7 +1,7 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ExternalLink, FileSearch } from "lucide-react";
 import {
   formatDate,
   formatTHB,
@@ -12,41 +12,92 @@ import {
 import {
   calcPriceDeltaPct,
   getArchetypeLabel,
-  getComplexityLabel,
+  type LockSpecTriggerId,
   type WatchdogProjectRecord,
 } from "../../../_data/watchdog";
-import { btn, Chip, EmptyState, Label, Panel, SectionHeading } from "../../../_components/ui";
+import { btn, EmptyState, Panel, SectionHeading } from "../../../_components/ui";
 import {
   LockSpecBadge,
   PriceDeltaBadge,
   StatusBadge,
 } from "../../../_components/verdict";
-import { type TableTab } from "../_lib/types";
+import { Pagination } from "../../search/_components/Pagination";
+import { TABLE_SORT_OPTIONS, type TableSort } from "../_lib/types";
+
+const TRIGGER_NAMES_TH: Record<LockSpecTriggerId, string> = {
+  "Specification Tailoring": "กำหนดสเปกเจาะจง",
+  "Qualification Barrier": "กีดกันคุณสมบัติ/ผลงาน",
+  "Vendor Lock-in": "ผูกขาดผู้ขาย/ลิขสิทธิ์",
+};
 
 export type WatchdogEvidenceTableProps = {
   lang: Lang;
   tableProjects: WatchdogProjectRecord[];
-  tableTab: TableTab;
-  onTabChange: (tab: TableTab) => void;
-  rowLimit: number;
-  onRowLimitChange: (limit: number) => void;
   onResetFilters: () => void;
   dataSource: "loading" | "api" | "empty" | "error";
-  totalProjectsCount: number;
+  totalProjectsCount?: number;
 };
 
 export function WatchdogEvidenceTable({
   lang,
   tableProjects,
-  tableTab,
-  onTabChange,
-  rowLimit,
-  onRowLimitChange,
   onResetFilters,
   dataSource,
   totalProjectsCount,
 }: WatchdogEvidenceTableProps) {
-  const visibleRows = rowLimit === 0 ? tableProjects : tableProjects.slice(0, rowLimit);
+  const [sort, setSort] = useState<TableSort>("lockspec-desc");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Sort projects according to the selected TableSort mode
+  const sortedProjects = useMemo(() => {
+    const list = [...tableProjects];
+    switch (sort) {
+      case "lockspec-desc":
+        return list.sort((a, b) => {
+          const diff = b.lockSpecScore - a.lockSpecScore;
+          if (diff !== 0) return diff;
+          return Math.abs(calcPriceDeltaPct(b)) - Math.abs(calcPriceDeltaPct(a));
+        });
+      case "lockspec-asc":
+        return list.sort((a, b) => {
+          const diff = a.lockSpecScore - b.lockSpecScore;
+          if (diff !== 0) return diff;
+          return Math.abs(calcPriceDeltaPct(a)) - Math.abs(calcPriceDeltaPct(b));
+        });
+      case "price-delta-desc":
+        return list.sort((a, b) => {
+          const diff = Math.abs(calcPriceDeltaPct(b)) - Math.abs(calcPriceDeltaPct(a));
+          if (diff !== 0) return diff;
+          return b.lockSpecScore - a.lockSpecScore;
+        });
+      case "price-delta-asc":
+        return list.sort((a, b) => {
+          const diff = Math.abs(calcPriceDeltaPct(a)) - Math.abs(calcPriceDeltaPct(b));
+          if (diff !== 0) return diff;
+          return a.lockSpecScore - b.lockSpecScore;
+        });
+      case "price-desc":
+        return list.sort((a, b) => b.referencePriceTHB - a.referencePriceTHB);
+      case "price-asc":
+        return list.sort((a, b) => a.referencePriceTHB - b.referencePriceTHB);
+      case "newest":
+      default:
+        return list.sort((a, b) => b.postedAt.localeCompare(a.postedAt));
+    }
+  }, [tableProjects, sort]);
+
+  // Reset to first page when underlying project count changes
+  const [prevCount, setPrevCount] = useState(tableProjects.length);
+  if (tableProjects.length !== prevCount) {
+    setPrevCount(tableProjects.length);
+    setPage(1);
+  }
+
+  const total = sortedProjects.length;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(1, page), pages);
+  const visibleRows = sortedProjects.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <section>
@@ -56,89 +107,47 @@ export function WatchdogEvidenceTable({
             ? "หลักฐานและรายละเอียดโครงการที่ตรวจพบ เพื่อตรวจสอบราคากลางเทียบค่ามัธยฐานและข้อกำหนดจริงจากเอกสาร TOR"
             : "Audit trail and evidence table: compare reference prices against historical peer medians and examine extracted TOR clauses."
         }
-        right={
-          <div className="flex flex-wrap items-center gap-2">
-            <Label htmlFor="wd-row-limit">
-              {lang === "th" ? "จำนวนแถวที่แสดง:" : "Show rows:"}
-            </Label>
-            <select
-              id="wd-row-limit"
-              value={rowLimit}
-              onChange={(e) => onRowLimitChange(Number(e.target.value))}
-              className="h-8 rounded-[3px] border border-line-2 bg-surface px-2 font-mono text-[12px] text-ink"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={15}>15</option>
-              <option value={0}>
-                {lang === "th"
-                  ? `ทั้งหมด (${tableProjects.length})`
-                  : `All (${tableProjects.length})`}
-              </option>
-            </select>
-          </div>
-        }
       >
         {lang === "th"
           ? "กระดานหลักฐานโครงการ (Evidence & Audit Trail)"
           : "Evidence Board & Audit Trail"}
       </SectionHeading>
 
-      {/* View Mode Tabs */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2.5">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {(
-            [
-              {
-                id: "flagged" as TableTab,
-                label: {
-                  th: "พบสัญญาณผิดปกติ (ราคา หรือ ล็อกสเปก)",
-                  en: "Flagged (Price outlier or Lock-spec)",
-                },
-              },
-              {
-                id: "price" as TableTab,
-                label: {
-                  th: "เรียงตามส่วนต่างราคากลาง (±%)",
-                  en: "By price deviation (±%)",
-                },
-              },
-              {
-                id: "lockspec" as TableTab,
-                label: {
-                  th: "เฉพาะที่พบความเสี่ยงล็อกสเปก (ว 214)",
-                  en: "Lock-spec findings only (ว 214)",
-                },
-              },
-              {
-                id: "all" as TableTab,
-                label: {
-                  th: "ทุกโครงการในกลุ่มนี้",
-                  en: "All projects in slice",
-                },
-              },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onTabChange(tab.id)}
-              className={`rounded-[3px] border px-3 py-1.5 text-[12.5px] font-medium transition-colors cursor-pointer ${
-                tableTab === tab.id
-                  ? "border-ink bg-ink text-surface"
-                  : "border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
-              }`}
-            >
-              {pick(tab.label, lang)}
-            </button>
-          ))}
+      {/* Table Controls Header: Result Count + Sort Dropdown */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-semibold text-ink">
+            {lang === "th"
+              ? `พบ ${total.toLocaleString()} โครงการ`
+              : `${total.toLocaleString()} projects found`}
+          </span>
+          <span className="text-[11.5px] text-ink-3">
+            {lang === "th"
+              ? "(แสดงทุกโครงการตามตัวกรอง)"
+              : "(showing all projects matching filters)"}
+          </span>
         </div>
 
-        <span className="font-mono text-[11.5px] text-ink-3">
-          {lang === "th"
-            ? `แสดง ${visibleRows.length} จาก ${tableProjects.length} โครงการ`
-            : `Showing ${visibleRows.length} of ${tableProjects.length} projects`}
-        </span>
+        <div className="flex items-center gap-2">
+          <label htmlFor="evidence-table-sort" className="text-[12.5px] font-medium text-ink-2 whitespace-nowrap">
+            {lang === "th" ? "เรียงตาม:" : "Sort by:"}
+          </label>
+          <select
+            id="evidence-table-sort"
+            value={sort}
+            onChange={(e) => {
+              setSort(e.target.value as TableSort);
+              setPage(1);
+            }}
+            className="h-8.5 rounded-[3px] border border-line-2 bg-surface px-2.5 pr-8 text-[12.5px] font-medium text-ink focus:border-ink focus:outline-none cursor-pointer"
+          >
+            {TABLE_SORT_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {pick(opt.label, lang)}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {visibleRows.length === 0 ? (
@@ -161,27 +170,22 @@ export function WatchdogEvidenceTable({
         />
       ) : (
         <Panel className="overflow-x-auto">
-          <table className="w-full min-w-[840px] border-collapse text-left">
+          <table className="w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-line bg-surface-2">
                 <th className="px-3.5 py-2.5 text-[11.5px] font-medium text-ink-3">
                   {lang === "th" ? "โครงการ / หน่วยงาน" : "Project & agency"}
                 </th>
-                <th className="px-3 py-2.5 text-[11.5px] font-medium text-ink-3">
-                  {lang === "th" ? "ประเภท / ขนาด" : "Archetype & tier"}
+                <th className="px-3 py-2.5 text-right text-[11.5px] font-medium text-ink-3 whitespace-nowrap">
+                  {lang === "th" ? "ราคากลาง" : "Reference price"}
                 </th>
-                <th className="px-3 py-2.5 text-right text-[11.5px] font-medium text-ink-3">
-                  {lang === "th"
-                    ? "ราคากลาง vs มัธยฐานตลาด"
-                    : "Reference price vs peer median"}
-                </th>
-                <th className="px-3 py-2.5 text-[11.5px] font-medium text-ink-3">
+                <th className="px-3 py-2.5 text-[11.5px] font-medium text-ink-3 whitespace-nowrap">
                   {lang === "th" ? "ส่วนต่างราคากลาง" : "Price check"}
                 </th>
-                <th className="px-3.5 py-2.5 text-[11.5px] font-medium text-ink-3">
+                <th className="px-3.5 py-2.5 text-[11.5px] font-medium text-ink-3 whitespace-nowrap">
                   {lang === "th"
-                    ? "ผลการตรวจล็อกสเปกและหลักฐานข้อกำหนด"
-                    : "Lock-spec verdict & evidence"}
+                    ? "ผลตรวจล็อกสเปก (ว 214)"
+                    : "Lock-spec risk (ว 214)"}
                 </th>
               </tr>
             </thead>
@@ -193,8 +197,8 @@ export function WatchdogEvidenceTable({
                     key={proj.id}
                     className="align-top transition-colors hover:bg-surface-2/60"
                   >
-                    {/* Col 1: Project Title, ID, Agency, Status */}
-                    <td className="max-w-[320px] px-3.5 py-3">
+                    {/* Col 1: Project Title, ID, Agency, Status & Archetype */}
+                    <td className="px-3.5 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <StatusBadge status={proj.status} lang={lang} />
                         <span className="font-mono tnum text-[11px] text-ink-3">
@@ -202,6 +206,9 @@ export function WatchdogEvidenceTable({
                         </span>
                         <span className="text-[11px] text-ink-3">
                           · {formatDate(proj.postedAt, lang)}
+                        </span>
+                        <span className="text-[11px] text-ink-3">
+                          · {getArchetypeLabel(proj.archetype, lang)}
                         </span>
                       </div>
                       <Link
@@ -215,68 +222,54 @@ export function WatchdogEvidenceTable({
                       </p>
                     </td>
 
-                    {/* Col 2: Archetype & Complexity */}
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      <div className="flex flex-col items-start gap-1">
-                        <Chip>{getArchetypeLabel(proj.archetype, lang)}</Chip>
-                        <span className="text-[11.5px] text-ink-3">
-                          {getComplexityLabel(proj.complexity, lang)}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Col 3: Reference Price (ราคากลาง) vs Peer Median */}
+                    {/* Col 2: Reference Price (ราคากลาง) */}
                     <td className="px-3 py-3 text-right font-mono tnum whitespace-nowrap">
                       <div className="text-[13.5px] font-semibold text-ink">
                         {formatTHB(proj.referencePriceTHB)}
                       </div>
-                      <div className="mt-0.5 text-[11px] text-ink-3">
-                        <span className="font-sans text-[10.5px] font-medium text-ink-3">
-                          {lang === "th" ? "ราคากลาง · กลางตลาด " : "Ref. price · Median "}
-                        </span>
-                        {formatTHBCompact(proj.peerMedianTHB)}
-                      </div>
                       {proj.agreedPriceTHB ? (
                         <div className="mt-0.5 text-[11px] text-ink-2">
-                          {lang === "th" ? "สัญญาชนะที่ " : "Won at "}
+                          <span className="font-sans text-[10.5px] text-ink-3">
+                            {lang === "th" ? "สัญญาชนะที่ " : "Won at "}
+                          </span>
                           {formatTHBCompact(proj.agreedPriceTHB)}
                         </div>
                       ) : null}
                     </td>
 
-                    {/* Col 4: Price Delta Badge */}
+                    {/* Col 3: Price Delta Badge & Peer Median */}
                     <td className="px-3 py-3 whitespace-nowrap">
-                      <PriceDeltaBadge delta={delta} lang={lang} />
+                      <div className="flex flex-col items-start gap-1">
+                        <PriceDeltaBadge delta={delta} lang={lang} />
+                        <div className="font-mono tnum text-[11px] text-ink-3">
+                          <span className="font-sans text-[10.5px] text-ink-3">
+                            {lang === "th" ? "มัธยฐานตลาด " : "Peer median "}
+                          </span>
+                          {formatTHBCompact(proj.peerMedianTHB)}
+                        </div>
+                      </div>
                     </td>
 
-                    {/* Col 5: Lock-Spec Risk Badge & Verbatim Trigger Findings */}
-                    <td className="max-w-[350px] px-3.5 py-3">
+                    {/* Col 4: Lock-Spec Risk Badge & Violated Rule Names */}
+                    <td className="max-w-[300px] px-3.5 py-3">
                       <div className="flex flex-col items-start gap-1.5">
                         <LockSpecBadge
                           level={proj.lockSpecLevel}
                           score={proj.lockSpecScore}
                           lang={lang}
-                          outOf100
+                          outOf100={false}
                         />
                         {proj.triggers.length > 0 ? (
-                          <div className="mt-1 flex flex-col gap-1 w-full">
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1">
                             {proj.triggers.map((t) => (
-                              <div
+                              <span
                                 key={t.category}
-                                className="rounded-[2px] border border-line bg-surface-2 p-1.5 text-[11.5px]"
+                                className="inline-flex items-center rounded-[3px] border border-risk/30 bg-risk/5 px-2 py-0.5 font-mono text-[11px] font-medium text-risk"
                               >
-                                <span className="font-mono text-[10.5px] font-semibold text-risk">
-                                  [{t.category}]
-                                </span>{" "}
-                                <span className="text-ink-2 leading-tight">
-                                  {pick(t.summary, lang)}
-                                </span>
-                                {t.clauseExcerpt ? (
-                                  <p className="mt-1 font-mono text-[10px] text-ink-3 italic line-clamp-2">
-                                    “{t.clauseExcerpt}”
-                                  </p>
-                                ) : null}
-                              </div>
+                                {lang === "th"
+                                  ? TRIGGER_NAMES_TH[t.category] ?? t.category
+                                  : t.category}
+                              </span>
                             ))}
                           </div>
                         ) : (
@@ -294,6 +287,22 @@ export function WatchdogEvidenceTable({
             </tbody>
           </table>
         </Panel>
+      )}
+
+      {/* Pagination Controls */}
+      {total > 0 && (
+        <Pagination
+          page={safePage}
+          pages={pages}
+          total={total}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 20, 50]}
+          onPageChange={setPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
+          }}
+        />
       )}
 
       {/* Footer note explaining methodology & non-accusatory principle (AGENTS.md §7) */}
