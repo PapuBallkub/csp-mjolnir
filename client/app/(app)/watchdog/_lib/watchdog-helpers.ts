@@ -217,13 +217,13 @@ export function mapApiTorToWatchdog(tor: TorInsightSummary): WatchdogProjectReco
     tor.analytics.priceAnalysis?.historicalMedianTHB &&
     tor.analytics.priceAnalysis.historicalMedianTHB > 0
       ? Math.round(tor.analytics.priceAnalysis.historicalMedianTHB)
-      : refPrice;
+      : undefined;
 
   const peerAverage =
     tor.analytics.priceAnalysis?.historicalAverageTHB &&
     tor.analytics.priceAnalysis.historicalAverageTHB > 0
       ? Math.round(tor.analytics.priceAnalysis.historicalAverageTHB)
-      : peerMedian;
+      : undefined;
 
   const lockSpecScore = tor.analytics.lockSpec?.riskScore ?? 0;
   const lockSpecLevel: RiskLevel =

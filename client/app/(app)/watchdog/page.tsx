@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLang } from "../../_components/prefs";
 import { btn, EmptyState, Panel, SectionHeading } from "../../_components/ui";
 import {
@@ -204,11 +204,13 @@ export default function WatchdogPage() {
   }, [allProjects]);
 
   // Initialize selectedAgencies to all agencies by default
-  const [prevAgenciesCount, setPrevAgenciesCount] = useState(0);
-  if (agencies.length > 0 && prevAgenciesCount === 0) {
-    setPrevAgenciesCount(agencies.length);
-    setSelectedAgencies(agencies.map((a) => a.th));
-  }
+  const hasInitializedAgencies = useRef(false);
+  useEffect(() => {
+    if (agencies.length > 0 && !hasInitializedAgencies.current) {
+      hasInitializedAgencies.current = true;
+      setSelectedAgencies(agencies.map((a) => a.th));
+    }
+  }, [agencies]);
 
   // 1. Single Top Filter Bar drives the entire dataset
   const filteredByTopBar = useMemo(() => {
@@ -370,8 +372,10 @@ export default function WatchdogPage() {
     let lowOutlierCount = 0;
     for (const p of filteredByTopBar) {
       const delta = calcPriceDeltaPct(p);
-      if (delta > NORMAL_BAND_PCT) highOutlierCount += 1;
-      else if (delta < -NORMAL_BAND_PCT) lowOutlierCount += 1;
+      if (delta != null) {
+        if (delta > NORMAL_BAND_PCT) highOutlierCount += 1;
+        else if (delta < -NORMAL_BAND_PCT) lowOutlierCount += 1;
+      }
     }
 
     const outlierCount = highOutlierCount + lowOutlierCount;

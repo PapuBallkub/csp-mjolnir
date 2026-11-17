@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   formatDate,
@@ -57,23 +57,23 @@ export function WatchdogEvidenceTable({
         return list.sort((a, b) => {
           const diff = b.lockSpecScore - a.lockSpecScore;
           if (diff !== 0) return diff;
-          return Math.abs(calcPriceDeltaPct(b)) - Math.abs(calcPriceDeltaPct(a));
+          return Math.abs(calcPriceDeltaPct(b) ?? 0) - Math.abs(calcPriceDeltaPct(a) ?? 0);
         });
       case "lockspec-asc":
         return list.sort((a, b) => {
           const diff = a.lockSpecScore - b.lockSpecScore;
           if (diff !== 0) return diff;
-          return Math.abs(calcPriceDeltaPct(a)) - Math.abs(calcPriceDeltaPct(b));
+          return Math.abs(calcPriceDeltaPct(a) ?? 0) - Math.abs(calcPriceDeltaPct(b) ?? 0);
         });
       case "price-delta-desc":
         return list.sort((a, b) => {
-          const diff = Math.abs(calcPriceDeltaPct(b)) - Math.abs(calcPriceDeltaPct(a));
+          const diff = Math.abs(calcPriceDeltaPct(b) ?? 0) - Math.abs(calcPriceDeltaPct(a) ?? 0);
           if (diff !== 0) return diff;
           return b.lockSpecScore - a.lockSpecScore;
         });
       case "price-delta-asc":
         return list.sort((a, b) => {
-          const diff = Math.abs(calcPriceDeltaPct(a)) - Math.abs(calcPriceDeltaPct(b));
+          const diff = Math.abs(calcPriceDeltaPct(a) ?? 0) - Math.abs(calcPriceDeltaPct(b) ?? 0);
           if (diff !== 0) return diff;
           return a.lockSpecScore - b.lockSpecScore;
         });
@@ -88,11 +88,13 @@ export function WatchdogEvidenceTable({
   }, [tableProjects, sort]);
 
   // Reset to first page when underlying project count changes
-  const [prevCount, setPrevCount] = useState(tableProjects.length);
-  if (tableProjects.length !== prevCount) {
-    setPrevCount(tableProjects.length);
-    setPage(1);
-  }
+  const prevCountRef = useRef(tableProjects.length);
+  useEffect(() => {
+    if (tableProjects.length !== prevCountRef.current) {
+      prevCountRef.current = tableProjects.length;
+      setPage(1);
+    }
+  }, [tableProjects.length]);
 
   const total = sortedProjects.length;
   const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -245,7 +247,7 @@ export function WatchdogEvidenceTable({
                           <span className="font-sans text-[10.5px] text-ink-3">
                             {lang === "th" ? "มัธยฐานตลาด " : "Peer median "}
                           </span>
-                          {formatTHBCompact(proj.peerMedianTHB)}
+                          {proj.peerMedianTHB ? formatTHBCompact(proj.peerMedianTHB) : "—"}
                         </div>
                       </div>
                     </td>

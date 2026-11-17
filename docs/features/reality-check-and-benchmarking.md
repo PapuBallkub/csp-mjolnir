@@ -344,9 +344,9 @@ The public Watchdog dashboard provides macro-level oversight across all extracte
 ```mermaid
 flowchart TD
     API["Live API /api/tors"] --> FEED["Watchdog Page Container<br/>client/app/(app)/watchdog/page.tsx"]
-    FEED --> S1["1. Filter Bar<br/>Continuous price slider, date range picker, secondary multi-selects"]
+    FEED --> S1["1. Filter Bar<br/>Continuous price slider (฿0–฿50M+), month/year pickers, agency popover & status/risk/archetype multi-selects"]
     FEED --> S2["2. Price Trend Line Chart<br/>Reference price median & average timeline, dynamic Y-axis"]
-    FEED --> S3["3. Summary Cards<br/>Sample size, median, average, outlier rate, lock-spec count"]
+    FEED --> S3["3. Summary Cards<br/>Sample size, median, average, price deviation (<5 sample guard), price span"]
     FEED --> S4["4. Lock-Spec Overview<br/>Circular ว 214 rule distribution with proportional bars"]
     FEED --> S5["5. Evidence & Audit Trail Table<br/>4-column streamlined table with sorting & pagination"]
 ```
@@ -354,10 +354,10 @@ flowchart TD
 ### 8.1 Five-Section Structure
 
 1. **Section 1: Multi-Dimensional Filter Bar (`WatchdogFilterBar.tsx`)**
-   - **Continuous Budget Range Slider:** Dual-handle slider ranging from ฿0 to ฿100M+ with logarithmic sensitivity for granular low-bracket filtering.
-   - **Dynamic Date Selection:** Native calendar date pickers paired with quick-select presets (All, 30 days, 90 days, Current Fiscal Year, Previous Fiscal Year).
-   - **Secondary Filter Dropdowns:** Multi-select popovers for Agency, System Archetype, and Circular ว 214 Risk Rules with active selection count chips.
-   - **Active Filter Badges & Reset:** Compact tags for active filters with one-click dismiss and full reset capability.
+   - **Continuous Budget Range Slider:** Dual-handle continuous slider ranging from ฿0 to ฿50M+ (`step = 1,000,000`) with dynamic position clamping and live range indicators.
+   - **Date Range Dropdowns:** Start and end month/Buddhist Era year dropdowns (`Start Month/Year` – `End Month/Year`) covering the continuous fiscal timeline with range-validation safeguards.
+   - **Multi-Select Filters:** Popover multi-select dropdown for Agency (with selection counter and select-all/clear), combined with multi-select button groups for Status, Risk Severity Level (`high`, `medium`, `low`), Complexity Tier, Category, and System Archetype.
+   - **Active Filter Badges & Reset:** Compact pill tags for active filters with one-click dismiss and full reset capability.
 
 2. **Section 2: Timeline Price Trend Chart (`PriceTrendLineChart.tsx`)**
    - Renders reference price median and average trajectory across monthly or quarterly time intervals.
@@ -368,9 +368,9 @@ flowchart TD
    - 5 standardized cards adhering to a uniform visual template (`[Topic Expansion] -> [What it helps achieve]`):
      - **Sample Size (จำนวนโครงการที่ตรวจวิเคราะห์):** Total analyzed tender sample size.
      - **Historical Median (ค่ามัธยฐานราคากลาง):** Middle reference price benchmark immune to extreme outliers.
-     - **Historical Average (ค่าเฉลี่ยราคากลาง):** Mathematical mean reference price indicating high-value skew.
-     - **Outlier Rate (อัตราส่วนต่างผิดปกติ):** Share of tenders deviating beyond $\pm 15\%$ market normal band.
-     - **Lock-Spec Frequency (อัตราพบข้อกำหนดเข้าข่ายล็อกสเปก):** Proportion of projects triggering one or more Circular ว 214 rules.
+     - **Historical Average (ค่าเฉลี่ยราคากลาง):** Mathematical mean reference price indicating high-value skew, with dynamic $\pm\%$ delta comparison against median (suppressed when $N < 5$).
+     - **Price Deviation (อัตราราคาเบี่ยงเบน):** Share of tenders deviating beyond $\pm 15\%$ from median. Guarded by sample size: displays an informative `ข้อมูลไม่เพียงพอ (<5 โครงการ)` badge when $N < 5$.
+     - **Price Span (ช่วงราคากลางที่พบ):** Minimum to maximum reference price range found in the filtered slice, formatted compactly (or single value when min == max). Lock-spec frequency and ว 214 rule distribution are showcased in Section 4.
 
 4. **Section 4: Circular ว 214 Rule Breakdown (`LockSpecOverview.tsx`)**
    - Detailed distribution across the 3 core criteria from Comptroller General Circular ว 214:

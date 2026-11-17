@@ -518,9 +518,9 @@ never appears in the URL.
 | File | What it is |
 | :--- | :--- |
 | [watchdog/page.tsx](../client/app/(app)/watchdog/page.tsx) | Price reality check & lock-spec trends dashboard. Queries live API TORs, aggregates historical price distributions and Circular ว 214 signals across modular subcomponents in `_components/` and `_lib/`. |
-| [watchdog/_components/WatchdogFilterBar.tsx](../client/app/(app)/watchdog/_components/WatchdogFilterBar.tsx) | Multi-dimensional filter bar: continuous budget slider (฿0–100M+), dynamic date range pickers, and secondary multi-selects. |
+| [watchdog/_components/WatchdogFilterBar.tsx](../client/app/(app)/watchdog/_components/WatchdogFilterBar.tsx) | Multi-dimensional filter bar: continuous budget slider (฿0–฿50M+), month/year timeline dropdowns, agency popover, and multi-select pill filters. |
 | [watchdog/_components/PriceTrendLineChart.tsx](../client/app/(app)/watchdog/_components/PriceTrendLineChart.tsx) | Interactive SVG line chart of reference price median and average trends over time with dynamic Y-axis scaling. |
-| [watchdog/_components/PriceRealitySummary.tsx](../client/app/(app)/watchdog/_components/PriceRealitySummary.tsx) | Standardized 5-card summary row (Sample Size, Median, Average, Outlier Rate, and Lock-Spec Frequency). |
+| [watchdog/_components/PriceRealitySummary.tsx](../client/app/(app)/watchdog/_components/PriceRealitySummary.tsx) | Standardized 5-card summary row (Sample Size, Median, Average, Price Deviation with <5 sample guard, and Price Span). |
 | [watchdog/_components/LockSpecOverview.tsx](../client/app/(app)/watchdog/_components/LockSpecOverview.tsx) | Circular ว 214 breakdown with sample-relative progress bars and statutory legal citations. |
 | [watchdog/_components/WatchdogEvidenceTable.tsx](../client/app/(app)/watchdog/_components/WatchdogEvidenceTable.tsx) | 4-column compact evidence table with dropdown sorting options and client-side pagination. |
 | [profile/page.tsx](../client/app/(app)/(private)/profile/page.tsx) | Shows the capability profile, or edits it with `?edit=true`. |

@@ -419,7 +419,6 @@ export async function listTors(
     'overview.systemArchetype': 1,
     'overview.complexityTier': 1,
     'technicalRequirements.requiredTechnologies': 1,
-    'overview.systemArchetype': 1,
     'eligibility.standardConditions': 1,
     'eligibility.requiredCertifications': 1,
     'eligibility.previousExperienceMinTHB': 1,
