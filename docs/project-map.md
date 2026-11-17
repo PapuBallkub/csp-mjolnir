@@ -206,13 +206,13 @@ that owns the collection. Import models from `#models/index.js`.
 | [technology.model.js](../server/src/models/technology.model.js) | `Technology`: one canonical name per technology, with aliases ([0014](decisions/0014-price-names-and-insight-data-rules.md)). Spec: [technology-schema.md](database/technology-schema.md). |
 | [project-categories.js](../server/src/models/project-categories.js) | The seven kinds of IT project a TOR can be ([0034](decisions/0034-a-tor-can-have-several-categories.md)). Mirrored in `client/app/_lib/categories.ts`. |
 | [standard-conditions.js](../server/src/models/standard-conditions.js) | The eligibility conditions every e-GP TOR repeats, as keys. |
-| [title-screen.model.js](../server/src/models/title-screen.model.js) | `TitleScreen`: Gemini's `it` / `not_it` / `unsure` on a title, before anything is downloaded ([0026](decisions/0026-screen-titles-before-downloading.md)). |
-| [pipeline-run.model.js](../server/src/models/pipeline-run.model.js) | `PipelineRun`: one scheduled job, its steps and how each ended ([0027](decisions/0027-run-the-pipeline-on-a-schedule.md)). |
-| [pipeline-failure.model.js](../server/src/models/pipeline-failure.model.js) | `PipelineFailure`: a TOR stuck at a step. Deleted when the step succeeds ([0016](decisions/0016-pipeline-runs-are-safe-to-repeat.md)). |
-| [pipeline-lock.model.js](../server/src/models/pipeline-lock.model.js) | `PipelineLock`: a lease so two runs of one pipeline never overlap. |
-| [feed-poll.model.js](../server/src/models/feed-poll.model.js) | `FeedPoll`: one request to the e-GP feed and what came back. Polling health for FR-22. |
-| [request-streak.model.js](../server/src/models/request-streak.model.js) | `RequestStreak`: requests in a row per site, so the pacer's pause holds across processes. |
-| [ingestion-log.model.js](../server/src/models/ingestion-log.model.js) | `IngestionLog`: per-source run telemetry for the admin dashboard (FR-22). |
+| [title-screen.model.js](../server/src/models/title-screen.model.js) | `TitleScreen`: Gemini's `it` / `not_it` / `unsure` on a title, before anything is downloaded ([0026](decisions/0026-screen-titles-before-downloading.md)). Spec: [title-screen-schema.md](database/title-screen-schema.md). |
+| [pipeline-run.model.js](../server/src/models/pipeline-run.model.js) | `PipelineRun`: one scheduled job, its steps and how each ended ([0027](decisions/0027-run-the-pipeline-on-a-schedule.md)). Spec: [pipeline-run-schema.md](database/pipeline-run-schema.md). |
+| [pipeline-failure.model.js](../server/src/models/pipeline-failure.model.js) | `PipelineFailure`: a TOR stuck at a step. Deleted when the step succeeds ([0016](decisions/0016-pipeline-runs-are-safe-to-repeat.md)). Spec: [pipeline-run-schema.md](database/pipeline-run-schema.md). |
+| [pipeline-lock.model.js](../server/src/models/pipeline-lock.model.js) | `PipelineLock`: a lease so two runs of one pipeline never overlap. Spec: [pipeline-run-schema.md](database/pipeline-run-schema.md). |
+| [feed-poll.model.js](../server/src/models/feed-poll.model.js) | `FeedPoll`: one time the e-GP feed was asked, nationally or for one agency, and what came back. Polling health for FR-22. Spec: [pipeline-run-schema.md](database/pipeline-run-schema.md). |
+| [request-streak.model.js](../server/src/models/request-streak.model.js) | `RequestStreak`: requests in a row per site, so the pacer's pause holds across processes. Spec: [pipeline-run-schema.md](database/pipeline-run-schema.md). |
+| [ingestion-log.model.js](../server/src/models/ingestion-log.model.js) | `IngestionLog`: per-source run telemetry for the admin dashboard (FR-22). Spec: [pipeline-run-schema.md](database/pipeline-run-schema.md). |
 
 ### server/features
 
@@ -651,7 +651,8 @@ links down to the reference pages.
 | [tor-insight-schema.md](database/tor-insight-schema.md) | `TorInsight` and its sub-schemas, field by field. |
 | [user-schema.md](database/user-schema.md) | `User`: account, role, profile, watchlist. |
 | [technology-schema.md](database/technology-schema.md) | `Technology`: the vocabulary. |
-| [pipeline-run-schema.md](database/pipeline-run-schema.md) | `PipelineLock` and `PipelineFailure`. |
+| [title-screen-schema.md](database/title-screen-schema.md) | `TitleScreen`: the title screen's verdicts. |
+| [pipeline-run-schema.md](database/pipeline-run-schema.md) | The pipeline's bookkeeping: `PipelineLock`, `PipelineFailure`, `PipelineRun`, `FeedPoll`, `IngestionLog`, `RequestStreak`. |
 
 ### docs/features
 
