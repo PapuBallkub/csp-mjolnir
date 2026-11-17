@@ -1,286 +1,644 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useState } from "react";
-import {
-  formatTHB,
-  formatTHBCompact,
-  pick,
-  priceDeltaPct,
-  tors,
-  type Tor,
-} from "../../_data/tors";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLang } from "../../_components/prefs";
-import { AmendmentModule } from "../../_components/modules";
-import { Panel, SectionHeading } from "../../_components/ui";
-import { StatusBadge } from "../../_components/verdict";
+import { btn, EmptyState, Panel, SectionHeading } from "../../_components/ui";
+import {
+  ARCHETYPE_OPTIONS,
+  calcPriceDeltaPct,
+  CATEGORY_OPTIONS,
+  TIMELINE_MONTHS,
+  type ComplexityTier,
+  type LockSpecTriggerId,
+  type ProjectCategory,
+  type SystemArchetype,
+  type WatchdogProjectRecord,
+} from "../../_data/watchdog";
+import { type RiskLevel, type Status } from "../../_data/tors";
+import { listTors, type TorInsightSummary } from "../../_lib/api";
+import { LockSpecOverview } from "./_components/LockSpecOverview";
+import { PriceRealitySummary } from "./_components/PriceRealitySummary";
+import { PriceTrendLineChart } from "./_components/PriceTrendLineChart";
+import { WatchdogEvidenceTable } from "./_components/WatchdogEvidenceTable";
+import { WatchdogFilterBar } from "./_components/WatchdogFilterBar";
+import {
+  NORMAL_BAND_PCT,
+  type PriceRealityMetrics,
+  type TimeGrain,
+  type TimePoint,
+} from "./_lib/types";
+import {
+  computeAverage,
+  computeMedian,
+  formatMonthBucket,
+  generateMonthRange,
+  mapApiTorToWatchdog,
+} from "./_lib/watchdog-helpers";
 
-/** Deviations inside this band are ordinary and are drawn in neutral grey. */
-const NORMAL_BAND = 15;
-
-/**
- * Deviation from the historical median, as a diverging bar around a zero line
- * (FR12 read from the investigative end rather than the bidder's).
- *
- * Direction carries the polarity — right of the line is over the median, left
- * is under — so the status hues only reinforce a distinction the geometry has
- * already made. That matters because amber and crimson are a weak pair under
- * deuteranopia, and here neither is doing the work alone.
- */
-function DeviationChart({ rows, lang }: { rows: Tor[]; lang: "th" | "en" }) {
-  const deltas = rows.map((tor) => priceDeltaPct(tor));
-  const domain = Math.max(20, Math.ceil(Math.max(...deltas.map(Math.abs)) / 10) * 10);
-  const halfWidth = (delta: number) => (Math.abs(delta) / domain) * 50;
-  const bandHalf = (NORMAL_BAND / domain) * 50;
-
-  return (
-    <figure className="m-0 flex flex-col gap-1.5">
-      {/* No row gap: the per-row band segments stack into one continuous zone. */}
-      <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-[minmax(0,240px)_minmax(0,1fr)_54px]">
-        <span className="hidden sm:block" />
-        <div className="relative hidden h-4 sm:block">
-          <span className="absolute left-0 font-mono tnum text-[10px] text-ink-3">−{domain}%</span>
-          <span className="absolute left-1/2 -translate-x-1/2 font-mono text-[10px] text-ink-3">
-            {lang === "th" ? "ค่ากลาง" : "median"}
-          </span>
-          <span className="absolute right-0 font-mono tnum text-[10px] text-ink-3">+{domain}%</span>
-        </div>
-        <span className="hidden sm:block" />
-
-        {rows.map((tor) => {
-          const delta = priceDeltaPct(tor);
-          const inBand = Math.abs(delta) <= NORMAL_BAND;
-          const fill = inBand ? "bg-ink-3" : delta > 0 ? "bg-amend" : "bg-risk";
-          const valueTone = inBand ? "text-ink-3" : delta > 0 ? "text-amend" : "text-risk";
-
-          return (
-            <div key={tor.id} className="contents">
-              <Link
-                href={`/tor/${tor.id}`}
-                className="min-w-0 truncate py-1 pr-3 text-[12px] text-ink-2 hover:text-ink hover:underline"
-                title={pick(tor.title, lang)}
-              >
-                <span className="font-mono tnum text-ink-3">{tor.id.slice(-4)}</span>{" "}
-                {pick(tor.title, lang)}
-              </Link>
-
-              <div className="relative h-7">
-                {/* What "ordinary" looks like, drawn rather than described. */}
-                <span
-                  className="absolute inset-y-0 bg-surface-2"
-                  style={{ left: `${50 - bandHalf}%`, width: `${bandHalf * 2}%` }}
-                />
-                <span className="absolute inset-y-0 left-1/2 w-px bg-line-2" />
-                <span
-                  className={`absolute top-1/2 h-[10px] -translate-y-1/2 ${fill} ${
-                    delta >= 0 ? "rounded-r-[3px]" : "rounded-l-[3px]"
-                  }`}
-                  style={
-                    delta >= 0
-                      ? { left: "50%", width: `${halfWidth(delta)}%` }
-                      : { right: "50%", width: `${halfWidth(delta)}%` }
-                  }
-                  title={`${formatTHB(tor.budget)} ${lang === "th" ? "เทียบค่ากลาง" : "vs median"} ${formatTHB(
-                    tor.price.median,
-                  )}`}
-                />
-              </div>
-
-              <span
-                className={`self-center py-1 text-right font-mono tnum text-[12px] font-medium ${valueTone}`}
-              >
-                {delta >= 0 ? "+" : ""}
-                {delta}%
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      <figcaption className="text-[11px] leading-thai text-ink-3">
-        {lang === "th"
-          ? `แถบเทาตรงกลางคือช่วง ±${NORMAL_BAND}% ซึ่งถือว่าปกติ ค่ากลางคำนวณจากโครงการที่มีขอบเขตใกล้เคียงกันย้อนหลัง 3 ปีงบประมาณ`
-          : `The grey band is ±${NORMAL_BAND}%, which counts as ordinary. Medians are computed from comparable scopes over the last three fiscal years.`}
-      </figcaption>
-    </figure>
-  );
-}
+const ALL_STATUSES: Status[] = ["Open", "Draft", "Awarded", "Closed", "Cancelled"];
+const ALL_RISK_LEVELS: RiskLevel[] = ["high", "medium", "low"];
+const ALL_COMPLEXITIES: ComplexityTier[] = ["basic", "standard", "enterprise"];
+const ALL_CATEGORIES: ProjectCategory[] = CATEGORY_OPTIONS.filter((c) => c.id !== "all").map(
+  (c) => c.id as ProjectCategory,
+);
+const ALL_ARCHETYPES: SystemArchetype[] = ARCHETYPE_OPTIONS.filter((a) => a.id !== "all").map(
+  (a) => a.id as SystemArchetype,
+);
 
 export default function WatchdogPage() {
   const { lang } = useLang();
 
-  const byDeviation = useMemo(
-    () => [...tors].sort((a, b) => priceDeltaPct(b) - priceDeltaPct(a)),
-    [],
-  );
-  const amended = useMemo(
-    () => tors.filter((tor) => tor.amendments.some((a) => a.changes.length > 0)),
-    [],
-  );
-  const awarded = useMemo(() => tors.filter((tor) => tor.awardedAmount), []);
+  // Real Data State (Strictly real data; no mock data fallback)
+  const [liveProjects, setLiveProjects] = useState<WatchdogProjectRecord[] | null>(null);
+  const [dataSource, setDataSource] = useState<"loading" | "api" | "empty" | "error">("loading");
+  const [fetchTrigger, setFetchTrigger] = useState(0);
 
-  const [selected, setSelected] = useState(amended[0]?.id ?? "");
-  const selectedTor = amended.find((tor) => tor.id === selected) ?? amended[0];
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchAllRealTors() {
+      setDataSource("loading");
+      try {
+        const first = await listTors({ limit: 100, page: 1, sort: "newest" });
+        if (cancelled) return;
+
+        if (!first.ok) {
+          setDataSource("error");
+          return;
+        }
+
+        if (first.data.tors.length === 0) {
+          setLiveProjects([]);
+          setDataSource("empty");
+          return;
+        }
+
+        const allSummaries: TorInsightSummary[] = [...first.data.tors];
+        const totalPages = Math.min(first.data.pages, 5); // fetch up to 500 TORs
+
+        if (totalPages > 1) {
+          const pagePromises = [];
+          for (let p = 2; p <= totalPages; p++) {
+            pagePromises.push(listTors({ limit: 100, page: p, sort: "newest" }));
+          }
+          const rest = await Promise.all(pagePromises);
+          if (cancelled) return;
+          for (const res of rest) {
+            if (res.ok) {
+              allSummaries.push(...res.data.tors);
+            }
+          }
+        }
+
+        const mapped = allSummaries
+          .map(mapApiTorToWatchdog)
+          .filter((item): item is WatchdogProjectRecord => item !== null);
+
+        if (mapped.length > 0) {
+          setLiveProjects(mapped);
+          setDataSource("api");
+        } else {
+          setLiveProjects([]);
+          setDataSource("empty");
+        }
+      } catch {
+        if (!cancelled) {
+          setDataSource("error");
+        }
+      }
+    }
+
+    fetchAllRealTors();
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchTrigger]);
+
+  const allProjects = useMemo(() => liveProjects ?? [], [liveProjects]);
+
+  // Dynamic timeline months derived from active dataset
+  const availableMonths = useMemo(() => {
+    if (allProjects.length === 0) return TIMELINE_MONTHS;
+    const uniqueKeys = Array.from(new Set(allProjects.map((p) => p.month))).sort();
+    if (uniqueKeys.length === 0) return TIMELINE_MONTHS;
+    return uniqueKeys.map(formatMonthBucket);
+  }, [allProjects]);
+
+  const defaultStartMonth = availableMonths[0]?.key ?? TIMELINE_MONTHS[0].key;
+  const defaultEndMonth =
+    availableMonths[availableMonths.length - 1]?.key ??
+    TIMELINE_MONTHS[TIMELINE_MONTHS.length - 1].key;
+
+  // Universal Section 1 Filter States
+  const [selectedStatuses, setSelectedStatuses] = useState<Status[]>(ALL_STATUSES);
+  const [selectedRiskLevels, setSelectedRiskLevels] = useState<RiskLevel[]>(ALL_RISK_LEVELS);
+  const [selectedComplexities, setSelectedComplexities] = useState<ComplexityTier[]>(ALL_COMPLEXITIES);
+  const [selectedCategories, setSelectedCategories] = useState<ProjectCategory[]>(ALL_CATEGORIES);
+  const [selectedArchetypes, setSelectedArchetypes] = useState<SystemArchetype[]>(ALL_ARCHETYPES);
+  const [selectedAgencies, setSelectedAgencies] = useState<string[]>([]);
+  const [minPriceTHB, setMinPriceTHB] = useState<number>(0);
+  const [maxPriceTHB, setMaxPriceTHB] = useState<number>(0);
+  const [startMonth, setStartMonth] = useState<string>("");
+  const [endMonth, setEndMonth] = useState<string>("");
+  const [timeGrain, setTimeGrain] = useState<TimeGrain>("monthly");
+  const [showOnlyExistingProjects, setShowOnlyExistingProjects] = useState<boolean>(false);
+
+  const effectiveStartMonth = startMonth || defaultStartMonth;
+  const effectiveEndMonth = endMonth || defaultEndMonth;
+
+  // Validation: end date must not be before start date
+  const isDateRangeInvalid = Boolean(
+    effectiveStartMonth && effectiveEndMonth && effectiveStartMonth > effectiveEndMonth,
+  );
+
+  // Toggle Handlers
+  function toggleStatus(st: Status) {
+    setSelectedStatuses((prev) =>
+      prev.includes(st) ? prev.filter((s) => s !== st) : [...prev, st],
+    );
+  }
+
+  function toggleRiskLevel(level: RiskLevel) {
+    setSelectedRiskLevels((prev) =>
+      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level],
+    );
+  }
+
+  function toggleComplexity(tier: ComplexityTier) {
+    setSelectedComplexities((prev) =>
+      prev.includes(tier) ? prev.filter((t) => t !== tier) : [...prev, tier],
+    );
+  }
+
+  function toggleCategory(cat: ProjectCategory) {
+    setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
+    );
+  }
+
+  function toggleArchetype(arch: SystemArchetype) {
+    setSelectedArchetypes((prev) =>
+      prev.includes(arch) ? prev.filter((a) => a !== arch) : [...prev, arch],
+    );
+  }
+
+  function toggleAgency(agency: string) {
+    setSelectedAgencies((prev) =>
+      prev.includes(agency) ? prev.filter((a) => a !== agency) : [...prev, agency],
+    );
+  }
+
+  // Unique agencies for dropdown
+  const agencies = useMemo(() => {
+    const map = new Map<string, { th: string; en: string; count: number }>();
+    for (const p of allProjects) {
+      const key = p.agency.th;
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(key, { th: p.agency.th, en: p.agency.en, count: 1 });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [allProjects]);
+
+  // Initialize selectedAgencies to all agencies by default
+  const hasInitializedAgencies = useRef(false);
+  useEffect(() => {
+    if (agencies.length > 0 && !hasInitializedAgencies.current) {
+      hasInitializedAgencies.current = true;
+      setSelectedAgencies(agencies.map((a) => a.th));
+    }
+  }, [agencies]);
+
+  // 1. Single Top Filter Bar drives the entire dataset
+  const filteredByTopBar = useMemo(() => {
+    return allProjects.filter((p) => {
+      // Status
+      if (!selectedStatuses.includes(p.status)) return false;
+      // Lock-Spec Risk Level
+      if (!selectedRiskLevels.includes(p.lockSpecLevel)) return false;
+      // Complexity Tier
+      if (!selectedComplexities.includes(p.complexity)) return false;
+      // Category
+      if (!selectedCategories.includes(p.category)) return false;
+      // System Archetype
+      if (!selectedArchetypes.includes(p.archetype)) return false;
+      // Agency (Multi-select)
+      if (agencies.length > 0 && !selectedAgencies.includes(p.agency.th)) return false;
+      // Price Range (min and max)
+      if (minPriceTHB > 0 && p.referencePriceTHB < minPriceTHB) return false;
+      if (maxPriceTHB > 0 && p.referencePriceTHB > maxPriceTHB) return false;
+      // Time Period (only filter if date range is valid)
+      if (!isDateRangeInvalid) {
+        if (effectiveStartMonth && p.month < effectiveStartMonth) return false;
+        if (effectiveEndMonth && p.month > effectiveEndMonth) return false;
+      }
+      return true;
+    });
+  }, [
+    allProjects,
+    selectedStatuses,
+    selectedRiskLevels,
+    selectedComplexities,
+    selectedCategories,
+    selectedArchetypes,
+    selectedAgencies,
+    agencies.length,
+    minPriceTHB,
+    maxPriceTHB,
+    effectiveStartMonth,
+    effectiveEndMonth,
+    isDateRangeInvalid,
+  ]);
+
+  // 2. Build time-series points (Monthly or Quarterly) from filteredByTopBar
+  const timeSeries = useMemo<TimePoint[]>(() => {
+    let activeMonths: Array<{
+      key: string;
+      labelTh: string;
+      labelEn: string;
+      quarter: string;
+    }>;
+
+    if (showOnlyExistingProjects) {
+      // Data-driven compressed mode: only buckets with existing projects
+      activeMonths = isDateRangeInvalid
+        ? availableMonths
+        : availableMonths.filter(
+            (m) =>
+              (!effectiveStartMonth || m.key >= effectiveStartMonth) &&
+              (!effectiveEndMonth || m.key <= effectiveEndMonth),
+          );
+    } else {
+      // Continuous timeline mode (Option A default): full span from start to end
+      const continuous =
+        !isDateRangeInvalid && effectiveStartMonth && effectiveEndMonth
+          ? generateMonthRange(effectiveStartMonth, effectiveEndMonth)
+          : [];
+      activeMonths =
+        continuous.length > 0
+          ? continuous
+          : isDateRangeInvalid
+            ? availableMonths
+            : availableMonths.filter(
+                (m) =>
+                  (!effectiveStartMonth || m.key >= effectiveStartMonth) &&
+                  (!effectiveEndMonth || m.key <= effectiveEndMonth),
+              );
+    }
+
+    if (timeGrain === "monthly") {
+      return activeMonths.map((m) => {
+        const inMonth = filteredByTopBar.filter((p) => p.month === m.key);
+        const prices = inMonth.map((p) => p.referencePriceTHB);
+        const med = computeMedian(prices);
+        const avg = computeAverage(prices);
+
+        return {
+          key: m.key,
+          label: lang === "th" ? m.labelTh : m.labelEn,
+          torCount: inMonth.length,
+          medianTHB: med,
+          averageTHB: avg,
+          bandLowTHB: Math.round(med * (1 - NORMAL_BAND_PCT / 100)),
+          bandHighTHB: Math.round(med * (1 + NORMAL_BAND_PCT / 100)),
+          highRiskCount: inMonth.filter((p) => p.lockSpecLevel === "high").length,
+          projects: inMonth,
+        };
+      });
+    }
+
+    // Quarterly aggregation
+    const quarters = Array.from(new Set(activeMonths.map((m) => m.quarter)));
+    return quarters.map((q) => {
+      const monthKeys = activeMonths.filter((m) => m.quarter === q).map((m) => m.key);
+      const inQuarter = filteredByTopBar.filter((p) => monthKeys.includes(p.month));
+      const prices = inQuarter.map((p) => p.referencePriceTHB);
+      const med = computeMedian(prices);
+      const avg = computeAverage(prices);
+
+      return {
+        key: q,
+        label: q,
+        torCount: inQuarter.length,
+        medianTHB: med,
+        averageTHB: avg,
+        bandLowTHB: Math.round(med * (1 - NORMAL_BAND_PCT / 100)),
+        bandHighTHB: Math.round(med * (1 + NORMAL_BAND_PCT / 100)),
+        highRiskCount: inQuarter.filter((p) => p.lockSpecLevel === "high").length,
+        projects: inQuarter,
+      };
+    });
+  }, [
+    availableMonths,
+    filteredByTopBar,
+    timeGrain,
+    lang,
+    effectiveStartMonth,
+    effectiveEndMonth,
+    isDateRangeInvalid,
+    showOnlyExistingProjects,
+  ]);
+
+  // 3. Financial Metrics for Section 3 (Price Reality Check Summary)
+  const priceMetrics = useMemo<PriceRealityMetrics>(() => {
+    const torCount = filteredByTopBar.length;
+    if (torCount === 0) {
+      return {
+        torCount: 0,
+        overallMedian: 0,
+        overallAverage: 0,
+        avgDeltaPct: 0,
+        outlierCount: 0,
+        outlierRatePct: 0,
+        highOutlierCount: 0,
+        lowOutlierCount: 0,
+        minPrice: 0,
+        maxPrice: 0,
+      };
+    }
+
+    const prices = filteredByTopBar.map((p) => p.referencePriceTHB);
+
+    const overallMedian = computeMedian(prices);
+    const overallAverage = computeAverage(prices);
+    const avgDeltaPct = overallMedian > 0
+      ? Number((((overallAverage - overallMedian) / overallMedian) * 100).toFixed(1))
+      : 0;
+
+    let highOutlierCount = 0;
+    let lowOutlierCount = 0;
+    for (const p of filteredByTopBar) {
+      const delta = calcPriceDeltaPct(p);
+      if (delta != null) {
+        if (delta > NORMAL_BAND_PCT) highOutlierCount += 1;
+        else if (delta < -NORMAL_BAND_PCT) lowOutlierCount += 1;
+      }
+    }
+
+    const outlierCount = highOutlierCount + lowOutlierCount;
+    const outlierRatePct = Math.round((outlierCount / torCount) * 100);
+
+    return {
+      torCount,
+      overallMedian,
+      overallAverage,
+      avgDeltaPct,
+      outlierCount,
+      outlierRatePct,
+      highOutlierCount,
+      lowOutlierCount,
+      minPrice: Math.min(...prices),
+      maxPrice: Math.max(...prices),
+    };
+  }, [filteredByTopBar]);
+
+  // 4. Compliance and Statutory Metrics for Section 4 (Lock-Spec Overview)
+  const lockSpecMetrics = useMemo(() => {
+    const extractedCount = filteredByTopBar.length;
+    const lowCount = filteredByTopBar.filter((p) => p.lockSpecLevel === "low").length;
+    const medCount = filteredByTopBar.filter((p) => p.lockSpecLevel === "medium").length;
+    const highCount = filteredByTopBar.filter((p) => p.lockSpecLevel === "high").length;
+
+    const triggerCounts: Record<LockSpecTriggerId, number> = {
+      "Specification Tailoring": 0,
+      "Qualification Barrier": 0,
+      "Vendor Lock-in": 0,
+    };
+    for (const p of filteredByTopBar) {
+      for (const t of p.triggers) {
+        triggerCounts[t.category] += 1;
+      }
+    }
+
+    return {
+      extractedCount,
+      lowCount,
+      medCount,
+      highCount,
+      triggerCounts,
+    };
+  }, [filteredByTopBar]);
+
+  const hasActiveFilters =
+    selectedStatuses.length < ALL_STATUSES.length ||
+    selectedRiskLevels.length < ALL_RISK_LEVELS.length ||
+    selectedComplexities.length < ALL_COMPLEXITIES.length ||
+    selectedCategories.length < ALL_CATEGORIES.length ||
+    selectedArchetypes.length < ALL_ARCHETYPES.length ||
+    (agencies.length > 0 && selectedAgencies.length < agencies.length) ||
+    minPriceTHB > 0 ||
+    maxPriceTHB > 0 ||
+    effectiveStartMonth !== defaultStartMonth ||
+    effectiveEndMonth !== defaultEndMonth;
+
+  function resetAllFilters() {
+    setSelectedStatuses(ALL_STATUSES);
+    setSelectedRiskLevels(ALL_RISK_LEVELS);
+    setSelectedComplexities(ALL_COMPLEXITIES);
+    setSelectedCategories(ALL_CATEGORIES);
+    setSelectedArchetypes(ALL_ARCHETYPES);
+    setSelectedAgencies(agencies.map((a) => a.th));
+    setMinPriceTHB(0);
+    setMaxPriceTHB(0);
+    setStartMonth(defaultStartMonth);
+    setEndMonth(defaultEndMonth);
+    setShowOnlyExistingProjects(false);
+  }
 
   return (
-    <div className="mx-auto max-w-[1240px] px-4 py-6">
-      <header className="mb-6">
-        <p className="text-[11px] font-medium uppercase tracking-[0.05em] text-ink-3">
-          {lang === "th" ? "มุมมองสำหรับผู้ตรวจสอบ" : "Watchdog view"}
-        </p>
-        <h1 className="mt-1 text-[26px] leading-tight font-semibold tracking-tight text-ink">
-          {lang === "th" ? "ราคาและการแก้ไขเอกสาร" : "Prices and document changes"}
-        </h1>
-        <p className="mt-1 max-w-2xl text-[14px] leading-thai text-ink-2">
+    <div className="mx-auto max-w-[1100px] px-4 sm:px-6 py-6">
+      {/* Page Header */}
+      <header className="mb-5">
+        <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-ink">
           {lang === "th"
-            ? "ตัวเลขทุกตัวในหน้านี้อ้างอิงกลับไปยังเอกสารต้นฉบับได้ หน้านี้ไม่สรุปว่าใครผิด แต่แสดงว่าอะไรผิดปกติเมื่อเทียบกับงานลักษณะเดียวกัน"
-            : "Every figure here traces back to a source document. This page does not allege wrongdoing; it shows what is unusual relative to comparable work."}
+            ? "ภาพรวมราคาและความเสี่ยง"
+            : "Market Pricing & Risk Overview"}
+        </h1>
+        <p className="mt-1.5 max-w-2xl text-[14px] leading-thai text-ink-2">
+          {lang === "th"
+            ? "วิเคราะห์ภาพรวมราคากลางเปรียบเทียบกับราคาตลาด และตรวจดูข้อกำหนดที่อาจจำกัดการแข่งขัน"
+            : "Analyze macro reference price trends against market baselines and inspect procurement risk signals."}
         </p>
       </header>
 
-      <section className="mb-8">
-        <SectionHeading
-          right={
-            <span className="font-mono text-[11px]">
-              {lang === "th" ? `${tors.length} โครงการ` : `${tors.length} projects`}
-            </span>
-          }
-        >
-          {lang === "th" ? "ส่วนต่างจากค่ากลางย้อนหลัง" : "Deviation from historical median"}
-        </SectionHeading>
-        <Panel className="p-3.5">
-          <DeviationChart rows={byDeviation} lang={lang} />
+      {/* Loading State */}
+      {dataSource === "loading" ? (
+        <Panel className="p-8 text-center">
+          <p className="text-[14px] text-ink-2">
+            {lang === "th" ? "กำลังดึงข้อมูลโครงการและสถิติราคาจากฐานข้อมูล..." : "Loading procurement data..."}
+          </p>
         </Panel>
-      </section>
-
-      <section className="mb-8">
-        <SectionHeading
-          right={
-            <span className="font-mono text-[11px]">
-              {lang === "th"
-                ? `${amended.length} ฉบับมีการแก้ไข`
-                : `${amended.length} documents changed`}
-            </span>
+      ) : dataSource === "error" ? (
+        <EmptyState
+          headline={
+            lang === "th"
+              ? "ไม่สามารถเชื่อมต่อฐานข้อมูลได้ในขณะนี้"
+              : "Unable to connect to database"
           }
-        >
-          {lang === "th" ? "ตัวเปรียบเทียบฉบับแก้ไข" : "Amendment diff viewer"}
-        </SectionHeading>
+          body={
+            lang === "th"
+              ? "เกิดข้อผิดพลาดในการดึงข้อมูลประกาศจัดซื้อจัดจ้าง กรุณาตรวจสอบว่าเซิร์ฟเวอร์เปิดทำงานอยู่แล้วลองใหม่อีกครั้ง"
+              : "Failed to fetch procurement opportunities. Please check if the server is running."
+          }
+          action={
+            <button
+              type="button"
+              onClick={() => setFetchTrigger((prev) => prev + 1)}
+              className={btn.primary}
+            >
+              {lang === "th" ? "ลองใหม่อีกครั้ง" : "Retry"}
+            </button>
+          }
+        />
+      ) : allProjects.length === 0 ? (
+        <EmptyState
+          headline={
+            lang === "th"
+              ? "ยังไม่มีข้อมูลโครงการสำหรับการวิเคราะห์"
+              : "No procurement data available yet"
+          }
+          body={
+            lang === "th"
+              ? "ยังไม่พบประกาศจัดซื้อจัดจ้างในระบบ เมื่อมีข้อมูลประกาศเข้ามาแดชบอร์ดจะสรุปภาพรวมราคาและความเสี่ยงโดยอัตโนมัติ"
+              : "No procurement projects have been ingested yet. Trends and risk signals will appear automatically once data is available."
+          }
+          action={
+            <button
+              type="button"
+              onClick={() => setFetchTrigger((prev) => prev + 1)}
+              className={btn.secondary}
+            >
+              {lang === "th" ? "รีเฟรชข้อมูล" : "Refresh"}
+            </button>
+          }
+        />
+      ) : (
+        <>
+          {/* SECTION 1: Universal Top Filter Bar (The only place to influence data) */}
+          <WatchdogFilterBar
+            lang={lang}
+            selectedStatuses={selectedStatuses}
+            onToggleStatus={toggleStatus}
+            onSelectAllStatuses={() => setSelectedStatuses(ALL_STATUSES)}
+            onClearStatuses={() => setSelectedStatuses([])}
+            selectedRiskLevels={selectedRiskLevels}
+            onToggleRiskLevel={toggleRiskLevel}
+            onSelectAllRiskLevels={() => setSelectedRiskLevels(ALL_RISK_LEVELS)}
+            onClearRiskLevels={() => setSelectedRiskLevels([])}
+            selectedComplexities={selectedComplexities}
+            onToggleComplexity={toggleComplexity}
+            onSelectAllComplexities={() => setSelectedComplexities(ALL_COMPLEXITIES)}
+            onClearComplexities={() => setSelectedComplexities([])}
+            selectedCategories={selectedCategories}
+            onToggleCategory={toggleCategory}
+            onSelectAllCategories={() => setSelectedCategories(ALL_CATEGORIES)}
+            onClearCategories={() => setSelectedCategories([])}
+            selectedArchetypes={selectedArchetypes}
+            onToggleArchetype={toggleArchetype}
+            onSelectAllArchetypes={() => setSelectedArchetypes(ALL_ARCHETYPES)}
+            onClearArchetypes={() => setSelectedArchetypes([])}
+            selectedAgencies={selectedAgencies}
+            onToggleAgency={toggleAgency}
+            onSelectAllAgencies={() => setSelectedAgencies(agencies.map((a) => a.th))}
+            onClearAgencies={() => setSelectedAgencies([])}
+            agencies={agencies}
+            minPriceTHB={minPriceTHB}
+            maxPriceTHB={maxPriceTHB}
+            onPriceRangeChange={(min, max) => {
+              setMinPriceTHB(min);
+              setMaxPriceTHB(max);
+            }}
+            effectiveStartMonth={effectiveStartMonth}
+            effectiveEndMonth={effectiveEndMonth}
+            defaultStartMonth={defaultStartMonth}
+            defaultEndMonth={defaultEndMonth}
+            onStartMonthChange={(val) => setStartMonth(val)}
+            onEndMonthChange={(val) => setEndMonth(val)}
+            availableMonths={availableMonths}
+            hasActiveFilters={hasActiveFilters}
+            onResetFilters={resetAllFilters}
+          />
 
-        <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <Panel className="overflow-hidden">
-            {amended.map((tor) => {
-              const active = tor.id === selectedTor?.id;
-              return (
-                <button
-                  key={tor.id}
-                  type="button"
-                  onClick={() => setSelected(tor.id)}
-                  className={`flex w-full flex-col items-start gap-1.5 border-b border-line px-3 py-2.5 text-left transition-colors last:border-b-0 ${
-                    active ? "bg-surface-3" : "hover:bg-surface-2"
-                  }`}
-                >
-                  <span className="font-mono tnum text-[10px] text-ink-3">{tor.id}</span>
-                  <span className="text-[13px] leading-thai text-ink">{pick(tor.title, lang)}</span>
-                  <StatusBadge status={tor.status} isAmended={tor.isAmended} lang={lang} />
-                </button>
-              );
-            })}
-          </Panel>
-
-          <Panel className="p-3.5">
-            {selectedTor ? (
-              <>
-                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-line pb-3">
-                  <Link
-                    href={`/tor/${selectedTor.id}`}
-                    className="text-[15px] leading-thai font-medium text-ink hover:underline"
-                  >
-                    {pick(selectedTor.title, lang)}
-                  </Link>
-                  <span className="font-mono tnum text-[11px] text-ink-3">
-                    {formatTHB(selectedTor.budget)}
-                  </span>
-                </div>
-                <AmendmentModule tor={selectedTor} lang={lang} />
-              </>
-            ) : null}
-          </Panel>
-        </div>
-      </section>
-
-      <section>
-        <SectionHeading>
-          {lang === "th" ? "ผลการประมูลที่ปิดแล้ว" : "Closed awards"}
-        </SectionHeading>
-        <Panel className="overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-left">
-            <thead>
-              <tr className="border-b border-line bg-surface-2">
-                {[
-                  lang === "th" ? "โครงการ" : "Project",
-                  lang === "th" ? "ผู้ชนะ" : "Winner",
-                  lang === "th" ? "ราคากลาง" : "Reference",
-                  lang === "th" ? "ราคาที่ชนะ" : "Awarded",
-                  lang === "th" ? "คิดเป็น" : "Ratio",
-                ].map((heading, index) => (
-                  <th
-                    key={heading}
-                    className={`px-3 py-2 text-[11px] font-medium text-ink-3 ${
-                      index >= 2 ? "text-right" : ""
+          {/* SECTION 2: Macro Trend Line Chart */}
+          <section className="mb-8">
+            <SectionHeading
+              sub={
+                lang === "th"
+                  ? "เปรียบเทียบแนวโน้มราคากลางผ่านค่ามัธยฐาน (เส้นทึบ) และค่าเฉลี่ย (เส้นประ) ตามตัวกรองข้อมูล พร้อมจุดแสดงโครงการจริงในแต่ละช่วงเวลา"
+                  : "Compare reference price trends via historical median (solid) and average (dashed) lines across active filters, with individual project dots plotted over time."
+              }
+              right={
+                <div className="inline-flex rounded-[3px] border border-line bg-surface-2 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setTimeGrain("monthly")}
+                    className={`rounded-[2px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                      timeGrain === "monthly"
+                        ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+                        : "text-ink-3 hover:text-ink"
                     }`}
                   >
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {awarded.map((tor) => {
-                const ratio = ((tor.awardedAmount! / tor.budget) * 100).toFixed(1);
-                // A winning bid this close to the ceiling is the classic single-
-                // bidder signature, so it gets the amber "look closer" treatment.
-                const tight = Number(ratio) >= 98;
-                return (
-                  <tr key={tor.id} className="border-b border-line last:border-b-0">
-                    <td className="px-3 py-2.5">
-                      <Link
-                        href={`/tor/${tor.id}`}
-                        className="text-[13px] leading-thai text-ink hover:underline"
-                      >
-                        {pick(tor.title, lang)}
-                      </Link>
-                      <span className="mt-0.5 block font-mono tnum text-[10px] text-ink-3">
-                        {tor.id} · {pick(tor.agency, lang)}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-[12px] leading-thai text-ink-2">
-                      {tor.awardedTo ? pick(tor.awardedTo, lang) : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-mono tnum text-[12px] text-ink-2">
-                      {formatTHBCompact(tor.budget)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-mono tnum text-[12px] text-ink">
-                      {formatTHBCompact(tor.awardedAmount!)}
-                    </td>
-                    <td
-                      className={`px-3 py-2.5 text-right font-mono tnum text-[12px] font-medium ${
-                        tight ? "text-amend" : "text-ink-2"
-                      }`}
-                    >
-                      {ratio}%
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Panel>
-        <p className="mt-3 text-[11px] leading-thai text-ink-3">
-          {lang === "th"
-            ? "ราคาที่ชนะซึ่งเข้าใกล้ราคากลางมาก มักพบในงานที่มีผู้เสนอราคารายเดียว ตัวเลขนี้เป็นข้อสังเกต ไม่ใช่ข้อกล่าวหา"
-            : "Winning bids that sit within a couple of percent of the ceiling are typical of single-bidder rounds. This is an observation, not an accusation."}
-        </p>
-      </section>
+                    {lang === "th" ? "รายเดือน" : "Monthly"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimeGrain("quarterly")}
+                    className={`rounded-[2px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                      timeGrain === "quarterly"
+                        ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+                        : "text-ink-3 hover:text-ink"
+                    }`}
+                  >
+                    {lang === "th" ? "รายไตรมาส" : "Quarterly"}
+                  </button>
+                </div>
+              }
+            >
+              {lang === "th"
+                ? "แนวโน้มราคากลางภายในตลาด (Market Reference Price Trends)"
+                : "Market Reference Price Trends"}
+            </SectionHeading>
+
+            <Panel className="p-4">
+              <PriceTrendLineChart
+                series={timeSeries}
+                lang={lang}
+                activeBucket={null}
+                onSelectBucket={() => {}}
+                showOnlyExisting={showOnlyExistingProjects}
+                onToggleShowOnlyExisting={setShowOnlyExistingProjects}
+                filterMinPrice={minPriceTHB}
+                filterMaxPrice={maxPriceTHB}
+              />
+            </Panel>
+          </section>
+
+          {/* SECTION 3: Price Reality Check Summary (Clearly emphasizes Reference Price vs Budget) */}
+          <PriceRealitySummary lang={lang} metrics={priceMetrics} />
+
+          {/* SECTION 4: Lock-Spec Statutory Overview (Read-Only Status Gauge) */}
+          <LockSpecOverview
+            lang={lang}
+            extractedCount={lockSpecMetrics.extractedCount}
+            lowCount={lockSpecMetrics.lowCount}
+            medCount={lockSpecMetrics.medCount}
+            highCount={lockSpecMetrics.highCount}
+            triggerCounts={lockSpecMetrics.triggerCounts}
+          />
+
+          {/* SECTION 5: Evidence Board Table (Audit Trail) */}
+          <WatchdogEvidenceTable
+            lang={lang}
+            tableProjects={filteredByTopBar}
+            onResetFilters={resetAllFilters}
+            dataSource={dataSource}
+            totalProjectsCount={filteredByTopBar.length}
+          />
+        </>
+      )}
     </div>
   );
 }

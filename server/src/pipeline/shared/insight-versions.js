@@ -15,7 +15,7 @@
  */
 
 import crypto from 'node:crypto';
-import { isFullExtraction } from '#features/reality-check/index.js';
+import { isFullExtraction } from '#features/similarity/index.js';
 import { Tor, TorInsight, TorInsightVersion } from '#models/index.js';
 import { fingerprintFor } from '../extraction/select.js';
 

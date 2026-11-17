@@ -36,7 +36,8 @@ The main folders only. Each has its own section below, with a row per file.
 │   │   ├── common/         config, database connection, errors, middleware
 │   │   ├── models/         every Mongoose schema, shape only
 │   │   ├── features/       one folder per API feature: routes → controller → service
-│   │   │                   admin, auth, health, match, profile, reality-check,
+│   │   │                   admin, auth, health, lock-spec, match,
+│   │   │                   notifications, price-reality-check, profile, similarity,
 │   │   │                   technologies, tors, watchlist
 │   │   └── pipeline/       the scheduled work, from e-GP to a summary
 │   │       ├── ingestion/  e-GP feed, document download, OCR, data.go.th import
@@ -128,9 +129,9 @@ nightly `process` job runs the same steps in priority order
 - **Old requirement IDs.** Code written before the SRS cites the proposal's
   numbering (`FR07` is match scoring, not extraction). Translate with the table
   at the end of [requirements.md](requirements.md).
-- **Fixture data is still live in two pages.**
-  [client/app/_data/tors.ts](../client/app/_data/tors.ts) supplies the TORs
-  shown on `/watchdog` and `/notifications`. Every other page uses it only for
+- **Fixture data has been removed from all pages.**
+  Every screen (`/search`, `/tor/[id]`, `/profile`, `/watchlist`, `/notifications`, `/watchdog`, `/admin`) runs on real API endpoints.
+  [client/app/_data/tors.ts](../client/app/_data/tors.ts) is retained only for
   types and helpers (`pick`, `formatTHB`, `Lang`).
 - **The admin dashboard shows authentic data.**
   [admin.service.js](../server/src/features/admin/admin.service.js) previously fell back
@@ -266,14 +267,27 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 | [profile.validation.js](../server/src/features/profile/profile.validation.js) | Limits for skills, budget, certifications, entity type, archetypes, match-email settings (FR-12). |
 | [index.js](../server/src/features/profile/index.js) | Exports routes. |
 
-**reality-check**: no route; called by the pipeline and scripts
+**similarity**: no route; called by price benchmarking, ingestion and scripts
 
 | File | What it is |
 | :--- | :--- |
-| [similarity.service.js](../server/src/features/reality-check/similarity.service.js) | Finds comparable past projects for a TOR, without an LLM ([0021](decisions/0021-find-comparable-projects.md)). |
-| [benchmark.service.js](../server/src/features/reality-check/benchmark.service.js) | Median, average and deviation against those projects, with sample-size bands ([0024](decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md)). |
-| [lock-spec.service.js](../server/src/features/reality-check/lock-spec.service.js) | Lock-spec findings and risk score ([0035](decisions/0035-lock-spec-risk-criteria-and-scoring.md)). Called from extraction's `assemble.js`. |
-| [index.js](../server/src/features/reality-check/index.js) | Exports the three, plus `FULL_EXTRACTION` / `isFullExtraction`. |
+| [similarity-scoring.js](../server/src/features/similarity/similarity-scoring.js) | Pure similarity math: Jaccard tech stack, archetype matching, complexity step distance, category order ([0021](decisions/0021-find-comparable-projects.md), [0034](decisions/0034-a-tor-can-have-several-categories.md)). |
+| [candidate-search.js](../server/src/features/similarity/candidate-search.js) | Finds and ranks comparable historical candidate tenders from MongoDB without circular price filtering ([0021](decisions/0021-find-comparable-projects.md), [0028](decisions/0028-past-projects-from-data-go-th.md)). |
+| [index.js](../server/src/features/similarity/index.js) | Exports similarity math, candidate filters, plus `FULL_EXTRACTION` / `isFullExtraction`. |
+
+**price-reality-check**: no route; called by the pipeline and scripts
+
+| File | What it is |
+| :--- | :--- |
+| [price-reality-check.service.js](../server/src/features/price-reality-check/price-reality-check.service.js) | Median, average and deviation against comparable projects, with sample-size bands ([0024](decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md)). |
+| [index.js](../server/src/features/price-reality-check/index.js) | Exports price benchmarking functions. |
+
+**lock-spec**: no route; called by extraction and scripts
+
+| File | What it is |
+| :--- | :--- |
+| [lock-spec.service.js](../server/src/features/lock-spec/lock-spec.service.js) | Lock-spec findings and risk score ([0035](decisions/0035-lock-spec-risk-criteria-and-scoring.md)). Called from extraction's `assemble.js`. |
+| [index.js](../server/src/features/lock-spec/index.js) | Exports lock-spec analysis and detectors. |
 
 **technologies**: `/api/technologies`
 
@@ -457,7 +471,7 @@ never appears in the URL.
 | `/auth` | `auth/page.tsx`, `_components/auth-form.tsx` | API | everyone |
 | `/search` | `(app)/search/` | API | everyone; match mode needs a profile |
 | `/tor/[id]` | `(app)/tor/[id]/`, `_components/tor-detail/` | API | everyone |
-| `/watchdog` | `(app)/watchdog/page.tsx` | **fixtures** | everyone |
+| `/watchdog` | `(app)/watchdog/` | API | everyone |
 | `/profile` | `(app)/(private)/profile/` | API | signed in |
 | `/watchlist` | `(app)/(private)/watchlist/page.tsx` | API | signed in |
 | `/notifications` | `(app)/(private)/notifications/page.tsx`, `notifications/[id]/page.tsx` | API | signed in |
@@ -504,7 +518,12 @@ never appears in the URL.
 
 | File | What it is |
 | :--- | :--- |
-| [watchdog/page.tsx](../client/app/(app)/watchdog/page.tsx) | Price deviation from the historical median, and amendment examples. Fixture data. |
+| [watchdog/page.tsx](../client/app/(app)/watchdog/page.tsx) | Price reality check & lock-spec trends dashboard. Queries live API TORs, aggregates historical price distributions and Circular ว 214 signals across modular subcomponents in `_components/` and `_lib/`. |
+| [watchdog/_components/WatchdogFilterBar.tsx](../client/app/(app)/watchdog/_components/WatchdogFilterBar.tsx) | Multi-dimensional filter bar: continuous budget slider (฿0–฿50M+), month/year timeline dropdowns, agency popover, and multi-select pill filters. |
+| [watchdog/_components/PriceTrendLineChart.tsx](../client/app/(app)/watchdog/_components/PriceTrendLineChart.tsx) | Interactive SVG line chart of reference price median and average trends over time with dynamic Y-axis scaling. |
+| [watchdog/_components/PriceRealitySummary.tsx](../client/app/(app)/watchdog/_components/PriceRealitySummary.tsx) | Standardized 5-card summary row (Sample Size, Median, Average, Price Deviation with <5 sample guard, and Price Span). |
+| [watchdog/_components/LockSpecOverview.tsx](../client/app/(app)/watchdog/_components/LockSpecOverview.tsx) | Circular ว 214 breakdown with sample-relative progress bars and statutory legal citations. |
+| [watchdog/_components/WatchdogEvidenceTable.tsx](../client/app/(app)/watchdog/_components/WatchdogEvidenceTable.tsx) | 4-column compact evidence table with dropdown sorting options and client-side pagination. |
 | [profile/page.tsx](../client/app/(app)/(private)/profile/page.tsx) | Shows the capability profile, or edits it with `?edit=true`. |
 | [profile/_components/ProfileDisplay.tsx](../client/app/(app)/(private)/profile/_components/ProfileDisplay.tsx) | Read-only profile. |
 | [profile/_components/ProfileEditForm.tsx](../client/app/(app)/(private)/profile/_components/ProfileEditForm.tsx) | ~1,100 lines. Skills from the vocabulary, budget, certifications, entity type, archetypes. |

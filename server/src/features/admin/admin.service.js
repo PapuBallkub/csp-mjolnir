@@ -16,7 +16,7 @@ import {
   TorInsight,
 } from '#models/index.js';
 import { MAX_CATEGORIES, PROJECT_CATEGORIES, cleanCategories } from '#models/project-categories.js';
-import { isFullExtraction } from '#features/reality-check/index.js';
+import { isFullExtraction } from '#features/similarity/index.js';
 import { keepVersion, listVersions, nextVersion, rollbackTor } from '#pipeline/shared/insight-versions.js';
 import { runAddStep, runDownloadStep, runFetchStep, runOcrStep } from '#pipeline/ingestion/ingest.js';
 import { EGP_BURST, EGP_PAUSE_MS } from '#pipeline/shared/request-pacer.js';

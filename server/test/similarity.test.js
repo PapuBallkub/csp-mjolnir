@@ -15,7 +15,7 @@ import {
   SYSTEM_ARCHETYPES,
   COMPLEXITY_TIERS,
   findComparableProjects,
-} from '#features/reality-check/index.js';
+} from '#features/similarity/index.js';
 
 test('getProjectPrice: picks referencePriceTHB first, then budgetTHB, handles missing', () => {
   assert.equal(getProjectPrice({ facts: { referencePriceTHB: 5000000, budgetTHB: 6000000 } }), 5000000);

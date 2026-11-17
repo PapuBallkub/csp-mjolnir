@@ -1,5 +1,5 @@
 /**
- * server/src/features/reality-check/lock-spec.service.js
+ * server/src/features/lock-spec/lock-spec.service.js
  *
  * Implements FR-21: Automated detection of lock-specification risk criteria,
  * qualification barriers, and non-accusatory evidence generation.
@@ -8,7 +8,7 @@
  * Conforms to ADR 0014, ADR 0021, ADR 0035, and docs/features/lock-spec-risk-detection.md.
  */
 
-import { getProjectPrice } from './similarity.service.js';
+import { getProjectPrice } from '#features/similarity/index.js';
 
 /**
  * Severity point weights (ADR 0035)

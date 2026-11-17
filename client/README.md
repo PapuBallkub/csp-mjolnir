@@ -42,8 +42,7 @@ session cookie: you look signed out right after signing in.
   sign-in. `app/auth/` and the introduction page (`app/page.tsx`) stand alone.
 - `app/_components/`: shared UI, verdict badges, the shell.
 - `app/_lib/api.ts`: every call to the API.
-- `app/_data/tors.ts`: fixtures, still read by `/watchdog` and
-  `/notifications`.
+- `app/_data/tors.ts`: types and formatting helpers (`pick`, `formatTHB`, `Profile`).
 
 Every file, one line each: [docs/project-map.md](../docs/project-map.md).
 Before changing anything in `app/`, read the design guide:

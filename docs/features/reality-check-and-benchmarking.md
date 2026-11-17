@@ -334,3 +334,61 @@ docker compose exec server npm run comparable -- --all --save
 docker compose run --rm server npm run comparable -- --id <projectId>
 docker compose run --rm server npm run comparable -- --all --save
 ```
+
+---
+
+## 8. Dedicated Watchdog Dashboard (`/watchdog` — ภาพรวมราคาและความเสี่ยง)
+
+The public Watchdog dashboard provides macro-level oversight across all extracted Thai IT procurement tenders, synthesizing price reality check statistics and Circular ว 214 lock-spec risk indicators.
+
+```mermaid
+flowchart TD
+    API["Live API /api/tors"] --> FEED["Watchdog Page Container<br/>client/app/(app)/watchdog/page.tsx"]
+    FEED --> S1["1. Filter Bar<br/>Continuous price slider (฿0–฿50M+), month/year pickers, agency popover & status/risk/archetype multi-selects"]
+    FEED --> S2["2. Price Trend Line Chart<br/>Reference price median & average timeline, dynamic Y-axis"]
+    FEED --> S3["3. Summary Cards<br/>Sample size, median, average, price deviation (<5 sample guard), price span"]
+    FEED --> S4["4. Lock-Spec Overview<br/>Circular ว 214 rule distribution with proportional bars"]
+    FEED --> S5["5. Evidence & Audit Trail Table<br/>4-column streamlined table with sorting & pagination"]
+```
+
+### 8.1 Five-Section Structure
+
+1. **Section 1: Multi-Dimensional Filter Bar (`WatchdogFilterBar.tsx`)**
+   - **Continuous Budget Range Slider:** Dual-handle continuous slider ranging from ฿0 to ฿50M+ (`step = 1,000,000`) with dynamic position clamping and live range indicators.
+   - **Date Range Dropdowns:** Start and end month/Buddhist Era year dropdowns (`Start Month/Year` – `End Month/Year`) covering the continuous fiscal timeline with range-validation safeguards.
+   - **Multi-Select Filters:** Popover multi-select dropdown for Agency (with selection counter and select-all/clear), combined with multi-select button groups for Status, Risk Severity Level (`high`, `medium`, `low`), Complexity Tier, Category, and System Archetype.
+   - **Active Filter Badges & Reset:** Compact pill tags for active filters with one-click dismiss and full reset capability.
+
+2. **Section 2: Timeline Price Trend Chart (`PriceTrendLineChart.tsx`)**
+   - Renders reference price median and average trajectory across monthly or quarterly time intervals.
+   - Employs dynamic Y-axis scaling based strictly on filtered reference prices rather than unconstrained peer records.
+   - Plots interactive scatter points with tooltips linking directly to individual TOR detail pages.
+
+3. **Section 3: Summary Metric Cards (`PriceRealitySummary.tsx`)**
+   - 5 standardized cards adhering to a uniform visual template (`[Topic Expansion] -> [What it helps achieve]`):
+     - **Sample Size (จำนวนโครงการที่ตรวจวิเคราะห์):** Total analyzed tender sample size.
+     - **Historical Median (ค่ามัธยฐานราคากลาง):** Middle reference price benchmark immune to extreme outliers.
+     - **Historical Average (ค่าเฉลี่ยราคากลาง):** Mathematical mean reference price indicating high-value skew, with dynamic $\pm\%$ delta comparison against median (suppressed when $N < 5$).
+     - **Price Deviation (อัตราราคาเบี่ยงเบน):** Share of tenders deviating beyond $\pm 15\%$ from median. Guarded by sample size: displays an informative `ข้อมูลไม่เพียงพอ (<5 โครงการ)` badge when $N < 5$.
+     - **Price Span (ช่วงราคากลางที่พบ):** Minimum to maximum reference price range found in the filtered slice, formatted compactly (or single value when min == max). Lock-spec frequency and ว 214 rule distribution are showcased in Section 4.
+
+4. **Section 4: Circular ว 214 Rule Breakdown (`LockSpecOverview.tsx`)**
+   - Detailed distribution across the 3 core criteria from Comptroller General Circular ว 214:
+     - **ว 214 ข้อ 3:** Specific brand/version named without equivalence ("หรือเทียบเท่า").
+     - **ว 214 ข้อ 2:** Prior contract experience requirement exceeding 50% of reference price.
+     - **ว 214 ข้อ 1.3:** Manufacturer Authorization Form (MAF) required in software development services.
+   - Proportional sample-relative progress bars (`count / analyzedSliceCount`) with consistent bar widths.
+   - Complete statutory citations (`พ.ร.บ. จัดซื้อจัดจ้างฯ ม.8, 9 · ว 214 ข้อ ...`).
+
+5. **Section 5: Evidence & Audit Trail Table (`WatchdogEvidenceTable.tsx`)**
+   - Shows all matching tenders in the active slice with full pagination (10, 20, 50 rows per page).
+   - Single-choice sort dropdown with 7 options:
+     - `ความเสี่ยงล็อกสเปกสูงสุด` / `ความเสี่ยงล็อกสเปกต่ำสุด`
+     - `ส่วนต่างราคาเบี่ยงเบนมากที่สุด` / `ส่วนต่างราคาใกล้เคียงปกติที่สุด`
+     - `ราคากลางสูงสุด` / `ราคากลางต่ำสุด`
+     - `ประกาศล่าสุด`
+   - Streamlined 4-column layout fitting standard viewports without horizontal scrolling:
+     - **Col 1:** โครงการ / หน่วยงาน (with inline Archetype tag and status badge).
+     - **Col 2:** ราคากลาง (reference price and winning contract amount).
+     - **Col 3:** ส่วนต่างราคากลาง (deviation badge with peer median placed directly underneath).
+     - **Col 4:** ผลตรวจล็อกสเปก (ว 214 risk badge and triggered category chips).

@@ -1353,16 +1353,7 @@ export function formatTHB(amount: number): string {
   return `฿${amount.toLocaleString("en-US")}`;
 }
 
-/** Compact form for dense rows: ฿12.4M, ฿890K. */
-export function formatTHBCompact(amount: number): string {
-  if (amount >= 1_000_000) {
-    const millions = amount / 1_000_000;
-    return `฿${millions % 1 === 0 ? millions : millions.toFixed(1)}M`;
-  }
-  return `฿${Math.round(amount / 1000)}K`;
-}
-
-export { getFiscalYear } from "../_lib/format";
+export { formatTHBCompact, getFiscalYear } from "../_lib/format";
 
 function toUTC(iso: string): number {
   const d = new Date(iso);

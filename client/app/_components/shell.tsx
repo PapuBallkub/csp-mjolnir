@@ -32,7 +32,7 @@ export function Wordmark({ className = "" }: { className?: string }) {
 const NAV = [
   { href: "/search", label: "ค้นหาประกาศ" },
   { href: "/watchlist", label: "รายการติดตาม" },
-  { href: "/watchdog", label: "ตรวจสอบราคา/การแก้ไข" },
+  { href: "/watchdog", label: "ภาพรวมราคาและความเสี่ยง" },
 ] as const;
 
 // In-memory dismissal state for current page session (resets on full browser reload)

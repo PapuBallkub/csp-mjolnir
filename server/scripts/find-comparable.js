@@ -22,9 +22,9 @@ import {
   FULL_EXTRACTION,
   findComparableProjects,
   getProjectPrice,
-  calculatePriceBenchmarks,
-  analyzeLockSpec,
-} from '#features/reality-check/index.js';
+} from '#features/similarity/index.js';
+import { calculatePriceBenchmarks } from '#features/price-reality-check/index.js';
+import { analyzeLockSpec } from '#features/lock-spec/index.js';
 
 function parseArgs(args) {
   const options = {

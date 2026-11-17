@@ -10,7 +10,7 @@
  */
 
 import { TorInsight } from '#models/index.js';
-import { isFullExtraction } from '#features/reality-check/index.js';
+import { isFullExtraction } from '#features/similarity/index.js';
 import { completeChange } from '../shared/amendments.js';
 import { keepVersion, nextVersion, reasonFor } from '../shared/insight-versions.js';
 import { buildAwaitingFullText, buildExcluded, buildInsight } from './assemble.js';

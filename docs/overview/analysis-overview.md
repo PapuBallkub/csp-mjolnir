@@ -8,11 +8,10 @@ feature docs it links to.
 
 | Verdict | Requirement | Code | Stored in |
 | :--- | :--- | :--- | :--- |
-| Price check | FR-19 | `similarity.service.js`, `benchmark.service.js` | `TorInsight.analytics.priceAnalysis` |
-| Lock-spec | FR-20 (partly), FR-21 | `lock-spec.service.js` | `TorInsight.analytics.lockSpec` |
+| Price check | FR-19, FR-20 | `features/similarity/`, `features/price-reality-check/` | `TorInsight.analytics.priceAnalysis` |
+| Lock-spec | FR-20 (partly), FR-21 | `features/lock-spec/` | `TorInsight.analytics.lockSpec` |
 
-All three files are in `server/src/features/reality-check/`, a feature with no
-routes ([server-features.md](server-features.md#the-features)).
+The analysis features live across three focused feature folders with no routes ([server-features.md](server-features.md#the-features)): `similarity`, `price-reality-check`, and `lock-spec`.
 
 Three rules hold for both:
 

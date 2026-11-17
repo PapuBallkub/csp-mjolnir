@@ -22,7 +22,7 @@
  * others, so a pick would give up at once and waste a night's place.
  */
 
-import { FULL_EXTRACTION, calculateCompositeSimilarity, getProjectPrice, sharesCategory } from '#features/reality-check/index.js';
+import { FULL_EXTRACTION, calculateCompositeSimilarity, getProjectPrice, sharesCategory } from '#features/similarity/index.js';
 import { TitleScreen, Tor, TorInsight } from '#models/index.js';
 import { cleanCategories } from '#models/project-categories.js';
 import { feedAmount, feedDate } from '../../extraction/convert.js';
