@@ -1,6 +1,6 @@
 # 0032 · Record what changed in a TOR
 
-Status: proposed · 2026-10-25 · amends [0020](0020-read-the-whole-egp-package.md) and [0030](0030-run-the-night-in-priority-waves.md)
+Status: accepted · 2026-10-25 · amends [0020](0020-read-the-whole-egp-package.md) and [0030](0030-run-the-night-in-priority-waves.md)
 
 ## Context
 

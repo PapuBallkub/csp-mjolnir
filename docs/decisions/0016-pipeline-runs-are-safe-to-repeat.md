@@ -1,6 +1,6 @@
 # 0016 · Pipeline runs are safe to repeat
 
-Status: proposed · 2026-10-07
+Status: accepted · 2026-10-07
 
 ## Context
 

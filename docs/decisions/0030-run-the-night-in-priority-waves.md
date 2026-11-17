@@ -1,6 +1,6 @@
 # 0030 · Run the night in priority waves
 
-Status: proposed · 2026-10-21 · amends [0027](0027-run-the-pipeline-on-a-schedule.md) and [0028](0028-past-projects-from-data-go-th.md)
+Status: accepted · 2026-10-21 · amends [0027](0027-run-the-pipeline-on-a-schedule.md) and [0028](0028-past-projects-from-data-go-th.md) · amended by [0032](0032-record-what-changed-in-a-tor.md): the recheck acts on what it finds
 
 ## Context
 
