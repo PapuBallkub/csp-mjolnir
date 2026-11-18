@@ -282,6 +282,7 @@ test('profile: new user has default empty profile', async () => {
       frequency: 'daily',
       includeSubcontract: true,
     },
+    deadlineNoticeDays: 3,
   });
 });
 

@@ -23,7 +23,6 @@ import { isProfileBaseline } from "../../../_lib/match";
 import * as api from "../../../_lib/api";
 import type {
   NotificationFeedItem,
-  NotificationType,
   MatchedTorSummary,
 } from "../../../_lib/api";
 import type { Status } from "../../../_data/tors";
@@ -228,7 +227,11 @@ export default function NotificationsPage() {
                 <select
                   id="notification-type-filter"
                   value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value as "all" | NotificationType)}
+                  onChange={(e) =>
+                    setTypeFilter(
+                      e.target.value as "all" | "match" | "status_change" | "amendment" | "deadline"
+                    )
+                  }
                   className="h-8 rounded-md border border-line bg-surface pl-2.5 pr-8 text-[12px] font-medium text-ink transition-colors hover:border-line-2 focus:border-ink focus:outline-none cursor-pointer appearance-none shadow-xs"
                 >
                   <option value="all">
@@ -491,7 +494,13 @@ export default function NotificationsPage() {
                             };
 
                             const uniqueTargetStatuses = Array.from(
-                              new Set(items.map((it) => statusLabels[it.newStatus] || it.newStatus).filter(Boolean))
+                              new Set(
+                                items
+                                  .map((it) =>
+                                    it.newStatus ? statusLabels[it.newStatus] || it.newStatus : ""
+                                  )
+                                  .filter(Boolean)
+                              )
                             );
                             const agencies = Array.from(
                               new Set(items.map((it) => it.agency).filter(Boolean))
