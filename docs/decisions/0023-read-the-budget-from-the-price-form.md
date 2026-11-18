@@ -1,6 +1,6 @@
 # 0023 · Read the budget from the price form
 
-Status: proposed · 2026-10-11
+Status: accepted · 2026-10-11
 
 ## Context
 

@@ -1,6 +1,6 @@
 # 0026 · Screen titles before downloading
 
-Status: proposed · 2026-10-13 · amends [0018](0018-preview-ocr-before-classify.md)
+Status: accepted · 2026-10-13 · amends [0018](0018-preview-ocr-before-classify.md)
 
 ## Context
 
