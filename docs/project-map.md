@@ -24,7 +24,7 @@ The main folders only. Each has its own section below, with a row per file.
 
 ```text
 .
-├── AGENTS.md               frontend design guide; AI agents read it first
+├── AGENTS.md               agent rules + frontend design guide; AI agents read it first
 ├── CONTRIBUTING.md         where to start, branches, commits, when docs change
 ├── docker-compose*.yml     the stack; the override adds a local MongoDB
 ├── .github/                CI workflow and the PR template
@@ -144,15 +144,16 @@ nightly `process` job runs the same steps in priority order
   modules in `DecisionSupportTab.tsx`, so
   [price-scale.tsx](../client/app/_components/price-scale.tsx) is unused too.
   `client/public/*.svg` are create-next-app leftovers.
-- **Two files named AGENTS.md.** The [root one](../AGENTS.md) is the frontend
-  design guide. [client/AGENTS.md](../client/AGENTS.md) is a note that
-  `next dev` writes for coding agents.
+- **Two files named AGENTS.md.** The [root one](../AGENTS.md) holds the rules
+  for every agent change and the frontend design guide.
+  [client/AGENTS.md](../client/AGENTS.md) is a note that `next dev` writes for
+  coding agents.
 
 ## Repository root
 
 | File | What it is |
 | :--- | :--- |
-| [AGENTS.md](../AGENTS.md) | Frontend design guide: audiences, screens, data fields, visual and copy rules. Read before touching `client/app/`. |
+| [AGENTS.md](../AGENTS.md) | Rules for every agent change (databases, scripts, packages, secrets, access), then the frontend design guide: audiences, screens, data fields, visual and copy rules. Read the guide before touching `client/app/`. |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Setup, branches, commit style, how to record a decision. |
 | [docker-compose.yml](../docker-compose.yml) | Production stack: server and client containers. |
 | [docker-compose.override.yml](../docker-compose.override.yml) | Adds local MongoDB for development; Compose loads it automatically. |
