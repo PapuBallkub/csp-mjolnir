@@ -14,6 +14,7 @@ import {
   escapeAndDefang,
   renderMatchDigestEmail,
 } from '#features/notifications/templates/match-digest.template.js';
+import { renderWatchlistDigestEmail } from '#features/notifications/templates/watchlist-digest.template.js';
 
 test('notifications: creates and verifies HMAC unsubscribe token', () => {
   const userId = '654321098765432109876543';
@@ -187,4 +188,69 @@ test('notifications: extractNotifiedProjectIds correctly extracts project IDs fr
   assert.ok(projectIds.has('69079055432'));
   assert.ok(projectIds.has('69088899999'));
   assert.ok(!projectIds.has('unknown-id'));
+});
+
+test('notifications: renders watchlist digest email with amendment, status change, and deadline cards', () => {
+  const alerts = [
+    {
+      type: 'amendment',
+      projectId: '69011122233',
+      projectTitle: 'ระบบสารสนเทศทะเบียนราษฎร์ www.dopa.go.th',
+      agency: 'กรมการปกครอง',
+      budget: 8_500_000,
+      amendedVersion: 2,
+      changedFieldsTh: ['คุณสมบัติผู้ยื่นข้อเสนอ', 'ขอบเขตงาน'],
+    },
+    {
+      type: 'status_change',
+      projectId: '69044455566',
+      projectTitle: 'ระบบคลาวด์ภาครัฐ',
+      agency: 'สำนักงานพัฒนารัฐบาลดิจิทัล',
+      budget: 15_000_000,
+      previousStatusTh: 'เปิดรับข้อเสนอ',
+      newStatusTh: 'ประกาศผู้ชนะ',
+    },
+    {
+      type: 'deadline',
+      projectId: '69077788899',
+      projectTitle: 'ระบบบริการประชาชนอัจฉริยะ',
+      agency: 'กรุงเทพมหานคร',
+      budget: 4_200_000,
+      daysRemaining: 3,
+      deadlineDate: new Date('2026-11-22T00:00:00.000Z'),
+    },
+  ];
+
+  const { subject, html, text } = renderWatchlistDigestEmail({
+    recipientName: 'วิชัย',
+    alerts,
+    unsubscribeUrl: 'https://gipdp.go.th/unsubscribe?token=watchlist999',
+    appUrl: 'https://gipdp.go.th',
+  });
+
+  // Verify subject and recipient
+  assert.match(subject, /สรุปอัปเดต 3 โครงการ/);
+  assert.ok(html.includes('วิชัย'));
+  assert.ok(text.includes('วิชัย'));
+
+  // Verify amendment card
+  assert.ok(html.includes('แก้ไขเอกสาร TOR (เวอร์ชัน 2)'));
+  assert.ok(html.includes('คุณสมบัติผู้ยื่นข้อเสนอ'));
+  assert.ok(html.includes('ขอบเขตงาน'));
+  // Verify anti-autolinking defanged domain
+  assert.ok(html.includes('dopa&#8203;.&#8203;go&#8203;.&#8203;th'));
+  assert.ok(!html.includes('www.dopa.go.th'));
+
+  // Verify status change card
+  assert.ok(html.includes('สถานะโครงการเปลี่ยนแปลง'));
+  assert.ok(html.includes('เปิดรับข้อเสนอ'));
+  assert.ok(html.includes('ประกาศผู้ชนะ'));
+
+  // Verify deadline card
+  assert.ok(html.includes('ใกล้สิ้นสุดกำหนดยื่นข้อเสนอ (เหลืออีก 3 วัน)'));
+  assert.ok(html.includes('฿4,200,000'));
+
+  // Verify unsubscribe link
+  assert.ok(html.includes('https://gipdp.go.th/unsubscribe?token=watchlist999'));
+  assert.ok(text.includes('https://gipdp.go.th/unsubscribe?token=watchlist999'));
 });

@@ -131,6 +131,16 @@ export function parseProfileUpdate(body) {
     }
   }
 
+  // --- deadlineNoticeDays (FR-18 Watchlist Deadline Warning) ---
+  if (body.deadlineNoticeDays !== undefined) {
+    const days = Number(body.deadlineNoticeDays);
+    if (!Number.isFinite(days) || days < 1 || days > 30 || !Number.isInteger(days)) {
+      errors.deadlineNoticeDays = 'จำนวนวันแจ้งเตือนล่วงหน้าต้องเป็นจำนวนเต็มระหว่าง 1 ถึง 30 วัน';
+    } else {
+      update.deadlineNoticeDays = days;
+    }
+  }
+
   // --- notificationConsent (PDPA Master Switch) ---
   if (body.notificationConsent !== undefined) {
     if (typeof body.notificationConsent !== 'boolean') {

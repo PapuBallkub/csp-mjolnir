@@ -94,7 +94,7 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
               </span>
             </div>
             <div className="mt-2 h-5 flex items-center">
-              {metrics.torCount > 0 && metrics.overallMedian > 0 && metrics.overallAverage > 0 ? (
+              {metrics.torCount >= 5 && metrics.overallMedian > 0 && metrics.overallAverage > 0 ? (
                 <div className="flex items-center gap-1 font-mono text-[11.5px] leading-none">
                   {isAvgHigher ? (
                     <TrendingUp className="h-3.5 w-3.5 text-amend" />
@@ -133,26 +133,53 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
                 {lang === "th" ? "อัตราราคาเบี่ยงเบน (Price Deviation)" : "Market Price Deviation"}
               </Label>
             </div>
-            <div className="mt-1.5 h-8 flex items-baseline">
-              <span
-                className={`font-mono tnum text-[24px] font-semibold leading-none ${metrics.outlierRatePct > 20 ? "text-risk" : "text-ink"
-                  }`}
-              >
-                {metrics.outlierRatePct}%
-              </span>
-            </div>
-            <div className="mt-2 h-5 flex items-center">
-              <span className="text-[11.5px] leading-none text-ink-2 font-medium">
-                {lang === "th"
-                  ? `ราคาสูงเกินกรอบ ${metrics.highOutlierCount} · ต่ำผิดปกติ ${metrics.lowOutlierCount}`
-                  : `High outliers ${metrics.highOutlierCount} · Low outliers ${metrics.lowOutlierCount}`}
-              </span>
-            </div>
+            {metrics.torCount >= 5 ? (
+              <>
+                <div className="mt-1.5 h-8 flex items-baseline">
+                  <span
+                    className={`font-mono tnum text-[24px] font-semibold leading-none ${
+                      metrics.outlierRatePct > 20 ? "text-risk" : "text-ink"
+                    }`}
+                  >
+                    {metrics.outlierRatePct}%
+                  </span>
+                </div>
+                <div className="mt-2 h-5 flex items-center">
+                  <span className="text-[11.5px] leading-none text-ink-2 font-medium">
+                    {lang === "th"
+                      ? `ราคาสูงเกินกรอบ ${metrics.highOutlierCount} · ต่ำผิดปกติ ${metrics.lowOutlierCount}`
+                      : `High outliers ${metrics.highOutlierCount} · Low outliers ${metrics.lowOutlierCount}`}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mt-1.5 h-8 flex items-baseline">
+                  <span className="font-mono tnum text-[24px] font-semibold leading-none text-ink-3">
+                    —
+                  </span>
+                </div>
+                <div className="mt-2 h-5 flex items-center">
+                  <span className="inline-flex items-center gap-1 rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-3">
+                    <span>ℹ</span>
+                    <span>
+                      {lang === "th"
+                        ? "ข้อมูลไม่เพียงพอ (<5 โครงการ)"
+                        : "Insufficient data (<5 projects)"}
+                    </span>
+                  </span>
+                </div>
+              </>
+            )}
             <div className="mt-3.5 pt-3 border-t border-line/60 flex-1">
               <p className="text-[11.5px] leading-thai text-ink-3">
                 {lang === "th"
-                  ? "สัดส่วนโครงการที่ราคากลางเบี่ยงเบนเกิน ±15% จากมัธยฐาน ช่วยตรวจจับโครงการที่ตั้งราคาสูงหรือต่ำผิดปกติ เพื่อเฝ้าระวังความเสี่ยงด้านงบประมาณ"
-                  : "Share of projects with reference prices deviating beyond ±15% of median, helping detect abnormal price points to monitor budgetary risk."}
+                  ? metrics.torCount >= 5
+                    ? "สัดส่วนโครงการที่ราคากลางเบี่ยงเบนเกิน ±15% จากมัธยฐาน ช่วยตรวจจับโครงการที่ตั้งราคาสูงหรือต่ำผิดปกติ เพื่อเฝ้าระวังความเสี่ยงด้านงบประมาณ"
+                    : "ต้องมีขนาดกลุ่มตัวอย่างอย่างน้อย 5 โครงการเพื่อคำนวณสัดส่วนความเบี่ยงเบนทางสถิติที่น่าเชื่อถือ"
+                  : metrics.torCount >= 5
+                    ? "Share of projects with reference prices deviating beyond ±15% of median, helping detect abnormal price points to monitor budgetary risk."
+                    : "Requires at least 5 projects in the active sample to calculate reliable statistical price deviation."}
               </p>
             </div>
           </Panel>
@@ -167,15 +194,21 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
             <div className="mt-1.5 h-8 flex items-baseline">
               <span className="font-mono tnum text-[24px] font-semibold leading-none text-ink">
                 {metrics.torCount > 0
-                  ? `${formatTHBCompact(metrics.minPrice)} – ${formatTHBCompact(metrics.maxPrice)}`
+                  ? metrics.minPrice === metrics.maxPrice
+                    ? formatTHBCompact(metrics.minPrice)
+                    : `${formatTHBCompact(metrics.minPrice)} – ${formatTHBCompact(metrics.maxPrice)}`
                   : "—"}
               </span>
             </div>
             <div className="mt-2 h-5 flex items-center">
               <span className="text-[11.5px] leading-none text-ink-2 font-medium">
                 {lang === "th"
-                  ? "ราคากลางต่ำสุด – สูงสุดในกลุ่มตัวกรองนี้"
-                  : "Minimum and maximum reference prices"}
+                  ? metrics.minPrice === metrics.maxPrice && metrics.torCount > 0
+                    ? "ราคากลางโครงการในกลุ่มตัวกรองนี้"
+                    : "ราคากลางต่ำสุด – สูงสุดในกลุ่มตัวกรองนี้"
+                  : metrics.minPrice === metrics.maxPrice && metrics.torCount > 0
+                    ? "Reference price in this group"
+                    : "Minimum and maximum reference prices"}
               </span>
             </div>
             <div className="mt-3.5 pt-3 border-t border-line/60 flex-1">

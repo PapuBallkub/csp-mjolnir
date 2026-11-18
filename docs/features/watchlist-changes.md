@@ -242,17 +242,13 @@ later than `savedAt`.
 
 ---
 
-## 8. Notices (FR-18), later
+## 8. Notices (FR-18) — Completed
 
-The same rule drives notices: one per change entry, for each reader who saved
-the TOR before the entry's `detectedAt`. In-app first. Email needs explicit
-consent: off by default and easy to withdraw (PDPA).
-
-FR-18 also covers **status** changes (Open → Awarded, Cancelled). Those are
-not in `amendments`. A status comes from the feed's codes, and each code's
-arrival is stored in `Tor.announcementHistory[]` (`code`, `receivedAt`), which
-gives the same "after `savedAt`" comparison. Closed is the platform's
-inference from the deadline, with no event behind it.
+Notices are generated and staged automatically via the unified Notification Engine (documented in full in [`notifications-and-alerts.md`](notifications-and-alerts.md)):
+- **Amendments**: Staged whenever a new package/version is detected after `savedAt`.
+- **Status Transitions**: Staged when an announcement moves a project through lifecycle stages (e.g. Open $\rightarrow$ Awarded, Cancelled).
+- **Approaching Deadlines**: Staged upon initial discovery/profile update when days remaining $\le \text{deadlineNoticeDays}$, followed by milestone reminders at 7, 3, and 1 days remaining.
+- **Delivery Channels**: Consolidates alerts into in-app feed (`/notifications`) and scheduled daily/weekly email digests via [`watchlist-digest.template.js`](../../server/src/features/notifications/templates/watchlist-digest.template.js). All email delivery requires explicit PDPA consent (`notificationConsent: true`).
 
 ---
 

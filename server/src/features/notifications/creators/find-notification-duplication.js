@@ -22,6 +22,15 @@ export function extractNotifiedProjectIds(pastNotifications = []) {
       }
     }
 
+    // 2. For rolled-up notifications: snapshot.items has [{ projectId }, ...]
+    if (Array.isArray(notif.snapshot?.items)) {
+      for (const item of notif.snapshot.items) {
+        if (item.projectId) {
+          projectIds.add(String(item.projectId));
+        }
+      }
+    }
+
     // 2. For future functionality like amendment, deadline notifications: snapshot.projectId
     if (notif.snapshot?.projectId) {
       projectIds.add(String(notif.snapshot.projectId));

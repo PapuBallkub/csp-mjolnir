@@ -77,6 +77,7 @@ export default function ProfilePage() {
       frequency: "daily",
       includeSubcontract: true,
     },
+    deadlineNoticeDays: 3,
   };
 
   return (

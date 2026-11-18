@@ -1,0 +1,140 @@
+"use client";
+
+import Link from "next/link";
+import { ArrowRight, ExternalLink } from "lucide-react";
+import { StatusBadge } from "../../../../_components/verdict";
+import { Panel } from "../../../../_components/ui";
+import { formatTHB } from "../../../../_data/tors";
+import type { StatusSnapshot } from "../../../../_lib/api";
+import type { Status } from "../../../../_data/tors";
+
+function formatThaiDate(dateStr?: string | Date | null, lang: "th" | "en" = "th") {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+type SingleStatusItem = {
+  projectId: string;
+  projectTitle: string;
+  agency?: string;
+  budget?: number | null;
+  previousStatus: string;
+  newStatus: string;
+  changedAt?: string | Date;
+};
+
+export function StatusChangeView({
+  snapshot,
+  lang,
+}: {
+  snapshot: StatusSnapshot & { items?: SingleStatusItem[] };
+  lang: "th" | "en";
+}) {
+  const items: SingleStatusItem[] =
+    Array.isArray(snapshot.items) && snapshot.items.length > 0
+      ? snapshot.items
+      : [
+          {
+            projectId: snapshot.projectId,
+            projectTitle: snapshot.projectTitle,
+            agency: snapshot.agency,
+            budget: snapshot.budget,
+            previousStatus: snapshot.previousStatus,
+            newStatus: snapshot.newStatus,
+            changedAt: snapshot.changedAt,
+          },
+        ];
+
+  if (items.length === 0 || !items[0].projectTitle) {
+    return (
+      <Panel className="p-6 text-center text-ink-3">
+        {lang === "th" ? "ไม่มีรายการโครงการในภาพถ่ายนี้" : "No project items in this snapshot."}
+      </Panel>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {items.map((item, idx) => {
+        const prev = (item.previousStatus as Status) || "Open";
+        const next = (item.newStatus as Status) || "Open";
+
+        return (
+          <Panel key={item.projectId || idx} className="p-5 shadow-xs">
+            {/* Meta row: projectId • agency on left, budget on right */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+              <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-3">
+                {item.projectId ? (
+                  <span className="font-mono font-medium text-ink">{item.projectId}</span>
+                ) : null}
+                {item.agency ? (
+                  <>
+                    <span>•</span>
+                    <span>{item.agency}</span>
+                  </>
+                ) : null}
+              </div>
+              {item.budget != null ? (
+                <span className="font-mono text-[13px] font-medium text-ink">
+                  {formatTHB(item.budget)}
+                </span>
+              ) : null}
+            </div>
+
+            {/* Project Title */}
+            <h3 className="mt-3 text-[15px] font-semibold text-ink leading-snug">
+              {item.projectTitle}
+            </h3>
+
+            {/* Status Transition Callout Box */}
+            <div className="mt-4 rounded-md border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900/60 dark:bg-blue-950/20">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-col items-start gap-1">
+                  <span className="text-[11px] text-ink-3">
+                    {lang === "th" ? "สถานะเดิมเมื่อบันทึก" : "Previous status"}
+                  </span>
+                  <StatusBadge status={prev} lang={lang} size="large" />
+                </div>
+                <ArrowRight className="h-5 w-5 text-ink-3" />
+                <div className="flex flex-col items-start gap-1">
+                  <span className="text-[11px] text-ink-3">
+                    {lang === "th" ? "สถานะปัจจุบัน" : "New status"}
+                  </span>
+                  <StatusBadge status={next} lang={lang} size="large" />
+                </div>
+              </div>
+              {item.changedAt ? (
+                <p className="mt-3 text-[11.5px] text-ink-3">
+                  {lang === "th"
+                    ? `ตรวจพบการเปลี่ยนสถานะเมื่อ: ${formatThaiDate(item.changedAt, lang)}`
+                    : `Status updated at: ${formatThaiDate(item.changedAt, lang)}`}
+                </p>
+              ) : null}
+            </div>
+
+            {/* Card Footer: View TOR Link */}
+            {item.projectId ? (
+              <div className="mt-4 flex justify-end">
+                <Link
+                  href={`/tor/${item.projectId}`}
+                  className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-ink-2 hover:text-ink hover:underline cursor-pointer"
+                >
+                  <span>{lang === "th" ? "เปิดดูรายละเอียดโครงการ TOR" : "View TOR Details"}</span>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            ) : null}
+          </Panel>
+        );
+      })}
+    </div>
+  );
+}

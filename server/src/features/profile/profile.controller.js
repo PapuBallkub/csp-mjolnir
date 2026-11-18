@@ -1,5 +1,8 @@
 import { toPublicUser } from '#features/auth/index.js';
-import { generateMatchNotificationsForUser } from '#features/notifications/index.js';
+import {
+  generateMatchNotificationsForUser,
+  generateWatchlistNotificationsForUser,
+} from '#features/notifications/index.js';
 
 import { parseProfileUpdate } from './profile.validation.js';
 import { updateProfile } from './profile.service.js';
@@ -19,6 +22,14 @@ export async function update(req, res) {
   if (user.notificationConsent && user.profile?.matchNotification?.enabled) {
     generateMatchNotificationsForUser(user).catch((err) => {
       console.warn('[profile.controller] generateMatchNotificationsForUser error:', err.message);
+    });
+  }
+
+  // If user has watched items, proactively stage in-app watchlist notifications
+  // (e.g. when updating deadline notice threshold or watchlist preferences)
+  if (Array.isArray(user.watchlist) && user.watchlist.length > 0) {
+    generateWatchlistNotificationsForUser(user).catch((err) => {
+      console.warn('[profile.controller] generateWatchlistNotificationsForUser error:', err.message);
     });
   }
 

@@ -55,9 +55,9 @@ export type WatchdogProjectRecord = {
   /** ราคากลาง (THB) */
   referencePriceTHB: number;
   /** ค่ามัธยฐานของกลุ่มเปรียบเทียบ (THB) */
-  peerMedianTHB: number;
+  peerMedianTHB?: number;
   /** ค่าเฉลี่ยของกลุ่มเปรียบเทียบ (THB) */
-  peerAverageTHB: number;
+  peerAverageTHB?: number;
   /** ราคาตามสัญญาที่ชนะ (THB) — มีเฉพาะโครงการที่ประกาศผู้ชนะแล้ว */
   agreedPriceTHB?: number;
   /** คะแนนความเสี่ยงล็อกสเปก 0–100 (ADR 0030) */
@@ -254,8 +254,8 @@ export const TIMELINE_MONTHS: {
   { key: "2026-09", labelTh: "ก.ย. 69", labelEn: "Sep 26", quarter: "Q4/69" },
 ];
 
-export function calcPriceDeltaPct(project: WatchdogProjectRecord): number {
-  if (!project.peerMedianTHB) return 0;
+export function calcPriceDeltaPct(project: WatchdogProjectRecord): number | null {
+  if (!project.peerMedianTHB || project.peerMedianTHB <= 0) return null;
   return Number(
     (
       ((project.referencePriceTHB - project.peerMedianTHB) / project.peerMedianTHB) *

@@ -6,17 +6,22 @@ import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
-  ArrowRight,
+  ArrowRightLeft,
   BowArrow,
+  Clock,
+  FileEdit,
   Mail,
 } from "lucide-react";
 import { useLang } from "../../../../_components/prefs";
 import { btn, Panel } from "../../../../_components/ui";
-import { formatTHB } from "../../../../_data/tors";
 import * as api from "../../../../_lib/api";
-import type { NotificationFeedItem, MatchedTorSummary } from "../../../../_lib/api";
+import type { NotificationFeedItem } from "../../../../_lib/api";
+import { AmendmentView } from "../_components/amendment-view";
+import { StatusChangeView } from "../_components/status-change-view";
+import { DeadlineView } from "../_components/deadline-view";
+import { MatchView } from "../_components/match-view";
 
-function formatThaiDate(dateStr?: string | null, lang: "th" | "en" = "th") {
+function formatThaiDate(dateStr?: string | Date | null, lang: "th" | "en" = "th") {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "-";
@@ -29,13 +34,69 @@ function formatThaiDate(dateStr?: string | null, lang: "th" | "en" = "th") {
   });
 }
 
-function calculateDaysRemaining(deadlineStr?: string | null) {
-  if (!deadlineStr) return null;
-  const deadline = new Date(deadlineStr);
-  if (isNaN(deadline.getTime())) return null;
-  const now = new Date();
-  const diffDays = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return diffDays;
+function getItemCount(notification: NotificationFeedItem): number {
+  const snapshot = (notification.snapshot || {}) as any;
+  if (notification.type === "match") {
+    return Array.isArray(snapshot.matchedItems) ? snapshot.matchedItems.length : 1;
+  }
+  if (Array.isArray(snapshot.items) && snapshot.items.length > 0) {
+    return snapshot.items.length;
+  }
+  return 1;
+}
+
+function getHeaderContent(type: string, count: number, lang: "th" | "en") {
+  switch (type) {
+    case "status_change":
+      return {
+        badgeText: lang === "th" ? "เปลี่ยนสถานะ" : "Status Changed",
+        title:
+          lang === "th"
+            ? `สรุป ${count} โครงการที่มีการเปลี่ยนสถานะ`
+            : `Summary: ${count} projects with status changes`,
+        subtitle:
+          lang === "th"
+            ? "ระบบรวบรวมรายการโครงการที่คุณติดตามที่มีการเปลี่ยนแปลงสถานะล่าสุด"
+            : `Latest status changes recorded for your watched projects.`,
+      };
+    case "amendment":
+      return {
+        badgeText: lang === "th" ? "แก้ไขเอกสาร TOR" : "TOR Amendment",
+        title:
+          lang === "th"
+            ? `สรุป ${count} โครงการที่มีการแก้ไขเอกสาร TOR`
+            : `Summary: ${count} projects with TOR amendments`,
+        subtitle:
+          lang === "th"
+            ? "ระบบรวบรวมรายการโครงการที่คุณติดตามที่มีการแก้ไขเปลี่ยนแปลงข้อกำหนดหรือเอกสารโครงการ"
+            : `TOR amendments recorded for your watched projects.`,
+      };
+    case "deadline":
+      return {
+        badgeText: lang === "th" ? "ใกล้ปิดรับข้อเสนอ" : "Deadline Approaching",
+        title:
+          lang === "th"
+            ? `สรุป ${count} โครงการที่ใกล้ปิดรับข้อเสนอ`
+            : `Summary: ${count} projects approaching deadline`,
+        subtitle:
+          lang === "th"
+            ? "ระบบรวบรวมรายการโครงการที่คุณติดตามที่กำลังจะถึงกำหนดสิ้นสุดการยื่นข้อเสนอ"
+            : `Approaching deadlines detected across your watched projects.`,
+      };
+    case "match":
+    default:
+      return {
+        badgeText: lang === "th" ? "ตรงโปรไฟล์" : "Profile Match",
+        title:
+          lang === "th"
+            ? `สรุป ${count} โครงการที่ตรงกับโปรไฟล์ของคุณ`
+            : `Summary: ${count} tenders matching your profile`,
+        subtitle:
+          lang === "th"
+            ? "ระบบตรวจพบคัดกรองโครงการประกาศใหม่บนระบบ e-GP ที่มีข้อกำหนดทางเทคนิคและงบประมาณตรงกับโปรไฟล์ของคุณ"
+            : `New procurement notices detected on e-GP matching your capability profile.`,
+      };
+  }
 }
 
 export default function NotificationDetailPage() {
@@ -79,10 +140,10 @@ export default function NotificationDetailPage() {
     return (
       <div className="mx-auto max-w-[900px] px-4 py-8">
         <div className="mb-4 h-6 w-32 animate-pulse rounded bg-surface-2" />
-        <div className="mb-6 h-10 w-2/3 animate-pulse rounded bg-surface-2" />
+        <div className="mb-6 h-28 animate-pulse rounded-md border border-line bg-surface-2" />
         <div className="space-y-4">
-          <div className="h-32 animate-pulse rounded border border-line bg-surface-2" />
-          <div className="h-32 animate-pulse rounded border border-line bg-surface-2" />
+          <div className="h-44 animate-pulse rounded border border-line bg-surface-2" />
+          <div className="h-44 animate-pulse rounded border border-line bg-surface-2" />
         </div>
       </div>
     );
@@ -106,12 +167,15 @@ export default function NotificationDetailPage() {
             {lang === "th" ? "ไม่พบข้อมูลการแจ้งเตือน" : "Notification Not Found"}
           </h2>
           <p className="mt-1 text-[13px] text-ink-3">
-            {error || (lang === "th" ? "การแจ้งเตือนนี้อาจถูกลบไปแล้ว" : "This notification may have been removed.")}
+            {error ||
+              (lang === "th"
+                ? "การแจ้งเตือนนี้อาจถูกลบไปแล้ว"
+                : "This notification may have been removed.")}
           </p>
           <button
             type="button"
             onClick={() => router.push("/notifications")}
-            className={`${btn.primary} mt-4`}
+            className={`${btn.primary} mt-4 cursor-pointer`}
           >
             {lang === "th" ? "ดูการแจ้งเตือนทั้งหมด" : "View all notifications"}
           </button>
@@ -121,11 +185,12 @@ export default function NotificationDetailPage() {
   }
 
   const snapshot = notification.snapshot || {};
-  const matchedItems: MatchedTorSummary[] = Array.isArray(snapshot.matchedItems) ? snapshot.matchedItems : [];
+  const itemCount = getItemCount(notification);
+  const headerContent = getHeaderContent(notification.type, itemCount, lang);
 
   return (
     <div className="mx-auto max-w-[900px] px-4 py-8">
-      {/* Back button */}
+      {/* Top back navigation */}
       <div className="mb-4">
         <Link
           href="/notifications"
@@ -136,169 +201,96 @@ export default function NotificationDetailPage() {
         </Link>
       </div>
 
-      {/* Header */}
+      {/* Header Container Panel */}
       <header className="mb-6 rounded-md border border-line bg-surface p-5 shadow-xs">
+        {/* Row 1: Type badge on left, timestamp & email status on right */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded bg-open-bg px-2.5 py-0.5 text-[11px] font-semibold text-open border border-open-line">
-              <BowArrow className="h-3.5 w-3.5" />
-              <span>
-                {notification.type === "match"
-                  ? lang === "th"
-                    ? "ประกาศใหม่ตรงโปรไฟล์"
-                    : "Profile Match Alert"
-                  : notification.type}
+            {notification.type === "match" ? (
+              <span className="inline-flex items-center gap-1.5 rounded bg-open-bg px-2.5 py-0.5 text-[11.5px] font-semibold text-open border border-open-line">
+                <BowArrow className="h-3.5 w-3.5" />
+                <span>{headerContent.badgeText}</span>
               </span>
-            </span>
+            ) : notification.type === "amendment" ? (
+              <span className="inline-flex items-center gap-1.5 rounded bg-amber-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-amber-800 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+                <FileEdit className="h-3.5 w-3.5" />
+                <span>{headerContent.badgeText}</span>
+              </span>
+            ) : notification.type === "status_change" ? (
+              <span className="inline-flex items-center gap-1.5 rounded bg-blue-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-blue-800 border border-blue-300 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
+                <ArrowRightLeft className="h-3.5 w-3.5" />
+                <span>{headerContent.badgeText}</span>
+              </span>
+            ) : notification.type === "deadline" ? (
+              <span className="inline-flex items-center gap-1.5 rounded bg-orange-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-orange-800 border border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800">
+                <Clock className="h-3.5 w-3.5" />
+                <span>{headerContent.badgeText}</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded bg-surface-3 px-2.5 py-0.5 text-[11.5px] font-semibold text-ink border border-line">
+                <span>{notification.type}</span>
+              </span>
+            )}
+
             <span className="text-[12px] text-ink-3">
               {formatThaiDate(notification.createdAt, lang)}
             </span>
           </div>
+
           {notification.emailSent && notification.emailSentAt ? (
             <span className="inline-flex items-center gap-1.5 text-[11px] text-ink-3">
               <Mail className="h-3.5 w-3.5" />
-              <span>{lang === "th" ? "ส่งอีเมลสรุปแล้ว" : "Email digest sent"}</span>
+              <span>{lang === "th" ? "ส่งอีเมลแจ้งเตือนแล้ว" : "Email sent"}</span>
             </span>
           ) : null}
         </div>
 
-        <div className="mt-3">
-          <h1 className="text-[20px] font-semibold tracking-tight text-ink">
-            {lang === "th"
-              ? `สรุป ${matchedItems.length} โครงการจัดซื้อจัดจ้างที่ตรงกับคุณ`
-              : `Summary: ${matchedItems.length} procurement tenders matching your profile`}
-          </h1>
-          <p className="mt-1 text-[13px] leading-relaxed text-ink-2">
-            {lang === "th"
-              ? "ระบบตรวจพบคัดกรองโครงการประกาศใหม่บนระบบ e-GP ที่มีข้อกำหนดทางเทคนิคและงบประมาณตรงกับโปรไฟล์ความสามารถของคุณ ข้อมูลด้านล่างถูกบันทึกภาพถ่าย (Snapshot) ณ เวลาที่แจ้งเตือน"
-              : "Procurement notices detected on e-GP matching your capability profile. Data below reflects the frozen snapshot at alert time."}
-          </p>
+        {/* Row 2: Headline title, subtitle, and project count pill */}
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-[20px] font-bold tracking-tight text-ink">
+              {headerContent.title}
+            </h1>
+            <p className="mt-1 text-[13px] leading-relaxed text-ink-2">
+              {headerContent.subtitle}
+            </p>
+          </div>
+          <div className="shrink-0 self-start sm:self-center">
+            <span className="inline-flex items-center rounded-md border border-line bg-surface-2 px-3 py-1 text-[12.5px] font-medium text-ink-2">
+              {lang === "th" ? `${itemCount} โครงการ` : `${itemCount} projects`}
+            </span>
+          </div>
         </div>
       </header>
 
-      {/* Matched Tenders List */}
-      <div className="space-y-4">
-        {matchedItems.length === 0 ? (
-          <Panel className="p-6 text-center text-ink-3">
-            {lang === "th" ? "ไม่มีรายการโครงการในภาพถ่ายนี้" : "No project items in this snapshot."}
-          </Panel>
+      {/* Project Cards (Polymorphic Snapshot Body) */}
+      <main className="space-y-4">
+        {notification.type === "amendment" ? (
+          <AmendmentView snapshot={snapshot as any} lang={lang} />
+        ) : notification.type === "status_change" ? (
+          <StatusChangeView snapshot={snapshot as any} lang={lang} />
+        ) : notification.type === "deadline" ? (
+          <DeadlineView snapshot={snapshot as any} lang={lang} />
         ) : (
-          matchedItems.map((item, idx) => {
-            const daysLeft = calculateDaysRemaining(item.submissionDeadline);
-
-            return (
-              <Panel
-                key={item.projectId || idx}
-                className="group p-5 transition-shadow hover:shadow-sm"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    {/* Project ID & Agency */}
-                    <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-3">
-                      {item.projectId ? (
-                        <span className="font-mono">{item.projectId}</span>
-                      ) : null}
-                      <span>•</span>
-                      <span>{item.agency || "-"}</span>
-                    </div>
-
-                    {/* Title */}
-                    <h2 className="mt-1 text-[16px] font-semibold leading-snug text-ink">
-                      {item.projectTitle || "-"}
-                    </h2>
-
-                    {/* Budget & Deadline */}
-                    <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
-                      <div>
-                        <span className="text-ink-3">
-                          {lang === "th" ? "งบประมาณ/ราคากลาง: " : "Reference Budget: "}
-                        </span>
-                        <span className="font-semibold text-ink">
-                          {item.budget != null ? formatTHB(item.budget) : "-"}
-                        </span>
-                      </div>
-
-                      {daysLeft !== null ? (
-                        <div className="flex items-center gap-1">
-                          <span className="text-ink-3">
-                            {lang === "th" ? "กำหนดยื่นซอง: " : "Deadline: "}
-                          </span>
-                          <span
-                            className={`font-medium ${
-                              daysLeft <= 3
-                                ? "text-red-600 dark:text-red-400 font-semibold"
-                                : daysLeft <= 7
-                                ? "text-amber-600 dark:text-amber-400"
-                                : "text-ink"
-                            }`}
-                          >
-                            {daysLeft > 0
-                              ? lang === "th"
-                                ? `อีก ${daysLeft} วัน`
-                                : `${daysLeft} days left`
-                              : lang === "th"
-                              ? "ปิดรับซองแล้ว"
-                              : "Closed"}
-                          </span>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {/* Matched Skills pills */}
-                    {Array.isArray(item.matchedSkills) && item.matchedSkills.length > 0 ? (
-                      <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                        <span className="text-[11px] text-ink-3">
-                          {lang === "th" ? "ทักษะที่ตรงกัน:" : "Matched skills:"}
-                        </span>
-                        {item.matchedSkills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="rounded border border-line bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-ink"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {/* Match Score & Action */}
-                  <div className="flex shrink-0 flex-row items-center justify-between gap-3 border-t border-line pt-3 sm:flex-col sm:items-end sm:border-0 sm:pt-0">
-                    <div className="text-right">
-                      <div className="inline-flex items-center gap-1 rounded-md bg-open-bg px-2.5 py-1 text-[13px] font-bold text-open border border-open-line">
-                        <span>{item.matchScore}%</span>
-                        <span className="text-[11px] font-normal">
-                          {lang === "th" ? "ตรงกัน" : "match"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {item.projectId ? (
-                      <Link
-                        href={`/tor/${encodeURIComponent(item.projectId)}`}
-                        className={`${btn.primary} inline-flex items-center gap-1.5 text-[12px] py-1.5 px-3`}
-                      >
-                        <span>{lang === "th" ? "ดูประกาศ TOR" : "View full TOR"}</span>
-                        <ArrowRight className="h-3.5 w-3.5 shrink-0" />
-                      </Link>
-                    ) : null}
-                  </div>
-                </div>
-              </Panel>
-            );
-          })
+          <MatchView snapshot={snapshot as any} lang={lang} />
         )}
-      </div>
+      </main>
 
-      {/* Official disclaimer footer per §6 AGENTS.md */}
-      <footer className="mt-8 rounded border border-line bg-surface-2 p-4 text-[12px] leading-relaxed text-ink-3">
-        <p className="font-semibold text-ink">
-          {lang === "th" ? "ข้อความปฏิเสธความรับผิดชอบ (Disclaimer)" : "Disclaimer"}
-        </p>
-        <p className="mt-1">
+      {/* Bottom Back Button: Only shown when there are 10 or more projects */}
+      {itemCount >= 10 ? (
+        <div className="mt-8 flex justify-center border-t border-line pt-4">
+          <Link href="/notifications" className={`${btn.ghost} cursor-pointer`}>
+            {lang === "th" ? "กลับหน้ารายการแจ้งเตือน" : "Back to notifications"}
+          </Link>
+        </div>
+      ) : null}
+
+      {/* Third-party Disclaimer */}
+      <footer className="mt-8 text-center text-[12px] text-ink-3">
+        <p>
           {lang === "th"
-            ? "GIPDP เป็นระบบช่วยค้นหาและแจ้งเตือนโอกาสโครงการจัดซื้อจัดจ้างภาครัฐ ข้อมูลข้างต้นถูกบันทึกสำเนา (Snapshot) ณ เวลาที่ระบบประเมินผล การยื่นข้อเสนอและการจัดซื้อจัดจ้างอย่างเป็นทางการทั้งหมดดำเนินการผ่านระบบ e-GP ของกรมบัญชีกลางเท่านั้น"
-            : "GIPDP is a third-party discovery and notification platform. Data above represents a frozen snapshot at alert generation time. All official bidding and submissions take place exclusively through the Comptroller General's Department e-GP system."}
+            ? "แพลตฟอร์มนี้เป็นเครื่องมือช่วยค้นหาและติดตามประกาศจัดซื้อจัดจ้างภาครัฐ ไม่ใช่ระบบยื่นข้อเสนอทางการ การยื่นข้อเสนอและการติดต่อหน่วยงานต้องดำเนินการผ่านระบบ e-GP ทางการของกรมบัญชีกลางเท่านั้น"
+            : "This platform is a discovery and tracking tool. Official bidding and agency submissions must be conducted through the official e-GP portal."}
         </p>
       </footer>
     </div>

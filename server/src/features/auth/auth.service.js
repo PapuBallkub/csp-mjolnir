@@ -32,6 +32,7 @@ export function toPublicUser(user) {
         frequency: user.profile?.matchNotification?.frequency ?? 'daily',
         includeSubcontract: user.profile?.matchNotification?.includeSubcontract ?? true,
       },
+      deadlineNoticeDays: user.profile?.deadlineNoticeDays ?? 3,
     },
     watchlist: (user.watchlist ?? []).map((w) => (typeof w === 'string' ? w : w.projectId)),
     createdAt: user.createdAt,

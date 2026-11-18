@@ -12,8 +12,11 @@
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import {
   dispatchPendingMatchEmails,
+  dispatchPendingWatchlistEmails,
   generateMatchNotifications,
+  generateWatchlistNotifications,
   runMatchNotificationCycle,
+  runWatchlistNotificationCycle,
 } from '#features/notifications/index.js';
 
 const mode = process.argv[2] ?? '--stage';
@@ -24,18 +27,30 @@ try {
   console.log(`\n=== GIPDP Notification Job (${mode}) ===`);
 
   if (mode === '--send') {
-    console.log('Dispatching pending match digest emails to consented users...');
-    const result = await dispatchPendingMatchEmails();
-    console.log('Dispatch summary:', result);
+    console.log('Dispatching pending match & watchlist digest emails to consented users...');
+    const [matchResult, watchlistResult] = await Promise.all([
+      dispatchPendingMatchEmails(),
+      dispatchPendingWatchlistEmails(),
+    ]);
+    console.log('Match dispatch summary:', matchResult);
+    console.log('Watchlist dispatch summary:', watchlistResult);
   } else if (mode === '--all') {
     console.log('Running full notification cycle (staging + email dispatch)...');
-    const result = await runMatchNotificationCycle();
-    console.log('Cycle summary:', result);
+    const [matchResult, watchlistResult] = await Promise.all([
+      runMatchNotificationCycle(),
+      runWatchlistNotificationCycle(),
+    ]);
+    console.log('Match cycle summary:', matchResult);
+    console.log('Watchlist cycle summary:', watchlistResult);
   } else {
     // Default: --stage
     console.log('Evaluating candidate TORs and generating in-app notifications...');
-    const result = await generateMatchNotifications();
-    console.log('Staging summary:', result);
+    const [matchResult, watchlistResult] = await Promise.all([
+      generateMatchNotifications(),
+      generateWatchlistNotifications(),
+    ]);
+    console.log('Match staging summary:', matchResult);
+    console.log('Watchlist staging summary:', watchlistResult);
   }
 
   console.log('=== Notification Job Finished ===\n');

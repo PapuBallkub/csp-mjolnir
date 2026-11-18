@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import nodemailer from 'nodemailer';
 import { env, isEmailConfigured } from '#common/config/env.js';
 import { renderMatchDigestEmail } from './templates/match-digest.template.js';
+import { renderWatchlistDigestEmail } from './templates/watchlist-digest.template.js';
 
 let transporterInstance = null;
 
@@ -117,6 +118,62 @@ export async function sendMatchDigestEmail({ user, matchedItems }) {
   const { subject, html, text } = renderMatchDigestEmail({
     recipientName,
     matchedItems,
+    unsubscribeUrl,
+    appUrl: env.corsOrigin,
+  });
+
+  return sendEmail({
+    to: user.email,
+    subject,
+    html,
+    text,
+  });
+}
+
+/**
+ * Dispatches a watchlist update digest email (amendments, status changes, deadlines).
+ *
+ * @param {Object} options
+ * @param {Object} options.user - User document or object with email, name, _id
+ * @param {Array} [options.alerts] - Array of alert items or snapshots
+ * @param {Array} [options.stagedNotifications] - Alternative parameter passing staged notifications
+ */
+export async function sendWatchlistDigestEmail({ user, alerts, stagedNotifications }) {
+  if (!user?.email) {
+    return { sent: false, reason: 'missing_recipient_email' };
+  }
+
+  const rawList = alerts || stagedNotifications || [];
+  const normalizedAlerts = [];
+  for (const entry of rawList) {
+    const parentType = entry.type;
+    const subItems =
+      Array.isArray(entry.items) && entry.items.length > 0
+        ? entry.items
+        : Array.isArray(entry.snapshot?.items) && entry.snapshot.items.length > 0
+        ? entry.snapshot.items
+        : [entry.snapshot || entry];
+
+    for (const item of subItems) {
+      normalizedAlerts.push({
+        type: item.type || parentType,
+        ...item,
+      });
+    }
+  }
+
+  if (normalizedAlerts.length === 0) {
+    return { sent: false, reason: 'no_alerts' };
+  }
+
+  const userId = String(user._id ?? user.id ?? '');
+  const token = createUnsubscribeToken(userId);
+  const unsubscribeUrl = `${env.corsOrigin}/notifications?unsubscribe=true&uid=${userId}&token=${token}`;
+  const recipientName = user.name?.trim() || user.email.split('@')[0];
+
+  const { subject, html, text } = renderWatchlistDigestEmail({
+    recipientName,
+    alerts: normalizedAlerts,
     unsubscribeUrl,
     appUrl: env.corsOrigin,
   });
