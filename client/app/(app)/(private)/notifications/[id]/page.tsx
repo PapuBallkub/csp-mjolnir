@@ -35,12 +35,14 @@ function formatThaiDate(dateStr?: string | Date | null, lang: "th" | "en" = "th"
 }
 
 function getItemCount(notification: NotificationFeedItem): number {
-  const snapshot = (notification.snapshot || {}) as any;
+  const snapshot = notification.snapshot;
+  if (!snapshot || typeof snapshot !== "object") return 1;
+  const s = snapshot as Record<string, unknown>;
   if (notification.type === "match") {
-    return Array.isArray(snapshot.matchedItems) ? snapshot.matchedItems.length : 1;
+    return Array.isArray(s.matchedItems) ? s.matchedItems.length : 1;
   }
-  if (Array.isArray(snapshot.items) && snapshot.items.length > 0) {
-    return snapshot.items.length;
+  if (Array.isArray(s.items) && s.items.length > 0) {
+    return s.items.length;
   }
   return 1;
 }
@@ -266,13 +268,13 @@ export default function NotificationDetailPage() {
       {/* Project Cards (Polymorphic Snapshot Body) */}
       <main className="space-y-4">
         {notification.type === "amendment" ? (
-          <AmendmentView snapshot={snapshot as any} lang={lang} />
+          <AmendmentView snapshot={snapshot as unknown as Parameters<typeof AmendmentView>[0]["snapshot"]} lang={lang} />
         ) : notification.type === "status_change" ? (
-          <StatusChangeView snapshot={snapshot as any} lang={lang} />
+          <StatusChangeView snapshot={snapshot as unknown as Parameters<typeof StatusChangeView>[0]["snapshot"]} lang={lang} />
         ) : notification.type === "deadline" ? (
-          <DeadlineView snapshot={snapshot as any} lang={lang} />
+          <DeadlineView snapshot={snapshot as unknown as Parameters<typeof DeadlineView>[0]["snapshot"]} lang={lang} />
         ) : (
-          <MatchView snapshot={snapshot as any} lang={lang} />
+          <MatchView snapshot={snapshot as unknown as Parameters<typeof MatchView>[0]["snapshot"]} lang={lang} />
         )}
       </main>
 

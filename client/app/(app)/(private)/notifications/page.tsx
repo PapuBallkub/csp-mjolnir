@@ -19,17 +19,29 @@ import {
 import { useLang, useProfile } from "../../../_components/prefs";
 import { StatusBadge } from "../../../_components/verdict";
 import { btn, Panel } from "../../../_components/ui";
-import { formatTHBCompact } from "../../../_data/tors";
 import { isProfileBaseline } from "../../../_lib/match";
 import * as api from "../../../_lib/api";
 import type {
   NotificationFeedItem,
+  NotificationType,
   MatchedTorSummary,
-  AmendmentSnapshot,
-  StatusSnapshot,
-  DeadlineSnapshot,
 } from "../../../_lib/api";
 import type { Status } from "../../../_data/tors";
+
+type SnapshotCardItem = Record<string, unknown> & {
+  projectId?: string;
+  projectTitle?: string;
+  agency?: string;
+  budget?: number | null;
+  amendmentHeadline?: string;
+  changedFields?: string[];
+  changedFieldsTh?: string[];
+  previousStatus?: string;
+  newStatus?: string;
+  deadlineType?: string;
+  deadlineDate?: string | Date | null;
+  daysRemaining?: number;
+};
 
 function NotificationTypeIcon({ type }: { type: string }) {
   if (type === "match") {
@@ -216,7 +228,7 @@ export default function NotificationsPage() {
                 <select
                   id="notification-type-filter"
                   value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value as any)}
+                  onChange={(e) => setTypeFilter(e.target.value as "all" | NotificationType)}
                   className="h-8 rounded-md border border-line bg-surface pl-2.5 pr-8 text-[12px] font-medium text-ink transition-colors hover:border-line-2 focus:border-ink focus:outline-none cursor-pointer appearance-none shadow-xs"
                 >
                   <option value="all">
@@ -386,8 +398,8 @@ export default function NotificationsPage() {
                         ) : item.type === "amendment" ? (
                           // Amendment Notification Card
                           (() => {
-                            const s = snapshot as any;
-                            const items: any[] = Array.isArray(s.items) && s.items.length > 0 ? s.items : [s];
+                            const s = snapshot as unknown as (Record<string, unknown> & { items?: SnapshotCardItem[] });
+                            const items: SnapshotCardItem[] = Array.isArray(s.items) && s.items.length > 0 ? s.items : [s];
                             const count = items.length;
                             const isMulti = count > 1;
                             const first = items[0] || {};
@@ -462,8 +474,8 @@ export default function NotificationsPage() {
                         ) : item.type === "status_change" ? (
                           // Status Change Notification Card
                           (() => {
-                            const s = snapshot as any;
-                            const items: any[] = Array.isArray(s.items) && s.items.length > 0 ? s.items : [s];
+                            const s = snapshot as unknown as (Record<string, unknown> & { items?: SnapshotCardItem[] });
+                            const items: SnapshotCardItem[] = Array.isArray(s.items) && s.items.length > 0 ? s.items : [s];
                             const count = items.length;
                             const isMulti = count > 1;
                             const first = items[0] || {};
@@ -538,8 +550,8 @@ export default function NotificationsPage() {
                         ) : item.type === "deadline" ? (
                           // Approaching Deadline Notification Card
                           (() => {
-                            const s = snapshot as any;
-                            const items: any[] = Array.isArray(s.items) && s.items.length > 0 ? s.items : [s];
+                            const s = snapshot as unknown as (Record<string, unknown> & { items?: SnapshotCardItem[] });
+                            const items: SnapshotCardItem[] = Array.isArray(s.items) && s.items.length > 0 ? s.items : [s];
                             const count = items.length;
                             const isMulti = count > 1;
                             const first = items[0] || {};
