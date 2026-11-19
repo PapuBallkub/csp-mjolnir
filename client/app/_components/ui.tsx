@@ -212,13 +212,19 @@ export function EmptyState({
   headline,
   body,
   action,
+  className,
 }: {
   headline: string;
   body: string;
   action?: ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-[3px] border border-dashed border-line-2 bg-surface-2 px-6 py-12 text-center">
+    <div
+      className={`w-full flex flex-col items-center justify-center gap-3 rounded-[3px] border border-dashed border-line-2 bg-surface-2 px-6 py-8 text-center ${
+        className ?? ""
+      }`}
+    >
       <p className="max-w-md text-[15px] font-medium text-ink">{headline}</p>
       <p className="max-w-md text-[13px] leading-thai text-ink-2">{body}</p>
       {action}

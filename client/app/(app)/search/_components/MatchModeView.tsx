@@ -178,6 +178,7 @@ export function MatchModeView({
     if (!matchResult.ok) {
       return (
         <EmptyState
+          className="min-h-[260px]"
           headline="จัดอันดับไม่สำเร็จ"
           body={failureText(matchResult.error, "th")}
           action={
@@ -192,6 +193,7 @@ export function MatchModeView({
     if (matchResult.data.total === 0) {
       return (
         <EmptyState
+          className="min-h-[260px]"
           headline="ยังไม่มีประกาศในระบบที่พร้อมประเมิน"
           body="ยังไม่มีประกาศที่สรุปเสร็จและพร้อมเผยแพร่ ลองกลับมาใหม่ภายหลัง หรือค้นหาประกาศทั้งหมดในระบบ"
           action={
@@ -208,6 +210,7 @@ export function MatchModeView({
     if (matchResults.length === 0) {
       return (
         <EmptyState
+          className="min-h-[260px]"
           headline="ไม่มีประกาศที่ผ่านเงื่อนไขนี้"
           body="ลองลดคะแนนขั้นต่ำ แสดงงานที่ไม่รับข้อเสนอแล้ว หรือเอาตัวกรองความเสี่ยงออก"
           action={
@@ -297,9 +300,9 @@ export function MatchModeView({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
+    <div className="w-full grid grid-cols-1 gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
       {/* Mobile Drawer Trigger */}
-      <div className="lg:hidden">
+      <div className="w-full lg:hidden">
         <button
           type="button"
           onClick={() => setFiltersOpen(!filtersOpen)}
@@ -313,14 +316,14 @@ export function MatchModeView({
       </div>
 
       {/* Desktop Sticky Rail */}
-      <aside className="hidden lg:block">
+      <aside className="hidden lg:block w-[250px] shrink-0">
         <div className="sticky top-[76px] max-h-[calc(100vh-90px)] overflow-y-auto overscroll-contain pr-1.5 [scrollbar-width:thin] [scrollbar-color:var(--line)_transparent]">
           {rail}
         </div>
       </aside>
 
       {/* Main Content Column */}
-      <div className="min-w-0">
+      <div className="w-full min-w-0 min-h-[550px]">
         <div className="mb-3">
           <SectionHeading
             sub="คะแนนประเมินจากทักษะ (40%), สถาปัตยกรรมระบบ (15%), ช่วงงบ (20%), ผลงานเดิม (10%), สถานะนิติบุคคล (10%) และมาตรฐาน (5%)"
