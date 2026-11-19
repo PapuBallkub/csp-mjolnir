@@ -545,6 +545,7 @@ export async function dispatchPendingWatchlistEmails({ batchLimit = 100 } = {}) 
     }
 
     // Attempt email dispatch via sendWatchlistDigestEmail if available
+    let emailDelivered = false;
     try {
       const result = await sendWatchlistDigestEmail?.({
         user,
@@ -553,19 +554,23 @@ export async function dispatchPendingWatchlistEmails({ batchLimit = 100 } = {}) 
 
       if (result?.sent) {
         summary.emailsSent += notifs.length;
+        emailDelivered = true;
       } else {
         summary.emailsSkipped += notifs.length;
+        console.warn(`[dispatch-watchlist] Email delivery skipped for ${user.email}: ${result?.reason || 'unknown'}`);
       }
     } catch (err) {
       console.error(`[dispatch-watchlist] Error sending digest to ${user.email}:`, err.message);
       summary.emailsSkipped += notifs.length;
     }
 
-    // Mark notifications as processed
-    for (const n of notifs) {
-      n.emailSent = true;
-      n.emailSentAt = new Date();
-      await n.save();
+    // Only mark notifications as dispatched if delivery actually succeeded
+    if (emailDelivered) {
+      for (const n of notifs) {
+        n.emailSent = true;
+        n.emailSentAt = new Date();
+        await n.save();
+      }
     }
   }
 

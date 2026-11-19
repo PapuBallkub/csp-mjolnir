@@ -162,6 +162,41 @@ test('notifications: evaluateUserCandidateMatches filters by score and returns e
   assert.ok(Array.isArray(matches));
 });
 
+test('notifications: evaluateUserCandidateMatches respects includeSubcontract setting for individual freelancers', () => {
+  const tors = [
+    {
+      projectId: 'TOR-COMPANIES-ONLY',
+      companiesOnly: true,
+      technicalRequirements: { requiredTechnologies: [{ name: 'React' }, { name: 'Node.js' }] },
+    },
+  ];
+
+  // Freelancer with includeSubcontract: true (default) gets matched for subcontract/JV opportunities
+  const freelancerWithSubcontract = {
+    profile: {
+      entityType: 'individual',
+      skills: ['React', 'Node.js'],
+      matchNotification: { enabled: true, minScore: 50, includeSubcontract: true },
+    },
+  };
+
+  const matchesIncluded = evaluateUserCandidateMatches(freelancerWithSubcontract, tors, { minScore: 50 });
+  assert.equal(matchesIncluded.length, 1);
+  assert.equal(matchesIncluded[0].tor.projectId, 'TOR-COMPANIES-ONLY');
+
+  // Freelancer with includeSubcontract: false explicitly skips companies-only bids
+  const freelancerNoSubcontract = {
+    profile: {
+      entityType: 'individual',
+      skills: ['React', 'Node.js'],
+      matchNotification: { enabled: true, minScore: 50, includeSubcontract: false },
+    },
+  };
+
+  const matchesExcluded = evaluateUserCandidateMatches(freelancerNoSubcontract, tors, { minScore: 50 });
+  assert.equal(matchesExcluded.length, 0);
+});
+
 test('notifications: extractNotifiedProjectIds correctly extracts project IDs from match and single-project snapshots', () => {
   const pastNotifications = [
     {

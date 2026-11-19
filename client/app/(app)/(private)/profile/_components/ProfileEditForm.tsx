@@ -896,24 +896,15 @@ export function ProfileEditForm({
                     <input
                       type="checkbox"
                       id="channel-in-app"
-                      checked={draft.matchNotification?.includeSubcontract ?? true}
-                      onChange={(e) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          matchNotification: {
-                            enabled: prev.matchNotification?.enabled ?? false,
-                            minScore: prev.matchNotification?.minScore ?? 75,
-                            frequency: prev.matchNotification?.frequency ?? "daily",
-                            includeSubcontract: e.target.checked,
-                          },
-                        }))
-                      }
-                      className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-pointer accent-ink shrink-0"
+                      checked={consent}
+                      disabled
+                      className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-default accent-ink shrink-0"
                     />
-                    <label htmlFor="channel-in-app" className="text-[13px] leading-thai text-ink cursor-pointer select-none">
+                    <label htmlFor="channel-in-app" className="text-[13px] leading-thai text-ink select-none">
                       <span className="font-medium text-ink">
                         แจ้งเตือนในระบบ (In-App Feed & Bell)
                       </span>
+                      <span className="ml-2 text-[11px] font-normal text-open">เปิดใช้งานตามสิทธิ์ระบบ</span>
                       <span className="block text-[11.5px] text-ink-3 mt-0.5">
                         แสดงการแจ้งเตือนในกล่องข้อความและไอคอนกระดิ่งบนเว็บไซต์ (โครงการตรงโปรไฟล์, สถานะเปลี่ยนแปลง, แก้ไข TOR, และเตือนใกล้หมดเขต)
                       </span>
@@ -1057,7 +1048,39 @@ export function ProfileEditForm({
                   {/* Divider between criteria */}
                   <div className="border-t border-line/50" />
 
-                  {/* Criterion 2: Deadline Advance Warning */}
+                  {/* Criterion 2: Subcontracting & Consortium Opportunities (Decision 0033) */}
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="criterion-include-subcontract"
+                      checked={draft.matchNotification?.includeSubcontract ?? true}
+                      onChange={(e) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          matchNotification: {
+                            enabled: prev.matchNotification?.enabled ?? false,
+                            minScore: prev.matchNotification?.minScore ?? 75,
+                            frequency: prev.matchNotification?.frequency ?? "daily",
+                            includeSubcontract: e.target.checked,
+                          },
+                        }))
+                      }
+                      className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-pointer accent-ink shrink-0"
+                    />
+                    <label htmlFor="criterion-include-subcontract" className="text-[12.5px] leading-thai text-ink cursor-pointer select-none">
+                      <span className="font-semibold text-ink block">
+                        แนะนำโครงการสำหรับรับงานช่วงหรือกิจการร่วมค้า (Subcontract / Joint Venture)
+                      </span>
+                      <span className="block text-[11.5px] text-ink-3 mt-0.5">
+                        รวมโครงการที่ตรงกับทักษะของคุณ แม้ TOR จะกำหนดคุณสมบัติเฉพาะนิติบุคคล (แนะนำสำหรับบุคคลธรรมดา/ฟรีแลนซ์ เพื่อไม่พลาดโอกาสร่วมงานหรือรับงานช่วง)
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Divider between criteria */}
+                  <div className="border-t border-line/50" />
+
+                  {/* Criterion 3: Deadline Advance Warning */}
                   <div>
                     <span className="text-[12.5px] font-semibold text-ink block">
                       ระยะเวลาแจ้งเตือนล่วงหน้าก่อนปิดรับข้อเสนอ (Deadline Advance Warning)

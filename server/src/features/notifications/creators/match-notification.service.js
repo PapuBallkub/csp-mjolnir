@@ -67,7 +67,11 @@ export function evaluateUserCandidateMatches(user, candidateTors, { minScore = 7
 
     // Filter strictly by the user's entity type (Company vs Individual):
     // If user is a single person (individual), do not notify them for companies-only tenders
-    if (matchResult.breakdown?.entity?.disqualifiedDirectBid) {
+    // unless they have subcontracting/consortium opportunities enabled (includeSubcontract: true).
+    if (
+      matchResult.breakdown?.entity?.disqualifiedDirectBid &&
+      profile.matchNotification?.includeSubcontract === false
+    ) {
       continue;
     }
 
@@ -289,6 +293,7 @@ export async function dispatchPendingMatchEmails({ batchLimit = 100 } = {}) {
       continue;
     }
 
+    let emailDelivered = false;
     try {
       console.log(`[dispatch] Sending match digest to ${user.email} (${matchedItems.length} items)...`);
       const result = await sendMatchDigestEmail({
@@ -299,6 +304,7 @@ export async function dispatchPendingMatchEmails({ batchLimit = 100 } = {}) {
       if (result?.sent) {
         console.log(`[dispatch] ✓ Email delivered to ${user.email} (MessageId: ${result.messageId})`);
         summary.emailsSent += 1;
+        emailDelivered = true;
       } else {
         console.warn(`[dispatch] ⚠ Email delivery skipped for ${user.email}: ${result?.reason}`);
         summary.emailsSkipped += 1;
@@ -308,10 +314,12 @@ export async function dispatchPendingMatchEmails({ batchLimit = 100 } = {}) {
       summary.emailsSkipped += 1;
     }
 
-    // Mark as dispatched
-    notif.emailSent = true;
-    notif.emailSentAt = new Date();
-    await notif.save();
+    // Only mark as dispatched if delivery actually succeeded
+    if (emailDelivered) {
+      notif.emailSent = true;
+      notif.emailSentAt = new Date();
+      await notif.save();
+    }
   }
 
   return summary;

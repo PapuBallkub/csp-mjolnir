@@ -445,16 +445,16 @@ export function ProfileDisplay({
                     </span>
                     <span
                       className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
-                        profile.matchNotification?.enabled
+                        user.notificationConsent
                           ? "bg-open-bg text-open border border-open-line"
                           : "bg-surface-2 text-ink-3 border border-line"
                       }`}
                     >
-                      {profile.matchNotification?.enabled ? "เปิดใช้งาน" : "ปิดอยู่"}
+                      {user.notificationConsent ? "เปิดใช้งาน" : "ปิดอยู่"}
                     </span>
                   </div>
                   <p className="mt-2 text-[12.5px] text-ink-2">
-                    {profile.matchNotification?.enabled
+                    {user.notificationConsent
                       ? "แสดงการแจ้งเตือนในกล่องข้อความและกระดิ่ง (โครงการตรงโปรไฟล์, สถานะเปลี่ยนแปลง, แก้ไข TOR, และเตือนใกล้หมดเขต)"
                       : "ปิดรับการแจ้งเตือนในระบบ"}
                   </p>
@@ -496,7 +496,7 @@ export function ProfileDisplay({
                   </h4>
                 </div>
 
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {/* Criteria 1: Matching Score */}
                   <div className="rounded-[3px] border border-line/70 bg-surface p-3">
                     <div className="flex items-center justify-between">
@@ -512,7 +512,30 @@ export function ProfileDisplay({
                     </p>
                   </div>
 
-                  {/* Criteria 2: Watchlist & Deadline Advance Warning */}
+                  {/* Criteria 2: Subcontracting & Consortium Opportunities */}
+                  <div className="rounded-[3px] border border-line/70 bg-surface p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] font-medium text-ink-2">
+                        งานช่วง / ร่วมค้า (Subcontract)
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10.5px] font-semibold ${
+                          (profile.matchNotification?.includeSubcontract ?? true)
+                            ? "bg-open-bg text-open border border-open-line"
+                            : "bg-surface-2 text-ink-3 border border-line"
+                        }`}
+                      >
+                        {(profile.matchNotification?.includeSubcontract ?? true) ? "เปิดรับคำแนะนำ" : "ปิดอยู่"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11.5px] text-ink-3">
+                      {(profile.matchNotification?.includeSubcontract ?? true)
+                        ? "แนะนำโครงการที่เป็นไปได้แบบ Subcontract/JV สำหรับบุคคลธรรมดา"
+                        : "ไม่รวมโครงการที่ TOR กำหนดเฉพาะนิติบุคคล"}
+                    </p>
+                  </div>
+
+                  {/* Criteria 3: Watchlist & Deadline Advance Warning */}
                   <div className="rounded-[3px] border border-line/70 bg-surface p-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[12px] font-medium text-ink-2">
