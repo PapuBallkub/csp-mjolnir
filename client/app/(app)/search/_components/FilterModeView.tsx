@@ -78,11 +78,12 @@ export function FilterModeView() {
   }, []);
 
   const debouncedQuery = useDebounced(query, 300);
+  const debouncedMinScore = useDebounced(minScore, 150);
 
   // Reset to page 1 when search filters change
   const filterSignature = useMemo(
-    () => `${debouncedQuery}:${statuses.join(",")}:${amendedOnly}:${techFilter.join(",")}:${agencyFilter.join(",")}:${budgetBand}:${deadlineBand}:${hideHighRisk}:${sort}:${minScore}`,
-    [debouncedQuery, statuses, amendedOnly, techFilter, agencyFilter, budgetBand, deadlineBand, hideHighRisk, sort, minScore]
+    () => `${debouncedQuery}:${statuses.join(",")}:${amendedOnly}:${techFilter.join(",")}:${agencyFilter.join(",")}:${budgetBand}:${deadlineBand}:${hideHighRisk}:${sort}:${debouncedMinScore}`,
+    [debouncedQuery, statuses, amendedOnly, techFilter, agencyFilter, budgetBand, deadlineBand, hideHighRisk, sort, debouncedMinScore]
   );
   const prevFilterSig = useRef(filterSignature);
   useEffect(() => {
@@ -111,7 +112,7 @@ export function FilterModeView() {
       deadlineBand,
       hideHighRisk,
       sort,
-      minScore,
+      minScore: debouncedMinScore,
       page,
       pageSize,
     });
@@ -126,7 +127,7 @@ export function FilterModeView() {
     deadlineBand,
     hideHighRisk,
     sort,
-    minScore,
+    debouncedMinScore,
     page,
     pageSize,
   ]);
@@ -172,7 +173,7 @@ export function FilterModeView() {
 
   const isMatchSort = sort === "match-desc" || sort === "match-asc";
   const canMatch = authStatus === "authenticated";
-  const needsClientMatching = canMatch && (isMatchSort || minScore > 0);
+  const needsClientMatching = canMatch && (isMatchSort || debouncedMinScore > 0);
 
   const params = useMemo<TorListParams>(() => {
     const band = BUDGET_BANDS.find((b) => b.id === budgetBand);
@@ -243,8 +244,8 @@ export function FilterModeView() {
     const shown = current ?? list;
     if (!shown || !needsClientMatching) return null;
     let items = shown.tors;
-    if (minScore > 0) {
-      items = items.filter((tor) => matchFor(tor, profile).score >= minScore);
+    if (debouncedMinScore > 0) {
+      items = items.filter((tor) => matchFor(tor, profile).score >= debouncedMinScore);
     }
     if (isMatchSort) {
       items = [...items].sort((a, b) => {
@@ -254,7 +255,7 @@ export function FilterModeView() {
       });
     }
     return items;
-  }, [current, list, needsClientMatching, minScore, isMatchSort, sort, profile]);
+  }, [current, list, needsClientMatching, debouncedMinScore, isMatchSort, sort, profile]);
 
   const effectiveTotal = matchedTors !== null ? matchedTors.length : (current?.total ?? list?.total ?? 0);
   const effectivePages = matchedTors !== null ? Math.ceil(effectiveTotal / pageSize) : (current?.pages ?? list?.pages ?? 0);
@@ -277,6 +278,7 @@ export function FilterModeView() {
     if (failed && !current) {
       return (
         <EmptyState
+          className="min-h-[260px]"
           headline="โหลดรายการประกาศไม่สำเร็จ"
           body={failureText(failed, "th")}
           action={
@@ -297,6 +299,7 @@ export function FilterModeView() {
       if (!searched && activeCount === 0) {
         return (
           <EmptyState
+            className="min-h-[260px]"
             headline="ตอนนี้ไม่มีประกาศที่ยังยื่นได้"
             body="หน้านี้เริ่มต้นแสดงเฉพาะร่างประกาศและประกาศเชิญชวนที่ยังเปิดรับข้อเสนอ โครงการที่ปิดรับแล้ว ได้ผู้ชนะแล้ว หรือยกเลิก ดูได้จากตัวกรองสถานะ"
             action={
@@ -309,11 +312,13 @@ export function FilterModeView() {
       }
       return !searched && otherFilters === 0 && showsEveryStatus(statuses) ? (
         <EmptyState
+          className="min-h-[260px]"
           headline="ยังไม่มีประกาศในระบบ"
           body="ยังไม่มีประกาศที่สรุปเสร็จและพร้อมเผยแพร่ ลองกลับมาใหม่ภายหลัง ระหว่างนี้ประกาศต้นฉบับทั้งหมดยังอยู่ที่ e-GP"
         />
       ) : (
         <EmptyState
+          className="min-h-[260px]"
           headline="ไม่มีประกาศที่ตรงกับเงื่อนไขนี้"
           body="ลองค้นด้วยคำที่สั้นลง ขยายช่วงราคากลางหรือกำหนดยื่น หรือเอาตัวกรองบางข้อออก"
           action={
@@ -326,10 +331,14 @@ export function FilterModeView() {
     }
 
     if (matchedTors !== null && matchedTors.length === 0 && shown.tors.length > 0) {
+      if (!current) {
+        return skeleton;
+      }
       return (
         <EmptyState
+          className="min-h-[260px]"
           headline="ไม่มีประกาศที่ได้คะแนนถึงเกณฑ์นี้"
-          body={`ไม่มีประกาศที่คะแนนความตรงกับโปรไฟล์ถึง ${minScore}% ขึ้นไป ลองปรับลดแถบเลื่อนคะแนนหรือเลือกดูทุกระดับคะแนน`}
+          body={`ไม่มีประกาศที่คะแนนความตรงกับโปรไฟล์ถึง ${debouncedMinScore}% ขึ้นไป ลองปรับลดแถบเลื่อนคะแนนหรือเลือกดูทุกระดับคะแนน`}
           action={
             <button type="button" onClick={() => setMinScore(0)} className={btn.secondary}>
               แสดงทุกคะแนน (รีเซ็ตเกณฑ์)
@@ -340,7 +349,7 @@ export function FilterModeView() {
     }
 
     const noSkillsBanner =
-      canMatch && isProfileBaseline(profile) && minScore > 0 ? (
+      canMatch && isProfileBaseline(profile) && debouncedMinScore > 0 ? (
         <div className="mb-2.5 flex items-center justify-between rounded-[3px] border border-amber-300 bg-amber-50 px-3.5 py-2 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           <span>
             💡 คุณยังไม่ได้ตั้งค่าโปรไฟล์ — ตั้งค่าทักษะและเงื่อนไขการรับงานเพื่อจัดอันดับประกาศที่ตรงกับคุณ
@@ -358,7 +367,7 @@ export function FilterModeView() {
           <div className={`flex flex-col gap-3 transition-opacity ${current ? "" : "opacity-60"}`}>
             {displayedTors.map((tor) => {
               const match =
-                canMatch || isMatchSort || minScore > 0
+                canMatch || isMatchSort || debouncedMinScore > 0
                   ? matchFor(tor, profile)
                   : undefined;
               return <CatalogRow key={tor.projectId} tor={tor} now={shown.at} match={match} />;
@@ -439,9 +448,9 @@ export function FilterModeView() {
   })();
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
+    <div className="w-full grid grid-cols-1 gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
       {/* Mobile Filters Toggle & Drawer */}
-      <div className="lg:hidden">
+      <div className="w-full lg:hidden">
         <button
           type="button"
           onClick={() => setFiltersOpen((o) => !o)}
@@ -462,15 +471,15 @@ export function FilterModeView() {
       </div>
 
       {/* Desktop Sticky Rail */}
-      <aside className="hidden lg:block">
+      <aside className="hidden lg:block w-[250px] shrink-0">
         <div className="sticky top-[76px] max-h-[calc(100vh-90px)] overflow-y-auto overscroll-contain pr-1.5 [scrollbar-width:thin] [scrollbar-color:var(--line)_transparent]">
           {rail}
         </div>
       </aside>
 
       {/* Main Content Column */}
-      <div className="min-w-0">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="w-full min-w-0 min-h-[550px]">
+        <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <svg
               viewBox="0 0 16 16"
@@ -489,7 +498,7 @@ export function FilterModeView() {
               aria-label="ค้นหาประกาศ"
             />
           </div>
-          <label className="flex items-center gap-2 whitespace-nowrap">
+          <label className="flex items-center gap-2 whitespace-nowrap shrink-0">
             <Label>เรียงตาม</Label>
             <select
               value={sort}
