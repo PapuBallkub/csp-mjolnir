@@ -97,46 +97,61 @@ export function CatalogRow({
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:gap-2">
         {/* Tier 1: Metadata Bar */}
-        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-3">
+        <div className="flex items-center gap-1.5 text-[11px] text-ink-3 overflow-hidden whitespace-nowrap min-w-0">
           {fiscalYear ? (
-            <span className="font-medium text-ink-2 bg-surface-2 px-1.5 py-0.5 rounded-[2px] border border-line">
+            <span className="shrink-0 font-medium text-ink-2 bg-surface-2 px-1.5 py-0.5 rounded-[2px] border border-line">
               ปีงบฯ {fiscalYear}
             </span>
           ) : null}
-          <span className="font-mono tnum text-[11px]">#{tor.projectId}</span>
-          <span className="text-ink-4">·</span>
-          <span className="font-medium text-ink-2">{iden.agency}</span>
+          <span className="shrink-0 font-mono tnum text-[11px]">#{tor.projectId}</span>
+          <span className="shrink-0 text-ink-4">·</span>
+          <span className="truncate font-medium text-ink-2" title={iden.agency}>
+            {iden.agency}
+          </span>
           {iden.department ? (
             <>
-              <span className="text-ink-4">/</span>
-              <span className="text-ink-3">{iden.department}</span>
+              <span className="shrink-0 text-ink-4">/</span>
+              <span className="truncate text-ink-3" title={iden.department}>
+                {iden.department}
+              </span>
             </>
           ) : null}
-          <ReviewTag review={tor.review} />
+          <div className="shrink-0 ml-auto pl-1">
+            <ReviewTag review={tor.review} />
+          </div>
         </div>
 
         {/* Tier 2: Status & Risk Badges (always on left side) */}
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-line/40 pb-1.5">
-          <LifecycleBadge status={iden.status} stage={stage} lang="th" />
-          {change ? <ChangeMarker source={change} lang="th" /> : null}
+        <div className="flex items-center gap-1.5 border-b border-line/40 pb-1.5 overflow-hidden whitespace-nowrap min-w-0">
+          <div className="shrink-0">
+            <LifecycleBadge status={iden.status} stage={stage} lang="th" />
+          </div>
+          {change ? <div className="shrink-0"><ChangeMarker source={change} lang="th" /></div> : null}
           {analytics.lockSpec ? (
-            <LockSpecBadge
-              level={riskLevel(analytics.lockSpec.riskScore)}
-              score={analytics.lockSpec.riskScore}
-              lang="th"
-            />
+            <div className="shrink-0">
+              <LockSpecBadge
+                level={riskLevel(analytics.lockSpec.riskScore)}
+                score={analytics.lockSpec.riskScore}
+                lang="th"
+              />
+            </div>
           ) : null}
           {analytics.priceAnalysis ? (
-            <PriceDeltaBadge delta={analytics.priceAnalysis.diffPercentage} lang="th" />
+            <div className="shrink-0">
+              <PriceDeltaBadge delta={analytics.priceAnalysis.diffPercentage} lang="th" />
+            </div>
           ) : null}
-          {missing ? <span className="text-[10.5px] text-ink-3">{missing}</span> : null}
+          {missing ? <span className="truncate text-[10.5px] text-ink-3">{missing}</span> : null}
         </div>
 
         {/* Tier 2: Title */}
-        <h3 className="text-[14px] sm:text-[15px] leading-snug font-semibold text-ink">
+        <h3
+          className="text-[14px] sm:text-[15px] leading-snug font-semibold text-ink line-clamp-2 min-h-[2.5rem] sm:min-h-[2.75rem] flex items-center"
+          title={title}
+        >
           <Link
             href={`/tor/${tor.projectId}`}
-            className="underline-offset-2 after:absolute after:inset-0 group-hover:underline"
+            className="underline-offset-2 after:absolute after:inset-0 group-hover:underline line-clamp-2"
           >
             {title}
           </Link>
@@ -145,22 +160,22 @@ export function CatalogRow({
         {/* Tier 3: Core Facts Grid (Budget, Deadline, Match) */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 rounded-[4px] bg-surface-2/60 border border-line/50 p-2 text-[12px]">
           {/* 1. Price */}
-          <div className="flex flex-col justify-between">
+          <div className="flex flex-col justify-between min-h-[44px]">
             <span className="text-[10px] font-medium text-ink-3 uppercase tracking-wider">{priceLabel}</span>
             <div className="mt-1 flex flex-col justify-center">
               {price !== null ? (
-                <span className="font-mono tnum text-[14px] sm:text-[15px] font-bold text-ink leading-tight" title={formatTHB(price)}>
+                <span className="font-mono tnum text-[14px] sm:text-[15px] font-bold text-ink leading-tight truncate" title={formatTHB(price)}>
                   {formatTHB(price)}
                 </span>
               ) : (
                 <span className="text-[12px] text-ink-3 leading-tight">ไม่ระบุใน TOR</span>
               )}
-              <span className="mt-0.5 text-[10.5px] text-ink-4 leading-tight">วงเงินงบประมาณ</span>
+              <span className="mt-0.5 text-[10.5px] text-ink-4 leading-tight truncate">วงเงินงบประมาณ</span>
             </div>
           </div>
 
           {/* 2. Deadline */}
-          <div className="flex flex-col justify-between">
+          <div className="flex flex-col justify-between min-h-[44px]">
             <span className="text-[10px] font-medium text-ink-3 uppercase tracking-wider">กำหนดยื่นข้อเสนอ</span>
             <div className="mt-1">
               <TorDeadline status={iden.status} facts={facts} now={currentDate} lang="th" align="start" hideLabel={true} />
@@ -168,7 +183,7 @@ export function CatalogRow({
           </div>
 
           {/* 3. Match / Qualification Signal */}
-          <div className="col-span-2 sm:col-span-1 flex flex-col justify-between">
+          <div className="col-span-2 sm:col-span-1 flex flex-col justify-between min-h-[44px]">
             <span className="text-[10px] font-medium text-ink-3 uppercase tracking-wider">ความตรงกับคุณ</span>
             <div className="mt-1">
               {match ? (
@@ -184,8 +199,8 @@ export function CatalogRow({
                 </Link>
               ) : (
                 <div className="flex flex-col justify-center">
-                  <span className="text-[11px] text-ink-3 leading-tight">ลงชื่อเข้าใช้เพื่อดูความตรง</span>
-                  <span className="mt-0.5 text-[10.5px] text-ink-4 leading-tight">วิเคราะห์ 6 มิติ</span>
+                  <span className="text-[11px] text-ink-3 leading-tight truncate">ลงชื่อเข้าใช้เพื่อดูความตรง</span>
+                  <span className="mt-0.5 text-[10.5px] text-ink-4 leading-tight truncate">วิเคราะห์ 6 มิติ</span>
                 </div>
               )}
             </div>
@@ -193,7 +208,7 @@ export function CatalogRow({
         </div>
 
         {/* Tier 4: Tech Stack Chips & Qualification Badges (Single line) */}
-        <div className="flex items-center justify-between gap-2 pt-0.5 overflow-hidden">
+        <div className="flex h-6 items-center justify-between gap-2 pt-0.5 overflow-hidden">
           <div className="flex items-center gap-2 overflow-hidden flex-nowrap min-w-0">
             {/* Qualification Badge (single, prioritized) */}
             {match?.disqualifiedDirectBid ? (
@@ -251,9 +266,9 @@ export function CatalogRowSkeleton() {
           <div className={`h-4.5 w-20 ${bar}`} />
           <div className={`h-4.5 w-28 ${bar}`} />
         </div>
-        <div className={`h-4 w-3/4 ${bar}`} />
-        <div className={`h-9 w-full rounded-[4px] ${bar}`} />
-        <div className="flex gap-2 pt-0.5">
+        <div className={`h-[2.5rem] sm:h-[2.75rem] w-3/4 rounded-[2px] ${bar}`} />
+        <div className={`h-[58px] w-full rounded-[4px] ${bar}`} />
+        <div className="flex h-6 items-center gap-2 pt-0.5">
           <div className={`h-3 w-16 ${bar}`} />
           <div className={`h-3 w-20 ${bar}`} />
           <div className={`h-3 w-14 ${bar}`} />

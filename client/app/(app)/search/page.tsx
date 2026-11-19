@@ -18,7 +18,7 @@ function BrowsePageContent() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-[1240px] px-4 py-6">
+    <div className="mx-auto w-full max-w-[1240px] px-4 py-6">
       {/* Page Header */}
       <header className="mb-6 border-b border-line pb-4">
         <div>
