@@ -17,8 +17,8 @@ export async function getWatchlist(userId, now = new Date()) {
     return { tors: [], savedIds: [] };
   }
 
-  // Preserve saved order: map of projectId -> savedAt
-  const savedAtMap = new Map(items.map((i) => [i.projectId, i.savedAt]));
+  // Preserve saved order: map of projectId -> saved item
+  const itemMap = new Map(items.map((i) => [i.projectId, i]));
   const projectIds = items.map((i) => i.projectId);
 
   // Query TorInsights that match projectIds and pass visibilityFilter, with
@@ -34,10 +34,14 @@ export async function getWatchlist(userId, now = new Date()) {
   ]);
 
   // Changed since it was saved when lastChangeAt is later than savedAt (FR-17)
-  const summaries = insights.map((insight) => ({
-    ...toPublic(insight, now),
-    savedAt: savedAtMap.get(insight.projectId),
-  }));
+  const summaries = insights.map((insight) => {
+    const item = itemMap.get(insight.projectId);
+    return {
+      ...toPublic(insight, now),
+      savedAt: item?.savedAt,
+      savedStatus: item?.savedStatus ?? null,
+    };
+  });
 
   // Sort by savedAt descending (newest saved first)
   summaries.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
@@ -55,8 +59,10 @@ export async function getWatchlist(userId, now = new Date()) {
 export async function addToWatchlist(userId, projectId) {
   // Ensure the TOR exists, and is one the user can see: saving a project
   // the catalog never shows would leave an entry the watchlist hides
-  const exists = await TorInsight.exists({ projectId, ...visibilityFilter() });
-  if (!exists) {
+  const insight = await TorInsight.findOne({ projectId, ...visibilityFilter() })
+    .select('identification.status')
+    .lean();
+  if (!insight) {
     throw notFound('ไม่พบข้อมูลโครงการ TOR');
   }
 
@@ -76,7 +82,11 @@ export async function addToWatchlist(userId, projectId) {
     });
   }
 
-  user.watchlist.push({ projectId, savedAt: new Date() });
+  user.watchlist.push({
+    projectId,
+    savedAt: new Date(),
+    savedStatus: insight.identification?.status ?? 'Open',
+  });
   await user.save();
 
   return { saved: true, projectId, count: user.watchlist.length };

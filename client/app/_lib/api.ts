@@ -30,6 +30,7 @@ export type UserProfile = {
   preferredArchetypes?: string[];
   maxPastPortfolioTHB?: number;
   matchNotification?: MatchNotificationSettings;
+  deadlineNoticeDays?: number;
 };
 
 /** Mirrors `toPublicUser` on the server. Adding a field there means adding it here. */
@@ -1338,7 +1339,10 @@ export function getTorPdfPreviewUrl(projectId: string, part = 0, role?: string):
 /* ------------------------------------------------------------------ */
 
 /** A saved TOR: changed since it was saved when lastChangeAt is later than savedAt (FR-17) */
-export type WatchlistItem = TorInsightSummary & { savedAt: string };
+export type WatchlistItem = TorInsightSummary & {
+  savedAt: string;
+  savedStatus?: string | null;
+};
 
 export type WatchlistResponse = {
   tors: WatchlistItem[];
@@ -1382,7 +1386,7 @@ export type MatchedTorSummary = {
   daysLeft?: number;
 };
 
-export type NotificationSnapshot = {
+export type MatchSnapshot = {
   matchedItems?: MatchedTorSummary[];
   projectId?: string;
   projectTitle?: string;
@@ -1390,15 +1394,86 @@ export type NotificationSnapshot = {
   budget?: number | null;
   matchScore?: number;
   matchedSkills?: string[];
-  amendmentId?: string;
-  reason?: string;
   [key: string]: unknown;
 };
+
+export type AmendmentSnapshot = {
+  projectId: string;
+  projectTitle: string;
+  agency: string;
+  budget?: number | null;
+  amendmentHeadline: string;
+  changedFields: string[];
+  changedFieldsTh: string[];
+  detectedAt?: string | Date;
+  [key: string]: unknown;
+};
+
+export type StatusSnapshot = {
+  projectId: string;
+  projectTitle: string;
+  agency: string;
+  budget?: number | null;
+  previousStatus: string;
+  newStatus: string;
+  changedAt?: string | Date;
+  [key: string]: unknown;
+};
+
+export type DeadlineSnapshot = {
+  projectId: string;
+  projectTitle: string;
+  agency: string;
+  budget?: number | null;
+  deadlineType?: "submission" | "comment" | string;
+  deadlineDate?: string | Date | null;
+  daysRemaining: number;
+  [key: string]: unknown;
+};
+
+export type NotificationSnapshot =
+  | (MatchSnapshot & {
+      amendmentHeadline?: never;
+      previousStatus?: never;
+      deadlineDate?: never;
+    })
+  | (AmendmentSnapshot & {
+      matchedItems?: never;
+      previousStatus?: never;
+      deadlineDate?: never;
+    })
+  | (StatusSnapshot & {
+      matchedItems?: never;
+      amendmentHeadline?: never;
+      deadlineDate?: never;
+    })
+  | (DeadlineSnapshot & {
+      matchedItems?: never;
+      amendmentHeadline?: never;
+      previousStatus?: never;
+    })
+  | (Record<string, unknown> & {
+      matchedItems?: MatchedTorSummary[];
+      projectId?: string;
+      projectTitle?: string;
+      agency?: string;
+      budget?: number | null;
+      amendmentHeadline?: string;
+      changedFields?: string[];
+      changedFieldsTh?: string[];
+      previousStatus?: string;
+      newStatus?: string;
+      deadlineType?: string;
+      deadlineDate?: string | Date | null;
+      daysRemaining?: number;
+    });
+
+export type NotificationType = "match" | "amendment" | "status_change" | "deadline" | string;
 
 export type NotificationFeedItem = {
   _id: string;
   userId: string;
-  type: "match" | "amendment" | "deadline" | "priceOutlier" | string;
+  type: NotificationType;
   snapshot: NotificationSnapshot;
   isRead: boolean;
   readAt?: string | null;

@@ -206,3 +206,16 @@ test('watchlist: returns 404 when saving a non-existent TOR project', async () =
   const res = await send('PUT', '/api/watchlist/NON_EXISTENT_9999999', { cookie });
   assert.equal(res.status, 404);
 });
+
+test('watchlist: stores savedStatus and returns savedStatus in summaries', async () => {
+  const cookie = await registerAndGetCookie('wl-status');
+  const putRes = await send('PUT', `/api/watchlist/${sampleProjectId}`, { cookie });
+  assert.equal(putRes.status, 200);
+
+  const getRes = await send('GET', '/api/watchlist', { cookie });
+  assert.equal(getRes.status, 200);
+  const data = await getRes.json();
+  const saved = data.tors.find((t) => t.projectId === sampleProjectId);
+  assert.ok(saved);
+  assert.equal(saved.savedStatus, 'Open');
+});

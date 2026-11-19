@@ -111,9 +111,16 @@ const userSchema = new mongoose.Schema(
         },
         includeSubcontract: { type: Boolean, default: true },
       },
+      // FR-18. Customizable advance notice for approaching deadlines on watched projects (days before deadline).
+      deadlineNoticeDays: {
+        type: Number,
+        default: 3,
+        min: 1,
+        max: 30,
+      },
     },
     // FR-17. Personal watchlist of saved TOR projects.
-    // Contains the e-GP project ID and the timestamp when it was saved.
+    // Contains the e-GP project ID, savedAt, savedStatus, and seenChangeAt for dismissal.
     watchlist: {
       type: [
         {
@@ -126,6 +133,11 @@ const userSchema = new mongoose.Schema(
           savedAt: {
             type: Date,
             default: Date.now,
+          },
+          // Lifecycle status when the user saved it (Draft, Open, etc.)
+          savedStatus: {
+            type: String,
+            default: null,
           },
         },
       ],

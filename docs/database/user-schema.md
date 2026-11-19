@@ -130,6 +130,7 @@ Stores the user's technical capabilities, entity type, and preferences (FR-12) f
 | `profile.matchNotification.minScore` | `Number` | 50–95 | `75` | Minimum match score threshold to trigger an alert (`85`, `75`, or `60`). | `75` |
 | `profile.matchNotification.frequency` | `String` | Enum: `['instant', 'daily', 'weekly']` | `'daily'` | Digest delivery frequency. | `'daily'` |
 | `profile.matchNotification.includeSubcontract` | `Boolean` | — | `true` | Include subcontracting / JV opportunities for individual freelancers on companies-only bids. | `true` |
+| `profile.deadlineNoticeDays` | `Number` | 1–30 | `3` | Customizable advance notice (in days) before bid submission deadline to trigger approaching deadline warnings for watchlisted projects (FR-18). | `5` |
 
 ---
 
@@ -139,7 +140,8 @@ Stores the procurement opportunities the authenticated user is actively tracking
 
 | Field | Type | Constraints | Default | Description | Example |
 |---|---|---|---|---|---|
-| `watchlist` | `Array` | Max 200 items, indexed on `projectId` | `[]` | List of saved TOR items. | `[ { "projectId": "67069277177", "savedAt": "..." } ]` |
+| `watchlist` | `Array` | Max 200 items, indexed on `projectId` | `[]` | List of saved TOR items. | `[ { "projectId": "67069277177", "savedAt": "...", "savedStatus": "Open" } ]` |
 | `watchlist[].projectId` | `String` | Required, trimmed | — | e-GP project identifier matching `TorInsight.projectId`. | `"67069277177"` |
 | `watchlist[].savedAt` | `Date` | Required | `Date.now` | ISO timestamp when the user saved the TOR. | `"2026-10-11T02:00:00.000Z"` |
+| `watchlist[].savedStatus` | `String` | Nullable, trimmed | `null` | Lifecycle status (`Draft`, `Open`, `Awarded`, `Closed`, `Cancelled`) at the time of save, used to detect status changes (FR-18). | `"Open"` |
 
