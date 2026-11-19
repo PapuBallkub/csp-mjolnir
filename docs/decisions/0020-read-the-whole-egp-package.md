@@ -1,6 +1,6 @@
 # 0020 · Read the whole e-GP package, and read it again at each stage
 
-Status: proposed · 2026-10-11
+Status: accepted · 2026-10-11 · amended by [0032](0032-record-what-changed-in-a-tor.md): the recheck also finds new packages, and each change is recorded
 
 ## Context
 

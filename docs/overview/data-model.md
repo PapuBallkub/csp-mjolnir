@@ -117,20 +117,23 @@ Reading it:
 
 ## The pipeline's bookkeeping
 
-Five more collections record how the pipeline is running. None holds TOR data,
+Six more collections record how the pipeline is running. None holds TOR data,
 and they don't link to the collections above, except that `PipelineFailure`
-names a `projectId`.
+names a `projectId`. Every field is in
+[pipeline-run-schema.md](../database/pipeline-run-schema.md).
 
 | Collection | One document is | Key |
 | :--- | :--- | :--- |
 | `pipelinelocks` | A pipeline run in progress, so a second run waits | `_id`: `'ingestion'` or `'extraction'` |
+| `pipelinefailures` | A TOR stuck at a step; deleted when the step succeeds | `projectId`, `step` |
 | `pipelineruns` | One scheduled job: its steps and the counts before and after | `startedAt` |
 | `feedpolls` | One time a source was asked: the national feed, or one agency in a sweep | `startedAt` |
-| `ingestionlogs` | One fetch run against a source, with an `ok`, `degraded` or `failed` status | `source`, `status` |
+| `ingestionlogs` | One run of the fetch step, or one source health check, with an `ok`, `degraded` or `failed` status | `source`, `status` |
 | `requeststreaks` | One government site's count of requests in a row, shared across processes | `_id`: the site |
 
-`feedpolls` and `ingestionlogs` overlap: both record whether the feed
-answered. The admin dashboard reads both.
+`feedpolls` and `ingestionlogs` overlap: both record each fetch of the feed.
+The admin dashboard reads only `ingestionlogs`, and `npm run report` reads
+`feedpolls`. Issue #323 decides which to keep.
 
 ## Who writes what, and who sees it
 
@@ -144,15 +147,15 @@ explains why.
 | `tors` | Ingestion (fetch, download, OCR, `history:import`) | `pipeline/shared/amendments.js` | `tors`, extraction, `admin` | Yes, through `toPublic` |
 | `torinsights` | Extraction (`process-tor.js`; `screen.js` for title-only records) | `admin` (corrections), `insight-versions.js` (rollback), `find-comparable.js` (`analytics`) | `tors`, `watchlist`, `admin`, `reality-check` | Yes, once visible ([0015](../decisions/0015-pilot-mode-and-demo-data.md), NFR-17) |
 | `torinsightversions` | `pipeline/shared/insight-versions.js` | — | The same file, for `admin`'s version list and rollback | No |
-| `titlescreens` | `pipeline/extraction/screen.js` | `admin` | Ingestion (what to download), `admin` | No |
+| `titlescreens` | `pipeline/extraction/screen.js` | `admin` (review verdicts), `scripts/remove-datago-records.js` | Ingestion (what to download, history picks), `run-job.js`, `admin`, `npm run report` | No |
 | `users` | `auth` (the account) | `profile` (`profile`), `watchlist` (`watchlist`), `npm run role` | `auth` on every signed-in request | Only to that user |
 | `technologies` | Extraction (`vocabulary.js`) | `technologies` (requests, as `new`), `admin` (curation) | Search filters, extraction | Yes, `GET /api/technologies` |
 | `notifications` | `notifications` (`notification-feed.service.js`, `match-notification.service.js`) | — | `notifications` (`GET /api/notifications`) | Only to that user |
 | `pipelinefailures` | `pipeline/shared/failures.js` | `admin` (retry, skip, dismiss) | The pipelines, `admin` | No |
 | `pipelinelocks` | `pipeline/shared/run-lock.js` | — | The pipelines | No |
 | `pipelineruns` | `pipeline/jobs/run-job.js` | — | `admin`, `npm run report` | No |
-| `feedpolls` | Ingestion (fetch, sweep) | — | `admin`, `npm run report` | No |
-| `ingestionlogs` | Ingestion (fetch) | `admin` | `admin` | No |
+| `feedpolls` | Ingestion (fetch, sweep) | — | `npm run report` | No |
+| `ingestionlogs` | Ingestion (fetch) | `admin` (source health checks) | `admin` | No |
 | `requeststreaks` | `pipeline/shared/request-pacer.js` | — | The same file, `admin` (e-GP's count against its burst limit, and the cooldown) | No |
 
 ## Where to go next
@@ -161,9 +164,8 @@ explains why.
   [tor-insight-schema.md](../database/tor-insight-schema.md),
   [user-schema.md](../database/user-schema.md),
   [technology-schema.md](../database/technology-schema.md),
+  [title-screen-schema.md](../database/title-screen-schema.md),
   [pipeline-run-schema.md](../database/pipeline-run-schema.md).
-  `TitleScreen`, `FeedPoll`, `RequestStreak` and `IngestionLog` have no page
-  yet; read their model files.
 - How the code that writes them is laid out: [server-features.md](server-features.md).
 - The model files: `server/src/models/`, one per collection, all exported from
   `models/index.js`.

@@ -1,6 +1,6 @@
 # 0028 · Past projects from data.go.th, as ordinary projects
 
-Status: proposed · 2026-10-15 · amended by [0030](0030-run-the-night-in-priority-waves.md): past projects are read in the night's last wave, between two comparison runs
+Status: accepted · 2026-10-15 · amended by [0030](0030-run-the-night-in-priority-waves.md): past projects are read in the night's last wave, between two comparison runs
 
 ## Context
 

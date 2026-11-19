@@ -1,6 +1,6 @@
 # 0025 · Extraction reads the bidding document
 
-Status: proposed · 2026-10-12
+Status: accepted · 2026-10-12
 
 ## Context
 

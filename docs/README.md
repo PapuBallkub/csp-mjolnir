@@ -81,10 +81,8 @@ In [overview/](overview/), except the last two: `pipeline-guide.md` and
 | [tor-insight-schema.md](database/tor-insight-schema.md) | `TorInsight` and `TorInsightVersion`: the summary, and the versions it replaced |
 | [user-schema.md](database/user-schema.md) | `User`: the account, the profile, the watchlist |
 | [technology-schema.md](database/technology-schema.md) | `Technology`: the technology vocabulary |
-| [pipeline-run-schema.md](database/pipeline-run-schema.md) | `PipelineLock` and `PipelineRun`: the pipeline's bookkeeping |
-
-`FeedPoll`, `RequestStreak`, `IngestionLog` and `TitleScreen` have no page
-yet; their model files in `server/src/models/` are the reference.
+| [title-screen-schema.md](database/title-screen-schema.md) | `TitleScreen`: Gemini's verdict on a title, before anything is downloaded |
+| [pipeline-run-schema.md](database/pipeline-run-schema.md) | `PipelineLock`, `PipelineFailure`, `PipelineRun`, `FeedPoll`, `IngestionLog` and `RequestStreak`: the pipeline's bookkeeping |
 
 **Features** (`features/`). Some were written to build from, some describe
 what's built; the last column says which:

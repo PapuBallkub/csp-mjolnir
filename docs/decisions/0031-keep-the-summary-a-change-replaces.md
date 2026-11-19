@@ -1,6 +1,6 @@
 # 0031 · Keep the summary a change replaces
 
-Status: proposed · 2026-10-24 (updated 2026-11-07, [0034](0034-a-tor-can-have-several-categories.md))
+Status: accepted · 2026-10-24 (updated 2026-11-07, [0034](0034-a-tor-can-have-several-categories.md))
 
 ## Context
 

@@ -101,5 +101,12 @@ test('getAllTechnologies: returns only confirmed technologies and ignores new or
   }
 });
 
+test('requestTechnology: safely escapes special regex characters like C++ without ReDoS or crashing (ASVS V15.3.7)', async () => {
+  const { requestTechnology } = await import('#features/technologies/index.js');
+  const result = await requestTechnology({ name: 'C++', category: 'Language' });
+  assert.ok(result.technology);
+  assert.equal(result.technology.name, 'C++');
+});
+
 
 

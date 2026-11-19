@@ -1,6 +1,6 @@
 # 0033 · Capability profile and match scoring
 
-Status: proposed · 2026-10-30 · implements FR-12 and FR-13
+Status: accepted · 2026-10-30 · implements FR-12 and FR-13
 
 ## Context
 

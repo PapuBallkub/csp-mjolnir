@@ -29,6 +29,7 @@ The `User` model represents an authenticated account on the platform. It support
 | `googleId` | `String` | Unique, Sparse index | `undefined` | Subject identifier (`sub`) from Google OAuth ID token. Sparse index ensures password-only users don't collide on `null`. | `"109823481239841234981"` |
 | `notificationConsent` | `Boolean` | — | `false` | Explicit opt-in consent for automated email alerts for watched TORs / amendments (FR08). | `true` |
 | `role` | `String` | Enum: `['user', 'admin']`, Indexed | `'user'` | Access control role. Admin rights (`admin`) can view scraper health, OCR confidence, and administrative overrides. | `'user'` or `'admin'` |
+| `tokenVersion` | `Number` | Default: 0 | `0` | Monotonically increasing version counter for JWT session invalidation on logout or revocation (ASVS V7.4.1). | `0` |
 | `profile` | `Object` | Subdocument (see §5) | `{ skills: [], budgetMin: 0, budgetMax: 0, certifications: [], entityType: "juristic", preferredArchetypes: [], maxPastPortfolioTHB: 0, matchNotification: { ... } }` | User technical capabilities, legal entity type, and preferences for match scoring (FR-12, FR-13, FR-14). | `{ skills: ["React"], entityType: "individual", ... }` |
 | `watchlist` | `Array` | Max 200 items, indexed on `projectId` (see §6) | `[]` | List of saved TOR items with timestamps (FR-17). | `[{"projectId": "67069277177", "savedAt": "..."}]` |
 | `createdAt` | `Date` | Auto managed | — | Timestamp of account registration. | `"2026-09-29T10:00:00.000Z"` |

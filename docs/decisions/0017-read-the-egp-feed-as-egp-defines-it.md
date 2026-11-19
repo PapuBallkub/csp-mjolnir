@@ -1,6 +1,6 @@
 # 0017 · Read the e-GP feed the way e-GP defines it
 
-Status: proposed · 2026-10-07 · corrects part of [0016](0016-pipeline-runs-are-safe-to-repeat.md)
+Status: accepted · 2026-10-07 · corrects part of [0016](0016-pipeline-runs-are-safe-to-repeat.md)
 
 ## Context
 

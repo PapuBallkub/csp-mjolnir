@@ -1,6 +1,6 @@
 # 0019 · Badges name e-GP's stage; deadlines say what they're for
 
-Status: proposed · 2026-10-08
+Status: accepted · 2026-10-08
 
 ## Context
 

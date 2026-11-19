@@ -9,17 +9,21 @@ import { readSessionToken, SESSION_COOKIE, clearSessionCookie } from './session.
 // session is signed, and the third rule in 0003 is that common/ never imports
 // from features/. Other features reach it through #features/auth/index.js.
 export async function requireAuth(req, res, next) {
-  const userId = readSessionToken(req.cookies?.[SESSION_COOKIE]);
+  // ASVS V14.3.2, V14.2.2: Prevent intermediate caches and browsers from caching sensitive authenticated data
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
 
-  if (!userId) {
+  const session = readSessionToken(req.cookies?.[SESSION_COOKIE]);
+
+  if (!session?.userId) {
     throw unauthorized('กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ');
   }
 
-  const user = await findUserById(userId);
+  const user = await findUserById(session.userId);
 
-  if (!user) {
-    // Our token, unexpired, but the account behind it is gone. Drop the cookie
-    // so the browser stops replaying it on every request.
+  // ASVS V7.4.1: If account is deleted or tokenVersion does not match (session was revoked on logout),
+  // reject immediately and clear the cookie.
+  if (!user || (user.tokenVersion ?? 0) !== session.tokenVersion) {
     clearSessionCookie(res);
     throw unauthorized('กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ');
   }
