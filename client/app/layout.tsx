@@ -50,6 +50,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="th"
       className={`${ibmPlexSansThai.variable} ${ibmPlexSans.variable} ${plexMono.variable} h-full antialiased`}
+      style={{ scrollbarGutter: "stable" }}
       suppressHydrationWarning
     >
       <head>

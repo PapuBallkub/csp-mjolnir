@@ -53,7 +53,7 @@ export function PipelineStageFunnel({
   ];
 
   return (
-    <section className="mb-8">
+    <section className="mb-8 w-full">
       <SectionHeading
         sub={
           lang === "th"
@@ -64,7 +64,7 @@ export function PipelineStageFunnel({
         {lang === "th" ? "โฟลว์สถานะ Pipeline" : "Pipeline stage funnel"}
       </SectionHeading>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {funnel.map((item, idx) => (
           <Panel
             key={item.num}

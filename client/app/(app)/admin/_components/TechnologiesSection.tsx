@@ -1,7 +1,34 @@
 "use client";
 
 import type { AdminTechnology } from "../../../_lib/api";
-import { btn, input, Panel } from "../../../_components/ui";
+import { btn, input, Panel, SectionHeading } from "../../../_components/ui";
+
+function TechnologiesTableSkeleton() {
+  return (
+    <>
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+        <tr key={i} className="animate-pulse">
+          <td className="px-3.5 py-3">
+            <div className="h-4 w-32 rounded-[2px] bg-surface-3 mb-1" />
+            <div className="h-2.5 w-20 rounded-[2px] bg-surface-2" />
+          </td>
+          <td className="px-3 py-3">
+            <div className="h-5 w-24 rounded-[2px] bg-surface-3" />
+          </td>
+          <td className="px-3 py-3">
+            <div className="h-4 w-36 rounded-[2px] bg-surface-2" />
+          </td>
+          <td className="px-3 py-3">
+            <div className="h-5 w-20 rounded-[2px] bg-surface-3" />
+          </td>
+          <td className="px-3 py-3 text-right">
+            <div className="h-6 w-16 rounded-[2px] bg-surface-3 ml-auto" />
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
 
 export function TechnologiesSection({
   technologies,
@@ -65,37 +92,69 @@ export function TechnologiesSection({
   });
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6">
       {/* Header & Primary Actions */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-[18px] font-bold text-ink">
-              {lang === "th"
-                ? "คลังเทคโนโลยีและมาตรฐาน (Tech & Standards Vocabulary)"
-                : "Technology & Standards Vocabulary"}
-            </h2>
-            {pendingCount > 0 && (
-              <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-0.5 text-[11px] font-semibold text-amend">
-                {lang === "th" ? `รออนุมัติ ${pendingCount} รายการ` : `${pendingCount} pending`}
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-[13px] text-ink-2">
-            {lang === "th"
-              ? "จัดการคำศัพท์ที่ใช้ในการสกัดข้อมูล TOR ตรวจจับ Lock-spec และจับคู่ความสามารถของผู้ใช้ (Matching)"
-              : "Shared vocabulary for TOR extraction, lock-spec analysis, and contractor profile matching."}
-          </p>
+      <SectionHeading
+        right={
+          <button
+            type="button"
+            onClick={onOpenAdd}
+            className={`${btn.primary} text-[11px] py-1 px-3 flex items-center gap-1.5 shrink-0 cursor-pointer`}
+          >
+            <span className="text-[14px] font-bold leading-none">+</span>
+            <span>{lang === "th" ? "เพิ่มเทคโนโลยี / มาตรฐาน" : "Add Tech / Standard"}</span>
+          </button>
+        }
+        sub={
+          lang === "th"
+            ? "จัดการคำศัพท์ที่ใช้ในการสกัดข้อมูล TOR ตรวจจับ Lock-spec และจับคู่ความสามารถของผู้ใช้ (Matching)"
+            : "Shared vocabulary for TOR extraction, lock-spec analysis, and contractor profile matching."
+        }
+      >
+        <div className="flex items-center gap-2">
+          <span>{lang === "th" ? "คลังเทคโนโลยีและมาตรฐาน" : "Technology & Standards Vocabulary"}</span>
+          {pendingCount > 0 && (
+            <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-0.5 text-[11px] font-semibold text-amend">
+              {lang === "th" ? `รออนุมัติ ${pendingCount} รายการ` : `${pendingCount} pending`}
+            </span>
+          )}
         </div>
+      </SectionHeading>
 
-        <button
-          type="button"
-          onClick={onOpenAdd}
-          className={`${btn.primary} h-9 px-3.5 text-[12px] flex items-center gap-1.5 shrink-0`}
-        >
-          <span className="text-[14px] font-bold leading-none">+</span>
-          <span>{lang === "th" ? "เพิ่มเทคโนโลยี / มาตรฐาน" : "Add Tech / Standard"}</span>
-        </button>
+      {/* KPI Stats Strip matching Overview scale */}
+      <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
+        <Panel className="px-3 py-2.5">
+          <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
+            {totalCount || technologies.length}
+          </p>
+          <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
+            {lang === "th" ? "คำศัพท์ทั้งหมดในระบบ" : "Total vocabulary"}
+          </p>
+        </Panel>
+        <Panel className="px-3 py-2.5">
+          <p className="font-mono tnum text-[24px] leading-none font-medium text-open">
+            {technologies.filter((t) => t.status === "confirmed").length || (totalCount - pendingCount)}
+          </p>
+          <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
+            {lang === "th" ? "ยืนยันแล้ว (ใช้งานในระบบ)" : "Confirmed active"}
+          </p>
+        </Panel>
+        <Panel className="px-3 py-2.5">
+          <p className={`font-mono tnum text-[24px] leading-none font-medium ${pendingCount > 0 ? "text-amend" : "text-ink"}`}>
+            {pendingCount}
+          </p>
+          <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
+            {lang === "th" ? "รออนุมัติจากผู้ใช้" : "Pending requests"}
+          </p>
+        </Panel>
+        <Panel className="px-3 py-2.5">
+          <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
+            {CATEGORIES.length - 1}
+          </p>
+          <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
+            {lang === "th" ? "หมวดหมู่เทคโนโลยี" : "Tech categories"}
+          </p>
+        </Panel>
       </div>
 
       {/* Action Notification Banner */}
@@ -113,7 +172,7 @@ export function TechnologiesSection({
 
       {/* Section 1: Pending User Requests (Review Queue) */}
       {pendingItems.length > 0 && (
-        <Panel className="border-amend-line bg-amend-bg/10 overflow-hidden">
+        <Panel className="w-full border-amend-line bg-amend-bg/10 overflow-hidden">
           <div className="border-b border-amend-line/40 bg-amend-bg/30 px-4 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-[14px]">⏳</span>
@@ -199,12 +258,12 @@ export function TechnologiesSection({
       )}
 
       {/* Section 2: All Technologies Directory */}
-      <Panel className="overflow-hidden">
+      <section className="w-full">
         {/* Filter Toolbar */}
-        <div className="border-b border-line bg-surface-2 p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {/* Search Input */}
-            <div className="relative min-w-[200px] sm:min-w-[240px]">
+            <div className="relative w-full sm:w-64">
               <input
                 type="text"
                 value={search}
@@ -262,8 +321,9 @@ export function TechnologiesSection({
         </div>
 
         {/* Vocabulary Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[650px] border-collapse text-left text-[12px]">
+        <Panel className="w-full shadow-xs overflow-hidden">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[820px] border-collapse text-left text-[12px]">
             <thead>
               <tr className="border-b border-line bg-surface-2 text-[10px] uppercase font-semibold text-ink-3 tracking-wider">
                 <th className="px-3.5 py-2.5">{lang === "th" ? "ชื่อที่แสดง (Name)" : "Name"}</th>
@@ -277,12 +337,7 @@ export function TechnologiesSection({
             </thead>
             <tbody className="divide-y divide-line/60">
               {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-ink-3">
-                    <span className="animate-spin inline-block text-[14px] mr-2">↻</span>
-                    {lang === "th" ? "กำลังโหลดข้อมูลคำศัพท์..." : "Loading vocabulary..."}
-                  </td>
-                </tr>
+                <TechnologiesTableSkeleton />
               ) : filteredTech.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-ink-3">
@@ -375,6 +430,7 @@ export function TechnologiesSection({
           <span className="font-mono text-[10px]">ADR 0014 Vocabulary</span>
         </div>
       </Panel>
+      </section>
     </div>
   );
 }

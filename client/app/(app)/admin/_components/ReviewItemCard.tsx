@@ -101,7 +101,7 @@ export function ReviewItemCard({
     resolution?.includes("scope");
 
   return (
-    <Panel className="overflow-hidden p-4">
+    <Panel className="w-full overflow-hidden p-4">
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         {/* Left column: ID, Status Badges, Title, Agency, Misclassified notice */}
         <div className="min-w-0 flex-1">

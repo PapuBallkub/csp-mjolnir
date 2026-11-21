@@ -11,7 +11,7 @@ export function PipelineRunsSection({
   if (!runs || runs.length === 0) return null;
 
   return (
-    <section className="mb-8">
+    <section className="mb-8 w-full">
       <SectionHeading
         right={
           <span className="text-[11px] text-ink-3">
@@ -27,8 +27,8 @@ export function PipelineRunsSection({
         {lang === "th" ? "ประวัติการรัน Job อัตโนมัติ" : "Scheduled job execution history"}
       </SectionHeading>
 
-      <Panel className="overflow-x-auto shadow-xs">
-        <table className="w-full min-w-[760px] border-collapse text-left">
+      <Panel className="w-full overflow-x-auto shadow-xs">
+        <table className="w-full min-w-[820px] border-collapse text-left">
           <thead>
             <tr className="border-b border-line bg-surface-2">
               {[
@@ -40,7 +40,7 @@ export function PipelineRunsSection({
               ].map((col) => (
                 <th
                   key={col.text}
-                  className={`px-3 py-2 text-[11px] font-medium text-ink-3 ${
+                  className={`px-3.5 py-2.5 text-[11px] font-medium text-ink-3 ${
                     col.right ? "text-right" : ""
                   }`}
                 >
@@ -69,17 +69,17 @@ export function PipelineRunRow({
 }) {
   return (
     <tr className="border-b border-line align-middle last:border-b-0 hover:bg-surface-2/40">
-      <td className="px-3 py-2 font-mono tnum text-[11px] text-ink-2 whitespace-nowrap">
+      <td className="px-3.5 py-2.5 font-mono tnum text-[12px] text-ink-2 whitespace-nowrap">
         {run.startedAt}
       </td>
-      <td className="px-3 py-2">
-        <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[2px] text-[10px] text-ink font-semibold uppercase">
+      <td className="px-3.5 py-2.5">
+        <span className="rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] text-ink font-semibold uppercase">
           {run.job}
         </span>
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3.5 py-2.5">
         <span
-          className={`inline-flex rounded-[2px] border px-1.5 py-[2px] text-[10px] uppercase font-medium ${
+          className={`inline-flex rounded-[2px] border px-2 py-0.5 text-[11px] uppercase font-medium ${
             run.outcome === "done"
               ? "border-open-line bg-open-bg text-open"
               : run.outcome === "timed-out"
@@ -92,12 +92,12 @@ export function PipelineRunRow({
           {run.outcome}
         </span>
       </td>
-      <td className="px-3 py-2 text-right font-mono tnum text-[11px] text-ink-2">
+      <td className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink-2">
         {run.durationMs > 1000
           ? `${(run.durationMs / 1000).toFixed(1)}s`
           : `${run.durationMs}ms`}
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3.5 py-2.5">
         <div className="flex flex-wrap gap-1">
           {run.steps && run.steps.length > 0 ? (
             run.steps.map((step, idx) => (
