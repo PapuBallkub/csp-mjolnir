@@ -8,6 +8,15 @@ export const SESSION_COOKIE = 'mjolnir_session';
 const SESSION_TTL_HOURS = 24;
 const SESSION_TTL_MS = SESSION_TTL_HOURS * 60 * 60 * 1000;
 
+// OWASP ASVS Chapter 9 (Self-contained Tokens) Constants:
+// V9.1.2: Enforce permitted algorithm allowlist (symmetric HS256 only, never 'none')
+export const SESSION_TOKEN_ALGORITHM = 'HS256';
+// V9.2.2: Enforce token type / intended purpose claim
+export const SESSION_TOKEN_TYPE = 'session';
+// V9.1.3, V9.2.3, V9.2.4: Enforce trusted issuer and audience bounds
+export const SESSION_TOKEN_ISSUER = 'mjolnir-api';
+export const SESSION_TOKEN_AUDIENCE = 'mjolnir-web';
+
 // Shared, because a cookie is cleared by matching the attributes it was set
 // with. If these two drift apart, logout stops working.
 const cookieOptions = {
@@ -22,22 +31,48 @@ const cookieOptions = {
 
 // JWT claims are readable without the secret, so the payload contains the
 // user id and tokenVersion (ASVS V7.4.1). Anything else is read per request.
+// OWASP ASVS Chapter 9 compliance:
+// - V9.1.2: Explicit algorithm allowlist (HS256)
+// - V9.2.1: Expiration time span enforced
+// - V9.2.2: Token type/purpose claim (typ: 'session')
+// - V9.2.3, V9.2.4: Audience ('mjolnir-web') & Issuer ('mjolnir-api') restrictions
 export function signSessionToken(user) {
-  return jwt.sign({ v: user.tokenVersion ?? 0 }, env.jwtSecret, {
-    subject: user.id,
-    expiresIn: `${SESSION_TTL_HOURS}h`,
-  });
+  return jwt.sign(
+    {
+      v: user.tokenVersion ?? 0,
+      typ: SESSION_TOKEN_TYPE,
+    },
+    env.jwtSecret,
+    {
+      algorithm: SESSION_TOKEN_ALGORITHM,
+      subject: user.id,
+      issuer: SESSION_TOKEN_ISSUER,
+      audience: SESSION_TOKEN_AUDIENCE,
+      expiresIn: `${SESSION_TTL_HOURS}h`,
+    }
+  );
 }
 
 // The session payload ({ userId, tokenVersion }), or null if missing, expired, or not ours.
+// OWASP ASVS Chapter 9 validation:
+// - V9.1.1: Cryptographic signature verified against secret
+// - V9.1.2: Algorithm strictly restricted to allowlist ([HS256]), prevents 'none' or key confusion
+// - V9.1.3: Pre-configured secret key used
+// - V9.2.1: Expiration and not-before claims verified
+// - V9.2.2: Token type/purpose verified against SESSION_TOKEN_TYPE
+// - V9.2.3, V9.2.4: Audience and Issuer verified against expected bounds
 export function readSessionToken(token) {
   if (!token) {
     return null;
   }
 
   try {
-    const payload = jwt.verify(token, env.jwtSecret);
-    if (!payload.sub) {
+    const payload = jwt.verify(token, env.jwtSecret, {
+      algorithms: [SESSION_TOKEN_ALGORITHM],
+      issuer: SESSION_TOKEN_ISSUER,
+      audience: SESSION_TOKEN_AUDIENCE,
+    });
+    if (!payload.sub || payload.typ !== SESSION_TOKEN_TYPE) {
       return null;
     }
     return {
