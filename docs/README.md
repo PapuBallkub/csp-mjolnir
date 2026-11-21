@@ -102,6 +102,7 @@ what's built; the last column says which:
 
 | Page | What it covers |
 | :--- | :--- |
+| [v03-web-frontend-security.md](security/v03-web-frontend-security.md) | Browser security controls, HTTP security headers, and traceability matrix for OWASP ASVS v5.0 Chapter 3 (Ref IDs 44–74) |
 | [v07-session-management.md](security/v07-session-management.md) | Session architecture, token lifecycle, revocation via token versioning, and OWASP ASVS Chapter 7 |
 | [v13-configuration-and-secrets.md](security/v13-configuration-and-secrets.md) | Communication architecture, connection pooling, rate limits, secrets isolation, and OWASP ASVS Chapter 13 |
 | [v14-data-protection.md](security/v14-data-protection.md) | Five-tier sensitive data classification, cache protection, data retention, and OWASP ASVS Chapter 14 |
