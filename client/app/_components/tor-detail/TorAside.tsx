@@ -18,7 +18,7 @@ export function TorAside({
   fiscalYear: number | null;
   officialEgpUrl: string | null;
   onPreviewPdf: () => void;
-  deadline: { kind: string; date: string | null; label: { th: string; en: string } };
+  deadline: { kind: string; date: string | null; label: { th: string; en: string }; missing: { th: string; en: string } };
   isSaved?: boolean;
   isPopping?: boolean;
   toggleLoading?: boolean;
@@ -62,7 +62,7 @@ export function TorAside({
                   </span>
                 )
               ) : (
-                <span className="text-[13px] text-ink-3">ไม่ระบุใน TOR</span>
+                <span className="text-[13px] text-ink-3">{deadline.missing.th}</span>
               )}
             </Fact>
           ) : (
@@ -83,7 +83,7 @@ export function TorAside({
                   </span>
                 )
               ) : (
-                <span className="text-[13px] text-ink-3">ไม่ระบุใน TOR</span>
+                <span className="text-[13px] text-ink-3">{deadline.missing.th}</span>
               )}
             </Fact>
           )}

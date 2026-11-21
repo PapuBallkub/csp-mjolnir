@@ -253,17 +253,24 @@ export function TorHeader({
 
           {/* Match with You (Auth-aware) */}
           <div className="flex items-center gap-2">
-            <span className="text-[12px] text-ink-3">ตรงกับคุณ:</span>
+            <span className="text-[12px] text-ink-3">ความเหมาะสมกับทักษะของคุณ:</span>
             {isAuthenticated && match ? (
               <span className="font-mono text-[12px] font-semibold text-open">
                 {match.score}% ({match.matched.length}/{requiredTechCount} ทักษะ)
               </span>
+            ) : isAuthenticated ? (
+              <Link
+                href="/profile"
+                className="text-[12px] font-medium text-ink-2 hover:text-ink underline underline-offset-2"
+              >
+                ตั้งค่าโปรไฟล์เพื่อเทียบความเหมาะสม
+              </Link>
             ) : (
               <Link
                 href="/auth"
                 className="text-[12px] font-medium text-ink-2 hover:text-ink underline underline-offset-2"
               >
-                ลงชื่อเข้าใช้เพื่อดูความตรง
+                ลงชื่อเข้าใช้เพื่อเทียบความเหมาะสม
               </Link>
             )}
           </div>

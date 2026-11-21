@@ -154,7 +154,7 @@ export function MatchModeView({
     return (
       <EmptyState
         headline="ลงชื่อเข้าใช้ แล้วระบบจะจัดอันดับประกาศตามทักษะของคุณ"
-        body="บันทึกเทคโนโลยีที่คุณทำได้และช่วงงบที่รับไหวไว้ในโปรไฟล์ แล้วประกาศที่ตรงกับคุณที่สุดจะขึ้นมาก่อน ส่วนการค้นหาและอ่านประกาศทุกรายการไม่ต้องลงชื่อเข้าใช้"
+        body="บันทึกเทคโนโลยีที่คุณทำได้และช่วงงบที่รับไหวไว้ในโปรไฟล์ แล้วประกาศที่เหมาะสมกับคุณที่สุดจะขึ้นมาก่อน ส่วนการค้นหาและอ่านประกาศทุกรายการไม่ต้องลงชื่อเข้าใช้"
         action={
           <div className="flex flex-wrap justify-center gap-2">
             <Link href="/auth" className={btn.primary}>
@@ -237,7 +237,7 @@ export function MatchModeView({
       isProfileBaseline(profile) ? (
         <div className="mb-2.5 flex items-center justify-between rounded-[3px] border border-amber-300 bg-amber-50 px-3.5 py-2 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           <span>
-            💡 คุณยังไม่ได้ตั้งค่าโปรไฟล์ — ตั้งค่าทักษะและเงื่อนไขการรับงานเพื่อจัดอันดับประกาศที่ตรงกับคุณ
+            💡 คุณยังไม่ได้ตั้งค่าโปรไฟล์ — ตั้งค่าทักษะและเงื่อนไขการรับงานเพื่อจัดอันดับประกาศที่เหมาะสมกับคุณ
           </span>
           <Link href="/profile" className="ml-2 shrink-0 font-semibold underline hover:opacity-80">
             ตั้งค่าโปรไฟล์ →
@@ -254,7 +254,12 @@ export function MatchModeView({
         <div className="flex flex-col gap-3">
           {noSkillsBanner}
           {pagedItems.map(({ tor, match }) => (
-            <CatalogRow key={tor.projectId} tor={tor} now={matchResult.data.at} match={match} />
+            <CatalogRow
+              key={tor.projectId}
+              tor={tor}
+              now={matchResult.data.at}
+              match={isProfileBaseline(profile) ? undefined : match}
+            />
           ))}
         </div>
 
@@ -294,7 +299,7 @@ export function MatchModeView({
   if (matchResult?.ok) {
     const tors = matchResult.data.tors;
     const total = matchResult.data.total;
-    countLine = `แสดง ${matchResults.length} จาก ${tors.length} ประกาศที่ประเมินความตรงกับคุณ${
+    countLine = `แสดง ${matchResults.length} จาก ${tors.length} ประกาศที่ประเมินความเหมาะสมกับคุณ${
       total > tors.length ? ` (จัดอันดับ ${tors.length} รายการที่ใกล้ครบกำหนดที่สุดจากทั้งหมด ${total})` : ""
     }`;
   }
@@ -328,7 +333,7 @@ export function MatchModeView({
           <SectionHeading
             sub="คะแนนประเมินจากทักษะ (40%), สถาปัตยกรรมระบบ (15%), ช่วงงบ (20%), ผลงานเดิม (10%), สถานะนิติบุคคล (10%) และมาตรฐาน (5%)"
           >
-            {matchResult?.ok ? `ตรงกับคุณมาก ${strongCount} งาน` : "งานที่ตรงกับคุณ"}
+            {matchResult?.ok ? `เหมาะสมกับคุณมาก ${strongCount} งาน` : "งานที่เหมาะสมกับคุณ"}
           </SectionHeading>
         </div>
 

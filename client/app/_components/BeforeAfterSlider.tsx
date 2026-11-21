@@ -154,9 +154,9 @@ export function BeforeAfterSlider({
                 <span className="text-[10px] text-ink-4">26 พ.ย. 2569</span>
               </div>
               <div className="col-span-2 sm:col-span-1">
-                <span className="text-[10px] font-medium text-ink-3 uppercase">ความตรงกับคุณ</span>
+                <span className="text-[10px] font-medium text-ink-3 uppercase">ความเหมาะสมกับทักษะของคุณ</span>
                 <div className="font-mono font-bold text-open text-[13.5px]">69/100</div>
-                <span className="text-[10px] text-ink-3">ตรงบางส่วน (ทักษะเข้าเกณฑ์)</span>
+                <span className="text-[10px] text-ink-3">เหมาะสมบางส่วน (ทักษะเข้าเกณฑ์)</span>
               </div>
             </div>
 

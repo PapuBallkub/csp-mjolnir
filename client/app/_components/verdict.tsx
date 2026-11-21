@@ -545,7 +545,7 @@ export function MatchScore({
       className="inline-flex items-center gap-2 whitespace-nowrap"
       title={
         lang === "th"
-          ? `คะแนนความตรงกับโปรไฟล์ ${score}/100 — ดูการวิเคราะห์ 6 มิติฉบับเต็มในหน้ารายละเอียด`
+          ? `คะแนนความเหมาะสมกับทักษะของคุณ ${score}/100 — ดูการวิเคราะห์ 6 มิติฉบับเต็มในหน้ารายละเอียด`
           : `Match score ${score}/100 — view 6-dimension breakdown in detail page`
       }
     >
@@ -563,7 +563,7 @@ export function MatchScore({
           style={{ width: `${score}%` }}
         />
       </span>
-      <span className="sr-only">{lang === "th" ? "คะแนนความตรงกับโปรไฟล์" : "profile match score"}</span>
+      <span className="sr-only">{lang === "th" ? "คะแนนความเหมาะสมกับทักษะของคุณ" : "profile match score"}</span>
     </span>
   );
 }

@@ -139,13 +139,13 @@ export function deadlineOf(status: TorStatus, facts: DeadlineFacts): DeadlineInf
       kind: "comment",
       date: facts.commentDeadline ?? null,
       label: { th: "ส่งความเห็นร่าง TOR ภายใน", en: "Comments on the draft due" },
-      missing: { th: "TOR ไม่ระบุวันรับฟังความเห็น", en: "The TOR gives no comment deadline" },
+      missing: { th: "อยู่ระหว่างรับฟังความเห็น", en: "Open for public comment" },
     };
   }
   return {
     kind: "submission",
     date: facts.submissionDeadline,
     label: { th: "ยื่นข้อเสนอภายใน", en: "Bids due" },
-    missing: { th: "TOR ไม่ระบุวันยื่นข้อเสนอ", en: "The TOR gives no bid deadline" },
+    missing: { th: "ไม่ระบุวันปิดรับข้อเสนอ", en: "No bid deadline specified" },
   };
 }

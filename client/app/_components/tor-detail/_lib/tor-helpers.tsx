@@ -84,6 +84,27 @@ export function formatCategoryLabel(category: string): string {
   return category;
 }
 
+export function formatFindingExcerpt(category: string, excerpt: string): string {
+  const text = excerpt.trim();
+  if (!text) return "";
+  if (text.startsWith("เอกสารถามหา") || text.startsWith("เอกสารระบุ")) {
+    return text;
+  }
+  if (category === "Vendor Lock-in") {
+    if (/^(ผู้ยื่นข้อเสนอ|ต้องแนบ|ต้องมี|ต้องได้รับ)/.test(text)) {
+      return `เอกสารระบุว่า${text}`;
+    }
+    return `เอกสารถามหา${text}`;
+  }
+  if (category === "Qualification Barrier") {
+    if (/^(ต้อง)?มีผลงาน/.test(text)) {
+      return `เอกสารระบุว่าผู้ยื่นข้อเสนอต้อง${text.replace(/^ต้อง/, "")}`;
+    }
+    return `เอกสารระบุว่า${text}`;
+  }
+  return `เอกสารระบุว่า${text}`;
+}
+
 /** A decision-support section whose analysis hasn't been run: said plainly, never a 0. */
 export function NotAnalysed({ heading }: { heading: string }) {
   return (

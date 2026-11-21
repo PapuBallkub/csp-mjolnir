@@ -11,7 +11,7 @@ import { getEgpAnnouncementUrl, getFiscalYear } from "../../_lib/format";
 import { useProfile } from "../prefs";
 import { useAuth } from "../auth";
 import { deadlineOf, stageOf } from "../../_lib/stage";
-import { matchFor } from "../../_lib/match";
+import { isProfileBaseline, matchFor } from "../../_lib/match";
 import { btn } from "../ui";
 import { getScopeSize } from "./_lib/tor-helpers";
 import { TorHeader } from "./TorHeader";
@@ -170,7 +170,7 @@ export function TorDetail({
       ? facts.webUrl
       : getEgpAnnouncementUrl(projectId);
 
-  const match = isAuthenticated ? matchFor(insight, profile) : null;
+  const match = isAuthenticated && !isProfileBaseline(profile) ? matchFor(insight, profile) : null;
   const matchedSkills = match ? match.matched : [];
 
   const lockScore = lockSpec?.riskScore ?? null;

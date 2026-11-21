@@ -11,6 +11,7 @@ import { AccentPanel, btn, Label, Panel, SectionHeading, Well } from "../../ui";
 import {
   formatBenchmarkMoney,
   formatCategoryLabel,
+  formatFindingExcerpt,
   formatMoney,
   formatSignedDiff,
   NotAnalysed,
@@ -71,7 +72,7 @@ export function DecisionSupportTab({
               </span>
             }
           >
-            ความตรงกับคุณ (Profile Match)
+            ความเหมาะสมกับทักษะของคุณ (Profile Match)
           </SectionHeading>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -87,12 +88,12 @@ export function DecisionSupportTab({
               <span>●</span>
               <span>
                 {match.tier === "strong"
-                  ? "ตรงกับคุณมาก (Strong Match)"
+                  ? "เหมาะสมกับคุณมาก (Strong Match)"
                   : match.tier === "good"
-                  ? "ตรงปานกลาง-สูง (Good Match)"
+                  ? "เหมาะสมปานกลาง-สูง (Good Match)"
                   : match.tier === "moderate"
-                  ? "ตรงบางส่วน (Moderate Match)"
-                  : "ไม่ค่อยตรง (Low Match)"}
+                  ? "เหมาะสมบางส่วน (Moderate Match)"
+                  : "ไม่ค่อยเหมาะสม (Low Match)"}
               </span>
             </span>
 
@@ -107,7 +108,7 @@ export function DecisionSupportTab({
           <div className="mt-4 rounded-md border border-line bg-surface p-4 shadow-2xs">
             <div className="mb-3 flex items-center justify-between border-b border-line/60 pb-2.5">
               <h4 className="text-[13px] font-semibold text-ink">
-                วิเคราะห์ความตรงกับโปรไฟล์ 6 มิติ
+                วิเคราะห์ความเหมาะสมกับโปรไฟล์ 6 มิติ
               </h4>
               <span className="font-mono text-[13px] font-semibold text-ink">
                 {match.score}
@@ -420,18 +421,34 @@ export function DecisionSupportTab({
             </Link>
           </div>
         </AccentPanel>
-      ) : !isAuthenticated ? (
+      ) : isAuthenticated ? (
         <Panel className="px-4 py-5 sm:px-6 sm:py-6">
           <SectionHeading sub="ประเมินความเข้ากันได้ของทักษะ สถาปัตยกรรมระบบ ช่วงงบประมาณ และเกณฑ์คุณสมบัติ">
-            ความตรงกับคุณ (Profile Match)
+            ความเหมาะสมกับทักษะของคุณ (Profile Match)
           </SectionHeading>
           <div className="mt-3 rounded-[3px] border border-line bg-surface-2/60 p-4">
             <p className="text-[13px] leading-thai text-ink-2">
-              ลงชื่อเข้าใช้ระบบเพื่อดูคะแนนความตรงกับโปรไฟล์ของคุณ ตรวจสอบว่าทักษะและงบประมาณตรงกับที่ทีมของคุณรับได้หรือไม่ พร้อมแจ้งเตือนเกณฑ์เฉพาะนิติบุคคล
+              คุณยังไม่ได้ตั้งค่าโปรไฟล์ ระบุทักษะเทคโนโลยีและช่วงงบประมาณในโปรไฟล์เพื่อเทียบความเหมาะสมระหว่างสเปกงานกับทักษะของคุณ
+            </p>
+            <div className="mt-3 flex items-center gap-3">
+              <Link href="/profile" className={`${btn.secondary} text-[12px]`}>
+                ไปที่หน้าตั้งค่าโปรไฟล์ →
+              </Link>
+            </div>
+          </div>
+        </Panel>
+      ) : (
+        <Panel className="px-4 py-5 sm:px-6 sm:py-6">
+          <SectionHeading sub="ประเมินความเข้ากันได้ของทักษะ สถาปัตยกรรมระบบ ช่วงงบประมาณ และเกณฑ์คุณสมบัติ">
+            ความเหมาะสมกับทักษะของคุณ (Profile Match)
+          </SectionHeading>
+          <div className="mt-3 rounded-[3px] border border-line bg-surface-2/60 p-4">
+            <p className="text-[13px] leading-thai text-ink-2">
+              ลงชื่อเข้าใช้เพื่อเทียบความเหมาะสมระหว่างสเปกงานกับทักษะและงบประมาณของคุณ พร้อมแจ้งเตือนเกณฑ์เฉพาะนิติบุคคล
             </p>
             <div className="mt-3 flex items-center gap-3">
               <Link href="/auth" className={`${btn.secondary} text-[12px]`}>
-                ลงชื่อเข้าใช้เพื่อดูผลจับคู่
+                ลงชื่อเข้าใช้เพื่อเทียบความเหมาะสม
               </Link>
               <span className="text-[11px] text-ink-3">
                 ดูข้อมูลประกาศได้ครบถ้วนโดยไม่ต้องมีบัญชี
@@ -439,7 +456,7 @@ export function DecisionSupportTab({
             </div>
           </div>
         </Panel>
-      ) : null}
+      )}
 
       {/* 2. LOCK-SPEC & REQUIREMENT DEVIATIONS */}
       {lockSpec ? (
@@ -506,7 +523,7 @@ export function DecisionSupportTab({
                       <div className="mb-1 text-[11.5px] font-semibold text-ink-3">
                         ข้อกำหนดที่ระบบตรวจพบ:
                       </div>
-                      <p className="italic">“{finding.sourceExcerpt}”</p>
+                      <p className="text-ink">{formatFindingExcerpt(finding.category, finding.sourceExcerpt)}</p>
                       {finding.sourceLocation ? (
                         <p className="mt-1.5 text-[11px] text-ink-3">
                           <span className="font-medium text-ink-2">อ้างอิงหมวด/ตำแหน่ง: </span>
