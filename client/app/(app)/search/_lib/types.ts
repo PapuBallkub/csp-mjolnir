@@ -28,8 +28,8 @@ export const DEADLINE_BANDS: { id: string; label: Bi; days?: number }[] = [
 
 export const SORTS: { id: Sort; label: Bi }[] = [
   { id: "newest", label: { th: "ประกาศล่าสุด", en: "Newest" } },
-  { id: "match-desc", label: { th: "ตรงกับคุณมากที่สุด", en: "Highest match" } },
-  { id: "match-asc", label: { th: "ตรงกับคุณน้อยที่สุด", en: "Lowest match" } },
+  { id: "match-desc", label: { th: "เหมาะสมกับคุณมากที่สุด", en: "Highest match" } },
+  { id: "match-asc", label: { th: "เหมาะสมกับคุณน้อยที่สุด", en: "Lowest match" } },
   { id: "deadline", label: { th: "ใกล้ครบกำหนดยื่นข้อเสนอ", en: "Bids due soonest" } },
   { id: "budget-desc", label: { th: "ราคากลางสูงสุด", en: "Highest price" } },
   { id: "budget-asc", label: { th: "ราคากลางต่ำสุด", en: "Lowest price" } },
@@ -38,8 +38,8 @@ export const SORTS: { id: Sort; label: Bi }[] = [
 export const SCORE_FLOORS = [
   { id: 0, label: { th: "ทุกคะแนน", en: "Any score" } },
   { id: 50, label: { th: "50 ขึ้นไป", en: "50 and up" } },
-  { id: 70, label: { th: "70 ขึ้นไป — ตรงจริง", en: "70+ — real fits" } },
-  { id: 85, label: { th: "85 ขึ้นไป — ตรงมาก", en: "85+ — strong fits" } },
+  { id: 70, label: { th: "70 ขึ้นไป — เหมาะสม", en: "70+ — real fits" } },
+  { id: 85, label: { th: "85 ขึ้นไป — เหมาะสมมาก", en: "85+ — strong fits" } },
 ] as const;
 
 export const HIGH_RISK = 70;

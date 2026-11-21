@@ -85,7 +85,7 @@ export function MatchView({
                 <div className="flex items-center gap-2">
                   {item.matchScore != null ? (
                     <span className="inline-flex items-center rounded-full bg-open-bg px-2.5 py-1 text-[12px] font-semibold text-open border border-open-line">
-                      {Math.round(item.matchScore)}% {lang === "th" ? "ตรงกับคุณ" : "match"}
+                      {Math.round(item.matchScore)}% {lang === "th" ? "เหมาะสมกับคุณ" : "match"}
                     </span>
                   ) : null}
                   {item.submissionDeadline ? (

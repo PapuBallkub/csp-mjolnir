@@ -157,7 +157,7 @@ export function ProfileDisplay({
               className={`${btn.secondary} inline-flex items-center gap-1.5 text-[13px]`}
             >
               <Search className="h-3.5 w-3.5" />
-              <span>ดูประกาศที่ตรงกับฉัน</span>
+              <span>ดูประกาศที่เหมาะสมกับฉัน</span>
             </Link>
           </div>
         </div>
@@ -372,7 +372,7 @@ export function ProfileDisplay({
                   </div>
                 ) : (
                   <p className="text-[13px] text-ink-3">
-                    ยังไม่ได้ระบุใบรับรอง (หากมี ISO 29110, ISO 27001 จะช่วยเพิ่มคะแนนความตรง)
+                    ยังไม่ได้ระบุใบรับรอง (หากมี ISO 29110, ISO 27001 จะช่วยเพิ่มคะแนนความเหมาะสม)
                   </p>
                 )}
               </div>
@@ -455,7 +455,7 @@ export function ProfileDisplay({
                   </div>
                   <p className="mt-2 text-[12.5px] text-ink-2">
                     {user.notificationConsent
-                      ? "แสดงการแจ้งเตือนในกล่องข้อความและกระดิ่ง (โครงการตรงโปรไฟล์, สถานะเปลี่ยนแปลง, แก้ไข TOR, และเตือนใกล้หมดเขต)"
+                      ? "แสดงการแจ้งเตือนในกล่องข้อความและกระดิ่ง (โครงการที่เหมาะสมกับโปรไฟล์, สถานะเปลี่ยนแปลง, แก้ไข TOR, และเตือนใกล้หมดเขต)"
                       : "ปิดรับการแจ้งเตือนในระบบ"}
                   </p>
                 </div>
@@ -501,14 +501,14 @@ export function ProfileDisplay({
                   <div className="rounded-[3px] border border-line/70 bg-surface p-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[12px] font-medium text-ink-2">
-                        เกณฑ์ประกาศตรงโปรไฟล์ (Match Score)
+                        เกณฑ์ความเหมาะสม (Match Score)
                       </span>
                       <span className="font-mono text-[12px] font-semibold text-ink">
                         {profile.matchNotification?.minScore ?? 75}%
                       </span>
                     </div>
                     <p className="mt-1 text-[11.5px] text-ink-3">
-                      แจ้งเตือนโครงการที่มีคะแนนตรงตั้งแต่ {profile.matchNotification?.minScore ?? 75}% ขึ้นไป
+                      แจ้งเตือนโครงการที่มีคะแนนความเหมาะสมตั้งแต่ {profile.matchNotification?.minScore ?? 75}% ขึ้นไป
                     </p>
                   </div>
 

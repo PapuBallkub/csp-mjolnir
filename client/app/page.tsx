@@ -9,7 +9,7 @@ import { HeaderControls, Wordmark } from "./_components/shell";
 import { useAuth } from "./_components/auth";
 import { useProfile } from "./_components/prefs";
 import { listTors, type TorInsightSummary } from "./_lib/api";
-import { matchFor } from "./_lib/match";
+import { isProfileBaseline, matchFor } from "./_lib/match";
 
 /**
  * แจ้งเตือนเมื่อการเข้าสู่ระบบผ่าน Google ไม่สำเร็จ
@@ -249,7 +249,7 @@ export default function LandingPage() {
                   <span>จับคู่ทักษะอัตโนมัติ</span>
                 </div>
                 <p className="mt-1.5 text-[12.5px] leading-thai text-ink-2">
-                  คำนวณคะแนนความตรงระหว่างสเปกเทคโนโลยีของโครงการ กับทักษะความเชี่ยวชาญที่คุณบันทึกไว้ในโปรไฟล์
+                  คำนวณคะแนนความเหมาะสมระหว่างสเปกเทคโนโลยีของโครงการ กับทักษะความเชี่ยวชาญที่คุณบันทึกไว้ในโปรไฟล์
                 </p>
               </div>
             </div>
@@ -332,7 +332,10 @@ export default function LandingPage() {
                 </div>
               ) : featuredTors.length > 0 ? (
                 featuredTors.slice(0, 5).map((tor) => {
-                  const match = authStatus === "authenticated" ? matchFor(tor, profile) : undefined;
+                  const match =
+                    authStatus === "authenticated" && !isProfileBaseline(profile)
+                      ? matchFor(tor, profile)
+                      : undefined;
                   return <CatalogRow key={tor.projectId} tor={tor} now={new Date()} match={match} />;
                 })
               ) : (

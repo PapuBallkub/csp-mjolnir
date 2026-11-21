@@ -112,7 +112,7 @@ export function FilterRail({
         </div>
       </FilterGroup>
 
-      <FilterGroup title={lang === "th" ? "ความตรงกับโปรไฟล์" : "Profile fit"}>
+      <FilterGroup title={lang === "th" ? "ความเหมาะสมกับทักษะของคุณ" : "Profile fit"}>
         {!canMatch ? (
           <div className="space-y-1.5">
             <p className="text-[11.5px] leading-thai text-ink-3">
@@ -134,7 +134,7 @@ export function FilterRail({
             </span>
             <p className="text-[11.5px] leading-thai text-ink-3">
               {lang === "th"
-                ? "ตั้งค่าเงื่อนไขในโปรไฟล์เพื่อเปิดใช้งานการคำนวณและกรองคะแนนความตรง"
+                ? "ตั้งค่าเงื่อนไขในโปรไฟล์เพื่อเปิดใช้งานการคำนวณและกรองคะแนนความเหมาะสม"
                 : "Set up your profile preferences to activate match scoring and filtering."}
             </p>
             <Link

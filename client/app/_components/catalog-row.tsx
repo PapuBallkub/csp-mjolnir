@@ -11,6 +11,7 @@ import { stageOf } from "../_lib/stage";
 import { markerSource } from "../_lib/changes";
 import { getVisibleTechnologies, prioritizeMatchedTech } from "../_lib/catalog";
 import { useBreakpoint } from "../_lib/breakpoints";
+import { useAuth } from "./auth";
 import {
   ChangeMarker,
   CompaniesOnlyBadge,
@@ -69,6 +70,7 @@ export function CatalogRow({
   const { identification: iden, facts, analytics } = tor;
 
   const breakpoint = useBreakpoint();
+  const { status: authStatus } = useAuth();
   const rawTech = [...new Set((tor.technicalRequirements?.requiredTechnologies ?? []).map((t) => t.name))];
   const tech = prioritizeMatchedTech(rawTech, match?.matched);
   const { visibleTech, restTech } = getVisibleTechnologies(tech, breakpoint);
@@ -184,23 +186,35 @@ export function CatalogRow({
 
           {/* 3. Match / Qualification Signal */}
           <div className="col-span-2 sm:col-span-1 flex flex-col justify-between min-h-[44px]">
-            <span className="text-[10px] font-medium text-ink-3 uppercase tracking-wider">ความตรงกับคุณ</span>
+            <span className="text-[10px] font-medium text-ink-3 uppercase tracking-wider">ความเหมาะสมกับทักษะของคุณ</span>
             <div className="mt-1">
               {match ? (
                 <Link
                   href={`/tor/${tor.projectId}#profile-match`}
                   className="relative z-10 flex flex-col gap-0.5 transition-opacity hover:opacity-80"
-                  title={`คะแนนความตรง ${match.score}/100 — คลิกดูวิเคราะห์ฉบับเต็ม`}
+                  title={`คะแนนความเหมาะสม ${match.score}/100 — คลิกดูวิเคราะห์ฉบับเต็ม`}
                 >
                   <MatchScore score={match.score} lang="th" match={match} />
                   <span className="text-[10.5px] text-ink-3 leading-tight truncate">
-                    {match.score >= 70 ? "✓ ตรงกับทักษะของคุณ" : match.score >= 50 ? "ตรงบางส่วน" : "ตรงเล็กน้อย"}
+                    {match.score >= 70 ? "✓ เหมาะสมกับทักษะของคุณ" : match.score >= 50 ? "เหมาะสมบางส่วน" : "เหมาะสมเล็กน้อย"}
+                  </span>
+                </Link>
+              ) : authStatus === "authenticated" ? (
+                <Link
+                  href="/profile"
+                  className="relative z-10 flex flex-col justify-center transition-opacity hover:opacity-80"
+                >
+                  <span className="text-[11px] font-medium text-ink-2 underline underline-offset-2 leading-tight truncate">
+                    ยังไม่ได้ตั้งค่าโปรไฟล์
+                  </span>
+                  <span className="mt-0.5 text-[10.5px] text-ink-4 leading-tight truncate">
+                    ระบุทักษะเพื่อเทียบความเหมาะสม
                   </span>
                 </Link>
               ) : (
                 <div className="flex flex-col justify-center">
-                  <span className="text-[11px] text-ink-3 leading-tight truncate">ลงชื่อเข้าใช้เพื่อดูความตรง</span>
-                  <span className="mt-0.5 text-[10.5px] text-ink-4 leading-tight truncate">วิเคราะห์ 6 มิติ</span>
+                  <span className="text-[11px] text-ink-3 leading-tight truncate">ลงชื่อเข้าใช้เพื่อเทียบความเหมาะสม</span>
+                  <span className="mt-0.5 text-[10.5px] text-ink-4 leading-tight truncate">ระหว่างสเปกงานกับทักษะของคุณ</span>
                 </div>
               )}
             </div>
