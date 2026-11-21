@@ -26,20 +26,14 @@ import {
 import { Chip } from "./ui";
 
 /**
- * ระบุสถานะของประกาศว่าผ่านการตรวจสอบโดยมนุษย์แล้วหรือเป็นข้อมูล AI/ตัวอย่าง
+ * ป้ายข้อมูลตัวอย่าง (ADR 0015): ข้อมูลที่สร้างขึ้นเองต้องติดป้ายทุกครั้งที่แสดง
+ * ผลสรุปจาก pipeline ไม่มีป้ายในรายการ
  */
 function ReviewTag({ review }: { review: TorReview }) {
-  if (review.origin === "demo") {
-    return (
-      <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-px text-[10.5px] font-medium text-amend">
-        ข้อมูลตัวอย่าง
-      </span>
-    );
-  }
-  if (review.checked) return null;
+  if (review.origin !== "demo") return null;
   return (
-    <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-px text-[10.5px] text-ink-2">
-      สรุปโดย AI · ยังไม่ตรวจ
+    <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-px text-[10.5px] font-medium text-amend">
+      ข้อมูลตัวอย่าง
     </span>
   );
 }
