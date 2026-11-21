@@ -98,6 +98,16 @@ what's built; the last column says which:
 | [watchlist-changes.md](features/watchlist-changes.md) | "Changed since you saved" on the watchlist | Handoff: the data and API are ready; the UI isn't |
 | [notifications-and-alerts.md](features/notifications-and-alerts.md) | In-app notification feed and email match digest | Guide to what's built |
 
+**Security & verification** (`security/`):
+
+| Page | What it covers |
+| :--- | :--- |
+| [v07-session-management.md](security/v07-session-management.md) | Session architecture, token lifecycle, revocation via token versioning, and OWASP ASVS Chapter 7 |
+| [v13-configuration-and-secrets.md](security/v13-configuration-and-secrets.md) | Communication architecture, connection pooling, rate limits, secrets isolation, and OWASP ASVS Chapter 13 |
+| [v14-data-protection.md](security/v14-data-protection.md) | Five-tier sensitive data classification, cache protection, data retention, and OWASP ASVS Chapter 14 |
+| [v15-secure-coding-and-architecture.md](security/v15-secure-coding-and-architecture.md) | SBOM, vulnerability remediation schedule, heavy task decoupling, defensive coding, and OWASP ASVS Chapter 15 |
+| [v16-security-logging-and-error-handling.md](security/v16-security-logging-and-error-handling.md) | Multi-layer logging inventory, sensitive data masking, fail-secure error handling, and OWASP ASVS Chapter 16 |
+
 ### Decisions
 
 [decisions/](decisions/) holds 38 decision records (ADRs), one per file,
@@ -123,7 +133,7 @@ older comment citing "ADR 0030" for lock-spec means 0035.
 - **A spec for something not built yet says so** in its status line.
 - **Where a page goes.** At the `docs/` root if people open it often, or if
   fewer than three pages share its kind. Otherwise in its kind's folder:
-  `overview/`, `features/`, `database/`, `data-sources/` or `decisions/`.
+  `overview/`, `features/`, `database/`, `data-sources/`, `security/` or `decisions/`.
   When a third page of a new kind arrives, give the kind a folder.
 - **Add a new file to [project-map.md](project-map.md)**, and to this page if
   it's a doc.
