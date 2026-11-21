@@ -51,8 +51,8 @@ test("a draft's deadline is for comments; everything else is for bids", () => {
 test("a deadline the TOR doesn't state is said to be missing, never guessed", () => {
   // A draft's bid date is not its deadline, even when one is there
   assert.equal(deadlineOf("Draft", { submissionDeadline: "2026-10-25" }).date, null);
-  assert.equal(deadlineOf("Draft", { submissionDeadline: null }).missing.th, "TOR ไม่ระบุวันรับฟังความเห็น");
-  assert.equal(deadlineOf("Open", { submissionDeadline: null }).missing.th, "TOR ไม่ระบุวันยื่นข้อเสนอ");
+  assert.equal(deadlineOf("Draft", { submissionDeadline: null }).missing.th, "อยู่ระหว่างรับฟังความเห็น");
+  assert.equal(deadlineOf("Open", { submissionDeadline: null }).missing.th, "ไม่ระบุวันปิดรับข้อเสนอ");
 });
 
 test("an announcement keeps its own name, whatever the badge says", () => {

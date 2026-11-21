@@ -64,7 +64,8 @@ export function detectVendorLockin(tor) {
   const hasMAF = Array.isArray(mafs) && mafs.length > 0;
 
   if (isSoftwareHire && hasMAF) {
-    const rawQuote = mafs[0] || 'ต้องแนบหนังสือแต่งตั้งตัวแทนจำหน่ายจากผู้ผลิต';
+    const rawMaf = mafs[0] || 'หนังสือแต่งตั้งตัวแทนจำหน่ายจากผู้ผลิต';
+    const rawQuote = rawMaf.startsWith('เอกสารถามหา') ? rawMaf : `เอกสารถามหา${rawMaf}`;
     const evidence = tor?.evidence?.['eligibility.manufacturerAuthorizations'];
     const work = isDevelopment ? 'งานพัฒนาหรือวางระบบ' : 'งานจ้าง';
     const usualPractice = isDevelopment
@@ -119,7 +120,7 @@ export function detectQualificationBarriers(tor, targetPrice) {
         normalBenchmark: 'ตามแนวทางมาตรฐานของกรมบัญชีกลาง (หนังสือเวียน ว 214 ข้อ 2) ผลงานขั้นต่ำต้องไม่เกิน 50% ของวงเงินงบประมาณหรือราคากลาง',
         sourceExcerpt:
           evidence?.quote ||
-          `มีผลงานประเภทเดียวกันในสัญญาเดียว วงเงินไม่น้อยกว่า ${formatTHB(minExp)} บาท`,
+          `เอกสารระบุว่าผู้ยื่นข้อเสนอต้องมีผลงานประเภทเดียวกันในสัญญาเดียว วงเงินไม่น้อยกว่า ${formatTHB(minExp)} บาท`,
         sourceLocation: evidence?.page != null ? `หน้า ${evidence.page}` : 'หมวดคุณสมบัติเฉพาะของผู้ยื่นข้อเสนอ',
         severity: 'high',
       };
@@ -171,7 +172,7 @@ export function detectSpecificationTailoring(tor) {
         category: 'Specification Tailoring',
         requirementText: `ระบบต้องทำงานเฉพาะบน ${tech.name} ${tech.version} โดยไม่ระบุข้อความ "หรือเทียบเท่า" ตามระเบียบ`,
         normalBenchmark: 'ตามหนังสือเวียน ว 214 ข้อ 3 หากมีความจำเป็นต้องระบุยี่ห้อหรือรุ่น จะต้องระบุคำว่า "หรือเทียบเท่า" ไว้ด้วยเสมอ',
-        sourceExcerpt: evidence?.quote || `ระบบต้องติดตั้งบน ${tech.name} ${tech.version}`,
+        sourceExcerpt: evidence?.quote || `เอกสารระบุว่าระบบต้องติดตั้งบน ${tech.name} ${tech.version}`,
         sourceLocation: evidence?.page != null ? `หน้า ${evidence.page}` : 'หมวดข้อกำหนดทางเทคนิค',
         severity: 'high',
       };

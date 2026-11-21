@@ -859,7 +859,7 @@ export function ProfileEditForm({
 
       {/* 7. Notification Preferences */}
       <Panel className="px-5 py-6 sm:px-7 sm:py-6">
-        <SectionHeading sub="จัดการช่องทางและเกณฑ์การแจ้งเตือนโครงการที่ตรงกับคุณ">
+        <SectionHeading sub="จัดการช่องทางและเกณฑ์การแจ้งเตือนโครงการที่เหมาะสมกับคุณ">
           การตั้งค่าการแจ้งเตือน (Notification Preferences)
         </SectionHeading>
 
@@ -882,7 +882,7 @@ export function ProfileEditForm({
                   ต้องการรับการแจ้งเตือนจากระบบ (Receive System Notifications)
                 </label>
                 <p className="mt-0.5 text-[12px] leading-thai text-ink-3">
-                  เปิดรับการแจ้งเตือนโครงการจัดซื้อจัดจ้างภาครัฐที่ตรงกับโปรไฟล์และการอัปเดตประกาศจากระบบ GIPDP (ตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล PDPA)
+                  เปิดรับการแจ้งเตือนโครงการจัดซื้อจัดจ้างภาครัฐที่เหมาะสมกับโปรไฟล์และการอัปเดตประกาศจากระบบ GIPDP (ตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล PDPA)
                 </p>
               </div>
             </div>
@@ -906,7 +906,7 @@ export function ProfileEditForm({
                       </span>
                       <span className="ml-2 text-[11px] font-normal text-open">เปิดใช้งานตามสิทธิ์ระบบ</span>
                       <span className="block text-[11.5px] text-ink-3 mt-0.5">
-                        แสดงการแจ้งเตือนในกล่องข้อความและไอคอนกระดิ่งบนเว็บไซต์ (โครงการตรงโปรไฟล์, สถานะเปลี่ยนแปลง, แก้ไข TOR, และเตือนใกล้หมดเขต)
+                        แสดงการแจ้งเตือนในกล่องข้อความและไอคอนกระดิ่งบนเว็บไซต์ (โครงการที่เหมาะสมกับโปรไฟล์, สถานะเปลี่ยนแปลง, แก้ไข TOR, และเตือนใกล้หมดเขต)
                       </span>
                     </label>
                   </div>
@@ -986,7 +986,7 @@ export function ProfileEditForm({
           {!consent ? (
             <div className="rounded-[4px] border border-line-2 bg-surface-2/20 p-4 text-center">
               <p className="text-[12.5px] text-ink-3">
-                ปิดรับการแจ้งเตือนอยู่ — เปิดตัวเลือก &quot;ต้องการรับการแจ้งเตือนจากระบบ&quot; ด้านบนเพื่อตั้งค่าการแจ้งเตือนโครงการที่ตรงกับโปรไฟล์และรายการติดตามของคุณ
+                ปิดรับการแจ้งเตือนอยู่ — เปิดตัวเลือก &quot;ต้องการรับการแจ้งเตือนจากระบบ&quot; ด้านบนเพื่อตั้งค่าการแจ้งเตือนโครงการที่เหมาะสมกับโปรไฟล์และรายการติดตามของคุณ
               </p>
             </div>
           ) : (
@@ -998,7 +998,7 @@ export function ProfileEditForm({
                     เกณฑ์และเงื่อนไขการแจ้งเตือน (Alert Criteria & Rules)
                   </h4>
                   <p className="mt-0.5 text-[12px] text-ink-3">
-                    กำหนดเกณฑ์คะแนนความตรงสำหรับประกาศใหม่ และระยะเวลาแจ้งเตือนล่วงหน้าสำหรับโครงการในรายการติดตาม
+                    กำหนดเกณฑ์คะแนนความเหมาะสมสำหรับประกาศใหม่ และระยะเวลาแจ้งเตือนล่วงหน้าสำหรับโครงการในรายการติดตาม
                   </p>
                 </div>
 
@@ -1006,10 +1006,10 @@ export function ProfileEditForm({
                   {/* Criterion 1: TOR Matching Threshold */}
                   <div>
                     <span className="text-[12.5px] font-semibold text-ink block">
-                      เกณฑ์คะแนนความตรงขั้นต่ำ (Match Score Threshold)
+                      เกณฑ์คะแนนความเหมาะสมขั้นต่ำ (Match Score Threshold)
                     </span>
                     <p className="mt-0.5 text-[11.5px] text-ink-3">
-                      แจ้งเตือนเมื่อพบโครงการใหม่ที่มีคะแนนความตรงกับโปรไฟล์ของคุณถึงเกณฑ์ที่กำหนด
+                      แจ้งเตือนเมื่อพบโครงการใหม่ที่มีคะแนนความเหมาะสมกับโปรไฟล์ของคุณถึงเกณฑ์ที่กำหนด
                     </p>
                     <div className="mt-2.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                       <div className="flex items-center gap-2 shrink-0">

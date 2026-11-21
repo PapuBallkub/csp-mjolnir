@@ -148,7 +148,7 @@ export default function NotificationsPage() {
             </h1>
             <p className="mt-1 max-w-2xl text-[14px] leading-thai text-ink-2">
               {lang === "th"
-                ? "แจ้งเตือนประกาศจัดซื้อจัดจ้างภาครัฐใหม่ตรงกับโปรไฟล์ และการเปลี่ยนแปลงของโครงการที่คุณติดตาม"
+                ? "แจ้งเตือนประกาศจัดซื้อจัดจ้างภาครัฐใหม่ที่เหมาะสมกับโปรไฟล์ และการเปลี่ยนแปลงของโครงการที่คุณติดตาม"
                 : "Alerts for new government tenders matching your profile and updates on your watched projects."}
             </p>
           </div>
@@ -239,7 +239,7 @@ export default function NotificationsPage() {
                   </option>
                   <option value="match">
                     {lang === "th"
-                      ? `ตรงโปรไฟล์ (${matchCount})`
+                      ? `เหมาะสมกับโปรไฟล์ (${matchCount})`
                       : `Profile Match (${matchCount})`}
                   </option>
                   <option value="status_change">
@@ -299,7 +299,7 @@ export default function NotificationsPage() {
                   ? "คุณได้อ่านการแจ้งเตือนทั้งหมดแล้ว เมื่อมีรายการใหม่เข้ามาจะแสดงขึ้นที่นี่"
                   : "You are all caught up! New alerts will appear here."
                 : lang === "th"
-                ? "เมื่อมีประกาศจัดซื้อจัดจ้างใหม่ตรงกับโปรไฟล์ของคุณ หรือโครงการในรายการติดตามมีการแก้ไขหรือเปลี่ยนสถานะ ระบบจะแจ้งเตือนให้คุณทราบที่นี่"
+                ? "เมื่อมีประกาศจัดซื้อจัดจ้างใหม่ที่เหมาะสมกับโปรไฟล์ของคุณ หรือโครงการในรายการติดตามมีการแก้ไขหรือเปลี่ยนสถานะ ระบบจะแจ้งเตือนให้คุณทราบที่นี่"
                 : "When new procurement notices match your profile or watched projects change, alerts will appear here."}
             </p>
           </Panel>
@@ -357,11 +357,11 @@ export default function NotificationsPage() {
                               <div>
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className="inline-flex items-center gap-1 rounded bg-open-bg px-2 py-0.5 text-[11px] font-semibold text-open border border-open-line">
-                                    {lang === "th" ? "ตรงโปรไฟล์" : "Match"}
+                                    {lang === "th" ? "เหมาะสมกับโปรไฟล์" : "Match"}
                                   </span>
                                   <span className="text-[14px] font-semibold text-ink group-hover:underline transition-colors">
                                     {lang === "th"
-                                      ? `พบ ${count} โครงการใหม่ที่ตรงกับโปรไฟล์ของคุณ`
+                                      ? `พบ ${count} โครงการใหม่ที่เหมาะสมกับโปรไฟล์ของคุณ`
                                       : `Found ${count} new tenders matching your profile`}
                                   </span>
                                 </div>
@@ -682,7 +682,7 @@ export default function NotificationsPage() {
                 </div>
                 <p className="mt-1 text-[12.5px] leading-thai text-amber-900/90 dark:text-amber-300/80">
                   {lang === "th"
-                    ? "ระบบจะไม่สามารถค้นหาและแจ้งเตือนโครงการที่ตรงกับคุณได้ จนกว่าจะมีการบันทึกทักษะในโปรไฟล์"
+                    ? "ระบบจะไม่สามารถค้นหาและแจ้งเตือนโครงการที่เหมาะสมกับคุณได้ จนกว่าจะมีการบันทึกทักษะในโปรไฟล์"
                     : "The system cannot match and notify you of tenders until you save your skills in your profile."}
                 </p>
               </div>

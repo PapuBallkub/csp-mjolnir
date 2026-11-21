@@ -338,7 +338,7 @@ export function FilterModeView() {
         <EmptyState
           className="min-h-[260px]"
           headline="ไม่มีประกาศที่ได้คะแนนถึงเกณฑ์นี้"
-          body={`ไม่มีประกาศที่คะแนนความตรงกับโปรไฟล์ถึง ${debouncedMinScore}% ขึ้นไป ลองปรับลดแถบเลื่อนคะแนนหรือเลือกดูทุกระดับคะแนน`}
+          body={`ไม่มีประกาศที่คะแนนความเหมาะสมถึง ${debouncedMinScore}% ขึ้นไป ลองปรับลดแถบเลื่อนคะแนนหรือเลือกดูทุกระดับคะแนน`}
           action={
             <button type="button" onClick={() => setMinScore(0)} className={btn.secondary}>
               แสดงทุกคะแนน (รีเซ็ตเกณฑ์)
@@ -352,7 +352,7 @@ export function FilterModeView() {
       canMatch && isProfileBaseline(profile) && debouncedMinScore > 0 ? (
         <div className="mb-2.5 flex items-center justify-between rounded-[3px] border border-amber-300 bg-amber-50 px-3.5 py-2 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           <span>
-            💡 คุณยังไม่ได้ตั้งค่าโปรไฟล์ — ตั้งค่าทักษะและเงื่อนไขการรับงานเพื่อจัดอันดับประกาศที่ตรงกับคุณ
+            💡 คุณยังไม่ได้ตั้งค่าโปรไฟล์ — ตั้งค่าทักษะและเงื่อนไขการรับงานเพื่อจัดอันดับประกาศที่เหมาะสมกับคุณ
           </span>
           <Link href="/profile" className="ml-2 shrink-0 font-semibold underline hover:opacity-80">
             ตั้งค่าโปรไฟล์ →
@@ -367,7 +367,7 @@ export function FilterModeView() {
           <div className={`flex flex-col gap-3 transition-opacity ${current ? "" : "opacity-60"}`}>
             {displayedTors.map((tor) => {
               const match =
-                canMatch || isMatchSort || debouncedMinScore > 0
+                canMatch && !isProfileBaseline(profile)
                   ? matchFor(tor, profile)
                   : undefined;
               return <CatalogRow key={tor.projectId} tor={tor} now={shown.at} match={match} />;

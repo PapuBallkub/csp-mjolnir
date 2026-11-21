@@ -213,7 +213,7 @@ export function AuthForm({ next }: { next: string | null }) {
                 />
                 <span>
                   {lang === "th"
-                    ? "ยินยอมให้ส่งอีเมลแจ้งเตือนงานที่ตรงกับโปรไฟล์ ถอนความยินยอมได้ทุกเมื่อ"
+                    ? "ยินยอมให้ส่งอีเมลแจ้งเตือนงานที่เหมาะสมกับโปรไฟล์ ถอนความยินยอมได้ทุกเมื่อ"
                     : "Email me projects that match my profile. I can withdraw this at any time."}
                 </span>
               </label>
@@ -269,7 +269,7 @@ export function AuthForm({ next }: { next: string | null }) {
           </h1>
           <p className="text-[14px] leading-thai text-ink-2">
             {lang === "th"
-              ? "ดูประกาศทั้งหมดได้โดยไม่ต้องสมัคร สมัครเมื่อคุณอยากให้เราคอยดูให้ว่า TOR ถูกแก้ไขเมื่อไหร่ และมีงานใหม่ที่ตรงกับคุณเมื่อไหร่"
+              ? "ดูประกาศทั้งหมดได้โดยไม่ต้องสมัคร สมัครเมื่อคุณอยากให้เราคอยดูให้ว่า TOR ถูกแก้ไขเมื่อไหร่ และมีงานใหม่ที่เหมาะสมกับคุณเมื่อไหร่"
               : "Browsing needs no account. Sign up when you want us to watch for amendments and tell you when something matching you is posted."}
           </p>
 

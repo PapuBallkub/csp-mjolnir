@@ -88,14 +88,14 @@ function getHeaderContent(type: string, count: number, lang: "th" | "en") {
     case "match":
     default:
       return {
-        badgeText: lang === "th" ? "ตรงโปรไฟล์" : "Profile Match",
+        badgeText: lang === "th" ? "เหมาะสมกับโปรไฟล์" : "Profile Match",
         title:
           lang === "th"
-            ? `สรุป ${count} โครงการที่ตรงกับโปรไฟล์ของคุณ`
+            ? `สรุป ${count} โครงการที่เหมาะสมกับโปรไฟล์ของคุณ`
             : `Summary: ${count} tenders matching your profile`,
         subtitle:
           lang === "th"
-            ? "ระบบตรวจพบคัดกรองโครงการประกาศใหม่บนระบบ e-GP ที่มีข้อกำหนดทางเทคนิคและงบประมาณตรงกับโปรไฟล์ของคุณ"
+            ? "ระบบตรวจพบคัดกรองโครงการประกาศใหม่บนระบบ e-GP ที่มีข้อกำหนดทางเทคนิคและงบประมาณเหมาะสมกับโปรไฟล์ของคุณ"
             : `New procurement notices detected on e-GP matching your capability profile.`,
       };
   }
