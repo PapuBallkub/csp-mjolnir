@@ -284,14 +284,37 @@ test('visibility: outside pilot mode, only approved pipeline results scored 80 o
 test('each TOR says whether a person checked it, and whether it is demo data', async () => {
   const unreviewed = await getTorByProjectId('99999000002', { showUnreviewed: true });
   assert.deepEqual(
-    { origin: unreviewed.review.origin, status: unreviewed.review.status, checked: unreviewed.review.checked, score: unreviewed.review.score },
-    { origin: 'pipeline', status: 'pending', checked: false, score: 72 },
+    { origin: unreviewed.review.origin, status: unreviewed.review.status, checked: unreviewed.review.checked },
+    { origin: 'pipeline', status: 'pending', checked: false },
   );
   assert.equal(unreviewed.metadata, undefined, 'internal metadata stays internal');
 
   const demo = await getTorByProjectId('99999000004', { showUnreviewed: true });
   assert.equal(demo.review.origin, 'demo');
   assert.equal(demo.review.checked, false, 'demo data is never "checked", even if marked approved');
+});
+
+// The confidence score is admin-only (AGENTS.md §5, NFR-17). Checked over HTTP,
+// because that is what a visitor gets; a list of allowed keys, so a field
+// added to `review` later has to be added here on purpose.
+test('public responses carry no confidence score: list and detail', async () => {
+  const PUBLIC_REVIEW_KEYS = ['checked', 'origin', 'processedAt', 'status'];
+
+  const listRes = await fetch(`${baseUrl}/api/tors?q=${encodeURIComponent('ทดสอบการแสดงผล')}&limit=50`);
+  assert.equal(listRes.status, 200);
+  const { tors } = await listRes.json();
+  assert.ok(tors.some((tor) => tor.projectId === '99999000003'), 'the approved record, scored 92, is listed');
+  for (const tor of tors) {
+    assert.deepEqual(Object.keys(tor.review).sort(), PUBLIC_REVIEW_KEYS, `list: ${tor.projectId}`);
+    assert.equal(tor.metadata, undefined, `list: ${tor.projectId}`);
+  }
+
+  const detailRes = await fetch(`${baseUrl}/api/tors/99999000003`);
+  assert.equal(detailRes.status, 200);
+  const detail = await detailRes.json();
+  assert.deepEqual(Object.keys(detail.review).sort(), PUBLIC_REVIEW_KEYS);
+  assert.equal(detail.metadata, undefined);
+  assert.ok(!JSON.stringify(detail).includes('confidenceScore'), 'nowhere in the response');
 });
 
 test('analysis nobody ran comes back as null, never as a measured-looking 0', async () => {

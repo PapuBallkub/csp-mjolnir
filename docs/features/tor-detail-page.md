@@ -92,6 +92,28 @@ Analysis should be visually distinguishable from source information.
 The system should not present an analytical result as though it were a
 statement made by the government in the original TOR.
 
+### 3.3 The AI Summary Notice
+
+Source information is still the AI's reading of the TOR (FR-07), not the TOR
+itself. The header says so, under the project identification and above the
+verdict strip (`ReviewNotice` in `TorHeader.tsx`).
+
+| The summary is | The notice says |
+| :--- | :--- |
+| From the pipeline, not reviewed (pilot mode only) | "AI อาจผิดพลาดได้ ตรวจกับเอกสารต้นฉบับทุกครั้งก่อนตัดสินใจ", with "พรีวิวเอกสารต้นฉบับ (PDF)" and "เปิดใน e-GP" |
+| From the pipeline, approved by a person | The same, with "สรุปโดย AI จากเอกสาร TOR · เจ้าหน้าที่ตรวจแล้ว" above it |
+| Demo data | "ข้อมูลตัวอย่างสำหรับทดสอบหน้าจอ — …" in place of both |
+
+- **A review lowers the odds of a mistake; it doesn't remove them**, so the
+  "AI can be wrong" line shows on every pipeline summary, checked or not.
+- **A fact, not a warning** (`AGENTS.md` §6): a neutral surface, no warning
+  colour. Only demo data uses the amendment colour, because its content is
+  invented.
+- **An unreviewed summary has no label of its own** (since 2026-11-21; see the
+  update in [0015](../decisions/0015-pilot-mode-and-demo-data.md)). It differs
+  from a checked one only by the missing first line.
+- **The confidence score never appears.** The API doesn't send it (NFR-17).
+
 ## 4. Information Details
 
 ### 4.1 Project Identification

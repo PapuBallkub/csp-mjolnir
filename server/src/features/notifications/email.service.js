@@ -26,13 +26,21 @@ export function getTransporter() {
   return transporterInstance;
 }
 
+// A key of its own, derived from JWT_SECRET (HKDF, RFC 5869) rather than
+// JWT_SECRET itself: one key per purpose, so an unsubscribe token can never be
+// valid as anything else. No extra variable to set, and rotating JWT_SECRET
+// still rotates this one. Changing the label invalidates every link sent.
+const UNSUBSCRIBE_KEY = Buffer.from(
+  crypto.hkdfSync('sha256', env.jwtSecret, '', 'gipdp:unsubscribe:v1', 32),
+);
+
 /**
  * Generates an HMAC SHA-256 token for 1-click PDPA email unsubscription.
  * Stateless: verifies without needing to store tokens in the database.
  */
 export function createUnsubscribeToken(userId) {
   return crypto
-    .createHmac('sha256', env.jwtSecret)
+    .createHmac('sha256', UNSUBSCRIBE_KEY)
     .update(String(userId))
     .digest('hex');
 }

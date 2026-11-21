@@ -42,6 +42,10 @@ services:
       # database answers to the service name; "localhost" in a container means
       # that container, which is the mistake this line exists to prevent.
       MONGO_URI: mongodb://mongo:27017
+      # The image defaults to production (server/Dockerfile). Without this the
+      # development stack would hide unreviewed summaries, send Secure cookies
+      # a plain-HTTP localhost may drop, and stop building indexes at boot.
+      NODE_ENV: development
     volumes:
       # Mount server/data folder into the container
       - ./server/data:/app/data

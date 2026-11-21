@@ -88,7 +88,9 @@ reasoning is in [0006](docs/decisions/0006-local-mongodb-for-development.md).
 `JWT_SECRET` signs the session cookie and is required for the same reason — a
 development fallback is a hardcoded signing key, and a hardcoded signing key in
 production lets anyone mint a session for any account. This one is yours alone,
-not a shared value, so generate it and don't ask for anyone else's:
+not a shared value, so generate it and don't ask for anyone else's. It must be
+at least 32 bytes, or the server refuses to boot; this command gives 72
+characters:
 
 ```
 node -e "console.log(crypto.randomUUID() + crypto.randomUUID())"

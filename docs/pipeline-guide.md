@@ -107,7 +107,7 @@ found ─► title screen ─► download ─► preview ─► IT check ─► 
 | **6. Full read** | The whole TOR is read. | |
 | **7. Summary** | Gemini reads the TOR and the bidding document, and fills in the summary: every fact with the sentence it came from. | Gemini failing three times on the same document. |
 | **8. Checks and score** | The pipeline checks each fact against the document and the feed, and gives the summary a score from 0 to 100. | |
-| **9. Website** | The project appears in the catalog. | In production, only summaries a person has approved, with a score of 80 or more. Today, during the pilot, unreviewed ones are shown too, labelled as unreviewed. |
+| **9. Website** | The project appears in the catalog. | In production, only summaries a person has approved, with a score of 80 or more. Today, during the pilot, unreviewed ones are shown too. Every summary's page says AI can be wrong and links to the original; only an approved one says a person checked it. |
 
 A project keeps moving after that. When e-GP announces a change, a
 cancellation or a winner, the pipeline updates its status. When a new stage

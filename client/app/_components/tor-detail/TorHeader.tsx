@@ -30,25 +30,29 @@ function ReviewNotice({
       </p>
     );
   }
-  if (review.checked) return null;
-
+  // Every pipeline summary says AI output can be wrong, checked or not: a
+  // person's review lowers the odds, it doesn't remove them. A fact, not a
+  // warning (AGENTS.md §6), so no warning colour. Only a checked summary gets
+  // a first line saying so.
   return (
     <div className="mt-3 max-w-4xl rounded-[3px] border border-line bg-surface-2 px-3 py-2 text-[12.5px] leading-thai text-ink-2">
-      <p className="font-medium text-ink">
-        สรุปโดย AI จากเอกสาร TOR · ยังไม่มีเจ้าหน้าที่ตรวจสอบ
-      </p>
-      <p className="mt-0.5">
+      {review.checked ? (
+        <p className="font-medium text-ink">สรุปโดย AI จากเอกสาร TOR · เจ้าหน้าที่ตรวจแล้ว</p>
+      ) : null}
+      <p className={review.checked ? "mt-0.5" : undefined}>
+        AI อาจผิดพลาดได้ ตรวจกับเอกสารต้นฉบับทุกครั้งก่อนตัดสินใจ
         {onPreviewPdf ? (
-          <button
-            type="button"
-            onClick={onPreviewPdf}
-            className="underline hover:text-ink font-medium cursor-pointer"
-          >
-            พรีวิวเอกสารต้นฉบับ (PDF)
-          </button>
-        ) : (
-          "ตรวจสอบกับเอกสารต้นฉบับก่อนตัดสินใจ"
-        )}
+          <>
+            {" · "}
+            <button
+              type="button"
+              onClick={onPreviewPdf}
+              className="underline hover:text-ink font-medium cursor-pointer"
+            >
+              พรีวิวเอกสารต้นฉบับ (PDF)
+            </button>
+          </>
+        ) : null}
         {webUrl ? (
           <>
             {" · "}

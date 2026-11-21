@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import { test } from 'node:test';
 
+import { env } from '#common/config/env.js';
 import {
   createUnsubscribeToken,
   verifyUnsubscribeToken,
@@ -27,6 +29,15 @@ test('notifications: creates and verifies HMAC unsubscribe token', () => {
   assert.equal(verifyUnsubscribeToken('654321098765432109876544', token), false);
   // Corrupted token fails verification
   assert.equal(verifyUnsubscribeToken(userId, 'invalid-token'), false);
+});
+
+test('notifications: an unsubscribe token is not keyed with JWT_SECRET itself', () => {
+  const userId = '654321098765432109876543';
+  // The scheme before the unsubscribe key had its own derivation
+  const keyedWithSessionSecret = crypto.createHmac('sha256', env.jwtSecret).update(userId).digest('hex');
+
+  assert.notEqual(createUnsubscribeToken(userId), keyedWithSessionSecret);
+  assert.equal(verifyUnsubscribeToken(userId, keyedWithSessionSecret), false);
 });
 
 test('notifications: renders match digest email template with subject and Thai cards', () => {

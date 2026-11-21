@@ -156,7 +156,7 @@ nightly `process` job runs the same steps in priority order
 | [AGENTS.md](../AGENTS.md) | Rules for every agent change (databases, scripts, packages, secrets, access), then the frontend design guide: audiences, screens, data fields, visual and copy rules. Read the guide before touching `client/app/`. |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Setup, branches, commit style, how to record a decision. |
 | [docker-compose.yml](../docker-compose.yml) | Production stack: server and client containers. |
-| [docker-compose.override.yml](../docker-compose.override.yml) | Adds local MongoDB for development; Compose loads it automatically. |
+| [docker-compose.override.yml](../docker-compose.override.yml) | Adds local MongoDB for development and sets the server's `NODE_ENV` back to `development`; Compose loads it automatically. |
 | [.github/workflows/fullstack-ci-setup.yml](../.github/workflows/fullstack-ci-setup.yml) | CI: client lint, test, build; server tests against a MongoDB service. |
 | [.github/pull_request_template.md](../.github/pull_request_template.md) | What a PR description starts with: what changed, why, how to test (commands for your machine and for Docker), docs. |
 | `.gitignore` | Keeps out `.env`, `node_modules`, `context/`, downloaded documents, `.claude/settings.local.json`. |
@@ -174,7 +174,7 @@ Node + Express API and the two pipelines. Imports use the aliases
 | :--- | :--- |
 | [package.json](../server/package.json) | Dependencies and every `npm run` command. Pipeline commands are explained in [pipeline.md](pipeline.md). |
 | [.env.example](../server/.env.example) | Every setting the server reads, with a note on each. Copy to `server/.env`. |
-| [Dockerfile](../server/Dockerfile) | Production image: Node 24, production dependencies, `npm start`. |
+| [Dockerfile](../server/Dockerfile) | Production image: Node 24, `NODE_ENV=production` by default, production dependencies, `npm start`. |
 | [src/server.js](../server/src/server.js) | Entry point. Connects to MongoDB, then listens. |
 | [src/app.js](../server/src/app.js) | Builds the Express app: CORS, cookies, JSON, one mount per feature under `/api`, `/health` outside it. Tests import it without listening. |
 
@@ -184,7 +184,7 @@ Plumbing every feature uses. Never imports from `features/` ([0003](decisions/00
 
 | File | What it is |
 | :--- | :--- |
-| [config/env.js](../server/src/common/config/env.js) | Reads and checks environment variables once. Boot stops without `MONGO_URI` or `JWT_SECRET`. |
+| [config/env.js](../server/src/common/config/env.js) | Reads and checks environment variables once. Boot stops without `MONGO_URI` or `JWT_SECRET`, or with a `JWT_SECRET` under 32 bytes. |
 | [db/connect.js](../server/src/common/db/connect.js) | Connects Mongoose, pins the database name `mjolnir`, registers every model. |
 | [errors/http-error.js](../server/src/common/errors/http-error.js) | `HttpError` and `badRequest`, `unauthorized`, `forbidden`, `notFound`. Throw these from services. |
 | [middleware/error-handler.js](../server/src/common/middleware/error-handler.js) | Turns any thrown error into JSON; hides 500 details in production. |
@@ -323,7 +323,7 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 | [notification.routes.js](../server/src/features/notifications/notification.routes.js) | Feed list, read status, and 1-click unsubscribe. |
 | [notification.controller.js](../server/src/features/notifications/notification.controller.js) | HTTP endpoints for the notification feed and unread tracking. |
 | [notification-feed.service.js](../server/src/features/notifications/notification-feed.service.js) | Notification queries, unread count badge, and mark-as-read transitions. |
-| [email.service.js](../server/src/features/notifications/email.service.js) | Nodemailer transport with HMAC-signed PDPA 1-click unsubscribe links. |
+| [email.service.js](../server/src/features/notifications/email.service.js) | Nodemailer transport with HMAC-signed PDPA 1-click unsubscribe links, keyed with an HKDF key derived from `JWT_SECRET`. |
 | [templates/match-digest.template.js](../server/src/features/notifications/templates/match-digest.template.js) | HTML/text email digest templates with zero-width URL defanging. |
 | [creators/match-notification.service.js](../server/src/features/notifications/creators/match-notification.service.js) | Evaluates candidate matches and triggers digest notifications. |
 | [creators/find-notification-duplication.js](../server/src/features/notifications/creators/find-notification-duplication.js) | De-duplication check against past notifications. |
@@ -437,7 +437,9 @@ the `mjolnir_test` database.
   `profile`, `technology`, `matchmaker`, `similarity`, `price-benchmark`,
   `lock-spec`. Also `tor-insight` (the model), `tor-awaiting-visibility` (what
   the public sees in pilot mode), `seed-data`, `ingestion-log`,
-  `migrate-categories`, and `smoke` (the app boots).
+  `migrate-categories`, `smoke` (the app boots), `env` (the `JWT_SECRET`
+  minimum) and `error-handler` (a 500 hides its cause in production), the last
+  two in a child process.
 - [test/pipeline/extraction/fixtures.js](../server/test/pipeline/extraction/fixtures.js):
   shared fake TORs and AI answers.
 - [test/pipeline/ingestion/fixtures/](../server/test/pipeline/ingestion/fixtures/):
@@ -561,7 +563,7 @@ never appears in the URL.
 | [deadline.tsx](../client/app/_components/deadline.tsx) | Time left, and Thai dates. |
 | [tor-detail/index.tsx](../client/app/_components/tor-detail/index.tsx) | The TOR detail page: header, side column, four tabs, PDF modal, watchlist button. |
 | [tor-detail.tsx](../client/app/_components/tor-detail.tsx) | Re-exports `tor-detail/index.tsx`. |
-| [tor-detail/TorHeader.tsx](../client/app/_components/tor-detail/TorHeader.tsx) | Title, status, risk, and "check the original before deciding". |
+| [tor-detail/TorHeader.tsx](../client/app/_components/tor-detail/TorHeader.tsx) | Title, status, risk, and the AI notice: "AI can be wrong, check the original before deciding", with the PDF and e-GP links. |
 | [tor-detail/TorAside.tsx](../client/app/_components/tor-detail/TorAside.tsx) | Key facts (ID, method, duration, warranty, penalty, fiscal year) and the save button. |
 | [tor-detail/tabs/OverviewTab.tsx](../client/app/_components/tor-detail/tabs/OverviewTab.tsx) | Objective, scope, deliverables. |
 | [tor-detail/tabs/TechnicalSpecsTab.tsx](../client/app/_components/tor-detail/tabs/TechnicalSpecsTab.tsx) | Technologies and architecture; systems to integrate with; training, support, maintenance. |

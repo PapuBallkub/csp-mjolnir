@@ -1,6 +1,7 @@
 # 0004 · Sessions as signed cookies, not server-side records
 
-Status: accepted · 2026-09-10
+Status: accepted · 2026-09-10 · updated 2026-11-21 (`JWT_SECRET` minimum,
+derived unsubscribe key)
 
 ## Context
 
@@ -82,3 +83,17 @@ what make the choice safe rather than merely convenient:
 - `JWT_SECRET` is now a third thing a new contributor has to set, and rotating it
   signs everybody out. Both are cheap; a signing key with a development fallback
   is not, because the fallback is what ends up in production.
+
+## Update · 2026-11-21: a minimum length, and one key per purpose
+
+**`JWT_SECRET` must be at least 32 bytes.** `env.js` refuses to boot below
+that, and the error never shows the value or its length. An HS256 key should be
+no shorter than the hash it feeds, 256 bits (RFC 7518 §3.2). The command in
+`server/.env.example` gives 72 characters. The CI value grew to match.
+
+**The unsubscribe links have a key of their own.** They were signed with
+`JWT_SECRET` itself. `email.service.js` now derives a separate key from it
+with HKDF (label `gipdp:unsubscribe:v1`), so one key never does two jobs and
+there is still only one secret to set. Rotating `JWT_SECRET` still breaks
+every unsubscribe link already emailed, as it did before
+([notifications-and-alerts.md](../features/notifications-and-alerts.md)).

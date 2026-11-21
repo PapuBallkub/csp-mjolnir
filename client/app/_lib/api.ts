@@ -983,9 +983,6 @@ export type TorReview = {
   status: "pending" | "approved" | "rejected";
   /** A person approved this pipeline result. Demo data is never checked. */
   checked: boolean;
-  /** 0–100, from the pipeline's checks; null for demo data */
-  score: number | null;
-  failedChecks: number;
   processedAt: string | null;
 };
 
