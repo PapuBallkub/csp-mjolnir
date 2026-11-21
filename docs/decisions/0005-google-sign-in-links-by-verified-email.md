@@ -104,9 +104,10 @@ rotated, so it refetches once, but at most once a minute across all requests: a
 burst of tokens with made-up `kid`s can't become a burst of requests to Google.
 A failed fetch blocks another try for that same minute.
 
-**One cookie holds the attempt.** `mjolnir_oauth_state` now carries three
-values joined by `.`: `state`, `nonce` and a PKCE `code_verifier`, 32 random
-bytes each in base64url. They expire and clear together, as `state` alone did.
+**One cookie holds the attempt.** `mjolnir_oauth_state` (`__Host-mjolnir_oauth_state`
+in production) now carries three values joined by `.`: `state`, `nonce` and a
+PKCE `code_verifier`, 32 random bytes each in base64url. They expire and clear
+together, as `state` alone did.
 
 **PKCE (RFC 7636, S256).** The authorization URL carries the verifier's SHA-256
 hash, and the code exchange sends the verifier itself. A code stolen on its way

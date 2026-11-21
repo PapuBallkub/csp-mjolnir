@@ -98,6 +98,12 @@ what's built; the last column says which:
 | [watchlist-changes.md](features/watchlist-changes.md) | "Changed since you saved" on the watchlist | Handoff: the data and API are ready; the UI isn't |
 | [notifications-and-alerts.md](features/notifications-and-alerts.md) | In-app notification feed and email match digest | Guide to what's built |
 
+**Security & verification** (`security/`):
+
+| Page | What it covers |
+| :--- | :--- |
+| [v03-web-frontend-security.md](security/v03-web-frontend-security.md) | Browser security controls, HTTP security headers, and traceability matrix for OWASP ASVS v5.0 Chapter 3 (Ref IDs 44–74) |
+
 ### Decisions
 
 [decisions/](decisions/) holds 38 decision records (ADRs), one per file,
@@ -123,7 +129,7 @@ older comment citing "ADR 0030" for lock-spec means 0035.
 - **A spec for something not built yet says so** in its status line.
 - **Where a page goes.** At the `docs/` root if people open it often, or if
   fewer than three pages share its kind. Otherwise in its kind's folder:
-  `overview/`, `features/`, `database/`, `data-sources/` or `decisions/`.
+  `overview/`, `features/`, `database/`, `data-sources/`, `security/` or `decisions/`.
   When a third page of a new kind arrives, give the kind a folder.
 - **Add a new file to [project-map.md](project-map.md)**, and to this page if
   it's a doc.

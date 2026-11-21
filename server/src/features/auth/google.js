@@ -11,8 +11,16 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 // A hung connection to Google would otherwise hold the visitor's request open.
 const TOKEN_FETCH_TIMEOUT_MS = 10 * 1000;
 
-// The name predates the nonce and the PKCE verifier; it now holds all three.
-export const OAUTH_STATE_COOKIE = 'mjolnir_oauth_state';
+// ASVS V3.3.1, V3.3.3: In production, enforce __Host- cookie prefix. In dev/test,
+// fall back to un-prefixed name because browsers reject __Host- over plain HTTP localhost.
+// The name predates the nonce and the PKCE verifier; the cookie now holds all three.
+export const OAUTH_STATE_COOKIE = isProduction ? '__Host-mjolnir_oauth_state' : 'mjolnir_oauth_state';
+export const LEGACY_OAUTH_STATE_COOKIE = 'mjolnir_oauth_state';
+
+export function getOAuthStateFromRequest(req) {
+  if (!req?.cookies) return null;
+  return req.cookies[OAUTH_STATE_COOKIE] || req.cookies[LEGACY_OAUTH_STATE_COOKIE] || null;
+}
 
 // Long enough to pick an account and type a password, short enough that an
 // abandoned attempt cannot be resumed later.
@@ -53,6 +61,10 @@ export function issueOAuthTransaction(res) {
   const transaction = { state: randomPart(), nonce: randomPart(), codeVerifier: randomPart() };
   const value = [transaction.state, transaction.nonce, transaction.codeVerifier].join('.');
 
+  // ASVS V3.3.5: Enforce that combined cookie name and value length do not exceed 4096 bytes
+  if (OAUTH_STATE_COOKIE.length + value.length > 4096) {
+    throw new Error('OAuth state cookie exceeds maximum 4096 bytes limit');
+  }
   res.cookie(OAUTH_STATE_COOKIE, value, { ...stateCookieOptions, maxAge: STATE_TTL_MS });
   return transaction;
 }
@@ -60,7 +72,7 @@ export function issueOAuthTransaction(res) {
 // `{ state, nonce, codeVerifier }`, or null for a missing cookie or any other
 // shape, including the one-part cookie from before the nonce existed.
 export function readOAuthTransaction(req) {
-  const value = req.cookies?.[OAUTH_STATE_COOKIE];
+  const value = getOAuthStateFromRequest(req);
   if (typeof value !== 'string') {
     return null;
   }
@@ -76,6 +88,9 @@ export function readOAuthTransaction(req) {
 
 export function clearOAuthTransaction(res) {
   res.clearCookie(OAUTH_STATE_COOKIE, stateCookieOptions);
+  if (OAUTH_STATE_COOKIE !== LEGACY_OAUTH_STATE_COOKIE) {
+    res.clearCookie(LEGACY_OAUTH_STATE_COOKIE, stateCookieOptions);
+  }
 }
 
 // S256, never `plain`: the challenge in the URL must not reveal the verifier.
