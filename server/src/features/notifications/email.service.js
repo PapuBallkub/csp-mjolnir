@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import nodemailer from 'nodemailer';
 import { env, isEmailConfigured } from '#common/config/env.js';
+import { sanitizeMailHeader } from '#common/utils/sanitize.js';
 import { renderMatchDigestEmail } from './templates/match-digest.template.js';
 import { renderWatchlistDigestEmail } from './templates/watchlist-digest.template.js';
 
@@ -69,16 +70,18 @@ export async function sendEmail({ to, subject, html, text }) {
     return { sent: false, reason: 'not_configured' };
   }
 
-  if (!to) {
+  const safeTo = sanitizeMailHeader(to);
+  if (!safeTo) {
     return { sent: false, reason: 'missing_recipient_email' };
   }
 
   const transporter = getTransporter();
 
+  // ASVS V1.3.11: Strip CR/LF control characters from header fields to prevent SMTP header injection
   const mailOptions = {
     from: env.email.from,
-    to,
-    subject,
+    to: safeTo,
+    subject: sanitizeMailHeader(subject),
     html,
   };
   if (text) {
