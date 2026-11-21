@@ -55,8 +55,6 @@ function createMockTor(overrides: Partial<TorInsightSummary> = {}): TorInsightSu
       origin: "pipeline",
       status: "approved",
       checked: true,
-      score: 95,
-      failedChecks: 0,
       processedAt: "2026-10-01T00:00:00Z",
     },
     ...overrides,

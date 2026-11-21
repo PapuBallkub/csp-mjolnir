@@ -114,6 +114,17 @@ test('watchlist: adds a TOR to the watchlist and verifies retrieval', async () =
   assert.ok(data.tors.some((t) => t.projectId === sampleProjectId));
 });
 
+test('watchlist: a saved TOR carries no confidence score, as in the catalog (NFR-17)', async () => {
+  const cookie = await registerAndGetCookie('wl-no-score');
+  await send('PUT', `/api/watchlist/${sampleProjectId}`, { cookie });
+
+  const data = await (await send('GET', '/api/watchlist', { cookie })).json();
+  const saved = data.tors.find((t) => t.projectId === sampleProjectId);
+  assert.ok(saved, 'the saved TOR is listed');
+  assert.deepEqual(Object.keys(saved.review).sort(), ['checked', 'origin', 'processedAt', 'status']);
+  assert.equal(saved.metadata, undefined);
+});
+
 test('watchlist: a saved TOR says when it was saved and what changed last, as the catalog does (ADR 0032)', async () => {
   const cookie = await registerAndGetCookie('wl-changed');
   await send('PUT', `/api/watchlist/${sampleProjectId}`, { cookie });

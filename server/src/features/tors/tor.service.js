@@ -231,6 +231,10 @@ const priceDone = (price) => Boolean(price?.historicalMedianTHB > 0 || price?.co
  * Shapes a stored insight for the public: the status as of now, analysis that
  * wasn't done as null, and `review` in place of the internal metadata, so the
  * page can label what nobody has checked yet, and what is demo data.
+ *
+ * `review` says only who produced the summary and whether a person checked it.
+ * The confidence score and the failed checks behind it stay admin-only
+ * (AGENTS.md §5, NFR-17); the review workspace reads them from `metadata`.
  */
 export function toPublic(insight, now = new Date()) {
   const { metadata = {}, analytics = {}, __v, ...record } = insight;
@@ -251,8 +255,6 @@ export function toPublic(insight, now = new Date()) {
       origin, // 'pipeline' | 'demo'
       status: metadata.reviewStatus ?? 'pending',
       checked: origin === 'pipeline' && metadata.reviewStatus === 'approved',
-      score: metadata.confidenceScore ?? null,
-      failedChecks: metadata.checks?.length ?? 0,
       processedAt: metadata.processedAt ?? null,
     },
   };
@@ -439,8 +441,6 @@ export async function listTors(
     latestChange: 1,
     'metadata.origin': 1,
     'metadata.reviewStatus': 1,
-    'metadata.confidenceScore': 1,
-    'metadata.checks.check': 1,
     'metadata.processedAt': 1,
     createdAt: 1,
   };
