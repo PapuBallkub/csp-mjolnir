@@ -6,6 +6,7 @@ import AdmZip from 'adm-zip';
 import { env } from '#common/config/env.js';
 import { getDocumentsDir } from '#common/paths.js';
 import { escapeRegex } from '#common/utils/escape-regex.js';
+import { isAllowedEgpUrl } from '#common/utils/sanitize.js';
 import { Tor, TorInsight } from '#models/index.js';
 import { USER_AGENT } from '#pipeline/shared/user-agent.js';
 
@@ -780,8 +781,9 @@ export async function getTorPdfStream(projectId, { part = 0, role = null, zipId 
   }
 
   // 4. Direct URL from e-GP template service or portal (restricted to matching role)
+  // ASVS V1.2.2, V1.3.6: Verify directUrl against the https://*.gprocurement.go.th allowlist to prevent SSRF
   const directUrl = tor.egpUrl || tor.announcementHistory?.[0]?.url;
-  if (directUrl) {
+  if (directUrl && isAllowedEgpUrl(directUrl)) {
     const isTemplateUrl = directUrl.includes('view-pdf-file');
     const isPdfUrl = directUrl.endsWith('.pdf');
 
@@ -810,11 +812,12 @@ export async function getTorPdfStream(projectId, { part = 0, role = null, zipId 
     }
   }
 
-  // 5. Dynamic lookup from e-GP process5 API
+  // 5. Dynamic lookup from e-GP process5 API (ASVS V1.2.2: URL-encode query parameters)
   try {
+    const encodedId = encodeURIComponent(id);
     const lookupUrls = [
-      `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZip?projectId=${id}`,
-      `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZipTemp?projectId=${id}`,
+      `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZip?projectId=${encodedId}`,
+      `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZipTemp?projectId=${encodedId}`,
     ];
 
     let zipId = null;
@@ -842,7 +845,7 @@ export async function getTorPdfStream(projectId, { part = 0, role = null, zipId 
     if (!zipId) {
       try {
         const { data: priceData } = await axios.get(
-          `${PROCESS5}/egp-doc-price-estimate-service/dpe-common/infoDocPriceestZipHis?projectId=${id}`,
+          `${PROCESS5}/egp-doc-price-estimate-service/dpe-common/infoDocPriceestZipHis?projectId=${encodedId}`,
           {
             headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
             timeout: 6000,
@@ -874,7 +877,7 @@ export async function getTorPdfStream(projectId, { part = 0, role = null, zipId 
     if (zipId) {
       try {
         const resp = await axios.get(
-          `${PROCESS5}/egp-upload-service/v1/downloadFileTest?fileId=${zipId}`,
+          `${PROCESS5}/egp-upload-service/v1/downloadFileTest?fileId=${encodeURIComponent(zipId)}`,
           {
             headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
             responseType: 'arraybuffer',
@@ -980,7 +983,7 @@ export async function getTorPdfStream(projectId, { part = 0, role = null, zipId 
     if (targetRole === 'announcement' && templateId) {
       try {
         const resp = await axios.get(
-          `${PROCESS5}/egp-template-service/dwnt/view-pdf-file?templateId=${templateId}`,
+          `${PROCESS5}/egp-template-service/dwnt/view-pdf-file?templateId=${encodeURIComponent(templateId)}`,
           {
             headers: { 'User-Agent': USER_AGENT, Accept: 'application/pdf,*/*' },
             responseType: 'arraybuffer',
