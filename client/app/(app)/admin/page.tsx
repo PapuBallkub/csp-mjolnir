@@ -1308,65 +1308,77 @@ function AdminDashboard({
                 {lang === "th" ? "คิวตรวจทานผลการอ่านเอกสาร" : "Extraction review queue"}
               </SectionHeading>
 
-              {/* Filter Pills, Sort Dropdown & Search Bar */}
-              <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { id: "all", label: { th: `ทั้งหมด (${reviewQueue.length})`, en: `All (${reviewQueue.length})` } },
-                    { id: "pending", label: { th: `รอตรวจทาน (${pendingCount})`, en: `Pending (${pendingCount})` } },
-                    { id: "low-confidence", label: { th: `⚠️ มั่นใจต่ำ (< 80%) (${lowConfidenceCount})`, en: `⚠️ Low Conf (< 80%) (${lowConfidenceCount})` } },
-                    { id: "misclassified", label: { th: `ตรวจประเภท (${misclassifiedCount})`, en: `Misclassified (${misclassifiedCount})` } },
-                    { id: "reviewed", label: { th: `ตรวจทานแล้ว (${reviewedCount})`, en: `Reviewed (${reviewedCount})` } },
-                  ].map((tab) => (
+              {/* Row 1: Filter Tabs */}
+              <div className="mb-3 flex flex-wrap gap-1.5 border-b border-line pb-3">
+                {[
+                  { id: "all", label: { th: `ทั้งหมด (${reviewQueue.length})`, en: `All (${reviewQueue.length})` } },
+                  { id: "pending", label: { th: `รอตรวจทาน (${pendingCount})`, en: `Pending (${pendingCount})` } },
+                  { id: "low-confidence", label: { th: `⚠️ มั่นใจต่ำ (< 80%) (${lowConfidenceCount})`, en: `⚠️ Low Conf (< 80%) (${lowConfidenceCount})` } },
+                  { id: "misclassified", label: { th: `ตรวจประเภท (${misclassifiedCount})`, en: `Misclassified (${misclassifiedCount})` } },
+                  { id: "reviewed", label: { th: `ตรวจทานแล้ว (${reviewedCount})`, en: `Reviewed (${reviewedCount})` } },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setFilterTab(tab.id as typeof filterTab)}
+                    className={`rounded-[3px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                      filterTab === tab.id
+                        ? "bg-ink text-surface"
+                        : "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
+                    }`}
+                  >
+                    {tab.label[lang]}
+                  </button>
+                ))}
+              </div>
+
+              {/* Row 2: Search Input & Sort Selector */}
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="relative w-full sm:w-72">
+                  <span className="absolute inset-y-0 left-2.5 flex items-center text-ink-3 pointer-events-none text-[12px]">
+                    🔍
+                  </span>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={lang === "th" ? "ค้นหาด้วยเลขโครงการ / ชื่อ..." : "Filter by project ID / title..."}
+                    className={`${input} text-[12px] h-8 pl-8 pr-7 w-full`}
+                  />
+                  {searchQuery && (
                     <button
-                      key={tab.id}
                       type="button"
-                      onClick={() => setFilterTab(tab.id as typeof filterTab)}
-                      className={`rounded-[3px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
-                        filterTab === tab.id
-                          ? "bg-ink text-surface"
-                          : "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
-                      }`}
+                      onClick={() => setSearchQuery("")}
+                      className="absolute inset-y-0 right-2 flex items-center text-ink-3 hover:text-ink text-[12px] cursor-pointer"
+                      title={lang === "th" ? "ล้างคำค้นหา" : "Clear search"}
                     >
-                      {tab.label[lang]}
+                      ✕
                     </button>
-                  ))}
+                  )}
                 </div>
 
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[12px] text-ink-3 whitespace-nowrap">
-                      {lang === "th" ? "เรียงตาม:" : "Sort:"}
-                    </span>
-                    <select
-                      value={sortOption}
-                      onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
-                      className="h-8 rounded-[3px] border border-line bg-surface px-2 text-[12px] text-ink focus:border-ink-2 focus:outline-none cursor-pointer"
-                    >
-                      <option value="confidence-asc">
-                        {lang === "th" ? "คะแนนมั่นใจต่ำสุดก่อน (NFR-17)" : "Lowest Confidence First"}
-                      </option>
-                      <option value="confidence-desc">
-                        {lang === "th" ? "คะแนนมั่นใจสูงสุดก่อน" : "Highest Confidence First"}
-                      </option>
-                      <option value="newest">
-                        {lang === "th" ? "อัปเดตล่าสุด" : "Newest First"}
-                      </option>
-                      <option value="budget-desc">
-                        {lang === "th" ? "งบประมาณสูงสุด" : "Highest Budget"}
-                      </option>
-                    </select>
-                  </div>
-
-                  <div className="w-full sm:w-64">
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder={lang === "th" ? "ค้นหาด้วยเลขโครงการ / ชื่อ..." : "Filter by project ID / title..."}
-                      className={`${input} text-[12px] h-8`}
-                    />
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] text-ink-3 whitespace-nowrap">
+                    {lang === "th" ? "เรียงตาม:" : "Sort by:"}
+                  </span>
+                  <select
+                    value={sortOption}
+                    onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
+                    className="h-8 rounded-[3px] border border-line bg-surface px-2.5 text-[12px] text-ink focus:border-ink-2 focus:outline-none cursor-pointer"
+                  >
+                    <option value="confidence-asc">
+                      {lang === "th" ? "คะแนนความมั่นใจต่ำสุดก่อน" : "Lowest Confidence First"}
+                    </option>
+                    <option value="confidence-desc">
+                      {lang === "th" ? "คะแนนความมั่นใจสูงสุดก่อน" : "Highest Confidence First"}
+                    </option>
+                    <option value="newest">
+                      {lang === "th" ? "อัปเดตล่าสุด" : "Newest First"}
+                    </option>
+                    <option value="budget-desc">
+                      {lang === "th" ? "งบประมาณสูงสุด" : "Highest Budget"}
+                    </option>
+                  </select>
                 </div>
               </div>
 
