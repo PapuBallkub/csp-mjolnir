@@ -31,11 +31,18 @@ export function createApp({ rateLimits = authRateLimits, apiRateLimits: apiLimit
   // ASVS V13.4.6: Disable X-Powered-By header to avoid disclosing server framework.
   app.disable('x-powered-by');
 
-  // ASVS V12.2.1, V13.4, V14.3, V15.2: Core HTTP Security Headers
+  // ASVS V3.2, V3.4, V3.5, V12.2, V13.4, V14.3, V15.2: Core HTTP Security Headers
   app.use((req, res, next) => {
     res.set('X-Content-Type-Options', 'nosniff');
-    res.set('X-Frame-Options', 'SAMEORIGIN');
+    res.set('X-Frame-Options', 'DENY');
     res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    res.set('Cross-Origin-Resource-Policy', 'same-site');
+    res.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    res.set(
+      'Permissions-Policy',
+      'camera=(), microphone=(), geolocation=(), browsing-topics=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), midi=(), screen-wake-lock=()'
+    );
     if (isProduction) {
       res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     }

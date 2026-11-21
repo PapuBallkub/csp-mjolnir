@@ -8,11 +8,19 @@ import {
   clearState,
   createAuthorizationUrl,
   exchangeCodeForProfile,
+  getOAuthStateFromRequest,
   issueState,
   OAUTH_STATE_COOKIE,
 } from './google.js';
 import { parseCredentials, parseRegistration } from './auth.validation.js';
-import { clearSessionCookie, readSessionToken, SESSION_COOKIE, setSessionCookie, signSessionToken } from './session.js';
+import {
+  clearSessionCookie,
+  getSessionTokenFromRequest,
+  readSessionToken,
+  SESSION_COOKIE,
+  setSessionCookie,
+  signSessionToken,
+} from './session.js';
 
 // Registering signs you in: the password was just chosen by whoever owns the
 // account, so a second form asking for it again proves nothing.
@@ -45,7 +53,7 @@ export async function logout(req, res) {
   // ASVS V7.4.1, V14.3.1: Command browser to clear storage, cache, and cookies
   res.set('Clear-Site-Data', '"cache", "cookies", "storage"');
 
-  const token = req.cookies?.[SESSION_COOKIE];
+  const token = getSessionTokenFromRequest(req);
   const session = readSessionToken(token);
   if (session?.userId) {
     // ASVS V7.4.1: Invalidate active tokens by bumping tokenVersion
@@ -71,7 +79,7 @@ export async function completeGoogleSignIn(req, res) {
   assertGoogleConfigured();
 
   const { code, state } = req.query;
-  const expected = req.cookies?.[OAUTH_STATE_COOKIE];
+  const expected = getOAuthStateFromRequest(req);
   clearState(res);
 
   if (!code || !state || !expected || state !== expected) {

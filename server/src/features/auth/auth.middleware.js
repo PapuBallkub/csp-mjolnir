@@ -1,7 +1,7 @@
 import { forbidden, unauthorized } from '#common/errors/http-error.js';
 
 import { findUserById } from './auth.service.js';
-import { readSessionToken, SESSION_COOKIE, clearSessionCookie } from './session.js';
+import { readSessionToken, getSessionTokenFromRequest, clearSessionCookie } from './session.js';
 
 // Guards a route and hands the handler `req.user`.
 //
@@ -13,7 +13,7 @@ export async function requireAuth(req, res, next) {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.set('Pragma', 'no-cache');
 
-  const session = readSessionToken(req.cookies?.[SESSION_COOKIE]);
+  const session = readSessionToken(getSessionTokenFromRequest(req));
 
   if (!session?.userId) {
     throw unauthorized('กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ');

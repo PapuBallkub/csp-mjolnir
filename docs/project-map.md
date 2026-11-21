@@ -675,6 +675,12 @@ links down to the reference pages.
 | [watchlist-changes.md](features/watchlist-changes.md) | "Changed since you saved": rules, API, and what isn't built. |
 | [pipeline-administration.md](features/pipeline-administration.md) | Admin monitoring, retry, inspection and manual add. |
 
+### docs/security
+
+| File | What it is |
+| :--- | :--- |
+| [v03-web-frontend-security.md](security/v03-web-frontend-security.md) | Web frontend security architecture, browser security baseline, HTTP security headers, cookie prefix hardening, and OWASP ASVS v5.0 Chapter 3 traceability matrix (Ref IDs 44–74). |
+
 ### docs/decisions
 
 Why things are the way they are. Never edit an old record to change a decision;

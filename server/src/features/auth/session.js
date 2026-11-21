@@ -2,7 +2,15 @@ import jwt from 'jsonwebtoken';
 
 import { env, isProduction } from '#common/config/env.js';
 
-export const SESSION_COOKIE = 'mjolnir_session';
+// ASVS V3.3.1, V3.3.3: In production, enforce __Host- cookie prefix. In dev/test,
+// fall back to un-prefixed name because browsers reject __Host- over plain HTTP localhost.
+export const SESSION_COOKIE = isProduction ? '__Host-mjolnir_session' : 'mjolnir_session';
+export const LEGACY_SESSION_COOKIE = 'mjolnir_session';
+
+export function getSessionTokenFromRequest(req) {
+  if (!req?.cookies) return null;
+  return req.cookies[SESSION_COOKIE] || req.cookies[LEGACY_SESSION_COOKIE] || null;
+}
 
 // Sessions are JWTs that expire within 24 hours (SRS NFR-11, ASVS V7.1.1, V7.3.2)
 const SESSION_TTL_HOURS = 24;
@@ -85,9 +93,17 @@ export function readSessionToken(token) {
 }
 
 export function setSessionCookie(res, token) {
+  // ASVS V3.3.5: Enforce that combined cookie name and value length do not exceed 4096 bytes
+  const combinedLength = SESSION_COOKIE.length + (token?.length ?? 0);
+  if (combinedLength > 4096) {
+    throw new Error('Session cookie exceeds maximum 4096 bytes limit');
+  }
   res.cookie(SESSION_COOKIE, token, { ...cookieOptions, maxAge: SESSION_TTL_MS });
 }
 
 export function clearSessionCookie(res) {
   res.clearCookie(SESSION_COOKIE, cookieOptions);
+  if (SESSION_COOKIE !== LEGACY_SESSION_COOKIE) {
+    res.clearCookie(LEGACY_SESSION_COOKIE, cookieOptions);
+  }
 }
