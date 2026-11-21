@@ -20,7 +20,16 @@ import {
   updateAdminTechnology,
   updateTorReview,
 } from './admin.service.js';
-import { HttpError } from '#common/errors/http-error.js';
+import { badRequest, HttpError } from '#common/errors/http-error.js';
+
+// A search box's value: absent is '', and a repeated ?search= (which Express
+// hands over as an array) is a 400 rather than a crash in .trim()
+function searchParam(query, name) {
+  const value = query?.[name];
+  if (value === undefined) return '';
+  if (typeof value !== 'string') throw badRequest(`ระบุ ${name} ได้ครั้งเดียว`);
+  return value;
+}
 
 export async function readOperations(req, res, next) {
   try {
@@ -238,7 +247,7 @@ export async function handleAddManualRecord(req, res, next) {
 
 export async function handleSuggestProjects(req, res, next) {
   try {
-    const q = req.query.q || '';
+    const q = searchParam(req.query, 'q');
     const results = await suggestProjects(q);
     res.json(results);
   } catch (err) {
@@ -248,7 +257,8 @@ export async function handleSuggestProjects(req, res, next) {
 
 export async function handleGetAdminTechnologies(req, res, next) {
   try {
-    const { status, search, page, limit } = req.query;
+    const { status, page, limit } = req.query;
+    const search = searchParam(req.query, 'search');
     const result = await getAdminTechnologies({ status, search, page, limit });
     res.json(result);
   } catch (err) {
@@ -298,7 +308,8 @@ export async function handleDeleteAdminTechnology(req, res, next) {
 
 export async function handleGetPipelineTasks(req, res, next) {
   try {
-    const { phase = 'all', search = '', page = 1, limit = 25 } = req.query || {};
+    const { phase = 'all', page = 1, limit = 25 } = req.query || {};
+    const search = searchParam(req.query, 'search');
     const result = await getPipelineTasks({ phase, search, page, limit });
     res.json(result);
   } catch (err) {

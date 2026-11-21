@@ -3,6 +3,10 @@ import { escapeRegex } from '#common/utils/escape-regex.js';
 import { Technology } from '#models/index.js';
 import { STARTER_TECHNOLOGIES } from '#pipeline/extraction/references/technologies.js';
 
+// The categories the vocabulary uses (database, os, …); a request may name one
+// of these or none, so a person's typo can't start a nineteenth
+const CATEGORIES = new Set(STARTER_TECHNOLOGIES.map((t) => t.category));
+
 /**
  * Returns all technologies in the vocabulary, sorted alphabetically.
  * Falls back to STARTER_TECHNOLOGIES if the collection has not been seeded yet
@@ -32,6 +36,22 @@ export async function getAllTechnologies() {
  * If new, creates an entry with status 'new' for admin review.
  */
 export async function requestTechnology({ name, category, userId }) {
+  // A number or an object here used to reach .trim() and give a 500
+  if (name !== undefined && typeof name !== 'string') {
+    const error = new Error('ชื่อเทคโนโลยีต้องเป็นข้อความ');
+    error.status = 400;
+    throw error;
+  }
+  // None (absent, null, or a form's empty choice) or one of the vocabulary's,
+  // in any case: 'Language' is 'language'
+  const noCategory = category === undefined || category === null || category === '';
+  const categoryKey = typeof category === 'string' ? category.trim().toLowerCase() : null;
+  if (!noCategory && !CATEGORIES.has(categoryKey)) {
+    const error = new Error('หมวดหมู่ไม่ถูกต้อง');
+    error.status = 400;
+    throw error;
+  }
+
   const trimmed = name?.trim();
   if (!trimmed || trimmed.length === 0) {
     const error = new Error('กรุณาระบุชื่อเทคโนโลยี');
@@ -61,7 +81,7 @@ export async function requestTechnology({ name, category, userId }) {
     const created = await Technology.create({
       name: trimmed,
       key,
-      category: category?.trim() || null,
+      category: categoryKey || null,
       status: 'new',
       firstSeenIn: userId ? `user-request:${userId}` : 'user-request',
     });
@@ -74,7 +94,7 @@ export async function requestTechnology({ name, category, userId }) {
 
   // Graceful fallback when database is offline
   return {
-    technology: { name: trimmed, category: category?.trim() || null, status: 'new' },
+    technology: { name: trimmed, category: categoryKey || null, status: 'new' },
     alreadyExists: false,
   };
 }
