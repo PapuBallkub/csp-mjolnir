@@ -34,7 +34,8 @@ let baseUrl;
 before(async () => {
   await connectDatabase({ dbName: TEST_DB });
 
-  server = createApp({ rateLimits: NO_RATE_LIMITS }).listen(0);
+  // The costly admin actions have their own limit, tested in api-rate-limit.test.js
+  server = createApp({ rateLimits: NO_RATE_LIMITS, apiRateLimits: { adminCostly: UNLIMITED } }).listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
 
   baseUrl = `http://localhost:${server.address().port}`;

@@ -5,20 +5,27 @@ import express from 'express';
 import { env, isProduction } from '#common/config/env.js';
 import { errorHandler } from '#common/middleware/error-handler.js';
 import { notFoundHandler } from '#common/middleware/not-found.js';
-import { adminRoutes } from '#features/admin/index.js';
+import { adminRateLimits, createAdminRoutes } from '#features/admin/index.js';
 import { authRateLimits, createAuthRoutes } from '#features/auth/index.js';
 import { healthRoutes } from '#features/health/index.js';
 import { createNotificationRoutes } from '#features/notifications/index.js';
 import { createProfileRoutes } from '#features/profile/index.js';
-import { technologyRoutes } from '#features/technologies/index.js';
-import { torRoutes } from '#features/tors/index.js';
+import { createTechnologyRoutes, technologyRateLimits } from '#features/technologies/index.js';
+import { createTorRoutes, torRateLimits } from '#features/tors/index.js';
 import { createWatchlistRoutes } from '#features/watchlist/index.js';
 
-// Builds the app without listening, so a test can drive it directly. rateLimits
-// is injectable for the same reason: the suite drives the real routes, so it
+// Every limit outside auth, in one object: each feature sets its own numbers
+// beside its routes, and this is where they meet.
+export const apiRateLimits = { ...torRateLimits, ...technologyRateLimits, ...adminRateLimits };
+
+// Builds the app without listening, so a test can drive it directly. The limits
+// are injectable for the same reason: the suite drives the real routes, so it
 // spends real budget, and production numbers should be chosen for production
 // rather than sized around how many requests the tests happen to make.
-export function createApp({ rateLimits = authRateLimits } = {}) {
+// apiRateLimits is merged over the defaults, so a test names only the limit it
+// is about.
+export function createApp({ rateLimits = authRateLimits, apiRateLimits: apiLimits = {} } = {}) {
+  const limits = { ...apiRateLimits, ...apiLimits };
   const app = express();
 
   // ASVS V13.4.6: Disable X-Powered-By header to avoid disclosing server framework.
@@ -66,9 +73,9 @@ export function createApp({ rateLimits = authRateLimits } = {}) {
   // Guarded inside the feature rather than here: the router applies
   // requireAuth and requireRole('admin') to everything mounted under it, so a
   // route added later cannot be left open by forgetting a middleware. See 0011.
-  app.use('/api/admin', adminRoutes);
-  app.use('/api/tors', torRoutes);
-  app.use('/api/technologies', technologyRoutes);
+  app.use('/api/admin', createAdminRoutes(limits));
+  app.use('/api/tors', createTorRoutes(limits));
+  app.use('/api/technologies', createTechnologyRoutes(limits));
   app.use('/api/profile', createProfileRoutes());
   app.use('/api/watchlist', createWatchlistRoutes());
   app.use('/api/notifications', createNotificationRoutes());
