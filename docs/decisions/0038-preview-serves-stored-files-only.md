@@ -84,11 +84,21 @@ flowchart TD
 
 ## Alternatives considered
 
-- **Keep the live fetch and fix each part:** pace every call, cap every
-  download, check zip entries before unpacking, bound the cache by bytes, and
-  scan each file. It would rebuild the pipeline inside a web request. Pacing
-  alone would make a preview wait at least five seconds, longer while the
-  nightly run holds the shared one-a-second budget.
+Not chosen for now. Each can be reopened, for example if the client asks for
+previews of documents we haven't stored. What follows is what each would cost
+today, not a reason never to build it.
+
+- **Keep the live fetch and handle the unpaced calls:** pace every call, cap
+  every download, check zip entries before unpacking, bound the cache by bytes,
+  and scan each file. It would rebuild the pipeline inside a web request.
+  Pacing alone would make a preview wait at least five seconds, longer while
+  the nightly run holds the shared one-a-second budget. If the client wants
+  live previews, this is the most direct route.
+- **Fetch through a proxy.** Run the live fetch from a separate service or
+  address, so that if e-GP blocks it, the block doesn't reach the server the
+  pipeline uses. That protects ingestion, but the proxy's requests still count
+  toward NFR-03's one a second to e-GP, so it needs the same pacing and caps.
+  A second address must never be a way around a block.
 - **Keep the live fetch behind a rate limit only.** A limit counts requests,
   not what each one costs. At 60 previews per address, one address could still
   set off around 300 e-GP calls in seconds, a few requests fill the cache, and
@@ -125,7 +135,8 @@ flowchart TD
   The response says `Cache-Control: public, max-age=3600`, and the URL for a
   tab stays the same when a new package replaces the old one. A versioned URL
   or an `ETag` would fix it.
-- **Revisit if visitors often meet "not stored".** Count those misses first.
-  If they turn out common, the answer is a queue: a miss asks the paced
-  downloader for the project, and the visitor is told to try again shortly.
-  The request itself still never calls e-GP.
+- **Revisit if the client asks for live previews, or if visitors often meet
+  "not stored".** Count those misses first, so the choice rests on real use.
+  Then choose between the routes above, or a queue: a miss asks the paced
+  downloader for the project and the visitor is told to try again shortly, so
+  the request itself still never calls e-GP.
