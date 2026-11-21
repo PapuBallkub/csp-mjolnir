@@ -269,8 +269,8 @@ export function RecordInspectorModal({
                           {retrying
                             ? "..."
                             : lang === "th"
-                            ? "⚡ อ่าน OCR ต่อด้วยขีดจำกัด 300 หน้า (Retry with 300 pages)"
-                            : "⚡ Retry OCR with 300 pages limit"}
+                            ? "อ่าน OCR ต่อด้วยขีดจำกัด 300 หน้า (Retry with 300 pages)"
+                            : "Retry OCR with 300 pages limit"}
                         </button>
                       </div>
                     </div>
