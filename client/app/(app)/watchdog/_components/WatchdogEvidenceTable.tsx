@@ -6,8 +6,6 @@ import {
   formatDate,
   formatTHB,
   formatTHBCompact,
-  pick,
-  type Lang,
 } from "../../../_data/tors";
 import {
   calcPriceDeltaPct,
@@ -31,7 +29,6 @@ const TRIGGER_NAMES_TH: Record<LockSpecTriggerId, string> = {
 };
 
 export type WatchdogEvidenceTableProps = {
-  lang: Lang;
   tableProjects: WatchdogProjectRecord[];
   onResetFilters: () => void;
   dataSource: "loading" | "api" | "empty" | "error";
@@ -39,7 +36,6 @@ export type WatchdogEvidenceTableProps = {
 };
 
 export function WatchdogEvidenceTable({
-  lang,
   tableProjects,
   onResetFilters,
   dataSource,
@@ -104,35 +100,25 @@ export function WatchdogEvidenceTable({
   return (
     <section>
       <SectionHeading
-        sub={
-          lang === "th"
-            ? "หลักฐานและรายละเอียดโครงการที่ตรวจพบ เพื่อตรวจสอบราคากลางเทียบค่ามัธยฐานและข้อกำหนดจริงจากเอกสาร TOR"
-            : "Audit trail and evidence table: compare reference prices against historical peer medians and examine extracted TOR clauses."
-        }
+        sub="หลักฐานและรายละเอียดโครงการที่ตรวจพบ เพื่อตรวจสอบราคากลางเทียบค่ามัธยฐานและข้อกำหนดจริงจากเอกสาร TOR"
       >
-        {lang === "th"
-          ? "กระดานหลักฐานโครงการ (Evidence & Audit Trail)"
-          : "Evidence Board & Audit Trail"}
+        กระดานหลักฐานโครงการ (Evidence & Audit Trail)
       </SectionHeading>
 
       {/* Table Controls Header: Result Count + Sort Dropdown */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-2.5">
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-semibold text-ink">
-            {lang === "th"
-              ? `พบ ${total.toLocaleString()} โครงการ`
-              : `${total.toLocaleString()} projects found`}
+            {`พบ ${total.toLocaleString()} โครงการ`}
           </span>
           <span className="text-[11.5px] text-ink-3">
-            {lang === "th"
-              ? "(แสดงทุกโครงการตามตัวกรอง)"
-              : "(showing all projects matching filters)"}
+            (แสดงทุกโครงการตามตัวกรอง)
           </span>
         </div>
 
         <div className="flex items-center gap-2">
           <label htmlFor="evidence-table-sort" className="text-[12.5px] font-medium text-ink-2 whitespace-nowrap">
-            {lang === "th" ? "เรียงตาม:" : "Sort by:"}
+            เรียงตาม:
           </label>
           <select
             id="evidence-table-sort"
@@ -145,7 +131,7 @@ export function WatchdogEvidenceTable({
           >
             {TABLE_SORT_OPTIONS.map((opt) => (
               <option key={opt.id} value={opt.id}>
-                {pick(opt.label, lang)}
+                {opt.label}
               </option>
             ))}
           </select>
@@ -154,19 +140,11 @@ export function WatchdogEvidenceTable({
 
       {visibleRows.length === 0 ? (
         <EmptyState
-          headline={
-            lang === "th"
-              ? "ไม่พบโครงการที่ตรงกับเงื่อนไขย่อยที่เลือก"
-              : "No projects match this specific filter view"
-          }
-          body={
-            lang === "th"
-              ? "ลองสลับแท็บเป็น “ทุกโครงการในกลุ่มนี้” หรือปรับเปลี่ยนตัวกรองหลักด้านบน"
-              : "Try switching to the “All projects in slice” tab or adjusting top-level filters."
-          }
+          headline="ไม่พบโครงการที่ตรงกับเงื่อนไขย่อยที่เลือก"
+          body="ลองสลับแท็บเป็น “ทุกโครงการในกลุ่มนี้” หรือปรับเปลี่ยนตัวกรองหลักด้านบน"
           action={
             <button type="button" onClick={onResetFilters} className={btn.secondary}>
-              {lang === "th" ? "ล้างตัวกรองทั้งหมด" : "Reset filters"}
+              ล้างตัวกรองทั้งหมด
             </button>
           }
         />
@@ -176,18 +154,16 @@ export function WatchdogEvidenceTable({
             <thead>
               <tr className="border-b border-line bg-surface-2">
                 <th className="px-3.5 py-2.5 text-[11.5px] font-medium text-ink-3">
-                  {lang === "th" ? "โครงการ / หน่วยงาน" : "Project & agency"}
+                  โครงการ / หน่วยงาน
                 </th>
                 <th className="px-3 py-2.5 text-right text-[11.5px] font-medium text-ink-3 whitespace-nowrap">
-                  {lang === "th" ? "ราคากลาง" : "Reference price"}
+                  ราคากลาง
                 </th>
                 <th className="px-3 py-2.5 text-[11.5px] font-medium text-ink-3 whitespace-nowrap">
-                  {lang === "th" ? "ส่วนต่างราคากลาง" : "Price check"}
+                  ส่วนต่างราคากลาง
                 </th>
                 <th className="px-3.5 py-2.5 text-[11.5px] font-medium text-ink-3 whitespace-nowrap">
-                  {lang === "th"
-                    ? "ผลตรวจล็อกสเปก (ว 214)"
-                    : "Lock-spec risk (ว 214)"}
+                  ผลตรวจล็อกสเปก (ว 214)
                 </th>
               </tr>
             </thead>
@@ -202,25 +178,25 @@ export function WatchdogEvidenceTable({
                     {/* Col 1: Project Title, ID, Agency, Status & Archetype */}
                     <td className="px-3.5 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <StatusBadge status={proj.status} lang={lang} />
+                        <StatusBadge status={proj.status} />
                         <span className="font-mono tnum text-[11px] text-ink-3">
                           {proj.id}
                         </span>
                         <span className="text-[11px] text-ink-3">
-                          · {formatDate(proj.postedAt, lang)}
+                          · {formatDate(proj.postedAt)}
                         </span>
                         <span className="text-[11px] text-ink-3">
-                          · {getArchetypeLabel(proj.archetype, lang)}
+                          · {getArchetypeLabel(proj.archetype)}
                         </span>
                       </div>
                       <Link
                         href={`/tor/${proj.id}`}
                         className="mt-1.5 block text-[13.5px] leading-thai font-medium text-ink hover:underline"
                       >
-                        {pick(proj.title, lang)}
+                        {proj.title}
                       </Link>
                       <p className="mt-0.5 text-[12px] leading-thai text-ink-2">
-                        {pick(proj.agency, lang)}
+                        {proj.agency}
                       </p>
                     </td>
 
@@ -232,7 +208,7 @@ export function WatchdogEvidenceTable({
                       {proj.agreedPriceTHB ? (
                         <div className="mt-0.5 text-[11px] text-ink-2">
                           <span className="font-sans text-[10.5px] text-ink-3">
-                            {lang === "th" ? "สัญญาชนะที่ " : "Won at "}
+                            สัญญาชนะที่ 
                           </span>
                           {formatTHBCompact(proj.agreedPriceTHB)}
                         </div>
@@ -242,10 +218,10 @@ export function WatchdogEvidenceTable({
                     {/* Col 3: Price Delta Badge & Peer Median */}
                     <td className="px-3 py-3 whitespace-nowrap">
                       <div className="flex flex-col items-start gap-1">
-                        <PriceDeltaBadge delta={delta} lang={lang} />
+                        <PriceDeltaBadge delta={delta} />
                         <div className="font-mono tnum text-[11px] text-ink-3">
                           <span className="font-sans text-[10.5px] text-ink-3">
-                            {lang === "th" ? "มัธยฐานตลาด " : "Peer median "}
+                            มัธยฐานตลาด 
                           </span>
                           {proj.peerMedianTHB ? formatTHBCompact(proj.peerMedianTHB) : "—"}
                         </div>
@@ -258,7 +234,6 @@ export function WatchdogEvidenceTable({
                         <LockSpecBadge
                           level={proj.lockSpecLevel}
                           score={proj.lockSpecScore}
-                          lang={lang}
                           outOf100={false}
                         />
                         {proj.triggers.length > 0 ? (
@@ -268,17 +243,13 @@ export function WatchdogEvidenceTable({
                                 key={t.category}
                                 className="inline-flex items-center rounded-[3px] border border-risk/30 bg-risk/5 px-2 py-0.5 font-mono text-[11px] font-medium text-risk"
                               >
-                                {lang === "th"
-                                  ? TRIGGER_NAMES_TH[t.category] ?? t.category
-                                  : t.category}
+                                {TRIGGER_NAMES_TH[t.category] ?? t.category}
                               </span>
                             ))}
                           </div>
                         ) : (
                           <span className="text-[11.5px] text-ink-3">
-                            {lang === "th"
-                              ? "ไม่พบข้อกำหนดที่เข้าข่าย ว 214"
-                              : "No Circular ว 214 barriers found"}
+                            ไม่พบข้อกำหนดที่เข้าข่าย ว 214
                           </span>
                         )}
                       </div>
@@ -310,22 +281,14 @@ export function WatchdogEvidenceTable({
       {/* Footer note explaining methodology & non-accusatory principle (AGENTS.md §7) */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4 text-[11.5px] leading-thai text-ink-3">
         <p>
-          {lang === "th"
-            ? "หมายเหตุ: ค่ามัธยฐานและค่าเฉลี่ยคำนวณจากโครงการประเภทและระดับความซับซ้อนเดียวกันในฐานข้อมูล data.go.th และ e-GP สัญญาณความเสี่ยงเป็นข้อมูลประกอบการพิจารณาเบื้องต้น ไม่ใช่การตัดสินความผิดทางกฎหมาย"
-            : "Note: Medians and averages are computed across comparable scope and complexity tiers from data.go.th and e-GP. Risk flags highlight clauses for review and do not allege legal wrongdoing."}
+          หมายเหตุ: ค่ามัธยฐานและค่าเฉลี่ยคำนวณจากโครงการประเภทและระดับความซับซ้อนเดียวกันในฐานข้อมูล data.go.th และ e-GP สัญญาณความเสี่ยงเป็นข้อมูลประกอบการพิจารณาเบื้องต้น ไม่ใช่การตัดสินความผิดทางกฎหมาย
         </p>
         <span className="font-mono text-[11px] text-ink-3">
           {dataSource === "api"
-            ? lang === "th"
-              ? `เชื่อมต่อฐานข้อมูลจริง (${totalProjectsCount} โครงการ)`
-              : `Connected to live API (${totalProjectsCount} TORs)`
+            ? `เชื่อมต่อฐานข้อมูลจริง (${totalProjectsCount} โครงการ)`
             : dataSource === "loading"
-              ? lang === "th"
-                ? "กำลังโหลดข้อมูลจริง..."
-                : "Loading live data..."
-              : lang === "th"
-                ? "ไม่พบข้อมูลในระบบ"
-                : "No data available"}
+              ? "กำลังโหลดข้อมูลจริง..."
+              : "ไม่พบข้อมูลในระบบ"}
         </span>
       </div>
     </section>

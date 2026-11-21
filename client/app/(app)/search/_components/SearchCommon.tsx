@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from "react";
-import type { Bi, Lang } from "../../../_data/tors";
 import type { ApiError, ApiResult, TorFacets } from "../../../_lib/api";
 import { formatThaiDate } from "../../../_components/deadline";
 
@@ -14,21 +13,17 @@ export function useDebounced<T>(value: T, ms: number): T {
 }
 
 /** "1 ต.ค. 2569 14:05", in Thai time */
-export function formatUpdated(iso: string, lang: Lang): string {
+export function formatUpdated(iso: string): string {
   const bangkok = new Date(new Date(iso).getTime() + 7 * 60 * 60 * 1000);
   const time = bangkok.toISOString().slice(11, 16);
-  return `${formatThaiDate(iso, lang)} ${time}`;
+  return `${formatThaiDate(iso)} ${time}`;
 }
 
-export function failureText(error: ApiError, lang: Lang): string {
+export function failureText(error: ApiError): string {
   if (error.status === 0) {
-    return lang === "th"
-      ? "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองอีกครั้งในอีกสักครู่"
-      : "We couldn't reach the server. Try again in a moment.";
+    return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองอีกครั้งในอีกสักครู่";
   }
-  return lang === "th"
-    ? `เซิร์ฟเวอร์ตอบกลับผิดพลาด (${error.status}) ลองอีกครั้งในอีกสักครู่`
-    : `The server returned an error (${error.status}). Try again in a moment.`;
+  return `เซิร์ฟเวอร์ตอบกลับผิดพลาด (${error.status}) ลองอีกครั้งในอีกสักครู่`;
 }
 
 export function FilterGroup({ title, children }: { title: string; children: ReactNode }) {
@@ -48,27 +43,24 @@ export function GroupLabel({
   label,
   members,
   notes,
-  lang,
 }: {
-  label: Bi;
-  members?: Bi[];
-  notes?: Bi[];
-  lang: Lang;
+  label: string;
+  members?: string[];
+  notes?: string[];
 }) {
-  const say = (words: Bi) => (lang === "th" ? words.th : words.en);
   return (
     <span className="flex flex-col">
-      <span>{say(label)}</span>
+      <span>{label}</span>
       {notes?.map((note) => (
-        <span key={note.en} className="text-[11px] leading-thai text-ink-3">
-          {say(note)}
+        <span key={note} className="text-[11px] leading-thai text-ink-3">
+          {note}
         </span>
       ))}
-      {members?.length ? <span className="sr-only">{lang === "th" ? "รวม" : "includes"}</span> : null}
+      {members?.length ? <span className="sr-only">รวม</span> : null}
       {members?.map((member) => (
-        <span key={member.en} className="flex gap-1.5 text-[11px] leading-thai text-ink-3">
+        <span key={member} className="flex gap-1.5 text-[11px] leading-thai text-ink-3">
           <span aria-hidden="true">•</span>
-          <span>{say(member)}</span>
+          <span>{member}</span>
         </span>
       ))}
     </span>
@@ -146,12 +138,10 @@ export function Radio({
 export function FacetList({
   facets,
   onRetry,
-  lang,
   children,
 }: {
   facets: ApiResult<TorFacets> | null;
   onRetry: () => void;
-  lang: Lang;
   children: (data: TorFacets) => ReactNode;
 }) {
   if (!facets) {
@@ -166,9 +156,9 @@ export function FacetList({
   if (!facets.ok) {
     return (
       <p className="text-[12px] leading-thai text-ink-3">
-        {lang === "th" ? "โหลดตัวเลือกไม่สำเร็จ " : "Couldn't load the options. "}
+        โหลดตัวเลือกไม่สำเร็จ{" "}
         <button type="button" onClick={onRetry} className="underline underline-offset-2 hover:text-ink">
-          {lang === "th" ? "ลองอีกครั้ง" : "Try again"}
+          ลองอีกครั้ง
         </button>
       </p>
     );

@@ -1,4 +1,4 @@
-import { formatDate, type Lang } from "./format.ts";
+import { formatDate } from "./format.ts";
 
 // Deadlines are set in Thai time, so "days left" counts Bangkok calendar days (UTC+7)
 const DAY = 24 * 60 * 60 * 1000;
@@ -11,30 +11,27 @@ export function daysLeft(deadline: string, now: Date = new Date()): number {
 }
 
 /** Returns the dynamic countdown text and urgency tone for a given days left count. */
-export function countdownText(
-  days: number,
-  lang: Lang = "th"
-): { text: string; tone: string } {
+export function countdownText(days: number): { text: string; tone: string } {
   if (days < 0) {
     return {
-      text: lang === "th" ? "ปิดรับแล้ว" : "Closed",
+      text: "ปิดรับแล้ว",
       tone: "text-ink-3",
     };
   }
   if (days === 0) {
     return {
-      text: lang === "th" ? "ครบกำหนดวันนี้" : "Due today",
+      text: "ครบกำหนดวันนี้",
       tone: "text-risk font-bold",
     };
   }
   if (days === 1) {
     return {
-      text: lang === "th" ? "เหลืออีก 1 วัน" : "1 day left",
+      text: "เหลืออีก 1 วัน",
       tone: "text-risk font-bold",
     };
   }
   return {
-    text: lang === "th" ? `เหลืออีก ${days} วัน` : `${days} days left`,
+    text: `เหลืออีก ${days} วัน`,
     tone:
       days <= 2
         ? "text-risk font-semibold"
@@ -44,8 +41,8 @@ export function countdownText(
   };
 }
 
-/** e.g. "19 ต.ค. 2569" / "19 Oct 2026", in Thai time; the Thai year is the Buddhist one */
-export function formatThaiDate(iso: string, lang: Lang): string {
+/** e.g. "19 ต.ค. 2569", in Thai time; the Thai year is the Buddhist one */
+export function formatThaiDate(iso: string): string {
   const date = new Date(new Date(iso).getTime() + BANGKOK);
-  return formatDate(date.toISOString().slice(0, 10), lang);
+  return formatDate(date.toISOString().slice(0, 10));
 }

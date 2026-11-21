@@ -6,11 +6,11 @@ import { Panel } from "../../../../_components/ui";
 import { formatTHB } from "../../../../_data/tors";
 import type { MatchSnapshot, MatchedTorSummary } from "../../../../_lib/api";
 
-function formatThaiDate(dateStr?: string | null, lang: "th" | "en" = "th") {
+function formatThaiDate(dateStr?: string | null) {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", {
+  return d.toLocaleDateString("th-TH", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -30,10 +30,8 @@ function calculateDaysRemaining(deadlineStr?: string | null) {
 
 export function MatchView({
   snapshot,
-  lang,
 }: {
   snapshot: MatchSnapshot;
-  lang: "th" | "en";
 }) {
   const matchedItems: MatchedTorSummary[] = Array.isArray(snapshot.matchedItems)
     ? snapshot.matchedItems
@@ -42,7 +40,7 @@ export function MatchView({
   if (matchedItems.length === 0) {
     return (
       <Panel className="p-6 text-center text-ink-3">
-        {lang === "th" ? "ไม่มีรายการโครงการในภาพถ่ายนี้" : "No project items in this snapshot."}
+        ไม่มีรายการโครงการในภาพถ่ายนี้
       </Panel>
     );
   }
@@ -85,13 +83,13 @@ export function MatchView({
                 <div className="flex items-center gap-2">
                   {item.matchScore != null ? (
                     <span className="inline-flex items-center rounded-full bg-open-bg px-2.5 py-1 text-[12px] font-semibold text-open border border-open-line">
-                      {Math.round(item.matchScore)}% {lang === "th" ? "เหมาะสมกับคุณ" : "match"}
+                      {Math.round(item.matchScore)}% เหมาะสมกับคุณ
                     </span>
                   ) : null}
                   {item.submissionDeadline ? (
                     <span className="inline-flex items-center gap-1 text-[12px] text-ink-3">
                       <Clock className="h-3.5 w-3.5" />
-                      <span>ปิดรับ: {formatThaiDate(item.submissionDeadline, lang)}</span>
+                      <span>ปิดรับ: {formatThaiDate(item.submissionDeadline)}</span>
                       {daysLeft != null ? (
                         <span
                           className={`font-medium ${
@@ -114,7 +112,7 @@ export function MatchView({
               {Array.isArray(item.matchedSkills) && item.matchedSkills.length > 0 ? (
                 <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-open-line/50 pt-2.5">
                   <span className="text-[11.5px] font-medium text-ink-2">
-                    {lang === "th" ? "ทักษะที่ตรง:" : "Matched:"}
+                    ทักษะที่ตรง:
                   </span>
                   {item.matchedSkills.map((skill: string) => (
                     <span
@@ -135,7 +133,7 @@ export function MatchView({
                   href={`/tor/${item.projectId}`}
                   className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-ink-2 hover:text-ink hover:underline cursor-pointer"
                 >
-                  <span>{lang === "th" ? "เปิดดูรายละเอียดโครงการ TOR" : "View TOR Details"}</span>
+                  <span>เปิดดูรายละเอียดโครงการ TOR</span>
                   <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
               </div>

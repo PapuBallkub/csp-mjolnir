@@ -34,7 +34,6 @@ test("formatMonthBucket: computes Thai BE and fiscal quarters correctly", () => 
   const oct2026 = formatMonthBucket("2026-10");
   assert.equal(oct2026.key, "2026-10");
   assert.equal(oct2026.labelTh, "ต.ค. 69");
-  assert.equal(oct2026.labelEn, "Oct 26");
   assert.equal(oct2026.quarter, "Q1/70");
 
   // January 2026 -> Thai FY 2569 Q2
@@ -221,8 +220,8 @@ test("calcPriceDeltaPct: returns null for 0 or negative peer medians", () => {
   const dummy: WatchdogProjectRecord = {
     id: "dummy",
     egpRef: "dummy",
-    title: { th: "dummy", en: "dummy" },
-    agency: { th: "dummy", en: "dummy" },
+    title: "dummy",
+    agency: "dummy",
     category: "software-development",
     archetype: "web-portal",
     complexity: "basic",

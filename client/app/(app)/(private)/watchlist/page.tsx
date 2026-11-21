@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../../_components/auth";
 import { CatalogRow, CatalogRowSkeleton } from "../../../_components/catalog-row";
-import { useLang } from "../../../_components/prefs";
 import { btn, EmptyState, SectionHeading } from "../../../_components/ui";
 import { isDead } from "../../../_components/verdict";
 import * as api from "../../../_lib/api";
@@ -14,7 +13,7 @@ type AlertItem = {
   projectId: string;
   kind: "amended" | "closing";
   title: string;
-  message: { th: string; en: string };
+  message: string;
   date?: string;
 };
 
@@ -24,7 +23,6 @@ const ALERT_TONE = {
 };
 
 export default function WatchlistPage() {
-  const { lang } = useLang();
   const { removeFromWatchlist } = useAuth();
 
   const [tors, setTors] = useState<TorInsightSummary[]>([]);
@@ -42,10 +40,7 @@ export default function WatchlistPage() {
       if (res.ok) {
         setTors(res.data.tors);
       } else {
-        setError(
-          res.error.message ||
-            (lang === "th" ? "ไม่สามารถโหลดข้อมูลรายการที่ติดตามได้" : "Failed to load watchlist"),
-        );
+        setError(res.error.message || "ไม่สามารถโหลดข้อมูลรายการที่ติดตามได้");
       }
       setLoading(false);
     });
@@ -53,7 +48,7 @@ export default function WatchlistPage() {
     return () => {
       cancelled = true;
     };
-  }, [lang, retryCount]);
+  }, [retryCount]);
 
   const handleRetry = () => {
     setLoading(true);
@@ -127,7 +122,7 @@ export default function WatchlistPage() {
       const iden = tor.identification;
       const facts = tor.facts;
       const isAmended = tor.amendmentInfo?.isAmended ?? false;
-      const title = (lang === "en" && iden.titleEn) || iden.titleTh;
+      const title = iden.titleTh;
 
       // 1. Official Amendment alert
       if (isAmended) {
@@ -135,10 +130,7 @@ export default function WatchlistPage() {
           projectId: tor.projectId,
           kind: "amended",
           title,
-          message: {
-            th: "TOR มีการออกเอกสารแก้ไขประกาศหรือเงื่อนไข",
-            en: "This TOR has been officially amended.",
-          },
+          message: "TOR มีการออกเอกสารแก้ไขประกาศหรือเงื่อนไข",
         });
       }
 
@@ -151,16 +143,10 @@ export default function WatchlistPage() {
             projectId: tor.projectId,
             kind: "closing",
             title,
-            message: {
-              th:
-                daysLeft === 0
-                  ? "สิ้นสุดการยื่นข้อเสนอวันนี้"
-                  : `เหลือเวลาอีก ${daysLeft} วันก่อนปิดรับข้อเสนอ`,
-              en:
-                daysLeft === 0
-                  ? "Submissions close today."
-                  : `${daysLeft} days left before submission closes.`,
-            },
+            message:
+              daysLeft === 0
+                ? "สิ้นสุดการยื่นข้อเสนอวันนี้"
+                : `เหลือเวลาอีก ${daysLeft} วันก่อนปิดรับข้อเสนอ`,
             date: facts.submissionDeadline,
           });
         }
@@ -168,18 +154,16 @@ export default function WatchlistPage() {
     }
 
     return list.filter((a) => !dismissed.includes(`${a.projectId}-${a.kind}`));
-  }, [activeTors, lang, dismissed, now]);
+  }, [activeTors, dismissed, now]);
 
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-6 sm:py-8 pb-16">
       <header className="mb-5">
         <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-ink">
-          {lang === "th" ? "รายการที่ติดตาม" : "Your watchlist"}
+          รายการที่ติดตาม
         </h1>
         <p className="mt-1 max-w-2xl text-[14px] leading-thai text-ink-2">
-          {lang === "th"
-            ? "ติดตามประกาศที่คุณสนใจ หากมีการแก้ไข TOR หรือเปลี่ยนแปลงสถานะ ระบบจะแสดงแจ้งเตือนที่นี่ทันที"
-            : "Track procurement notices you care about. If a document changes or moves through stages, you will see it here first."}
+          ติดตามประกาศที่คุณสนใจ หากมีการแก้ไข TOR หรือเปลี่ยนแปลงสถานะ ระบบจะแสดงแจ้งเตือนที่นี่ทันที
         </p>
       </header>
 
@@ -192,7 +176,7 @@ export default function WatchlistPage() {
             onClick={handleRetry}
             className="mt-2 font-medium underline hover:text-red-900"
           >
-            {lang === "th" ? "ลองใหม่อีกครั้ง" : "Try again"}
+            ลองใหม่อีกครั้ง
           </button>
         </div>
       ) : null}
@@ -201,18 +185,14 @@ export default function WatchlistPage() {
       {alerts.length > 0 ? (
         <section className="mb-8">
           <SectionHeading
-            sub={
-              lang === "th"
-                ? "การแก้ไขเอกสาร และกำหนดยื่นข้อเสนอที่ใกล้เข้ามา"
-                : "Official amendments and approaching submission deadlines."
-            }
+            sub="การแก้ไขเอกสาร และกำหนดยื่นข้อเสนอที่ใกล้เข้ามา"
             right={
               <span className="font-mono text-[11px] text-ink-3">
-                {lang === "th" ? `${alerts.length} รายการ` : `${alerts.length} alerts`}
+                {`${alerts.length} รายการ`}
               </span>
             }
           >
-            {lang === "th" ? "การเปลี่ยนแปลงและแจ้งเตือน" : "Important Updates"}
+            การเปลี่ยนแปลงและแจ้งเตือน
           </SectionHeading>
 
           <ul className="flex flex-col gap-2">
@@ -224,7 +204,7 @@ export default function WatchlistPage() {
                 <div className="min-w-0 flex-1">
                   <p className="font-mono text-[11px] opacity-80">{alert.projectId}</p>
                   <p className="mt-0.5 text-[14px] leading-thai font-medium">
-                    {alert.message[lang]}
+                    {alert.message}
                   </p>
                   <Link
                     href={`/tor/${alert.projectId}`}
@@ -238,7 +218,7 @@ export default function WatchlistPage() {
                   onClick={() => setDismissed([...dismissed, `${alert.projectId}-${alert.kind}`])}
                   className="shrink-0 font-mono text-[11px] text-ink-3 underline hover:text-ink"
                 >
-                  {lang === "th" ? "รับทราบ" : "Dismiss"}
+                  รับทราบ
                 </button>
               </li>
             ))}
@@ -251,16 +231,12 @@ export default function WatchlistPage() {
         right={
           <span className="font-mono text-[11px] text-ink-3">
             {closedTors.length > 0
-              ? lang === "th"
-                ? `เปิดรับ ${activeTors.length} · สิ้นสุดแล้ว ${closedTors.length}`
-                : `${activeTors.length} active · ${closedTors.length} closed`
-              : lang === "th"
-                ? `${tors.length} โครงการ`
-                : `${tors.length} saved`}
+              ? `เปิดรับ ${activeTors.length} · สิ้นสุดแล้ว ${closedTors.length}`
+              : `${tors.length} โครงการ`}
           </span>
         }
       >
-        {lang === "th" ? "โครงการที่บันทึกไว้" : "Saved projects"}
+        โครงการที่บันทึกไว้
       </SectionHeading>
 
       {loading ? (
@@ -271,15 +247,11 @@ export default function WatchlistPage() {
         </div>
       ) : tors.length === 0 ? (
         <EmptyState
-          headline={lang === "th" ? "ยังไม่ได้บันทึกโครงการไว้" : "You have not saved anything yet"}
-          body={
-            lang === "th"
-              ? "กดบันทึกจากหน้ารายละเอียดโครงการ แล้วคุณจะสามารถติดตามความคืบหน้าของโครงการได้จากหน้านี้"
-              : "Save a project from its detail page to track its updates and status changes here."
-          }
+          headline="ยังไม่ได้บันทึกโครงการไว้"
+          body="กดบันทึกจากหน้ารายละเอียดโครงการ แล้วคุณจะสามารถติดตามความคืบหน้าของโครงการได้จากหน้านี้"
           action={
             <Link href="/search" className={btn.secondary}>
-              {lang === "th" ? "ไปหน้าค้นหาประกาศ" : "Go to search"}
+              ไปหน้าค้นหาประกาศ
             </Link>
           }
         />
@@ -296,7 +268,7 @@ export default function WatchlistPage() {
                   disabled={removingId === tor.projectId}
                   onClick={() => handleRemove(tor.projectId)}
                   className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-transparent px-2 py-1 text-[11.5px] font-medium text-ink-3 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-900/40 dark:hover:bg-red-950/30 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
-                  title={lang === "th" ? "เอาออกจากรายการเฝ้าดู" : "Remove from watchlist"}
+                  title="เอาออกจากรายการเฝ้าดู"
                 >
                   <svg
                     className="h-3.5 w-3.5 shrink-0 opacity-70"
@@ -313,13 +285,7 @@ export default function WatchlistPage() {
                     />
                   </svg>
                   <span>
-                    {removingId === tor.projectId
-                      ? lang === "th"
-                        ? "กำลังเอาออก…"
-                        : "Removing…"
-                      : lang === "th"
-                        ? "เอาออก"
-                        : "Remove"}
+                    {removingId === tor.projectId ? "กำลังเอาออก…" : "เอาออก"}
                   </span>
                 </button>
               }
@@ -329,9 +295,7 @@ export default function WatchlistPage() {
           {activeTors.length > 0 && closedTors.length > 0 ? (
             <div className="pt-4 pb-1 flex items-center gap-3">
               <span className="text-[12px] font-medium text-ink-3">
-                {lang === "th"
-                  ? `สิ้นสุดการรับข้อเสนอ / ประกาศผลแล้ว (${closedTors.length})`
-                  : `Closed or awarded projects (${closedTors.length})`}
+                {`สิ้นสุดการรับข้อเสนอ / ประกาศผลแล้ว (${closedTors.length})`}
               </span>
               <div className="flex-1 h-px bg-line/60" />
             </div>
@@ -348,7 +312,7 @@ export default function WatchlistPage() {
                   disabled={removingId === tor.projectId}
                   onClick={() => handleRemove(tor.projectId)}
                   className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-transparent px-2 py-1 text-[11.5px] font-medium text-ink-3 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-900/40 dark:hover:bg-red-950/30 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
-                  title={lang === "th" ? "เอาออกจากรายการเฝ้าดู" : "Remove from watchlist"}
+                  title="เอาออกจากรายการเฝ้าดู"
                 >
                   <svg
                     className="h-3.5 w-3.5 shrink-0 opacity-70"
@@ -365,13 +329,7 @@ export default function WatchlistPage() {
                     />
                   </svg>
                   <span>
-                    {removingId === tor.projectId
-                      ? lang === "th"
-                        ? "กำลังเอาออก…"
-                        : "Removing…"
-                      : lang === "th"
-                        ? "เอาออก"
-                        : "Remove"}
+                    {removingId === tor.projectId ? "กำลังเอาออก…" : "เอาออก"}
                   </span>
                 </button>
               }

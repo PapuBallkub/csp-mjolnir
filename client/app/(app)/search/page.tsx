@@ -30,7 +30,7 @@ function BrowsePageContent() {
             {lastUpdated ? (
               <>
                 {" · "}
-                อัปเดตล่าสุด {formatUpdated(lastUpdated, "th")}
+                อัปเดตล่าสุด {formatUpdated(lastUpdated)}
               </>
             ) : null}
           </p>

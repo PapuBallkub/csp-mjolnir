@@ -180,7 +180,7 @@ export function MatchModeView({
         <EmptyState
           className="min-h-[260px]"
           headline="จัดอันดับไม่สำเร็จ"
-          body={failureText(matchResult.error, "th")}
+          body={failureText(matchResult.error)}
           action={
             <button type="button" onClick={() => setMatchTry((n) => n + 1)} className={btn.secondary}>
               ลองอีกครั้ง
@@ -284,7 +284,6 @@ export function MatchModeView({
 
   const rail = (
     <MatchRail
-      lang="th"
       scoreFloor={scoreFloor}
       setScoreFloor={setScoreFloor}
       hideClosed={hideClosed}

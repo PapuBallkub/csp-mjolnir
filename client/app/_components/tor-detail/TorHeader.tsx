@@ -10,7 +10,7 @@ import {
   LifecycleBadge,
 } from "../verdict";
 import { countdownText, daysLeft } from "../deadline";
-import { type Stage } from "../../_lib/stage";
+import { type Stage, type DeadlineInfo } from "../../_lib/stage";
 import type { Match } from "../../_lib/match";
 import { formatDateString, ChangeNotice } from "./_lib/tor-helpers";
 
@@ -89,9 +89,9 @@ export function TorHeader({
   pending: NonNullable<TorInsightDetail["amendments"]>[number] | null;
   lockLevel: RiskLevel;
   lockScore: number | null;
-  scope: { th: string; en: string };
+  scope: string;
   fiscalYear: number | null;
-  deadline: { kind: string; date: string | null; label: { th: string; en: string } };
+  deadline: DeadlineInfo;
   officialEgpUrl: string | null;
   match: Match | null;
   isAuthenticated: boolean;
@@ -141,7 +141,7 @@ export function TorHeader({
             <Fragment key={category}>
               {index === 0 ? <span className="h-3 w-px bg-line" /> : null}
               <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-ink-3">
-                {categoryLabel(category, "th")}
+                {categoryLabel(category)}
               </span>
             </Fragment>
           ))}
@@ -189,7 +189,7 @@ export function TorHeader({
 
           {/* Scope Badge */}
           <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 leading-normal">
-            {scope.th}
+            {scope}
           </span>
 
           {/* Companies Only Badge */}

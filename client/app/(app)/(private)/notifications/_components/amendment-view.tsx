@@ -6,11 +6,11 @@ import { Panel } from "../../../../_components/ui";
 import { formatTHB } from "../../../../_data/tors";
 import type { AmendmentSnapshot } from "../../../../_lib/api";
 
-function formatThaiDate(dateStr?: string | Date | null, lang: "th" | "en" = "th") {
+function formatThaiDate(dateStr?: string | Date | null) {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", {
+  return d.toLocaleDateString("th-TH", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -32,10 +32,8 @@ type SingleAmendmentItem = {
 
 export function AmendmentView({
   snapshot,
-  lang,
 }: {
   snapshot: AmendmentSnapshot & { items?: SingleAmendmentItem[] };
-  lang: "th" | "en";
 }) {
   const items: SingleAmendmentItem[] =
     Array.isArray(snapshot.items) && snapshot.items.length > 0
@@ -56,7 +54,7 @@ export function AmendmentView({
   if (items.length === 0 || !items[0].projectTitle) {
     return (
       <Panel className="p-6 text-center text-ink-3">
-        {lang === "th" ? "ไม่มีรายการโครงการในภาพถ่ายนี้" : "No project items in this snapshot."}
+        ไม่มีรายการโครงการในภาพถ่ายนี้
       </Panel>
     );
   }
@@ -96,16 +94,14 @@ export function AmendmentView({
               <FileText className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
               <div>
                 <h4 className="text-[13.5px] font-semibold text-amber-950 dark:text-amber-100">
-                  {lang === "th" ? "สรุปการแก้ไขเอกสาร TOR" : "Amendment Summary"}
+                  สรุปการแก้ไขเอกสาร TOR
                 </h4>
                 <p className="mt-1 text-[13.5px] leading-relaxed text-amber-900 dark:text-amber-200">
                   “{item.amendmentHeadline || "มีการแก้ไขเปลี่ยนแปลงข้อกำหนดหรือเอกสารโครงการ"}”
                 </p>
                 {item.detectedAt ? (
                   <p className="mt-2 text-[12px] text-amber-800/80 dark:text-amber-400">
-                    {lang === "th"
-                      ? `ตรวจพบการแก้ไขเมื่อ: ${formatThaiDate(item.detectedAt, lang)}`
-                      : `Detected at: ${formatThaiDate(item.detectedAt, lang)}`}
+                    {`ตรวจพบการแก้ไขเมื่อ: ${formatThaiDate(item.detectedAt)}`}
                   </p>
                 ) : null}
               </div>
@@ -116,9 +112,7 @@ export function AmendmentView({
           {Array.isArray(item.changedFieldsTh) && item.changedFieldsTh.length > 0 ? (
             <div className="mt-3.5">
               <h5 className="text-[12px] font-medium text-ink-2">
-                {lang === "th"
-                  ? "ส่วนที่มีการเปลี่ยนแปลงในเอกสาร:"
-                  : "Modified Document Sections:"}
+                ส่วนที่มีการเปลี่ยนแปลงในเอกสาร:
               </h5>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {item.changedFieldsTh.map((f, fIdx) => (
@@ -141,7 +135,7 @@ export function AmendmentView({
                 href={`/tor/${item.projectId}`}
                 className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-ink-2 hover:text-ink hover:underline cursor-pointer"
               >
-                <span>{lang === "th" ? "เปิดดูรายละเอียดโครงการ TOR" : "View TOR Details"}</span>
+                <span>เปิดดูรายละเอียดโครงการ TOR</span>
                 <ExternalLink className="h-3.5 w-3.5" />
               </Link>
             </div>

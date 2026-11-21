@@ -8,18 +8,9 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { demoProfile, type Lang, type Profile } from "../_data/tors";
+import { demoProfile, type Profile } from "../_data/tors";
 import type { ApiError, UserProfile } from "../_lib/api";
 import { useAuth } from "./auth";
-
-/**
- * Default system language: Thai only (NFR-15).
- */
-const TH_LANG_CONTEXT = {
-  lang: "th" as Lang,
-  setLang: () => {},
-};
-const LangContext = createContext<{ lang: Lang; setLang: (lang: Lang) => void }>(TH_LANG_CONTEXT);
 
 /**
  * FR-12. When signed in, the profile is whatever the server last returned.
@@ -52,7 +43,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     status === "authenticated" && user
       ? {
           name: user.name,
-          role: { th: "ผู้ใช้ระบบ", en: "Platform User" },
+          role: "ผู้ใช้ระบบ",
           email: user.email,
           skills: user.profile?.skills ?? [],
           budgetMin: user.profile?.budgetMin ?? 0,
@@ -89,16 +80,10 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <LangContext.Provider value={TH_LANG_CONTEXT}>
-      <ProfileContext.Provider value={{ profile, setProfile, saving, saveProfile }}>
-        {children}
-      </ProfileContext.Provider>
-    </LangContext.Provider>
+    <ProfileContext.Provider value={{ profile, setProfile, saving, saveProfile }}>
+      {children}
+    </ProfileContext.Provider>
   );
-}
-
-export function useLang() {
-  return TH_LANG_CONTEXT;
 }
 
 export function useProfile() {
