@@ -1,16 +1,22 @@
-// The Google flow, minus Google. Turning a code into a profile is the only part
-// that needs the network, so it stays in google.js and is not exercised here —
-// everything below is either the redirect we build or what we do with a profile
-// once we have one.
+// The Google flow, minus Google. The redirect we build, the callback with a fake
+// Google answering the token and key requests (fetch is mocked, and anything
+// that isn't our own server or one of those two URLs fails the test rather than
+// reach the internet), and what we do with a profile once we have one. The
+// token checks themselves are in auth-google-token.test.js.
 
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import { after, before, test } from 'node:test';
 
-import { isGoogleConfigured } from '#common/config/env.js';
+import jwt from 'jsonwebtoken';
+
+import { env, isGoogleConfigured } from '#common/config/env.js';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { User } from '#models/index.js';
 
 import { signInWithGoogle } from '../src/features/auth/auth.service.js';
+import { codeChallengeFor } from '../src/features/auth/google.js';
+import { GOOGLE_CERTS_URL } from '../src/features/auth/google-id-token.js';
 import { createApp } from '../src/app.js';
 
 const TEST_DB = 'mjolnir_test';
@@ -52,24 +58,189 @@ after(async () => {
   await disconnectDatabase();
 });
 
-test('GET /api/auth/google sends you to Google and remembers the state', needsConfig, async () => {
-  const response = await fetch(`${baseUrl}/api/auth/google`, { redirect: 'manual' });
+const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const realFetch = globalThis.fetch;
+
+// Stands in for Google's signing key, for this run only.
+const signingKey = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+const KID = `test-${runId}`;
+const JWKS = {
+  keys: [{ ...signingKey.publicKey.export({ format: 'jwk' }), kid: KID, use: 'sig', alg: 'RS256' }],
+};
+
+// Starts a sign-in the way a browser would. Returns the cookie to send back and
+// what we told Google.
+async function startSignIn() {
+  const response = await realFetch(`${baseUrl}/api/auth/google`, { redirect: 'manual' });
+  const target = new URL(response.headers.get('location'));
+  const setCookie = response.headers.getSetCookie().find((c) => c.startsWith('mjolnir_oauth_state='));
+
+  return {
+    response,
+    target,
+    setCookie,
+    cookie: setCookie.split(';')[0],
+    state: target.searchParams.get('state'),
+    nonce: target.searchParams.get('nonce'),
+    codeChallenge: target.searchParams.get('code_challenge'),
+  };
+}
+
+function idTokenFor({ nonce, name }) {
+  return jwt.sign(
+    {
+      iss: 'https://accounts.google.com',
+      aud: env.google.clientId,
+      sub: googleIdFor(name),
+      email: emailFor(name),
+      email_verified: true,
+      nonce,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    },
+    signingKey.privateKey,
+    { algorithm: 'RS256', keyid: KID },
+  );
+}
+
+// Mocks fetch for one test. Requests to our own server go through; the token
+// endpoint and the key set get fake answers; anything else is recorded and fails.
+function fakeGoogle(t, { idToken, tokenEndpoint } = {}) {
+  const seen = { tokenRequests: [], unexpected: [] };
+
+  t.mock.method(globalThis, 'fetch', async (input, init) => {
+    const url = String(input instanceof Request ? input.url : input);
+
+    if (url.startsWith(baseUrl)) {
+      return realFetch(input, init);
+    }
+    if (url === TOKEN_URL) {
+      seen.tokenRequests.push(new URLSearchParams(init.body));
+      return tokenEndpoint ? tokenEndpoint() : Response.json({ id_token: idToken });
+    }
+    if (url === GOOGLE_CERTS_URL) {
+      return Response.json(JWKS, { headers: { 'cache-control': 'public, max-age=3600' } });
+    }
+
+    seen.unexpected.push(url);
+    throw new Error(`unexpected request to ${url}`);
+  });
+
+  return seen;
+}
+
+const callback = (query, cookie) =>
+  realFetch(`${baseUrl}/api/auth/google/callback?${query}`, {
+    redirect: 'manual',
+    headers: cookie ? { cookie } : {},
+  });
+
+const sessionCookieOf = (response) =>
+  response.headers.getSetCookie().find((c) => c.startsWith('mjolnir_session=') && !/mjolnir_session=;/.test(c));
+
+test('GET /api/auth/google sends you to Google and remembers the attempt', needsConfig, async () => {
+  const { response, target, setCookie, state, nonce, codeChallenge } = await startSignIn();
 
   assert.equal(response.status, 302);
-
-  const target = new URL(response.headers.get('location'));
   assert.equal(target.origin + target.pathname, 'https://accounts.google.com/o/oauth2/v2/auth');
   assert.equal(target.searchParams.get('response_type'), 'code');
   assert.equal(target.searchParams.get('scope'), 'openid email profile');
   assert.ok(target.searchParams.get('client_id'));
   assert.ok(target.searchParams.get('redirect_uri'));
 
-  const cookie = response.headers.getSetCookie().find((c) => c.startsWith('mjolnir_oauth_state='));
-  assert.ok(cookie, 'the state has to be stored to be checked on the way back');
-  assert.match(cookie, /HttpOnly/i);
+  assert.ok(setCookie, 'the attempt has to be stored to be checked on the way back');
+  assert.match(setCookie, /HttpOnly/i);
 
-  const stored = decodeURIComponent(cookie.split(';')[0].split('=')[1]);
-  assert.equal(target.searchParams.get('state'), stored, 'the state sent must be the state kept');
+  // One cookie: state, nonce and PKCE verifier, each 32 random bytes.
+  const stored = decodeURIComponent(setCookie.split(';')[0].split('=')[1]).split('.');
+  assert.equal(stored.length, 3);
+  assert.equal(state, stored[0], 'the state sent must be the state kept');
+  assert.equal(nonce, stored[1], 'the nonce sent must be the nonce kept');
+  assert.notEqual(state, nonce);
+
+  // PKCE: only the hash goes to the browser's address bar, never the verifier.
+  assert.equal(target.searchParams.get('code_challenge_method'), 'S256');
+  assert.equal(codeChallenge, codeChallengeFor(stored[2]));
+  assert.ok(!target.href.includes(stored[2]), 'the verifier must not appear in the URL');
+});
+
+test('a sign-in Google vouches for gets a session', needsConfig, async (t) => {
+  const start = await startSignIn();
+  const seen = fakeGoogle(t, { idToken: idTokenFor({ nonce: start.nonce, name: 'oidc-ok' }) });
+
+  const response = await callback(`code=test-code&state=${start.state}`, start.cookie);
+
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get('location'), env.corsOrigin);
+  assert.ok(sessionCookieOf(response), 'signed in');
+  assert.deepEqual(seen.unexpected, []);
+
+  // The verifier we kept is the one whose hash we sent: Google would refuse the
+  // code otherwise.
+  const [request] = seen.tokenRequests;
+  assert.equal(request.get('code'), 'test-code');
+  assert.equal(codeChallengeFor(request.get('code_verifier')), start.codeChallenge);
+
+  assert.ok(await User.exists({ email: emailFor('oidc-ok') }));
+});
+
+test('a token carrying another sign-in’s nonce is refused, and the log says why', needsConfig, async (t) => {
+  const warn = t.mock.method(console, 'warn', () => {});
+  const start = await startSignIn();
+  const other = crypto.randomBytes(32).toString('base64url');
+  fakeGoogle(t, { idToken: idTokenFor({ nonce: other, name: 'oidc-replayed' }) });
+
+  const response = await callback(`code=test-code&state=${start.state}`, start.cookie);
+
+  assert.equal(response.status, 302);
+  assert.match(response.headers.get('location'), /auth=failed/);
+  assert.equal(sessionCookieOf(response), undefined, 'no session');
+  assert.equal(await User.exists({ email: emailFor('oidc-replayed') }), null, 'no account made');
+
+  const [line] = warn.mock.calls.map((call) => call.arguments.join(' '));
+  assert.match(line, /^Google sign-in failed: .*\(nonce\)$/);
+  assert.ok(!line.includes(emailFor('oidc-replayed')), 'the address stays out of the log');
+});
+
+test('Google being unreachable lands on the failure page, not a 500', needsConfig, async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const start = await startSignIn();
+  fakeGoogle(t, {
+    tokenEndpoint: () => {
+      throw new TypeError('fetch failed');
+    },
+  });
+
+  const response = await callback(`code=test-code&state=${start.state}`, start.cookie);
+
+  assert.equal(response.status, 302);
+  assert.match(response.headers.get('location'), /auth=failed/);
+});
+
+// A repeated parameter arrives as an array.
+test('a repeated state or code is refused before Google is asked', needsConfig, async (t) => {
+  const seen = fakeGoogle(t);
+
+  const twoStates = await startSignIn();
+  const first = await callback(`code=x&state=${twoStates.state}&state=${twoStates.state}`, twoStates.cookie);
+  assert.equal(first.status, 302);
+  assert.match(first.headers.get('location'), /auth=failed/);
+
+  const twoCodes = await startSignIn();
+  const second = await callback(`code=x&code=y&state=${twoCodes.state}`, twoCodes.cookie);
+  assert.equal(second.status, 302);
+  assert.match(second.headers.get('location'), /auth=failed/);
+
+  assert.equal(seen.tokenRequests.length, 0);
+});
+
+test('a cookie from before the nonce existed fails once, without asking Google', needsConfig, async (t) => {
+  const seen = fakeGoogle(t);
+  const oldState = crypto.randomBytes(32).toString('base64url');
+
+  const response = await callback(`code=x&state=${oldState}`, `mjolnir_oauth_state=${oldState}`);
+
+  assert.match(response.headers.get('location'), /auth=failed/);
+  assert.equal(seen.tokenRequests.length, 0);
 });
 
 test('the callback refuses a state that does not match the cookie', needsConfig, async () => {
@@ -87,14 +258,17 @@ test('the callback refuses a state that does not match the cookie', needsConfig,
   assert.match(mismatched.headers.get('location'), /auth=failed/);
 });
 
-test('the callback refuses a missing code', needsConfig, async () => {
-  const response = await fetch(`${baseUrl}/api/auth/google/callback?state=abc`, {
-    redirect: 'manual',
-    headers: { cookie: 'mjolnir_oauth_state=abc' },
-  });
+// With a well-formed cookie and a matching state, so the missing code is the
+// only thing wrong.
+test('the callback refuses a missing code', needsConfig, async (t) => {
+  const start = await startSignIn();
+  const seen = fakeGoogle(t);
+
+  const response = await callback(`state=${start.state}`, start.cookie);
 
   assert.equal(response.status, 302);
   assert.match(response.headers.get('location'), /auth=failed/);
+  assert.equal(seen.tokenRequests.length, 0);
 });
 
 test('a first-time Google user gets an account, with no password', async () => {

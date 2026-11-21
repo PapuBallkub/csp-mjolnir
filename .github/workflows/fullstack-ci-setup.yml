@@ -68,8 +68,8 @@ jobs:
       # secret never goes in a workflow file. 32 bytes or more, or the server
       # refuses to boot (env.js).
       JWT_SECRET: ci-not-a-secret-ci-not-a-secret-ci
-      # Also throwaway. Present so the tests that build the Google redirect run
-      # here; nothing in the suite calls Google.
+      # Also throwaway. Present so the Google sign-in tests run here, the
+      # callback included; they mock fetch, so nothing in the suite calls Google.
       GOOGLE_CLIENT_ID: ci-not-a-client
       GOOGLE_CLIENT_SECRET: ci-not-a-secret
       GOOGLE_REDIRECT_URI: http://localhost:8000/api/auth/google/callback

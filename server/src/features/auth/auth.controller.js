@@ -1,15 +1,16 @@
 import { env } from '#common/config/env.js';
 import { HttpError } from '#common/errors/http-error.js';
+import { constantTimeEqual } from '#common/utils/constant-time-equal.js';
 import { User } from '#models/index.js';
 
 import { registerWithPassword, signInWithGoogle, signInWithPassword } from './auth.service.js';
 import {
   assertGoogleConfigured,
-  clearState,
+  clearOAuthTransaction,
   createAuthorizationUrl,
   exchangeCodeForProfile,
-  issueState,
-  OAUTH_STATE_COOKIE,
+  issueOAuthTransaction,
+  readOAuthTransaction,
 } from './google.js';
 import { parseCredentials, parseRegistration } from './auth.validation.js';
 import { clearSessionCookie, readSessionToken, SESSION_COOKIE, setSessionCookie, signSessionToken } from './session.js';
@@ -62,7 +63,7 @@ export function readCurrentUser(req, res) {
 
 export function startGoogleSignIn(req, res) {
   assertGoogleConfigured();
-  res.redirect(createAuthorizationUrl(issueState(res)));
+  res.redirect(createAuthorizationUrl(issueOAuthTransaction(res)));
 }
 
 // The browser is mid-navigation here, so a failure has to land the person on a
@@ -71,24 +72,40 @@ export async function completeGoogleSignIn(req, res) {
   assertGoogleConfigured();
 
   const { code, state } = req.query;
-  const expected = req.cookies?.[OAUTH_STATE_COOKIE];
-  clearState(res);
+  const transaction = readOAuthTransaction(req);
+  // Cleared whatever happens next: each attempt's values work once.
+  clearOAuthTransaction(res);
 
-  if (!code || !state || !expected || state !== expected) {
+  // A repeated parameter arrives as an array, so both must be strings.
+  if (
+    typeof code !== 'string' ||
+    !code ||
+    !transaction ||
+    !constantTimeEqual(state, transaction.state)
+  ) {
     return res.redirect(`${env.corsOrigin}/?auth=failed`);
   }
 
   try {
-    const user = await signInWithGoogle(await exchangeCodeForProfile(code));
+    const profile = await exchangeCodeForProfile(code, {
+      nonce: transaction.nonce,
+      codeVerifier: transaction.codeVerifier,
+    });
+    const user = await signInWithGoogle(profile);
     setSessionCookie(res, signSessionToken(user));
     res.redirect(env.corsOrigin);
   } catch (error) {
+    // Every expected failure (Google unreachable, a rejected code, a token that
+    // fails a check, an unverified address) is an HttpError. Anything else is a
+    // bug, and should surface as one.
     if (!(error instanceof HttpError)) {
       throw error;
     }
 
-    // The reason belongs in the log, not in the URL bar.
-    console.warn(`Google sign-in failed: ${error.message}`);
+    // The reason belongs in the log, not in the URL bar. Never the token, never
+    // the address.
+    const reason = error.reason ? ` (${error.reason})` : '';
+    console.warn(`Google sign-in failed: ${error.message}${reason}`);
     res.redirect(`${env.corsOrigin}/?auth=failed`);
   }
 }
