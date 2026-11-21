@@ -680,6 +680,11 @@ links down to the reference pages.
 | File | What it is |
 | :--- | :--- |
 | [v03-web-frontend-security.md](security/v03-web-frontend-security.md) | Web frontend security architecture, browser security baseline, HTTP security headers, cookie prefix hardening, and OWASP ASVS v5.0 Chapter 3 traceability matrix (Ref IDs 44–74). |
+| [v07-session-management.md](security/v07-session-management.md) | Session architecture, token lifecycle, revocation via token versioning, and OWASP ASVS Chapter 7 traceability matrix. |
+| [v13-configuration-and-secrets.md](security/v13-configuration-and-secrets.md) | System communication architecture, connection pooling, rate limits, secrets isolation, and OWASP ASVS Chapter 13 traceability matrix. |
+| [v14-data-protection.md](security/v14-data-protection.md) | Five-tier sensitive data classification, cache protection, data retention, and OWASP ASVS Chapter 14 traceability matrix. |
+| [v15-secure-coding-and-architecture.md](security/v15-secure-coding-and-architecture.md) | SBOM, vulnerability remediation schedule, heavy task decoupling, defensive coding, and OWASP ASVS Chapter 15 traceability matrix. |
+| [v16-security-logging-and-error-handling.md](security/v16-security-logging-and-error-handling.md) | Multi-layer logging inventory, sensitive data masking, fail-secure error handling, and OWASP ASVS Chapter 16 traceability matrix. |
 
 ### docs/decisions
 
