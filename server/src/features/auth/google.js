@@ -8,7 +8,15 @@ import { badRequest, HttpError } from '#common/errors/http-error.js';
 const AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
-export const OAUTH_STATE_COOKIE = 'mjolnir_oauth_state';
+// ASVS V3.3.1, V3.3.3: In production, enforce __Host- cookie prefix. In dev/test,
+// fall back to un-prefixed name because browsers reject __Host- over plain HTTP localhost.
+export const OAUTH_STATE_COOKIE = isProduction ? '__Host-mjolnir_oauth_state' : 'mjolnir_oauth_state';
+export const LEGACY_OAUTH_STATE_COOKIE = 'mjolnir_oauth_state';
+
+export function getOAuthStateFromRequest(req) {
+  if (!req?.cookies) return null;
+  return req.cookies[OAUTH_STATE_COOKIE] || req.cookies[LEGACY_OAUTH_STATE_COOKIE] || null;
+}
 
 // Long enough to pick an account and type a password, short enough that an
 // abandoned attempt cannot be resumed later.
@@ -33,12 +41,20 @@ export function assertGoogleConfigured() {
 // return. Without it, anyone can hand a victim a callback URL of their choosing.
 export function issueState(res) {
   const state = crypto.randomBytes(32).toString('base64url');
+  // ASVS V3.3.5: Enforce that combined cookie name and value length do not exceed 4096 bytes
+  const combinedLength = OAUTH_STATE_COOKIE.length + state.length;
+  if (combinedLength > 4096) {
+    throw new Error('OAuth state cookie exceeds maximum 4096 bytes limit');
+  }
   res.cookie(OAUTH_STATE_COOKIE, state, { ...stateCookieOptions, maxAge: STATE_TTL_MS });
   return state;
 }
 
 export function clearState(res) {
   res.clearCookie(OAUTH_STATE_COOKIE, stateCookieOptions);
+  if (OAUTH_STATE_COOKIE !== LEGACY_OAUTH_STATE_COOKIE) {
+    res.clearCookie(LEGACY_OAUTH_STATE_COOKIE, stateCookieOptions);
+  }
 }
 
 export function createAuthorizationUrl(state) {

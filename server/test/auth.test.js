@@ -293,11 +293,14 @@ test('security hardening: X-Powered-By is disabled, session TTL is 24 hours, and
 });
 
 test('security hardening: security headers, 50kb body limit, Clear-Site-Data and token versioning on logout', async () => {
-  // 1. ASVS V13.4, V14.3, V15.2: Core security headers present globally
+  // 1. ASVS V3.2, V3.4, V3.5, V13.4, V14.3, V15.2: Core security headers present globally
   const rootRes = await send('GET', '/');
   assert.equal(rootRes.headers.get('x-content-type-options'), 'nosniff');
-  assert.equal(rootRes.headers.get('x-frame-options'), 'SAMEORIGIN');
+  assert.equal(rootRes.headers.get('x-frame-options'), 'DENY');
   assert.equal(rootRes.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
+  assert.equal(rootRes.headers.get('content-security-policy'), "default-src 'none'; frame-ancestors 'none'");
+  assert.equal(rootRes.headers.get('cross-origin-resource-policy'), 'same-site');
+  assert.equal(rootRes.headers.get('cross-origin-opener-policy'), 'same-origin-allow-popups');
 
   // 2. ASVS V13.1.3, V15.2.2: Body size limit enforces 50kb ceiling
   const oversizedEmail = emailFor('oversized');
