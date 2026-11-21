@@ -10,10 +10,15 @@ function flag(value, fallback) {
   return fallback;
 }
 
-function required(name, hint) {
+// `minBytes` counts UTF-8 bytes, which is what a key is. The error never shows
+// the value or its length: either one in a deploy log helps guess the secret.
+function required(name, hint, { minBytes = 0 } = {}) {
   const value = process.env[name];
   if (!value) {
     throw new Error(`Missing required environment variable ${name}. ${hint}`);
+  }
+  if (Buffer.byteLength(value, 'utf8') < minBytes) {
+    throw new Error(`${name} is too short: it must be at least ${minBytes} bytes. ${hint}`);
   }
   return value;
 }
@@ -38,9 +43,12 @@ export const env = {
   // Signs the session cookie. Required like MONGO_URI: a fallback here is a
   // hardcoded key, and in production that lets anyone mint any session.
   // Per-developer, not shared, so a mismatch only drops your local sessions.
+  // At least 32 bytes: an HS256 key must be no shorter than its 256-bit hash
+  // (RFC 7518 §3.2), and anything shorter is the easier secret to guess.
   jwtSecret: required(
     'JWT_SECRET',
     'Generate one with: node -e "console.log(crypto.randomUUID() + crypto.randomUUID())".',
+    { minBytes: 32 },
   ),
   // Optional, unlike the two above: the server runs fine without Google
   // sign-in, and requiring it would stop CI and every teammate who has not set
