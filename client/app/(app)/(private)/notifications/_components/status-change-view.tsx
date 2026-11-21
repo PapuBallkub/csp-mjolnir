@@ -13,6 +13,7 @@ function formatThaiDate(dateStr?: string | Date | null, lang: "th" | "en" = "th"
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "-";
   return d.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", {
+    timeZone: "Asia/Bangkok",
     day: "numeric",
     month: "short",
     year: "numeric",

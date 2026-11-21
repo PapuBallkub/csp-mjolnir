@@ -7,7 +7,7 @@ import {
   FOUND_NOTE,
   pendingNotice,
 } from "../../../_lib/changes";
-import { getEgpPackageUrl } from "../../../_lib/format";
+import { formatDate, getEgpPackageUrl } from "../../../_lib/format";
 import { Panel, SectionHeading } from "../../ui";
 
 export function formatMoney(amount: number | null | undefined): string {
@@ -56,19 +56,7 @@ export function getScopeSize(budget: number | null): { th: string; en: string } 
 
 export function formatDateString(val: string | Date | null | undefined): string {
   if (!val) return "ไม่ระบุใน TOR";
-  try {
-    const d = new Date(val);
-    if (Number.isNaN(d.getTime())) return String(val);
-    const day = d.getDate();
-    const monthTh = [
-      "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
-      "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
-    ][d.getMonth()];
-    const yearTh = d.getFullYear() + 543;
-    return `${day} ${monthTh} ${yearTh}`;
-  } catch {
-    return String(val);
-  }
+  return formatDate(val, "th");
 }
 
 export function formatCategoryLabel(category: string): string {

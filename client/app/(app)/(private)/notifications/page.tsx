@@ -70,6 +70,7 @@ function formatRelativeTime(dateStr: string, lang: "th" | "en") {
   const diffDay = Math.floor(diffHour / 24);
   if (diffDay < 7) return lang === "th" ? `${diffDay} วันที่แล้ว` : `${diffDay}d ago`;
   return d.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", {
+    timeZone: "Asia/Bangkok",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -599,6 +600,7 @@ export default function NotificationsPage() {
                                           {new Date(first.deadlineDate).toLocaleDateString(
                                             lang === "th" ? "th-TH" : "en-US",
                                             {
+                                              timeZone: "Asia/Bangkok",
                                               day: "numeric",
                                               month: "short",
                                               year: "numeric",

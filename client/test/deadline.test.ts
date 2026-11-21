@@ -57,11 +57,16 @@ test("countdownText: assigns correct urgency tone and localized copy", () => {
   assert.equal(pastEn.text, "Closed");
 });
 
-test("formatThaiDate: formats date with Thai Buddhist year", () => {
+test("formatThaiDate: formats date with Thai Buddhist year in Bangkok time", () => {
   // 2026-11-20 -> พ.ศ. 2569
   const formatted = formatThaiDate("2026-11-20T09:00:00Z", "th");
-  assert.ok(formatted.includes("2569"));
-  assert.ok(formatted.includes("พ.ย."));
+  assert.equal(formatted, "20 พ.ย. 2569");
+
+  // Boundary check: 2026-11-19 17:00:00 UTC is 00:00:00 on Nov 20 in Bangkok
+  assert.equal(formatThaiDate("2026-11-19T17:00:00Z", "th"), "20 พ.ย. 2569");
+
+  // English localization
+  assert.equal(formatThaiDate("2026-11-20T09:00:00Z", "en"), "20 Nov 2026");
 });
 
 test("daysLeft: safely defaults now to current date when omitted or undefined", () => {

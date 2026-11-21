@@ -1,3 +1,5 @@
+import { formatDate as formatBangkokDate } from "../_lib/format";
+
 /**
  * Fixture data for the mockups.
  *
@@ -1372,31 +1374,9 @@ export function daysUntil(iso: string): number {
   return Math.round((toUTC(iso) - toUTC(TODAY)) / 86_400_000);
 }
 
-const THAI_MONTHS = [
-  "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
-  "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
-];
-const EN_MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-
-/** Thai dates carry the Buddhist year (พ.ศ. = ค.ศ. + 543). */
+/** Thai dates carry the Buddhist year (พ.ศ. = ค.ศ. + 543) in Bangkok time (UTC+7). */
 export function formatDate(iso: string, lang: Lang): string {
-  if (!iso) return lang === "th" ? "ไม่ระบุ" : "Not specified";
-  const d = new Date(iso);
-  if (!Number.isNaN(d.getTime())) {
-    const day = d.getDate();
-    const month = d.getMonth();
-    const year = d.getFullYear();
-    return lang === "th"
-      ? `${day} ${THAI_MONTHS[month]} ${year + 543}`
-      : `${day} ${EN_MONTHS[month]} ${year}`;
-  }
-  const [y, m, day] = iso.split("-").map(Number);
-  return lang === "th"
-    ? `${day} ${THAI_MONTHS[m - 1]} ${y + 543}`
-    : `${day} ${EN_MONTHS[m - 1]} ${y}`;
+  return formatBangkokDate(iso, lang);
 }
 
 /** Percentage difference from the historical median, rounded. */

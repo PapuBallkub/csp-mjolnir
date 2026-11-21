@@ -16,6 +16,7 @@ function formatThaiDate(date) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString('th-TH', {
+    timeZone: 'Asia/Bangkok',
     day: 'numeric',
     month: 'short',
     year: 'numeric',

@@ -15,6 +15,12 @@ test("getFiscalYear: calculates Thai Buddhist fiscal year correctly (Oct 1 start
   // September 30 2026 (local daytime) -> FY 2569
   assert.equal(getFiscalYear("2026-09-30T10:00:00+07:00"), 2569);
 
+  // September 30 2026 16:59:59 UTC = 23:59:59 Bangkok -> FY 2569
+  assert.equal(getFiscalYear("2026-09-30T16:59:59Z"), 2569);
+
+  // September 30 2026 17:00:00 UTC = 00:00:00 Oct 1 Bangkok -> FY 2570
+  assert.equal(getFiscalYear("2026-09-30T17:00:00Z"), 2570);
+
   // October 1 2026 -> FY 2570 (next fiscal year: 2027 + 543)
   assert.equal(getFiscalYear("2026-10-01T00:00:00Z"), 2570);
 
@@ -52,6 +58,26 @@ test("formatDate: localizes dates into Thai Buddhist format", () => {
   assert.ok(dateEn.includes("20"));
   assert.ok(dateEn.includes("Nov"));
   assert.ok(dateEn.includes("2026"));
+});
+
+test("formatDate: anchors to Bangkok calendar day (UTC+7) regardless of local timezone", () => {
+  // 17:00:00 UTC on Nov 19 = 00:00:00 on Nov 20 in Bangkok (UTC+7)
+  assert.equal(formatDate("2026-11-19T17:00:00Z", "th"), "20 พ.ย. 2569");
+  assert.equal(formatDate("2026-11-19T17:00:00Z", "en"), "20 Nov 2026");
+
+  // 16:59:59 UTC on Nov 20 = 23:59:59 on Nov 20 in Bangkok
+  assert.equal(formatDate("2026-11-20T16:59:59Z", "th"), "20 พ.ย. 2569");
+
+  // 17:00:00 UTC on Nov 20 = 00:00:00 on Nov 21 in Bangkok
+  assert.equal(formatDate("2026-11-20T17:00:00Z", "th"), "21 พ.ย. 2569");
+
+  // Calendar date string YYYY-MM-DD
+  assert.equal(formatDate("2026-11-20", "th"), "20 พ.ย. 2569");
+
+  // Invalid or null fallback
+  assert.equal(formatDate(null, "th"), "ไม่ระบุ");
+  assert.equal(formatDate(null, "en"), "Not specified");
+  assert.equal(formatDate("invalid-date", "th"), "invalid-date");
 });
 
 test("getEgpAnnouncementUrl: generates search URL on process5", () => {
