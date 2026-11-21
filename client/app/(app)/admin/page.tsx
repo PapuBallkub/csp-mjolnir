@@ -615,11 +615,16 @@ function AdminDashboard({
     }
   };
 
-  const handleRetryStep = async (projectId: string, step: string, runNow: boolean = false) => {
+  const handleRetryStep = async (
+    projectId: string,
+    step: string,
+    runNow: boolean = false,
+    maxPages?: number,
+  ) => {
     const key = `${projectId}-${step}`;
     setRetryingStep(key);
     setPipelineActionMsg(null);
-    const res = await adminRetryPipelineStep(projectId, step, runNow);
+    const res = await adminRetryPipelineStep(projectId, step, runNow, maxPages);
     setRetryingStep(null);
     if (res.ok) {
       setPipelineActionMsg({
@@ -693,14 +698,18 @@ function AdminDashboard({
     }
   };
 
-  // Review Queue Search & Filters
-  const [filterTab, setFilterTab] = useState<"all" | "pending" | "misclassified" | "reviewed">("all");
+  // Review Queue Search, Filter & Sort
+  const [filterTab, setFilterTab] = useState<"all" | "pending" | "misclassified" | "low-confidence" | "reviewed">("all");
+  const [sortOption, setSortOption] = useState<"confidence-asc" | "confidence-desc" | "newest" | "budget-desc">("confidence-asc");
   const [searchQuery, setSearchQuery] = useState("");
 
   const pendingCount = reviewQueue.filter(
     (item) => !handled[item.docId] && item.reviewStatus !== "approved",
   ).length;
   const misclassifiedCount = reviewQueue.filter((item) => item.misclassified).length;
+  const lowConfidenceCount = reviewQueue.filter(
+    (item) => (item.ocr != null && item.ocr < 0.8) || item.extraction < 0.8,
+  ).length;
   const reviewedCount = reviewQueue.filter(
     (item) => Boolean(handled[item.docId]) || item.reviewStatus === "approved",
   ).length;
@@ -709,6 +718,7 @@ function AdminDashboard({
     const isHandled = Boolean(handled[item.docId]) || item.reviewStatus === "approved";
     if (filterTab === "pending" && isHandled) return false;
     if (filterTab === "misclassified" && !item.misclassified) return false;
+    if (filterTab === "low-confidence" && !((item.ocr != null && item.ocr < 0.8) || item.extraction < 0.8)) return false;
     if (filterTab === "reviewed" && !isHandled) return false;
 
     if (searchQuery.trim()) {
@@ -719,6 +729,27 @@ function AdminDashboard({
       if (!matchId && !matchTitle && !matchAgency) return false;
     }
     return true;
+  });
+
+  const sortedQueue = [...filteredQueue].sort((a, b) => {
+    if (sortOption === "confidence-asc") {
+      const aScore = Math.min(a.extraction, a.ocr ?? a.extraction);
+      const bScore = Math.min(b.extraction, b.ocr ?? b.extraction);
+      return aScore - bScore;
+    }
+    if (sortOption === "confidence-desc") {
+      const aScore = Math.min(a.extraction, a.ocr ?? a.extraction);
+      const bScore = Math.min(b.extraction, b.ocr ?? b.extraction);
+      return bScore - aScore;
+    }
+    if (sortOption === "budget-desc") {
+      const aBudget = a.details?.budgetTHB ?? 0;
+      const bBudget = b.details?.budgetTHB ?? 0;
+      return bBudget - aBudget;
+    }
+    const aDate = a.ingestedAt ? new Date(a.ingestedAt.replace(" ", "T")).getTime() : 0;
+    const bDate = b.ingestedAt ? new Date(b.ingestedAt.replace(" ", "T")).getTime() : 0;
+    return bDate - aDate;
   });
 
   const handleHealthCheck = async (sourceId: string = "all") => {
@@ -1277,12 +1308,13 @@ function AdminDashboard({
                 {lang === "th" ? "คิวตรวจทานผลการอ่านเอกสาร" : "Extraction review queue"}
               </SectionHeading>
 
-              {/* Filter Pills & Search Bar */}
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              {/* Filter Pills, Sort Dropdown & Search Bar */}
+              <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex flex-wrap gap-1.5">
                   {[
                     { id: "all", label: { th: `ทั้งหมด (${reviewQueue.length})`, en: `All (${reviewQueue.length})` } },
                     { id: "pending", label: { th: `รอตรวจทาน (${pendingCount})`, en: `Pending (${pendingCount})` } },
+                    { id: "low-confidence", label: { th: `⚠️ มั่นใจต่ำ (< 80%) (${lowConfidenceCount})`, en: `⚠️ Low Conf (< 80%) (${lowConfidenceCount})` } },
                     { id: "misclassified", label: { th: `ตรวจประเภท (${misclassifiedCount})`, en: `Misclassified (${misclassifiedCount})` } },
                     { id: "reviewed", label: { th: `ตรวจทานแล้ว (${reviewedCount})`, en: `Reviewed (${reviewedCount})` } },
                   ].map((tab) => (
@@ -1301,24 +1333,50 @@ function AdminDashboard({
                   ))}
                 </div>
 
-                <div className="w-full sm:w-72">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={lang === "th" ? "ค้นหาด้วยเลขโครงการ / ชื่อ..." : "Filter by project ID / title..."}
-                    className={`${input} text-[12px] h-8`}
-                  />
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[12px] text-ink-3 whitespace-nowrap">
+                      {lang === "th" ? "เรียงตาม:" : "Sort:"}
+                    </span>
+                    <select
+                      value={sortOption}
+                      onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
+                      className="h-8 rounded-[3px] border border-line bg-surface px-2 text-[12px] text-ink focus:border-ink-2 focus:outline-none cursor-pointer"
+                    >
+                      <option value="confidence-asc">
+                        {lang === "th" ? "คะแนนมั่นใจต่ำสุดก่อน (NFR-17)" : "Lowest Confidence First"}
+                      </option>
+                      <option value="confidence-desc">
+                        {lang === "th" ? "คะแนนมั่นใจสูงสุดก่อน" : "Highest Confidence First"}
+                      </option>
+                      <option value="newest">
+                        {lang === "th" ? "อัปเดตล่าสุด" : "Newest First"}
+                      </option>
+                      <option value="budget-desc">
+                        {lang === "th" ? "งบประมาณสูงสุด" : "Highest Budget"}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div className="w-full sm:w-64">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={lang === "th" ? "ค้นหาด้วยเลขโครงการ / ชื่อ..." : "Filter by project ID / title..."}
+                      className={`${input} text-[12px] h-8`}
+                    />
+                  </div>
                 </div>
               </div>
 
-              {filteredQueue.length === 0 ? (
+              {sortedQueue.length === 0 ? (
                 <Panel className="p-6 text-center text-[13px] text-ink-3">
                   {lang === "th" ? "ไม่พบรายการในเงื่อนไขที่เลือก" : "No items match the selected filter."}
                 </Panel>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {filteredQueue.map((item) => (
+                  {sortedQueue.map((item) => (
                     <ReviewItemCard
                       key={item.docId}
                       item={item}
@@ -1538,8 +1596,8 @@ function AdminDashboard({
             setDiagnosticRecord(null);
             setInspectorError(null);
           }}
-          onRetryStep={async (pid, step) => {
-            await handleRetryStep(pid, step);
+          onRetryStep={async (pid, step, maxPages) => {
+            await handleRetryStep(pid, step, false, maxPages);
             handleInspect(pid);
           }}
           onDismissFailure={async (pid, step) => {

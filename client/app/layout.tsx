@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans_Thai, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { AuthProvider } from "./_components/auth";
 import { PrefsProvider } from "./_components/prefs";
 import "./globals.css";
@@ -7,22 +7,38 @@ import "./globals.css";
 // Unified IBM Plex typography family:
 // IBM Plex Sans Thai (designed by Cadson Demak) pairs with IBM Plex Sans (Latin)
 // and IBM Plex Mono (tabular metrics and project IDs) for cohesive proportions.
-const ibmPlexSansThai = IBM_Plex_Sans_Thai({
+const ibmPlexSansThai = localFont({
+  src: [
+    { path: "./fonts/IBMPlexSansThai-Light.woff2", weight: "300", style: "normal" },
+    { path: "./fonts/IBMPlexSansThai-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/IBMPlexSansThai-Medium.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/IBMPlexSansThai-SemiBold.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/IBMPlexSansThai-Bold.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-plex-thai",
-  subsets: ["thai"],
-  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
 });
 
-const ibmPlexSans = IBM_Plex_Sans({
+const ibmPlexSans = localFont({
+  src: [
+    { path: "./fonts/IBMPlexSans-Light.woff2", weight: "300", style: "normal" },
+    { path: "./fonts/IBMPlexSans-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/IBMPlexSans-Medium.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/IBMPlexSans-SemiBold.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/IBMPlexSans-Bold.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-plex-sans",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
 });
 
-const plexMono = IBM_Plex_Mono({
+const plexMono = localFont({
+  src: [
+    { path: "./fonts/IBMPlexMono-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/IBMPlexMono-Medium.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/IBMPlexMono-SemiBold.woff2", weight: "600", style: "normal" },
+  ],
   variable: "--font-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {

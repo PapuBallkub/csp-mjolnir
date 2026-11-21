@@ -308,6 +308,8 @@ export async function getDynamicReviewQueue() {
         : null;
 
       const details = {
+        budgetTHB: tor?.budgetTHB ?? insight.facts?.budgetTHB ?? null,
+        referencePriceTHB: tor?.referencePriceTHB ?? insight.facts?.referencePriceTHB ?? null,
         objective: insight.overview?.objective || null,
         systemArchetype: insight.overview?.systemArchetype || null,
         complexityTier: insight.overview?.complexityTier || null,
@@ -1370,7 +1372,7 @@ export async function checkSourcesHealth({ source = 'all' } = {}) {
 /**
  * Resets a stuck/failed pipeline step and queues it for execution (FR-24).
  */
-export async function retryPipelineStep(projectId, step, { runNow = false } = {}) {
+export async function retryPipelineStep(projectId, step, { runNow = false, maxPages = null } = {}) {
   if (!projectId) {
     const error = new Error('projectId is required');
     error.status = 400;
@@ -1417,7 +1419,7 @@ export async function retryPipelineStep(projectId, step, { runNow = false } = {}
       await runDownloadStep({ id: projectId, documentsDir });
       executedImmediately = true;
     } else if (step === 'ocr') {
-      await runOcrStep({ id: projectId, documentsDir });
+      await runOcrStep({ id: projectId, documentsDir, maxPages });
       executedImmediately = true;
     } else if (step === 'extract') {
       await reExtractTor(projectId);
@@ -1625,6 +1627,9 @@ export async function getPipelineRecordDiagnostics(projectId) {
                 ? Number(tor.ocr.confidence.toFixed(2))
                 : 1.0)
             : null,
+          truncated: Boolean(tor?.ocr?.truncated),
+          pagesRead: tor?.ocr?.pagesRead ?? null,
+          totalPages: tor?.document?.pages ?? null,
           error: failure?.step === 'ocr' ? failure.lastError : null,
         },
         extracted: {

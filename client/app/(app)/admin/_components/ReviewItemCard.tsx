@@ -125,6 +125,16 @@ export function ReviewItemCard({
                 {lang === "th" ? "⚠️ อาจจัดประเภทผิด" : "⚠️ Likely misclassified"}
               </span>
             ) : null}
+            {item.ocr != null && item.ocr < 0.8 ? (
+              <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-medium text-risk">
+                {lang === "th" ? "⚠️ OCR ต่ำ (< 80%)" : "⚠️ Low OCR (< 80%)"}
+              </span>
+            ) : null}
+            {item.extraction < 0.8 ? (
+              <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-medium text-risk">
+                {lang === "th" ? "⚠️ AI สกัดต่ำ (< 80%)" : "⚠️ Low AI (< 80%)"}
+              </span>
+            ) : null}
             {resolution ? (
               <span className="rounded-[2px] border border-open-line bg-open-bg px-2 py-0.5 text-[11px] font-medium text-open">
                 {resolution}

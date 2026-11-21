@@ -126,7 +126,7 @@ export async function handleCheckSourcesHealth(req, res, next) {
 
 export async function handleRetryPipelineStep(req, res, next) {
   try {
-    const { projectId, step, runNow = false } = req.body || {};
+    const { projectId, step, runNow = false, maxPages } = req.body || {};
     if (!projectId || !step) {
       return res.status(400).json({
         error: { message: 'projectId and step (download, ocr, extract) are required' },
@@ -140,7 +140,10 @@ export async function handleRetryPipelineStep(req, res, next) {
       });
     }
 
-    const result = await retryPipelineStep(projectId, step, { runNow: Boolean(runNow) });
+    const result = await retryPipelineStep(projectId, step, {
+      runNow: Boolean(runNow),
+      maxPages: maxPages ? Number(maxPages) : null,
+    });
     res.json(result);
   } catch (err) {
     if (err.name === 'RunLockHeldError' || err.code === 'RUN_LOCK_HELD') {
