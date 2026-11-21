@@ -18,7 +18,7 @@ flowchart TD
     I -->|"yes"| A{"Not IT, rejected,<br/>preview only, or title only?"}
     A -->|"yes"| HIDE
     A -->|"no"| P{"Pilot mode on?<br/>SHOW_UNREVIEWED_INSIGHTS"}
-    P -->|"on"| LABEL["Shown; the page labels it<br/>if it's unchecked or demo"]
+    P -->|"on"| LABEL["Shown; the page labels it<br/>if it's demo"]
     P -->|"off"| R{"From the pipeline,<br/>approved by an admin,<br/>score 80 or more?"}
     R -->|"yes"| SHOW["Shown"]
     R -->|"no"| HIDE
@@ -51,9 +51,11 @@ everywhere but production**, and off in production unless someone turns it on.
 It matters because, during the pilot, extraction marks **every** result
 `pending` (`assemble.js`), whatever its score. So:
 
-- **On:** the public sees unreviewed summaries and demo data, each labelled.
-  The catalog row and the detail header say when a summary is demo data or
-  nobody has checked it yet.
+- **On:** the public sees unreviewed summaries and demo data. The catalog row
+  and the detail header label demo data as demo (ข้อมูลตัวอย่าง). An unreviewed
+  summary has no label of its own (since 2026-11-21): the detail header tells
+  every reader that AI can be wrong and to check the original (AI อาจผิดพลาดได้),
+  and adds "เจ้าหน้าที่ตรวจแล้ว" only to a summary a person approved.
 - **Off:** the public sees only what an admin has approved. Before reviews
   start, the catalog is empty ([deployment-checklist.md](../deployment-checklist.md)).
 
@@ -73,11 +75,13 @@ It matters because, during the pilot, extraction marks **every** result
 - **Analysis that wasn't done is `null`, not 0.** A lock-spec score of 0 would
   read as "measured, no risk", so unrun analysis is sent as `null`, and the
   page says it hasn't been analysed yet (ยังไม่วิเคราะห์).
-- **`review` replaces `metadata`.** It says where the summary came from
-  (`pipeline` or `demo`), its review status, whether a person checked it, its
-  score, how many checks failed, and when it was processed. The pages use it
-  for labels and don't show the score: confidence stays out of the public UI
-  (`AGENTS.md` §5), though the API reply carries it
+- **`review` replaces `metadata`.** It holds four fields: where the summary
+  came from (`origin`: `pipeline` or `demo`), its review `status`, whether a
+  person `checked` it, and when it was processed (`processedAt`). The pages use
+  it for the demo label and the "checked" line. The confidence score and the
+  failed checks stay in `metadata`, out of every public reply (`AGENTS.md` §5,
+  NFR-17); tests over the catalog, detail and watchlist replies hold `review`
+  to these four fields
   ([0015](../decisions/0015-pilot-mode-and-demo-data.md)).
 
 It also adds `companiesOnly` when the TOR admits only companies
@@ -94,8 +98,8 @@ The detail page (`GET /api/tors/:projectId`) adds:
 
 ## What stays internal
 
-- **From each summary:** `metadata`: the full confidence breakdown, the
-  failed checks, the model and prompt version, who reviewed it.
+- **From each summary:** `metadata`: the confidence score and its breakdown,
+  the failed checks, the model and prompt version, who reviewed it.
 - **From each `Tor`:** where its files are stored, its hashes, its
   `pipelineStatus`, and the raw feed history.
 - **Whole collections:** `torinsightversions`, `titlescreens`,

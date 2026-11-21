@@ -37,9 +37,13 @@ are open questions rather than instructions.
 
 ## 1 · `NODE_ENV=production` — the one that silently breaks sign-in
 
-**`server/Dockerfile` does not set it.** `client/Dockerfile` does. So a server
-container deployed as-is today runs with `nodeEnv === 'development'`, and five
-things change at once:
+**`server/Dockerfile` sets it**, as `client/Dockerfile` does, so the image runs
+as production unless something overrides it. Compose's `environment:` and
+`env_file:`, and a host's own variables, all win over the image:
+`docker-compose.override.yml` uses that to set `development` back for the local
+stack. A deploy that sets `NODE_ENV` to anything else, or a `server/.env` with a
+`NODE_ENV=development` line, runs as development, and seven things change at
+once:
 
 | Where | With `NODE_ENV=production` | Without it |
 | :--- | :--- | :--- |
@@ -48,15 +52,19 @@ things change at once:
 | `google.js` | OAuth state cookie `secure: true` | Same exposure |
 | `connect.js` | `autoIndex: false` | Rebuilds every index on every boot, against populated Atlas |
 | `error-handler.js` | `"Internal server error"` | Internal error messages and paths returned to clients |
+| `app.js` | `Strict-Transport-Security` sent | No HSTS: a browser will try plain HTTP again |
+| `env.js` | Pilot mode off unless `SHOW_UNREVIEWED_INSIGHTS=true` | Pilot mode on: unreviewed AI summaries and demo data are public (§2) |
 
 The second row is the dangerous one. A client on one domain and an API on
 another is cross-site, and `SameSite=Lax` cookies are not sent cross-site at
 all. Nothing errors: registration returns `201`, sets a cookie the browser then
 refuses to send back, and `/api/auth/me` answers `401` forever.
 
-- [ ] Set `NODE_ENV=production` in the deployed server environment
-- [ ] Better — add `ENV NODE_ENV=production` to `server/Dockerfile` so it cannot
-      be forgotten, the way `client/Dockerfile` already does
+- [x] **RESOLVED — the image sets it.** `server/Dockerfile` has
+      `ENV NODE_ENV=production` (2026-11-21), the way `client/Dockerfile` does,
+      so forgetting it fails safe.
+- [ ] Nothing in the deployed server's environment sets `NODE_ENV` to anything
+      but `production`
 
 ---
 
@@ -66,18 +74,20 @@ refuses to send back, and `/api/auth/me` answers `401` forever.
 | :--- | :--- | :--- |
 | `NODE_ENV` | `production` | See §1 |
 | `MONGO_URI` | Atlas connection string | Server refuses to boot — this one fails loudly, which is correct |
-| `JWT_SECRET` | A freshly generated secret, **not** the CI value in `fullstack-ci-setup.yml` and not any developer's local one | Anyone who knows the value can mint a session for any account |
+| `JWT_SECRET` | A freshly generated secret of at least 32 bytes (`node -e "console.log(crypto.randomUUID() + crypto.randomUUID())"` gives 72 characters), **not** the CI value in `fullstack-ci-setup.yml` and not any developer's local one | Under 32 bytes: the server refuses to boot. Known to anyone else: they can mint a session for any account |
 | `CORS_ORIGIN` | The deployed client origin, exact, **no trailing slash** | The browser rejects every API response and the app looks completely dead |
 | `PORT` | Leave unset on Cloud Run — it injects one | Container listens on the wrong port and fails its health check |
 | `GOOGLE_CLIENT_ID` / `_SECRET` | Production OAuth client | `/api/auth/google` answers 503 |
 | `GOOGLE_REDIRECT_URI` | `https://<api-domain>/api/auth/google/callback` | Google refuses the code exchange |
-| `SHOW_UNREVIEWED_INSIGHTS` | `true` only for a demo deploy, while no one reviews results yet ([0015](decisions/0015-pilot-mode-and-demo-data.md)). Leave it unset for a real launch. | Unset in production: the catalog shows only reviewed results, so before reviews start it is empty. `true` on a real launch: unchecked AI summaries reach the public, labelled but unreviewed |
+| `SHOW_UNREVIEWED_INSIGHTS` | `true` only for a demo deploy, while no one reviews results yet ([0015](decisions/0015-pilot-mode-and-demo-data.md)). Leave it unset for a real launch. | Unset in production: the catalog shows only reviewed results, so before reviews start it is empty. `true` on a real launch: unchecked AI summaries reach the public with no label saying nobody checked them, only the detail page's "AI can be wrong" notice |
 | `TRUST_PROXY_HOPS` | The number of proxies in front of the server — see §5 | Too low: every user on the internet shares one rate limit bucket. Set to `true`: the caller forges `X-Forwarded-For` and the limiter is decorative |
 
 - [ ] All of the above set in the host's secret manager, not baked into an image
-- [ ] `JWT_SECRET` confirmed different from `ci-not-a-secret`
-- [ ] Understood that rotating `JWT_SECRET` signs everyone out — fine, but do it
-      knowingly
+- [ ] `JWT_SECRET` confirmed different from the CI value
+      (`ci-not-a-secret-ci-not-a-secret-ci`)
+- [ ] Understood that rotating `JWT_SECRET` signs everyone out, and breaks every
+      unsubscribe link already emailed, since that key is derived from it — fine,
+      but do it knowingly
 
 ### The client's two variables behave differently
 
@@ -183,6 +193,12 @@ A checklist you cannot check is a wish list. Run these against the deployed API.
 - [ ] `GET /no-such-route` returns JSON, not an HTML error page
 - [ ] A 500 returns `"Internal server error"` rather than a stack trace or file
       path — the cheapest proof that `NODE_ENV` actually took effect
+- [ ] `http://` on a client page redirects to `https://`, and `http://` on the
+      API does **not**: `/api/*` over plain HTTP is refused or fails, never
+      redirected (ASVS V4.1.2). A client that calls `http://` by mistake has
+      already sent its request, a password included, in clear; a redirect would
+      hide that mistake instead of breaking it. The API never redirects by
+      itself, so this is the proxy's or host's setting
 - [ ] Register from the **deployed client**, in a real browser, then reload the
       page. Still signed in means the cookie survived the round trip; signed out
       means §1 is wrong.

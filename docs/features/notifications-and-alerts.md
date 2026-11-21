@@ -32,6 +32,8 @@ Under Thai PDPA standards, email alerts are strictly **opt-in only**:
 - Users must explicitly check the master toggle `"ยินยอมรับการแจ้งเตือนทางอีเมล (Notification Consent)"` on `/profile`.
 - `User.notificationConsent` defaults to `false`. When disabled, all email dispatches are withheld.
 - Every email contains a tamper-proof, 1-click HMAC-signed unsubscribe link allowing instant revocation without signing in.
+  - The HMAC key is derived from `JWT_SECRET` with HKDF (label `gipdp:unsubscribe:v1`, `email.service.js`), never `JWT_SECRET` itself, so the session key and the unsubscribe key are separate ([0004](../decisions/0004-sessions-as-signed-cookies.md)).
+  - Rotating `JWT_SECRET`, or changing the label, breaks every link already sent.
 
 ---
 

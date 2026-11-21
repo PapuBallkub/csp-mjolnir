@@ -1,6 +1,7 @@
 # 0015 · Pilot mode, and demo data that says it's demo
 
-Status: accepted · 2026-10-01 · updated 2026-10-08 (demo data is opt-in)
+Status: accepted · 2026-10-01 · updated 2026-10-08 (demo data is opt-in),
+2026-11-21 (no score in `review`, no "unreviewed" label)
 
 ## Context
 
@@ -87,3 +88,29 @@ and closed cards in `/search` must not do.
 Everything else here stands: demo data, when loaded, is still marked and
 labelled as demo, and pilot mode still decides whether unreviewed results are
 shown.
+
+## Update · 2026-11-21: no score in `review`, no "unreviewed" label
+
+**`review` no longer carries the score or the failed checks.** No page read
+them, and confidence is admin-only (`AGENTS.md` §5, NFR-17), yet every catalog,
+detail and watchlist reply sent them. `toPublic` now returns `origin`,
+`status`, `checked` and `processedAt`, and tests hold the replies to those four.
+The review workspace reads the score from `metadata`, as before.
+
+**The "unreviewed" labels are gone.**
+- The catalog row's "สรุปโดย AI · ยังไม่ตรวจ" and the detail header's
+  "สรุปโดย AI จากเอกสาร TOR · ยังไม่มีเจ้าหน้าที่ตรวจสอบ" were removed.
+- The detail header now tells every pipeline summary's reader "AI อาจผิดพลาดได้
+  ตรวจกับเอกสารต้นฉบับทุกครั้งก่อนตัดสินใจ", with links to the original PDF and to
+  e-GP. A summary a person approved adds "สรุปโดย AI จากเอกสาร TOR ·
+  เจ้าหน้าที่ตรวจแล้ว" above it.
+- Demo data keeps its label everywhere it is shown.
+
+**What that changes above.** The Consequences accepted unchecked summaries in
+pilot mode "because each one is labelled". That no longer holds: in pilot mode
+a visitor can't tell an unchecked summary from a checked one in the catalog,
+and on the detail page only by the missing "เจ้าหน้าที่ตรวจแล้ว" line. What
+still keeps unchecked summaries away from a real launch is that pilot mode is
+off in production, and `server/Dockerfile` now defaults to
+`NODE_ENV=production`, so a deploy shows them only when someone sets
+`SHOW_UNREVIEWED_INSIGHTS=true` on purpose.

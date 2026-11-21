@@ -149,7 +149,7 @@ Plumbing with no knowledge of any feature. It imports nothing from
 
 | File | What it gives you |
 | :--- | :--- |
-| `config/env.js` | `env`: every environment variable, read and checked once at start. A missing required one (`MONGO_URI`, `JWT_SECRET`) stops the server booting. Also `isProduction`, `isGoogleConfigured` |
+| `config/env.js` | `env`: every environment variable, read and checked once at start. A missing required one (`MONGO_URI`, `JWT_SECRET`) stops the server booting, and so does a `JWT_SECRET` under 32 bytes. Also `isProduction`, `isGoogleConfigured` |
 | `db/connect.js` | `connectDatabase`, `disconnectDatabase`: used by the server and every script |
 | `errors/http-error.js` | `HttpError`, and `badRequest`, `unauthorized`, `forbidden`, `notFound`. Throw one from a controller or service; the error handler turns it into a JSON reply |
 | `middleware/error-handler.js` | Every error becomes JSON. In production a 500 says "Internal server error" and nothing more |
