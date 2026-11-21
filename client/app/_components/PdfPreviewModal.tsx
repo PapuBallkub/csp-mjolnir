@@ -33,10 +33,13 @@ function PdfPreviewModalContent({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [errorDetails, setErrorDetails] = useState<{
+    status?: number;
     code?: string;
     procurementMethod?: string | null;
     message?: string;
   } | null>(null);
+  // Bumped by "try again", which re-runs the fetch for the same document
+  const [reloadKey, setReloadKey] = useState(0);
   const [part, setPart] = useState(0);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const activeBlobUrlRef = useRef<string | null>(null);
@@ -59,6 +62,74 @@ function PdfPreviewModalContent({
     isSelectionProcurement ||
     isEmarket ||
     errorDetails?.code === "NO_PUBLIC_DOCUMENT_FOR_METHOD";
+
+  // Why there's no file to show, which picks the card (threat-model §11). The
+  // server reads only what the pipeline stored and never fetches from e-GP, so
+  // "not stored" means we have no copy, and the original is one click away. A
+  // 429 or a failed load is worth retrying; a missing copy isn't.
+  const failure: "rate-limited" | "not-stored" | "failed" =
+    errorDetails?.status === 429
+      ? "rate-limited"
+      : errorDetails?.code === "DOCUMENT_NOT_STORED" || errorDetails?.code === "NO_PUBLIC_DOCUMENT_FOR_METHOD"
+        ? "not-stored"
+        : "failed";
+
+  const startLoading = () => {
+    setLoading(true);
+    setLoadError(false);
+    setErrorDetails(null);
+  };
+  const selectPart = (next: number) => {
+    if (next === part) return;
+    setPart(next);
+    startLoading();
+  };
+  const retry = () => {
+    setReloadKey((key) => key + 1);
+    startLoading();
+  };
+  const retryable = failure !== "not-stored";
+
+  // The card's heading and line. A missing bidding document or announcement
+  // keeps its own wording; a missing TOR says we have no copy, not that e-GP
+  // is still preparing one, which we no longer ask it
+  const missingCard =
+    failure === "rate-limited"
+      ? {
+          heading: lang === "th" ? "เปิดดูเอกสารบ่อยเกินไป" : "Too many documents opened",
+          body:
+            lang === "th"
+              ? "รอสักครู่แล้วลองใหม่ หรือเปิดดูฉบับจริงบน e-GP ได้เลย"
+              : "Wait a moment and try again, or open the original on e-GP.",
+        }
+      : failure === "failed"
+        ? {
+            heading: lang === "th" ? "เปิดเอกสารไม่สำเร็จ" : "The document didn't load",
+            body:
+              lang === "th"
+                ? "อาจเป็นที่การเชื่อมต่อ ลองใหม่อีกครั้ง หรือเปิดดูฉบับจริงบน e-GP"
+                : "It may be the connection. Try again, or open the original on e-GP.",
+          }
+        : part === 1
+          ? {
+              heading: lang === "th" ? "ไม่มีเอกสารประกวดราคาในแพ็กเกจนี้" : "No Bidding Rules Document in this Package",
+              body:
+                lang === "th"
+                  ? "โครงการในขั้นตอนรับฟังความคิดเห็นร่าง หรือบางประกาศอาจไม่มีการแนบเอกสารประกวดราคาแยกต่างหาก คุณสามารถตรวจสอบเอกสาร TOR หลัก หรือดูประกาศทางการบน e-GP ได้"
+                  : "Draft hearing stages or certain notices may not include separate bidding rules. You can inspect the main TOR specification or the official e-GP portal.",
+            }
+          : part === 2
+            ? {
+                heading: lang === "th" ? "ไม่มีเอกสารประกาศเชิญชวนในแพ็กเกจนี้" : "No Announcement Letter in this Package",
+                body:
+                  lang === "th"
+                    ? "แพ็กเกจเอกสารนี้ไม่มีไฟล์ประกาศเชิญชวนแยกต่างหาก คุณสามารถดูเอกสาร TOR หลัก หรือเปิดดูประกาศทางการบน e-GP ได้"
+                    : "This package does not contain a separate announcement document. You can inspect the main TOR or open official e-GP.",
+              }
+            : {
+                heading: lang === "th" ? "ยังไม่มีสำเนาเอกสารนี้ในระบบของเรา" : "We don't have a copy of this document yet",
+                body: lang === "th" ? "เปิดดูฉบับจริงบน e-GP ได้เลย" : "You can open the original on e-GP.",
+              };
 
   // Close on Escape & Lock body scroll
   useEffect(() => {
@@ -87,18 +158,24 @@ function PdfPreviewModalContent({
       .then(async (res) => {
         if (cancelled) return;
         if (!res.ok) {
+          // The status alone is enough for a 429 or a 5xx; the body adds the
+          // reason for a 404
+          let details: NonNullable<typeof errorDetails> = { status: res.status };
           try {
             const errJson = await res.json();
             if (errJson?.error) {
-              setErrorDetails({
+              details = {
+                status: res.status,
                 code: errJson.error.code,
                 procurementMethod: errJson.error.procurementMethod || procurementMethod,
                 message: errJson.error.message,
-              });
+              };
             }
           } catch {
             // Ignore non-JSON error bodies
           }
+          if (cancelled) return;
+          setErrorDetails(details);
           setLoadError(true);
           setLoading(false);
           return;
@@ -130,7 +207,7 @@ function PdfPreviewModalContent({
     return () => {
       cancelled = true;
     };
-  }, [previewUrl, procurementMethod]);
+  }, [previewUrl, procurementMethod, reloadKey]);
 
   // Revoke active blob URL when component unmounts
   useEffect(() => {
@@ -283,13 +360,7 @@ function PdfPreviewModalContent({
           </span>
           <button
             type="button"
-            onClick={() => {
-              if (part !== 0) {
-                setPart(0);
-                setLoading(true);
-                setLoadError(false);
-              }
-            }}
+            onClick={() => selectPart(0)}
             className={`px-2.5 py-0.5 rounded-[2px] text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
               part === 0
                 ? "bg-ink text-surface"
@@ -300,13 +371,7 @@ function PdfPreviewModalContent({
           </button>
           <button
             type="button"
-            onClick={() => {
-              if (part !== 1) {
-                setPart(1);
-                setLoading(true);
-                setLoadError(false);
-              }
-            }}
+            onClick={() => selectPart(1)}
             className={`px-2.5 py-0.5 rounded-[2px] text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
               part === 1
                 ? "bg-ink text-surface"
@@ -317,13 +382,7 @@ function PdfPreviewModalContent({
           </button>
           <button
             type="button"
-            onClick={() => {
-              if (part !== 2) {
-                setPart(2);
-                setLoading(true);
-                setLoadError(false);
-              }
-            }}
+            onClick={() => selectPart(2)}
             className={`px-2.5 py-0.5 rounded-[2px] text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
               part === 2
                 ? "bg-ink text-surface"
@@ -346,7 +405,7 @@ function PdfPreviewModalContent({
           ) : null}
 
           {loadError ? (
-            isNonBidding ? (
+            failure === "not-stored" && isNonBidding ? (
               /* Method-Aware Explanation State (Direct / Selective Procurement) */
               <div className="flex flex-col items-center justify-center h-full p-6 sm:p-10 text-center bg-surface text-ink overflow-y-auto">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[3px] bg-surface-2 border border-line text-[11.5px] font-semibold tracking-wide text-ink mb-2">
@@ -423,7 +482,7 @@ function PdfPreviewModalContent({
                 </div>
               </div>
             ) : (
-              /* Error State Card (Theme-responsive for standard missing PDF) */
+              /* No file to show: not stored, over the limit, or a failed load */
               <div className="flex flex-col items-center justify-center h-full p-6 sm:p-10 text-center bg-surface text-ink">
                 <div className="w-12 h-12 rounded-full bg-surface-2 border border-line flex items-center justify-center text-ink-3 mb-3">
                   <svg
@@ -441,27 +500,9 @@ function PdfPreviewModalContent({
                   </svg>
                 </div>
 
-                <h3 className="text-[15px] font-semibold text-ink">
-                  {part === 1
-                    ? (lang === "th" ? "ไม่มีเอกสารประกวดราคาในแพ็กเกจนี้" : "No Bidding Rules Document in this Package")
-                    : part === 2
-                    ? (lang === "th" ? "ไม่มีเอกสารประกาศเชิญชวนในแพ็กเกจนี้" : "No Announcement Letter in this Package")
-                    : (lang === "th" ? "ยังไม่มีไฟล์เอกสาร PDF ต้นฉบับในขณะนี้" : "Original PDF Document Unavailable")}
-                </h3>
+                <h3 className="text-[15px] font-semibold text-ink">{missingCard.heading}</h3>
 
-                <p className="max-w-md mt-1.5 text-[12.5px] text-ink-2 leading-relaxed">
-                  {part === 1
-                    ? (lang === "th"
-                        ? "โครงการในขั้นตอนรับฟังความคิดเห็นร่าง หรือบางประกาศอาจไม่มีการแนบเอกสารประกวดราคาแยกต่างหาก คุณสามารถตรวจสอบเอกสาร TOR หลัก หรือดูประกาศทางการบน e-GP ได้"
-                        : "Draft hearing stages or certain notices may not include separate bidding rules. You can inspect the main TOR specification or the official e-GP portal.")
-                    : part === 2
-                    ? (lang === "th"
-                        ? "แพ็กเกจเอกสารนี้ไม่มีไฟล์ประกาศเชิญชวนแยกต่างหาก คุณสามารถดูเอกสาร TOR หลัก หรือเปิดดูประกาศทางการบน e-GP ได้"
-                        : "This package does not contain a separate announcement document. You can inspect the main TOR or open official e-GP.")
-                    : (lang === "th"
-                        ? "โครงการนี้อาจยังไม่มีเอกสารแนบเผยแพร่ในระบบ หรือไฟล์อยู่ระหว่างการจัดเตรียมจาก e-GP คุณสามารถตรวจสอบรายละเอียดประกาศทางการได้โดยตรงที่หน้าเว็บ e-GP"
-                        : "This notice may not have an attached PDF published yet or e-GP is preparing the package. You can view the announcement details on the official portal.")}
-                </p>
+                <p className="max-w-md mt-1.5 text-[12.5px] text-ink-2 leading-relaxed">{missingCard.body}</p>
 
                 <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono text-ink-3 bg-surface-2 border border-line rounded-[2px] px-2.5 py-1">
                   <span>Project #{projectId}</span>
@@ -469,15 +510,20 @@ function PdfPreviewModalContent({
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-2.5 mt-5">
+                  {retryable ? (
+                    <button
+                      type="button"
+                      onClick={retry}
+                      className={`${btn.primary} h-8 px-3.5 text-[12px]`}
+                    >
+                      {lang === "th" ? "ลองใหม่" : "Try again"}
+                    </button>
+                  ) : null}
                   {part > 0 ? (
                     <button
                       type="button"
-                      onClick={() => {
-                        setPart(0);
-                        setLoading(true);
-                        setLoadError(false);
-                      }}
-                      className={`${btn.primary} h-8 px-3.5 text-[12px]`}
+                      onClick={() => selectPart(0)}
+                      className={`${retryable ? btn.secondary : btn.primary} h-8 px-3.5 text-[12px]`}
                     >
                       {lang === "th" ? "📄 กลับไปดูเอกสาร TOR หลัก" : "📄 View Main TOR"}
                     </button>
@@ -487,7 +533,7 @@ function PdfPreviewModalContent({
                       href={officialEgpUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`${part > 0 ? btn.secondary : btn.primary} h-8 px-3.5 text-[12px] flex items-center gap-1.5`}
+                      className={`${part > 0 || retryable ? btn.secondary : btn.primary} h-8 px-3.5 text-[12px] flex items-center gap-1.5`}
                     >
                       <span>{lang === "th" ? "เปิดดูบนเว็บ e-GP ทางการ" : "Open on official e-GP"}</span>
                       <span className="text-[10px]">↗</span>
