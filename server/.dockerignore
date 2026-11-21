@@ -3,4 +3,8 @@ node_modules
 .env
 .env.*
 !.env.example
+# Documents, logs and extractions are made while the server runs and live in
+# the server-data volume (docker-compose.yml). Copied into the image, they'd
+# also be copied into that volume the first time it's created.
+data
 # test
