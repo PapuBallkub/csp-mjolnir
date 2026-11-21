@@ -192,6 +192,7 @@ Plumbing every feature uses. Never imports from `features/` ([0003](decisions/00
 | [middleware/not-found.js](../server/src/common/middleware/not-found.js) | JSON 404 for an unknown route. |
 | [middleware/rate-limit.js](../server/src/common/middleware/rate-limit.js) | The counting mechanism for rate limits, in memory: `limitByIp`, and `limitByUser` for routes behind `requireAuth`. Features choose the numbers ([0007](decisions/0007-rate-limiting-on-the-auth-routes.md)). |
 | [utils/escape-regex.js](../server/src/common/utils/escape-regex.js) | Escapes characters with special meaning in regular expressions to prevent ReDoS and regex syntax errors. |
+| [utils/constant-time-equal.js](../server/src/common/utils/constant-time-equal.js) | Compares two strings in constant time, for values an attacker guesses at (the OAuth `state` and `nonce`). |
 
 ### server/models
 
@@ -243,7 +244,8 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 | [auth.middleware.js](../server/src/features/auth/auth.middleware.js) | `requireAuth` (loads `req.user` from the cookie) and `requireRole`. |
 | [session.js](../server/src/features/auth/session.js) | Signs and reads the `mjolnir_session` JWT cookie (7 days). |
 | [password.js](../server/src/features/auth/password.js) | bcrypt at cost 12; rejects passwords over 72 bytes. |
-| [google.js](../server/src/features/auth/google.js) | Google OAuth: sign-in URL, state cookie, code exchange. |
+| [google.js](../server/src/features/auth/google.js) | Google OAuth: sign-in URL with `state`, `nonce` and PKCE, the cookie that holds all three, code exchange. |
+| [google-id-token.js](../server/src/features/auth/google-id-token.js) | Checks Google's ID token (RS256 signature, `iss`, `aud`, `azp`, `exp`, `nonce`) and caches Google's signing keys ([0005](decisions/0005-google-sign-in-links-by-verified-email.md)). Reads no env and no network of its own, so tests sign their own tokens. |
 | [rate-limit.js](../server/src/features/auth/rate-limit.js) | The numbers: login per IP and per email, register per IP. |
 | [index.js](../server/src/features/auth/index.js) | Exports routes, `requireAuth`, `requireRole`, `toPublicUser`. |
 
@@ -445,7 +447,9 @@ the `mjolnir_test` database.
   minimum) and `error-handler` (a 500 hides its cause in production), the last
   two in a child process. `api-rate-limit` drives the limits outside auth with
   small numbers, and `input-checks` sends wrong types to the routes that used
-  to give a 500.
+  to give a 500. `auth-google-token` checks the Google ID token and key cache
+  with tokens it signs itself, and `auth-google` drives the callback with
+  `fetch` mocked, so nothing calls Google.
 - [test/pipeline/extraction/fixtures.js](../server/test/pipeline/extraction/fixtures.js):
   shared fake TORs and AI answers.
 - [test/pipeline/ingestion/fixtures/](../server/test/pipeline/ingestion/fixtures/):
