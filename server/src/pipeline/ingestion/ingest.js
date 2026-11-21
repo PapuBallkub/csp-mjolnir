@@ -1116,7 +1116,7 @@ async function reportScreen() {
  *
  * @param {Function} [options.ocr] - extractText; replaced in tests
  */
-export async function runOcrStep({ id, documentsDir, retryFailed = false, until = null, queues = null, ocr = extractText }) {
+export async function runOcrStep({ id, documentsDir, retryFailed = false, until = null, queues = null, ocr = extractText, maxPages = null }) {
   console.log(`\n[Service 3: OCR] Extracting text & running OCR on PDF documents${queues ? ` (${queues.join(', ')})` : ''}...`);
 
   let previews = [];
@@ -1210,7 +1210,8 @@ export async function runOcrStep({ id, documentsDir, retryFailed = false, until 
     console.log(`${label} ${preview ? 'Previewing' : 'Reading whole'}: ${tor.projectId} (${files})`);
 
     try {
-      const ocrResult = await readTorParts(parts, preview ? { maxPages: PREVIEW_PAGES } : {}, ocr);
+      const readOptions = preview ? { maxPages: PREVIEW_PAGES } : (maxPages ? { maxPages } : {});
+      const ocrResult = await readTorParts(parts, readOptions, ocr);
       // Text that changes takes the summary built from the old with it: that
       // summary is kept first, unless download already kept it (ADR 0031)
       if (tor.ocr?.rawText && tor.ocr.rawText !== ocrResult.text) {

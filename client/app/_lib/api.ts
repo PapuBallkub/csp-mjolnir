@@ -638,10 +638,18 @@ export type DismissPipelineFailureResult = {
  * Re-triggers / retries a stuck or failed pipeline step (FR-24).
  * If runNow is true, the step runner is invoked on-demand immediately.
  */
-export function adminRetryPipelineStep(projectId: string, step: string, runNow: boolean = false) {
-  const payload: { projectId: string; step: string; runNow?: boolean } = { projectId, step };
+export function adminRetryPipelineStep(
+  projectId: string,
+  step: string,
+  runNow: boolean = false,
+  maxPages?: number,
+) {
+  const payload: { projectId: string; step: string; runNow?: boolean; maxPages?: number } = { projectId, step };
   if (runNow) {
     payload.runNow = true;
+  }
+  if (maxPages) {
+    payload.maxPages = maxPages;
   }
   return request<RetryPipelineStepResult>("/api/admin/pipeline/retry", {
     method: "POST",
@@ -743,6 +751,9 @@ export type PipelineStageDetail = {
   reviewedBy?: string | null;
   reviewedAt?: string | null;
   error?: string | null;
+  truncated?: boolean;
+  pagesRead?: number | null;
+  totalPages?: number | null;
 };
 
 export type PipelineRecordDiagnostics = {

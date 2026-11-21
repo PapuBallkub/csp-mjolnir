@@ -101,7 +101,7 @@ export function ReviewItemCard({
     resolution?.includes("scope");
 
   return (
-    <Panel className="overflow-hidden p-4">
+    <Panel className="w-full overflow-hidden p-4">
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         {/* Left column: ID, Status Badges, Title, Agency, Misclassified notice */}
         <div className="min-w-0 flex-1">
@@ -123,6 +123,16 @@ export function ReviewItemCard({
             {item.misclassified ? (
               <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-medium text-risk">
                 {lang === "th" ? "⚠️ อาจจัดประเภทผิด" : "⚠️ Likely misclassified"}
+              </span>
+            ) : null}
+            {item.ocr != null && item.ocr < 0.8 ? (
+              <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-medium text-risk">
+                {lang === "th" ? "⚠️ OCR ต่ำ (< 80%)" : "⚠️ Low OCR (< 80%)"}
+              </span>
+            ) : null}
+            {item.extraction < 0.8 ? (
+              <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-medium text-risk">
+                {lang === "th" ? "⚠️ AI สกัดต่ำ (< 80%)" : "⚠️ Low AI (< 80%)"}
               </span>
             ) : null}
             {resolution ? (
@@ -182,44 +192,6 @@ export function ReviewItemCard({
               {savedSuccess}
             </div>
           ) : null}
-
-          {/* Action buttons under title, agency, and timestamp with no separator line */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Link
-              href={`/admin/review/${item.docId}`}
-              className={`${btn.primary} text-[12px] h-8 px-3 flex items-center gap-1.5`}
-            >
-              <span>{lang === "th" ? "🔍 ตรวจทานและแก้ไขข้อมูล" : "🔍 Review & Edit Facts"}</span>
-              <span className="text-[10px] opacity-75">↗</span>
-            </Link>
-            <a
-              href={`/tor/${item.docId}`}
-              target="_blank"
-              rel="noreferrer"
-              className={`${btn.secondary} text-[11px] h-8 px-2.5 whitespace-nowrap flex items-center gap-1`}
-            >
-              <span>{lang === "th" ? "ดูหน้าเว็บ" : "GIPDP"}</span>
-              <span className="text-[10px] opacity-70">↗</span>
-            </a>
-            <a
-              href={`https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${item.docId}`}
-              target="_blank"
-              rel="noreferrer"
-              className={`${btn.secondary} text-[11px] h-8 px-2.5 whitespace-nowrap flex items-center gap-1`}
-            >
-              <span>e-GP</span>
-              <span className="text-[10px] opacity-70">↗</span>
-            </a>
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={handleReExtract}
-              title={lang === "th" ? "สั่งอ่านเอกสารใหม่" : "Re-queue extraction"}
-              className={`${btn.ghost} h-8 w-8 p-0 shrink-0 text-[13px] flex items-center justify-center`}
-            >
-              ↻
-            </button>
-          </div>
         </div>
 
         {/* Right column: OCR & LLM confidence bars */}
@@ -227,6 +199,50 @@ export function ReviewItemCard({
           <ConfidenceBar value={item.ocr} label="OCR" />
           <ConfidenceBar value={item.extraction} label="LLM" />
         </div>
+      </div>
+
+      {/* Bottom Action Bar */}
+      <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-line/60 pt-3">
+        {/* Left: Secondary Reference Links & Actions */}
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={`/tor/${item.docId}`}
+            target="_blank"
+            rel="noreferrer"
+            className={`${btn.secondary} text-[11px] h-7.5 px-2.5 whitespace-nowrap flex items-center gap-1`}
+          >
+            <span>{lang === "th" ? "ดูหน้าเว็บ" : "GIPDP"}</span>
+            <span className="text-[10px] opacity-70">↗</span>
+          </a>
+          <a
+            href={`https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${item.docId}`}
+            target="_blank"
+            rel="noreferrer"
+            className={`${btn.secondary} text-[11px] h-7.5 px-2.5 whitespace-nowrap flex items-center gap-1`}
+          >
+            <span>e-GP</span>
+            <span className="text-[10px] opacity-70">↗</span>
+          </a>
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={handleReExtract}
+            title={lang === "th" ? "สั่งอ่านเอกสารใหม่" : "Re-queue extraction"}
+            className={`${btn.ghost} h-7.5 px-2 text-[11px] flex items-center gap-1 text-ink-3 hover:text-ink cursor-pointer`}
+          >
+            <span className="text-[13px]">↻</span>
+            <span>{lang === "th" ? "อ่านใหม่" : "Re-read"}</span>
+          </button>
+        </div>
+
+        {/* Right: Primary Call-to-Action */}
+        <Link
+          href={`/admin/review/${item.docId}`}
+          className={`${btn.primary} text-[12px] h-8 px-3.5 flex items-center gap-1.5 shadow-2xs`}
+        >
+          <span>{lang === "th" ? "🔍 ตรวจทานและแก้ไขข้อมูล" : "🔍 Review & Edit Facts"}</span>
+          <span className="text-[10px] opacity-75">↗</span>
+        </Link>
       </div>
     </Panel>
   );

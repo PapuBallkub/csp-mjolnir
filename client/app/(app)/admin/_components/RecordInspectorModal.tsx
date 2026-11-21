@@ -22,7 +22,7 @@ export function RecordInspectorModal({
   error: string | null;
   lang: "th" | "en";
   onClose: () => void;
-  onRetryStep: (pid: string, step: string) => Promise<void>;
+  onRetryStep: (pid: string, step: string, maxPages?: number) => Promise<void>;
   onDismissFailure: (pid: string, step: string) => Promise<void>;
   onReExtract: (pid: string) => Promise<void>;
 }) {
@@ -234,6 +234,43 @@ export function RecordInspectorModal({
                           className={`${btn.secondary} h-7 px-3 text-[11px] text-risk`}
                         >
                           {lang === "th" ? "ละเว้นข้อผิดพลาดนี้ (Dismiss)" : "Dismiss Failure"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Truncation Warning Callout (FR-24, NFR-17) */}
+                  {record.stages?.ocr?.truncated ? (
+                    <div className="rounded-[3px] border border-amend-line bg-amend-bg/40 p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[12px] font-bold text-amend uppercase">
+                          ⚠️ {lang === "th" ? "เอกสารถูกตัดทอนเนื่องจากเกินขีดจำกัดหน้า (Truncated)" : "Document Truncated"}
+                        </span>
+                        <span className="font-mono tnum text-[11px] text-amend">
+                          {record.stages.ocr.pagesRead ?? 150} / {record.stages.ocr.totalPages ?? record.document?.pages ?? "150+"} {lang === "th" ? "หน้า" : "pages"}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-[12px] leading-relaxed text-ink-2">
+                        {lang === "th"
+                          ? `ระบบหยุดอ่านที่หน้า ${record.stages.ocr.pagesRead ?? 150} ตามข้อจำกัดความปลอดภัยของ OCR (ปกติ 150 หน้า) ทำให้เนื้อหาบางส่วนอาจยังไม่ได้ถูกสกัดหรือตรวจสอบ`
+                          : `OCR processing stopped at page ${record.stages.ocr.pagesRead ?? 150} due to the configured page safety limit (default 150 pages). Some requirements may not have been extracted.`}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={retrying}
+                          onClick={async () => {
+                            setRetrying(true);
+                            await onRetryStep(record.projectId, "ocr", 300);
+                            setRetrying(false);
+                          }}
+                          className={`${btn.primary} h-7 px-3 text-[11px]`}
+                        >
+                          {retrying
+                            ? "..."
+                            : lang === "th"
+                            ? "อ่าน OCR ต่อด้วยขีดจำกัด 300 หน้า (Retry with 300 pages)"
+                            : "Retry OCR with 300 pages limit"}
                         </button>
                       </div>
                     </div>
@@ -467,6 +504,16 @@ export function RecordInspectorModal({
                               : "—"}
                           </span>
                         </div>
+                        {record.stages?.ocr?.truncated ? (
+                          <div className="flex justify-between border-b border-line pb-1.5 text-amend">
+                            <span className="text-[12px] font-medium">OCR Truncation:</span>
+                            <span className="font-semibold text-[11px]">
+                              {lang === "th"
+                                ? `⚠️ ตัดทอนที่ ${record.stages.ocr.pagesRead ?? 150} หน้า`
+                                : `⚠️ Truncated at ${record.stages.ocr.pagesRead ?? 150} pages`}
+                            </span>
+                          </div>
+                        ) : null}
                         <div className="flex justify-between">
                           <span className="text-ink-3">Document Type:</span>
                           <span className="text-ink font-semibold">{record.document.documentType}</span>

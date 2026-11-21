@@ -308,6 +308,8 @@ export async function getDynamicReviewQueue() {
         : null;
 
       const details = {
+        budgetTHB: tor?.budgetTHB ?? insight.facts?.budgetTHB ?? null,
+        referencePriceTHB: tor?.referencePriceTHB ?? insight.facts?.referencePriceTHB ?? null,
         objective: insight.overview?.objective || null,
         systemArchetype: insight.overview?.systemArchetype || null,
         complexityTier: insight.overview?.complexityTier || null,
@@ -1370,7 +1372,7 @@ export async function checkSourcesHealth({ source = 'all' } = {}) {
 /**
  * Resets a stuck/failed pipeline step and queues it for execution (FR-24).
  */
-export async function retryPipelineStep(projectId, step, { runNow = false } = {}) {
+export async function retryPipelineStep(projectId, step, { runNow = false, maxPages = null } = {}) {
   if (!projectId) {
     const error = new Error('projectId is required');
     error.status = 400;
@@ -1417,7 +1419,7 @@ export async function retryPipelineStep(projectId, step, { runNow = false } = {}
       await runDownloadStep({ id: projectId, documentsDir });
       executedImmediately = true;
     } else if (step === 'ocr') {
-      await runOcrStep({ id: projectId, documentsDir });
+      await runOcrStep({ id: projectId, documentsDir, maxPages });
       executedImmediately = true;
     } else if (step === 'extract') {
       await reExtractTor(projectId);
@@ -1625,6 +1627,9 @@ export async function getPipelineRecordDiagnostics(projectId) {
                 ? Number(tor.ocr.confidence.toFixed(2))
                 : 1.0)
             : null,
+          truncated: Boolean(tor?.ocr?.truncated),
+          pagesRead: tor?.ocr?.pagesRead ?? null,
+          totalPages: tor?.document?.pages ?? null,
           error: failure?.step === 'ocr' ? failure.lastError : null,
         },
         extracted: {
@@ -2011,15 +2016,20 @@ export async function getPipelineTasks({ phase = 'all', search = '', page = 1, l
   const failureMap = new Map(failures.map((f) => [f.projectId, f]));
 
   // Live Counts for Phase Badges
-  const [downloadCount, ocrCount, extractCount, extractedCount, failedCount, totalTorCount] =
+  const extractedProjectIds = await TorInsight.distinct('projectId', {
+    'metadata.origin': { $ne: 'demo' },
+    'metadata.excluded': null,
+  });
+
+  const [downloadCount, ocrCount, extractCount, failedCount, totalTorCount] =
     await Promise.all([
       Tor.countDocuments({ pipelineStatus: 'fetched' }),
       Tor.countDocuments({ pipelineStatus: { $in: ['downloaded', 'ocr_preview'] } }),
-      Tor.countDocuments({ pipelineStatus: 'ocr_done' }),
-      TorInsight.countDocuments({ 'metadata.origin': { $ne: 'demo' }, 'metadata.excluded': null }),
+      Tor.countDocuments({ pipelineStatus: 'ocr_done', projectId: { $nin: extractedProjectIds } }),
       PipelineFailure.countDocuments(),
       Tor.countDocuments(),
     ]);
+  const extractedCount = extractedProjectIds.length;
 
   let tasks = [];
   let total = 0;
@@ -2099,7 +2109,7 @@ export async function getPipelineTasks({ phase = 'all', search = '', page = 1, l
       projectId: ins.projectId,
       title: ins.identification?.titleTh || `Project ${ins.projectId}`,
       agency: ins.identification?.agency || '',
-      pipelineStatus: 'ocr_done',
+      pipelineStatus: 'extracted',
       phase: 'extracted',
       step: 'completed',
       lastError: null,
@@ -2115,6 +2125,7 @@ export async function getPipelineTasks({ phase = 'all', search = '', page = 1, l
       torQuery.pipelineStatus = { $in: ['downloaded', 'ocr_preview'] };
     } else if (phase === 'extract') {
       torQuery.pipelineStatus = 'ocr_done';
+      torQuery.projectId = { $nin: extractedProjectIds };
     }
 
     if (q) {
@@ -2132,33 +2143,24 @@ export async function getPipelineTasks({ phase = 'all', search = '', page = 1, l
       .limit(lim)
       .lean();
 
-    // Check which tors have insights already extracted
-    const extractedIds = new Set(
-      (
-        await TorInsight.find({
-          projectId: { $in: tors.map((t) => t.projectId) },
-          'metadata.origin': { $ne: 'demo' },
-          'metadata.excluded': null,
-        })
-          .select('projectId')
-          .lean()
-      ).map((i) => i.projectId),
-    );
+    const extractedSet = new Set(extractedProjectIds);
 
     tasks = tors.map((t) => {
       const failure = failureMap.get(t.projectId);
-      const isExtracted = extractedIds.has(t.projectId);
+      const isExtracted = extractedSet.has(t.projectId);
       let calculatedPhase = 'download';
       if (t.pipelineStatus === 'fetched') calculatedPhase = 'download';
       else if (t.pipelineStatus === 'downloaded' || t.pipelineStatus === 'ocr_preview') calculatedPhase = 'ocr';
       else if (isExtracted) calculatedPhase = 'extracted';
       else if (t.pipelineStatus === 'ocr_done') calculatedPhase = 'extract';
 
+      const resolvedPipelineStatus = isExtracted ? 'extracted' : t.pipelineStatus;
+
       return {
         projectId: t.projectId,
         title: t.title,
         agency: t.agency,
-        pipelineStatus: t.pipelineStatus,
+        pipelineStatus: resolvedPipelineStatus,
         phase: failure ? 'failed' : calculatedPhase,
         step: failure?.step || calculatedPhase,
         lastError: failure?.lastError || null,

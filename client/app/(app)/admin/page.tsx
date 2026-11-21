@@ -43,6 +43,133 @@ import { btn, EmptyState, input, Panel, SectionHeading } from "../../_components
  * numeric OCR/LLM confidence lives here and only here (§5).
  */
 
+function OverviewTabSkeleton() {
+  return (
+    <div className="w-full space-y-6 animate-pulse" aria-busy="true">
+      {/* 5 KPI Stat Cards Skeleton */}
+      <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Panel key={i} className="px-3 py-2.5 h-[68px]">
+            <div className="h-6 w-16 rounded-[2px] bg-surface-3 mb-1.5" />
+            <div className="h-3 w-24 rounded-[2px] bg-surface-2" />
+          </Panel>
+        ))}
+      </div>
+
+      {/* Funnel Skeleton */}
+      <Panel className="w-full p-4">
+        <div className="grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-36 rounded-[2px] bg-surface-2" />
+          ))}
+        </div>
+      </Panel>
+
+      {/* Data Sources Table Skeleton */}
+      <Panel className="w-full overflow-x-auto shadow-xs">
+        <table className="w-full min-w-[820px] border-collapse text-left">
+          <thead>
+            <tr className="border-b border-line bg-surface-2">
+              <th className="px-3 py-2.5 text-[11px] font-medium text-ink-3">แหล่งข้อมูล</th>
+              <th className="px-3 py-2.5 text-[11px] font-medium text-ink-3">สถานะ</th>
+              <th className="px-3 py-2.5 text-[11px] font-medium text-ink-3">14 วันล่าสุด</th>
+              <th className="px-3 py-2.5 text-right text-[11px] font-medium text-ink-3">ความพร้อมใช้</th>
+              <th className="px-3 py-2.5 text-right text-[11px] font-medium text-ink-3">เอกสารในระบบ</th>
+              <th className="px-3 py-2.5 text-right text-[11px] font-medium text-ink-3">รอบล่าสุด</th>
+              <th className="px-3 py-2.5 text-right text-[11px] font-medium text-ink-3">คำสั่ง</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <tr key={i} className="border-b border-line last:border-b-0">
+                <td className="px-3 py-3">
+                  <div className="h-4 w-36 bg-surface-3 rounded mb-1" />
+                  <div className="h-2.5 w-24 bg-surface-2 rounded" />
+                </td>
+                <td className="px-3 py-3"><div className="h-5 w-16 bg-surface-3 rounded" /></td>
+                <td className="px-3 py-3"><div className="h-4 w-28 bg-surface-2 rounded" /></td>
+                <td className="px-3 py-3 text-right"><div className="h-4 w-12 bg-surface-3 ml-auto rounded" /></td>
+                <td className="px-3 py-3 text-right"><div className="h-4 w-10 bg-surface-2 ml-auto rounded" /></td>
+                <td className="px-3 py-3 text-right"><div className="h-3.5 w-20 bg-surface-2 ml-auto rounded" /></td>
+                <td className="px-3 py-3 text-right"><div className="h-6 w-24 bg-surface-3 ml-auto rounded" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+    </div>
+  );
+}
+
+function ReviewTabSkeleton() {
+  return (
+    <div className="w-full space-y-4 animate-pulse" aria-busy="true">
+      <div className="flex items-center justify-between pb-2">
+        <div className="h-5 w-48 rounded-[2px] bg-surface-3" />
+        <div className="h-4 w-20 rounded-[2px] bg-surface-2" />
+      </div>
+      <div className="flex gap-2">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-8 w-24 rounded-[3px] bg-surface-2" />
+        ))}
+      </div>
+      <div className="space-y-3">
+        {[1, 2, 3, 4].map((i) => (
+          <Panel key={i} className="p-4 space-y-3">
+            <div className="h-5 w-3/4 rounded-[2px] bg-surface-3" />
+            <div className="h-3.5 w-1/2 rounded-[2px] bg-surface-2" />
+            <div className="h-3 w-1/3 rounded-[2px] bg-surface-2" />
+          </Panel>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HistoryTabSkeleton() {
+  return (
+    <div className="w-full space-y-6 animate-pulse" aria-busy="true">
+      {/* 4 KPI Metric Cards Skeleton */}
+      <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Panel key={i} className="px-3 py-2.5 h-[68px]">
+            <div className="h-6 w-16 rounded-[2px] bg-surface-3 mb-1.5" />
+            <div className="h-3 w-28 rounded-[2px] bg-surface-2" />
+          </Panel>
+        ))}
+      </div>
+
+      {/* Table Skeleton */}
+      <Panel className="w-full overflow-x-auto shadow-xs">
+        <table className="w-full min-w-[820px] border-collapse text-left">
+          <thead>
+            <tr className="border-b border-line bg-surface-2">
+              <th className="px-3.5 py-2.5 text-[11px] font-medium text-ink-3">เวลาเริ่มต้น</th>
+              <th className="px-3.5 py-2.5 text-[11px] font-medium text-ink-3">แหล่งข้อมูล</th>
+              <th className="px-3.5 py-2.5 text-[11px] font-medium text-ink-3">สถานะ</th>
+              <th className="px-3.5 py-2.5 text-right text-[11px] font-medium text-ink-3">เวลาที่ใช้</th>
+              <th className="px-3.5 py-2.5 text-right text-[11px] font-medium text-ink-3">ค้นพบ / บันทึก</th>
+              <th className="px-3.5 py-2.5 text-[11px] font-medium text-ink-3">ผลการทำงาน</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+              <tr key={i} className="border-b border-line last:border-b-0">
+                <td className="px-3.5 py-3"><div className="h-3.5 w-32 rounded bg-surface-3" /></td>
+                <td className="px-3.5 py-3"><div className="h-4 w-28 rounded bg-surface-2" /></td>
+                <td className="px-3.5 py-3"><div className="h-4 w-16 rounded bg-surface-3" /></td>
+                <td className="px-3.5 py-3 text-right"><div className="h-3.5 w-14 rounded bg-surface-3 ml-auto" /></td>
+                <td className="px-3.5 py-3 text-right"><div className="h-3.5 w-16 rounded bg-surface-3 ml-auto" /></td>
+                <td className="px-3.5 py-3"><div className="h-3.5 w-36 rounded bg-surface-2" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const { lang } = useLang();
   const [ops, setOps] = useState<AdminOperations | null>(null);
@@ -77,7 +204,7 @@ export default function AdminPage() {
 
   if (error?.status === 401) {
     return (
-      <div className="mx-auto max-w-[1240px] px-4 py-10">
+      <div className="mx-auto w-full max-w-[1240px] px-4 py-10">
         <SignInPrompt
           next="/admin"
           headline={lang === "th" ? "ส่วนนี้สำหรับผู้ดูแลระบบ" : "This area is for administrators"}
@@ -94,7 +221,7 @@ export default function AdminPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-[1240px] px-4 py-10">
+      <div className="mx-auto w-full max-w-[1240px] px-4 py-10">
         <EmptyState
           headline={
             error.status === 403
@@ -117,16 +244,8 @@ export default function AdminPage() {
     );
   }
 
-  if (!ops) {
-    return <div className="mx-auto min-h-[60vh] max-w-[1240px] px-4 py-10" aria-busy="true" />;
-  }
-
   return (
-    <Suspense
-      fallback={
-        <div className="mx-auto min-h-[60vh] max-w-[1240px] px-4 py-10" aria-busy="true" />
-      }
-    >
+    <Suspense fallback={<div className="mx-auto w-full max-w-[1240px] px-4 py-6 min-h-[640px]" />}>
       <AdminDashboard
         ops={ops}
         lang={lang}
@@ -145,12 +264,22 @@ function AdminDashboard({
   onRefresh,
   isRefreshing,
 }: {
-  ops: AdminOperations;
+  ops: AdminOperations | null;
   lang: "th" | "en";
   onRefresh: () => void;
   isRefreshing: boolean;
 }) {
-  const { sources: scraperSources, reviewQueue, stats: pipelineStats, recentLogs } = ops;
+  const scraperSources = ops?.sources ?? [];
+  const reviewQueue = ops?.reviewQueue ?? [];
+  const pipelineStats: AdminOperations["stats"] = ops?.stats ?? {
+    totalIndexedTors: 0,
+    docsIngestedToday: 0,
+    docsAwaitingReview: 0,
+    avgOcrConfidence: 0,
+    avgExtractionConfidence: 0,
+    amendmentsDetected7d: 0,
+  };
+  const recentLogs = ops?.recentLogs ?? [];
   const searchParams = useSearchParams();
   const rawParam = searchParams.get("job") || searchParams.get("tab");
   const jobParam = rawParam === "monitoring" ? "failures" : rawParam;
@@ -221,7 +350,7 @@ function AdminDashboard({
   const [techList, setTechList] = useState<AdminTechnology[]>([]);
   const [techPendingCount, setTechPendingCount] = useState(0);
   const [techTotal, setTechTotal] = useState(0);
-  const [isTechLoading, setIsTechLoading] = useState(false);
+  const [isTechLoading, setIsTechLoading] = useState(true);
   const [techSearch, setTechSearch] = useState("");
   const [techStatusFilter, setTechStatusFilter] = useState<string>("all");
   const [techCategoryFilter, setTechCategoryFilter] = useState<string>("all");
@@ -298,6 +427,7 @@ function AdminDashboard({
       limit: 100,
     }).then((res) => {
       if (cancelled) return;
+      setIsTechLoading(false);
       if (res.ok) {
         setTechList(res.data.items);
         setTechPendingCount(res.data.pendingRequestsCount);
@@ -485,11 +615,16 @@ function AdminDashboard({
     }
   };
 
-  const handleRetryStep = async (projectId: string, step: string, runNow: boolean = false) => {
+  const handleRetryStep = async (
+    projectId: string,
+    step: string,
+    runNow: boolean = false,
+    maxPages?: number,
+  ) => {
     const key = `${projectId}-${step}`;
     setRetryingStep(key);
     setPipelineActionMsg(null);
-    const res = await adminRetryPipelineStep(projectId, step, runNow);
+    const res = await adminRetryPipelineStep(projectId, step, runNow, maxPages);
     setRetryingStep(null);
     if (res.ok) {
       setPipelineActionMsg({
@@ -563,14 +698,18 @@ function AdminDashboard({
     }
   };
 
-  // Review Queue Search & Filters
-  const [filterTab, setFilterTab] = useState<"all" | "pending" | "misclassified" | "reviewed">("all");
+  // Review Queue Search, Filter & Sort
+  const [filterTab, setFilterTab] = useState<"all" | "pending" | "misclassified" | "low-confidence" | "reviewed">("all");
+  const [sortOption, setSortOption] = useState<"confidence-asc" | "confidence-desc" | "newest" | "budget-desc">("confidence-asc");
   const [searchQuery, setSearchQuery] = useState("");
 
   const pendingCount = reviewQueue.filter(
     (item) => !handled[item.docId] && item.reviewStatus !== "approved",
   ).length;
   const misclassifiedCount = reviewQueue.filter((item) => item.misclassified).length;
+  const lowConfidenceCount = reviewQueue.filter(
+    (item) => (item.ocr != null && item.ocr < 0.8) || item.extraction < 0.8,
+  ).length;
   const reviewedCount = reviewQueue.filter(
     (item) => Boolean(handled[item.docId]) || item.reviewStatus === "approved",
   ).length;
@@ -579,6 +718,7 @@ function AdminDashboard({
     const isHandled = Boolean(handled[item.docId]) || item.reviewStatus === "approved";
     if (filterTab === "pending" && isHandled) return false;
     if (filterTab === "misclassified" && !item.misclassified) return false;
+    if (filterTab === "low-confidence" && !((item.ocr != null && item.ocr < 0.8) || item.extraction < 0.8)) return false;
     if (filterTab === "reviewed" && !isHandled) return false;
 
     if (searchQuery.trim()) {
@@ -589,6 +729,27 @@ function AdminDashboard({
       if (!matchId && !matchTitle && !matchAgency) return false;
     }
     return true;
+  });
+
+  const sortedQueue = [...filteredQueue].sort((a, b) => {
+    if (sortOption === "confidence-asc") {
+      const aScore = Math.min(a.extraction, a.ocr ?? a.extraction);
+      const bScore = Math.min(b.extraction, b.ocr ?? b.extraction);
+      return aScore - bScore;
+    }
+    if (sortOption === "confidence-desc") {
+      const aScore = Math.min(a.extraction, a.ocr ?? a.extraction);
+      const bScore = Math.min(b.extraction, b.ocr ?? b.extraction);
+      return bScore - aScore;
+    }
+    if (sortOption === "budget-desc") {
+      const aBudget = a.details?.budgetTHB ?? 0;
+      const bBudget = b.details?.budgetTHB ?? 0;
+      return bBudget - aBudget;
+    }
+    const aDate = a.ingestedAt ? new Date(a.ingestedAt.replace(" ", "T")).getTime() : 0;
+    const bDate = b.ingestedAt ? new Date(b.ingestedAt.replace(" ", "T")).getTime() : 0;
+    return bDate - aDate;
   });
 
   const handleHealthCheck = async (sourceId: string = "all") => {
@@ -681,7 +842,7 @@ function AdminDashboard({
       label: { th: "คิวตรวจทานเอกสาร", en: "Review Queue" },
       description: { th: "ความมั่นใจ < 80% หรือจัดประเภทผิด", en: "Confidence < 80% or misclassified" },
       badge:
-        (pipelineStats.docsAwaitingReview ?? pendingCount) > 0
+        ops && (pipelineStats.docsAwaitingReview ?? pendingCount) > 0
           ? (pipelineStats.docsAwaitingReview ?? pendingCount)
           : undefined,
       badgeTone: "amend",
@@ -691,7 +852,7 @@ function AdminDashboard({
       icon: "⚙️",
       label: { th: "เฝ้าระวัง Pipeline", en: "Pipeline Monitoring" },
       description: { th: "ตัวกรองทุกขั้นตอน & จัดการรายโครงการ", en: "Monitor stages, filters & step controls" },
-      badge: (ops.pipelineFailures?.length ?? 0) > 0 ? ops.pipelineFailures?.length : undefined,
+      badge: (ops?.pipelineFailures?.length ?? 0) > 0 ? ops?.pipelineFailures?.length : undefined,
       badgeTone: "risk",
     },
     {
@@ -699,7 +860,7 @@ function AdminDashboard({
       icon: "⏱️",
       label: { th: "ประวัติงาน & บันทึก", en: "Runs & Audit Logs" },
       description: { th: "รอบประมวลผลและ Audit Log", en: "Scheduled runs and activity logs" },
-      badge: (ops.pipelineRuns?.length ?? 0) > 0 ? ops.pipelineRuns?.length : undefined,
+      badge: (ops?.pipelineRuns?.length ?? 0) > 0 ? ops?.pipelineRuns?.length : undefined,
       badgeTone: "neutral",
     },
     {
@@ -783,7 +944,7 @@ function AdminDashboard({
   );
 
   return (
-    <div className="mx-auto max-w-[1240px] px-4 py-6">
+    <div className="mx-auto w-full max-w-[1240px] px-4 py-6">
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-line pb-5">
         <div>
           <div className="flex items-center gap-2">
@@ -933,7 +1094,7 @@ function AdminDashboard({
       </header>
 
       {/* Semi-Sidebar Layout Matching /search */}
-      <div className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
+      <div className="w-full grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
         {/* Mobile Job Switcher Button (lg:hidden) */}
         <div className="lg:hidden">
           <button
@@ -962,12 +1123,15 @@ function AdminDashboard({
         </aside>
 
         {/* Main Content Area */}
-        <main className="min-w-0">
+        <main className="w-full min-w-0 min-h-[640px]">
           {/* Job 1: Overview & Scrapers */}
-          {activeJob === "overview" && (
-            <div>
+          <div className={activeJob === "overview" ? "block w-full" : "hidden"}>
+            {!ops ? (
+              <OverviewTabSkeleton />
+            ) : (
+            <div className="w-full">
               {/* KPI Stats Strip */}
-              <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              <div className="mb-6 grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                 {stats.map((stat) => (
                   <Panel key={stat.label.en} className="px-3 py-2.5">
                     <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
@@ -982,7 +1146,7 @@ function AdminDashboard({
               <PipelineStageFunnel stageSnapshot={ops.stageSnapshot} lang={lang} />
 
       {/* Scrapers by Source */}
-      <section className="mb-8">
+      <section className="mb-8 w-full">
         <SectionHeading
           right={
             <div className="flex items-center gap-3">
@@ -1016,7 +1180,7 @@ function AdminDashboard({
           </div>
         ) : null}
 
-        <Panel className="overflow-x-auto">
+        <Panel className="w-full overflow-x-auto shadow-xs">
           <table className="w-full min-w-[820px] border-collapse text-left">
             <thead>
               <tr className="border-b border-line bg-surface-2">
@@ -1125,11 +1289,15 @@ function AdminDashboard({
         </Panel>
       </section>
             </div>
-          )}
+            )}
+          </div>
 
           {/* Job 2: Extraction Review Queue (FR-23, NFR-17) */}
-          {activeJob === "review" && (
-            <section>
+          <div className={activeJob === "review" ? "block w-full" : "hidden"}>
+            {!ops ? (
+              <ReviewTabSkeleton />
+            ) : (
+            <section className="w-full">
               <SectionHeading
                 right={
                   <span className="text-[11px] text-ink-3">
@@ -1140,48 +1308,87 @@ function AdminDashboard({
                 {lang === "th" ? "คิวตรวจทานผลการอ่านเอกสาร" : "Extraction review queue"}
               </SectionHeading>
 
-              {/* Filter Pills & Search Bar */}
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { id: "all", label: { th: `ทั้งหมด (${reviewQueue.length})`, en: `All (${reviewQueue.length})` } },
-                    { id: "pending", label: { th: `รอตรวจทาน (${pendingCount})`, en: `Pending (${pendingCount})` } },
-                    { id: "misclassified", label: { th: `ตรวจประเภท (${misclassifiedCount})`, en: `Misclassified (${misclassifiedCount})` } },
-                    { id: "reviewed", label: { th: `ตรวจทานแล้ว (${reviewedCount})`, en: `Reviewed (${reviewedCount})` } },
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setFilterTab(tab.id as typeof filterTab)}
-                      className={`rounded-[3px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
-                        filterTab === tab.id
-                          ? "bg-ink text-surface"
-                          : "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
-                      }`}
-                    >
-                      {tab.label[lang]}
-                    </button>
-                  ))}
-                </div>
+              {/* Row 1: Filter Tabs */}
+              <div className="mb-3 flex flex-wrap gap-1.5 border-b border-line pb-3">
+                {[
+                  { id: "all", label: { th: `ทั้งหมด (${reviewQueue.length})`, en: `All (${reviewQueue.length})` } },
+                  { id: "pending", label: { th: `รอตรวจทาน (${pendingCount})`, en: `Pending (${pendingCount})` } },
+                  { id: "low-confidence", label: { th: `⚠️ มั่นใจต่ำ (< 80%) (${lowConfidenceCount})`, en: `⚠️ Low Conf (< 80%) (${lowConfidenceCount})` } },
+                  { id: "misclassified", label: { th: `ตรวจประเภท (${misclassifiedCount})`, en: `Misclassified (${misclassifiedCount})` } },
+                  { id: "reviewed", label: { th: `ตรวจทานแล้ว (${reviewedCount})`, en: `Reviewed (${reviewedCount})` } },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setFilterTab(tab.id as typeof filterTab)}
+                    className={`rounded-[3px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                      filterTab === tab.id
+                        ? "bg-ink text-surface"
+                        : "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
+                    }`}
+                  >
+                    {tab.label[lang]}
+                  </button>
+                ))}
+              </div>
 
-                <div className="w-full sm:w-72">
+              {/* Row 2: Search Input & Sort Selector */}
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="relative w-full sm:w-72">
+                  <span className="absolute inset-y-0 left-2.5 flex items-center text-ink-3 pointer-events-none text-[12px]">
+                    🔍
+                  </span>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={lang === "th" ? "ค้นหาด้วยเลขโครงการ / ชื่อ..." : "Filter by project ID / title..."}
-                    className={`${input} text-[12px] h-8`}
+                    className={`${input} text-[12px] h-8 pl-8 pr-7 w-full`}
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute inset-y-0 right-2 flex items-center text-ink-3 hover:text-ink text-[12px] cursor-pointer"
+                      title={lang === "th" ? "ล้างคำค้นหา" : "Clear search"}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] text-ink-3 whitespace-nowrap">
+                    {lang === "th" ? "เรียงตาม:" : "Sort by:"}
+                  </span>
+                  <select
+                    value={sortOption}
+                    onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
+                    className="h-8 rounded-[3px] border border-line bg-surface px-2.5 text-[12px] text-ink focus:border-ink-2 focus:outline-none cursor-pointer"
+                  >
+                    <option value="confidence-asc">
+                      {lang === "th" ? "คะแนนความมั่นใจต่ำสุดก่อน" : "Lowest Confidence First"}
+                    </option>
+                    <option value="confidence-desc">
+                      {lang === "th" ? "คะแนนความมั่นใจสูงสุดก่อน" : "Highest Confidence First"}
+                    </option>
+                    <option value="newest">
+                      {lang === "th" ? "อัปเดตล่าสุด" : "Newest First"}
+                    </option>
+                    <option value="budget-desc">
+                      {lang === "th" ? "งบประมาณสูงสุด" : "Highest Budget"}
+                    </option>
+                  </select>
                 </div>
               </div>
 
-              {filteredQueue.length === 0 ? (
+              {sortedQueue.length === 0 ? (
                 <Panel className="p-6 text-center text-[13px] text-ink-3">
                   {lang === "th" ? "ไม่พบรายการในเงื่อนไขที่เลือก" : "No items match the selected filter."}
                 </Panel>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {filteredQueue.map((item) => (
+                  {sortedQueue.map((item) => (
                     <ReviewItemCard
                       key={item.docId}
                       item={item}
@@ -1196,10 +1403,11 @@ function AdminDashboard({
                 </div>
               )}
             </section>
-          )}
+            )}
+          </div>
 
           {/* Job 3: Pipeline Monitoring & Control (FR-24) */}
-          {activeJob === "failures" && (
+          <div className={activeJob === "failures" ? "block w-full" : "hidden"}>
             <PipelineMonitoringSection
               lang={lang}
               onInspect={handleInspect}
@@ -1211,11 +1419,52 @@ function AdminDashboard({
               dismissingStep={dismissingStep}
               actionMsg={pipelineActionMsg}
             />
-          )}
+          </div>
 
           {/* Job 4: Pipeline Runs & History (FR-24) */}
-          {activeJob === "history" && (
-            <div className="space-y-8">
+          <div className={activeJob === "history" ? "block w-full" : "hidden"}>
+            {!ops ? (
+              <HistoryTabSkeleton />
+            ) : (
+            <div className="w-full space-y-6">
+              {/* History KPI Cards Strip matching Overview scale */}
+              <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
+                <Panel className="px-3 py-2.5">
+                  <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
+                    {recentLogs.length}
+                  </p>
+                  <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
+                    {lang === "th" ? "รอบบันทึกล่าสุด" : "Recent ingestion runs"}
+                  </p>
+                </Panel>
+                <Panel className="px-3 py-2.5">
+                  <p className="font-mono tnum text-[24px] leading-none font-medium text-open">
+                    {recentLogs.length > 0
+                      ? `${Math.round((recentLogs.filter((l) => l.status === "ok").length / recentLogs.length) * 100)}%`
+                      : "100%"}
+                  </p>
+                  <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
+                    {lang === "th" ? "อัตราความสำเร็จ" : "Success rate"}
+                  </p>
+                </Panel>
+                <Panel className="px-3 py-2.5">
+                  <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
+                    {recentLogs.reduce((acc, l) => acc + (l.itemsDiscovered || 0), 0)}
+                  </p>
+                  <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
+                    {lang === "th" ? "เอกสารค้นพบทั้งหมด" : "Total discovered"}
+                  </p>
+                </Panel>
+                <Panel className="px-3 py-2.5">
+                  <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
+                    {recentLogs.reduce((acc, l) => acc + (l.itemsIngested || 0), 0)}
+                  </p>
+                  <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
+                    {lang === "th" ? "เอกสารบันทึกสำเร็จ" : "Total ingested"}
+                  </p>
+                </Panel>
+              </div>
+
               {/* Scheduled Job History (FR-24) */}
               <PipelineRunsSection
                 runs={ops.pipelineRuns}
@@ -1224,7 +1473,7 @@ function AdminDashboard({
 
               {/* Recent Ingestion Execution Activity */}
               {recentLogs && recentLogs.length > 0 ? (
-                <section className="mb-8">
+                <section className="mb-8 w-full">
                   <SectionHeading
                     right={
                       <span className="text-[11px] text-ink-3">
@@ -1235,8 +1484,8 @@ function AdminDashboard({
                     {lang === "th" ? "ประวัติการดึงข้อมูลล่าสุด" : "Recent ingestion activity"}
                   </SectionHeading>
 
-                  <Panel className="overflow-x-auto">
-                    <table className="w-full min-w-[720px] border-collapse text-left">
+                  <Panel className="w-full overflow-x-auto shadow-xs">
+                    <table className="w-full min-w-[820px] border-collapse text-left">
                       <thead>
                         <tr className="border-b border-line bg-surface-2">
                           {[
@@ -1249,7 +1498,7 @@ function AdminDashboard({
                           ].map((column) => (
                             <th
                               key={column.text}
-                              className={`px-3 py-2 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-3 ${
+                              className={`px-3.5 py-2.5 text-[11px] font-medium text-ink-3 ${
                                 column.right ? "text-right" : ""
                               }`}
                             >
@@ -1262,34 +1511,34 @@ function AdminDashboard({
                         {recentLogs.map((log) => (
                           <tr
                             key={log.id}
-                            className="border-b border-line align-middle last:border-b-0"
+                            className="border-b border-line align-middle last:border-b-0 hover:bg-surface-2/40"
                           >
-                            <td className="px-3 py-2 font-mono tnum text-[11px] text-ink-2 whitespace-nowrap">
+                            <td className="px-3.5 py-2.5 font-mono tnum text-[12px] text-ink-2 whitespace-nowrap">
                               {log.startedAt}
                             </td>
-                            <td className="px-3 py-2">
-                              <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-[2px] text-[10px] text-ink font-medium">
+                            <td className="px-3.5 py-2.5">
+                              <span className="rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] text-ink font-medium">
                                 {log.source === "process3" ? "process3 (e-GP)" : "datago (data.go.th)"}
                               </span>
                             </td>
-                            <td className="px-3 py-2">
+                            <td className="px-3.5 py-2.5">
                               <span
-                                className={`inline-flex rounded-[2px] border px-1.5 py-[2px] text-[10px] font-medium ${
+                                className={`inline-flex rounded-[2px] border px-2 py-0.5 text-[11px] font-medium ${
                                   HEALTH[log.status]?.chip ?? "border-line bg-surface-2 text-ink-2"
                                 }`}
                               >
                                 {HEALTH[log.status]?.label[lang] ?? log.status}
                               </span>
                             </td>
-                            <td className="px-3 py-2 text-right font-mono tnum text-[11px] text-ink-2">
+                            <td className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink-2">
                               {log.durationMs > 1000
                                 ? `${(log.durationMs / 1000).toFixed(1)}s`
                                 : `${log.durationMs}ms`}
                             </td>
-                            <td className="px-3 py-2 text-right font-mono tnum text-[11px] text-ink font-medium">
+                            <td className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink font-semibold">
                               {log.itemsDiscovered} / {log.itemsIngested}
                             </td>
-                            <td className="px-3 py-2 text-[11px]">
+                            <td className="px-3.5 py-2.5 text-[12px]">
                               {log.error ? (
                                 <span className="text-risk">{log.error}</span>
                               ) : (
@@ -1305,20 +1554,33 @@ function AdminDashboard({
                   </Panel>
                 </section>
               ) : null}
+
+              {(!recentLogs || recentLogs.length === 0) && (!ops.pipelineRuns || ops.pipelineRuns.length === 0) ? (
+                <Panel className="w-full p-8 text-center text-ink-3">
+                  <p className="text-[13px]">{lang === "th" ? "ยังไม่มีประวัติการทำงานในระบบ" : "No execution history recorded yet."}</p>
+                </Panel>
+              ) : null}
             </div>
-          )}
+            )}
+          </div>
 
           {/* Job 5: Technology & Standards Management */}
-          {activeJob === "technologies" && (
+          <div className={activeJob === "technologies" ? "block w-full" : "hidden"}>
             <TechnologiesSection
               technologies={techList}
               isLoading={isTechLoading}
               pendingCount={techPendingCount}
               totalCount={techTotal}
               search={techSearch}
-              onSearchChange={setTechSearch}
+              onSearchChange={(val) => {
+                setIsTechLoading(true);
+                setTechSearch(val);
+              }}
               statusFilter={techStatusFilter}
-              onStatusFilterChange={setTechStatusFilter}
+              onStatusFilterChange={(val) => {
+                setIsTechLoading(true);
+                setTechStatusFilter(val);
+              }}
               categoryFilter={techCategoryFilter}
               onCategoryFilterChange={setTechCategoryFilter}
               actionMsg={techActionMsg}
@@ -1329,7 +1591,7 @@ function AdminDashboard({
               onOpenEdit={handleOpenEditTech}
               lang={lang}
             />
-          )}
+          </div>
         </main>
       </div>
 
@@ -1346,8 +1608,8 @@ function AdminDashboard({
             setDiagnosticRecord(null);
             setInspectorError(null);
           }}
-          onRetryStep={async (pid, step) => {
-            await handleRetryStep(pid, step);
+          onRetryStep={async (pid, step, maxPages) => {
+            await handleRetryStep(pid, step, false, maxPages);
             handleInspect(pid);
           }}
           onDismissFailure={async (pid, step) => {
