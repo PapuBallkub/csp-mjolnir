@@ -155,7 +155,7 @@ nightly `process` job runs the same steps in priority order
 | :--- | :--- |
 | [AGENTS.md](../AGENTS.md) | Rules for every agent change (databases, scripts, packages, secrets, access), then the frontend design guide: audiences, screens, data fields, visual and copy rules. Read the guide before touching `client/app/`. |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Setup, branches, commit style, how to record a decision. |
-| [docker-compose.yml](../docker-compose.yml) | Production stack: server and client containers. |
+| [docker-compose.yml](../docker-compose.yml) | Production stack: server and client containers, and the `server-data` volume that keeps stored documents, logs and extractions across containers. |
 | [docker-compose.override.yml](../docker-compose.override.yml) | Adds local MongoDB for development and sets the server's `NODE_ENV` back to `development`; Compose loads it automatically. |
 | [.github/workflows/fullstack-ci-setup.yml](../.github/workflows/fullstack-ci-setup.yml) | CI: client lint, test, build; server tests against a MongoDB service. |
 | [.github/pull_request_template.md](../.github/pull_request_template.md) | What a PR description starts with: what changed, why, how to test (commands for your machine and for Docker), docs. |
@@ -175,8 +175,9 @@ Node + Express API and the two pipelines. Imports use the aliases
 | [package.json](../server/package.json) | Dependencies and every `npm run` command. Pipeline commands are explained in [pipeline.md](pipeline.md). |
 | [.env.example](../server/.env.example) | Every setting the server reads, with a note on each. Copy to `server/.env`. |
 | [Dockerfile](../server/Dockerfile) | Production image: Node 24, `NODE_ENV=production` by default, production dependencies, `npm start`. |
+| [.dockerignore](../server/.dockerignore) | Keeps `.env` and `data/` out of the image: documents live in the volume, not the image. |
 | [src/server.js](../server/src/server.js) | Entry point. Connects to MongoDB, then listens. |
-| [src/app.js](../server/src/app.js) | Builds the Express app: CORS, cookies, JSON, one mount per feature under `/api`, `/health` outside it. Tests import it without listening. |
+| [src/app.js](../server/src/app.js) | Builds the Express app: CORS, cookies, JSON, one mount per feature under `/api`, `/health` outside it. Tests import it without listening. `apiRateLimits` gathers every limit outside auth; `createApp` takes overrides. |
 
 ### server/common
 
@@ -189,7 +190,7 @@ Plumbing every feature uses. Never imports from `features/` ([0003](decisions/00
 | [errors/http-error.js](../server/src/common/errors/http-error.js) | `HttpError` and `badRequest`, `unauthorized`, `forbidden`, `notFound`. Throw these from services. |
 | [middleware/error-handler.js](../server/src/common/middleware/error-handler.js) | Turns any thrown error into JSON; hides 500 details in production. |
 | [middleware/not-found.js](../server/src/common/middleware/not-found.js) | JSON 404 for an unknown route. |
-| [middleware/rate-limit.js](../server/src/common/middleware/rate-limit.js) | The counting mechanism for rate limits, in memory. Features choose the numbers ([0007](decisions/0007-rate-limiting-on-the-auth-routes.md)). |
+| [middleware/rate-limit.js](../server/src/common/middleware/rate-limit.js) | The counting mechanism for rate limits, in memory: `limitByIp`, and `limitByUser` for routes behind `requireAuth`. Features choose the numbers ([0007](decisions/0007-rate-limiting-on-the-auth-routes.md)). |
 | [utils/escape-regex.js](../server/src/common/utils/escape-regex.js) | Escapes characters with special meaning in regular expressions to prevent ReDoS and regex syntax errors. |
 
 ### server/models
@@ -224,11 +225,12 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 
 | File | What it is |
 | :--- | :--- |
-| [admin.routes.js](../server/src/features/admin/admin.routes.js) | Every admin URL. Guards the whole router with `requireAuth` and `requireRole('admin')`. |
-| [admin.controller.js](../server/src/features/admin/admin.controller.js) | Reads params and body, calls the service. |
+| [admin.routes.js](../server/src/features/admin/admin.routes.js) | Every admin URL, built by `createAdminRoutes(limits)`. Guards the whole router with `requireAuth` and `requireRole('admin')`; re-extract, ingest, health-check and retry-all share one limit per admin. |
+| [admin.controller.js](../server/src/features/admin/admin.controller.js) | Reads params and body, calls the service. A repeated search parameter is a 400. |
 | [admin.service.js](../server/src/features/admin/admin.service.js) | ~2,200 lines; search it by function name. Dashboard data, review queue and workspace (edit, approve, reclassify, re-extract), version rollback, pipeline retry/skip/dismiss, record inspector, manual add, technology vocabulary. |
 | [ops.fixtures.js](../server/src/features/admin/ops.fixtures.js) | Legacy sample dashboard data (retained as fixture reference, no longer loaded by admin service). |
-| [index.js](../server/src/features/admin/index.js) | Exports `adminRoutes`. |
+| [rate-limit.js](../server/src/features/admin/rate-limit.js) | The number: costly actions per admin ([0007](decisions/0007-rate-limiting-on-the-auth-routes.md)). |
+| [index.js](../server/src/features/admin/index.js) | Exports `createAdminRoutes` and `adminRateLimits`. |
 
 **auth**: `/api/auth`
 
@@ -294,18 +296,20 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 
 | File | What it is |
 | :--- | :--- |
-| [technology.routes.js](../server/src/features/technologies/technology.routes.js) | Public `GET` list; signed-in `POST /request` to suggest one. |
-| [technology.controller.js](../server/src/features/technologies/technology.controller.js), [technology.service.js](../server/src/features/technologies/technology.service.js) | Reads the vocabulary; falls back to the starter list when the database is empty or offline. |
-| [index.js](../server/src/features/technologies/index.js) | Exports routes and `getAllTechnologies`. |
+| [technology.routes.js](../server/src/features/technologies/technology.routes.js) | Public `GET` list; signed-in `POST /request` to suggest one, limited per account. Built by `createTechnologyRoutes(limits)`. |
+| [technology.controller.js](../server/src/features/technologies/technology.controller.js), [technology.service.js](../server/src/features/technologies/technology.service.js) | Reads the vocabulary; falls back to the starter list when the database is empty or offline. A request needs a text name and a known category, and records who asked. |
+| [rate-limit.js](../server/src/features/technologies/rate-limit.js) | The number: requests per account per day. |
+| [index.js](../server/src/features/technologies/index.js) | Exports `createTechnologyRoutes`, `technologyRateLimits` and `getAllTechnologies`. |
 
 **tors**: `/api/tors`, public
 
 | File | What it is |
 | :--- | :--- |
-| [tor.routes.js](../server/src/features/tors/tor.routes.js) | List, `facets`, detail, `preview` and `pdf`. |
-| [tor.controller.js](../server/src/features/tors/tor.controller.js) | HTTP handlers. |
-| [tor.service.js](../server/src/features/tors/tor.service.js) | ~1,000 lines. `listTors` (search and filters), `torFacets`, `getTorByProjectId`, `toPublic` (the public shape), `visibilityFilter` (NFR-17), `getTorPdfStream`. |
-| [index.js](../server/src/features/tors/index.js) | Exports routes, `listTors`, `getTorByProjectId`. |
+| [tor.routes.js](../server/src/features/tors/tor.routes.js) | List, `facets`, detail, `preview` and `pdf`, built by `createTorRoutes(limits)`. One limiter covers `preview` and `pdf`. |
+| [tor.controller.js](../server/src/features/tors/tor.controller.js) | HTTP handlers. The preview checks its query, maps a missing file to its code and streams the file, with Range support ([0038](decisions/0038-preview-serves-stored-files-only.md)). |
+| [tor.service.js](../server/src/features/tors/tor.service.js) | ~740 lines. `listTors` (search and filters), `torFacets`, `getTorByProjectId`, `toPublic` (the public shape), `visibilityFilter` (NFR-17), `findStoredDocument` (the preview's file, from stored files only). |
+| [rate-limit.js](../server/src/features/tors/rate-limit.js) | The number: previews per address. |
+| [index.js](../server/src/features/tors/index.js) | Exports `createTorRoutes`, `torRateLimits`, `listTors`, `getTorByProjectId`. |
 
 **watchlist**: `/api/watchlist`, signed in
 
@@ -439,7 +443,9 @@ the `mjolnir_test` database.
   the public sees in pilot mode), `seed-data`, `ingestion-log`,
   `migrate-categories`, `smoke` (the app boots), `env` (the `JWT_SECRET`
   minimum) and `error-handler` (a 500 hides its cause in production), the last
-  two in a child process.
+  two in a child process. `api-rate-limit` drives the limits outside auth with
+  small numbers, and `input-checks` sends wrong types to the routes that used
+  to give a 500.
 - [test/pipeline/extraction/fixtures.js](../server/test/pipeline/extraction/fixtures.js):
   shared fake TORs and AI answers.
 - [test/pipeline/ingestion/fixtures/](../server/test/pipeline/ingestion/fixtures/):
@@ -570,7 +576,7 @@ never appears in the URL.
 | [tor-detail/tabs/DecisionSupportTab.tsx](../client/app/_components/tor-detail/tabs/DecisionSupportTab.tsx) | Profile match, lock-spec findings, price analysis. |
 | [tor-detail/tabs/EligibilityHistoryTab.tsx](../client/app/_components/tor-detail/tabs/EligibilityHistoryTab.tsx) | Who may bid; payment, delivery and evaluation; what changed. |
 | [tor-detail/_lib/tor-helpers.tsx](../client/app/_components/tor-detail/_lib/tor-helpers.tsx) | Money and date formatters, plus small shared pieces: change notices, links to the originals, "not analysed". |
-| [PdfPreviewModal.tsx](../client/app/_components/PdfPreviewModal.tsx) | In-page PDF viewer, for the detail page and admin. |
+| [PdfPreviewModal.tsx](../client/app/_components/PdfPreviewModal.tsx) | In-page PDF viewer, for the detail page and admin. When there's no file it says why, by the server's code: no copy stored, too many requests, or a failed load. |
 | [auth.tsx](../client/app/_components/auth.tsx) | `AuthProvider` and `useAuth`: who is signed in (`/api/auth/me`), sign in, up and out. |
 | [auth-form.tsx](../client/app/_components/auth-form.tsx) | Sign-in and sign-up form, with Google. |
 | [sign-in-prompt.tsx](../client/app/_components/sign-in-prompt.tsx) | What a guest sees in place of a signed-in page. |
@@ -713,3 +719,4 @@ write a new one that supersedes it ([CONTRIBUTING](../CONTRIBUTING.md#decisions)
 | [0035](decisions/0035-lock-spec-risk-criteria-and-scoring.md) | Lock-spec risk criteria and scoring (0030 until 2026-11-13) |
 | [0036](decisions/0036-thai-only-interface.md) | The interface is Thai only |
 | [0037](decisions/0037-missing-deadlines-for-drafts-and-open-projects.md) | Wording for missing deadlines in draft and open projects |
+| [0038](decisions/0038-preview-serves-stored-files-only.md) | The PDF preview serves only files the pipeline stored |

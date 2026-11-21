@@ -1,6 +1,7 @@
 # 0007 · Rate limiting on the auth routes
 
-Status: accepted · 2026-09-15
+Status: accepted · 2026-09-15 · updated 2026-11-21 (limits on the preview,
+technology requests and costly admin actions)
 
 ## Context
 
@@ -94,3 +95,42 @@ for a local run and for `docker compose`.
   at ingest. `/health` and `/auth/me` are left unlimited on purpose — limiting
   the first means an uptime monitor eventually reports an outage that is not
   one, and the second runs on every page load.
+
+## Update · 2026-11-21: limits beyond auth
+
+Three more limiters, on the routes where one caller could cost us or someone
+else the most (ASVS V2.4.1). These are the documented limits ASVS V2.1.3 and
+V2.3.2 ask for.
+
+| Limiter | Routes | Key | Window | Limit | Why |
+| :--- | :--- | :--- | ---: | ---: | :--- |
+| `preview` | `GET /api/tors/:projectId/preview` and `/pdf` | address | 10 min | 60 | Anyone can open a preview, so the address is all there is. A reader opens up to three documents per TOR, and a lab or a mobile network puts many readers behind one address, so it stops a script, not a person |
+| `technologyRequest` | `POST /api/technologies/request` | account | 1 day | 20 | Each request lands in the admins' review queue |
+| `adminCostly` | `POST /api/admin/review/:projectId/re-extract`, `/ingest`, `/health-check`, `/pipeline/retry-all` | account | 1 hour | 10 | Caps what a forged request can set off while the session cookie is still `SameSite=None`: a fetch and a health check call e-GP, a retry-all re-queues every failed TOR, a re-extract takes a summary off the public site |
+
+- **Every request counts**, including 404s and 400s, as a script's would.
+- **`/preview` and `/pdf` share one budget.** They're one handler under two
+  names, so `tor.routes.js` builds one limiter and mounts it on both. Two
+  instances would each keep their own count.
+- **The four admin actions share one budget**, for the same reason: one
+  limiter on four routes. Reading the dashboard is never limited, as before.
+- **`limitByUser` is now used.** It keys on `req.user.id`, so it must come
+  after `requireAuth`. Mounted before, it throws rather than leave the route
+  unlimited.
+- **Each feature sets its own numbers** (`rate-limit.js` beside its routes),
+  as `authRateLimits` does. `app.js` gathers them into one `apiRateLimits`
+  object, and `createApp({ apiRateLimits })` merges a test's overrides over it,
+  so a test names only the limit it's about. The three routers became
+  factories (`createTorRoutes`, `createTechnologyRoutes`,
+  `createAdminRoutes`), for the same reason `authRoutes` did.
+- **The numbers are a starting point**, chosen without real traffic. Revisit
+  them once there is some: 429s aren't logged yet, which is the logging
+  chapter's work.
+- The consequences above still hold: the counters are per process, and
+  `TRUST_PROXY_HOPS` decides what "address" means behind a proxy.
+- **Still not covered:** `POST /api/admin/pipeline/add` and a retry with
+  `runNow` also run pipeline steps against e-GP, through the pacer, but sit
+  outside `adminCostly`.
+
+Why the preview needed a limit even after it stopped calling e-GP:
+[0038](0038-preview-serves-stored-files-only.md).

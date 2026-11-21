@@ -156,6 +156,8 @@ compose sets it to `http://server:8000`.
       front.
 - [ ] Verify that value against a real request rather than trusting the number
 - [ ] Do not set `PORT` — Cloud Run injects it and `env.js` already reads it
+- [ ] **A volume for `/app/data`.** A Cloud Run container's own disk is lost
+      when it restarts, so stored documents would vanish with it. See §8
 
 ---
 
@@ -164,10 +166,12 @@ compose sets it to `http://server:8000`.
 Do not assume these are handled just because the app works.
 
 - [ ] **Rate limiting is in-memory and single-process.** The limiters ship
-      (see [0007](decisions/0007-rate-limiting-on-the-auth-routes.md)), but
-      counters live in one process's memory: two instances mean a limit of 5 is
-      really 10, with no error, no log, and no failing test. Correct today —
-      `docker-compose.yml` runs one container. See §5 if the target autoscales.
+      (see [0007](decisions/0007-rate-limiting-on-the-auth-routes.md)) on sign-in
+      and registration, the PDF preview, technology requests and four costly
+      admin actions, but counters live in one process's memory: two instances
+      mean a limit of 5 is really 10, with no error, no log, and no failing test.
+      Correct today — `docker-compose.yml` runs one container. See §5 if the
+      target autoscales.
 - [ ] **Password spraying is not mitigated.** One common password against many
       accounts: each account sees a single failure, so the email limiter never
       trips, and a botnet spreads thin enough that no address does either. The
@@ -209,3 +213,32 @@ A checklist you cannot check is a wish list. Run these against the deployed API.
 - [ ] Fail the same login repeatedly and confirm the 429 arrives at the
       configured attempt, from a machine that is not on the same network as
       another tester
+- [ ] Open a TOR's document from its detail page. The PDF shows, or, on a new
+      volume the pipeline hasn't filled yet, the "ยังไม่มีสำเนาเอกสารนี้ในระบบของเรา"
+      card with its e-GP button. A server log full of `[preview] … missing or
+      outside the documents folder` warnings means records point at files this
+      server doesn't have (§8)
+
+---
+
+## 8 · Stored documents
+
+The PDF preview serves only files the pipeline stored, and never calls e-GP
+([0038](decisions/0038-preview-serves-stored-files-only.md)). So the files
+have to outlive the container.
+
+- [ ] **`/app/data` is on storage that survives a new container.**
+      `docker-compose.yml` mounts the `server-data` named volume there. The
+      development override binds `./server/data` instead.
+- [ ] **The image carries no documents.** `server/.dockerignore` keeps `data/`
+      out. Without that, `COPY . .` put the builder's whole folder into the image
+      (5.4 GB on one laptop), and Docker would copy it into the empty volume on
+      first start.
+- [ ] **Expect a new volume to start empty.** Until the pipeline downloads
+      again, every preview answers `DOCUMENT_NOT_STORED`. Downloading is a
+      pipeline command that calls e-GP, so run it on purpose
+      ([pipeline-guide.md](pipeline-guide.md)).
+- [ ] **Records written on another machine.** A database filled from a laptop
+      records that laptop's paths. The server finds the same file under its own
+      documents folder by the part after `documents`, so this works as long as
+      the files themselves were copied too.

@@ -114,9 +114,10 @@ Which collection holds what: [data-model.md](data-model.md).
 - **The PDF routes.** `GET /api/tors/:projectId/pdf` and `/preview` look up
   the `Tor` without `visibilityFilter`, so the file of any TOR the pipeline
   downloaded can be fetched by its ID, shown in the catalog or not. They're
-  public e-GP documents, so nothing private leaks. When the file isn't on disk,
-  the route fetches it from e-GP itself, outside the request pacer the other
-  government requests go through.
+  public e-GP documents, so nothing private leaks. Only files the pipeline
+  stored are served, and the route never calls e-GP itself: when the file isn't
+  on disk, the answer is 404 `DOCUMENT_NOT_STORED` and the viewer links to e-GP
+  ([0038](../decisions/0038-preview-serves-stored-files-only.md)).
 - **The technology list.** `GET /api/technologies` returns every name in the
   vocabulary, including ones a signed-in user has just requested (`new`) and
   ones an admin rejected.
