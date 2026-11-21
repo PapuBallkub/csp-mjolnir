@@ -108,7 +108,7 @@ function contentDisposition(fileName) {
   return `inline; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }
 
-// What a visitor gets when there is no file to show (threat-model §11). The
+// What a visitor gets when there is no file to show (ADR 0038). The
 // codes are what the preview window picks its message by.
 const MISSING = {
   'no-tor': { code: 'TOR_NOT_FOUND', message: (id) => `ไม่มีโครงการ '${id}' ในระบบ` },

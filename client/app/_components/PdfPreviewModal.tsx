@@ -63,7 +63,7 @@ function PdfPreviewModalContent({
     isEmarket ||
     errorDetails?.code === "NO_PUBLIC_DOCUMENT_FOR_METHOD";
 
-  // Why there's no file to show, which picks the card (threat-model §11). The
+  // Why there's no file to show, which picks the card (ADR 0038). The
   // server reads only what the pipeline stored and never fetches from e-GP, so
   // "not stored" means we have no copy, and the original is one click away. A
   // 429 or a failed load is worth retrying; a missing copy isn't.

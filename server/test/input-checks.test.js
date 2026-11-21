@@ -1,6 +1,5 @@
-// Input that used to reach the database unchecked (threat-model T12, T13; ASVS
-// V2.2.1): a wrong type is a 400 or a 404, never a 500, and search text is
-// matched as text.
+// Input that used to reach the database unchecked (ASVS V2.2.1): a wrong type
+// is a 400 or a 404, never a 500, and search text is matched as text.
 
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';

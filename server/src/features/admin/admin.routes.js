@@ -48,7 +48,7 @@ export function createAdminRoutes(limits = adminRateLimits) {
   adminRoutes.use(requireAuth, requireRole('admin'));
 
   // One budget across the four POSTs a forged request could do most with
-  // while the session cookie is still SameSite=None (threat-model T5): a fetch
+  // while the session cookie is still SameSite=None (ADR 0007): a fetch
   // and a health check call e-GP, a retry-all puts every failed TOR back in the
   // night's queue, and a re-extraction sends a summary back to review, which
   // takes it off the public site.

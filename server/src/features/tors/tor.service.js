@@ -623,7 +623,7 @@ function publishesNoDocuments(tor) {
 /**
  * A TOR's document from the files the pipeline stored. It never calls e-GP:
  * the pipeline downloads under the request pacer (NFR-03) and a size cap, and a
- * visitor's click must not start a download of its own (threat-model T1).
+ * visitor's click must not start a download of its own (ADR 0038).
  *
  * Looks in this order: the packages (newest first, or the one `zipId` or
  * `version` picks), then the TOR's own document and its parts, then, for a
