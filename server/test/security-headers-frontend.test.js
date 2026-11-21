@@ -10,9 +10,9 @@ import {
   setSessionCookie,
 } from '#features/auth/session.js';
 import {
-  clearState,
+  clearOAuthTransaction,
   getOAuthStateFromRequest,
-  issueState,
+  issueOAuthTransaction,
   LEGACY_OAUTH_STATE_COOKIE,
   OAUTH_STATE_COOKIE,
 } from '#features/auth/google.js';
@@ -69,7 +69,7 @@ test('API server registers ASVS Chapter 3 core security headers and disables fra
   assert.ok(permissionsPolicy.includes('usb=()'));
 });
 
-test('issueState sets oauth state cookie within 4096-byte limit (ASVS V3.3.5)', () => {
+test('issueOAuthTransaction sets oauth state cookie within 4096-byte limit (ASVS V3.3.5)', () => {
   let cookieName;
   let cookieValue;
   const mockRes = {
@@ -78,10 +78,11 @@ test('issueState sets oauth state cookie within 4096-byte limit (ASVS V3.3.5)', 
       cookieValue = val;
     },
   };
-  const state = issueState(mockRes);
+  // The cookie holds state, nonce and PKCE verifier, joined by '.'.
+  const { state, nonce, codeVerifier } = issueOAuthTransaction(mockRes);
   assert.equal(cookieName, OAUTH_STATE_COOKIE);
-  assert.equal(cookieValue, state);
-  assert.ok(OAUTH_STATE_COOKIE.length + state.length <= 4096);
+  assert.equal(cookieValue, [state, nonce, codeVerifier].join('.'));
+  assert.ok(OAUTH_STATE_COOKIE.length + cookieValue.length <= 4096);
 });
 
 test('setSessionCookie enforces 4096-byte combined cookie size limit (ASVS V3.3.5)', () => {
@@ -181,7 +182,7 @@ test('clearSessionCookie clears active cookie and legacy cookie', () => {
   }
 });
 
-test('clearState clears active oauth cookie and legacy oauth cookie', () => {
+test('clearOAuthTransaction clears active oauth cookie and legacy oauth cookie', () => {
   const cleared = [];
   const mockRes = {
     clearCookie: (name, opts) => {
@@ -189,7 +190,7 @@ test('clearState clears active oauth cookie and legacy oauth cookie', () => {
     },
   };
 
-  clearState(mockRes);
+  clearOAuthTransaction(mockRes);
 
   assert.ok(cleared.some((c) => c.name === OAUTH_STATE_COOKIE), 'active oauth cookie must be cleared');
   if (OAUTH_STATE_COOKIE !== LEGACY_OAUTH_STATE_COOKIE) {

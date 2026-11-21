@@ -91,7 +91,7 @@ Session identifiers and OAuth transient state are stored exclusively in hardened
 1. **Prefix Hardening (V3.3.1, V3.3.3)**:
    - In production (`isProduction === true`), cookies are named:
      - `__Host-mjolnir_session` (User authentication session)
-     - `__Host-mjolnir_oauth_state` (Google OAuth CSRF protection state)
+     - `__Host-mjolnir_oauth_state` (Google OAuth CSRF protection state, plus the ID token nonce and PKCE verifier)
    - RFC 6265bis requirements satisfied:
      - Must be set with `Secure: true`.
      - Must be set with `Path: '/'`.
@@ -100,7 +100,7 @@ Session identifiers and OAuth transient state are stored exclusively in hardened
    - `httpOnly: true`: Inaccessible to JavaScript `document.cookie`, defeating token theft via XSS.
    - `sameSite`: Configured to `'lax'` (or `'none'` when client and API are hosted across distinct production domains with HTTPS) to prevent CSRF.
 3. **Cookie Size Limit (V3.3.5)**:
-   - Before setting cookies, both `setSessionCookie` and `issueState` assert that the combined length of cookie name and value does not exceed 4096 bytes. Excessively large tokens throw an explicit error to prevent header truncation or denial-of-service.
+   - Before setting cookies, both `setSessionCookie` and `issueOAuthTransaction` assert that the combined length of cookie name and value does not exceed 4096 bytes. Excessively large tokens throw an explicit error to prevent header truncation or denial-of-service.
 4. **Transition & Rotation Tolerance**:
    - Authentication middleware and controller (`getSessionTokenFromRequest`, `getOAuthStateFromRequest`) inspect the primary `__Host-` prefixed cookie and fall back gracefully to the legacy un-prefixed name during active session migration.
    - Logout clears both active and legacy cookie names.
@@ -171,7 +171,7 @@ The table below maps every requirement in **OWASP ASVS v5.0 Chapter 3 (Web Front
 | **53** | 3.3.2 | L1 | Cookie `__Secure-` prefix used where appropriate | **COMPLIANT** | `__Host-` provides strict superset of `__Secure-` by additionally enforcing `Path=/` and omitting `Domain`. |
 | **54** | 3.3.3 | L1 | Cookies using prefixes conform to prefix rules | **COMPLIANT** | `setSessionCookie` sets `path: '/'`, `secure: true`, and no domain in production. |
 | **55** | 3.3.4 | L2 | Web storage (localStorage/sessionStorage) stores no sensitive data | **COMPLIANT** | Tokens stored strictly in HttpOnly cookies, never in localStorage or sessionStorage. |
-| **56** | 3.3.5 | L3 | Combined cookie name and value length does not exceed 4096 bytes | **COMPLIANT** | Both `setSessionCookie` and `issueState` validate combined cookie name + value length `<= 4096`. Tested in `server/test/security-headers-frontend.test.js`. |
+| **56** | 3.3.5 | L3 | Combined cookie name and value length does not exceed 4096 bytes | **COMPLIANT** | Both `setSessionCookie` and `issueOAuthTransaction` validate combined cookie name + value length `<= 4096`. Tested in `server/test/security-headers-frontend.test.js`. |
 | **57** | 3.4.1 | L1 | `X-Content-Type-Options: nosniff` header sent | **COMPLIANT** | Emitted by both Next.js (`client/next.config.ts`) and Express (`server/src/app.js`). |
 | **58** | 3.4.2 | L1 | Anti-framing protection implemented (`frame-ancestors` / X-Frame-Options) | **COMPLIANT** | Next.js and Express emit `Content-Security-Policy: ... frame-ancestors 'none'` and `X-Frame-Options: DENY`. |
 | **59** | 3.4.3 | L1 | `X-Frame-Options` sent if older browsers supported | **COMPLIANT** | `X-Frame-Options: DENY` sent on all routes. |

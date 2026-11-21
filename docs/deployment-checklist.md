@@ -77,7 +77,7 @@ refuses to send back, and `/api/auth/me` answers `401` forever.
 | `JWT_SECRET` | A freshly generated secret of at least 32 bytes (`node -e "console.log(crypto.randomUUID() + crypto.randomUUID())"` gives 72 characters), **not** the CI value in `fullstack-ci-setup.yml` and not any developer's local one | Under 32 bytes: the server refuses to boot. Known to anyone else: they can mint a session for any account |
 | `CORS_ORIGIN` | The deployed client origin, exact, **no trailing slash** | The browser rejects every API response and the app looks completely dead |
 | `PORT` | Leave unset on Cloud Run — it injects one | Container listens on the wrong port and fails its health check |
-| `GOOGLE_CLIENT_ID` / `_SECRET` | Production OAuth client | `/api/auth/google` answers 503 |
+| `GOOGLE_CLIENT_ID` / `_SECRET` | Production OAuth client | Unset: `/api/auth/google` answers 503. Another client's ID: every Google sign-in fails, because the ID token's `aud` must be this value ([0005](decisions/0005-google-sign-in-links-by-verified-email.md)) |
 | `GOOGLE_REDIRECT_URI` | `https://<api-domain>/api/auth/google/callback` | Google refuses the code exchange |
 | `SHOW_UNREVIEWED_INSIGHTS` | `true` only for a demo deploy, while no one reviews results yet ([0015](decisions/0015-pilot-mode-and-demo-data.md)). Leave it unset for a real launch. | Unset in production: the catalog shows only reviewed results, so before reviews start it is empty. `true` on a real launch: unchecked AI summaries reach the public with no label saying nobody checked them, only the detail page's "AI can be wrong" notice |
 | `TRUST_PROXY_HOPS` | The number of proxies in front of the server — see §5 | Too low: every user on the internet shares one rate limit bucket. Set to `true`: the caller forges `X-Forwarded-For` and the limiter is decorative |
@@ -140,6 +140,17 @@ compose sets it to `http://server:8000`.
 - [ ] `GOOGLE_REDIRECT_URI` matches that entry character for character
 - [ ] `CORS_ORIGIN` points at the production client, since
       `completeGoogleSignIn` redirects the browser there after the exchange
+- [ ] `GOOGLE_CLIENT_ID` is the **same client** the redirect URI is registered
+      on. The ID token is checked against it (`aud`), so a token for any other
+      client is refused and sign-in lands on `/?auth=failed` with
+      `(audience)` in the server log
+- [ ] The server can make outbound HTTPS requests to `oauth2.googleapis.com`
+      (the code exchange) **and** `www.googleapis.com` (Google's signing keys,
+      `/oauth2/v3/certs`). An egress rule that allows only the first shows up
+      as `(keys-unavailable)` in the log. Password sign-in is unaffected
+- [ ] Expect a sign-in that was mid-way during the deploy to fail once: the
+      attempt cookie changed shape (it now holds `state`, `nonce` and the PKCE
+      verifier). The next try works
 
 ---
 
@@ -208,8 +219,10 @@ A checklist you cannot check is a wish list. Run these against the deployed API.
       means §1 is wrong.
 - [ ] Inspect the `mjolnir_session` cookie in devtools — `Secure` and
       `SameSite=None` must both be present
-- [ ] Sign in with Google end to end, since the redirect URI, `CORS_ORIGIN`, and
-      the state cookie all have to agree before it works
+- [ ] Sign in with Google end to end, since the redirect URI, `CORS_ORIGIN`,
+      the client ID, the attempt cookie and the key fetch all have to agree
+      before it works. A failure prints `Google sign-in failed: … (<reason>)`
+      in the server log; the reason says which one
 - [ ] Fail the same login repeatedly and confirm the 429 arrives at the
       configured attempt, from a machine that is not on the same network as
       another tester

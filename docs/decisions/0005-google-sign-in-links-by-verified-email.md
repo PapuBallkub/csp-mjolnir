@@ -74,3 +74,68 @@ the `jsonwebtoken` we already have.
   because it runs as a top-level browser navigation. The reason goes to the server
   log; the URL gets only `?auth=failed`. If the client ever needs to distinguish
   causes, that is where to add it.
+
+## Update · 2026-11-22: the ID token is verified, with a nonce and PKCE
+
+The second consequence above no longer holds. OpenID Connect Core §3.1.3.7 does
+let a client skip the signature for a token that came straight from the token
+endpoint over TLS, but the same section still requires checking `iss`, `aud`
+and `exp`, and the code checked none of them. A token Google issued to another
+app would have been accepted. ASVS V6.8.2 asks for the signature anyway.
+
+**What is checked now**, in `google-id-token.js`, before anything in the token
+is used:
+
+| Check | Rule | Why |
+| :--- | :--- | :--- |
+| Signature | RS256 only, against Google's published keys, looked up by the token's `kid` | `none` and the HS256 trick (the public key used as an HMAC secret) are refused before any key is touched |
+| `iss` | `https://accounts.google.com` or `accounts.google.com` | Google uses both spellings |
+| `aud` | Our `GOOGLE_CLIENT_ID` | A token for another app is refused (ASVS V10.5.4). An empty client ID refuses everything, because `jsonwebtoken` skips the audience check for an empty one |
+| `azp` | Our client ID whenever present, and required when `aud` lists several | `jsonwebtoken` passes an `aud` list if any entry matches |
+| `exp` | Required, and in the future, with 60 seconds of clock tolerance | `jsonwebtoken` checks `exp` only when it is present |
+| `nonce` | Equal to the one this browser's attempt sent | A token from another sign-in is refused (ASVS V10.5.1) |
+| `sub`, `email` | Non-empty strings | As before |
+
+**The keys** come from `https://www.googleapis.com/oauth2/v3/certs`, fixed in
+code like the authorize and token URLs, with no discovery document. They are
+cached for as long as Google's `Cache-Control: max-age` says (about five hours
+when checked), or an hour without one. An unknown `kid` means Google may have
+rotated, so it refetches once, but at most once a minute across all requests: a
+burst of tokens with made-up `kid`s can't become a burst of requests to Google.
+A failed fetch blocks another try for that same minute.
+
+**One cookie holds the attempt.** `mjolnir_oauth_state` (`__Host-mjolnir_oauth_state`
+in production) now carries three values joined by `.`: `state`, `nonce` and a
+PKCE `code_verifier`, 32 random bytes each in base64url. They expire and clear
+together, as `state` alone did.
+
+**PKCE (RFC 7636, S256).** The authorization URL carries the verifier's SHA-256
+hash, and the code exchange sends the verifier itself. A code stolen on its way
+back from Google is useless without it. We also have a client secret and the
+nonce, so this is defence in depth, as RFC 9700 §2.1.1 recommends. Google's
+discovery document lists S256.
+
+**Every failure lands on a page.** A network error or a timeout on the token
+endpoint is now an `HttpError` (502), like every check above (400), so the
+callback always redirects to `/?auth=failed`. The log line is
+`Google sign-in failed: <message> (<reason>)`, where the reason is one word
+(`audience`, `nonce`, `keys-unavailable`, and so on), never the token or the
+address. Anything that isn't an `HttpError` is still thrown, so a real bug still
+surfaces. `state` is compared in constant time, and a repeated `code` or
+`state` parameter (an array) is refused before Google is asked.
+
+**Still no new dependency.** `jsonwebtoken` verifies with a `KeyObject`, and
+`crypto.createPublicKey({ key, format: 'jwk' })` imports Google's keys.
+
+**Consequences:**
+
+- `GOOGLE_CLIENT_ID` has to be the client that the redirect goes to. A token
+  minted for any other client is now refused, where before it was read.
+- The server needs outbound HTTPS to `www.googleapis.com` as well as
+  `oauth2.googleapis.com`. If the keys can't be fetched, Google sign-in fails,
+  and password sign-in is unaffected.
+- A sign-in started before this deploy (a one-part cookie) fails once and works
+  on the next try.
+- `auth-google-token.test.js` signs its own tokens with generated keys, and
+  `auth-google.test.js` drives the whole callback with `fetch` mocked, so the
+  suite still never calls Google.

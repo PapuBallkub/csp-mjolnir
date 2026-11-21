@@ -1,15 +1,19 @@
 import crypto from 'node:crypto';
 
-import jwt from 'jsonwebtoken';
-
 import { env, isGoogleConfigured, isProduction } from '#common/config/env.js';
-import { badRequest, HttpError } from '#common/errors/http-error.js';
+import { HttpError } from '#common/errors/http-error.js';
+
+import { createGoogleKeyStore, googleSignInError, verifyGoogleIdToken } from './google-id-token.js';
 
 const AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
+// A hung connection to Google would otherwise hold the visitor's request open.
+const TOKEN_FETCH_TIMEOUT_MS = 10 * 1000;
+
 // ASVS V3.3.1, V3.3.3: In production, enforce __Host- cookie prefix. In dev/test,
 // fall back to un-prefixed name because browsers reject __Host- over plain HTTP localhost.
+// The name predates the nonce and the PKCE verifier; the cookie now holds all three.
 export const OAUTH_STATE_COOKIE = isProduction ? '__Host-mjolnir_oauth_state' : 'mjolnir_oauth_state';
 export const LEGACY_OAUTH_STATE_COOKIE = 'mjolnir_oauth_state';
 
@@ -31,33 +35,70 @@ const stateCookieOptions = {
   path: '/',
 };
 
+// 32 random bytes as base64url: 43 characters, never a `.`.
+const TRANSACTION_PART = /^[A-Za-z0-9_-]{43}$/;
+const randomPart = () => crypto.randomBytes(32).toString('base64url');
+
+// One process-wide cache of Google's signing keys.
+const getGoogleKey = createGoogleKeyStore();
+
 export function assertGoogleConfigured() {
   if (!isGoogleConfigured) {
     throw new HttpError(503, 'ระบบเข้าสู่ระบบด้วย Google ยังไม่ได้ตั้งค่าบนเซิร์ฟเวอร์นี้');
   }
 }
 
-// Random per attempt, echoed back by Google, and compared against the cookie on
-// return. Without it, anyone can hand a victim a callback URL of their choosing.
-export function issueState(res) {
-  const state = crypto.randomBytes(32).toString('base64url');
+// Three values, random per attempt, kept in one cookie so they expire and clear
+// together:
+// - `state` is echoed back by Google and compared on return. Without it, anyone
+//   can hand a victim a callback URL of their choosing.
+// - `nonce` comes back inside the signed ID token, tying the token to this
+//   attempt, so a token from another sign-in is refused (ASVS V10.5.1).
+// - `codeVerifier` (PKCE, RFC 7636) is hashed into the authorization URL and
+//   sent in full only with the code exchange. A code stolen on its way back
+//   from Google is useless without it (RFC 9700 §2.1.1).
+export function issueOAuthTransaction(res) {
+  const transaction = { state: randomPart(), nonce: randomPart(), codeVerifier: randomPart() };
+  const value = [transaction.state, transaction.nonce, transaction.codeVerifier].join('.');
+
   // ASVS V3.3.5: Enforce that combined cookie name and value length do not exceed 4096 bytes
-  const combinedLength = OAUTH_STATE_COOKIE.length + state.length;
-  if (combinedLength > 4096) {
+  if (OAUTH_STATE_COOKIE.length + value.length > 4096) {
     throw new Error('OAuth state cookie exceeds maximum 4096 bytes limit');
   }
-  res.cookie(OAUTH_STATE_COOKIE, state, { ...stateCookieOptions, maxAge: STATE_TTL_MS });
-  return state;
+  res.cookie(OAUTH_STATE_COOKIE, value, { ...stateCookieOptions, maxAge: STATE_TTL_MS });
+  return transaction;
 }
 
-export function clearState(res) {
+// `{ state, nonce, codeVerifier }`, or null for a missing cookie or any other
+// shape, including the one-part cookie from before the nonce existed.
+export function readOAuthTransaction(req) {
+  const value = getOAuthStateFromRequest(req);
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const parts = value.split('.');
+  if (parts.length !== 3 || !parts.every((part) => TRANSACTION_PART.test(part))) {
+    return null;
+  }
+
+  const [state, nonce, codeVerifier] = parts;
+  return { state, nonce, codeVerifier };
+}
+
+export function clearOAuthTransaction(res) {
   res.clearCookie(OAUTH_STATE_COOKIE, stateCookieOptions);
   if (OAUTH_STATE_COOKIE !== LEGACY_OAUTH_STATE_COOKIE) {
     res.clearCookie(LEGACY_OAUTH_STATE_COOKIE, stateCookieOptions);
   }
 }
 
-export function createAuthorizationUrl(state) {
+// S256, never `plain`: the challenge in the URL must not reveal the verifier.
+export function codeChallengeFor(codeVerifier) {
+  return crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+}
+
+export function createAuthorizationUrl({ state, nonce, codeVerifier }) {
   const params = new URLSearchParams({
     client_id: env.google.clientId,
     // Must match a URI registered in the Google console byte for byte.
@@ -65,6 +106,9 @@ export function createAuthorizationUrl(state) {
     response_type: 'code',
     scope: 'openid email profile',
     state,
+    nonce,
+    code_challenge: codeChallengeFor(codeVerifier),
+    code_challenge_method: 'S256',
     // Always show the chooser, so a shared machine does not silently sign in as
     // whoever used it last.
     prompt: 'select_account',
@@ -73,34 +117,51 @@ export function createAuthorizationUrl(state) {
   return `${AUTHORIZE_URL}?${params}`;
 }
 
-// Trades the one-time code for tokens and returns what we need from the profile.
-export async function exchangeCodeForProfile(code) {
-  const response = await fetch(TOKEN_URL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      code,
-      client_id: env.google.clientId,
-      client_secret: env.google.clientSecret,
-      redirect_uri: env.google.redirectUri,
-      grant_type: 'authorization_code',
-    }),
-  });
+// Trades the one-time code for tokens, verifies the ID token, and returns what
+// we need from the profile. Every failure is an HttpError with a `reason`, so
+// the callback can always land the visitor on a page.
+export async function exchangeCodeForProfile(
+  code,
+  { nonce, codeVerifier, getKey = getGoogleKey, now = Date.now() },
+) {
+  let response;
+  try {
+    response = await fetch(TOKEN_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: env.google.clientId,
+        client_secret: env.google.clientSecret,
+        redirect_uri: env.google.redirectUri,
+        grant_type: 'authorization_code',
+        code_verifier: codeVerifier,
+      }),
+      signal: AbortSignal.timeout(TOKEN_FETCH_TIMEOUT_MS),
+    });
+  } catch {
+    throw googleSignInError(502, 'token-endpoint-unreachable', 'ติดต่อ Google ไม่ได้ ลองใหม่อีกครั้ง');
+  }
 
   if (!response.ok) {
-    throw badRequest('การเข้าสู่ระบบด้วย Google ถูกปฏิเสธ');
+    throw googleSignInError(400, 'token-endpoint', 'การเข้าสู่ระบบด้วย Google ถูกปฏิเสธ');
   }
 
-  const { id_token: idToken } = await response.json();
-
-  // Decoded without checking the signature. That is safe only because this
-  // token came straight back from the token endpoint over TLS, so nobody could
-  // have substituted it. Never decode a browser-supplied token this way.
-  const claims = idToken ? jwt.decode(idToken) : null;
-
-  if (!claims?.sub || !claims.email) {
-    throw badRequest('ข้อมูลโปรไฟล์จาก Google ไม่ถูกต้อง');
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    throw googleSignInError(502, 'token-endpoint', 'การเข้าสู่ระบบด้วย Google ถูกปฏิเสธ');
   }
+
+  // Verified even though it came straight from Google over TLS: the signature,
+  // issuer, audience, expiry and nonce all have to check out (ASVS V6.8.2).
+  const claims = await verifyGoogleIdToken(body?.id_token, {
+    clientId: env.google.clientId,
+    nonce,
+    getKey,
+    now,
+  });
 
   return {
     googleId: claims.sub,
