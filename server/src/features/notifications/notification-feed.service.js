@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { notFound, badRequest } from '#common/errors/http-error.js';
 import { Notification, User } from '#models/index.js';
 import { verifyUnsubscribeToken } from './email.service.js';
@@ -45,6 +46,9 @@ export async function listUserNotifications(userId, { limit = 50, skip = 0, type
  * @returns {Promise<Object>} The frozen notification document
  */
 export async function getNotificationById(id, userId) {
+  // An id that can't be one is the same 404 as someone else's notification, so
+  // the answer says nothing either way (it used to be a cast error, a 500)
+  if (!mongoose.isValidObjectId(id)) throw notFound('Notification not found.');
   const notification = await Notification.findOne({ _id: id, userId });
   if (!notification) {
     throw notFound('Notification not found.');
@@ -74,10 +78,13 @@ export async function getNotificationById(id, userId) {
  * @returns {Promise<{ updated: boolean, id: string, unreadCount: number }>}
  */
 export async function markAsRead(id, userId) {
-  const result = await Notification.updateOne(
-    { _id: id, userId, isRead: false },
-    { $set: { isRead: true, readAt: new Date() } },
-  );
+  // Answered like an unknown or someone else's id: nothing updated
+  const result = mongoose.isValidObjectId(id)
+    ? await Notification.updateOne(
+        { _id: id, userId, isRead: false },
+        { $set: { isRead: true, readAt: new Date() } },
+      )
+    : { modifiedCount: 0 };
 
   const unreadCount = await Notification.countDocuments({ userId, isRead: false });
 

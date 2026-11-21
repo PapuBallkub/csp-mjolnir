@@ -8,6 +8,11 @@ services:
       - "8000:8000"
     env_file:
       - ./server/.env
+    volumes:
+      # The documents the pipeline stores, which the preview serves (and its
+      # logs and extractions). A named volume, so they outlive the container;
+      # the development override binds ./server/data here instead.
+      - server-data:/app/data
 
   # Frontend Next.js
   client:
@@ -26,3 +31,5 @@ services:
     depends_on:
       - server
 
+volumes:
+  server-data:

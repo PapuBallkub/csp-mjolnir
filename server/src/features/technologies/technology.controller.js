@@ -15,7 +15,9 @@ export async function requestTechnologyHandler(req, res, next) {
     const result = await requestTechnology({
       name,
       category,
-      userId: req.user?._id,
+      // requireAuth's user has `id`, never `_id`; with _id no request was ever
+      // attributed to anyone
+      userId: req.user.id,
     });
     res.status(result.alreadyExists ? 200 : 201).json(result);
   } catch (error) {

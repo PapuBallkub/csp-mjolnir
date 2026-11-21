@@ -1331,8 +1331,9 @@ export function getTorInsight(projectId: string) {
 }
 
 /**
- * Returns the URL to stream the PDF document preview for a TOR project on demand.
- * The endpoint streams binary PDF directly from memory without saving to DB.
+ * The URL of a TOR document's preview. The server streams it from the files
+ * the pipeline stored and never fetches from e-GP; when there's no copy it
+ * answers 404 DOCUMENT_NOT_STORED, and past its rate limit 429.
  */
 export function getTorPdfPreviewUrl(projectId: string, part = 0, role?: string): string {
   const params = new URLSearchParams();

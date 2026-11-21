@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import { limitByUser } from '#common/middleware/rate-limit.js';
 import { requireAuth, requireRole } from '#features/auth/index.js';
 
 import {
@@ -24,6 +25,7 @@ import {
   handleUpdateReview,
   readOperations,
 } from './admin.controller.js';
+import { adminRateLimits } from './rate-limit.js';
 
 /**
  * Everything an administrator can see, and nothing anyone else can.
@@ -37,63 +39,73 @@ import {
  * requireAuth first, always. requireRole reads req.user, which requireAuth is
  * what sets — reverse them and every request 401s, an administrator's
  * included.
+ *
+ * Built per app, so a test can drive the real limiter with its own numbers.
  */
-export const adminRoutes = Router();
+export function createAdminRoutes(limits = adminRateLimits) {
+  const adminRoutes = Router();
 
-adminRoutes.use(requireAuth, requireRole('admin'));
+  adminRoutes.use(requireAuth, requireRole('admin'));
 
-// No rate limit: an admin refreshing a dashboard is the intended use, and a
-// limiter here would eventually hide a pipeline failure behind a 429.
-adminRoutes.get('/operations', readOperations);
+  // One budget across the four POSTs a forged request could do most with
+  // while the session cookie is still SameSite=None (ADR 0007): a fetch
+  // and a health check call e-GP, a retry-all puts every failed TOR back in the
+  // night's queue, and a re-extraction sends a summary back to review, which
+  // takes it off the public site.
+  const costly = limitByUser(limits.adminCostly);
 
-// Get single review item for dedicated review workspace (FR-23)
-adminRoutes.get('/review/:projectId', handleGetReviewItem);
+  // No rate limit: an admin refreshing a dashboard is the intended use, and a
+  // limiter here would eventually hide a pipeline failure behind a 429.
+  adminRoutes.get('/operations', readOperations);
 
-// Review actions: manually edit extracted fields, approve, or reclassify (FR-23)
-adminRoutes.patch('/review/:projectId', handleUpdateReview);
+  // Get single review item for dedicated review workspace (FR-23)
+  adminRoutes.get('/review/:projectId', handleGetReviewItem);
 
-// Queue a document for re-extraction
-adminRoutes.post('/review/:projectId/re-extract', handleReExtract);
+  // Review actions: manually edit extracted fields, approve, or reclassify (FR-23)
+  adminRoutes.patch('/review/:projectId', handleUpdateReview);
 
-// The summaries a change replaced, and bringing one back (NFR-07, ADR 0031)
-adminRoutes.get('/review/:projectId/versions', handleListVersions);
-adminRoutes.post('/review/:projectId/rollback', handleRollback);
+  // Queue a document for re-extraction
+  adminRoutes.post('/review/:projectId/re-extract', costly, handleReExtract);
 
-// Trigger on-demand ingestion poll across procurement feeds
-adminRoutes.post('/ingest', handleTriggerIngest);
+  // The summaries a change replaced, and bringing one back (NFR-07, ADR 0031)
+  adminRoutes.get('/review/:projectId/versions', handleListVersions);
+  adminRoutes.post('/review/:projectId/rollback', handleRollback);
 
-// Health check: test connectivity & latency for procurement sources (FR-22)
-adminRoutes.post('/health-check', handleCheckSourcesHealth);
+  // Trigger on-demand ingestion poll across procurement feeds
+  adminRoutes.post('/ingest', costly, handleTriggerIngest);
 
-// Re-trigger / retry a failed pipeline step (FR-24)
-adminRoutes.post('/pipeline/retry', handleRetryPipelineStep);
+  // Health check: test connectivity & latency for procurement sources (FR-22)
+  adminRoutes.post('/health-check', costly, handleCheckSourcesHealth);
 
-// Bulk retry all transient pipeline failures (FR-24)
-adminRoutes.post('/pipeline/retry-all', handleRetryAllPipelineFailures);
+  // Re-trigger / retry a failed pipeline step (FR-24)
+  adminRoutes.post('/pipeline/retry', handleRetryPipelineStep);
 
-// Advance past a stuck pipeline step (FR-24)
-adminRoutes.post('/pipeline/skip', handleSkipPipelineStep);
+  // Bulk retry all transient pipeline failures (FR-24)
+  adminRoutes.post('/pipeline/retry-all', costly, handleRetryAllPipelineFailures);
 
-// Query pipeline tasks with phase filtering and search (FR-24)
-adminRoutes.get('/pipeline/tasks', handleGetPipelineTasks);
+  // Advance past a stuck pipeline step (FR-24)
+  adminRoutes.post('/pipeline/skip', handleSkipPipelineStep);
 
-// Dismiss a permanent pipeline failure (FR-24)
-adminRoutes.post('/pipeline/dismiss', handleDismissPipelineFailure);
+  // Query pipeline tasks with phase filtering and search (FR-24)
+  adminRoutes.get('/pipeline/tasks', handleGetPipelineTasks);
 
-// Record-level lifecycle diagnostics (FR-24)
-adminRoutes.get('/pipeline/record/:projectId', handleGetPipelineRecord);
+  // Dismiss a permanent pipeline failure (FR-24)
+  adminRoutes.post('/pipeline/dismiss', handleDismissPipelineFailure);
 
-// Manually add procurement record from e-GP reference (FR-24)
-adminRoutes.post('/pipeline/add', handleAddManualRecord);
+  // Record-level lifecycle diagnostics (FR-24)
+  adminRoutes.get('/pipeline/record/:projectId', handleGetPipelineRecord);
 
-// Live project suggestion / autocomplete for Project Inspector (FR-24)
-adminRoutes.get('/projects/suggest', handleSuggestProjects);
+  // Manually add procurement record from e-GP reference (FR-24)
+  adminRoutes.post('/pipeline/add', handleAddManualRecord);
 
-// Technology and standard vocabulary administration (directory, review, add, edit, delete)
-adminRoutes.get('/technologies', handleGetAdminTechnologies);
-adminRoutes.post('/technologies', handleCreateAdminTechnology);
-adminRoutes.patch('/technologies/:id', handleUpdateAdminTechnology);
-adminRoutes.delete('/technologies/:id', handleDeleteAdminTechnology);
+  // Live project suggestion / autocomplete for Project Inspector (FR-24)
+  adminRoutes.get('/projects/suggest', handleSuggestProjects);
 
+  // Technology and standard vocabulary administration (directory, review, add, edit, delete)
+  adminRoutes.get('/technologies', handleGetAdminTechnologies);
+  adminRoutes.post('/technologies', handleCreateAdminTechnology);
+  adminRoutes.patch('/technologies/:id', handleUpdateAdminTechnology);
+  adminRoutes.delete('/technologies/:id', handleDeleteAdminTechnology);
 
-
+  return adminRoutes;
+}

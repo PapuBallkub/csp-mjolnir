@@ -48,3 +48,17 @@ export function limitByIp(options) {
   return build({ ...options, keyGenerator: (req) => ipKeyGenerator(req.ip) });
 }
 
+// For routes behind requireAuth: one budget per account, wherever its requests
+// come from, and one person's use never spends anyone else's. Mounted before
+// requireAuth it has no account to count, which is a wiring mistake, so it
+// fails loudly rather than leaving the route unlimited.
+export function limitByUser(options) {
+  return build({
+    ...options,
+    keyGenerator: (req) => {
+      if (!req.user?.id) throw new Error('limitByUser must be mounted after requireAuth');
+      return `user:${req.user.id}`;
+    },
+  });
+}
+

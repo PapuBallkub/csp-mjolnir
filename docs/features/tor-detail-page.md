@@ -885,10 +885,18 @@ To ensure users can check facts against the authoritative government document wi
    - **Part 0 (TOR Specifications):** The technical requirements, scope of work, and deliverable schedule.
    - **Part 1 (Bidding Rules):** The formal bidding conditions and legal eligibility requirements (`doc_*.pdf`).
    - **Part 2 (Announcement Letter):** The formal invitation notice stating ราคากลาง and submission dates (`annoudoc_*.pdf`).
-3. **Cascading Streaming Proxy (`GET /api/tors/:projectId/preview`):**
-   - Resolves local copies stored on disk (`tor.document.storagePath`) first (~1ms response time), ensuring availability even during e-GP network outages.
-   - Falls back to in-memory LRU cache and dynamic on-demand retrieval from process5 when local files are not yet downloaded (e.g. fresh notices or development environments).
-   - Serves documents with `Content-Type: application/pdf` and `Content-Disposition: inline`, bypassing external iframe embedding (CORS/X-Frame-Options) restrictions.
+3. **Stored files only (`GET /api/tors/:projectId/preview`, [0038](../decisions/0038-preview-serves-stored-files-only.md)):**
+   - Serves the file the pipeline stored: from the newest package (or the one `zipId` or `version` names), then the TOR's own document and its parts. It works during e-GP outages, because it never calls e-GP.
+   - Serves documents with `Content-Type: application/pdf` and `Content-Disposition: inline`, bypassing external iframe embedding (CORS/X-Frame-Options) restrictions. Thai file names arrive intact (`filename*`).
+   - Limited to 60 previews per 10 minutes per address, shared with `/pdf` ([0007](../decisions/0007-rate-limiting-on-the-auth-routes.md)).
+   - When there's no file, the viewer says why, from the server's code, and keeps the e-GP button:
+
+     | Server answer | The viewer shows |
+     | :--- | :--- |
+     | 404 `DOCUMENT_NOT_STORED` | TOR tab: "ยังไม่มีสำเนาเอกสารนี้ในระบบของเรา" (we have no copy yet) and "เปิดดูฉบับจริงบน e-GP ได้เลย". Bidding and announcement tabs keep their own "not in this package" wording |
+     | 404 `NO_PUBLIC_DOCUMENT_FOR_METHOD` | The procurement-method explanation (direct, selective, e-market), unchanged |
+     | 429 | "เปิดดูเอกสารบ่อยเกินไป" (too many documents opened) with a "ลองใหม่" (try again) button |
+     | Network error, 5xx, 400, or not a PDF | "เปิดเอกสารไม่สำเร็จ" (the document didn't load) with "ลองใหม่" |
 4. **Session History Protection:** The client fetches the PDF stream as a Blob object URL in memory rather than directing the iframe directly to a URL. This prevents iframe subframe navigations from polluting the browser's top-level session history (`window.history`), preserving expected browser back-button behavior.
 5. **Memory Management:** Blob object URLs are revoked immediately upon modal closure or component unmount via active reference tracking, preventing client-side memory leaks.
 6. **Official e-GP Authority:** The preview header and empty states retain direct, prominent links to the official e-GP listing, reinforcing that official bidding and formal submissions happen exclusively on e-GP.

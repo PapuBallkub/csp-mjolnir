@@ -1,14 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { Readable } from 'node:stream';
-import axios from 'axios';
-import AdmZip from 'adm-zip';
 import { env } from '#common/config/env.js';
 import { getDocumentsDir } from '#common/paths.js';
 import { escapeRegex } from '#common/utils/escape-regex.js';
-import { isAllowedEgpUrl } from '#common/utils/sanitize.js';
 import { Tor, TorInsight } from '#models/index.js';
-import { USER_AGENT } from '#pipeline/shared/user-agent.js';
 
 /**
  * What the public may see (NFR-17). Never a non-IT TOR, and never a result a
@@ -579,434 +574,165 @@ function publicDocument(document) {
   return { fileName, sizeBytes, pages, documentType };
 }
 
-const PROCESS5 = 'https://process5.gprocurement.go.th';
-const MAX_PREVIEW_BYTES = 40 * 1024 * 1024; // 40MB
-const PREVIEW_TIMEOUT_MS = 15000;
+/**
+ * Where a stored file is on this machine, or null. Nothing outside the
+ * documents folder is ever opened (ASVS V5.3.2).
+ *
+ * The pipeline records absolute paths, and those differ between machines: a
+ * laptop writes D:\…\server\data\documents\…, a container /app/data/documents/….
+ * A recorded path is used as it is only when it already points inside this
+ * machine's documents folder. Otherwise the part after its last segment named
+ * like that folder is looked for under ours, so a database filled on a laptop
+ * still works with the server in Docker.
+ */
+function locateStoredFile(storagePath) {
+  if (typeof storagePath !== 'string' || storagePath === '') return null;
+  const root = path.resolve(getDocumentsDir());
+  const inside = (candidate) => candidate.startsWith(root + path.sep);
 
-// In-Memory LRU Cache for on-demand PDF previews (Max 20 entries, 30 min TTL)
-const PDF_CACHE_MAX_ENTRIES = 20;
-const PDF_CACHE_TTL_MS = 30 * 60 * 1000;
-const pdfPreviewCache = new Map();
+  const asRecorded = path.resolve(storagePath);
+  if (inside(asRecorded)) return asRecorded;
 
-function getCachedPdf(key) {
-  const entry = pdfPreviewCache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.timestamp > PDF_CACHE_TTL_MS) {
-    pdfPreviewCache.delete(key);
-    return null;
-  }
-  // LRU bump: delete and re-insert at end of Map
-  pdfPreviewCache.delete(key);
-  entry.timestamp = Date.now();
-  pdfPreviewCache.set(key, entry);
-  return entry;
+  const segments = storagePath.split(/[\\/]+/);
+  const at = segments.lastIndexOf(path.basename(root));
+  if (at === -1) return null;
+  const moved = path.resolve(root, ...segments.slice(at + 1));
+  return inside(moved) ? moved : null;
 }
 
-function setCachedPdf(key, buffer, fileName) {
-  if (pdfPreviewCache.size >= PDF_CACHE_MAX_ENTRIES) {
-    const oldestKey = pdfPreviewCache.keys().next().value;
-    if (oldestKey) pdfPreviewCache.delete(oldestKey);
+/** The file's size if `filePath` is a regular file, else null. */
+function sizeOf(filePath) {
+  try {
+    const stats = fs.statSync(filePath);
+    return stats.isFile() ? stats.size : null;
+  } catch {
+    return null;
   }
-  pdfPreviewCache.set(key, {
-    buffer,
-    fileName,
-    timestamp: Date.now(),
-  });
+}
+
+// Methods that never publish a TOR or invitation package on e-GP, so a missing
+// file there is expected rather than something we failed to store
+function publishesNoDocuments(tor) {
+  const method = tor.procurementMethod || '';
+  return (
+    !/e-bidding/i.test(method) &&
+    /เฉพาะเจาะจง|คัดเลือก|e-market|ตลาดอิเล็กทรอนิกส์|สอบราคา|ตกลงราคา/i.test(method || tor.title || '')
+  );
 }
 
 /**
- * Streams the PDF document for a project on demand without persisting binary data to DB.
- * 1. If downloaded file exists on disk (from OCR pipeline), stream it directly.
- * 2. If in-memory LRU cache has the buffer, stream it instantly in ~1ms.
- * 3. If direct e-GP template URL is available, stream it.
- * 4. Query e-GP process5 API on the fly, extract candidate PDFs, populate cache, and stream.
+ * A TOR's document from the files the pipeline stored. It never calls e-GP:
+ * the pipeline downloads under the request pacer (NFR-03) and a size cap, and a
+ * visitor's click must not start a download of its own (ADR 0038).
+ *
+ * Looks in this order: the packages (newest first, or the one `zipId` or
+ * `version` picks), then the TOR's own document and its parts, then, for a
+ * bidding document or announcement with no record, the project's folder.
  *
  * @param {string} projectId - 11-digit e-GP project ID
- * @param {object} [options]
- * @param {number|string} [options.part=0] - Which document part or role (0/'tor', 1/'bidding', 2/'announcement')
- * @param {string} [options.role] - Explicit document role ('tor' | 'bidding' | 'announcement')
- * @param {string} [options.zipId] - Optional e-GP zip package ID to target a specific amendment stage
- * @param {number|string} [options.version] - Optional version index
- * @returns {Promise<{ stream: import('stream').Readable, fileName: string, contentLength?: number, storagePath?: string, buffer?: Buffer } | null>}
+ * @param {object} [options] - already checked by the controller
+ * @param {number} [options.part=0] - 0 TOR, 1 bidding, 2 announcement; or a TOR part's index
+ * @param {'tor'|'bidding'|'announcement'|null} [options.role] - wins over `part`
+ * @param {string|null} [options.zipId] - one package, by its e-GP id
+ * @param {number|null} [options.version] - one package, by its position (1 = first)
+ * @returns {Promise<
+ *   | { file: { path: string, fileName: string, size: number } }
+ *   | { reason: 'no-tor' }
+ *   | { reason: 'not-stored' | 'no-public-document', procurementMethod: string|null, title: string|null }
+ * >}
  */
-export async function getTorPdfStream(projectId, { part = 0, role = null, zipId = null, version = null } = {}) {
-  if (!projectId || typeof projectId !== 'string') return null;
+export async function findStoredDocument(projectId, { part = 0, role = null, zipId = null, version = null } = {}) {
+  if (!projectId || typeof projectId !== 'string') return { reason: 'no-tor' };
   const id = projectId.trim();
 
   const tor = await Tor.findOne({ projectId: id }).lean();
-  if (!tor) return null;
+  if (!tor) return { reason: 'no-tor' };
 
-  // 1. Normalize target document role and numeric index
-  let targetRole = null;
-  let numericPart = 0;
-
-  if (role) {
-    const roleLower = String(role).toLowerCase().trim();
-    if (roleLower === 'bidding') targetRole = 'bidding';
-    else if (roleLower === 'announcement') targetRole = 'announcement';
+  let targetRole = role;
+  if (!targetRole) {
+    // A part past the first indexes into a multi-part TOR when it has one
+    if (part > 0 && Array.isArray(tor.document?.parts) && tor.document.parts.length > part) targetRole = 'tor';
+    else if (part === 1) targetRole = 'bidding';
+    else if (part === 2) targetRole = 'announcement';
     else targetRole = 'tor';
-    numericPart = Number(part) || 0;
-  } else {
-    // If role is not explicitly provided, deduce from part
-    if (typeof part === 'string') {
-      const lower = part.toLowerCase().trim();
-      if (lower === 'bidding') {
-        targetRole = 'bidding';
-        numericPart = 1;
-      } else if (lower === 'announcement') {
-        targetRole = 'announcement';
-        numericPart = 2;
-      } else if (lower === 'tor') {
-        targetRole = 'tor';
-        numericPart = 0;
-      } else {
-        numericPart = Number(lower) || 0;
-      }
-    } else if (typeof part === 'number') {
-      numericPart = part;
-    }
-
-    if (!targetRole) {
-      // If project has multi-part TOR specification and numericPart indexes into it, treat as TOR part
-      if (numericPart > 0 && Array.isArray(tor.document?.parts) && tor.document.parts.length > numericPart) {
-        targetRole = 'tor';
-      } else if (numericPart === 1) {
-        targetRole = 'bidding';
-      } else if (numericPart === 2) {
-        targetRole = 'announcement';
-      } else {
-        targetRole = 'tor';
-      }
-    }
   }
 
-  // 2. Check local file on disk
-  let localPath = null;
-  let fileName = null;
+  // A record that names a file we can't find: the container was recreated
+  // without its volume, or the path points outside the documents folder
+  let recordedButMissing = false;
+  const fromRecord = (storagePath, fileName) => {
+    if (!storagePath) return null;
+    const filePath = locateStoredFile(storagePath);
+    const size = filePath ? sizeOf(filePath) : null;
+    if (size === null) {
+      recordedButMissing = true;
+      return null;
+    }
+    return { path: filePath, fileName: fileName || path.basename(filePath), size };
+  };
 
-  // Check tor.packages (filterable by zipId or version index)
+  let file = null;
+
   if (Array.isArray(tor.packages) && tor.packages.length > 0) {
     let candidatePackages = tor.packages;
     if (zipId) {
       const specific = tor.packages.filter((p) => p.zipId === zipId);
       if (specific.length) candidatePackages = specific;
-    } else if (version !== null && version !== undefined) {
-      const verNum = Number(version);
-      if (verNum > 0 && tor.packages[verNum - 1]) {
-        candidatePackages = [tor.packages[verNum - 1]];
-      }
+    } else if (version && tor.packages[version - 1]) {
+      candidatePackages = [tor.packages[version - 1]];
     }
 
-    for (let i = candidatePackages.length - 1; i >= 0; i--) {
-      const pkg = candidatePackages[i];
-      if (!Array.isArray(pkg?.files)) continue;
-      const matched = pkg.files.find((f) => f.role === targetRole);
-      if (matched?.storagePath && fs.existsSync(matched.storagePath)) {
-        localPath = matched.storagePath;
-        fileName = matched.fileName;
+    for (let i = candidatePackages.length - 1; i >= 0 && !file; i--) {
+      const matched = candidatePackages[i]?.files?.find?.((f) => f.role === targetRole);
+      if (matched) file = fromRecord(matched.storagePath, matched.fileName);
+    }
+  }
+
+  if (!file && targetRole === 'tor') {
+    const parts = tor.document?.parts;
+    if (part > 0 && Array.isArray(parts) && parts[part]) {
+      file = fromRecord(parts[part].storagePath, parts[part].fileName);
+    } else if (tor.document?.storagePath) {
+      file = fromRecord(tor.document.storagePath, tor.document.fileName || `${id}_TOR.pdf`);
+    }
+  }
+
+  // Files with no record yet: e-GP's own names for the bidding document
+  // (doc_…) and the announcement (annoudoc…) in the project's folder. PR 07
+  // decides whether this stays, since a scan result needs a record to sit on.
+  if (!file && (targetRole === 'bidding' || targetRole === 'announcement')) {
+    const projectDir = locateStoredFile(path.join(getDocumentsDir(), id));
+    const prefixes = targetRole === 'bidding' ? ['doc_', 'bidding'] : ['annoudoc', 'announ'];
+    let entries = [];
+    try {
+      entries = projectDir ? fs.readdirSync(projectDir, { recursive: true }) : [];
+    } catch {
+      // No folder for this project
+    }
+    for (const entry of entries) {
+      const base = path.basename(String(entry)).toLowerCase();
+      if (!base.endsWith('.pdf')) continue;
+      if (!(base.startsWith(prefixes[0]) || base.includes(prefixes[1]))) continue;
+      const filePath = locateStoredFile(path.join(projectDir, String(entry)));
+      const size = filePath ? sizeOf(filePath) : null;
+      if (size !== null) {
+        file = { path: filePath, fileName: path.basename(filePath), size };
         break;
       }
     }
   }
 
-  // If role is 'tor', also check tor.document
-  if (!localPath && targetRole === 'tor') {
-    if (numericPart > 0 && Array.isArray(tor.document?.parts) && tor.document.parts[numericPart]) {
-      localPath = tor.document.parts[numericPart].storagePath;
-      fileName = tor.document.parts[numericPart].fileName;
-    } else if (tor.document?.storagePath && fs.existsSync(tor.document.storagePath)) {
-      localPath = tor.document.storagePath;
-      fileName = tor.document.fileName || `${id}_TOR.pdf`;
-    }
+  if (file) return { file };
+
+  if (recordedButMissing) {
+    // The project ID only: the recorded path is the server's business
+    console.warn(`[preview] ${id}: a recorded ${targetRole} file is missing or outside the documents folder`);
   }
-
-  // Check project directory on disk if it exists (e.g. server/data/documents/<projectId>/)
-  if (!localPath && (targetRole === 'bidding' || targetRole === 'announcement')) {
-    const documentsDir = getDocumentsDir();
-    const projectDir = path.join(documentsDir, id);
-    if (fs.existsSync(projectDir)) {
-      try {
-        const scanEntries = fs.readdirSync(projectDir, { recursive: true });
-        for (const entry of scanEntries) {
-          const entryStr = String(entry);
-          if (!entryStr.toLowerCase().endsWith('.pdf')) continue;
-          const base = path.basename(entryStr).toLowerCase();
-          if (targetRole === 'bidding' && (base.startsWith('doc_') || base.includes('bidding'))) {
-            const cand = path.join(projectDir, entryStr);
-            if (fs.existsSync(cand) && fs.statSync(cand).isFile()) {
-              localPath = cand;
-              fileName = path.basename(cand);
-              break;
-            }
-          } else if (targetRole === 'announcement' && (base.startsWith('annoudoc') || base.includes('announ'))) {
-            const cand = path.join(projectDir, entryStr);
-            if (fs.existsSync(cand) && fs.statSync(cand).isFile()) {
-              localPath = cand;
-              fileName = path.basename(cand);
-              break;
-            }
-          }
-        }
-      } catch {
-        // Ignore directory read errors
-      }
-    }
-  }
-
-  if (localPath && fs.existsSync(localPath)) {
-    try {
-      const stats = fs.statSync(localPath);
-      return {
-        stream: fs.createReadStream(localPath),
-        fileName: fileName || path.basename(localPath),
-        contentLength: stats.size,
-        storagePath: localPath,
-      };
-    } catch {
-      // Fall through to cache/network fetch if file read fails
-    }
-  }
-
-  // 3. Check In-Memory LRU Cache (version, role, and part isolated)
-  const versionTag = zipId || tor.document?.contentHash || tor.document?.version || tor.updatedAt?.getTime?.() || '1';
-  const cacheKey = `${id}:${versionTag}:${targetRole}:${numericPart}`;
-  const cached = getCachedPdf(cacheKey);
-  if (cached) {
-    return {
-      stream: Readable.from(cached.buffer),
-      fileName: cached.fileName,
-      contentLength: cached.buffer.byteLength,
-      buffer: cached.buffer,
-    };
-  }
-
-  // 4. Direct URL from e-GP template service or portal (restricted to matching role)
-  // ASVS V1.2.2, V1.3.6: Verify directUrl against the https://*.gprocurement.go.th allowlist to prevent SSRF
-  const directUrl = tor.egpUrl || tor.announcementHistory?.[0]?.url;
-  if (directUrl && isAllowedEgpUrl(directUrl)) {
-    const isTemplateUrl = directUrl.includes('view-pdf-file');
-    const isPdfUrl = directUrl.endsWith('.pdf');
-
-    if (
-      (targetRole === 'announcement' && (isTemplateUrl || isPdfUrl)) ||
-      (targetRole === 'tor' && isPdfUrl && !isTemplateUrl)
-    ) {
-      try {
-        const resp = await axios.get(directUrl, {
-          headers: { 'User-Agent': USER_AGENT, Accept: 'application/pdf,*/*' },
-          responseType: 'arraybuffer',
-          timeout: PREVIEW_TIMEOUT_MS,
-        });
-        const directBuffer = Buffer.from(resp.data);
-        const resFileName = `${id}_${targetRole}.pdf`;
-        setCachedPdf(cacheKey, directBuffer, resFileName);
-        return {
-          stream: Readable.from(directBuffer),
-          fileName: resFileName,
-          contentLength: directBuffer.byteLength,
-          buffer: directBuffer,
-        };
-      } catch {
-        // Fall through to dynamic lookup
-      }
-    }
-  }
-
-  // 5. Dynamic lookup from e-GP process5 API (ASVS V1.2.2: URL-encode query parameters)
-  try {
-    const encodedId = encodeURIComponent(id);
-    const lookupUrls = [
-      `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZip?projectId=${encodedId}`,
-      `${PROCESS5}/egp-approval-service/apv-common/infoProcureDocAnnounZipTemp?projectId=${encodedId}`,
-    ];
-
-    let zipId = null;
-    let templateId = null;
-
-    for (const url of lookupUrls) {
-      try {
-        const { data } = await axios.get(url, {
-          headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
-          timeout: 8000,
-        });
-        if (data?.data?.buildName2) {
-          templateId = data.data.buildName2;
-        }
-        if (data?.data?.zipId) {
-          zipId = data.data.zipId;
-          break;
-        }
-      } catch {
-        continue;
-      }
-    }
-
-    // 5b. Fall back to price estimate package (ราคากลาง / BOQ) if no announcement package exists
-    if (!zipId) {
-      try {
-        const { data: priceData } = await axios.get(
-          `${PROCESS5}/egp-doc-price-estimate-service/dpe-common/infoDocPriceestZipHis?projectId=${encodedId}`,
-          {
-            headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
-            timeout: 6000,
-          },
-        );
-        if (priceData?.data?.zipFileId) {
-          zipId = priceData.data.zipFileId;
-        }
-      } catch {
-        // Price lookup unavailable
-      }
-    }
-
-    // Blank bank guarantee forms and legal boilerplate e-GP includes in every package
-    const isJunkForm = (entryName) => {
-      const base = String(entryName).split(/[\\/]/).pop();
-      return (
-        /bond\.pdf$/i.test(base) ||
-        /^contract_\d+\.pdf$/i.test(base) ||
-        /^definition_\d+\.pdf$/i.test(base) ||
-        /^quotation\.pdf$/i.test(base) ||
-        /^bidding noltice\.pdf$/i.test(base) ||
-        /^bill_payment\.pdf$/i.test(base) ||
-        /^action_plan/i.test(base) ||
-        /^price adjustment/i.test(base)
-      );
-    };
-
-    if (zipId) {
-      try {
-        const resp = await axios.get(
-          `${PROCESS5}/egp-upload-service/v1/downloadFileTest?fileId=${encodeURIComponent(zipId)}`,
-          {
-            headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
-            responseType: 'arraybuffer',
-            timeout: PREVIEW_TIMEOUT_MS,
-            maxContentLength: MAX_PREVIEW_BYTES,
-          },
-        );
-
-        const buffer = Buffer.from(resp.data);
-        if (buffer.subarray(0, 4).toString('ascii').startsWith('%PDF')) {
-          if (targetRole === 'tor') {
-            setCachedPdf(cacheKey, buffer, `${id}_document.pdf`);
-            return {
-              stream: Readable.from(buffer),
-              fileName: `${id}_document.pdf`,
-              contentLength: buffer.byteLength,
-              buffer,
-            };
-          }
-        } else {
-          const zip = new AdmZip(buffer);
-          const entries = zip
-            .getEntries()
-            .filter((e) => !e.isDirectory && /\.pdf$/i.test(e.entryName) && !isJunkForm(e.entryName));
-
-          if (entries.length > 0) {
-            // Categorize entries
-            const torCandidates = entries
-              .filter((e) => /(^|[^a-z])tor([^a-z]|$)|ขอบเขต|คุณลักษณะ/i.test(e.entryName))
-              .sort((a, b) => b.header.size - a.header.size);
-
-            const biddingCandidates = entries
-              .filter((e) => /doc_/i.test(e.entryName) || /bidding|ประกวดราคา/i.test(e.entryName))
-              .sort((a, b) => b.header.size - a.header.size);
-
-            const announcementCandidates = entries
-              .filter((e) => /annoudoc/i.test(e.entryName) || /ประกาศ/i.test(e.entryName))
-              .sort((a, b) => b.header.size - a.header.size);
-
-            const otherCandidates = entries
-              .filter(
-                (e) =>
-                  !torCandidates.includes(e) &&
-                  !biddingCandidates.includes(e) &&
-                  !announcementCandidates.includes(e),
-              )
-              .sort((a, b) => b.header.size - a.header.size);
-
-            // Warm cache for discovered candidate parts for instant sub-document tab switches
-            if (torCandidates[0]) {
-              try {
-                const tBuf = torCandidates[0].getData();
-                setCachedPdf(`${id}:${versionTag}:tor:0`, tBuf, torCandidates[0].name || `${id}_TOR.pdf`);
-              } catch {}
-            }
-            if (biddingCandidates[0]) {
-              try {
-                const bBuf = biddingCandidates[0].getData();
-                setCachedPdf(`${id}:${versionTag}:bidding:1`, bBuf, biddingCandidates[0].name || `${id}_bidding.pdf`);
-              } catch {}
-            }
-            if (announcementCandidates[0]) {
-              try {
-                const aBuf = announcementCandidates[0].getData();
-                setCachedPdf(
-                  `${id}:${versionTag}:announcement:2`,
-                  aBuf,
-                  announcementCandidates[0].name || `${id}_announcement.pdf`,
-                );
-              } catch {}
-            }
-
-            // Pick candidate precisely matching targetRole
-            let selected = null;
-            if (targetRole === 'tor') {
-              selected = torCandidates[numericPart] || torCandidates[0] || otherCandidates[0];
-            } else if (targetRole === 'bidding') {
-              selected = biddingCandidates[0];
-            } else if (targetRole === 'announcement') {
-              selected = announcementCandidates[0];
-            }
-
-            if (selected) {
-              const pdfData = selected.getData();
-              const selectedName = selected.name || `${id}_${targetRole}.pdf`;
-              setCachedPdf(cacheKey, pdfData, selectedName);
-
-              return {
-                stream: Readable.from(pdfData),
-                fileName: selectedName,
-                contentLength: pdfData.byteLength,
-                buffer: pdfData,
-              };
-            }
-          }
-        }
-      } catch {
-        // Fall through to template lookup if zip extraction fails
-      }
-    }
-
-    // Fall back to 2-page announcement letter template only when announcement was requested
-    if (targetRole === 'announcement' && templateId) {
-      try {
-        const resp = await axios.get(
-          `${PROCESS5}/egp-template-service/dwnt/view-pdf-file?templateId=${encodeURIComponent(templateId)}`,
-          {
-            headers: { 'User-Agent': USER_AGENT, Accept: 'application/pdf,*/*' },
-            responseType: 'arraybuffer',
-            timeout: PREVIEW_TIMEOUT_MS,
-          },
-        );
-        const templBuffer = Buffer.from(resp.data);
-        setCachedPdf(cacheKey, templBuffer, `${id}_announcement.pdf`);
-        return {
-          stream: Readable.from(templBuffer),
-          fileName: `${id}_announcement.pdf`,
-          contentLength: templBuffer.byteLength,
-          buffer: templBuffer,
-        };
-      } catch {
-        // Failed
-      }
-    }
-  } catch {
-    // Upstream unavailable
-  }
-
-  return null;
+  return {
+    reason: publishesNoDocuments(tor) ? 'no-public-document' : 'not-stored',
+    procurementMethod: tor.procurementMethod || null,
+    title: tor.title || null,
+  };
 }
 
 

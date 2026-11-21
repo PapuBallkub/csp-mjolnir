@@ -1764,12 +1764,12 @@ export async function suggestProjects(q) {
   const isNumeric = /^\d+$/.test(trimmed);
   let filter;
   if (isNumeric) {
-    filter = { projectId: { $regex: trimmed, $options: 'i' } };
+    filter = { projectId: { $regex: escapeRegex(trimmed), $options: 'i' } };
   } else {
     filter = {
       $or: [
-        { projectId: { $regex: trimmed, $options: 'i' } },
-        { title: { $regex: trimmed, $options: 'i' } },
+        { projectId: { $regex: escapeRegex(trimmed), $options: 'i' } },
+        { title: { $regex: escapeRegex(trimmed), $options: 'i' } },
       ],
     };
   }
@@ -1820,9 +1820,9 @@ export async function getAdminTechnologies({ status, search, page = 1, limit = 5
     if (search && search.trim()) {
       const s = search.trim();
       query.$or = [
-        { name: { $regex: s, $options: 'i' } },
-        { category: { $regex: s, $options: 'i' } },
-        { aliases: { $regex: s, $options: 'i' } },
+        { name: { $regex: escapeRegex(s), $options: 'i' } },
+        { category: { $regex: escapeRegex(s), $options: 'i' } },
+        { aliases: { $regex: escapeRegex(s), $options: 'i' } },
       ];
     }
 
@@ -2039,9 +2039,9 @@ export async function getPipelineTasks({ phase = 'all', search = '', page = 1, l
     if (q) {
       const matchingTors = await Tor.find({
         $or: [
-          { projectId: { $regex: q, $options: 'i' } },
-          { title: { $regex: q, $options: 'i' } },
-          { agency: { $regex: q, $options: 'i' } },
+          { projectId: { $regex: escapeRegex(q), $options: 'i' } },
+          { title: { $regex: escapeRegex(q), $options: 'i' } },
+          { agency: { $regex: escapeRegex(q), $options: 'i' } },
         ],
       })
         .select('projectId')
@@ -2049,9 +2049,9 @@ export async function getPipelineTasks({ phase = 'all', search = '', page = 1, l
       const projIds = matchingTors.map((t) => t.projectId);
       failureQuery = {
         $or: [
-          { projectId: { $regex: q, $options: 'i' } },
+          { projectId: { $regex: escapeRegex(q), $options: 'i' } },
           { projectId: { $in: projIds } },
-          { lastError: { $regex: q, $options: 'i' } },
+          { lastError: { $regex: escapeRegex(q), $options: 'i' } },
         ],
       };
     }
@@ -2093,9 +2093,9 @@ export async function getPipelineTasks({ phase = 'all', search = '', page = 1, l
     };
     if (q) {
       insightQuery.$or = [
-        { projectId: { $regex: q, $options: 'i' } },
-        { 'identification.titleTh': { $regex: q, $options: 'i' } },
-        { 'identification.agency': { $regex: q, $options: 'i' } },
+        { projectId: { $regex: escapeRegex(q), $options: 'i' } },
+        { 'identification.titleTh': { $regex: escapeRegex(q), $options: 'i' } },
+        { 'identification.agency': { $regex: escapeRegex(q), $options: 'i' } },
       ];
     }
     total = await TorInsight.countDocuments(insightQuery);
@@ -2130,9 +2130,9 @@ export async function getPipelineTasks({ phase = 'all', search = '', page = 1, l
 
     if (q) {
       torQuery.$or = [
-        { projectId: { $regex: q, $options: 'i' } },
-        { title: { $regex: q, $options: 'i' } },
-        { agency: { $regex: q, $options: 'i' } },
+        { projectId: { $regex: escapeRegex(q), $options: 'i' } },
+        { title: { $regex: escapeRegex(q), $options: 'i' } },
+        { agency: { $regex: escapeRegex(q), $options: 'i' } },
       ];
     }
 

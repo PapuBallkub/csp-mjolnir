@@ -1,5 +1,6 @@
 // Public interface for the tors feature
-export { torRoutes } from './tor.routes.js';
+export { createTorRoutes } from './tor.routes.js';
+export { torRateLimits } from './rate-limit.js';
 export {
   listTors,
   getTorByProjectId,

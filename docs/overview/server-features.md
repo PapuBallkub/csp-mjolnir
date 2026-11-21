@@ -48,7 +48,7 @@ flowchart LR
 | `auth` | `/api/auth` | Register, sign in with a password or Google, sign out, "who am I". Exports `requireAuth` and `requireRole`, which every other feature uses to guard its routes | `User`: the account (email, password hash, name, role) |
 | `profile` | `/api/profile` | Saves the capability profile that drives matching (FR-12) | `User.profile` |
 | `watchlist` | `/api/watchlist` | Saves and removes TORs, and lists them with what changed since they were saved (FR-17) | `User.watchlist` |
-| `tors` | `/api/tors` | The catalog with its filters and facets, one TOR's detail, its PDF. Decides what the public may see (`visibilityFilter`, `toPublic`) | nothing: reads `Tor` and `TorInsight` |
+| `tors` | `/api/tors` | The catalog with its filters and facets, one TOR's detail, its PDF from the files the pipeline stored ([0038](../decisions/0038-preview-serves-stored-files-only.md)). Decides what the public may see (`visibilityFilter`, `toPublic`) | nothing: reads `Tor` and `TorInsight` |
 | `technologies` | `/api/technologies` | The technology names search can filter by; a signed-in user can ask for a new one | `Technology` (requests) |
 | `notifications` | `/api/notifications` | In-app notification feed, read/unread states, and scheduled email match digest dispatch (FR-14, FR-18) | `Notification`: immutable events and delivery state (`emailSent`, `isRead`) |
 | `admin` | `/api/admin` | The admin dashboard (FR-22), the review workspace (FR-23), pipeline controls: retry, skip, dismiss, add a project, run a fetch | `TorInsight` (corrections), `Technology`, `TitleScreen`, `PipelineFailure`, `IngestionLog` |
@@ -113,7 +113,6 @@ flowchart LR
     admin -->|"runs fetch, download,<br/>OCR, add: in the API process"| ingestion
     admin -->|"snapshot() for<br/>the dashboard"| jobs
     admin -->|"locks, failures,<br/>versions, pacer"| shared
-    tors -->|"user-agent"| shared
     profile -->|"SYSTEM_ARCHETYPES"| extraction
     technologies -->|"starter vocabulary"| extraction
     SIM -->|"SYSTEM_ARCHETYPES,<br/>COMPLEXITY_TIERS"| extraction
@@ -154,7 +153,7 @@ Plumbing with no knowledge of any feature. It imports nothing from
 | `errors/http-error.js` | `HttpError`, and `badRequest`, `unauthorized`, `forbidden`, `notFound`. Throw one from a controller or service; the error handler turns it into a JSON reply |
 | `middleware/error-handler.js` | Every error becomes JSON. In production a 500 says "Internal server error" and nothing more |
 | `middleware/not-found.js` | Unknown routes get a JSON 404, not an HTML page |
-| `middleware/rate-limit.js` | `limitByIp` (and `limitByUser`, unused so far): the building blocks of auth's limits ([0007](../decisions/0007-rate-limiting-on-the-auth-routes.md)) |
+| `middleware/rate-limit.js` | `limitByIp`, and `limitByUser` for routes behind `requireAuth`: the counting. Each feature that limits a route keeps its numbers in its own `rate-limit.js` (`auth`, `tors`, `technologies`, `admin`), and `app.js` gathers them ([0007](../decisions/0007-rate-limiting-on-the-auth-routes.md)) |
 
 ### `models/`
 

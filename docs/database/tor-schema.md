@@ -48,7 +48,7 @@ The TOR that OCR reads: the latest package's ([0020](../decisions/0020-read-the-
 | Field | Type | Default | Indexed | Description | Real Example |
 |---|---|---|---|---|---|
 | `fileName` | `String` | `null` | No | The TOR's file name, as the package names it; its first part's when it has several | `"Attach_TOR_1.pdf"` |
-| `storagePath` | `String` | `null` | No | Path to the TOR's (first) file | `"server/data/documents/69109062251/69109062251_07102569_1c4e4e1a/Attach_TOR_1.pdf"` |
+| `storagePath` | `String` | `null` | No | Path to the TOR's (first) file. Absolute, as the machine that downloaded it saw it; the preview looks it up under its own documents folder when the path is from elsewhere ([0038](../decisions/0038-preview-serves-stored-files-only.md)) | `"server/data/documents/69109062251/69109062251_07102569_1c4e4e1a/Attach_TOR_1.pdf"` |
 | `sizeBytes` | `Number` | `null` | No | Size in bytes, all parts together | `9735994` (~9.7 MB) |
 | `pages` | `Number` | `null` | No | Total page count, all parts together | `30` |
 | `documentType` | `String` | `'UNKNOWN'` | No | `'DIGITAL_TEXT_PDF'` when every part has a Thai text layer, else `'SCANNED_PAPER_PDF'` (a garbled layer counts as a scan) | `"SCANNED_PAPER_PDF"` |
