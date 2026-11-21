@@ -437,8 +437,9 @@ the `mjolnir_test` database.
   `profile`, `technology`, `matchmaker`, `similarity`, `price-benchmark`,
   `lock-spec`. Also `tor-insight` (the model), `tor-awaiting-visibility` (what
   the public sees in pilot mode), `seed-data`, `ingestion-log`,
-  `migrate-categories`, `smoke` (the app boots), and `env` (the `JWT_SECRET`
-  minimum, in a child process).
+  `migrate-categories`, `smoke` (the app boots), `env` (the `JWT_SECRET`
+  minimum) and `error-handler` (a 500 hides its cause in production), the last
+  two in a child process.
 - [test/pipeline/extraction/fixtures.js](../server/test/pipeline/extraction/fixtures.js):
   shared fake TORs and AI answers.
 - [test/pipeline/ingestion/fixtures/](../server/test/pipeline/ingestion/fixtures/):
