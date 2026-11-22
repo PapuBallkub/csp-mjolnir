@@ -11,25 +11,21 @@ export function CategoryPicker({
   selected,
   onChange,
   isModified,
-  lang = "th",
 }: {
   selected: string[];
   onChange: (selected: string[]) => void;
   isModified?: boolean;
-  lang?: "th" | "en";
 }) {
   const full = selected.length >= MAX_CATEGORIES;
 
   return (
     <fieldset>
-      <legend className="sr-only">{lang === "th" ? "หมวดหมู่งานไอที" : "IT categories"}</legend>
+      <legend className="sr-only">หมวดหมู่งานไอที</legend>
       <p className="text-[12px] text-ink-3">
-        {lang === "th"
-          ? `เลือกได้สูงสุด ${MAX_CATEGORIES} หมวด ตามลำดับที่กด · อันดับ 1 คือหมวดหลัก`
-          : `Up to ${MAX_CATEGORIES}, in the order you tick them · number 1 is the main one`}
+        เลือกได้สูงสุด {MAX_CATEGORIES} หมวด ตามลำดับที่กด · อันดับ 1 คือหมวดหลัก
       </p>
       <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-        {PROJECT_CATEGORIES.map(({ key, th, en }) => {
+        {PROJECT_CATEGORIES.map(({ key, th }) => {
           const rank = selected.indexOf(key) + 1;
           const disabled = full && rank === 0;
           return (
@@ -56,8 +52,8 @@ export function CategoryPicker({
               >
                 {rank > 0 ? rank : ""}
               </span>
-              <span>{lang === "th" ? th : en}</span>
-              {rank > 0 ? <span className="sr-only">{lang === "th" ? `อันดับ ${rank}` : `Rank ${rank}`}</span> : null}
+              <span>{th}</span>
+              {rank > 0 ? <span className="sr-only">อันดับ {rank}</span> : null}
             </label>
           );
         })}
@@ -73,7 +69,6 @@ export function DynamicListEditor({
   placeholder = "ระบุรายการ...",
   addLabel = "เพิ่มรายการ",
   emptyHint = "ยังไม่มีรายการในส่วนนี้ (คลิกเพื่อเพิ่ม)",
-  lang = "th",
   confidenceBadge,
   isModified,
   onRevert,
@@ -84,7 +79,6 @@ export function DynamicListEditor({
   placeholder?: string;
   addLabel?: string;
   emptyHint?: string;
-  lang?: "th" | "en";
   confidenceBadge?: React.ReactNode;
   isModified?: boolean;
   onRevert?: () => void;
@@ -124,13 +118,13 @@ export function DynamicListEditor({
           {isModified && (
             <span className="inline-flex items-center gap-1 rounded-[2px] bg-amend-bg border border-amend-line px-1.5 py-0.2 text-[10.5px] font-semibold text-amend">
               <span>●</span>
-              <span>{lang === "th" ? "แก้ไขแล้ว" : "Modified"}</span>
+              <span>แก้ไขแล้ว</span>
               {onRevert && (
                 <button
                   type="button"
                   onClick={onRevert}
                   className="ml-0.5 text-amend hover:underline cursor-pointer"
-                  title={lang === "th" ? "คืนค่าเดิม" : "Revert"}
+                  title="คืนค่าเดิม"
                 >
                   ↺
                 </button>
@@ -157,7 +151,7 @@ export function DynamicListEditor({
             <button
               type="button"
               onClick={() => handleRemove(idx)}
-              title={lang === "th" ? "ลบรายการนี้" : "Remove item"}
+              title="ลบรายการนี้"
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] text-ink-3 hover:bg-risk-bg hover:text-risk transition-colors cursor-pointer"
             >
               ✕
@@ -191,7 +185,6 @@ export function KeyValueListEditor({
   valueLabel = "คุณสมบัติ / ค่าที่กำหนด",
   addLabel = "เพิ่มข้อกำหนด",
   emptyHint = "ไม่มีข้อกำหนดเฉพาะเจาะจง",
-  lang = "th",
   confidenceBadge,
   isModified,
   onRevert,
@@ -203,7 +196,6 @@ export function KeyValueListEditor({
   valueLabel?: string;
   addLabel?: string;
   emptyHint?: string;
-  lang?: "th" | "en";
   confidenceBadge?: React.ReactNode;
   isModified?: boolean;
   onRevert?: () => void;
@@ -229,13 +221,13 @@ export function KeyValueListEditor({
           {isModified && (
             <span className="inline-flex items-center gap-1 rounded-[2px] bg-amend-bg border border-amend-line px-1.5 py-0.2 text-[10.5px] font-semibold text-amend">
               <span>●</span>
-              <span>{lang === "th" ? "แก้ไขแล้ว" : "Modified"}</span>
+              <span>แก้ไขแล้ว</span>
               {onRevert && (
                 <button
                   type="button"
                   onClick={onRevert}
                   className="ml-0.5 text-amend hover:underline cursor-pointer"
-                  title={lang === "th" ? "คืนค่าเดิม" : "Revert"}
+                  title="คืนค่าเดิม"
                 >
                   ↺
                 </button>
@@ -269,7 +261,7 @@ export function KeyValueListEditor({
             <button
               type="button"
               onClick={() => handleRemove(idx)}
-              title={lang === "th" ? "ลบรายการนี้" : "Remove row"}
+              title="ลบรายการนี้"
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] text-ink-3 hover:bg-risk-bg hover:text-risk transition-colors cursor-pointer self-end sm:self-auto"
             >
               ✕
@@ -302,7 +294,6 @@ export function VersionHistoryDrawer({
   currentVersion,
   onRollback,
   isRollingBack,
-  lang = "th",
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -310,7 +301,6 @@ export function VersionHistoryDrawer({
   currentVersion: number | null;
   onRollback: (version: number) => void;
   isRollingBack: boolean;
-  lang?: "th" | "en";
 }) {
   const [confirmRollbackVersion, setConfirmRollbackVersion] = useState<number | null>(null);
 
@@ -323,12 +313,10 @@ export function VersionHistoryDrawer({
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <div>
             <h2 className="text-[15px] font-semibold text-ink">
-              {lang === "th" ? "ประวัติเวอร์ชันและการย้อนกลับ (Version History)" : "Version History & Rollback"}
+              ประวัติเวอร์ชันและการย้อนกลับ (Version History)
             </h2>
             <p className="text-[12px] text-ink-3 mt-0.5">
-              {lang === "th"
-                ? `เวอร์ชันปัจจุบัน: v${currentVersion ?? 1} (NFR-07, ADR 0031)`
-                : `Current version: v${currentVersion ?? 1} (NFR-07, ADR 0031)`}
+              เวอร์ชันปัจจุบัน: v{currentVersion ?? 1} (NFR-07, ADR 0031)
             </p>
           </div>
           <button
@@ -344,9 +332,7 @@ export function VersionHistoryDrawer({
         <div className="flex-1 overflow-y-auto p-5">
           {versions.length === 0 ? (
             <div className="rounded-[3px] border border-line bg-surface-2 p-6 text-center text-[13px] text-ink-3">
-              {lang === "th"
-                ? "ยังไม่มีประวัติเวอร์ชันก่อนหน้า — บันทึกนี้เป็นเวอร์ชันเริ่มต้น v1"
-                : "No superseded versions recorded yet — this is the initial version v1."}
+              ยังไม่มีประวัติเวอร์ชันก่อนหน้า — บันทึกนี้เป็นเวอร์ชันเริ่มต้น v1
             </div>
           ) : (
             <div className="flex flex-col gap-3">
@@ -365,24 +351,24 @@ export function VersionHistoryDrawer({
                         </span>
                       </div>
                       <span className="text-[11px] text-ink-3">
-                        {new Date(ver.supersededAt).toLocaleString(lang === "th" ? "th-TH" : "en-US")}
+                        {new Date(ver.supersededAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}
                       </span>
                     </div>
 
                     <div className="mt-2.5 grid grid-cols-2 gap-2 text-[11.5px] text-ink-2">
                       <div>
-                        <span className="text-ink-3">{lang === "th" ? "สถานะ: " : "Status: "}</span>
+                        <span className="text-ink-3">สถานะ: </span>
                         <span className="font-medium text-ink">{ver.reviewStatus || "unknown"}</span>
                       </div>
                       <div>
-                        <span className="text-ink-3">{lang === "th" ? "คะแนน: " : "Confidence: "}</span>
+                        <span className="text-ink-3">คะแนน: </span>
                         <span className="font-mono font-medium text-ink">
                           {ver.confidenceScore ? `${ver.confidenceScore}%` : "-"}
                         </span>
                       </div>
                       {ver.modelName ? (
                         <div className="col-span-2 truncate">
-                          <span className="text-ink-3">{lang === "th" ? "โมเดล: " : "Model: "}</span>
+                          <span className="text-ink-3">โมเดล: </span>
                           <span className="font-mono text-[11px] text-ink">{ver.modelName}</span>
                         </div>
                       ) : null}
@@ -390,7 +376,7 @@ export function VersionHistoryDrawer({
 
                     <div className="mt-3 flex items-center justify-between border-t border-line/60 pt-3">
                       <span className="text-[11px] text-ink-3">
-                        {ver.keptText ? (lang === "th" ? "✓ มีข้อความ OCR เดิม" : "✓ OCR text stored") : ""}
+                        {ver.keptText ? "✓ มีข้อความ OCR เดิม" : ""}
                       </span>
                       <button
                         type="button"
@@ -399,12 +385,8 @@ export function VersionHistoryDrawer({
                         className={`${btn.primary} h-7 px-2.5 text-[11px]`}
                       >
                         {isRollingBack && confirmRollbackVersion === ver.version
-                          ? lang === "th"
-                            ? "กำลังย้อนกลับ..."
-                            : "Restoring..."
-                          : lang === "th"
-                            ? `ย้อนกลับเป็น v${ver.version}`
-                            : `Rollback to v${ver.version}`}
+                          ? "กำลังย้อนกลับ..."
+                          : `ย้อนกลับเป็น v${ver.version}`}
                       </button>
                     </div>
 
@@ -413,15 +395,11 @@ export function VersionHistoryDrawer({
                         <div className="text-[12px] font-semibold text-ink flex items-center gap-1.5">
                           <span>⚠️</span>
                           <span>
-                            {lang === "th"
-                              ? `ยืนยันการย้อนกลับเนื้อหาเป็นเวอร์ชัน v${ver.version}?`
-                              : `Confirm rollback to version v${ver.version}?`}
+                            ยืนยันการย้อนกลับเนื้อหาเป็นเวอร์ชัน v{ver.version}?
                           </span>
                         </div>
                         <p className="text-[11px] text-ink-2 leading-relaxed">
-                          {lang === "th"
-                            ? `ระบบจะนำเนื้อหาและผลการสกัดของเวอร์ชัน v${ver.version} กลับมาใช้งาน และจะบันทึกเป็นเวอร์ชันใหม่ (v${(currentVersion ?? 1) + 1}) เพื่อให้สามารถย้อนกลับคืนได้เสมอ`
-                            : `Fields from version v${ver.version} will be restored as a new version v${(currentVersion ?? 1) + 1}.`}
+                          ระบบจะนำเนื้อหาและผลการสกัดของเวอร์ชัน v{ver.version} กลับมาใช้งาน และจะบันทึกเป็นเวอร์ชันใหม่ (v{(currentVersion ?? 1) + 1}) เพื่อให้สามารถย้อนกลับคืนได้เสมอ
                         </p>
                         <div className="flex items-center justify-end gap-2 pt-1 border-t border-line/40">
                           <button
@@ -430,7 +408,7 @@ export function VersionHistoryDrawer({
                             onClick={() => setConfirmRollbackVersion(null)}
                             className={`${btn.secondary} text-[11px] h-6.5 px-2.5`}
                           >
-                            {lang === "th" ? "ยกเลิก" : "Cancel"}
+                            ยกเลิก
                           </button>
                           <button
                             type="button"
@@ -442,8 +420,8 @@ export function VersionHistoryDrawer({
                             className={`${btn.primary} text-[11px] h-6.5 px-3 font-semibold`}
                           >
                             {isRollingBack
-                              ? (lang === "th" ? "กำลังย้อนกลับ..." : "Restoring...")
-                              : (lang === "th" ? "ยืนยันย้อนกลับ" : "Confirm Rollback")}
+                              ? "กำลังย้อนกลับ..."
+                              : "ยืนยันย้อนกลับ"}
                           </button>
                         </div>
                       </div>
@@ -456,9 +434,7 @@ export function VersionHistoryDrawer({
 
         {/* Drawer Footer */}
         <div className="border-t border-line bg-surface-2 px-5 py-3 text-[12px] text-ink-3">
-          {lang === "th"
-            ? "การย้อนกลับจะสร้างเวอร์ชันใหม่โดยนำข้อมูลจากเวอร์ชันที่เลือกกลับมาใช้งาน"
-            : "Rolling back restores the selected version's fields and records a new version."}
+          การย้อนกลับจะสร้างเวอร์ชันใหม่โดยนำข้อมูลจากเวอร์ชันที่เลือกกลับมาใช้งาน
         </div>
       </div>
     </div>
@@ -469,12 +445,10 @@ export function EvidenceGroundingDrawer({
   isOpen,
   onClose,
   evidence,
-  lang = "th",
 }: {
   isOpen: boolean;
   onClose: () => void;
   evidence: Record<string, unknown> | null | undefined;
-  lang?: "th" | "en";
 }) {
   if (!isOpen) return null;
 
@@ -486,12 +460,10 @@ export function EvidenceGroundingDrawer({
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <div>
             <h2 className="text-[15px] font-semibold text-ink">
-              {lang === "th" ? "หลักฐานอ้างอิงจากเอกสาร TOR (Evidence Grounding)" : "TOR Grounding Evidence"}
+              หลักฐานอ้างอิงจากเอกสาร TOR (Evidence Grounding)
             </h2>
             <p className="text-[12px] text-ink-3 mt-0.5">
-              {lang === "th"
-                ? "ข้อความต้นฉบับที่ AI ใช้สกัดข้อมูล (NFR-17)"
-                : "Exact quotations extracted from source document (NFR-17)"}
+              ข้อความต้นฉบับที่ AI ใช้สกัดข้อมูล (NFR-17)
             </p>
           </div>
           <button
@@ -506,9 +478,7 @@ export function EvidenceGroundingDrawer({
         <div className="flex-1 overflow-y-auto p-5">
           {entries.length === 0 ? (
             <div className="rounded-[3px] border border-line bg-surface-2 p-6 text-center text-[13px] text-ink-3">
-              {lang === "th"
-                ? "ไม่มีข้อมูลข้อความอ้างอิง (Evidence) ที่บันทึกไว้สำหรับโครงการนี้"
-                : "No grounding quotes recorded for this project."}
+              ไม่มีข้อมูลข้อความอ้างอิง (Evidence) ที่บันทึกไว้สำหรับโครงการนี้
             </div>
           ) : (
             <div className="flex flex-col gap-4">
@@ -533,8 +503,7 @@ export function EvidenceGroundingDrawer({
 export type EditDiffItem = {
   section: string;
   field: string;
-  labelTh: string;
-  labelEn: string;
+  label: string;
   from: string;
   to: string;
 };
@@ -542,11 +511,9 @@ export type EditDiffItem = {
 function SmartDiffContent({
   from,
   to,
-  lang,
 }: {
   from: string;
   to: string;
-  lang: "th" | "en";
 }) {
   const isList =
     (from.includes(";") || to.includes(";") || (from.includes(",") && to.includes(","))) &&
@@ -577,7 +544,7 @@ function SmartDiffContent({
             <div className="space-y-1">
               <div className="text-[10px] font-mono uppercase text-risk font-semibold flex items-center gap-1">
                 <span>✕</span>
-                <span>{lang === "th" ? "รายการที่ลบออก" : "Removed Items"}</span>
+                <span>รายการที่ลบออก</span>
                 <span className="opacity-75">({removed.length})</span>
               </div>
               <div className="flex flex-wrap gap-1">
@@ -596,7 +563,7 @@ function SmartDiffContent({
             <div className="space-y-1">
               <div className="text-[10px] font-mono uppercase text-open font-semibold flex items-center gap-1">
                 <span>+</span>
-                <span>{lang === "th" ? "รายการที่เพิ่มใหม่" : "Added Items"}</span>
+                <span>รายการที่เพิ่มใหม่</span>
                 <span className="opacity-75">({added.length})</span>
               </div>
               <div className="flex flex-wrap gap-1">
@@ -613,9 +580,7 @@ function SmartDiffContent({
           )}
           {unchanged.length > 0 && (
             <div className="text-[10.5px] text-ink-3 pt-0.5 font-mono">
-              {lang === "th"
-                ? `(คงเดิม ${unchanged.length} รายการ)`
-                : `(${unchanged.length} items unchanged)`}
+              (คงเดิม {unchanged.length} รายการ)
             </div>
           )}
         </div>
@@ -635,7 +600,7 @@ function SmartDiffContent({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[12px] pt-1">
         <div className="rounded-[2px] bg-surface p-2 border border-line">
           <div className="text-[10px] uppercase font-mono text-ink-3 mb-0.5">
-            {lang === "th" ? "ค่าเดิม (Before)" : "Previous Value"}
+            ค่าเดิม (Before)
           </div>
           <div className="break-words font-mono text-[11.5px] leading-relaxed">
             {fromWords.map((w, i) => (
@@ -655,7 +620,7 @@ function SmartDiffContent({
 
         <div className="rounded-[2px] bg-open-bg/30 p-2 border border-open-line">
           <div className="text-[10px] uppercase font-mono text-open font-semibold mb-0.5">
-            {lang === "th" ? "ค่าใหม่ (After)" : "New Value"}
+            ค่าใหม่ (After)
           </div>
           <div className="break-words font-mono text-[11.5px] leading-relaxed">
             {toWords.map((w, i) => (
@@ -681,7 +646,7 @@ function SmartDiffContent({
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[12px] pt-1">
       <div className="rounded-[2px] bg-surface p-2 border border-line">
         <div className="text-[10px] uppercase font-mono text-ink-3 mb-0.5">
-          {lang === "th" ? "ค่าเดิม (Before)" : "Previous Value"}
+          ค่าเดิม (Before)
         </div>
         <div className="text-ink-3 line-through break-words font-mono text-[11.5px]">
           {from || <span className="italic opacity-60">(ว่าง / Unspecified)</span>}
@@ -690,7 +655,7 @@ function SmartDiffContent({
 
       <div className="rounded-[2px] bg-open-bg/40 p-2 border border-open-line">
         <div className="text-[10px] uppercase font-mono text-open font-semibold mb-0.5">
-          {lang === "th" ? "ค่าใหม่ (After)" : "New Value"}
+          ค่าใหม่ (After)
         </div>
         <div className="text-ink font-semibold break-words font-mono text-[11.5px]">
           {to || <span className="italic opacity-60 text-ink-3">(ล้างค่า / Cleared)</span>}
@@ -708,7 +673,6 @@ export function EditSummaryConfirmModal({
   isSaving,
   onRevertField,
   onDiscardAll,
-  lang = "th",
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -717,7 +681,6 @@ export function EditSummaryConfirmModal({
   isSaving: boolean;
   onRevertField?: (fieldKey: string) => void;
   onDiscardAll?: () => void;
-  lang?: "th" | "en";
 }) {
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
@@ -763,12 +726,10 @@ export function EditSummaryConfirmModal({
             </span>
             <div>
               <h2 className="text-[14px] font-semibold text-ink leading-tight">
-                {lang === "th" ? "สรุปรายการที่แก้ไขและยืนยันการอนุมัติ" : "Review Edit Summary & Confirm"}
+                สรุปรายการที่แก้ไขและยืนยันการอนุมัติ
               </h2>
               <p className="text-[11.5px] text-ink-3">
-                {lang === "th"
-                  ? "ตรวจสอบรายการที่เปลี่ยนแปลงก่อนบันทึกและเผยแพร่ข้อมูลสู่สาธารณะ"
-                  : "Review modified fields before saving and publishing changes"}
+                ตรวจสอบรายการที่เปลี่ยนแปลงก่อนบันทึกและเผยแพร่ข้อมูลสู่สาธารณะ
               </p>
             </div>
           </div>
@@ -793,16 +754,12 @@ export function EditSummaryConfirmModal({
               }`}
             >
               {diffs.length > 0
-                ? lang === "th"
-                  ? `มีการเปลี่ยนแปลง ${diffs.length} รายการ`
-                  : `${diffs.length} field(s) modified`
-                : lang === "th"
-                ? "ไม่มีข้อมูลที่เปลี่ยนแปลง"
-                : "No fields modified"}
+                ? `มีการเปลี่ยนแปลง ${diffs.length} รายการ`
+                : "ไม่มีข้อมูลที่เปลี่ยนแปลง"}
             </span>
           </div>
           <span className="text-[11px] text-ink-3 font-mono">
-            {lang === "th" ? "Action: approve" : "Action: approve"}
+            Action: approve
           </span>
         </div>
 
@@ -811,14 +768,10 @@ export function EditSummaryConfirmModal({
           {diffs.length === 0 ? (
             <div className="rounded-[3px] border border-line bg-surface-2/60 p-6 text-center space-y-1.5">
               <p className="text-[13px] font-medium text-ink">
-                {lang === "th"
-                  ? "ไม่มีการแก้ไขข้อมูลในฟอร์ม"
-                  : "No form fields were changed"}
+                ไม่มีการแก้ไขข้อมูลในฟอร์ม
               </p>
               <p className="text-[12px] text-ink-3 leading-relaxed">
-                {lang === "th"
-                  ? "การยืนยันจะเป็นการอนุมัติข้อมูลฉบับปัจจุบัน และปรับสถานะโครงการเป็นพร้อมแสดงผลต่อสาธารณะทันที"
-                  : "Confirming will approve the existing extraction and publish the TOR immediately."}
+                การยืนยันจะเป็นการอนุมัติข้อมูลฉบับปัจจุบัน และปรับสถานะโครงการเป็นพร้อมแสดงผลต่อสาธารณะทันที
               </p>
             </div>
           ) : (
@@ -834,7 +787,7 @@ export function EditSummaryConfirmModal({
                         {d.section}
                       </span>
                       <span className="text-[12.5px] font-semibold text-ink">
-                        {lang === "th" ? d.labelTh : d.labelEn}
+                        {d.label}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -843,10 +796,10 @@ export function EditSummaryConfirmModal({
                           type="button"
                           onClick={() => onRevertField(d.field)}
                           className="text-[10.5px] text-ink-3 hover:text-ink hover:underline flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] border border-line bg-surface hover:bg-surface-2 transition-colors cursor-pointer"
-                          title={lang === "th" ? "คืนค่าฟิลด์นี้กลับเป็นค่าเดิม" : "Revert this field"}
+                          title="คืนค่าฟิลด์นี้กลับเป็นค่าเดิม"
                         >
                           <span>↺</span>
-                          <span>{lang === "th" ? "คืนค่า" : "Revert"}</span>
+                          <span>คืนค่า</span>
                         </button>
                       )}
                       <span className="font-mono text-[10.5px] text-ink-3">
@@ -856,7 +809,7 @@ export function EditSummaryConfirmModal({
                   </div>
 
                   {/* Smart Diff view */}
-                  <SmartDiffContent from={d.from} to={d.to} lang={lang} />
+                  <SmartDiffContent from={d.from} to={d.to} />
                 </div>
               ))}
             </div>
@@ -872,7 +825,7 @@ export function EditSummaryConfirmModal({
               onClick={onClose}
               className={`${btn.secondary} text-[12.5px] h-8 px-4`}
             >
-              {lang === "th" ? "← กลับไปแก้ไข" : "Back to Edit"}
+              ← กลับไปแก้ไข
             </button>
             {onDiscardAll && diffs.length > 0 && (
               <button
@@ -881,7 +834,7 @@ export function EditSummaryConfirmModal({
                 onClick={() => setShowDiscardConfirm(true)}
                 className="text-[11.5px] text-risk hover:underline px-2.5 py-1 rounded-[2px] hover:bg-risk-bg transition-colors cursor-pointer"
               >
-                {lang === "th" ? "ยกเลิกการแก้ไขทั้งหมด" : "Discard All Changes"}
+                ยกเลิกการแก้ไขทั้งหมด
               </button>
             )}
           </div>
@@ -895,10 +848,10 @@ export function EditSummaryConfirmModal({
             {isSaving ? (
               <>
                 <div className="w-3.5 h-3.5 border-2 border-surface border-t-transparent rounded-full animate-spin" />
-                <span>{lang === "th" ? "กำลังบันทึก..." : "Saving..."}</span>
+                <span>กำลังบันทึก...</span>
               </>
             ) : (
-              <span>{lang === "th" ? "✓ ยืนยันการบันทึกและอนุมัติ" : "Confirm & Publish"}</span>
+              <span>✓ ยืนยันการบันทึกและอนุมัติ</span>
             )}
           </button>
         </div>
@@ -924,14 +877,10 @@ export function EditSummaryConfirmModal({
               </span>
               <div className="space-y-1">
                 <h3 className="text-[15px] font-semibold text-ink">
-                  {lang === "th"
-                    ? "ยืนยันการยกเลิกการแก้ไขทั้งหมด?"
-                    : "Discard All Changes?"}
+                  ยืนยันการยกเลิกการแก้ไขทั้งหมด?
                 </h3>
                 <p className="text-[12.5px] text-ink-2 leading-relaxed">
-                  {lang === "th"
-                    ? `คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการแก้ไขทั้งหมด (${diffs.length} รายการ) และคืนค่าของทุกฟิลด์กลับไปเป็นค่าดั้งเดิมจากเอกสาร TOR? ข้อมูลที่คุณแก้ไขในรอบนี้จะไม่ถูกบันทึก`
-                    : `Are you sure you want to discard all ${diffs.length} modified field(s) and reset back to original extracted values? Your edits will be lost.`}
+                  คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการแก้ไขทั้งหมด ({diffs.length} รายการ) และคืนค่าของทุกฟิลด์กลับไปเป็นค่าดั้งเดิมจากเอกสาร TOR? ข้อมูลที่คุณแก้ไขในรอบนี้จะไม่ถูกบันทึก
                 </p>
               </div>
             </div>
@@ -942,7 +891,7 @@ export function EditSummaryConfirmModal({
                 onClick={() => setShowDiscardConfirm(false)}
                 className={`${btn.secondary} text-[12px] h-8 px-3.5`}
               >
-                {lang === "th" ? "กลับไปแก้ไขต่อ" : "Cancel"}
+                กลับไปแก้ไขต่อ
               </button>
               <button
                 type="button"
@@ -955,7 +904,7 @@ export function EditSummaryConfirmModal({
                 }}
                 className="rounded-[3px] bg-risk px-4 h-8 text-[12px] font-semibold text-white hover:opacity-90 transition-opacity cursor-pointer"
               >
-                {lang === "th" ? "ยืนยันคืนค่าทั้งหมด" : "Yes, Discard All"}
+                ยืนยันคืนค่าทั้งหมด
               </button>
             </div>
           </div>

@@ -1,13 +1,6 @@
-export type Lang = "th" | "en";
-
 export const THAI_MONTHS = [
   "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
   "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
-];
-
-export const EN_MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
 /**
@@ -99,15 +92,13 @@ export function daysUntil(iso?: string | null): number {
   return bangkokDay(target) - bangkokDay(Date.now());
 }
 
-/** Formats ISO string or Date into localized date string in Bangkok time (UTC+7). */
-export function formatDate(iso?: string | Date | null, lang: Lang = "th"): string {
-  if (!iso) return lang === "th" ? "ไม่ระบุ" : "Not specified";
+/** Formats ISO string or Date into Thai Buddhist date string in Bangkok time (UTC+7). */
+export function formatDate(iso?: string | Date | null): string {
+  if (!iso) return "ไม่ระบุ";
   const parts = getBangkokDateParts(iso);
   if (!parts) return String(iso);
   const { day, month, year } = parts;
-  return lang === "th"
-    ? `${day} ${THAI_MONTHS[month]} ${year + 543}`
-    : `${day} ${EN_MONTHS[month]} ${year}`;
+  return `${day} ${THAI_MONTHS[month]} ${year + 543}`;
 }
 
 /**
@@ -122,4 +113,3 @@ export function getEgpAnnouncementUrl(projectId: string): string {
 export function getEgpPackageUrl(zipId: string): string {
   return `https://process5.gprocurement.go.th/egp-upload-service/v1/downloadFileTest?fileId=${encodeURIComponent(zipId)}`;
 }
-

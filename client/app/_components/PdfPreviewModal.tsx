@@ -12,7 +12,6 @@ interface PdfPreviewModalProps {
   agency?: string;
   procurementMethod?: string | null;
   officialEgpUrl?: string | null;
-  lang?: "th" | "en";
 }
 
 export function PdfPreviewModal(props: PdfPreviewModalProps) {
@@ -27,7 +26,6 @@ function PdfPreviewModalContent({
   agency,
   procurementMethod,
   officialEgpUrl,
-  lang = "th",
 }: PdfPreviewModalProps) {
   const [loading, setLoading] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -96,39 +94,27 @@ function PdfPreviewModalContent({
   const missingCard =
     failure === "rate-limited"
       ? {
-          heading: lang === "th" ? "เปิดดูเอกสารบ่อยเกินไป" : "Too many documents opened",
-          body:
-            lang === "th"
-              ? "รอสักครู่แล้วลองใหม่ หรือเปิดดูฉบับจริงบน e-GP ได้เลย"
-              : "Wait a moment and try again, or open the original on e-GP.",
+          heading: "เปิดดูเอกสารบ่อยเกินไป",
+          body: "รอสักครู่แล้วลองใหม่ หรือเปิดดูฉบับจริงบน e-GP ได้เลย",
         }
       : failure === "failed"
         ? {
-            heading: lang === "th" ? "เปิดเอกสารไม่สำเร็จ" : "The document didn't load",
-            body:
-              lang === "th"
-                ? "อาจเป็นที่การเชื่อมต่อ ลองใหม่อีกครั้ง หรือเปิดดูฉบับจริงบน e-GP"
-                : "It may be the connection. Try again, or open the original on e-GP.",
+            heading: "เปิดเอกสารไม่สำเร็จ",
+            body: "อาจเป็นที่การเชื่อมต่อ ลองใหม่อีกครั้ง หรือเปิดดูฉบับจริงบน e-GP",
           }
         : part === 1
           ? {
-              heading: lang === "th" ? "ไม่มีเอกสารประกวดราคาในแพ็กเกจนี้" : "No Bidding Rules Document in this Package",
-              body:
-                lang === "th"
-                  ? "โครงการในขั้นตอนรับฟังความคิดเห็นร่าง หรือบางประกาศอาจไม่มีการแนบเอกสารประกวดราคาแยกต่างหาก คุณสามารถตรวจสอบเอกสาร TOR หลัก หรือดูประกาศทางการบน e-GP ได้"
-                  : "Draft hearing stages or certain notices may not include separate bidding rules. You can inspect the main TOR specification or the official e-GP portal.",
+              heading: "ไม่มีเอกสารประกวดราคาในแพ็กเกจนี้",
+              body: "โครงการในขั้นตอนรับฟังความคิดเห็นร่าง หรือบางประกาศอาจไม่มีการแนบเอกสารประกวดราคาแยกต่างหาก คุณสามารถตรวจสอบเอกสาร TOR หลัก หรือดูประกาศทางการบน e-GP ได้",
             }
           : part === 2
             ? {
-                heading: lang === "th" ? "ไม่มีเอกสารประกาศเชิญชวนในแพ็กเกจนี้" : "No Announcement Letter in this Package",
-                body:
-                  lang === "th"
-                    ? "แพ็กเกจเอกสารนี้ไม่มีไฟล์ประกาศเชิญชวนแยกต่างหาก คุณสามารถดูเอกสาร TOR หลัก หรือเปิดดูประกาศทางการบน e-GP ได้"
-                    : "This package does not contain a separate announcement document. You can inspect the main TOR or open official e-GP.",
+                heading: "ไม่มีเอกสารประกาศเชิญชวนในแพ็กเกจนี้",
+                body: "แพ็กเกจเอกสารนี้ไม่มีไฟล์ประกาศเชิญชวนแยกต่างหาก คุณสามารถดูเอกสาร TOR หลัก หรือเปิดดูประกาศทางการบน e-GP ได้",
               }
             : {
-                heading: lang === "th" ? "ยังไม่มีสำเนาเอกสารนี้ในระบบของเรา" : "We don't have a copy of this document yet",
-                body: lang === "th" ? "เปิดดูฉบับจริงบน e-GP ได้เลย" : "You can open the original on e-GP.",
+                heading: "ยังไม่มีสำเนาเอกสารนี้ในระบบของเรา",
+                body: "เปิดดูฉบับจริงบน e-GP ได้เลย",
               };
 
   // Close on Escape & Lock body scroll
@@ -249,7 +235,7 @@ function PdfPreviewModalContent({
                 className="text-[13.5px] font-semibold text-ink truncate leading-snug"
                 title={title}
               >
-                {title || (lang === "th" ? "เอกสารต้นฉบับ TOR" : "Original TOR Document")}
+                {title || "เอกสารต้นฉบับ TOR"}
               </h2>
               <div className="flex items-center gap-2 text-[11px] text-ink-3">
                 {agency ? <span className="truncate">{agency}</span> : null}
@@ -266,9 +252,9 @@ function PdfPreviewModalContent({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-[11.5px] font-medium text-ink-2 hover:text-ink hover:bg-surface rounded-[2px] border border-transparent hover:border-line transition-colors"
-                title={lang === "th" ? "เปิดดูบนเว็บ e-GP ทางการ" : "Open on official e-GP"}
+                title="เปิดดูบนเว็บ e-GP ทางการ"
               >
-                <span>{lang === "th" ? "เปิดใน e-GP" : "Open on e-GP"}</span>
+                <span>เปิดใน e-GP</span>
                 <span className="text-[10px]">↗</span>
               </a>
             ) : null}
@@ -278,9 +264,9 @@ function PdfPreviewModalContent({
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 px-2.5 py-1 text-[11.5px] font-medium text-ink bg-surface-2 sm:bg-transparent sm:text-ink-2 hover:text-ink hover:bg-surface rounded-[2px] border border-line sm:border-transparent sm:hover:border-line transition-colors"
-              title={lang === "th" ? "เปิดไฟล์ PDF ในแท็บใหม่" : "Open PDF in new tab"}
+              title="เปิดไฟล์ PDF ในแท็บใหม่"
             >
-              <span>{lang === "th" ? "เปิดในแท็บใหม่" : "New Tab"}</span>
+              <span>เปิดในแท็บใหม่</span>
               <span className="text-[10px]">↗</span>
             </a>
 
@@ -292,15 +278,7 @@ function PdfPreviewModalContent({
                 setIsFullscreen((prev) => !prev);
               }}
               className="hidden md:inline-flex items-center justify-center w-7 h-7 text-ink-2 hover:text-ink hover:bg-surface rounded-[2px] border border-transparent hover:border-line transition-colors cursor-pointer"
-              title={
-                isFullscreen
-                  ? lang === "th"
-                    ? "ย่อหน้าต่างกลับขนาดเดิม"
-                    : "Restore window size"
-                  : lang === "th"
-                  ? "ขยายเต็มจอ"
-                  : "Fullscreen"
-              }
+              title={isFullscreen ? "ย่อหน้าต่างกลับขนาดเดิม" : "ขยายเต็มจอ"}
               aria-label={isFullscreen ? "Restore size" : "Fullscreen"}
             >
               {isFullscreen ? (
@@ -346,7 +324,7 @@ function PdfPreviewModalContent({
               onClick={onClose}
               className="flex items-center justify-center w-7 h-7 rounded-[2px] text-ink hover:bg-surface border border-transparent hover:border-line text-[13px] font-semibold transition-colors cursor-pointer"
               aria-label="Close modal"
-              title={lang === "th" ? "ปิด (Esc)" : "Close (Esc)"}
+              title="ปิด (Esc)"
             >
               ✕
             </button>
@@ -356,7 +334,7 @@ function PdfPreviewModalContent({
         {/* Document Selection Subheader */}
         <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-line bg-surface text-[12px] shrink-0 overflow-x-auto">
           <span className="text-[11px] font-medium text-ink-3 mr-1 shrink-0">
-            {lang === "th" ? "เลือกเอกสาร:" : "Document:"}
+            เลือกเอกสาร:
           </span>
           <button
             type="button"
@@ -367,7 +345,7 @@ function PdfPreviewModalContent({
                 : "text-ink-2 hover:text-ink hover:bg-surface-2"
             }`}
           >
-            {lang === "th" ? "📄 ขอบเขตงาน (TOR หลัก)" : "📄 TOR Specifications"}
+            📄 ขอบเขตงาน (TOR หลัก)
           </button>
           <button
             type="button"
@@ -378,7 +356,7 @@ function PdfPreviewModalContent({
                 : "text-ink-2 hover:text-ink hover:bg-surface-2"
             }`}
           >
-            {lang === "th" ? "📋 เอกสารประกวดราคา" : "📋 Bidding Rules"}
+            📋 เอกสารประกวดราคา
           </button>
           <button
             type="button"
@@ -389,7 +367,7 @@ function PdfPreviewModalContent({
                 : "text-ink-2 hover:text-ink hover:bg-surface-2"
             }`}
           >
-            {lang === "th" ? "✉️ ประกาศเชิญชวน" : "✉️ Announcement"}
+            ✉️ ประกาศเชิญชวน
           </button>
         </div>
 
@@ -399,7 +377,7 @@ function PdfPreviewModalContent({
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-surface z-10 text-ink">
               <div className="w-6 h-6 border-2 border-line-2 border-t-ink rounded-full animate-spin" />
               <p className="text-[12.5px] text-ink-2">
-                {lang === "th" ? "กำลังโหลดเอกสาร PDF ต้นฉบับ..." : "Loading PDF document..."}
+                กำลังโหลดเอกสาร PDF ต้นฉบับ...
               </p>
             </div>
           ) : null}
@@ -412,47 +390,31 @@ function PdfPreviewModalContent({
                   <span>🏷️</span>
                   <span>
                     {isDirectProcurement
-                      ? (lang === "th" ? "โครงการจัดหาโดยวิธีเฉพาะเจาะจง (Direct Contracting)" : "Direct Contracting Procurement")
+                      ? "โครงการจัดหาโดยวิธีเฉพาะเจาะจง (Direct Contracting)"
                       : isSelectionProcurement
-                      ? (lang === "th" ? "โครงการจัดหาโดยวิธีคัดเลือก (Selective Method)" : "Selective Method Procurement")
-                      : (lang === "th" ? "วิธีจัดซื้อจัดจ้างที่ไม่มีประกาศเชิญชวนทั่วไป" : "Non-Open Bidding Method")}
+                      ? "โครงการจัดหาโดยวิธีคัดเลือก (Selective Method)"
+                      : "วิธีจัดซื้อจัดจ้างที่ไม่มีประกาศเชิญชวนทั่วไป"}
                   </span>
                 </div>
 
                 <h3 className="text-[15.5px] font-semibold text-ink">
                   {isDirectProcurement
-                    ? (lang === "th" ? "ไม่มีเอกสาร TOR ประกาศสาธารณะสำหรับวิธีเฉพาะเจาะจง" : "No Public TOR Published for Direct Contracting")
+                    ? "ไม่มีเอกสาร TOR ประกาศสาธารณะสำหรับวิธีเฉพาะเจาะจง"
                     : isSelectionProcurement
-                    ? (lang === "th" ? "ไม่มีเอกสาร TOR ประกาศสาธารณะสำหรับวิธีคัดเลือก" : "No Public TOR Published for Selective Procurement")
-                    : (lang === "th" ? "ไม่มีเอกสารประกาศเชิญชวนทั่วไปในระบบ" : "No Public Tender Package for this Method")}
+                    ? "ไม่มีเอกสาร TOR ประกาศสาธารณะสำหรับวิธีคัดเลือก"
+                    : "ไม่มีเอกสารประกาศเชิญชวนทั่วไปในระบบ"}
                 </h3>
 
                 <div className="max-w-xl mt-3 p-4 rounded-[4px] bg-surface-2 border border-line text-left text-[12px] leading-relaxed text-ink-2 space-y-2">
-                  {lang === "th" ? (
-                    <>
-                      <p>
-                        <strong className="text-ink font-semibold">ตาม พ.ร.บ. การจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560:</strong>{" "}
-                        {isDirectProcurement
-                          ? "การจัดหาโดยวิธีเฉพาะเจาะจงเป็นการติดต่อเจรจาตกลงราคากับผู้ประกอบการโดยตรง (เช่น วงเงินไม่เกิน 500,000 บาท หรือเป็นงานจ้างบำรุงรักษาต่อเนื่องจากระบบเดิมที่มีผู้เชี่ยวชาญตรงเพียงรายเดียว) จึงไม่มีการออกร่างขอบเขตของงาน (TOR) หรือประกาศเชิญชวนสาธารณะเพื่อรับฟังความคิดเห็น (B0/D0) บนระบบ e-GP เหมือนวิธี e-bidding"
-                          : "การจัดหาโดยวิธีคัดเลือกเป็นการส่งหนังสือเชิญชวนไปยังผู้ประกอบการที่มีคุณสมบัติตรงไม่น้อยกว่า 3 รายโดยตรง ไม่ใช่การเปิดประมูลสาธารณะทั่วไป จึงไม่มีการเผยแพร่ไฟล์แพ็กเกจประกาศสาธารณะบนระบบ e-GP"}
-                      </p>
-                      <p className="text-ink-3 text-[11px] pt-2 border-t border-line">
-                        ℹ️ ข้อมูลโครงการที่แสดงบนแพลตฟอร์มนี้ (งบประมาณ, ราคากลาง, รายชื่อผู้ชนะ และสัญญา) ถูกนำเข้าจากฐานข้อมูลเปิดภาครัฐ (data.go.th) ท่านสามารถตรวจสอบบันทึกผลการจัดซื้อจัดจ้างและสาระสำคัญของสัญญาทางการได้โดยตรงที่หน้าเว็บ e-GP
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        <strong className="text-ink font-semibold">Under the Public Procurement and Supplies Administration Act B.E. 2560:</strong>{" "}
-                        {isDirectProcurement
-                          ? "Direct contracting procures directly from a qualified vendor (e.g. contracts under 500k THB or ongoing proprietary system maintenance). Government agencies do not publish open public TOR hearing packages (B0/D0) on e-GP."
-                          : "Selective procurement invites at least 3 qualified vendors directly rather than conducting an open public tender. Consequently, no public invitation package is archived on e-GP."}
-                      </p>
-                      <p className="text-ink-3 text-[11px] pt-2 border-t border-line">
-                        ℹ️ Project details shown on GIPDP (budget, reference price, awarded contractor, and contract information) are aggregated from open government spending data. Official award and contract milestones can be verified directly on the official e-GP portal.
-                      </p>
-                    </>
-                  )}
+                  <p>
+                    <strong className="text-ink font-semibold">ตาม พ.ร.บ. การจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560:</strong>{" "}
+                    {isDirectProcurement
+                      ? "การจัดหาโดยวิธีเฉพาะเจาะจงเป็นการติดต่อเจรจาตกลงราคากับผู้ประกอบการโดยตรง (เช่น วงเงินไม่เกิน 500,000 บาท หรือเป็นงานจ้างบำรุงรักษาต่อเนื่องจากระบบเดิมที่มีผู้เชี่ยวชาญตรงเพียงรายเดียว) จึงไม่มีการออกร่างขอบเขตของงาน (TOR) หรือประกาศเชิญชวนสาธารณะเพื่อรับฟังความคิดเห็น (B0/D0) บนระบบ e-GP เหมือนวิธี e-bidding"
+                      : "การจัดหาโดยวิธีคัดเลือกเป็นการส่งหนังสือเชิญชวนไปยังผู้ประกอบการที่มีคุณสมบัติตรงไม่น้อยกว่า 3 รายโดยตรง ไม่ใช่การเปิดประมูลสาธารณะทั่วไป จึงไม่มีการเผยแพร่ไฟล์แพ็กเกจประกาศสาธารณะบนระบบ e-GP"}
+                  </p>
+                  <p className="text-ink-3 text-[11px] pt-2 border-t border-line">
+                    ℹ️ ข้อมูลโครงการที่แสดงบนแพลตฟอร์มนี้ (งบประมาณ, ราคากลาง, รายชื่อผู้ชนะ และสัญญา) ถูกนำเข้าจากฐานข้อมูลเปิดภาครัฐ (data.go.th) ท่านสามารถตรวจสอบบันทึกผลการจัดซื้อจัดจ้างและสาระสำคัญของสัญญาทางการได้โดยตรงที่หน้าเว็บ e-GP
+                  </p>
                 </div>
 
                 <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono text-ink-3 bg-surface-2 border border-line rounded-[2px] px-2.5 py-1">
@@ -468,7 +430,7 @@ function PdfPreviewModalContent({
                       rel="noopener noreferrer"
                       className={`${btn.primary} h-8 px-4 text-[12px] flex items-center gap-1.5`}
                     >
-                      <span>{lang === "th" ? "เปิดดูข้อมูลโครงการบน e-GP ทางการ" : "Open project details on official e-GP"}</span>
+                      <span>เปิดดูข้อมูลโครงการบน e-GP ทางการ</span>
                       <span className="text-[10px]">↗</span>
                     </a>
                   ) : null}
@@ -477,7 +439,7 @@ function PdfPreviewModalContent({
                     onClick={onClose}
                     className={`${btn.secondary} h-8 px-3.5 text-[12px]`}
                   >
-                    {lang === "th" ? "ปิดหน้าต่างเพื่ออ่านบทวิเคราะห์ AI" : "Close to view AI Insights"}
+                    ปิดหน้าต่างเพื่ออ่านบทวิเคราะห์ AI
                   </button>
                 </div>
               </div>
@@ -516,7 +478,7 @@ function PdfPreviewModalContent({
                       onClick={retry}
                       className={`${btn.primary} h-8 px-3.5 text-[12px]`}
                     >
-                      {lang === "th" ? "ลองใหม่" : "Try again"}
+                      ลองใหม่
                     </button>
                   ) : null}
                   {part > 0 ? (
@@ -525,7 +487,7 @@ function PdfPreviewModalContent({
                       onClick={() => selectPart(0)}
                       className={`${retryable ? btn.secondary : btn.primary} h-8 px-3.5 text-[12px]`}
                     >
-                      {lang === "th" ? "📄 กลับไปดูเอกสาร TOR หลัก" : "📄 View Main TOR"}
+                      📄 กลับไปดูเอกสาร TOR หลัก
                     </button>
                   ) : null}
                   {officialEgpUrl ? (
@@ -535,7 +497,7 @@ function PdfPreviewModalContent({
                       rel="noopener noreferrer"
                       className={`${part > 0 || retryable ? btn.secondary : btn.primary} h-8 px-3.5 text-[12px] flex items-center gap-1.5`}
                     >
-                      <span>{lang === "th" ? "เปิดดูบนเว็บ e-GP ทางการ" : "Open on official e-GP"}</span>
+                      <span>เปิดดูบนเว็บ e-GP ทางการ</span>
                       <span className="text-[10px]">↗</span>
                     </a>
                   ) : null}
@@ -544,7 +506,7 @@ function PdfPreviewModalContent({
                     onClick={onClose}
                     className={`${btn.secondary} h-8 px-3.5 text-[12px]`}
                   >
-                    {lang === "th" ? "ปิดหน้าต่าง" : "Close"}
+                    ปิดหน้าต่าง
                   </button>
                 </div>
               </div>

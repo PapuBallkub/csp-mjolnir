@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, RotateCcw } from "lucide-react";
-import { formatTHBCompact, pick, type Lang, type RiskLevel, type Status } from "../../../_data/tors";
+import { formatTHBCompact, type RiskLevel, type Status } from "../../../_data/tors";
 import {
   ARCHETYPE_OPTIONS,
   CATEGORY_OPTIONS,
@@ -15,7 +15,6 @@ import { Label, Panel } from "../../../_components/ui";
 export const MAX_SLIDER_PRICE = 50_000_000; // 50M ceiling for slider (means 50M+)
 
 export type WatchdogFilterBarProps = {
-  lang: Lang;
   // Multi-select status
   selectedStatuses: Status[];
   onToggleStatus: (status: Status) => void;
@@ -58,45 +57,45 @@ export type WatchdogFilterBarProps = {
   defaultEndMonth: string;
   onStartMonthChange: (val: string) => void;
   onEndMonthChange: (val: string) => void;
-  availableMonths: Array<{ key: string; labelTh: string; labelEn: string }>;
+  availableMonths: Array<{ key: string; label: string; labelTh?: string }>;
   // Reset
   hasActiveFilters: boolean;
   onResetFilters: () => void;
 };
 
-const STATUS_ITEMS: Array<{ id: Status; labelTh: string; labelEn: string }> = [
-  { id: "Open", labelTh: "เปิดรับซอง (Open)", labelEn: "Open" },
-  { id: "Draft", labelTh: "ร่างรับฟัง (Draft)", labelEn: "Draft" },
-  { id: "Awarded", labelTh: "ได้ผู้ชนะ (Awarded)", labelEn: "Awarded" },
-  { id: "Closed", labelTh: "ปิดแล้ว (Closed)", labelEn: "Closed" },
-  { id: "Cancelled", labelTh: "ยกเลิก (Cancelled)", labelEn: "Cancelled" },
+const STATUS_ITEMS: Array<{ id: Status; labelTh: string }> = [
+  { id: "Open", labelTh: "เปิดรับซอง (Open)" },
+  { id: "Draft", labelTh: "ร่างรับฟัง (Draft)" },
+  { id: "Awarded", labelTh: "ได้ผู้ชนะ (Awarded)" },
+  { id: "Closed", labelTh: "ปิดแล้ว (Closed)" },
+  { id: "Cancelled", labelTh: "ยกเลิก (Cancelled)" },
 ];
 
-const RISK_ITEMS: Array<{ id: RiskLevel; labelTh: string; labelEn: string; color: string }> = [
-  { id: "high", labelTh: "เสี่ยงสูง (High Risk)", labelEn: "High Risk", color: "text-risk" },
-  { id: "medium", labelTh: "ปานกลาง (Medium Risk)", labelEn: "Medium Risk", color: "text-amend" },
-  { id: "low", labelTh: "เปิดกว้าง (Low Risk)", labelEn: "Low Risk", color: "text-open" },
+const RISK_ITEMS: Array<{ id: RiskLevel; labelTh: string; color: string }> = [
+  { id: "high", labelTh: "เสี่ยงสูง (High Risk)", color: "text-risk" },
+  { id: "medium", labelTh: "ปานกลาง (Medium Risk)", color: "text-amend" },
+  { id: "low", labelTh: "เปิดกว้าง (Low Risk)", color: "text-open" },
 ];
 
-const COMPLEXITY_ITEMS: Array<{ id: ComplexityTier; th: string; en: string }> = [
-  { id: "basic", th: "พื้นฐาน (Basic)", en: "Basic" },
-  { id: "standard", th: "มาตรฐาน (Standard)", en: "Standard" },
-  { id: "enterprise", th: "องค์กรใหญ่ (Enterprise)", en: "Enterprise" },
+const COMPLEXITY_ITEMS: Array<{ id: ComplexityTier; th: string }> = [
+  { id: "basic", th: "พื้นฐาน (Basic)" },
+  { id: "standard", th: "มาตรฐาน (Standard)" },
+  { id: "enterprise", th: "องค์กรใหญ่ (Enterprise)" },
 ];
 
 const ALL_MONTHS = [
-  { value: "01", th: "ม.ค.", en: "Jan" },
-  { value: "02", th: "ก.พ.", en: "Feb" },
-  { value: "03", th: "มี.ค.", en: "Mar" },
-  { value: "04", th: "เม.ย.", en: "Apr" },
-  { value: "05", th: "พ.ค.", en: "May" },
-  { value: "06", th: "มิ.ย.", en: "Jun" },
-  { value: "07", th: "ก.ค.", en: "Jul" },
-  { value: "08", th: "ส.ค.", en: "Aug" },
-  { value: "09", th: "ก.ย.", en: "Sep" },
-  { value: "10", th: "ต.ค.", en: "Oct" },
-  { value: "11", th: "พ.ย.", en: "Nov" },
-  { value: "12", th: "ธ.ค.", en: "Dec" },
+  { value: "01", th: "ม.ค." },
+  { value: "02", th: "ก.พ." },
+  { value: "03", th: "มี.ค." },
+  { value: "04", th: "เม.ย." },
+  { value: "05", th: "พ.ค." },
+  { value: "06", th: "มิ.ย." },
+  { value: "07", th: "ก.ค." },
+  { value: "08", th: "ส.ค." },
+  { value: "09", th: "ก.ย." },
+  { value: "10", th: "ต.ค." },
+  { value: "11", th: "พ.ย." },
+  { value: "12", th: "ธ.ค." },
 ];
 
 /** Available years in dropdown: current and upcoming budget year down to the past 10 years */
@@ -105,7 +104,6 @@ const BASE_AVAILABLE_YEARS_CE = [
 ];
 
 export function WatchdogFilterBar({
-  lang,
   selectedStatuses,
   onToggleStatus,
   onSelectAllStatuses,
@@ -235,9 +233,7 @@ export function WatchdogFilterBar({
       {/* Top Header */}
       <div className="mb-3.5 flex items-center justify-between border-b border-line pb-2.5">
         <h2 className="text-[15px] font-semibold text-ink">
-          {lang === "th"
-            ? "ตัวกรองข้อมูลสำหรับวิเคราะห์ (Analysis Filters)"
-            : "Analysis Filters"}
+          ตัวกรองข้อมูลสำหรับวิเคราะห์ (Analysis Filters)
         </h2>
         {hasActiveFilters ? (
           <button
@@ -246,7 +242,7 @@ export function WatchdogFilterBar({
             className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-ink-2 underline hover:text-ink cursor-pointer"
           >
             <RotateCcw className="h-3 w-3" />
-            <span>{lang === "th" ? "ล้างตัวกรองทั้งหมด" : "Reset all"}</span>
+            <span>ล้างตัวกรองทั้งหมด</span>
           </button>
         ) : null}
       </div>
@@ -256,7 +252,7 @@ export function WatchdogFilterBar({
         {/* 1. Category Popover Multi-Select */}
         <div className="relative flex flex-col gap-1.5" ref={catRef}>
           <Label htmlFor="wd-category-btn">
-            {lang === "th" ? "หมวดหมู่งาน IT" : "IT categories"}
+            หมวดหมู่งาน IT
           </Label>
           <button
             id="wd-category-btn"
@@ -275,25 +271,17 @@ export function WatchdogFilterBar({
           >
             {selectedCategories.length === allCategories.length ? (
               <span className="truncate flex-1 text-center font-medium text-ink-2">
-                {lang === "th" ? "-- ทุกหมวดหมู่งาน IT --" : "-- All Categories --"}
+                -- ทุกหมวดหมู่งาน IT --
               </span>
             ) : selectedCategories.length === 0 ? (
               <span className="truncate flex-1 text-center font-medium text-ink-3">
-                {lang === "th" ? "ไม่ได้เลือกหมวดหมู่" : "No category selected"}
+                ไม่ได้เลือกหมวดหมู่
               </span>
             ) : (
               <span className="truncate text-left text-ink">
                 {selectedCategories.length === 1
-                  ? pick(
-                      allCategories.find((c) => c.id === selectedCategories[0])?.label ?? {
-                        th: selectedCategories[0],
-                        en: selectedCategories[0],
-                      },
-                      lang,
-                    )
-                  : lang === "th"
-                    ? `เลือก ${selectedCategories.length} หมวดหมู่`
-                    : `${selectedCategories.length} categories`}
+                  ? (allCategories.find((c) => c.id === selectedCategories[0])?.label ?? selectedCategories[0])
+                  : `เลือก ${selectedCategories.length} หมวดหมู่`}
               </span>
             )}
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3 ml-1.5" />
@@ -303,7 +291,7 @@ export function WatchdogFilterBar({
             <div className="absolute top-[62px] left-0 z-30 w-full min-w-[280px] rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
                 <span className="text-ink-3 font-normal">
-                  {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
+                  เลือกเจาะจง...
                 </span>
                 {selectedCategories.length === allCategories.length ? (
                   <button
@@ -311,7 +299,7 @@ export function WatchdogFilterBar({
                     onClick={onClearCategories}
                     className="text-ink-2 hover:text-ink underline cursor-pointer"
                   >
-                    {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                    ล้างทั้งหมด
                   </button>
                 ) : (
                   <button
@@ -319,7 +307,7 @@ export function WatchdogFilterBar({
                     onClick={onSelectAllCategories}
                     className="text-ink-2 hover:text-ink underline cursor-pointer"
                   >
-                    {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
+                    เลือกทั้งหมด
                   </button>
                 )}
               </div>
@@ -337,7 +325,7 @@ export function WatchdogFilterBar({
                         onChange={() => onToggleCategory(opt.id as ProjectCategory)}
                         className="rounded border-line"
                       />
-                      <span className="truncate">{pick(opt.label, lang)}</span>
+                      <span className="truncate">{opt.label}</span>
                     </label>
                   );
                 })}
@@ -349,7 +337,7 @@ export function WatchdogFilterBar({
         {/* 2. Archetype Multi-Select Popover */}
         <div className="relative flex flex-col gap-1.5" ref={archRef}>
           <Label htmlFor="wd-archetype-btn">
-            {lang === "th" ? "รูปแบบสถาปัตยกรรมระบบ" : "System archetypes"}
+            รูปแบบสถาปัตยกรรมระบบ
           </Label>
           <button
             id="wd-archetype-btn"
@@ -368,25 +356,17 @@ export function WatchdogFilterBar({
           >
             {selectedArchetypes.length === allArchetypes.length ? (
               <span className="truncate flex-1 text-center font-medium text-ink-2">
-                {lang === "th" ? "-- ทุกรูปแบบระบบ --" : "-- All Archetypes --"}
+                -- ทุกรูปแบบระบบ --
               </span>
             ) : selectedArchetypes.length === 0 ? (
               <span className="truncate flex-1 text-center font-medium text-ink-3">
-                {lang === "th" ? "ไม่ได้เลือกรูปแบบ" : "No archetype selected"}
+                ไม่ได้เลือกรูปแบบ
               </span>
             ) : (
               <span className="truncate text-left text-ink">
                 {selectedArchetypes.length === 1
-                  ? pick(
-                      allArchetypes.find((a) => a.id === selectedArchetypes[0])?.label ?? {
-                        th: selectedArchetypes[0],
-                        en: selectedArchetypes[0],
-                      },
-                      lang,
-                    )
-                  : lang === "th"
-                    ? `เลือก ${selectedArchetypes.length} รูปแบบ`
-                    : `${selectedArchetypes.length} archetypes`}
+                  ? (allArchetypes.find((a) => a.id === selectedArchetypes[0])?.label ?? selectedArchetypes[0])
+                  : `เลือก ${selectedArchetypes.length} รูปแบบ`}
               </span>
             )}
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3 ml-1.5" />
@@ -396,7 +376,7 @@ export function WatchdogFilterBar({
             <div className="absolute top-[62px] left-0 z-30 w-full min-w-[280px] rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
                 <span className="text-ink-3 font-normal">
-                  {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
+                  เลือกเจาะจง...
                 </span>
                 {selectedArchetypes.length === allArchetypes.length ? (
                   <button
@@ -404,7 +384,7 @@ export function WatchdogFilterBar({
                     onClick={onClearArchetypes}
                     className="text-ink-2 hover:text-ink underline cursor-pointer"
                   >
-                    {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                    ล้างทั้งหมด
                   </button>
                 ) : (
                   <button
@@ -412,7 +392,7 @@ export function WatchdogFilterBar({
                     onClick={onSelectAllArchetypes}
                     className="text-ink-2 hover:text-ink underline cursor-pointer"
                   >
-                    {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
+                    เลือกทั้งหมด
                   </button>
                 )}
               </div>
@@ -430,7 +410,7 @@ export function WatchdogFilterBar({
                         onChange={() => onToggleArchetype(opt.id as SystemArchetype)}
                         className="rounded border-line"
                       />
-                      <span className="truncate">{pick(opt.label, lang)}</span>
+                      <span className="truncate">{opt.label}</span>
                     </label>
                   );
                 })}
@@ -442,7 +422,7 @@ export function WatchdogFilterBar({
         {/* 3. Agency Multi-Select Popover */}
         <div className="relative flex flex-col gap-1.5" ref={agencyRef}>
           <Label htmlFor="wd-agency-btn">
-            {lang === "th" ? "หน่วยงานผู้จัดซื้อ" : "Procuring agency"}
+            หน่วยงานผู้จัดซื้อ
           </Label>
           <button
             id="wd-agency-btn"
@@ -461,19 +441,15 @@ export function WatchdogFilterBar({
           >
             {agencies.length === 0 || selectedAgencies.length === agencies.length ? (
               <span className="truncate flex-1 text-center font-medium text-ink-2">
-                {lang === "th" ? "-- ทุกหน่วยงาน --" : "-- All Agencies --"}
+                -- ทุกหน่วยงาน --
               </span>
             ) : selectedAgencies.length === 0 ? (
               <span className="truncate flex-1 text-center font-medium text-ink-3">
-                {lang === "th" ? "ไม่ได้เลือกหน่วยงาน" : "No agency selected"}
+                ไม่ได้เลือกหน่วยงาน
               </span>
             ) : (
               <span className="truncate text-left text-ink">
-                {selectedAgencies.length === 1
-                  ? selectedAgencies[0]
-                  : lang === "th"
-                    ? `เลือก ${selectedAgencies.length} หน่วยงาน`
-                    : `${selectedAgencies.length} agencies`}
+                {selectedAgencies.length === 1 ? selectedAgencies[0] : `เลือก ${selectedAgencies.length} หน่วยงาน`}
               </span>
             )}
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3 ml-1.5" />
@@ -483,14 +459,14 @@ export function WatchdogFilterBar({
             <div className="absolute top-[62px] left-0 z-30 w-full min-w-[320px] rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
               <input
                 type="text"
-                placeholder={lang === "th" ? "ค้นหาหน่วยงาน..." : "Search agency..."}
+                placeholder="ค้นหาหน่วยงาน..."
                 value={agencySearch}
                 onChange={(e) => setAgencySearch(e.target.value)}
                 className="mb-1.5 w-full rounded border border-line-2 bg-surface px-2 py-1 text-[11.5px] text-ink focus:outline-none focus:border-ink"
               />
               <div className="mb-1.5 flex items-center justify-between border-b border-line pb-1 text-[11px]">
                 <span className="text-ink-3 font-normal">
-                  {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
+                  เลือกเจาะจง...
                 </span>
                 {agencies.length > 0 && selectedAgencies.length === agencies.length ? (
                   <button
@@ -498,7 +474,7 @@ export function WatchdogFilterBar({
                     onClick={onClearAgencies}
                     className="text-ink-2 hover:text-ink underline cursor-pointer"
                   >
-                    {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                    ล้างทั้งหมด
                   </button>
                 ) : (
                   <button
@@ -506,7 +482,7 @@ export function WatchdogFilterBar({
                     onClick={onSelectAllAgencies}
                     className="text-ink-2 hover:text-ink underline cursor-pointer"
                   >
-                    {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
+                    เลือกทั้งหมด
                   </button>
                 )}
               </div>
@@ -523,7 +499,7 @@ export function WatchdogFilterBar({
                         onChange={() => onToggleAgency(agency.th)}
                         className="rounded border-line"
                       />
-                      <span className="truncate">{pick(agency, lang)}</span>
+                      <span className="truncate">{agency.th}</span>
                     </div>
                     <span className="font-mono text-[10.5px] text-ink-3 shrink-0">
                       ({agency.count})
@@ -532,7 +508,7 @@ export function WatchdogFilterBar({
                 ))}
                 {filteredAgencies.length === 0 ? (
                   <span className="py-2 text-center text-[11.5px] text-ink-3">
-                    {lang === "th" ? "ไม่พบหน่วยงาน" : "No agency found"}
+                    ไม่พบหน่วยงาน
                   </span>
                 ) : null}
               </div>
@@ -547,13 +523,11 @@ export function WatchdogFilterBar({
         <div className="flex-1 rounded-[3px] border border-line bg-surface-2/60 p-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[12px]">
             <Label>
-              {lang === "th" ? "ช่วงราคากลางที่เลือก:" : "Reference price range:"}
+              ช่วงราคากลางที่เลือก:
             </Label>
             <span className="font-mono font-semibold text-ink">
               {minPriceTHB === 0 && maxPriceTHB === 0
-                ? lang === "th"
-                  ? "ทุกช่วงราคา (฿0 – ไม่จำกัด)"
-                  : "All prices (Unconstrained)"
+                ? "ทุกช่วงราคา (฿0 – ไม่จำกัด)"
                 : maxPriceTHB === 0 || maxPriceTHB >= MAX_SLIDER_PRICE
                   ? `${formatTHBCompact(minPriceTHB)} ขึ้นไป`
                   : `${formatTHBCompact(minPriceTHB)} – ${formatTHBCompact(maxPriceTHB)}`}
@@ -612,7 +586,7 @@ export function WatchdogFilterBar({
                   [&::-moz-range-thumb]:shadow
                   [&::-moz-range-thumb]:cursor-pointer
                   [&::-moz-range-thumb]:hover:scale-110`}
-                aria-label={lang === "th" ? "ราคากลางเริ่มต้น" : "Minimum reference price"}
+                aria-label="ราคากลางเริ่มต้น"
               />
 
               {/* Max Price Slider Handle */}
@@ -651,7 +625,7 @@ export function WatchdogFilterBar({
                   [&::-moz-range-thumb]:shadow
                   [&::-moz-range-thumb]:cursor-pointer
                   [&::-moz-range-thumb]:hover:scale-110`}
-                aria-label={lang === "th" ? "ราคากลางสูงสุด" : "Maximum reference price"}
+                aria-label="ราคากลางสูงสุด"
               />
             </div>
             <span className="font-mono text-[10.5px] text-ink-3 shrink-0">฿50M+</span>
@@ -662,15 +636,15 @@ export function WatchdogFilterBar({
         <div className="w-full lg:w-[30%] shrink-0 flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="wd-start-month-select">
-              {lang === "th" ? "ช่วงเวลาประกาศ" : "Time period"}
+              ช่วงเวลาประกาศ
             </Label>
             {isDateRangeInvalid ? (
               <span className="text-[10px] text-risk font-semibold animate-pulse">
-                {lang === "th" ? "ช่วงเวลาไม่ถูกต้อง" : "Invalid range"}
+                ช่วงเวลาไม่ถูกต้อง
               </span>
             ) : (
               <span className="text-[10.5px] text-ink-3">
-                {lang === "th" ? "(พ.ศ.)" : "(Year)"}
+                (พ.ศ.)
               </span>
             )}
           </div>
@@ -680,7 +654,7 @@ export function WatchdogFilterBar({
             <div className="flex items-center gap-1 flex-1 min-w-0">
               <select
                 id="wd-start-month-select"
-                aria-label={lang === "th" ? "ตั้งแต่เดือน" : "Start month"}
+                aria-label="ตั้งแต่เดือน"
                 value={startMonthVal}
                 onChange={(e) => {
                   setLastEditedField("start");
@@ -694,14 +668,14 @@ export function WatchdogFilterBar({
               >
                 {ALL_MONTHS.map((m) => (
                   <option key={m.value} value={m.value}>
-                    {lang === "th" ? m.th : m.en}
+                    {m.th}
                   </option>
                 ))}
               </select>
 
               <select
                 id="wd-start-year-select"
-                aria-label={lang === "th" ? "ปีเริ่มต้น" : "Start year"}
+                aria-label="ปีเริ่มต้น"
                 value={startYearNum}
                 onChange={(e) => {
                   setLastEditedField("start");
@@ -715,7 +689,7 @@ export function WatchdogFilterBar({
               >
                 {availableYears.map((y) => (
                   <option key={y} value={y}>
-                    {lang === "th" ? y + 543 : y}
+                    {y + 543}
                   </option>
                 ))}
               </select>
@@ -733,7 +707,7 @@ export function WatchdogFilterBar({
             <div className="flex items-center gap-1 flex-1 min-w-0">
               <select
                 id="wd-end-month-select"
-                aria-label={lang === "th" ? "ถึงเดือน" : "End month"}
+                aria-label="ถึงเดือน"
                 value={endMonthVal}
                 onChange={(e) => {
                   setLastEditedField("end");
@@ -747,14 +721,14 @@ export function WatchdogFilterBar({
               >
                 {ALL_MONTHS.map((m) => (
                   <option key={m.value} value={m.value}>
-                    {lang === "th" ? m.th : m.en}
+                    {m.th}
                   </option>
                 ))}
               </select>
 
               <select
                 id="wd-end-year-select"
-                aria-label={lang === "th" ? "ปีสิ้นสุด" : "End year"}
+                aria-label="ปีสิ้นสุด"
                 value={endYearNum}
                 onChange={(e) => {
                   setLastEditedField("end");
@@ -768,7 +742,7 @@ export function WatchdogFilterBar({
               >
                 {availableYears.map((y) => (
                   <option key={y} value={y}>
-                    {lang === "th" ? y + 543 : y}
+                    {y + 543}
                   </option>
                 ))}
               </select>
@@ -782,7 +756,7 @@ export function WatchdogFilterBar({
         {/* Status Multi-Select Popover */}
         <div className="relative flex flex-col gap-1.5 w-52 sm:w-56" ref={statusRef}>
           <Label htmlFor="wd-status-btn">
-            {lang === "th" ? "สถานะประกาศ" : "Tender status"}
+            สถานะประกาศ
           </Label>
           <button
             id="wd-status-btn"
@@ -801,21 +775,17 @@ export function WatchdogFilterBar({
           >
             {selectedStatuses.length === STATUS_ITEMS.length ? (
               <span className="truncate flex-1 text-center font-medium text-ink-2">
-                {lang === "th" ? "-- ทุกสถานะประกาศ --" : "-- All Statuses --"}
+                -- ทุกสถานะประกาศ --
               </span>
             ) : selectedStatuses.length === 0 ? (
               <span className="truncate flex-1 text-center font-medium text-ink-3">
-                {lang === "th" ? "ไม่ได้เลือกสถานะ" : "No status selected"}
+                ไม่ได้เลือกสถานะ
               </span>
             ) : (
               <span className="truncate text-left text-ink">
                 {selectedStatuses.length === 1
-                  ? (lang === "th"
-                      ? STATUS_ITEMS.find((s) => s.id === selectedStatuses[0])?.labelTh
-                      : STATUS_ITEMS.find((s) => s.id === selectedStatuses[0])?.labelEn) ?? selectedStatuses[0]
-                  : lang === "th"
-                    ? `เลือก ${selectedStatuses.length} สถานะ`
-                    : `${selectedStatuses.length} statuses`}
+                  ? (STATUS_ITEMS.find((s) => s.id === selectedStatuses[0])?.labelTh ?? selectedStatuses[0])
+                  : `เลือก ${selectedStatuses.length} สถานะ`}
               </span>
             )}
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3 ml-1.5" />
@@ -825,7 +795,7 @@ export function WatchdogFilterBar({
             <div className="absolute top-[62px] left-0 z-30 w-full rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
                 <span className="text-ink-3 font-normal">
-                  {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
+                  เลือกเจาะจง...
                 </span>
                 {selectedStatuses.length === STATUS_ITEMS.length && onClearStatuses ? (
                   <button
@@ -833,7 +803,7 @@ export function WatchdogFilterBar({
                     onClick={onClearStatuses}
                     className="text-ink-2 hover:text-ink underline cursor-pointer"
                   >
-                    {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                    ล้างทั้งหมด
                   </button>
                 ) : (
                   <button
@@ -841,7 +811,7 @@ export function WatchdogFilterBar({
                     onClick={onSelectAllStatuses}
                     className="text-ink-2 hover:text-ink underline cursor-pointer"
                   >
-                    {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
+                    เลือกทั้งหมด
                   </button>
                 )}
               </div>
@@ -857,7 +827,7 @@ export function WatchdogFilterBar({
                       onChange={() => onToggleStatus(item.id)}
                       className="rounded border-line"
                     />
-                    <span>{lang === "th" ? item.labelTh : item.labelEn}</span>
+                    <span>{item.labelTh}</span>
                   </label>
                 ))}
               </div>
@@ -868,7 +838,7 @@ export function WatchdogFilterBar({
         {/* Risk Level Multi-Select Popover */}
         <div className="relative flex flex-col gap-1.5 w-56 sm:w-60" ref={riskRef}>
           <Label htmlFor="wd-risk-btn">
-            {lang === "th" ? "ระดับความเสี่ยงล็อกสเปก" : "Lock-spec risk"}
+            ระดับความเสี่ยงล็อกสเปก
           </Label>
           <button
             id="wd-risk-btn"
@@ -887,21 +857,17 @@ export function WatchdogFilterBar({
           >
             {selectedRiskLevels.length === RISK_ITEMS.length ? (
               <span className="truncate flex-1 text-center font-medium text-ink-2">
-                {lang === "th" ? "-- ทุกระดับความเสี่ยง --" : "-- All Risk Levels --"}
+                -- ทุกระดับความเสี่ยง --
               </span>
             ) : selectedRiskLevels.length === 0 ? (
               <span className="truncate flex-1 text-center font-medium text-ink-3">
-                {lang === "th" ? "ไม่ได้เลือกระดับ" : "No level selected"}
+                ไม่ได้เลือกระดับ
               </span>
             ) : (
               <span className="truncate text-left text-ink">
                 {selectedRiskLevels.length === 1
-                  ? (lang === "th"
-                      ? RISK_ITEMS.find((r) => r.id === selectedRiskLevels[0])?.labelTh
-                      : RISK_ITEMS.find((r) => r.id === selectedRiskLevels[0])?.labelEn) ?? selectedRiskLevels[0]
-                  : lang === "th"
-                    ? `เลือก ${selectedRiskLevels.length} ระดับ`
-                    : `${selectedRiskLevels.length} levels`}
+                  ? (RISK_ITEMS.find((r) => r.id === selectedRiskLevels[0])?.labelTh ?? selectedRiskLevels[0])
+                  : `เลือก ${selectedRiskLevels.length} ระดับ`}
               </span>
             )}
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3 ml-1.5" />
@@ -911,7 +877,7 @@ export function WatchdogFilterBar({
             <div className="absolute top-[62px] left-0 z-30 w-full rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
                 <span className="text-ink-3 font-normal">
-                  {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
+                  เลือกเจาะจง...
                 </span>
                 {selectedRiskLevels.length === RISK_ITEMS.length && onClearRiskLevels ? (
                   <button
@@ -919,7 +885,7 @@ export function WatchdogFilterBar({
                     onClick={onClearRiskLevels}
                     className="text-ink-2 hover:text-ink underline cursor-pointer"
                   >
-                    {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                    ล้างทั้งหมด
                   </button>
                 ) : (
                   <button
@@ -927,7 +893,7 @@ export function WatchdogFilterBar({
                     onClick={onSelectAllRiskLevels}
                     className="text-ink-2 hover:text-ink underline cursor-pointer"
                   >
-                    {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
+                    เลือกทั้งหมด
                   </button>
                 )}
               </div>
@@ -944,7 +910,7 @@ export function WatchdogFilterBar({
                       className="rounded border-line"
                     />
                     <span className={item.color}>
-                      {lang === "th" ? item.labelTh : item.labelEn}
+                      {item.labelTh}
                     </span>
                   </label>
                 ))}
@@ -956,7 +922,7 @@ export function WatchdogFilterBar({
         {/* Complexity Multi-Select Popover */}
         <div className="relative flex flex-col gap-1.5 w-56 sm:w-60" ref={compRef}>
           <Label htmlFor="wd-comp-btn">
-            {lang === "th" ? "ขนาดความซับซ้อน" : "Complexity tier"}
+            ขนาดความซับซ้อน
           </Label>
           <button
             id="wd-comp-btn"
@@ -975,21 +941,17 @@ export function WatchdogFilterBar({
           >
             {selectedComplexities.length === COMPLEXITY_ITEMS.length ? (
               <span className="truncate flex-1 text-center font-medium text-ink-2">
-                {lang === "th" ? "-- ทุกขนาดความซับซ้อน --" : "-- All Complexity Tiers --"}
+                -- ทุกขนาดความซับซ้อน --
               </span>
             ) : selectedComplexities.length === 0 ? (
               <span className="truncate flex-1 text-center font-medium text-ink-3">
-                {lang === "th" ? "ไม่ได้เลือกขนาด" : "No tier selected"}
+                ไม่ได้เลือกขนาด
               </span>
             ) : (
               <span className="truncate text-left text-ink">
                 {selectedComplexities.length === 1
-                  ? (lang === "th"
-                      ? COMPLEXITY_ITEMS.find((c) => c.id === selectedComplexities[0])?.th
-                      : COMPLEXITY_ITEMS.find((c) => c.id === selectedComplexities[0])?.en) ?? selectedComplexities[0]
-                  : lang === "th"
-                    ? `เลือก ${selectedComplexities.length} ขนาด`
-                    : `${selectedComplexities.length} tiers`}
+                  ? (COMPLEXITY_ITEMS.find((c) => c.id === selectedComplexities[0])?.th ?? selectedComplexities[0])
+                  : `เลือก ${selectedComplexities.length} ขนาด`}
               </span>
             )}
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-3 ml-1.5" />
@@ -999,7 +961,7 @@ export function WatchdogFilterBar({
             <div className="absolute top-[62px] left-0 z-30 w-full rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
                 <span className="text-ink-3 font-normal">
-                  {lang === "th" ? "เลือกเจาะจง..." : "Select specific..."}
+                  เลือกเจาะจง...
                 </span>
                 {selectedComplexities.length === COMPLEXITY_ITEMS.length && onClearComplexities ? (
                   <button
@@ -1007,7 +969,7 @@ export function WatchdogFilterBar({
                     onClick={onClearComplexities}
                     className="text-ink-2 hover:text-ink underline cursor-pointer"
                   >
-                    {lang === "th" ? "ล้างทั้งหมด" : "Clear all"}
+                    ล้างทั้งหมด
                   </button>
                 ) : (
                   <button
@@ -1015,7 +977,7 @@ export function WatchdogFilterBar({
                     onClick={onSelectAllComplexities}
                     className="text-ink-2 hover:text-ink underline cursor-pointer"
                   >
-                    {lang === "th" ? "เลือกทั้งหมด" : "Select all"}
+                    เลือกทั้งหมด
                   </button>
                 )}
               </div>
@@ -1031,7 +993,7 @@ export function WatchdogFilterBar({
                       onChange={() => onToggleComplexity(item.id)}
                       className="rounded border-line"
                     />
-                    <span>{lang === "th" ? item.th : item.en}</span>
+                    <span>{item.th}</span>
                   </label>
                 ))}
               </div>

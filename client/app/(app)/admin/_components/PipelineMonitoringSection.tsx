@@ -13,17 +13,17 @@ type PhaseKey = "all" | "download" | "ocr" | "extract" | "extracted" | "failed";
 
 interface PhaseTabConfig {
   key: PhaseKey;
-  label: { th: string; en: string };
+  label: string;
   badgeColor?: string;
 }
 
 const PHASE_TABS: PhaseTabConfig[] = [
-  { key: "all", label: { th: "ทั้งหมด", en: "All" } },
-  { key: "download", label: { th: "1. รอโหลด", en: "1. Pending Download" } },
-  { key: "ocr", label: { th: "2. รอ OCR", en: "2. Pending OCR" } },
-  { key: "extract", label: { th: "3. รอสกัด AI", en: "3. Pending AI Extract" } },
-  { key: "extracted", label: { th: "4. สกัดสำเร็จ", en: "4. Extracted" } },
-  { key: "failed", label: { th: "5. ขัดข้อง/ล้มเหลว", en: "5. Failed / Stuck" } },
+  { key: "all", label: "ทั้งหมด" },
+  { key: "download", label: "1. รอโหลด" },
+  { key: "ocr", label: "2. รอ OCR" },
+  { key: "extract", label: "3. รอสกัด AI" },
+  { key: "extracted", label: "4. สกัดสำเร็จ" },
+  { key: "failed", label: "5. ขัดข้อง/ล้มเหลว" },
 ];
 
 function PipelineTaskTableSkeleton() {
@@ -68,7 +68,6 @@ function PipelineTaskTableSkeleton() {
 }
 
 export function PipelineMonitoringSection({
-  lang,
   onInspect,
   onRetry,
   onRetryAllTransient,
@@ -78,7 +77,6 @@ export function PipelineMonitoringSection({
   dismissingStep,
   actionMsg,
 }: {
-  lang: "th" | "en";
   onInspect: (projectId: string) => void;
   onRetry: (projectId: string, step: string, runNow?: boolean) => Promise<void>;
   onRetryAllTransient?: () => Promise<void>;
@@ -188,31 +186,21 @@ export function PipelineMonitoringSection({
                 onClick={handleRetryAllClick}
                 disabled={retryingAll}
                 className={`${btn.primary} text-[11px] py-1 px-3 cursor-pointer`}
-                title={
-                  lang === "th"
-                    ? "สั่งรันใหม่เฉพาะรายการที่ขัดข้องชั่วคราว (เช่น Timeout หรือเครือข่ายขัดข้อง) โดยไม่แตะต้องข้อผิดพลาดถาวร"
-                    : "Retry only transient failures (e.g. timeouts or network issues) without touching permanent errors"
-                }
+                title="สั่งรันใหม่เฉพาะรายการที่ขัดข้องชั่วคราว (เช่น Timeout หรือเครือข่ายขัดข้อง) โดยไม่แตะต้องข้อผิดพลาดถาวร"
               >
                 {retryingAll ? (
                   <span className="animate-spin inline-block mr-1">↻</span>
                 ) : (
                   <span className="inline-block mr-1">↻</span>
                 )}
-                {lang === "th"
-                  ? "สั่งรันใหม่เฉพาะรายการขัดข้องชั่วคราว (Retry All Transient)"
-                  : "Retry All Transient"}
+                สั่งรันใหม่เฉพาะรายการขัดข้องชั่วคราว (Retry All Transient)
               </button>
             ) : null}
           </div>
         }
-        sub={
-          lang === "th"
-            ? "เฝ้าระวังความคืบหน้าของ Pipeline อัตโนมัติทุกขั้นตอน พร้อมคำสั่งสั่งรันใหม่และแก้ไขสำหรับงานที่เกิดข้อผิดพลาด"
-            : "Monitor automated pipeline progress across all phases with recovery and retry controls for failed jobs."
-        }
+        sub="เฝ้าระวังความคืบหน้าของ Pipeline อัตโนมัติทุกขั้นตอน พร้อมคำสั่งสั่งรันใหม่และแก้ไขสำหรับงานที่เกิดข้อผิดพลาด"
       >
-        {lang === "th" ? "การเฝ้าระวังและควบคุม Pipeline" : "Pipeline Monitoring & Control"}
+        การเฝ้าระวังและควบคุม Pipeline
       </SectionHeading>
 
       {/* Action Notification Alert */}
@@ -244,7 +232,7 @@ export function PipelineMonitoringSection({
                   : "border-transparent text-ink-3 hover:text-ink hover:bg-surface-2/60"
               }`}
             >
-              <span>{tab.label[lang]}</span>
+              <span>{tab.label}</span>
               <span
                 className={`rounded-[2px] px-1.5 py-[1px] font-mono text-[10px] ${
                   tab.key === "failed" && count > 0
@@ -271,11 +259,7 @@ export function PipelineMonitoringSection({
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder={
-              lang === "th"
-                ? "ค้นหาตามรหัสโครงการ, ชื่อ หรือหน่วยงาน..."
-                : "Search by project ID, title, or agency..."
-            }
+            placeholder="ค้นหาตามรหัสโครงการ, ชื่อ หรือหน่วยงาน..."
             className={`${input} text-[12px] h-8 w-full pl-8 pr-7 font-sans`}
           />
           {searchInput && (
@@ -283,7 +267,7 @@ export function PipelineMonitoringSection({
               type="button"
               onClick={() => setSearchInput("")}
               className="absolute inset-y-0 right-2 flex items-center text-ink-3 hover:text-ink text-[12px] cursor-pointer"
-              title={lang === "th" ? "ล้างคำค้นหา" : "Clear search"}
+              title="ล้างคำค้นหา"
             >
               ✕
             </button>
@@ -292,14 +276,14 @@ export function PipelineMonitoringSection({
 
         <div className="flex items-center gap-2 text-[11px] text-ink-3">
           <span>
-            {lang === "th" ? "พบทั้งหมด" : "Found"} {total} {lang === "th" ? "รายการ" : "items"}
+            พบทั้งหมด {total} รายการ
           </span>
           <button
             type="button"
             onClick={fetchTasks}
             disabled={isLoading}
             className={`${btn.ghost} text-[11px] p-1.5 cursor-pointer`}
-            title={lang === "th" ? "รีเฟรชตาราง" : "Refresh table"}
+            title="รีเฟรชตาราง"
           >
             <span className={isLoading ? "animate-spin inline-block" : ""}>↻</span>
           </button>
@@ -312,12 +296,12 @@ export function PipelineMonitoringSection({
           <thead>
             <tr className="border-b border-line bg-surface-2">
               {[
-                { text: lang === "th" ? "รหัส / โครงการ" : "Project", right: false },
-                { text: lang === "th" ? "ขั้นตอน (Stage)" : "Stage / Phase", right: false },
-                { text: lang === "th" ? "สถานะ / วินิจฉัยข้อผิดพลาด" : "Status & Diagnostics", right: false },
-                { text: lang === "th" ? "พยายาม" : "Attempts", right: true, width: "w-24" },
-                { text: lang === "th" ? "อัปเดตล่าสุด" : "Updated", right: true },
-                { text: lang === "th" ? "คำสั่งควบคุม" : "Actions", right: true },
+                { text: "รหัส / โครงการ", right: false },
+                { text: "ขั้นตอน (Stage)", right: false },
+                { text: "สถานะ / วินิจฉัยข้อผิดพลาด", right: false },
+                { text: "พยายาม", right: true, width: "w-24" },
+                { text: "อัปเดตล่าสุด", right: true },
+                { text: "คำสั่งควบคุม", right: true },
               ].map((col) => (
                 <th
                   key={col.text}
@@ -339,9 +323,7 @@ export function PipelineMonitoringSection({
                   <div className="flex flex-col items-center justify-center gap-1.5">
                     <span className="text-open text-[18px] font-bold">✓</span>
                     <span className="text-[13px] font-medium text-ink-2">
-                      {lang === "th"
-                        ? "ไม่พบรายการงานในหมวดหมู่นี้ หรือการค้นหาไม่ตรงกับรายการใด"
-                        : "No tasks found matching this phase filter or search query."}
+                      ไม่พบรายการงานในหมวดหมู่นี้ หรือการค้นหาไม่ตรงกับรายการใด
                     </span>
                     <span className="text-[11px] text-ink-3 font-mono">0 tasks</span>
                   </div>
@@ -352,7 +334,6 @@ export function PipelineMonitoringSection({
                 <PipelineTaskRow
                   key={`${task.projectId}-${task.step}`}
                   task={task}
-                  lang={lang}
                   onInspect={onInspect}
                   onRetry={handleRowRetry}
                   onDismiss={handleRowDismiss}
@@ -369,7 +350,7 @@ export function PipelineMonitoringSection({
       {totalPages > 1 && (
         <div className="mt-3 flex items-center justify-between text-[11px] text-ink-3">
           <span>
-            {lang === "th" ? "หน้า" : "Page"} {page} {lang === "th" ? "จาก" : "of"} {totalPages}
+            หน้า {page} จาก {totalPages}
           </span>
           <div className="flex items-center gap-1.5">
             <button
@@ -378,7 +359,7 @@ export function PipelineMonitoringSection({
               disabled={page <= 1 || isLoading}
               className={`${btn.secondary} text-[11px] py-1 px-2.5 cursor-pointer disabled:opacity-40`}
             >
-              {lang === "th" ? "ย้อนกลับ" : "Previous"}
+              ย้อนกลับ
             </button>
             <button
               type="button"
@@ -386,7 +367,7 @@ export function PipelineMonitoringSection({
               disabled={page >= totalPages || isLoading}
               className={`${btn.secondary} text-[11px] py-1 px-2.5 cursor-pointer disabled:opacity-40`}
             >
-              {lang === "th" ? "ถัดไป" : "Next"}
+              ถัดไป
             </button>
           </div>
         </div>
@@ -397,7 +378,6 @@ export function PipelineMonitoringSection({
 
 function PipelineTaskRow({
   task,
-  lang,
   onInspect,
   onRetry,
   onDismiss,
@@ -405,7 +385,6 @@ function PipelineTaskRow({
   isDismissing,
 }: {
   task: PipelineTaskItem;
-  lang: "th" | "en";
   onInspect: (projectId: string) => void;
   onRetry: (projectId: string, step: string, runNow: boolean) => Promise<void>;
   onDismiss: (projectId: string, step: string) => Promise<void>;
@@ -427,21 +406,21 @@ function PipelineTaskRow({
 
   const getStatusText = () => {
     if (task.phase === "failed") {
-      return lang === "th" ? "ข้อผิดพลาด" : "Failed";
+      return "ข้อผิดพลาด";
     }
     if (task.phase === "extracted" || task.pipelineStatus === "extracted") {
-      return lang === "th" ? "สกัดสำเร็จ" : "extracted";
+      return "สกัดสำเร็จ";
     }
     if (task.phase === "extract" || task.pipelineStatus === "ocr_done") {
-      return lang === "th" ? "OCR เสร็จสิ้น" : "ocr_done";
+      return "OCR เสร็จสิ้น";
     }
     if (task.pipelineStatus === "ocr_preview") {
-      return lang === "th" ? "OCR พรีวิว" : "ocr_preview";
+      return "OCR พรีวิว";
     }
     if (task.phase === "ocr" || task.pipelineStatus === "downloaded") {
-      return lang === "th" ? "ดาวน์โหลดแล้ว" : "downloaded";
+      return "ดาวน์โหลดแล้ว";
     }
-    return lang === "th" ? "พบประกาศ" : "fetched";
+    return "พบประกาศ";
   };
 
   return (
@@ -452,7 +431,7 @@ function PipelineTaskRow({
           type="button"
           onClick={() => onInspect(task.projectId)}
           className="font-mono text-[12px] font-bold text-ink hover:text-open hover:underline cursor-pointer text-left block"
-          title={lang === "th" ? "คลิกเพื่อตรวจสอบสถานะรายโครงการ" : "Click to inspect record"}
+          title="คลิกเพื่อตรวจสอบสถานะรายโครงการ"
         >
           {task.projectId} 🔍
         </button>
@@ -471,19 +450,19 @@ function PipelineTaskRow({
           </span>
         ) : task.phase === "download" ? (
           <span className="inline-flex rounded-[2px] border border-line bg-surface-2 px-2 py-[2px] text-[10px] font-medium text-ink">
-            {lang === "th" ? "1. รอโหลด" : "1. Pending Download"}
+            1. รอโหลด
           </span>
         ) : task.phase === "ocr" ? (
           <span className="inline-flex rounded-[2px] border border-line bg-surface-2 px-2 py-[2px] text-[10px] font-medium text-ink">
-            {lang === "th" ? "2. รอ OCR" : "2. OCR Processing"}
+            2. รอ OCR
           </span>
         ) : task.phase === "extract" ? (
           <span className="inline-flex rounded-[2px] border border-amend-line bg-amend-bg px-2 py-[2px] text-[10px] font-medium text-amend">
-            {lang === "th" ? "3. รอสกัด AI" : "3. AI Extracting"}
+            3. รอสกัด AI
           </span>
         ) : (
           <span className="inline-flex rounded-[2px] border border-open-line bg-open-bg px-2 py-[2px] text-[10px] font-medium text-open">
-            {lang === "th" ? "✓ สกัดสำเร็จ" : "✓ Extracted"}
+            ✓ สกัดสำเร็จ
           </span>
         )}
         <div className="mt-1 font-mono text-[10px] text-ink-3">
@@ -498,11 +477,11 @@ function PipelineTaskRow({
             <div className="flex items-center gap-1.5 mb-1">
               {task.lastTransient ? (
                 <span className="inline-flex rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-[1px] text-[10px] font-medium text-amend">
-                  {lang === "th" ? "⚠️ ขัดข้องชั่วคราว" : "⚠️ Transient"}
+                  ⚠️ ขัดข้องชั่วคราว
                 </span>
               ) : (
                 <span className="inline-flex rounded-[2px] border border-risk-line bg-risk-bg px-1.5 py-[1px] text-[10px] font-medium text-risk">
-                  {lang === "th" ? "❌ ผิดพลาดถาวร" : "❌ Defect"}
+                  ❌ ผิดพลาดถาวร
                 </span>
               )}
             </div>
@@ -517,9 +496,7 @@ function PipelineTaskRow({
                     onClick={() => setIsExpanded(!isExpanded)}
                     className="text-[11px] text-ink-3 underline hover:text-ink cursor-pointer"
                   >
-                    {isExpanded
-                      ? lang === "th" ? "ย่อ" : "Collapse"
-                      : lang === "th" ? "ดูเต็ม..." : "Expand..."}
+                    {isExpanded ? "ย่อ" : "ดูเต็ม..."}
                   </button>
                 )}
                 <button
@@ -527,9 +504,7 @@ function PipelineTaskRow({
                   onClick={handleCopy}
                   className="text-[10px] text-ink-3 hover:text-ink cursor-pointer"
                 >
-                  {isCopied
-                    ? lang === "th" ? "✓ คัดลอกแล้ว" : "✓ Copied"
-                    : lang === "th" ? "📋 คัดลอก" : "📋 Copy"}
+                  {isCopied ? "✓ คัดลอกแล้ว" : "📋 คัดลอก"}
                 </button>
               </div>
             )}
@@ -544,21 +519,21 @@ function PipelineTaskRow({
             {task.phase === "extracted" ? (
               <span className="text-open flex items-center gap-1 font-medium">
                 <span>✓</span>
-                <span>{lang === "th" ? "สกัดข้อมูลสมบูรณ์ (พร้อมใช้งาน)" : "Extracted & ready"}</span>
+                <span>สกัดข้อมูลสมบูรณ์ (พร้อมใช้งาน)</span>
               </span>
             ) : task.phase === "extract" ? (
               <span className="text-ink-2">
-                {lang === "th" ? "OCR เรียบร้อย รอคิวสกัดโครงสร้าง AI" : "OCR done, awaiting AI extraction"}
+                OCR เรียบร้อย รอคิวสกัดโครงสร้าง AI
               </span>
             ) : task.phase === "ocr" ? (
               <span className="text-ink-2">
                 {task.pipelineStatus === "ocr_preview"
-                  ? (lang === "th" ? "OCR พรีวิวแล้ว รอทำ OCR ฉบับเต็ม" : "Preview OCR done, awaiting full OCR")
-                  : (lang === "th" ? "ดาวน์โหลดไฟล์แล้ว รอคิวทำ OCR" : "Downloaded, awaiting OCR")}
+                  ? "OCR พรีวิวแล้ว รอทำ OCR ฉบับเต็ม"
+                  : "ดาวน์โหลดไฟล์แล้ว รอคิวทำ OCR"}
               </span>
             ) : (
               <span className="text-ink-3">
-                {lang === "th" ? "ตรวจพบประกาศ รอคิวดาวน์โหลดไฟล์ PDF" : "Notice fetched, awaiting PDF download"}
+                ตรวจพบประกาศ รอคิวดาวน์โหลดไฟล์ PDF
               </span>
             )}
           </div>
@@ -592,18 +567,14 @@ function PipelineTaskRow({
                 onClick={() => onRetry(task.projectId, task.step || "download", false)}
                 disabled={isRetrying || isDismissing}
                 className={`${btn.secondary} text-[11px] h-7.5 px-2.5 cursor-pointer shrink-0`}
-                title={
-                  lang === "th"
-                    ? "เคลียร์ข้อผิดพลาดและส่งเข้าคิวรอรอบเวลาปกติ"
-                    : "Clear error and queue for next scheduled cycle"
-                }
+                title="เคลียร์ข้อผิดพลาดและส่งเข้าคิวรอรอบเวลาปกติ"
               >
                 {isRetrying ? (
                   <span className="animate-spin inline-block mr-1">↻</span>
                 ) : (
                   <span className="inline-block mr-1">↻</span>
                 )}
-                {lang === "th" ? "เข้าคิวใหม่" : "Re-queue"}
+                เข้าคิวใหม่
               </button>
 
               {/* Primary Action Button with retry verb */}
@@ -612,16 +583,12 @@ function PipelineTaskRow({
                 onClick={() => onRetry(task.projectId, task.step || "download", true)}
                 disabled={isRetrying || isDismissing}
                 className={`${btn.primary} text-[11px] h-7.5 px-3 cursor-pointer shrink-0`}
-                title={
-                  lang === "th"
-                    ? "สั่งรันขั้นตอนที่ล้มเหลวทันทีโดยไม่ต้องรอรอบเวลา"
-                    : "Execute failed step immediately on-demand"
-                }
+                title="สั่งรันขั้นตอนที่ล้มเหลวทันทีโดยไม่ต้องรอรอบเวลา"
               >
                 {isRetrying ? (
                   <span className="animate-spin inline-block mr-1">↻</span>
                 ) : null}
-                {lang === "th" ? "ลองใหม่ทันที" : "Retry Now"}
+                ลองใหม่ทันที
               </button>
 
               {/* Dismiss Failure Control */}
@@ -630,12 +597,12 @@ function PipelineTaskRow({
                 onClick={() => onDismiss(task.projectId, task.step || "download")}
                 disabled={isRetrying || isDismissing}
                 className={`${btn.ghost} text-[11px] h-7.5 px-2 text-ink-3 hover:text-risk cursor-pointer shrink-0`}
-                title={lang === "th" ? "ละเว้นข้อผิดพลาดนี้อย่างถาวร" : "Dismiss failure permanently"}
+                title="ละเว้นข้อผิดพลาดนี้อย่างถาวร"
               >
                 {isDismissing ? (
                   <span className="animate-spin inline-block mr-1">↻</span>
                 ) : null}
-                {lang === "th" ? "ละเว้น" : "Dismiss"}
+                ละเว้น
               </button>
 
               {/* Inspect Button */}
@@ -643,7 +610,7 @@ function PipelineTaskRow({
                 type="button"
                 onClick={() => onInspect(task.projectId)}
                 className={`${btn.ghost} text-[11px] h-7.5 w-7.5 flex items-center justify-center p-0 text-ink-3 hover:text-ink cursor-pointer shrink-0`}
-                title={lang === "th" ? "ตรวจสอบสถานะรายโครงการ" : "Inspect record"}
+                title="ตรวจสอบสถานะรายโครงการ"
               >
                 🔍
               </button>
@@ -655,10 +622,10 @@ function PipelineTaskRow({
                 <Link
                   href={`/tor/${task.projectId}`}
                   className={`${btn.secondary} text-[11px] h-7.5 px-2.5 inline-flex items-center gap-1 shrink-0 text-ink-2 hover:text-ink`}
-                  title={lang === "th" ? "เปิดดูหน้าประกาศและผลวิเคราะห์ TOR" : "View public TOR page"}
+                  title="เปิดดูหน้าประกาศและผลวิเคราะห์ TOR"
                 >
                   <span>📄</span>
-                  <span>{lang === "th" ? "ดูประกาศ" : "View TOR"}</span>
+                  <span>ดูประกาศ</span>
                 </Link>
               )}
 
@@ -667,10 +634,10 @@ function PipelineTaskRow({
                 type="button"
                 onClick={() => onInspect(task.projectId)}
                 className={`${btn.secondary} text-[11px] h-7.5 px-2.5 inline-flex items-center gap-1 shrink-0 text-ink hover:text-open cursor-pointer`}
-                title={lang === "th" ? "ตรวจสอบสถานะและข้อมูลดิบรายโครงการ" : "Inspect record"}
+                title="ตรวจสอบสถานะและข้อมูลดิบรายโครงการ"
               >
                 <span>🔍</span>
-                <span>{lang === "th" ? "ตรวจสอบ" : "Inspect"}</span>
+                <span>ตรวจสอบ</span>
               </button>
             </>
           )}

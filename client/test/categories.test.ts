@@ -28,7 +28,7 @@ test("toggleCategory: changes a new list, never the one it was given", () => {
   assert.deepEqual(selected, ["data-and-ai"]);
 });
 
-test("PROJECT_CATEGORIES: the same seven the server stores, each named in both languages", async () => {
+test("PROJECT_CATEGORIES: the same seven the server stores, each named in Thai", async () => {
   // A computed path, so the Docker build, which has only client/, doesn't try to
   // resolve it when it type-checks this file. The server's list imports nothing.
   const serverList = new URL("../../server/src/models/project-categories.js", import.meta.url).href;
@@ -38,12 +38,10 @@ test("PROJECT_CATEGORIES: the same seven the server stores, each named in both l
   assert.equal(MAX_CATEGORIES, server.MAX_CATEGORIES);
   for (const category of PROJECT_CATEGORIES) {
     assert.ok(category.th);
-    assert.ok(category.en);
   }
 });
 
-test("categoryLabel: names a category in the reader's language, and falls back to the key", () => {
-  assert.equal(categoryLabel("software-development", "th"), "พัฒนาซอฟต์แวร์");
-  assert.equal(categoryLabel("software-development", "en"), "Software development");
-  assert.equal(categoryLabel("something-new", "th"), "something-new");
+test("categoryLabel: names a category in Thai, and falls back to the key", () => {
+  assert.equal(categoryLabel("software-development"), "พัฒนาซอฟต์แวร์");
+  assert.equal(categoryLabel("something-new"), "something-new");
 });

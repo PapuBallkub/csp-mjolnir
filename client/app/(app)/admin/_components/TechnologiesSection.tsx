@@ -47,7 +47,6 @@ export function TechnologiesSection({
   onDelete,
   onOpenAdd,
   onOpenEdit,
-  lang,
 }: {
   technologies: AdminTechnology[];
   isLoading: boolean;
@@ -65,19 +64,18 @@ export function TechnologiesSection({
   onDelete: (id: string, name: string) => void;
   onOpenAdd: () => void;
   onOpenEdit: (tech: AdminTechnology) => void;
-  lang: "th" | "en";
 }) {
   const CATEGORIES = [
-    { id: "all", label: { th: "ทุกหมวดหมู่", en: "All Categories" } },
-    { id: "Framework", label: { th: "Framework & Library", en: "Framework & Library" } },
-    { id: "Database", label: { th: "Database (ฐานข้อมูล)", en: "Database" } },
-    { id: "Language", label: { th: "Programming Language", en: "Programming Language" } },
-    { id: "Operating System", label: { th: "Operating System (ระบบปฏิบัติการ)", en: "Operating System" } },
-    { id: "Virtualization / Container", label: { th: "Virtualization & Container", en: "Virtualization & Container" } },
-    { id: "Cloud / Infrastructure", label: { th: "Cloud & Infrastructure", en: "Cloud & Infrastructure" } },
-    { id: "Standard / ISO", label: { th: "Standard & Certifications (ISO/CMMI)", en: "Standard & ISO" } },
-    { id: "Security / Network", label: { th: "Security & Network", en: "Security & Network" } },
-    { id: "Other", label: { th: "อื่น ๆ", en: "Other" } },
+    { id: "all", label: "ทุกหมวดหมู่" },
+    { id: "Framework", label: "Framework & Library" },
+    { id: "Database", label: "Database (ฐานข้อมูล)" },
+    { id: "Language", label: "Programming Language" },
+    { id: "Operating System", label: "Operating System (ระบบปฏิบัติการ)" },
+    { id: "Virtualization / Container", label: "Virtualization & Container" },
+    { id: "Cloud / Infrastructure", label: "Cloud & Infrastructure" },
+    { id: "Standard / ISO", label: "Standard & Certifications (ISO/CMMI)" },
+    { id: "Security / Network", label: "Security & Network" },
+    { id: "Other", label: "อื่น ๆ" },
   ];
 
   const pendingItems = technologies.filter((t) => t.status === "new");
@@ -102,20 +100,16 @@ export function TechnologiesSection({
             className={`${btn.primary} text-[11px] py-1 px-3 flex items-center gap-1.5 shrink-0 cursor-pointer`}
           >
             <span className="text-[14px] font-bold leading-none">+</span>
-            <span>{lang === "th" ? "เพิ่มเทคโนโลยี / มาตรฐาน" : "Add Tech / Standard"}</span>
+            <span>เพิ่มเทคโนโลยี / มาตรฐาน</span>
           </button>
         }
-        sub={
-          lang === "th"
-            ? "จัดการคำศัพท์ที่ใช้ในการสกัดข้อมูล TOR ตรวจจับ Lock-spec และจับคู่ความสามารถของผู้ใช้ (Matching)"
-            : "Shared vocabulary for TOR extraction, lock-spec analysis, and contractor profile matching."
-        }
+        sub="จัดการคำศัพท์ที่ใช้ในการสกัดข้อมูล TOR ตรวจจับ Lock-spec และจับคู่ความสามารถของผู้ใช้ (Matching)"
       >
         <div className="flex items-center gap-2">
-          <span>{lang === "th" ? "คลังเทคโนโลยีและมาตรฐาน" : "Technology & Standards Vocabulary"}</span>
+          <span>คลังเทคโนโลยีและมาตรฐาน</span>
           {pendingCount > 0 && (
             <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-0.5 text-[11px] font-semibold text-amend">
-              {lang === "th" ? `รออนุมัติ ${pendingCount} รายการ` : `${pendingCount} pending`}
+              {`รออนุมัติ ${pendingCount} รายการ`}
             </span>
           )}
         </div>
@@ -128,7 +122,7 @@ export function TechnologiesSection({
             {totalCount || technologies.length}
           </p>
           <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
-            {lang === "th" ? "คำศัพท์ทั้งหมดในระบบ" : "Total vocabulary"}
+            คำศัพท์ทั้งหมดในระบบ
           </p>
         </Panel>
         <Panel className="px-3 py-2.5">
@@ -136,7 +130,7 @@ export function TechnologiesSection({
             {technologies.filter((t) => t.status === "confirmed").length || (totalCount - pendingCount)}
           </p>
           <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
-            {lang === "th" ? "ยืนยันแล้ว (ใช้งานในระบบ)" : "Confirmed active"}
+            ยืนยันแล้ว (ใช้งานในระบบ)
           </p>
         </Panel>
         <Panel className="px-3 py-2.5">
@@ -144,7 +138,7 @@ export function TechnologiesSection({
             {pendingCount}
           </p>
           <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
-            {lang === "th" ? "รออนุมัติจากผู้ใช้" : "Pending requests"}
+            รออนุมัติจากผู้ใช้
           </p>
         </Panel>
         <Panel className="px-3 py-2.5">
@@ -152,7 +146,7 @@ export function TechnologiesSection({
             {CATEGORIES.length - 1}
           </p>
           <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
-            {lang === "th" ? "หมวดหมู่เทคโนโลยี" : "Tech categories"}
+            หมวดหมู่เทคโนโลยี
           </p>
         </Panel>
       </div>
@@ -177,14 +171,14 @@ export function TechnologiesSection({
             <div className="flex items-center gap-2">
               <span className="text-[14px]">⏳</span>
               <h3 className="text-[13px] font-bold text-ink">
-                {lang === "th" ? "คำขอใหม่รอการอนุมัติจากผู้ใช้" : "Pending Requests from Users"}
+                คำขอใหม่รอการอนุมัติจากผู้ใช้
               </h3>
               <span className="rounded-full bg-amend text-surface text-[10px] font-bold px-2 py-0.2">
                 {pendingItems.length}
               </span>
             </div>
             <span className="text-[11px] text-ink-3">
-              {lang === "th" ? "ตรวจทานและอนุมัติเข้าสู่ระบบ" : "Review and approve into vocabulary"}
+              ตรวจทานและอนุมัติเข้าสู่ระบบ
             </span>
           </div>
 
@@ -203,24 +197,22 @@ export function TechnologiesSection({
                       </span>
                     )}
                     <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-0.5 text-[10px] font-medium text-amend">
-                      {lang === "th" ? "รออนุมัติ" : "Pending"}
+                      รออนุมัติ
                     </span>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 text-[11px] text-ink-3">
                     <span>
-                      {lang === "th" ? "ที่มา: " : "Origin: "}
+                      ที่มา: 
                       <strong className="font-normal text-ink-2">
                         {tech.firstSeenIn?.startsWith("user-request")
-                          ? lang === "th"
-                            ? "ผู้ใช้ขอเพิ่มจากหน้าโปรไฟล์"
-                            : "User request from profile"
+                          ? "ผู้ใช้ขอเพิ่มจากหน้าโปรไฟล์"
                           : tech.firstSeenIn || "User request"}
                       </strong>
                     </span>
                     {tech.createdAt && (
                       <span>
                         {new Date(tech.createdAt).toLocaleDateString(
-                          lang === "th" ? "th-TH" : "en-US",
+                          "th-TH",
                           { timeZone: "Asia/Bangkok", dateStyle: "medium" },
                         )}
                       </span>
@@ -234,21 +226,21 @@ export function TechnologiesSection({
                     onClick={() => onApprove(tech.id, tech.name)}
                     className="cursor-pointer rounded-[3px] border border-open-line bg-open-bg px-2.5 py-1 text-[11px] font-medium text-open hover:bg-open hover:text-white transition-colors"
                   >
-                    ✓ {lang === "th" ? "อนุมัติ" : "Approve"}
+                    ✓ อนุมัติ
                   </button>
                   <button
                     type="button"
                     onClick={() => onOpenEdit(tech)}
                     className="cursor-pointer rounded-[3px] border border-line bg-surface px-2.5 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
                   >
-                    ✏️ {lang === "th" ? "แก้ไขก่อนอนุมัติ" : "Edit & Approve"}
+                    ✏️ แก้ไขก่อนอนุมัติ
                   </button>
                   <button
                     type="button"
                     onClick={() => onReject(tech.id, tech.name)}
                     className="cursor-pointer rounded-[3px] border border-risk-line bg-risk-bg px-2.5 py-1 text-[11px] font-medium text-risk hover:bg-risk hover:text-white transition-colors"
                   >
-                    ✕ {lang === "th" ? "ปฏิเสธ" : "Reject"}
+                    ✕ ปฏิเสธ
                   </button>
                 </div>
               </div>
@@ -268,7 +260,7 @@ export function TechnologiesSection({
                 type="text"
                 value={search}
                 onChange={(e) => onSearchChange(e.target.value)}
-                placeholder={lang === "th" ? "ค้นหาชื่อ หรือคำพ้อง..." : "Search name or alias..."}
+                placeholder="ค้นหาชื่อ หรือคำพ้อง..."
                 className={`${input} h-8 text-[12px] pr-7 w-full`}
               />
               {search && (
@@ -290,7 +282,7 @@ export function TechnologiesSection({
             >
               {CATEGORIES.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.label[lang]}
+                  {c.label}
                 </option>
               ))}
             </select>
@@ -299,10 +291,10 @@ export function TechnologiesSection({
           {/* Status Filter Pills */}
           <div className="flex items-center gap-1.5 self-start md:self-auto">
             {[
-              { id: "all", label: { th: "ทั้งหมด", en: "All" } },
-              { id: "confirmed", label: { th: "ยืนยันแล้ว", en: "Confirmed" } },
-              { id: "new", label: { th: "รออนุมัติ", en: "Pending" } },
-              { id: "rejected", label: { th: "ปฏิเสธ", en: "Rejected" } },
+              { id: "all", label: "ทั้งหมด" },
+              { id: "confirmed", label: "ยืนยันแล้ว" },
+              { id: "new", label: "รออนุมัติ" },
+              { id: "rejected", label: "ปฏิเสธ" },
             ].map((st) => (
               <button
                 key={st.id}
@@ -314,7 +306,7 @@ export function TechnologiesSection({
                     : "border-line bg-surface text-ink-2 hover:border-ink hover:text-ink"
                 }`}
               >
-                {st.label[lang]}
+                {st.label}
               </button>
             ))}
           </div>
@@ -326,13 +318,13 @@ export function TechnologiesSection({
             <table className="w-full min-w-[820px] border-collapse text-left text-[12px]">
             <thead>
               <tr className="border-b border-line bg-surface-2 text-[10px] uppercase font-semibold text-ink-3 tracking-wider">
-                <th className="px-3.5 py-2.5">{lang === "th" ? "ชื่อที่แสดง (Name)" : "Name"}</th>
-                <th className="px-3 py-2.5">{lang === "th" ? "หมวดหมู่" : "Category"}</th>
+                <th className="px-3.5 py-2.5">ชื่อที่แสดง (Name)</th>
+                <th className="px-3 py-2.5">หมวดหมู่</th>
                 <th className="px-3 py-2.5">
-                  {lang === "th" ? "คำพ้อง / คำที่เขียนคล้ายกัน (Aliases)" : "Aliases"}
+                  คำพ้อง / คำที่เขียนคล้ายกัน (Aliases)
                 </th>
-                <th className="px-3 py-2.5">{lang === "th" ? "สถานะ" : "Status"}</th>
-                <th className="px-3 py-2.5 text-right">{lang === "th" ? "การจัดการ" : "Actions"}</th>
+                <th className="px-3 py-2.5">สถานะ</th>
+                <th className="px-3 py-2.5 text-right">การจัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line/60">
@@ -341,9 +333,7 @@ export function TechnologiesSection({
               ) : filteredTech.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-ink-3">
-                    {lang === "th"
-                      ? "ไม่พบเทคโนโลยีหรือมาตรฐานที่ตรงกับเงื่อนไข"
-                      : "No matching technologies found."}
+                    ไม่พบเทคโนโลยีหรือมาตรฐานที่ตรงกับเงื่อนไข
                   </td>
                 </tr>
               ) : (
@@ -381,15 +371,15 @@ export function TechnologiesSection({
                     <td className="px-3 py-2.5">
                       {tech.status === "confirmed" ? (
                         <span className="inline-flex items-center gap-1 rounded-[2px] border border-open-line bg-open-bg px-1.5 py-0.5 text-[10px] font-medium text-open">
-                          ✓ {lang === "th" ? "ยืนยันแล้ว" : "Confirmed"}
+                          ✓ ยืนยันแล้ว
                         </span>
                       ) : tech.status === "rejected" ? (
                         <span className="inline-flex items-center gap-1 rounded-[2px] border border-risk-line bg-risk-bg px-1.5 py-0.5 text-[10px] font-medium text-risk">
-                          ✕ {lang === "th" ? "ปฏิเสธ" : "Rejected"}
+                          ✕ ปฏิเสธ
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-0.5 text-[10px] font-medium text-amend">
-                          ⏳ {lang === "th" ? "รออนุมัติ" : "Pending"}
+                          ⏳ รออนุมัติ
                         </span>
                       )}
                     </td>
@@ -399,17 +389,17 @@ export function TechnologiesSection({
                           type="button"
                           onClick={() => onOpenEdit(tech)}
                           className="cursor-pointer rounded-[2px] border border-line bg-surface px-2 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
-                          title={lang === "th" ? "แก้ไขข้อมูล" : "Edit details"}
+                          title="แก้ไขข้อมูล"
                         >
-                          {lang === "th" ? "แก้ไข" : "Edit"}
+                          แก้ไข
                         </button>
                         <button
                           type="button"
                           onClick={() => onDelete(tech.id, tech.name)}
                           className="cursor-pointer rounded-[2px] border border-line bg-surface px-2 py-1 text-[11px] font-medium text-risk hover:border-risk hover:bg-risk-bg transition-colors"
-                          title={lang === "th" ? "ลบรายการนี้" : "Delete entry"}
+                          title="ลบรายการนี้"
                         >
-                          {lang === "th" ? "ลบ" : "Delete"}
+                          ลบ
                         </button>
                       </div>
                     </td>
@@ -423,9 +413,7 @@ export function TechnologiesSection({
         {/* Footer info */}
         <div className="border-t border-line bg-surface-2 px-3.5 py-2 text-[11px] text-ink-3 flex justify-between items-center">
           <span>
-            {lang === "th"
-              ? `แสดงผล ${filteredTech.length} รายการ (จากทั้งหมด ${totalCount})`
-              : `Showing ${filteredTech.length} of ${totalCount}`}
+            {`แสดงผล ${filteredTech.length} รายการ (จากทั้งหมด ${totalCount})`}
           </span>
           <span className="font-mono text-[10px]">ADR 0014 Vocabulary</span>
         </div>

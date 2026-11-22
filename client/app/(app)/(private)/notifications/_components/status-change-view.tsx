@@ -4,23 +4,9 @@ import Link from "next/link";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import { StatusBadge } from "../../../../_components/verdict";
 import { Panel } from "../../../../_components/ui";
-import { formatTHB } from "../../../../_data/tors";
+import { formatTHB, type Status } from "../../../../_data/tors";
+import { formatThaiDateTime as formatThaiDate } from "../../../../_lib/deadline";
 import type { StatusSnapshot } from "../../../../_lib/api";
-import type { Status } from "../../../../_data/tors";
-
-function formatThaiDate(dateStr?: string | Date | null, lang: "th" | "en" = "th") {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", {
-    timeZone: "Asia/Bangkok",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 type SingleStatusItem = {
   projectId: string;
@@ -34,10 +20,8 @@ type SingleStatusItem = {
 
 export function StatusChangeView({
   snapshot,
-  lang,
 }: {
   snapshot: StatusSnapshot & { items?: SingleStatusItem[] };
-  lang: "th" | "en";
 }) {
   const items: SingleStatusItem[] =
     Array.isArray(snapshot.items) && snapshot.items.length > 0
@@ -57,7 +41,7 @@ export function StatusChangeView({
   if (items.length === 0 || !items[0].projectTitle) {
     return (
       <Panel className="p-6 text-center text-ink-3">
-        {lang === "th" ? "ไม่มีรายการโครงการในภาพถ่ายนี้" : "No project items in this snapshot."}
+        ไม่มีรายการโครงการในภาพถ่ายนี้
       </Panel>
     );
   }
@@ -100,23 +84,21 @@ export function StatusChangeView({
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex flex-col items-start gap-1">
                   <span className="text-[11px] text-ink-3">
-                    {lang === "th" ? "สถานะเดิมเมื่อบันทึก" : "Previous status"}
+                    สถานะเดิมเมื่อบันทึก
                   </span>
-                  <StatusBadge status={prev} lang={lang} size="large" />
+                  <StatusBadge status={prev} size="large" />
                 </div>
                 <ArrowRight className="h-5 w-5 text-ink-3" />
                 <div className="flex flex-col items-start gap-1">
                   <span className="text-[11px] text-ink-3">
-                    {lang === "th" ? "สถานะปัจจุบัน" : "New status"}
+                    สถานะปัจจุบัน
                   </span>
-                  <StatusBadge status={next} lang={lang} size="large" />
+                  <StatusBadge status={next} size="large" />
                 </div>
               </div>
               {item.changedAt ? (
                 <p className="mt-3 text-[11.5px] text-ink-3">
-                  {lang === "th"
-                    ? `ตรวจพบการเปลี่ยนสถานะเมื่อ: ${formatThaiDate(item.changedAt, lang)}`
-                    : `Status updated at: ${formatThaiDate(item.changedAt, lang)}`}
+                  {`ตรวจพบการเปลี่ยนสถานะเมื่อ: ${formatThaiDate(item.changedAt)}`}
                 </p>
               ) : null}
             </div>
@@ -128,7 +110,7 @@ export function StatusChangeView({
                   href={`/tor/${item.projectId}`}
                   className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-ink-2 hover:text-ink hover:underline cursor-pointer"
                 >
-                  <span>{lang === "th" ? "เปิดดูรายละเอียดโครงการ TOR" : "View TOR Details"}</span>
+                  <span>เปิดดูรายละเอียดโครงการ TOR</span>
                   <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
               </div>

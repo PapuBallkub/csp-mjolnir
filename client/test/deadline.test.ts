@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { countdownText, daysLeft, formatThaiDate } from "../app/_lib/deadline.ts";
+import { countdownText, daysLeft, formatThaiDate, formatThaiDateTime } from "../app/_lib/deadline.ts";
 
 test("daysLeft: calculates calendar day delta in Bangkok timezone (UTC+7)", () => {
   // 2026-11-10 10:00:00 UTC = 17:00:00 Bangkok
@@ -21,52 +21,49 @@ test("daysLeft: calculates calendar day delta in Bangkok timezone (UTC+7)", () =
 
 test("countdownText: assigns correct urgency tone and localized copy", () => {
   // Overdue
-  const past = countdownText(-2, "th");
+  const past = countdownText(-2);
   assert.equal(past.text, "ปิดรับแล้ว");
   assert.ok(past.tone.includes("text-ink-3"));
 
   // Due today (risk)
-  const today = countdownText(0, "th");
+  const today = countdownText(0);
   assert.equal(today.text, "ครบกำหนดวันนี้");
   assert.ok(today.tone.includes("text-risk"));
 
   // 1 day left (risk)
-  const oneDay = countdownText(1, "th");
+  const oneDay = countdownText(1);
   assert.equal(oneDay.text, "เหลืออีก 1 วัน");
   assert.ok(oneDay.tone.includes("text-risk"));
 
   // 2 days left (risk boundary)
-  const twoDays = countdownText(2, "th");
+  const twoDays = countdownText(2);
   assert.equal(twoDays.text, "เหลืออีก 2 วัน");
   assert.ok(twoDays.tone.includes("text-risk"));
 
   // 5 days left (amend / warning tone)
-  const fiveDays = countdownText(5, "th");
+  const fiveDays = countdownText(5);
   assert.equal(fiveDays.text, "เหลืออีก 5 วัน");
   assert.ok(fiveDays.tone.includes("text-amend"));
 
   // 15 days left (normal / ink tone)
-  const normal = countdownText(15, "th");
+  const normal = countdownText(15);
   assert.equal(normal.text, "เหลืออีก 15 วัน");
   assert.ok(normal.tone.includes("text-ink"));
-
-  // English localization
-  const todayEn = countdownText(0, "en");
-  assert.equal(todayEn.text, "Due today");
-  const pastEn = countdownText(-1, "en");
-  assert.equal(pastEn.text, "Closed");
 });
 
 test("formatThaiDate: formats date with Thai Buddhist year in Bangkok time", () => {
   // 2026-11-20 -> พ.ศ. 2569
-  const formatted = formatThaiDate("2026-11-20T09:00:00Z", "th");
+  const formatted = formatThaiDate("2026-11-20T09:00:00Z");
   assert.equal(formatted, "20 พ.ย. 2569");
 
   // Boundary check: 2026-11-19 17:00:00 UTC is 00:00:00 on Nov 20 in Bangkok
-  assert.equal(formatThaiDate("2026-11-19T17:00:00Z", "th"), "20 พ.ย. 2569");
+  assert.equal(formatThaiDate("2026-11-19T17:00:00Z"), "20 พ.ย. 2569");
+});
 
-  // English localization
-  assert.equal(formatThaiDate("2026-11-20T09:00:00Z", "en"), "20 Nov 2026");
+test("formatThaiDateTime: formats date and time in Bangkok time", () => {
+  assert.equal(formatThaiDateTime("2026-11-20T09:05:00Z"), "20 พ.ย. 2569 16:05");
+  assert.equal(formatThaiDateTime(null), "-");
+  assert.equal(formatThaiDateTime("invalid"), "-");
 });
 
 test("daysLeft: safely defaults now to current date when omitted or undefined", () => {
@@ -75,5 +72,3 @@ test("daysLeft: safely defaults now to current date when omitted or undefined", 
   const days = daysLeft(future);
   assert.ok(days >= 4 && days <= 6);
 });
-
-

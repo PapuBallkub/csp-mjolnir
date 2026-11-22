@@ -280,7 +280,7 @@ export function FilterModeView() {
         <EmptyState
           className="min-h-[260px]"
           headline="โหลดรายการประกาศไม่สำเร็จ"
-          body={failureText(failed, "th")}
+          body={failureText(failed)}
           action={
             <button type="button" onClick={() => setListTry((n) => n + 1)} className={btn.secondary}>
               ลองอีกครั้ง
@@ -377,7 +377,7 @@ export function FilterModeView() {
 
         {current && failed ? (
           <p className="mt-3 text-center text-[12.5px] leading-thai text-ink-2">
-            {failureText(failed, "th")}{" "}
+            {failureText(failed)}{" "}
             <button
               type="button"
               onClick={() => setListTry((n) => n + 1)}
@@ -410,7 +410,6 @@ export function FilterModeView() {
 
   const rail = (
     <FilterRail
-      lang="th"
       statuses={statuses}
       setStatuses={setStatuses}
       amendedOnly={amendedOnly}
@@ -511,7 +510,7 @@ export function FilterModeView() {
                   : option.id !== "match-desc" && option.id !== "match-asc"
               ).map((option) => (
                 <option key={option.id} value={option.id}>
-                  {option.label.th}
+                  {option.label}
                 </option>
               ))}
             </select>

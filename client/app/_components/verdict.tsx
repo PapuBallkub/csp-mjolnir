@@ -1,4 +1,4 @@
-import type { Lang, PriceVerdict, RiskLevel, ScopeSize, Status, Tor } from "../_data/tors";
+import type { PriceVerdict, RiskLevel, ScopeSize, Status, Tor } from "../_data/tors";
 import { priceDeltaPct } from "../_data/tors";
 import type { ChangeSource, TorInsightSummary, TorStatus } from "../_lib/api";
 import { CHANGE_SOURCE } from "../_lib/changes";
@@ -74,28 +74,25 @@ export const PRICE_TONE: Record<PriceVerdict, Tone> = {
   under: "risk",
 };
 
-const STATUS_LABEL: Record<Status, Bi> = {
-  Draft: { th: "ร่างประกาศ / วิจารณ์", en: "Draft TOR" },
-  Open: { th: "เปิดรับข้อเสนอ", en: "Open" },
-  Awarded: { th: "ประกาศผู้ชนะแล้ว", en: "Awarded" },
-  Closed: { th: "ปิดรับข้อเสนอ", en: "Closed" },
-  Cancelled: { th: "ยกเลิกประกาศ", en: "Cancelled" },
+const STATUS_LABEL: Record<Status, string> = {
+  Draft: "ร่างประกาศ / วิจารณ์",
+  Open: "เปิดรับข้อเสนอ",
+  Awarded: "ประกาศผู้ชนะแล้ว",
+  Closed: "ปิดรับข้อเสนอ",
+  Cancelled: "ยกเลิกประกาศ",
 };
 
-const RISK_LABEL: Record<RiskLevel, Bi> = {
-  low: { th: "ความเสี่ยงล็อกสเปกต่ำ", en: "Low lock-spec risk" },
-  medium: { th: "ความเสี่ยงล็อกสเปกปานกลาง", en: "Medium lock-spec risk" },
-  high: { th: "ความเสี่ยงล็อกสเปกสูง", en: "High lock-spec risk" },
+const RISK_LABEL: Record<RiskLevel, string> = {
+  low: "ความเสี่ยงล็อกสเปกต่ำ",
+  medium: "ความเสี่ยงล็อกสเปกปานกลาง",
+  high: "ความเสี่ยงล็อกสเปกสูง",
 };
 
-const SCOPE_LABEL: Record<ScopeSize, Bi> = {
-  solo: { th: "ทำคนเดียวไหว", en: "Solo-sized" },
-  "small-team": { th: "ทีมเล็ก 2–5 คน", en: "Small team" },
-  firm: { th: "ต้องใช้บริษัท", en: "Firm-sized" },
+const SCOPE_LABEL: Record<ScopeSize, string> = {
+  solo: "ทำคนเดียวไหว",
+  "small-team": "ทีมเล็ก 2–5 คน",
+  firm: "ต้องใช้บริษัท",
 };
-
-type Bi = { th: string; en: string };
-const say = (v: Bi, lang: Lang) => (lang === "th" ? v.th : v.en);
 
 /* --------------------------------- glyphs --------------------------------- */
 
@@ -128,52 +125,38 @@ function StatusGlyph({ status, className = "" }: { status: Status; className?: s
       </svg>
     );
   }
+  return null;
+}
+
+function DirectionGlyph({ verdict }: { verdict: PriceVerdict }) {
+  if (verdict === "fair") {
+    return (
+      <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 shrink-0" aria-hidden="true">
+        <path d="M2 5 L8 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (verdict === "over") {
+    return (
+      <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 shrink-0" aria-hidden="true">
+        <path d="M5 8 L5 2 M2.5 4.5 L5 2 L7.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      </svg>
+    );
+  }
   return (
-    <svg viewBox="0 0 10 10" className={`h-2.5 w-2.5 shrink-0 ${className}`} aria-hidden="true">
-      <path
-        d="M2.5 5.2 L4.2 7 L7.8 3"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 shrink-0" aria-hidden="true">
+      <path d="M5 2 L5 8 M2.5 5.5 L5 8 L7.5 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
     </svg>
   );
 }
 
-/** Ascending three-tick meter. Used only for lock-spec risk, never elsewhere. */
-export function RiskMeter({ level, className = "" }: { level: RiskLevel; className?: string }) {
-  const filled = { low: 1, medium: 2, high: 3 }[level];
-  const tone = TONE[RISK_TONE[level]];
-  const heights = ["h-[5px]", "h-[8px]", "h-[11px]"];
-
+export function RiskMeter({ level }: { level: RiskLevel }) {
+  const bars = level === "low" ? 1 : level === "medium" ? 2 : 3;
   return (
-    <span className={`inline-flex items-end gap-[2px] ${className}`} aria-hidden="true">
-      {heights.map((h, i) => (
-        <span
-          key={h}
-          className={`w-[3px] rounded-[1px] ${h} ${i < filled ? tone.fill : "bg-line-2"}`}
-        />
-      ))}
-    </span>
-  );
-}
-
-function DirectionGlyph({ verdict }: { verdict: PriceVerdict }) {
-  return (
-    <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 shrink-0" aria-hidden="true">
-      {verdict === "over" && <path d="M5 1.5 L9 8 L1 8 Z" fill="currentColor" />}
-      {verdict === "under" && <path d="M5 8.5 L1 2 L9 2 Z" fill="currentColor" />}
-      {verdict === "fair" && (
-        <path
-          d="M1 3.6 C3 2.2, 4 5, 6 3.6 S8.6 2.6, 9 3.6 M1 6.8 C3 5.4, 4 8.2, 6 6.8 S8.6 5.8, 9 6.8"
-          stroke="currentColor"
-          strokeWidth="1.1"
-          fill="none"
-          strokeLinecap="round"
-        />
-      )}
+    <svg viewBox="0 0 12 10" className="h-2.5 w-3 shrink-0" aria-hidden="true">
+      <rect x="1" y="6.5" width="2.2" height="3.5" rx="0.5" fill="currentColor" />
+      <rect x="4.8" y="3.5" width="2.2" height="6.5" rx="0.5" fill="currentColor" opacity={bars >= 2 ? 1 : 0.2} />
+      <rect x="8.6" y="0.5" width="2.2" height="9.5" rx="0.5" fill="currentColor" opacity={bars >= 3 ? 1 : 0.2} />
     </svg>
   );
 }
@@ -181,23 +164,21 @@ function DirectionGlyph({ verdict }: { verdict: PriceVerdict }) {
 /* --------------------------------- badges --------------------------------- */
 
 const badgeBase =
-  "inline-flex items-center gap-1.5 rounded-[2px] border px-2 py-[3px] text-[11px] font-medium leading-none whitespace-nowrap transition-all duration-150";
-
-const largeStatusBadgeBase =
-  "inline-flex items-center gap-2 rounded-[3px] border px-3 py-1.5 text-[13px] font-semibold leading-none whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-150";
+  "inline-flex items-center gap-1.5 rounded-[3px] border px-2 py-0.5 text-[12px] font-medium whitespace-nowrap leading-tight transition-colors duration-150";
 
 const statusBadgeBase =
-  "inline-flex items-center gap-1.5 rounded-[3px] border px-2.5 py-1 text-[12.5px] font-semibold leading-none whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-all duration-150";
+  "inline-flex items-center gap-1.5 rounded-[3px] border px-2 py-0.5 text-[12px] font-semibold whitespace-nowrap leading-tight transition-all duration-150";
+
+const largeStatusBadgeBase =
+  "inline-flex items-center gap-2 rounded-[3px] border px-3 py-1 text-[13px] font-semibold whitespace-nowrap leading-tight transition-all duration-150";
 
 export function StatusBadge({
   status,
-  lang,
   round,
   isAmended = false,
   size = "regular",
 }: {
   status: Status;
-  lang: Lang;
   /** e.g. "ครั้งที่ 2" — shown next to an amended status. */
   round?: string;
   isAmended?: boolean;
@@ -207,7 +188,7 @@ export function StatusBadge({
   const tone = status === "Draft"
     ? { bg: "bg-surface-2", border: "border-line", text: "text-ink-2", fill: "bg-ink-3" }
     : TONE[toneKey];
-  const label = STATUS_LABEL[status] || { th: String(status), en: String(status) };
+  const label = STATUS_LABEL[status] || String(status);
   const base =
     size === "large"
       ? "inline-flex items-center gap-2 rounded-[3px] border px-3 py-1.5 text-[13px] font-semibold leading-none whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-150"
@@ -218,13 +199,13 @@ export function StatusBadge({
     <span className="inline-flex items-center gap-1.5">
       <span className={`${base} min-w-[82px] justify-center ${tone.bg} ${tone.border} ${tone.text}`}>
         <StatusGlyph status={status} className={iconClass} />
-        <span className="transition-opacity duration-150">{say(label, lang)}</span>
+        <span className="transition-opacity duration-150">{label}</span>
         {round ? <span className="font-mono opacity-70">{round}</span> : null}
       </span>
       {isAmended ? (
         <span className={`${base} border-amend-line bg-amend-bg text-amend`}>
           <span className="text-[11px]">✎</span>
-          <span>{lang === "th" ? "แก้ไขแล้ว" : "Amended"}</span>
+          <span>แก้ไขแล้ว</span>
         </span>
       ) : null}
     </span>
@@ -234,13 +215,11 @@ export function StatusBadge({
 export function LockSpecBadge({
   level,
   score,
-  lang = "th",
   showScore = true,
   outOf100 = false,
 }: {
   level: RiskLevel;
   score: number;
-  lang?: Lang;
   showScore?: boolean;
   outOf100?: boolean;
 }) {
@@ -248,25 +227,25 @@ export function LockSpecBadge({
   return (
     <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
       <RiskMeter level={level} />
-      <span className="transition-opacity duration-150">{say(RISK_LABEL[level], lang)}</span>
+      <span className="transition-opacity duration-150">{RISK_LABEL[level]}</span>
       {showScore ? <span className="font-mono tnum opacity-70">{score}{outOf100 ? "/100" : ""}</span> : null}
     </span>
   );
 }
 
-function PriceVerdictBadge({ verdict, delta, lang }: { verdict: PriceVerdict; delta: number; lang: Lang }) {
+function PriceVerdictBadge({ verdict, delta }: { verdict: PriceVerdict; delta: number }) {
   const tone = TONE[PRICE_TONE[verdict]];
   const abs = Math.abs(Math.round(delta));
-  const label: Record<PriceVerdict, Bi> = {
-    fair: { th: "ราคาอยู่ในเกณฑ์ปกติ", en: "Budget looks normal" },
-    over: { th: `สูงกว่าค่ากลาง ${abs}%`, en: `${abs}% above median` },
-    under: { th: `ต่ำกว่าค่ากลาง ${abs}%`, en: `${abs}% below median` },
+  const label: Record<PriceVerdict, string> = {
+    fair: "ราคาอยู่ในเกณฑ์ปกติ",
+    over: `สูงกว่าค่ากลาง ${abs}%`,
+    under: `ต่ำกว่าค่ากลาง ${abs}%`,
   };
 
   return (
     <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
       <DirectionGlyph verdict={verdict} />
-      <span className="transition-opacity duration-150">{say(label[verdict], lang)}</span>
+      <span className="transition-opacity duration-150">{label[verdict]}</span>
     </span>
   );
 }
@@ -274,17 +253,15 @@ function PriceVerdictBadge({ verdict, delta, lang }: { verdict: PriceVerdict; de
 export function InsightPriceBadge({
   diffPercentage,
   sampleSize,
-  lang = "th",
 }: {
   diffPercentage?: number | null;
   sampleSize?: number | null;
-  lang?: Lang;
 }) {
   if (sampleSize != null && sampleSize < 5) {
     return (
       <span className={`${badgeBase} border-line bg-surface-2 text-ink-3`}>
         <span>ℹ</span>
-        <span>{lang === "th" ? "ข้อมูลไม่เพียงพอ (<5 โครงการ)" : "Insufficient data (<5)"}</span>
+        <span>ข้อมูลไม่เพียงพอ (&lt;5 โครงการ)</span>
       </span>
     );
   }
@@ -293,7 +270,7 @@ export function InsightPriceBadge({
     return (
       <span className={`${badgeBase} border-line bg-surface-2 text-ink-3`}>
         <span>—</span>
-        <span>{lang === "th" ? "ไม่มีราคาเปรียบเทียบ" : "No price comp"}</span>
+        <span>ไม่มีราคาเปรียบเทียบ</span>
       </span>
     );
   }
@@ -302,42 +279,40 @@ export function InsightPriceBadge({
     diffPercentage > 15 ? "over" : diffPercentage < -15 ? "under" : "fair";
   const tone = TONE[PRICE_TONE[verdict]];
   const abs = Math.abs(Math.round(diffPercentage * 10) / 10);
-  const label: Record<PriceVerdict, Bi> = {
-    fair: { th: "ราคาอยู่ในเกณฑ์ปกติ", en: "Budget looks normal" },
-    over: { th: `สูงกว่าค่ากลาง ${abs}%`, en: `${abs}% above median` },
-    under: { th: `ต่ำกว่าค่ากลาง ${abs}%`, en: `${abs}% below median` },
+  const label: Record<PriceVerdict, string> = {
+    fair: "ราคาอยู่ในเกณฑ์ปกติ",
+    over: `สูงกว่าค่ากลาง ${abs}%`,
+    under: `ต่ำกว่าค่ากลาง ${abs}%`,
   };
 
   return (
     <span className={`${badgeBase} ${tone.bg} ${tone.border} ${tone.text}`}>
       <DirectionGlyph verdict={verdict} />
-      <span className="transition-opacity duration-150">{say(label[verdict], lang)}</span>
+      <span className="transition-opacity duration-150">{label[verdict]}</span>
     </span>
   );
 }
 
-export function PriceBadge({ tor, lang }: { tor: Tor; lang: Lang }) {
-  return <PriceVerdictBadge verdict={tor.price.verdict} delta={priceDeltaPct(tor)} lang={lang} />;
+export function PriceBadge({ tor }: { tor: Tor }) {
+  return <PriceVerdictBadge verdict={tor.price.verdict} delta={priceDeltaPct(tor)} />;
 }
 
 /** The API's price check: % from the historical median, read with the detail page's ±15% line. */
 export function PriceDeltaBadge({
   delta,
-  lang,
 }: {
   delta: number | null | undefined;
-  lang: Lang;
 }) {
   if (delta == null || Number.isNaN(delta)) {
     return (
       <span className={`${badgeBase} border-line bg-surface-2 text-ink-3`}>
         <span>—</span>
-        <span>{lang === "th" ? "ไม่มีราคาเปรียบเทียบ" : "No price comp"}</span>
+        <span>ไม่มีราคาเปรียบเทียบ</span>
       </span>
     );
   }
   const verdict: PriceVerdict = delta > 15 ? "over" : delta < -15 ? "under" : "fair";
-  return <PriceVerdictBadge verdict={verdict} delta={delta} lang={lang} />;
+  return <PriceVerdictBadge verdict={verdict} delta={delta} />;
 }
 
 /** The API's 0–100 lock-spec score, on the detail page's 35/70 lines. */
@@ -346,7 +321,7 @@ export function riskLevel(score: number): RiskLevel {
 }
 
 /** Scope size and SME eligibility are categories, so they stay monochrome. */
-export function ScopeBadge({ size, lang }: { size: ScopeSize; lang: Lang }) {
+export function ScopeBadge({ size }: { size: ScopeSize }) {
   return (
     <span className={`${badgeBase} min-w-[84px] justify-center border-line bg-surface-2 text-ink-2`}>
       <svg viewBox="0 0 12 10" className="h-2.5 w-3 shrink-0" aria-hidden="true">
@@ -354,22 +329,18 @@ export function ScopeBadge({ size, lang }: { size: ScopeSize; lang: Lang }) {
         <circle cx="7.5" cy="5" r="2.2" fill="currentColor" opacity={size === "solo" ? 0.2 : 1} />
         <circle cx="11" cy="5" r="1" fill="currentColor" opacity={size === "firm" ? 1 : 0.2} />
       </svg>
-      <span className="transition-opacity duration-150">{say(SCOPE_LABEL[size], lang)}</span>
+      <span className="transition-opacity duration-150">{SCOPE_LABEL[size]}</span>
     </span>
   );
 }
 
-export function SmeBadge({ lang }: { lang: Lang }) {
+export function SmeBadge() {
   return (
     <span
       className={`${badgeBase} min-w-[74px] justify-center border-line bg-surface-2 text-ink-2`}
-      title={
-        lang === "th"
-          ? "เข้าเกณฑ์แต้มต่อ SME ตามกฎกระทรวง"
-          : "Eligible for the government's SME bidding advantage"
-      }
+      title="เข้าเกณฑ์แต้มต่อ SME ตามกฎกระทรวง"
     >
-      {lang === "th" ? "แต้มต่อ SME" : "SME advantage"}
+      แต้มต่อ SME
     </span>
   );
 }
@@ -388,15 +359,6 @@ export function SignalRail({ status, className = "" }: { status: Status; classNa
 
 /* -------------------------- lifecycle (FR-15) -------------------------- */
 
-/**
- * The five statuses the API returns, with Amended as a separate flag. The
- * three dead ones share the grey hue but keep their own glyph, and Closed is
- * also drawn dashed and drained: it is the platform's inference from the
- * deadline, not something the agency announced.
- */
-// The colour of each status. Its words (the stage, or the status when there
-// is no stage) come from stage.ts, the one vocabulary the badges and the
-// search filters share.
 const LIFECYCLE_TONE: Record<TorStatus, Tone | null> = {
   Draft: null,
   Open: "open",
@@ -404,7 +366,6 @@ const LIFECYCLE_TONE: Record<TorStatus, Tone | null> = {
   Closed: "closed",
   Cancelled: "closed",
 };
-
 
 const DEAD: TorStatus[] = ["Awarded", "Closed", "Cancelled"];
 export const isDead = (status: TorStatus) => DEAD.includes(status);
@@ -437,12 +398,10 @@ function LifecycleGlyph({ status, className = "h-3 w-3 shrink-0" }: { status: To
  */
 export function LifecycleBadge({
   status,
-  lang = "th",
   stage,
   size = "regular",
 }: {
   status: TorStatus;
-  lang?: Lang;
   stage?: Stage;
   size?: "regular" | "large";
 }) {
@@ -457,11 +416,11 @@ export function LifecycleBadge({
   return (
     <span
       className={`${size === "large" ? largeStatusBadgeBase : statusBadgeBase} min-w-[82px] justify-center ${colours}`}
-      title={hint ? say(hint, lang) : undefined}
+      title={hint}
     >
       <LifecycleGlyph status={status} className={size === "large" ? "h-3.5 w-3.5 shrink-0" : undefined} />
-      <span>{say(label, lang)}</span>
-      {hint ? <span className="sr-only"> ({say(hint, lang)})</span> : null}
+      <span>{label}</span>
+      {hint ? <span className="sr-only"> ({hint})</span> : null}
     </span>
   );
 }
@@ -472,14 +431,14 @@ export function LifecycleBadge({
  * as well as colour: the agency announced it, or the platform found it,
  * muted and dashed like Closed because it is an inference.
  */
-export function ChangeMarker({ source, lang = "th" }: { source: ChangeSource; lang?: Lang }) {
+export function ChangeMarker({ source }: { source: ChangeSource }) {
   const { marker, hint } = CHANGE_SOURCE[source];
   const colours =
     source === "feed"
       ? `${TONE.amend.bg} ${TONE.amend.border} ${TONE.amend.text}`
       : "border-dashed border-closed-line bg-surface text-ink-2";
   return (
-    <span className={`${statusBadgeBase} ${colours}`} title={say(hint, lang)}>
+    <span className={`${statusBadgeBase} ${colours}`} title={hint}>
       <svg viewBox="0 0 10 10" className="h-3 w-3 shrink-0" aria-hidden="true">
         {source === "feed" ? (
           <>
@@ -495,21 +454,21 @@ export function ChangeMarker({ source, lang = "th" }: { source: ChangeSource; la
           </>
         )}
       </svg>
-      <span>{say(marker, lang)}</span>
-      <span className="sr-only"> ({say(hint, lang)})</span>
+      <span>{marker}</span>
+      <span className="sr-only"> ({hint})</span>
     </span>
   );
 }
 
 /** Who may bid is a category, not a verdict, so it stays monochrome. Decisive for freelancers. */
-export function CompaniesOnlyBadge({ lang = "th", className = "" }: { lang?: Lang; className?: string }) {
+export function CompaniesOnlyBadge({ className = "" }: { className?: string }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-[3px] border border-line-2/70 bg-surface-3 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 whitespace-nowrap leading-tight ${className}`}
-      title={lang === "th" ? "TOR กำหนดให้ผู้ยื่นเป็นนิติบุคคล" : "The TOR requires bidders to be a registered company"}
+      title="TOR กำหนดให้ผู้ยื่นเป็นนิติบุคคล"
     >
       <span className="text-[10px] opacity-75" aria-hidden="true">🏢</span>
-      <span>{lang === "th" ? "เฉพาะนิติบุคคล" : "Companies only"}</span>
+      <span>เฉพาะนิติบุคคล</span>
     </span>
   );
 }
@@ -533,21 +492,15 @@ export function LifecycleRail({ status, amended = false }: { status: TorStatus; 
 
 export function MatchScore({
   score,
-  lang,
 }: {
   score: number;
-  lang: Lang;
   match?: Match;
 }) {
   const strong = score >= 70;
   return (
     <span
       className="inline-flex items-center gap-2 whitespace-nowrap"
-      title={
-        lang === "th"
-          ? `คะแนนความเหมาะสมกับทักษะของคุณ ${score}/100 — ดูการวิเคราะห์ 6 มิติฉบับเต็มในหน้ารายละเอียด`
-          : `Match score ${score}/100 — view 6-dimension breakdown in detail page`
-      }
+      title={`คะแนนความเหมาะสมกับทักษะของคุณ ${score}/100 — ดูการวิเคราะห์ 6 มิติฉบับเต็มในหน้ารายละเอียด`}
     >
       <span
         className={`font-mono tnum text-[13px] sm:text-[14px] font-bold leading-tight ${
@@ -563,7 +516,7 @@ export function MatchScore({
           style={{ width: `${score}%` }}
         />
       </span>
-      <span className="sr-only">{lang === "th" ? "คะแนนความเหมาะสมกับทักษะของคุณ" : "profile match score"}</span>
+      <span className="sr-only">คะแนนความเหมาะสมกับทักษะของคุณ</span>
     </span>
   );
 }
@@ -575,12 +528,10 @@ export function MatchScore({
 export function VerdictStrip({
   tor,
   insight,
-  lang,
   size = "compact",
 }: {
   tor?: Tor;
   insight?: TorInsightSummary;
-  lang: Lang;
   size?: "compact" | "full";
 }) {
   if (insight) {
@@ -593,25 +544,25 @@ export function VerdictStrip({
     if (size === "compact") {
       return (
         <div className="flex flex-wrap items-center gap-1.5">
-          <StatusBadge status={status} lang={lang} isAmended={isAmended} />
-          <LockSpecBadge level={lockLevel} score={lockScore} lang={lang} />
-          <InsightPriceBadge diffPercentage={diffPct} lang={lang} />
+          <StatusBadge status={status} isAmended={isAmended} />
+          <LockSpecBadge level={lockLevel} score={lockScore} />
+          <InsightPriceBadge diffPercentage={diffPct} />
         </div>
       );
     }
 
     const cells: { label: string; node: React.ReactNode }[] = [
       {
-        label: lang === "th" ? "สถานะ" : "Status",
-        node: <StatusBadge status={status} lang={lang} isAmended={isAmended} />,
+        label: "สถานะ",
+        node: <StatusBadge status={status} isAmended={isAmended} />,
       },
       {
-        label: lang === "th" ? "ความเสี่ยงล็อกสเปก" : "Lock-spec risk",
-        node: <LockSpecBadge level={lockLevel} score={lockScore} lang={lang} />,
+        label: "ความเสี่ยงล็อกสเปก",
+        node: <LockSpecBadge level={lockLevel} score={lockScore} />,
       },
       {
-        label: lang === "th" ? "ตรวจสอบราคา" : "Price reality check",
-        node: <InsightPriceBadge diffPercentage={diffPct} lang={lang} />,
+        label: "ตรวจสอบราคา",
+        node: <InsightPriceBadge diffPercentage={diffPct} />,
       },
     ];
 
@@ -631,31 +582,31 @@ export function VerdictStrip({
 
   const round =
     tor.isAmended && tor.amendments?.[0]
-      ? tor.amendments[0].round.th.replace("ประกาศร่าง TOR ", "")
+      ? tor.amendments[0].round.replace("ประกาศร่าง TOR ", "")
       : undefined;
 
   if (size === "compact") {
     return (
       <div className="flex flex-wrap items-center gap-1.5">
-        <StatusBadge status={tor.status} isAmended={tor.isAmended} lang={lang} round={round} />
-        <LockSpecBadge level={tor.lockSpec.level} score={tor.lockSpec.score} lang={lang} />
-        <PriceBadge tor={tor} lang={lang} />
+        <StatusBadge status={tor.status} isAmended={tor.isAmended} round={round} />
+        <LockSpecBadge level={tor.lockSpec.level} score={tor.lockSpec.score} />
+        <PriceBadge tor={tor} />
       </div>
     );
   }
 
   const cells: { label: string; node: React.ReactNode }[] = [
     {
-      label: lang === "th" ? "สถานะ" : "Status",
-      node: <StatusBadge status={tor.status} isAmended={tor.isAmended} lang={lang} round={round} />,
+      label: "สถานะ",
+      node: <StatusBadge status={tor.status} isAmended={tor.isAmended} round={round} />,
     },
     {
-      label: lang === "th" ? "ความเสี่ยงล็อกสเปก" : "Lock-spec risk",
-      node: <LockSpecBadge level={tor.lockSpec.level} score={tor.lockSpec.score} lang={lang} />,
+      label: "ความเสี่ยงล็อกสเปก",
+      node: <LockSpecBadge level={tor.lockSpec.level} score={tor.lockSpec.score} />,
     },
     {
-      label: lang === "th" ? "ตรวจสอบราคา" : "Price reality check",
-      node: <PriceBadge tor={tor} lang={lang} />,
+      label: "ตรวจสอบราคา",
+      node: <PriceBadge tor={tor} />,
     },
   ];
 
@@ -670,4 +621,3 @@ export function VerdictStrip({
     </div>
   );
 }
-

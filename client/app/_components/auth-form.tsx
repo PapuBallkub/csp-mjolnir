@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { googleSignInUrl, type ApiError } from "../_lib/api";
 import { useAuth } from "./auth";
-import { useLang, ThemeToggle } from "./prefs";
+import { ThemeToggle } from "./prefs";
 import { Wordmark } from "./shell";
 import { btn, input, Label, Panel } from "./ui";
 import { LockSpecBadge, StatusBadge } from "./verdict";
@@ -55,7 +55,6 @@ const AFTER_SIGN_UP = "/profile";
  * it is never read from the URL here. See safe-next.ts for why that matters.
  */
 export function AuthForm({ next }: { next: string | null }) {
-  const { lang } = useLang();
   const router = useRouter();
   const { status, signIn, signUp } = useAuth();
 
@@ -131,13 +130,7 @@ export function AuthForm({ next }: { next: string | null }) {
                     : "border-transparent text-ink-3 hover:text-ink-2"
                 }`}
               >
-                {option === "signin"
-                  ? lang === "th"
-                    ? "เข้าสู่ระบบ"
-                    : "Sign in"
-                  : lang === "th"
-                    ? "สมัครใช้งาน"
-                    : "Create account"}
+                {option === "signin" ? "เข้าสู่ระบบ" : "สมัครใช้งาน"}
               </button>
             ))}
           </div>
@@ -147,7 +140,7 @@ export function AuthForm({ next }: { next: string | null }) {
           <form className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
             {mode === "signup" ? (
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="auth-name">{lang === "th" ? "ชื่อที่ใช้แสดง" : "Name"}</Label>
+                <Label htmlFor="auth-name">ชื่อที่ใช้แสดง</Label>
                 <input
                   id="auth-name"
                   name="name"
@@ -155,7 +148,7 @@ export function AuthForm({ next }: { next: string | null }) {
                   autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder={lang === "th" ? "สุชาติ ว." : "Somchai W."}
+                  placeholder="สุชาติ ว."
                   className={input}
                 />
                 <FieldError message={fieldErrors.name} />
@@ -163,7 +156,7 @@ export function AuthForm({ next }: { next: string | null }) {
             ) : null}
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="auth-email">{lang === "th" ? "อีเมล" : "Email"}</Label>
+              <Label htmlFor="auth-email">อีเมล</Label>
               <input
                 id="auth-email"
                 name="email"
@@ -179,10 +172,10 @@ export function AuthForm({ next }: { next: string | null }) {
 
             <div className="flex flex-col gap-1.5">
               <div className="flex items-baseline justify-between">
-                <Label htmlFor="auth-password">{lang === "th" ? "รหัสผ่าน" : "Password"}</Label>
+                <Label htmlFor="auth-password">รหัสผ่าน</Label>
                 {mode === "signin" ? (
                   <span className="text-[11px] text-ink-3">
-                    {lang === "th" ? "ยังรีเซ็ตรหัสผ่านไม่ได้" : "Password reset not built yet"}
+                    ยังรีเซ็ตรหัสผ่านไม่ได้
                   </span>
                 ) : null}
               </div>
@@ -198,7 +191,7 @@ export function AuthForm({ next }: { next: string | null }) {
               <FieldError message={fieldErrors.password} />
               {mode === "signup" ? (
                 <p className="text-[11px] text-ink-3">
-                  {lang === "th" ? "อย่างน้อย 8 ตัวอักษร" : "At least 8 characters."}
+                  อย่างน้อย 8 ตัวอักษร
                 </p>
               ) : null}
             </div>
@@ -212,9 +205,7 @@ export function AuthForm({ next }: { next: string | null }) {
                   className="mt-1 h-3.5 w-3.5 shrink-0 accent-ink"
                 />
                 <span>
-                  {lang === "th"
-                    ? "ยินยอมให้ส่งอีเมลแจ้งเตือนงานที่เหมาะสมกับโปรไฟล์ ถอนความยินยอมได้ทุกเมื่อ"
-                    : "Email me projects that match my profile. I can withdraw this at any time."}
+                  ยินยอมให้ส่งอีเมลแจ้งเตือนงานที่เหมาะสมกับโปรไฟล์ ถอนความยินยอมได้ทุกเมื่อ
                 </span>
               </label>
             ) : null}
@@ -230,22 +221,16 @@ export function AuthForm({ next }: { next: string | null }) {
 
             <button type="submit" disabled={pending} className={`${btn.primary} w-full`}>
               {pending
-                ? lang === "th"
-                  ? "กำลังดำเนินการ…"
-                  : "Working…"
+                ? "กำลังดำเนินการ…"
                 : mode === "signin"
-                  ? lang === "th"
-                    ? "เข้าสู่ระบบ"
-                    : "Sign in"
-                  : lang === "th"
-                    ? "สมัครใช้งาน"
-                    : "Create account"}
+                  ? "เข้าสู่ระบบ"
+                  : "สมัครใช้งาน"}
             </button>
 
             <div className="flex items-center gap-3 py-1">
               <span className="h-px flex-1 bg-line" />
               <span className="text-[11px] font-medium text-ink-3">
-                {lang === "th" ? "หรือ" : "or"}
+                หรือ
               </span>
               <span className="h-px flex-1 bg-line" />
             </div>
@@ -256,33 +241,27 @@ export function AuthForm({ next }: { next: string | null }) {
                 would never be set. */}
             <a href={googleSignInUrl} className={`${btn.secondary} w-full`}>
               <GoogleMark />
-              {lang === "th" ? "ดำเนินการต่อด้วย Google" : "Continue with Google"}
+              ดำเนินการต่อด้วย Google
             </a>
           </form>
         </Panel>
 
         <div className="flex flex-col gap-4 lg:pt-4">
           <h1 className="text-[24px] leading-thai font-semibold tracking-tight text-ink">
-            {lang === "th"
-              ? "ค้นหางานไอทีภาครัฐได้โดยไม่ต้องเปิด PDF สักไฟล์"
-              : "Find government IT contracts without opening a single PDF"}
+            ค้นหางานไอทีภาครัฐได้โดยไม่ต้องเปิด PDF สักไฟล์
           </h1>
           <p className="text-[14px] leading-thai text-ink-2">
-            {lang === "th"
-              ? "ดูประกาศทั้งหมดได้โดยไม่ต้องสมัคร สมัครเมื่อคุณอยากให้เราคอยดูให้ว่า TOR ถูกแก้ไขเมื่อไหร่ และมีงานใหม่ที่เหมาะสมกับคุณเมื่อไหร่"
-              : "Browsing needs no account. Sign up when you want us to watch for amendments and tell you when something matching you is posted."}
+            ดูประกาศทั้งหมดได้โดยไม่ต้องสมัคร สมัครเมื่อคุณอยากให้เราคอยดูให้ว่า TOR ถูกแก้ไขเมื่อไหร่ และมีงานใหม่ที่เหมาะสมกับคุณเมื่อไหร่
           </p>
 
           <Panel className="flex flex-col gap-2 p-3.5">
-            <Label>{lang === "th" ? "ตัวอย่างการแจ้งเตือน" : "A typical alert"}</Label>
+            <Label>ตัวอย่างการแจ้งเตือน</Label>
             <div className="flex flex-wrap gap-1.5">
-              <StatusBadge status="Open" isAmended lang={lang} round="ครั้งที่ 2" />
-              <LockSpecBadge level="high" score={87} lang={lang} showScore={false} />
+              <StatusBadge status="Open" isAmended round="ครั้งที่ 2" />
+              <LockSpecBadge level="high" score={87} showScore={false} />
             </div>
             <p className="text-[13px] leading-thai text-ink-2">
-              {lang === "th"
-                ? "“ประสบการณ์ที่กำหนดเพิ่มจาก 3 ปี เป็น 10 ปี หลังปิดรับฟังความคิดเห็น” — แจ้งภายในวันเดียวกับที่เอกสารถูกเปลี่ยน"
-                : "“Required experience jumped from 3 years to 10 after the comment period closed” — sent the same day the file changed."}
+              “ประสบการณ์ที่กำหนดเพิ่มจาก 3 ปี เป็น 10 ปี หลังปิดรับฟังความคิดเห็น” — แจ้งภายในวันเดียวกับที่เอกสารถูกเปลี่ยน
             </p>
           </Panel>
 
@@ -290,7 +269,7 @@ export function AuthForm({ next }: { next: string | null }) {
             href="/search"
             className="text-[13px] text-ink-2 underline underline-offset-2 hover:text-ink"
           >
-            {lang === "th" ? "ดูประกาศก่อนโดยไม่ต้องสมัคร →" : "Browse without an account →"}
+            ดูประกาศก่อนโดยไม่ต้องสมัคร →
           </Link>
         </div>
       </main>

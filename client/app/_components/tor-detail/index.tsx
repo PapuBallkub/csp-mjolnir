@@ -422,7 +422,6 @@ export function TorDetail({
         agency={iden.agency}
         procurementMethod={facts.procurementMethod}
         officialEgpUrl={officialEgpUrl}
-        lang="th"
       />
     </article>
   );

@@ -10,7 +10,6 @@ export function AddRecordModal({
   onSubmit,
   isLoading,
   error,
-  lang,
   onClose,
 }: {
   isOpen: boolean;
@@ -19,7 +18,6 @@ export function AddRecordModal({
   onSubmit: (e: React.FormEvent) => Promise<void>;
   isLoading: boolean;
   error: string | null;
-  lang: "th" | "en";
   onClose: () => void;
 }) {
   if (!isOpen) return null;
@@ -39,9 +37,7 @@ export function AddRecordModal({
       >
         <div className="flex items-center justify-between border-b border-line pb-3">
           <h2 className="text-[16px] font-semibold text-ink">
-            {lang === "th"
-              ? "เพิ่มโครงการจัดซื้อจัดจ้าง e-GP"
-              : "Add e-GP Procurement Notice"}
+            เพิ่มโครงการจัดซื้อจัดจ้าง e-GP
           </h2>
           <button
             type="button"
@@ -54,16 +50,12 @@ export function AddRecordModal({
 
         <form onSubmit={onSubmit} className="mt-4 space-y-4">
           <p className="text-[12px] leading-thai text-ink-2">
-            {lang === "th"
-              ? "ระบุรหัสโครงการ e-GP 11 หลักเพื่อดึงประกาศและเอกสารราคากลางเข้าสู่ระบบ ระบบจะดาวน์โหลดและส่งเข้าสู่ขั้นตอนประมวลผลทันที"
-              : "Enter an 11-digit e-GP project ID to download the announcement and price packages and queue it into the processing pipeline."}
+            ระบุรหัสโครงการ e-GP 11 หลักเพื่อดึงประกาศและเอกสารราคากลางเข้าสู่ระบบ ระบบจะดาวน์โหลดและส่งเข้าสู่ขั้นตอนประมวลผลทันที
           </p>
 
           <div>
             <Label>
-              {lang === "th"
-                ? "รหัสโครงการ e-GP (11 หลัก)"
-                : "e-GP Project ID (11 digits)"}
+              รหัสโครงการ e-GP (11 หลัก)
             </Label>
             <input
               type="text"
@@ -78,12 +70,8 @@ export function AddRecordModal({
             <div className="mt-1 flex items-center justify-between text-[11px]">
               <span className={isValid ? "text-open font-semibold" : "text-ink-3"}>
                 {isValid
-                  ? lang === "th"
-                    ? "✓ รูปแบบถูกต้อง (11 หลัก)"
-                    : "✓ Valid 11-digit ID"
-                  : lang === "th"
-                  ? `ต้องระบุ 11 หลัก (ปัจจุบัน ${projectId.length}/11)`
-                  : `${projectId.length}/11 digits`}
+                  ? "✓ รูปแบบถูกต้อง (11 หลัก)"
+                  : `ต้องระบุ 11 หลัก (ปัจจุบัน ${projectId.length}/11)`}
               </span>
             </div>
           </div>
@@ -101,7 +89,7 @@ export function AddRecordModal({
               onClick={onClose}
               className={`${btn.secondary} h-9 px-3.5`}
             >
-              {lang === "th" ? "ยกเลิก" : "Cancel"}
+              ยกเลิก
             </button>
             <button
               type="submit"
@@ -111,12 +99,10 @@ export function AddRecordModal({
               {isLoading ? (
                 <>
                   <span className="animate-spin inline-block">↻</span>{" "}
-                  {lang === "th" ? "กำลังดึงข้อมูล..." : "Fetching..."}
+                  กำลังดึงข้อมูล...
                 </>
-              ) : lang === "th" ? (
-                "+ ดึงข้อมูลโครงการ"
               ) : (
-                "+ Fetch & Ingest"
+                "+ ดึงข้อมูลโครงการ"
               )}
             </button>
           </div>

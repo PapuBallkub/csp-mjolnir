@@ -1,4 +1,5 @@
-import { daysUntil, formatDate, type Lang, type Status } from "../_data/tors";
+import type { Status } from "../_data/tors";
+import { daysUntil, formatDate } from "../_lib/format";
 import type { TorStatus } from "../_lib/api";
 import { deadlineOf } from "../_lib/stage";
 import { isDead } from "./verdict";
@@ -15,7 +16,6 @@ export function TorDeadline({
   status,
   facts,
   now = new Date(),
-  lang = "th",
   align = "end",
   hideLabel = false,
   className = "",
@@ -23,13 +23,11 @@ export function TorDeadline({
   status: TorStatus;
   facts: { submissionDeadline: string | null; commentDeadline?: string | null };
   now?: Date;
-  lang?: Lang;
   align?: "start" | "end" | "center";
   hideLabel?: boolean;
   className?: string;
 }) {
   const info = deadlineOf(status, facts);
-  const say = (text: { th: string; en: string }) => (lang === "th" ? text.th : text.en);
 
   const alignClass =
     align === "start" ? "items-start" : align === "center" ? "items-center" : "items-end";
@@ -38,12 +36,12 @@ export function TorDeadline({
   if (isDead(status)) {
     const over =
       status === "Closed"
-        ? { th: "ปิดรับข้อเสนอแล้ว", en: "Bidding closed" }
-        : { th: "ไม่รับข้อเสนอแล้ว", en: "No longer taking bids" };
+        ? "ปิดรับข้อเสนอแล้ว"
+        : "ไม่รับข้อเสนอแล้ว";
     return (
       <span className={`flex flex-col ${alignClass} gap-0.5 whitespace-nowrap ${className}`}>
-        <span className="text-[13px] font-bold text-ink-3 leading-tight">{say(over)}</span>
-        {info.date ? <span className="tnum text-[10.5px] text-ink-3 font-mono leading-tight">{formatThaiDate(info.date, lang)}</span> : null}
+        <span className="text-[13px] font-bold text-ink-3 leading-tight">{over}</span>
+        {info.date ? <span className="tnum text-[10.5px] text-ink-3 font-mono leading-tight">{formatThaiDate(info.date)}</span> : null}
       </span>
     );
   }
@@ -51,14 +49,14 @@ export function TorDeadline({
   let text: string;
   let tone = "text-ink-3";
   if (!info.date) {
-    text = say(info.missing);
+    text = info.missing;
   } else {
     const days = daysLeft(info.date, now);
     // Only a draft can still be past it: the API turns a late Open into Closed
     if (days < 0) {
-      text = say({ th: "ปิดรับความเห็นแล้ว", en: "Comment period over" });
+      text = "ปิดรับความเห็นแล้ว";
     } else {
-      const cd = countdownText(days, lang);
+      const cd = countdownText(days);
       text = cd.text;
       tone = cd.tone;
     }
@@ -67,10 +65,10 @@ export function TorDeadline({
   return (
     <span className={`flex flex-col ${alignClass} gap-0.5 whitespace-nowrap ${className}`}>
       {!hideLabel && (
-        <span className="text-[11px] leading-thai text-ink-3">{say(info.label)}</span>
+        <span className="text-[11px] leading-thai text-ink-3">{info.label}</span>
       )}
       <span className={`tnum text-[13px] sm:text-[14px] leading-tight font-bold ${tone}`}>{text}</span>
-      {info.date ? <span className="tnum text-[10.5px] text-ink-3 font-mono leading-tight">{formatThaiDate(info.date, lang)}</span> : null}
+      {info.date ? <span className="tnum text-[10.5px] text-ink-3 font-mono leading-tight">{formatThaiDate(info.date)}</span> : null}
     </span>
   );
 }
@@ -93,40 +91,37 @@ export function deadlineTone(deadline: string | null | undefined, status: Status
   return "text-ink font-semibold";
 }
 
-export function deadlineText(deadline: string | null | undefined, status: Status, lang: Lang): string {
-  if (status === "Awarded") return lang === "th" ? "ประกาศผู้ชนะแล้ว" : "Awarded";
-  if (status === "Cancelled") return lang === "th" ? "ยกเลิกแล้ว" : "Cancelled";
-  if (status === "Closed") return lang === "th" ? "ปิดรับแล้ว" : "Closed";
-  if (!deadline) return lang === "th" ? "ไม่ระบุวันปิดรับ" : "No deadline";
+export function deadlineText(deadline: string | null | undefined, status: Status): string {
+  if (status === "Awarded") return "ประกาศผู้ชนะแล้ว";
+  if (status === "Cancelled") return "ยกเลิกแล้ว";
+  if (status === "Closed") return "ปิดรับแล้ว";
+  if (!deadline) return "ไม่ระบุวันปิดรับ";
   const days = daysUntil(deadline);
-  if (days < 0) return lang === "th" ? "เลยกำหนดแล้ว" : "Deadline passed";
-  if (days === 0) return lang === "th" ? "ปิดรับวันนี้" : "Closes today";
-  if (days === 1) return lang === "th" ? "เหลืออีก 1 วัน" : "1 day left";
-  return lang === "th" ? `เหลืออีก ${days} วัน` : `${days} days left`;
+  if (days < 0) return "เลยกำหนดแล้ว";
+  if (days === 0) return "ปิดรับวันนี้";
+  if (days === 1) return "เหลืออีก 1 วัน";
+  return `เหลืออีก ${days} วัน`;
 }
 
 export function Deadline({
   deadline,
   status,
-  lang,
   showDate = true,
 }: {
   deadline?: string | null;
   status: Status;
-  lang: Lang;
   showDate?: boolean;
 }) {
   return (
     <span className="flex flex-col items-end gap-1 whitespace-nowrap transition-opacity duration-150">
       <span className={`font-mono tnum text-[15px] sm:text-[15.5px] leading-none font-semibold ${deadlineTone(deadline, status)}`}>
-        {deadlineText(deadline, status, lang)}
+        {deadlineText(deadline, status)}
       </span>
       {showDate && deadline ? (
         <span className="font-mono tnum text-[13px] font-medium text-ink-2">
-          {formatDate(deadline, lang)}
+          {formatDate(deadline)}
         </span>
       ) : null}
     </span>
   );
 }
-

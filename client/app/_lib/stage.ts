@@ -10,17 +10,17 @@
 
 import type { AnnouncementCode, LatestAnnouncement, TorStatus } from "./api";
 
-export type Bi = { th: string; en: string };
+export type Bi = string;
 
-const STAGE_BY_CODE: Record<AnnouncementCode, Bi> = {
-  "15": { th: "ประกาศราคากลาง", en: "Reference price published" },
-  B0: { th: "ร่าง TOR · รับฟังความเห็น", en: "Draft TOR · open for comments" },
-  D0: { th: "เปิดรับข้อเสนอ", en: "Open for bids" },
-  D2: { th: "เปลี่ยนแปลงประกาศเชิญชวน", en: "Invitation changed" },
-  D1: { th: "ยกเลิกประกาศเชิญชวน", en: "Invitation cancelled" },
-  W0: { th: "ประกาศผู้ชนะแล้ว", en: "Winner announced" },
-  W2: { th: "เปลี่ยนแปลงผู้ชนะ", en: "Winner changed" },
-  W1: { th: "ยกเลิกประกาศผู้ชนะ", en: "Winner announcement cancelled" },
+const STAGE_BY_CODE: Record<AnnouncementCode, string> = {
+  "15": "ประกาศราคากลาง",
+  B0: "ร่าง TOR · รับฟังความเห็น",
+  D0: "เปิดรับข้อเสนอ",
+  D2: "เปลี่ยนแปลงประกาศเชิญชวน",
+  D1: "ยกเลิกประกาศเชิญชวน",
+  W0: "ประกาศผู้ชนะแล้ว",
+  W2: "เปลี่ยนแปลงผู้ชนะ",
+  W1: "ยกเลิกประกาศผู้ชนะ",
 };
 
 // The status each code gives, as the server's status engine works it out
@@ -35,13 +35,10 @@ const STATUS_OF_CODE: Record<AnnouncementCode, TorStatus | null> = {
   W1: "Cancelled",
 };
 
-const CONTRACT_SIGNED: Bi = { th: "ลงนามสัญญาแล้ว", en: "Contract signed" };
+const CONTRACT_SIGNED = "ลงนามสัญญาแล้ว";
 // The one stage e-GP's own pages don't show: it comes from the contract records
 // the government publishes on data.go.th (ADR 0028), so the badge says where
-const CONTRACT_SIGNED_HINT: Bi = {
-  th: "จากข้อมูลสัญญาที่รัฐเผยแพร่ใน data.go.th",
-  en: "From the contract records the government publishes on data.go.th",
-};
+const CONTRACT_SIGNED_HINT = "จากข้อมูลสัญญาที่รัฐเผยแพร่ใน data.go.th";
 
 /**
  * The status filter's groups: one per badge colour, named the way the badges
@@ -49,41 +46,38 @@ const CONTRACT_SIGNED_HINT: Bi = {
  * in the badges' own words, so any badge seen in the list can be found again
  * in the filter. `notes` explain a group, one sentence a line.
  */
-export const STATUS_GROUPS: Record<TorStatus, { label: Bi; members?: Bi[]; notes?: Bi[] }> = {
+export const STATUS_GROUPS: Record<TorStatus, { label: string; members?: string[]; notes?: string[] }> = {
   Draft: { label: STAGE_BY_CODE.B0 },
   Open: { label: STAGE_BY_CODE.D0, members: [STAGE_BY_CODE.D2] },
   Closed: {
-    label: { th: "ปิดรับข้อเสนอแล้ว", en: "Closed for bids" },
+    label: "ปิดรับข้อเสนอแล้ว",
     notes: [
-      { th: "ประเมินจากวันปิดรับ", en: "Inferred from the deadline" },
-      { th: "หน่วยงานยังไม่แจ้งผล", en: "No outcome reported yet" },
+      "ประเมินจากวันปิดรับ",
+      "หน่วยงานยังไม่แจ้งผล",
     ],
   },
   Awarded: { label: STAGE_BY_CODE.W0, members: [STAGE_BY_CODE.W2, CONTRACT_SIGNED] },
-  Cancelled: { label: { th: "ยกเลิกแล้ว", en: "Cancelled" }, members: [STAGE_BY_CODE.D1, STAGE_BY_CODE.W1] },
+  Cancelled: { label: "ยกเลิกแล้ว", members: [STAGE_BY_CODE.D1, STAGE_BY_CODE.W1] },
 };
 
 // A badge with no stage to name says its group's name
 const STAGE_BY_STATUS = Object.fromEntries(
   Object.entries(STATUS_GROUPS).map(([status, group]) => [status, group.label]),
-) as Record<TorStatus, Bi>;
+) as Record<TorStatus, string>;
 
-const HINTS: Partial<Record<TorStatus, Bi>> = {
-  Draft: { th: "ร่างเพื่อรับฟังความเห็น ยังไม่เปิดรับข้อเสนอ", en: "Out for public comment; bids are not open yet" },
-  Closed: {
-    th: "ประเมินจากวันปิดรับ หน่วยงานยังไม่แจ้งผล",
-    en: "Inferred from the deadline; the agency hasn't reported an outcome",
-  },
+const HINTS: Partial<Record<TorStatus, string>> = {
+  Draft: "ร่างเพื่อรับฟังความเห็น ยังไม่เปิดรับข้อเสนอ",
+  Closed: "ประเมินจากวันปิดรับ หน่วยงานยังไม่แจ้งผล",
 };
 
 /** The name of an e-GP announcement, as a person would say it. */
-export function announcementLabel(code: AnnouncementCode): Bi {
+export function announcementLabel(code: AnnouncementCode): string {
   return STAGE_BY_CODE[code];
 }
 
 export type Stage = {
-  label: Bi;
-  hint?: Bi;
+  label: string;
+  hint?: string;
   /** The label already says the invitation changed, so an Amended flag would repeat it */
   saysChanged: boolean;
 };
@@ -122,9 +116,9 @@ export type DeadlineInfo = {
   /** ISO date, or null when the TOR doesn't state it */
   date: string | null;
   /** What the deadline is for, e.g. "ยื่นข้อเสนอภายใน" */
-  label: Bi;
+  label: string;
   /** Said when the TOR doesn't state the date */
-  missing: Bi;
+  missing: string;
 };
 
 type DeadlineFacts = { submissionDeadline: string | null; commentDeadline?: string | null };
@@ -138,14 +132,14 @@ export function deadlineOf(status: TorStatus, facts: DeadlineFacts): DeadlineInf
     return {
       kind: "comment",
       date: facts.commentDeadline ?? null,
-      label: { th: "ส่งความเห็นร่าง TOR ภายใน", en: "Comments on the draft due" },
-      missing: { th: "อยู่ระหว่างรับฟังความเห็น", en: "Open for public comment" },
+      label: "ส่งความเห็นร่าง TOR ภายใน",
+      missing: "อยู่ระหว่างรับฟังความเห็น",
     };
   }
   return {
     kind: "submission",
     date: facts.submissionDeadline,
-    label: { th: "ยื่นข้อเสนอภายใน", en: "Bids due" },
-    missing: { th: "ไม่ระบุวันปิดรับข้อเสนอ", en: "No bid deadline specified" },
+    label: "ยื่นข้อเสนอภายใน",
+    missing: "ไม่ระบุวันปิดรับข้อเสนอ",
   };
 }
