@@ -8,11 +8,41 @@ services:
       - "8000:8000"
     env_file:
       - ./server/.env
+    environment:
+      # The pipeline scans every file it keeps here, whether it's run in this
+      # container by hand or from the admin page's add and re-download buttons.
+      # The server starts without it; those steps then refuse to download.
+      CLAMD_HOST: clamav
     volumes:
       # The documents the pipeline stores, which the preview serves (and its
       # logs and extractions). A named volume, so they outlive the container;
       # the development override binds ./server/data here instead.
       - server-data:/app/data
+
+  # ClamAV's daemon. The pipeline sends it every file before keeping it, and the
+  # preview serves only files it passed. It holds its signatures in RAM: 3 GiB
+  # at least, 4 GiB preferred (ClamAV's Docker docs). So it runs only when asked:
+  # `docker compose up -d clamav`, or `--profile scan` for the whole stack.
+  clamav:
+    # 1.4 is ClamAV's long-term-support release (to Aug 2027); the feature tag
+    # takes its security patches. _base carries no signatures: freshclam
+    # downloads them once into the volume and keeps them current. The Debian
+    # build runs on amd64 and arm64; the Alpine one on amd64 only.
+    image: clamav/clamav:1.4_base-debian
+    profiles: ["scan"]
+    environment:
+      # Room for a whole package's files, the pipeline's own limits
+      # (file-checks.js); clamd's defaults stop at 100 MB
+      CLAMD_CONF_StreamMaxLength: 200M
+      CLAMD_CONF_MaxFileSize: 200M
+      CLAMD_CONF_MaxScanSize: 400M
+      # Without this, content past those limits is skipped and still answered
+      # OK. With it, clamd says so, and the pipeline keeps nothing it couldn't scan.
+      CLAMD_CONF_AlertExceedsMax: "yes"
+    volumes:
+      - clamav-db:/var/lib/clamav
+    # Not published: clamd's TCP port has no authentication and no encryption,
+    # so only containers on this network reach it (the override adds loopback)
 
   # Frontend Next.js
   client:
@@ -33,3 +63,4 @@ services:
 
 volumes:
   server-data:
+  clamav-db:

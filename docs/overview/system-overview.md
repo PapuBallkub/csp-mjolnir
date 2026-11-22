@@ -70,12 +70,13 @@ Arrows follow the data. Reading it:
 | Jobs | Runs the steps above in order, at set times | `server/src/pipeline/jobs/` | `npm run schedule`, or `npm run job -- <name>` |
 | MongoDB | 12 collections, linked by the e-GP `projectId` | `server/src/models/` | Local `mongo:8` container in development ([0006](../decisions/0006-local-mongodb-for-development.md)); Atlas otherwise ([0002](../decisions/0002-atlas-over-local-docker-mongodb.md)) |
 | Documents | Every file downloaded, one folder per project and package | `server/data/documents/<projectId>/<package>/` | Written by download; read by OCR and the API |
+| Virus scan | ClamAV's daemon. Every file a download keeps is scanned first, and the preview serves only files that passed ([0040](../decisions/0040-files-are-scanned-before-they-are-kept.md)) | `server/src/pipeline/shared/clamd.js`; the `clamav` container | Its own container, started on purpose: it needs 3–4 GB of memory |
 | OCR | `pdf-parse` for a PDF with a text layer; Tesseract.js (Thai and English) for a scan | `server/src/pipeline/ingestion/lib/ocr.js` | On this machine, no cloud service |
 | Gemini | Reads titles and documents, returns structured fields | `server/src/pipeline/extraction/gemini.js` | Google Cloud, through `@google/genai` (`GOOGLE_CLOUD_PROJECT`, `GEMINI_MODEL`) |
 | Google sign-in | OAuth, linked to an account by verified email ([0005](../decisions/0005-google-sign-in-links-by-verified-email.md)) | `server/src/features/auth/` | Optional: off when its env vars aren't set |
 
 `docker compose up` starts MongoDB, the API and the client. It doesn't start
-the pipelines.
+the pipelines, or ClamAV: `docker compose up -d clamav` starts that.
 
 ## A day of the pipeline
 

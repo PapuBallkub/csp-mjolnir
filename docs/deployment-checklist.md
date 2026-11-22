@@ -82,6 +82,7 @@ refuses to send back, and `/api/auth/me` answers `401` forever.
 | `GOOGLE_REDIRECT_URI` | `https://<api-domain>/api/auth/google/callback` | Google refuses the code exchange |
 | `SHOW_UNREVIEWED_INSIGHTS` | `true` only for a demo deploy, while no one reviews results yet ([0015](decisions/0015-pilot-mode-and-demo-data.md)). Leave it unset for a real launch. | Unset in production: the catalog shows only reviewed results, so before reviews start it is empty. `true` on a real launch: unchecked AI summaries reach the public with no label saying nobody checked them, only the detail page's "AI can be wrong" notice |
 | `TRUST_PROXY_HOPS` | The number of proxies in front of the server — see §5 | Too low: every user on the internet shares one rate limit bucket. Set to `true`: the caller forges `X-Forwarded-For` and the limiter is decorative |
+| `CLAMD_HOST` | `clamav`, which `docker-compose.yml` already sets; or the address of your ClamAV daemon ([0040](decisions/0040-files-are-scanned-before-they-are-kept.md)) | Unset in production: the pipeline downloads nothing, the admin page's add and re-download buttons refuse, and the server still boots. Set, but ClamAV is down: the same, with "did not answer" in the log. Never published to the internet: clamd's port has no password |
 
 - [ ] All of the above set in the host's secret manager, not baked into an image
 - [ ] `JWT_SECRET` confirmed different from the CI value
@@ -233,7 +234,12 @@ A checklist you cannot check is a wish list. Run these against the deployed API.
 - [ ] Fail the same login repeatedly and confirm the 429 arrives at the
       configured attempt, from a machine that is not on the same network as
       another tester
-- [ ] Open a TOR's document from its detail page. The PDF shows, or, on a new
+- [ ] `npm run ingest:scan -- --self-test` inside the server container
+      (`docker compose exec server npm run ingest:scan -- --self-test`) ends with
+      "scanning works". It touches no database, so it's safe here
+- [ ] Open a TOR's document from its detail page. Right after the first deploy
+      with scanning, it shows the "เอกสารนี้ยังตรวจความปลอดภัยไม่เสร็จ" card
+      until the rescan in §8 has run. After that, the PDF shows, or, on a new
       volume the pipeline hasn't filled yet, the "ยังไม่มีสำเนาเอกสารนี้ในระบบของเรา"
       card with its e-GP button. A server log full of `[preview] … missing or
       outside the documents folder` warnings means records point at files this
@@ -262,3 +268,14 @@ have to outlive the container.
       records that laptop's paths. The server finds the same file under its own
       documents folder by the part after `documents`, so this works as long as
       the files themselves were copied too.
+- [ ] **ClamAV runs next to the server,** with 4 GB of memory to spare
+      (ClamAV asks for 3 at least). Start the whole stack with
+      `docker compose -f docker-compose.yml --profile scan up -d`; the
+      `clamav` service is behind that profile, so a plain `up` leaves it out.
+      Its first start downloads signatures into the `clamav-db` volume and
+      takes a few minutes; its health check says when it's ready
+      ([0040](decisions/0040-files-are-scanned-before-they-are-kept.md)).
+- [ ] **Scan what is already stored, right after the deploy that brings
+      scanning.** Every file stored before it has no scan result, so no preview
+      shows until `docker compose exec server npm run ingest:scan` has run once.
+      It writes results and deletes any file ClamAV flags, so run it on purpose.

@@ -712,3 +712,179 @@ test('applyPricePackage: the form fills in ราคากลาง only where t
   assert.equal(tor.budgetTHB, 4_917_700);
   assert.equal(tor.referencePriceTHB, 4_916_650, 'the announcement left it blank');
 });
+
+/* -------------- Checks before a file is kept (ASVS V5.2.2, V5.2.3, V5.4.3) -------------- */
+
+// Where a package's files would go: one folder per package (tor-downloader.js)
+const folderOf = (zipId) => path.join(documentsDir, PROJECT, `${PROJECT}_${zipId}_${zipId.slice(0, 8)}`);
+
+/** The download and price download, each handing every file to `scan`. */
+const scannedBy = (scan) => ({
+  download: (args) => downloadEgpPackage({ ...args, pace: noWait, scan }),
+  downloadPrice: (args) =>
+    downloadEgpPricePackage({ ...args, pace: noWait, ocr: async () => ({ text: priceFormOcr }), scan }),
+});
+const cleanScanner = async () => ({ result: 'clean' });
+// Flags any file whose bytes contain the marker, as ClamAV would a signature
+const flags =
+  (marker, signature = 'Win.Test.EICAR_HDB-1') =>
+  async (data) =>
+    data.includes(marker) ? { result: 'infected', signature } : { result: 'clean' };
+
+test('download step: every file kept was scanned clean first, and says so', async () => {
+  egpServes({ current: 'zip-clean', zips: { 'zip-clean': await invitation() } });
+
+  await run(scannedBy(cleanScanner));
+
+  const tor = await torOf();
+  for (const file of tor.packages[0].files) {
+    assert.equal(file.scan.result, 'clean', file.fileName);
+    assert.ok(file.scan.scannedAt instanceof Date);
+  }
+  assert.equal(tor.document.scan.result, 'clean', 'the TOR as one document carries it too');
+});
+
+test('download step: with no scanner outside production, files are kept unscanned, never served', async (t) => {
+  const warn = t.mock.method(console, 'warn', () => {});
+  egpServes({ current: 'zip-noscan', zips: { 'zip-noscan': await invitation() } });
+
+  await run({ scanning: { config: null, production: false } });
+
+  const tor = await torOf();
+  assert.equal(tor.pipelineStatus, 'downloaded', 'the pipeline keeps working');
+  assert.ok(tor.packages[0].files.every((file) => file.scan.result === 'unscanned'));
+  assert.equal(tor.document.scan.result, 'unscanned');
+  assert.ok(warn.mock.calls.some((call) => /CLAMD_HOST is not set/.test(call.arguments.join(' '))));
+});
+
+test('download step: production without a scanner downloads nothing at all', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const get = egpServes({ current: 'zip-prod', zips: { 'zip-prod': await invitation() } });
+
+  assert.equal(await run({ scanning: { config: null, production: true } }), 0);
+
+  assert.equal(get.mock.callCount(), 0, 'not one request to e-GP');
+  assert.equal((await torOf()).pipelineStatus, 'fetched');
+});
+
+test('download step: a scanner that does not answer stops the step before any e-GP request', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const get = egpServes({ current: 'zip-down', zips: { 'zip-down': await invitation() } });
+
+  const config = { host: '127.0.0.1', port: 3310, timeoutMs: 100 };
+  assert.equal(await run({ scanning: { config, ping: async () => false } }), 0);
+
+  assert.equal(get.mock.callCount(), 0);
+  assert.equal(await failureOf(), null, 'no TOR is blamed for it');
+});
+
+test('download step: a package ClamAV flags keeps nothing, and is a final failure that names the file', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const zip = zipOf({
+    'annoudoc_1300400000_55555000001.pdf': await fs.readFile(ANNOUNCEMENT_PDF),
+    'Attach_TOR_1.pdf': '%PDF-1.4 the TOR',
+    'Annex_2.pdf': '%PDF-1.4 FLAG-ME an annex',
+  });
+  egpServes({ current: 'zip-flag', zips: { 'zip-flag': zip } });
+
+  await run(scannedBy(flags('FLAG-ME')));
+
+  const tor = await torOf();
+  assert.equal(tor.packages.length, 0, 'not the rest of the package either');
+  assert.equal(tor.pipelineStatus, 'fetched');
+  assert.equal(existsSync(folderOf('zip-flag')), false, 'nothing written to disk');
+  const failure = await failureOf();
+  assert.match(failure.lastError, /ClamAV flagged Annex_2\.pdf .* as Win\.Test\.EICAR_HDB-1/);
+  assert.equal(failure.attempts, MAX_ATTEMPTS, 'final: the same bytes would be flagged again');
+});
+
+test('download step: a file too large to scan is a final failure; a scanner failure mid-run is transient', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  for (const [reason, final] of [
+    ['too-large', true],
+    ['timeout', false],
+    ['unreachable', false],
+  ]) {
+    await PipelineFailure.deleteMany({});
+    const zipId = `zip-${reason}`;
+    egpServes({ current: zipId, zips: { [zipId]: await invitation() } });
+
+    await run(scannedBy(async () => ({ result: 'unscanned', reason })));
+
+    assert.equal(existsSync(folderOf(zipId)), false, reason);
+    const failure = await failureOf();
+    assert.equal(failure.lastTransient, !final, reason);
+    assert.equal(failure.attempts, final ? MAX_ATTEMPTS : 0, reason);
+  }
+});
+
+test('download step: a flagged price package keeps the TOR, and is not downloaded every night', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  priceFormOcr = await priceFormFixture('69109062251');
+  const flaggedPrice = zipOf({ 'pB0.pdf': '%PDF-1.4 FLAG-ME a scanned price form' });
+  egpServes({ current: 'zip-d0', price: 'zip-price', zips: { 'zip-d0': await invitation(), 'zip-price': flaggedPrice } });
+
+  await run(scannedBy(flags('FLAG-ME')));
+
+  const tor = await torOf();
+  assert.equal(tor.pipelineStatus, 'downloaded', "the TOR's own package was clean");
+  assert.equal(tor.packages.filter((pkg) => pkg.kind === 'price').length, 0);
+  assert.ok(tor.priceCheckedAt, 'asked again at the next stage, not every run');
+});
+
+test('download: a zip past its limits is refused before anything is unpacked', async () => {
+  const limits = { maxEntries: 3, maxEntryBytes: 1024, maxTotalBytes: 1536 };
+  const cases = [
+    ['too many files', { 'a.pdf': '%PDF-1', 'b.pdf': '%PDF-1', 'c.pdf': '%PDF-1', 'd.pdf': '%PDF-1' }, /holds 4 files, more than the 3/],
+    // Zeros compress to almost nothing: small to download, large unpacked
+    [
+      'one large entry',
+      { 'Attach_TOR_1.pdf': Buffer.concat([Buffer.from('%PDF-1'), Buffer.alloc(2048)]) },
+      /Attach_TOR_1\.pdf, which unpacks to more than/,
+    ],
+    ['too much in all', { 'a.pdf': Buffer.alloc(1000), 'b.pdf': Buffer.alloc(1000) }, /unpacks to .* more than/],
+  ];
+  for (const [label, files, message] of cases) {
+    const zipId = `zip-${label.replaceAll(' ', '-')}`;
+    egpServes({ current: zipId, zips: { [zipId]: zipOf(files) } });
+    const result = await downloadEgpPackage({ projectId: PROJECT, documentsDir, limits, pace: noWait, scan: cleanScanner });
+    assert.equal(result.success, false, label);
+    assert.equal(result.final, true, label);
+    assert.match(result.error, message, label);
+    assert.equal(existsSync(folderOf(zipId)), false, label);
+  }
+});
+
+test('download: only PDF, Excel and Word files are kept, and only when their bytes match their name', async () => {
+  const scanned = [];
+  const recordingScanner = async (data) => {
+    scanned.push(data.subarray(0, 8).toString('latin1'));
+    return { result: 'clean' };
+  };
+  const zip = zipOf({
+    'annoudoc_1300400000_55555000001.pdf': await fs.readFile(ANNOUNCEMENT_PDF),
+    'Attach_TOR_1.pdf': '%PDF-1.4 the TOR',
+    'Attach_TOR_2.pdf': 'MZ an executable named as a TOR part',
+    'boq.xlsx': Buffer.from([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]),
+    'old.xls': Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0]),
+    'setup.exe': 'MZ',
+    'more.zip': Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+  });
+  egpServes({ current: 'zip-types', zips: { 'zip-types': zip } });
+
+  const result = await downloadEgpPackage({ projectId: PROJECT, documentsDir, pace: noWait, scan: recordingScanner });
+
+  assert.equal(result.success, true);
+  assert.deepEqual(result.package.files.map((file) => file.fileName).sort(), [
+    'Attach_TOR_1.pdf',
+    'annoudoc_1300400000_55555000001.pdf',
+    'boq.xlsx',
+    'old.xls',
+  ]);
+  assert.deepEqual(result.tor.parts, [], 'the false part is not part of the TOR');
+  assert.ok(result.package.problems.includes('Attach_TOR_2.pdf not kept: its first bytes are not a PDF'));
+  assert.ok(result.package.problems.some((line) => /^setup\.exe not kept: its type is not one we keep/.test(line)));
+  assert.ok(result.package.problems.some((line) => /^more\.zip not kept/.test(line)), 'a zip inside is never unpacked');
+  assert.equal(scanned.length, 4, 'a dropped file is never scanned, parsed or written');
+  assert.equal(existsSync(path.join(folderOf('zip-types'), 'Attach_TOR_2.pdf')), false);
+});

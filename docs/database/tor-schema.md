@@ -54,7 +54,8 @@ The TOR that OCR reads: the latest package's ([0020](../decisions/0020-read-the-
 | `documentType` | `String` | `'UNKNOWN'` | No | `'DIGITAL_TEXT_PDF'` when every part has a Thai text layer, else `'SCANNED_PAPER_PDF'` (a garbled layer counts as a scan) | `"SCANNED_PAPER_PDF"` |
 | `contentHash` | `String` | `null` | Yes | SHA-256 of the PDF; for a TOR in several files, of their hashes. A new value means a changed TOR. | `"47f6959e4b0bb5ba788836b2950093f5a6578958c8a6350cd22b63fddc1e6e2f"` |
 | `version` | `Number` | `1` | No | Goes up each time a new package brings a changed TOR | `1` |
-| `parts` | `Array` | `[]` | No | A TOR split over files (`Attach_TOR_1` … `_3`), in reading order: `{ fileName, storagePath, pages, contentHash }`. Empty for one file. OCR reads them as one document. | `[]` |
+| `parts` | `Array` | `[]` | No | A TOR split over files (`Attach_TOR_1` … `_3`), in reading order: `{ fileName, storagePath, pages, contentHash, scan }`. Empty for one file. OCR reads them as one document. | `[]` |
+| `scan` | `Object` | `null` | No | The virus scan of the file at `storagePath` (see 2.2b) | `{ "result": "clean", "signature": null, "scannedAt": "2026-11-22T05:00:00Z" }` |
 
 ### 2.2a `packages` (Array, oldest first)
 Each e-GP document package downloaded. Each stage (draft, invitation, change) builds an announcement package; the price package holds the price form. Older ones stay, for amendment diffs (FR-16). See [0020](../decisions/0020-read-the-whole-egp-package.md) and [0023](../decisions/0023-read-the-budget-from-the-price-form.md).
@@ -65,7 +66,7 @@ Each e-GP document package downloaded. Each stage (draft, invitation, change) bu
 | `zipId` | `String` | e-GP's id for the package; the same id is never downloaded twice | `"91440371862845cc9281dc637dd73296"` |
 | `name` | `String` | e-GP's name, which ends in the date it was built | `"69109028093_07102569.zip"` |
 | `downloadedAt` | `Date` | When it was downloaded | |
-| `files` | `Array` | The files kept: `{ role, fileName, storagePath, sizeBytes, pages, contentHash, textLayer }`. `role` is `announcement`, `bidding`, `tor`, `price-form` or `other`; `textLayer` is `text`, `scan`, `garbled`, or null for a non-PDF. e-GP's blank forms aren't kept. | |
+| `files` | `Array` | The files kept: `{ role, fileName, storagePath, sizeBytes, pages, contentHash, textLayer, scan }`. `role` is `announcement`, `bidding`, `tor`, `price-form` or `other`; `textLayer` is `text`, `scan`, `garbled`, or null for a non-PDF. e-GP's blank forms aren't kept, and only PDF, Excel and Word files whose first bytes match their names are ([0040](../decisions/0040-files-are-scanned-before-they-are-kept.md)). | |
 | `announcementText` | `String` | The announcement's text layer | `"(สำเนา)\nประกาศกรมการค้าภายใน\n…"` |
 | `biddingText` | `String` | The bidding document's text layer, which extraction reads ([0025](../decisions/0025-extraction-reads-the-bidding-document.md)) | |
 | `priceFormText` | `String` | A price package's form, as OCR read it (or its text layer) | |
@@ -73,7 +74,16 @@ Each e-GP document package downloaded. Each stage (draft, invitation, change) bu
 | `facts.referencePriceTHB` | `{ value, quote, document }` | ราคากลาง, kept only when its digits and words agree. A price package's is a check on the announcement's. | `{ "value": 1290420, … }` |
 | `facts.budgetTHB` | `{ value, quote, document }` | A price package's budget, from the amount in words, or from digits the form can vouch for | `{ "value": 1194600, "document": "price-form", … }` |
 | `facts.submissionWindow` | `{ opensAt, closesAt, quote, document }` | The day and times e-bidding takes bids; null in a draft | `{ "opensAt": "2026-10-19T02:00:00Z", "closesAt": "2026-10-19T05:00:00Z", … }` |
-| `problems` | `[String]` | Why a value the documents seem to state wasn't kept | `[]` |
+| `problems` | `[String]` | Why a value the documents seem to state wasn't kept, and which files weren't kept and why | `["setup.exe not kept: its type is not one we keep (PDF, Excel or Word)"]` |
+
+### 2.2b `scan` (on each package file, each TOR part, and `document`)
+What the virus scan said about a kept file ([0040](../decisions/0040-files-are-scanned-before-they-are-kept.md)). The preview serves a file only when `result` is `clean`. `null` on records from before 0040, which counts as `unscanned` until `npm run ingest:scan` runs.
+
+| Field | Type | Description | Real Example |
+|---|---|---|---|
+| `result` | `String` | `clean`: ClamAV found nothing. `unscanned`: kept by a machine with no scanner, or too large to scan; never served. `infected`: ClamAV flagged it (set by the rescan; its bytes are deleted, the record stays). `wrong-type`: a stored file whose first bytes aren't the type its name says (set by the rescan; never served) | `"clean"` |
+| `signature` | `String` | ClamAV's name for what it found; `unreadable` when that name wasn't plain printable text of 200 characters or fewer. `null` unless `infected` | `"Win.Test.EICAR_HDB-1"` |
+| `scannedAt` | `Date` | When it was scanned; `null` for `unscanned` from a machine with no scanner | |
 
 ---
 

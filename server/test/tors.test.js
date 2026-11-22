@@ -554,6 +554,9 @@ async function removeStored(projectId) {
   await fsPromises.rm(path.join(documentsDir, projectId), { recursive: true, force: true });
 }
 
+// The preview serves only a file the virus scan passed
+const CLEAN = { result: 'clean', signature: null, scannedAt: new Date('2026-11-22T00:00:00Z') };
+
 test('GET /api/tors/:projectId/preview: streams a stored PDF, with its Thai name intact', async () => {
   const previewProjectId = '99999000099';
   const testPdfPath = await storeFile(previewProjectId, 'pkg/test_preview.pdf', '%PDF-1.4 test binary stream');
@@ -565,6 +568,7 @@ test('GET /api/tors/:projectId/preview: streams a stored PDF, with its Thai name
     document: {
       fileName: 'ขอบเขตงาน test_preview.pdf',
       storagePath: testPdfPath,
+      scan: CLEAN,
       sizeBytes: 25,
       pages: 1,
     },
@@ -662,7 +666,7 @@ test('GET /api/tors/:projectId/preview: a recorded path outside the documents fo
         source: 'process3',
         title: 'ทดสอบเส้นทางนอกโฟลเดอร์',
         procurementMethod: 'e-bidding',
-        document: { fileName: 'outside.pdf', storagePath },
+        document: { fileName: 'outside.pdf', storagePath, scan: CLEAN },
       });
 
       const res = await fetch(`${baseUrl}/api/tors/${projectId}/preview`);
@@ -690,7 +694,7 @@ test('GET /api/tors/:projectId/preview: a recorded file that was deleted is DOCU
     source: 'process3',
     title: 'ทดสอบไฟล์หาย',
     procurementMethod: 'e-bidding',
-    document: { fileName: 'gone.pdf', storagePath: gone },
+    document: { fileName: 'gone.pdf', storagePath: gone, scan: CLEAN },
   });
   const warn = t.mock.method(console, 'warn', () => {});
 
@@ -721,7 +725,7 @@ test('GET /api/tors/:projectId/preview: a path recorded on another machine is fo
         projectId,
         source: 'process3',
         title: 'ทดสอบเส้นทางจากเครื่องอื่น',
-        document: { fileName: 'tor.pdf', storagePath },
+        document: { fileName: 'tor.pdf', storagePath, scan: CLEAN },
       });
 
       const res = await fetch(`${baseUrl}/api/tors/${projectId}/preview`);
@@ -765,6 +769,7 @@ test('GET /api/tors/:projectId/preview: isolates distinct document roles across 
     document: {
       fileName: 'main_tor.pdf',
       storagePath: torPdfPath,
+      scan: CLEAN,
       sizeBytes: 35,
       pages: 1,
     },
@@ -773,9 +778,9 @@ test('GET /api/tors/:projectId/preview: isolates distinct document roles across 
         zipId: '0123456789abcdef0123456789abcdef',
         kind: 'announcement',
         files: [
-          { role: 'tor', fileName: 'main_tor.pdf', storagePath: torPdfPath, sizeBytes: 35 },
-          { role: 'bidding', fileName: 'doc_rules.pdf', storagePath: biddingPdfPath, sizeBytes: 30 },
-          { role: 'announcement', fileName: 'annoudoc_letter.pdf', storagePath: announPdfPath, sizeBytes: 37 },
+          { role: 'tor', fileName: 'main_tor.pdf', storagePath: torPdfPath, sizeBytes: 35, scan: CLEAN },
+          { role: 'bidding', fileName: 'doc_rules.pdf', storagePath: biddingPdfPath, sizeBytes: 30, scan: CLEAN },
+          { role: 'announcement', fileName: 'annoudoc_letter.pdf', storagePath: announPdfPath, sizeBytes: 37, scan: CLEAN },
         ],
       },
     ],
@@ -828,6 +833,7 @@ test('GET /api/tors/:projectId/preview: a missing bidding document is DOCUMENT_N
     document: {
       fileName: 'draft_tor.pdf',
       storagePath: torPdfPath,
+      scan: CLEAN,
       sizeBytes: 25,
       pages: 1,
     },
@@ -860,6 +866,7 @@ test('GET /api/tors/:projectId/preview: handles HTTP 206 Range requests and 416 
     document: {
       fileName: 'range_tor.pdf',
       storagePath: testPdfPath,
+      scan: CLEAN,
       sizeBytes: sampleContent.length,
       pages: 1,
     },
@@ -906,12 +913,12 @@ test('GET /api/tors/:projectId/preview: selects specific historical package by z
       {
         zipId: v1ZipId,
         kind: 'announcement',
-        files: [{ role: 'bidding', fileName: 'bidding_v1.pdf', storagePath: v1Path, sizeBytes: 25 }],
+        files: [{ role: 'bidding', fileName: 'bidding_v1.pdf', storagePath: v1Path, sizeBytes: 25, scan: CLEAN }],
       },
       {
         zipId: '22222222222222222222222222222222',
         kind: 'announcement',
-        files: [{ role: 'bidding', fileName: 'bidding_v2.pdf', storagePath: v2Path, sizeBytes: 35 }],
+        files: [{ role: 'bidding', fileName: 'bidding_v2.pdf', storagePath: v2Path, sizeBytes: 35, scan: CLEAN }],
       },
     ],
   });
@@ -948,9 +955,10 @@ test('GET /api/tors/:projectId/preview: supports multi-part TOR documents', asyn
     document: {
       fileName: 'main_tor_part1.pdf',
       storagePath: part1Path,
+      scan: CLEAN,
       parts: [
-        { fileName: 'main_tor_part1.pdf', storagePath: part1Path, sizeBytes: 25 },
-        { fileName: 'main_tor_part2.pdf', storagePath: part2Path, sizeBytes: 25 },
+        { fileName: 'main_tor_part1.pdf', storagePath: part1Path, sizeBytes: 25, scan: CLEAN },
+        { fileName: 'main_tor_part2.pdf', storagePath: part2Path, sizeBytes: 25, scan: CLEAN },
       ],
     },
   });
@@ -967,5 +975,113 @@ test('GET /api/tors/:projectId/preview: supports multi-part TOR documents', asyn
     assert.equal(await res2.text(), '%PDF-1.4 TOR PART 2 SPEC');
   } finally {
     await removeStored(multiPartProjectId);
+  }
+});
+
+/* ---------------- The virus scan gates the preview (ASVS V5.4.3) ---------------- */
+
+test('GET /api/tors/:projectId/preview: a file with no clean scan is DOCUMENT_NOT_SCANNED', async () => {
+  const projectId = '99999000011';
+  const torPath = await storeFile(projectId, 'pkg/tor.pdf', '%PDF-1.4 NOT SCANNED YET');
+
+  try {
+    // Kept before files were scanned (no result at all), and kept by a machine with no scanner
+    for (const scan of [undefined, { result: 'unscanned', signature: null, scannedAt: null }]) {
+      await Tor.deleteOne({ projectId });
+      await Tor.create({
+        projectId,
+        source: 'process3',
+        title: 'ทดสอบไฟล์ที่ยังไม่ได้ตรวจ',
+        procurementMethod: 'e-bidding',
+        document: { fileName: 'tor.pdf', storagePath: torPath, ...(scan && { scan }) },
+      });
+
+      const res = await fetch(`${baseUrl}/api/tors/${projectId}/preview`);
+      assert.equal(res.status, 404, JSON.stringify(scan));
+      const { error } = await res.json();
+      assert.equal(error?.code, 'DOCUMENT_NOT_SCANNED');
+      assert.equal(error?.procurementMethod, 'e-bidding', 'the card still knows the method');
+    }
+  } finally {
+    await removeStored(projectId);
+  }
+});
+
+test('GET /api/tors/:projectId/preview: a flagged file is DOCUMENT_BLOCKED, deleted or not', async () => {
+  const projectId = '99999000012';
+  // ClamAV flagged it, and the rescan deleted its bytes: blocked, not "not stored"
+  const flaggedPath = path.join(documentsDir, projectId, 'pkg', 'flagged.pdf');
+  // Named a PDF, and isn't one: still on disk, never served
+  const notPdfPath = await storeFile(projectId, 'pkg/not-a-pdf.pdf', 'MZ an executable');
+
+  try {
+    for (const { storagePath, scan } of [
+      { storagePath: flaggedPath, scan: { result: 'infected', signature: 'Win.Test.EICAR_HDB-1', scannedAt: new Date() } },
+      { storagePath: notPdfPath, scan: { result: 'wrong-type', signature: null, scannedAt: new Date() } },
+    ]) {
+      await Tor.deleteOne({ projectId });
+      await Tor.create({
+        projectId,
+        source: 'process3',
+        title: 'ทดสอบไฟล์ที่ไม่ผ่านการตรวจ',
+        packages: [{ zipId: 'b'.repeat(32), kind: 'announcement', files: [{ role: 'tor', fileName: 'tor.pdf', storagePath, scan }] }],
+      });
+
+      const res = await fetch(`${baseUrl}/api/tors/${projectId}/preview`);
+      assert.equal(res.status, 404, scan.result);
+      const body = await res.json();
+      assert.equal(body.error?.code, 'DOCUMENT_BLOCKED');
+      // The visitor learns that it was withheld, not what ClamAV called it
+      assert.ok(!JSON.stringify(body).includes('EICAR'));
+    }
+  } finally {
+    await removeStored(projectId);
+  }
+});
+
+test('GET /api/tors/:projectId/preview: a withheld file is never swapped for an older clean copy', async () => {
+  const projectId = '99999000013';
+  const oldPath = await storeFile(projectId, 'v1/tor.pdf', '%PDF-1.4 THE OLD TOR');
+  const newPath = await storeFile(projectId, 'v2/tor.pdf', '%PDF-1.4 THE AMENDED TOR');
+
+  await Tor.create({
+    projectId,
+    source: 'process3',
+    title: 'ทดสอบฉบับแก้ไขที่ยังไม่ได้ตรวจ',
+    packages: [
+      { zipId: '1'.repeat(32), kind: 'announcement', files: [{ role: 'tor', fileName: 'tor.pdf', storagePath: oldPath, scan: CLEAN }] },
+      { zipId: '2'.repeat(32), kind: 'announcement', files: [{ role: 'tor', fileName: 'tor.pdf', storagePath: newPath }] },
+    ],
+    document: { fileName: 'tor.pdf', storagePath: oldPath, scan: CLEAN },
+  });
+
+  try {
+    // The current TOR is the amended one: showing the old would show a superseded document as current
+    const latest = await fetch(`${baseUrl}/api/tors/${projectId}/preview`);
+    assert.equal(latest.status, 404);
+    assert.equal((await latest.json()).error?.code, 'DOCUMENT_NOT_SCANNED');
+
+    // Asked for by name, the old package is still there
+    const asked = await fetch(`${baseUrl}/api/tors/${projectId}/preview?version=1`);
+    assert.equal(asked.status, 200);
+    assert.equal(await asked.text(), '%PDF-1.4 THE OLD TOR');
+  } finally {
+    await removeStored(projectId);
+  }
+});
+
+test('GET /api/tors/:projectId/preview: a bidding PDF with no record is DOCUMENT_NOT_STORED, even on disk', async () => {
+  // e-GP's own name for a bidding document, in the project's folder. A file with
+  // no record has nowhere to keep a scan result, so it is never served.
+  const projectId = '99999000014';
+  await storeFile(projectId, 'pkg/doc_1300400000_99999000014.pdf', '%PDF-1.4 BIDDING, NEVER RECORDED');
+  await Tor.create({ projectId, source: 'process3', title: 'ทดสอบไฟล์ไม่มีบันทึก', procurementMethod: 'e-bidding', packages: [] });
+
+  try {
+    const res = await fetch(`${baseUrl}/api/tors/${projectId}/preview?part=1`);
+    assert.equal(res.status, 404);
+    assert.equal((await res.json()).error?.code, 'DOCUMENT_NOT_STORED');
+  } finally {
+    await removeStored(projectId);
   }
 });

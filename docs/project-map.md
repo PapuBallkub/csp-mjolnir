@@ -192,6 +192,7 @@ Plumbing every feature uses. Never imports from `features/` ([0003](decisions/00
 | [middleware/not-found.js](../server/src/common/middleware/not-found.js) | JSON 404 for an unknown route. |
 | [middleware/rate-limit.js](../server/src/common/middleware/rate-limit.js) | The counting mechanism for rate limits, in memory: `limitByIp`, and `limitByUser` for routes behind `requireAuth`. Features choose the numbers ([0007](decisions/0007-rate-limiting-on-the-auth-routes.md)). |
 | [utils/escape-regex.js](../server/src/common/utils/escape-regex.js) | Escapes characters with special meaning in regular expressions to prevent ReDoS and regex syntax errors. |
+| [paths.js](../server/src/common/paths.js) | Where documents are kept (`getDocumentsDir`), and `locateStoredFile`, which finds a recorded file and opens nothing outside that folder. The preview and the rescan both use it. |
 | [utils/constant-time-equal.js](../server/src/common/utils/constant-time-equal.js) | Compares two strings in constant time, for values an attacker guesses at (the OAuth `state` and `nonce`). |
 
 ### server/models
@@ -309,7 +310,7 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 | :--- | :--- |
 | [tor.routes.js](../server/src/features/tors/tor.routes.js) | List, `facets`, detail, `preview` and `pdf`, built by `createTorRoutes(limits)`. One limiter covers `preview` and `pdf`. |
 | [tor.controller.js](../server/src/features/tors/tor.controller.js) | HTTP handlers. The preview checks its query, maps a missing file to its code and streams the file, with Range support ([0038](decisions/0038-preview-serves-stored-files-only.md)). |
-| [tor.service.js](../server/src/features/tors/tor.service.js) | ~740 lines. `listTors` (search and filters), `torFacets`, `getTorByProjectId`, `toPublic` (the public shape), `visibilityFilter` (NFR-17), `findStoredDocument` (the preview's file, from stored files only). |
+| [tor.service.js](../server/src/features/tors/tor.service.js) | ~740 lines. `listTors` (search and filters), `torFacets`, `getTorByProjectId`, `toPublic` (the public shape), `visibilityFilter` (NFR-17), `findStoredDocument` (the preview's file, from stored files only, and only one the virus scan passed: [0040](decisions/0040-files-are-scanned-before-they-are-kept.md)). |
 | [rate-limit.js](../server/src/features/tors/rate-limit.js) | The number: previews per address. |
 | [index.js](../server/src/features/tors/index.js) | Exports `createTorRoutes`, `torRateLimits`, `listTors`, `getTorByProjectId`. |
 
@@ -344,12 +345,13 @@ pipelines. Commands and options: [pipeline.md](pipeline.md).
 
 | File | What it is |
 | :--- | :--- |
-| [ingest.js](../server/src/pipeline/ingestion/ingest.js) | ~1,400 lines. The ingestion command, with steps `fetch`, `sweep`, `recheck`, `download`, `ocr`, `add`, `history`. |
+| [ingest.js](../server/src/pipeline/ingestion/ingest.js) | ~1,400 lines. The ingestion command, with steps `fetch`, `sweep`, `recheck`, `download`, `ocr`, `add`, `history`, `scan` (the rescan and `--self-test`). |
 | [import-history.js](../server/src/pipeline/ingestion/import-history.js) | `npm run history:import`: past IT contracts from data.go.th, saved as Awarded `Tor`s ([0028](decisions/0028-past-projects-from-data-go-th.md)). |
 | [index.js](../server/src/pipeline/ingestion/index.js) | Public surface. |
 | [sources/process3.js](../server/src/pipeline/ingestion/sources/process3.js) | Reads the e-GP RSS feed: Thai decoding, item parsing, which codes to ask for, feed hours. |
 | [sources/datago-contracts.js](../server/src/pipeline/ingestion/sources/datago-contracts.js) | Reads data.go.th contract CSVs by column position (the headers are wrong). |
-| [lib/tor-downloader.js](../server/src/pipeline/ingestion/lib/tor-downloader.js) | Downloads e-GP packages and PDFs. 50 MB cap, paced, SHA-256 hash per file. |
+| [lib/tor-downloader.js](../server/src/pipeline/ingestion/lib/tor-downloader.js) | Downloads e-GP packages and PDFs. 50 MB cap, paced, SHA-256 hash per file. Keeps a file only after `file-checks.js` passes it. |
+| [lib/file-checks.js](../server/src/pipeline/ingestion/lib/file-checks.js) | What a file from e-GP must pass before it's kept: the zip's limits, the type list with first bytes, and the virus scan ([0040](decisions/0040-files-are-scanned-before-they-are-kept.md)). |
 | [lib/egp-package.js](../server/src/pipeline/ingestion/lib/egp-package.js) | What a package holds and what its announcement and bidding document state. Pure ([0020](decisions/0020-read-the-whole-egp-package.md)). |
 | [lib/ocr.js](../server/src/pipeline/ingestion/lib/ocr.js) | Text from a PDF: the text layer, else Tesseract (`tha+eng`). `PREVIEW_PAGES = 6`. |
 | [lib/text-layer.js](../server/src/pipeline/ingestion/lib/text-layer.js) | Whether a text layer is real Thai or old-font garbage that needs OCR. |
@@ -396,6 +398,7 @@ pipelines. Commands and options: [pipeline.md](pipeline.md).
 | [queues.js](../server/src/pipeline/shared/queues.js) | The three kinds of work, new, changed and past, in priority order. |
 | [failures.js](../server/src/pipeline/shared/failures.js) | When to stop retrying a TOR at a step. |
 | [run-lock.js](../server/src/pipeline/shared/run-lock.js) | One run per pipeline at a time, as a lease in MongoDB. |
+| [clamd.js](../server/src/pipeline/shared/clamd.js) | Talks to ClamAV's daemon over TCP (`INSTREAM`, `PING`): bytes in, clean, infected or unscanned out. Never throws ([0040](decisions/0040-files-are-scanned-before-they-are-kept.md)). |
 | [request-pacer.js](../server/src/pipeline/shared/request-pacer.js) | At least a second between requests per site; a 10-minute rest after 230 in a row to e-GP. |
 | [deadline.js](../server/src/pipeline/shared/deadline.js) | The `--until` time box. |
 | [egp-links.js](../server/src/pipeline/shared/egp-links.js) | The one place e-GP page URLs are built. |
@@ -437,7 +440,9 @@ the `mjolnir_test` database.
 - **`test/pipeline/` mirrors `src/pipeline/`**: `test/pipeline/shared/run-lock.test.js`
   tests `src/pipeline/shared/run-lock.js`, and so on. Ingestion tests named
   after a step (`download-step`, `ocr-step`, `recheck`, `sweep`,
-  `process3-fetch`, `announcement-history`) drive `ingest.js`;
+  `process3-fetch`, `announcement-history`, `scan-step`) drive `ingest.js`;
+  `shared/clamd.test.js` talks to a fake ClamAV on a local port, so no test
+  needs the real one;
   `utils.test.js` covers content hashing and Thai XML decoding.
 - **Top-level tests are per feature**: `auth*`, `admin*`, `tors`, `watchlist`,
   `profile`, `technology`, `matchmaker`, `similarity`, `price-benchmark`,
@@ -737,3 +742,4 @@ write a new one that supersedes it ([CONTRIBUTING](../CONTRIBUTING.md#decisions)
 | [0037](decisions/0037-missing-deadlines-for-drafts-and-open-projects.md) | Wording for missing deadlines in draft and open projects |
 | [0038](decisions/0038-preview-serves-stored-files-only.md) | The PDF preview serves only files the pipeline stored |
 | [0039](decisions/0039-passwords-are-peppered-before-bcrypt.md) | Passwords are peppered (HMAC-SHA384) before bcrypt |
+| [0040](decisions/0040-files-are-scanned-before-they-are-kept.md) | Files from e-GP are checked and virus-scanned before they're kept |
