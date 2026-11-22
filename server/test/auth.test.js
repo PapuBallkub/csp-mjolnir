@@ -5,10 +5,14 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 
+import bcrypt from 'bcryptjs';
+
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { User } from '#models/index.js';
+import { EmailToken, User } from '#models/index.js';
 
 import { createApp } from '../src/app.js';
+import { prehash } from '../src/features/auth/password.js';
+import { createMailRecorder, tokenFrom } from './helpers/accounts.js';
 
 const TEST_DB = 'mjolnir_test';
 const PASSWORD = 'correct horse battery';
@@ -27,7 +31,12 @@ const NO_RATE_LIMITS = {
   loginByIp: UNLIMITED,
   loginByEmail: UNLIMITED,
   registerByIp: UNLIMITED,
+  registerByEmail: UNLIMITED,
+  verifyByIp: UNLIMITED,
 };
+
+// What would have been emailed: the confirm links these tests open
+const mail = createMailRecorder();
 
 let server;
 let baseUrl;
@@ -35,7 +44,7 @@ let baseUrl;
 before(async () => {
   await connectDatabase({ dbName: TEST_DB });
 
-  server = createApp({ rateLimits: NO_RATE_LIMITS }).listen(0);
+  server = createApp({ rateLimits: NO_RATE_LIMITS, mail }).listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
 
   baseUrl = `http://localhost:${server.address().port}`;
@@ -43,6 +52,7 @@ before(async () => {
 
 after(async () => {
   await User.deleteMany({ email: new RegExp(`-${runId}@example\\.test$`) });
+  await EmailToken.deleteMany({ email: new RegExp(`-${runId}@example\\.test$`) });
 
   await new Promise((resolve) => server.close(resolve));
   await disconnectDatabase();
@@ -65,14 +75,25 @@ function sessionCookie(response) {
   return header ? header.split(';')[0] : null;
 }
 
-test('registering creates the account, signs you in, and never returns the hash', async () => {
+/**
+ * Signing up as a person does (0041): register, open the emailed link, type
+ * the password again. Returns the confirmation's response, which signs in.
+ */
+async function signUp({ email, password = PASSWORD, name = NAME, notificationConsent } = {}) {
+  const address = email.trim().toLowerCase();
+  const before = mail.to(address).length;
+  const registered = await send('POST', '/api/auth/register', { body: { email, password, name, notificationConsent } });
+  assert.equal(registered.status, 202, 'registering answers 202 and nothing more');
+  const message = await mail.waitFor(address, { count: before + 1 });
+  const confirmed = await send('POST', '/api/auth/verify-email', { body: { token: tokenFrom(message), password } });
+  assert.equal(confirmed.status, 200, 'the emailed link, with the password, signs in');
+  return confirmed;
+}
+
+test('confirming creates the account, signs you in, and never returns the hash', async () => {
   const email = emailFor('signup');
 
-  const response = await send('POST', '/api/auth/register', {
-    body: { email, password: PASSWORD, name: NAME, notificationConsent: true },
-  });
-
-  assert.equal(response.status, 201);
+  const response = await signUp({ email, notificationConsent: true });
 
   const { user } = await response.json();
   assert.equal(user.email, email);
@@ -81,23 +102,24 @@ test('registering creates the account, signs you in, and never returns the hash'
   assert.ok(user.id);
 
   const setCookie = response.headers.getSetCookie().find((c) => c.startsWith('mjolnir_session='));
-  assert.ok(setCookie, 'registering should sign you in');
+  assert.ok(setCookie, 'confirming should sign you in');
   assert.match(setCookie, /HttpOnly/i, 'a session a script can read is a session an XSS can steal');
 });
 
 test('an address is normalized, so casing cannot open a second account', async () => {
   const email = emailFor('casing');
 
-  const created = await send('POST', '/api/auth/register', {
-    body: { email: `  ${email.toUpperCase()}  `, password: PASSWORD, name: NAME },
-  });
-  assert.equal(created.status, 201);
+  const created = await signUp({ email: `  ${email.toUpperCase()}  ` });
   assert.equal((await created.json()).user.email, email);
 
-  const duplicate = await send('POST', '/api/auth/register', {
+  // The address is taken: the same 202, and its owner is told instead of a link
+  const again = await send('POST', '/api/auth/register', {
     body: { email, password: PASSWORD, name: NAME },
   });
-  assert.equal(duplicate.status, 409);
+  assert.equal(again.status, 202);
+  const told = await mail.waitFor(email, { count: 2 });
+  assert.equal(tokenFrom(told), null, 'no link for an address that has an account');
+  assert.equal(await User.countDocuments({ email }), 1);
 
   // Consent defaults to off. FR08 mails the people who asked to be mailed.
   const stored = await User.findOne({ email });
@@ -120,18 +142,64 @@ test('a bad password is refused per field, and writes nothing', async () => {
   assert.equal(await User.countDocuments({ email }), 0);
 });
 
-test('a password past the bcrypt 72-byte ceiling is refused, not truncated', async () => {
-  const response = await send('POST', '/api/auth/register', {
-    body: { email: emailFor('long'), password: 'a'.repeat(73), name: NAME },
-  });
+test('a 64-character Thai password registers and signs in (V6.2.9)', async () => {
+  // 192 bytes: refused while the ceiling was bcrypt's 72
+  const email = emailFor('thai-password');
+  const password = 'กขคง'.repeat(16);
 
-  assert.equal(response.status, 400);
-  assert.match((await response.json()).error.details.password, /72 ไบต์/);
+  await signUp({ email, password });
+
+  const login = await send('POST', '/api/auth/login', { body: { email, password } });
+  assert.equal(login.status, 200);
+});
+
+test('the password ceiling is 128 characters, counted as characters, not bytes', async () => {
+  const at = await send('POST', '/api/auth/register', {
+    body: { email: emailFor('pw-128'), password: 'ก'.repeat(128), name: NAME },
+  });
+  assert.equal(at.status, 202, '128 Thai characters is 384 bytes and must be accepted');
+
+  // Four bytes and two UTF-16 units each, but one character to the person typing
+  const emoji = await send('POST', '/api/auth/register', {
+    body: { email: emailFor('pw-emoji'), password: '🔒'.repeat(128), name: NAME },
+  });
+  assert.equal(emoji.status, 202, 'an emoji counts once');
+
+  const over = await send('POST', '/api/auth/register', {
+    body: { email: emailFor('pw-129'), password: 'ก'.repeat(129), name: NAME },
+  });
+  assert.equal(over.status, 400);
+  assert.match((await over.json()).error.details.password, /128 ตัวอักษร/);
+  assert.equal(await EmailToken.countDocuments({ email: emailFor('pw-129') }), 0, 'nothing is held for a refused one');
+});
+
+test('a password is used in full, even past bcrypt’s 72 bytes', async () => {
+  // bcrypt alone would see only the 72 shared bytes, and let the second one in
+  const email = emailFor('no-truncation');
+  const password = `${'a'.repeat(72)}X`;
+
+  await signUp({ email, password }); // 73 bytes, refused before the pepper
+
+  const nearly = await send('POST', '/api/auth/login', { body: { email, password: `${'a'.repeat(72)}Y` } });
+  assert.equal(nearly.status, 401, 'only the last character differs, and that has to count');
+
+  const right = await send('POST', '/api/auth/login', { body: { email, password } });
+  assert.equal(right.status, 200);
+});
+
+test('the stored hash is bcrypt of the peppered password, never of the password itself', async () => {
+  const email = emailFor('peppered');
+  await signUp({ email });
+
+  const { passwordHash } = await User.findOne({ email }).select('+passwordHash');
+  assert.match(passwordHash, /^\$2b\$12\$/, 'bcrypt, cost 12');
+  assert.equal(await bcrypt.compare(PASSWORD, passwordHash), false, 'the raw password must not match');
+  assert.equal(await bcrypt.compare(prehash(PASSWORD), passwordHash), true);
 });
 
 test('signing in needs the right password, and says no more than that', async () => {
   const email = emailFor('login');
-  await send('POST', '/api/auth/register', { body: { email, password: PASSWORD, name: NAME } });
+  await signUp({ email });
 
   const wrong = await send('POST', '/api/auth/login', { body: { email, password: `${PASSWORD}!` } });
   assert.equal(wrong.status, 401);
@@ -154,8 +222,7 @@ test('signing in needs the right password, and says no more than that', async ()
 
 test('/api/auth/me is closed without a session and open with one, and logout closes it', async () => {
   const email = emailFor('session');
-  const registered = await send('POST', '/api/auth/register', { body: { email, password: PASSWORD, name: NAME } });
-  const cookie = sessionCookie(registered);
+  const cookie = sessionCookie(await signUp({ email }));
 
   const anonymous = await send('GET', '/api/auth/me');
   assert.equal(anonymous.status, 401);
@@ -178,8 +245,7 @@ test('/api/auth/me is closed without a session and open with one, and logout clo
 
 test('a deleted account cannot keep using a token that is still valid', async () => {
   const email = emailFor('deleted');
-  const registered = await send('POST', '/api/auth/register', { body: { email, password: PASSWORD, name: NAME } });
-  const cookie = sessionCookie(registered);
+  const cookie = sessionCookie(await signUp({ email }));
 
   await User.deleteOne({ email });
 
@@ -189,7 +255,7 @@ test('a deleted account cannot keep using a token that is still valid', async ()
 
 test('the hash stays out of an ordinary query, and a partial document still saves', async () => {
   const email = emailFor('projection');
-  await send('POST', '/api/auth/register', { body: { email, password: PASSWORD, name: NAME } });
+  await signUp({ email });
 
   const user = await User.findOne({ email });
   assert.equal(user.passwordHash, undefined, 'select: false should hold on a plain find');
@@ -224,13 +290,10 @@ test('registering needs a name, and reports it beside every other bad field', as
 });
 
 test('a name past 80 characters is refused by length, not by bytes', async () => {
-  // Thai is three bytes a character. A byte ceiling here — the rule bcrypt
-  // forces on passwords — would stop this at about 26, so this has to pass.
+  // Thai is three bytes a character. A byte ceiling here would stop this at
+  // about 26, so this has to pass.
   const thai = 'ก'.repeat(80);
-  const ok = await send('POST', '/api/auth/register', {
-    body: { email: emailFor('thainame'), password: PASSWORD, name: thai },
-  });
-  assert.equal(ok.status, 201, '80 Thai characters is 240 bytes and must still be accepted');
+  const ok = await signUp({ email: emailFor('thainame'), name: thai }); // 240 bytes, still accepted
   assert.equal((await ok.json()).user.name, thai);
 
   const tooLong = await send('POST', '/api/auth/register', {
@@ -244,7 +307,7 @@ test('a name past 80 characters is refused by length, not by bytes', async () =>
 // shared, so a name check added to it would 400 every login in the product.
 test('signing in still works with no name in the body', async () => {
   const email = emailFor('loginnoname');
-  await send('POST', '/api/auth/register', { body: { email, password: PASSWORD, name: NAME } });
+  await signUp({ email });
 
   const response = await send('POST', '/api/auth/login', { body: { email, password: PASSWORD } });
   assert.equal(response.status, 200);
@@ -253,10 +316,7 @@ test('signing in still works with no name in the body', async () => {
 
 test('the name is trimmed on the way in and comes back from /me, with a role', async () => {
   const email = emailFor('trimmed');
-  const registered = await send('POST', '/api/auth/register', {
-    body: { email, password: PASSWORD, name: `  ${NAME}  ` },
-  });
-  assert.equal(registered.status, 201);
+  const registered = await signUp({ email, name: `  ${NAME}  ` });
 
   const me = await send('GET', '/api/auth/me', { cookie: sessionCookie(registered) });
   const { user } = await me.json();
@@ -276,9 +336,7 @@ test('security hardening: X-Powered-By is disabled, session TTL is 24 hours, and
 
   // 2. SRS NFR-11, ASVS V7.1.1, V7.3.2: Session TTL must be 24 hours (86400 seconds)
   const email = emailFor('sec-ttl');
-  const loginRes = await send('POST', '/api/auth/register', {
-    body: { email, password: PASSWORD, name: NAME },
-  });
+  const loginRes = await signUp({ email });
   const setCookie = loginRes.headers.getSetCookie().find((c) => c.startsWith('mjolnir_session='));
   assert.ok(setCookie);
   assert.match(setCookie, /Max-Age=86400/i, 'Session cookie Max-Age must be 86400s (24h)');
@@ -314,10 +372,7 @@ test('security hardening: security headers, 50kb body limit, Clear-Site-Data and
 
   // 3. ASVS V7.4.1, V14.3.1: Token Versioning & Clear-Site-Data on logout
   const email = emailFor('tokenversion');
-  const regRes = await send('POST', '/api/auth/register', {
-    body: { email, password: PASSWORD, name: NAME },
-  });
-  const cookie = sessionCookie(regRes);
+  const cookie = sessionCookie(await signUp({ email }));
 
   // Authenticated call succeeds before logout
   const meBefore = await send('GET', '/api/auth/me', { cookie });

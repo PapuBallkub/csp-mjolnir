@@ -36,8 +36,10 @@ function failTorsRequest(nodeEnv) {
     timeout: 30_000,
     env: {
       NODE_ENV: nodeEnv,
+      CORS_ORIGIN: 'https://gipdp.example.com',
       MONGO_URI: 'mongodb://127.0.0.1:1/never-connected',
       JWT_SECRET: 'test-not-a-secret-test-not-a-secret',
+      PASSWORD_PEPPER: 'test-not-a-pepper-test-not-a-pepper',
       // Windows needs it to start a process at all
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
     },

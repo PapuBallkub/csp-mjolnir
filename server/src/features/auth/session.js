@@ -9,7 +9,9 @@ export const LEGACY_SESSION_COOKIE = 'mjolnir_session';
 
 export function getSessionTokenFromRequest(req) {
   if (!req?.cookies) return null;
-  return req.cookies[SESSION_COOKIE] || req.cookies[LEGACY_SESSION_COOKIE] || null;
+  // Strictly enforce the active SESSION_COOKIE (__Host-mjolnir_session in production,
+  // mjolnir_session in dev/test). No legacy fallback in production to prevent cookie tossing attacks.
+  return req.cookies[SESSION_COOKIE] || null;
 }
 
 // Sessions are JWTs that expire within 24 hours (SRS NFR-11, ASVS V7.1.1, V7.3.2)

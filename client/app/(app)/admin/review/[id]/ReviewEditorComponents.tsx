@@ -351,7 +351,7 @@ export function VersionHistoryDrawer({
                         </span>
                       </div>
                       <span className="text-[11px] text-ink-3">
-                        {new Date(ver.supersededAt).toLocaleString("th-TH")}
+                        {new Date(ver.supersededAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}
                       </span>
                     </div>
 

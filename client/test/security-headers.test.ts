@@ -80,6 +80,11 @@ test("CSP builder hardens directives for production mode (ASVS V3.2.4, V3.2.6)",
     prodCsp.includes("upgrade-insecure-requests;"),
     "Production CSP must include upgrade-insecure-requests"
   );
+  // ASVS V3.2.1, V12.1: No plain HTTP localhost in production connect-src
+  assert.ok(
+    !prodCsp.includes("http://localhost:8000"),
+    "Production CSP must not allow http://localhost:8000 in connect-src"
+  );
 
   const devCsp = buildCspHeader(false);
   // Development mode allows 'unsafe-eval' for Next.js Fast Refresh
@@ -87,5 +92,9 @@ test("CSP builder hardens directives for production mode (ASVS V3.2.4, V3.2.6)",
   assert.ok(
     !devCsp.includes("upgrade-insecure-requests;"),
     "Dev CSP must not force upgrade-insecure-requests on http://localhost"
+  );
+  assert.ok(
+    devCsp.includes("http://localhost:8000"),
+    "Dev CSP must allow http://localhost:8000 for local API development"
   );
 });

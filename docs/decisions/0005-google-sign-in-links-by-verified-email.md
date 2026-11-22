@@ -124,6 +124,16 @@ address. Anything that isn't an `HttpError` is still thrown, so a real bug still
 surfaces. `state` is compared in constant time, and a repeated `code` or
 `state` parameter (an array) is refused before Google is asked.
 
+**When Google refuses the code, the log says what Google said.** A wrong
+verifier, a used or expired code, and a redirect URI or client secret that
+doesn't match all come back as a 400, told apart only by the reply's `error`.
+So the reason becomes, for example, `token-endpoint: invalid_grant "…"`, with
+Google's description in the quotes.
+Google's text is outside input: `error` and `error_description` are kept only
+in the characters RFC 6749 §5.2 allows (printable ASCII without `"` or `\`, so
+no line break can forge a log line), up to 64 and 200 characters, and dropped
+otherwise. Nothing else in the reply is read.
+
 **Still no new dependency.** `jsonwebtoken` verifies with a `KeyObject`, and
 `crypto.createPublicKey({ key, format: 'jwk' })` imports Google's keys.
 
@@ -139,3 +149,35 @@ surfaces. `state` is compared in constant time, and a repeated `code` or
 - `auth-google-token.test.js` signs its own tokens with generated keys, and
   `auth-google.test.js` drives the whole callback with `fetch` mocked, so the
   suite still never calls Google.
+
+## Update · 2026-11-22: what a link may do to the account it finds
+
+Linking by a verified address assumed the account using that address was its
+owner's. Before [0041](0041-an-address-is-confirmed-before-the-account-exists.md)
+nothing checked that, so a stranger's password account on your address took you
+in on your first Google sign-in (pre-account hijacking). And the link was one
+upsert that set `googleId` whatever was there, so a second Google account
+claiming the address replaced the first (ASVS V6.8.1).
+
+Now `signInWithGoogle` looks at the account first, and each case is one write
+that names the state it expects:
+
+| The account using the address | What a Google sign-in does |
+| :--- | :--- |
+| None | Creates one, with `emailVerifiedAt` and no password |
+| Confirmed (`emailVerifiedAt`), no `googleId` | Links: sets `googleId`, keeps the password, whose owner made both |
+| Never confirmed, no `googleId` (from before 0041) | Links, sets `emailVerifiedAt`, and **removes the password**: Google's verified address beats an unconfirmed password |
+| Already linked to another Google account | Refuses, 409 `google-account-mismatch`; never replaces it |
+
+- **Two callbacks at once can't both act.** The loser of a race finds nothing
+  to update, tries once more from the top, and then gives up with a 409.
+- **The owner is told.** A link to an account that already existed sends "บัญชี
+  Google เชื่อมกับบัญชีของคุณแล้ว" after the redirect (part of ASVS V6.3.7).
+  Since only a Google account with this exact verified address can link, the
+  email says to secure that Google account if it wasn't them.
+- **Registrations waiting for the address are deleted** once Google creates or
+  links the account: none of them could be confirmed after that.
+- **A returning user** (found by `googleId`) gets `emailVerifiedAt` if it was
+  missing, and is otherwise unchanged.
+- **The callback learns whether it linked:** `signInWithGoogle` returns
+  `{ user, linked }`.

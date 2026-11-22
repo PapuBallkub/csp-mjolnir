@@ -10,6 +10,7 @@ import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { IngestionLog, TitleScreen, Tor, TorInsight, TorInsightVersion, User } from '#models/index.js';
 
 import { createApp } from '../src/app.js';
+import { signedInAccount } from './helpers/accounts.js';
 
 const TEST_DB = 'mjolnir_test';
 const PASSWORD = 'correct horse battery';
@@ -52,24 +53,9 @@ after(async () => {
 
 /** Registers an account and returns its session cookie. */
 async function signUp(name, { role } = {}) {
-  const email = emailFor(name);
-
-  const response = await fetch(`${baseUrl}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password: PASSWORD, name: NAME }),
-  });
-  assert.equal(response.status, 201);
-
-  if (role) {
-    // What `npm run role` does, which is the only way an account becomes an
-    // admin. requireAuth re-reads the user per request, so this takes effect
-    // on the very next one — no need to sign in again.
-    await User.updateOne({ email }, { $set: { role } });
-  }
-
-  const header = response.headers.getSetCookie().find((c) => c.startsWith('mjolnir_session='));
-  return header.split(';')[0];
+  // A confirmed account, signed in: registering no longer signs anyone in (0041)
+  const { cookie } = await signedInAccount(baseUrl, { email: emailFor(name), password: PASSWORD, name: NAME, role });
+  return cookie;
 }
 
 const operations = (cookie) =>
@@ -151,16 +137,11 @@ test('Issue #316: operations returns empty reviewQueue and honest zero/null stat
 test('losing the role closes the door again on the next request', async () => {
   const email = emailFor('demoted');
 
-  const response = await fetch(`${baseUrl}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password: PASSWORD, name: NAME }),
-  });
-  const cookie = response.headers
-    .getSetCookie()
-    .find((c) => c.startsWith('mjolnir_session='))
-    .split(';')[0];
+  const { cookie } = await signedInAccount(baseUrl, { email, password: PASSWORD, name: NAME });
 
+  // What `npm run role` does, which is the only way an account becomes an
+  // admin. requireAuth re-reads the user per request, so this takes effect
+  // on the very next one — no need to sign in again.
   await User.updateOne({ email }, { $set: { role: 'admin' } });
   assert.equal((await operations(cookie)).status, 200);
 

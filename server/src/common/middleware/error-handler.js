@@ -19,10 +19,17 @@ export function errorHandler(err, req, res, next) {
     console.error(err);
   }
 
+  // Production hides what an unexpected failure says, since it can name a
+  // collection, a query or a file. An HttpError's message is one we wrote for
+  // people ("sign-up by email isn't available, use Google"), so it shows.
+  const hidden = status >= 500 && isProduction && !(err instanceof HttpError);
+
   res.status(status).json({
     error: {
-      message: status >= 500 && isProduction ? 'Internal server error' : err.message,
+      message: hidden ? 'Internal server error' : err.message,
       ...(err.details ? { details: err.details } : {}),
+      // Only our own codes: a database error's numeric code is not for clients
+      ...(err instanceof HttpError && typeof err.code === 'string' ? { code: err.code } : {}),
     },
   });
 }

@@ -101,9 +101,9 @@ Session identifiers and OAuth transient state are stored exclusively in hardened
    - `sameSite`: Configured strictly to `'lax'` across all environments to prevent CSRF, including on POST routes that accept empty bodies (such as logout or administrative pipeline triggers). The JSON content-type restriction (`express.json()`) is retained as an additional defense-in-depth layer.
 3. **Cookie Size Limit (V3.3.5)**:
    - Before setting cookies, both `setSessionCookie` and `issueOAuthTransaction` assert that the combined length of cookie name and value does not exceed 4096 bytes. Excessively large tokens throw an explicit error to prevent header truncation or denial-of-service.
-4. **Transition & Rotation Tolerance**:
-   - Authentication middleware and controller (`getSessionTokenFromRequest`, `getOAuthStateFromRequest`) inspect the primary `__Host-` prefixed cookie and fall back gracefully to the legacy un-prefixed name during active session migration.
-   - Logout clears both active and legacy cookie names.
+4. **Strict Prefix Enforcement & Subdomain Defense**:
+   - Authentication middleware and controller (`getSessionTokenFromRequest`, `getOAuthStateFromRequest`) strictly inspect the active `SESSION_COOKIE` and `OAUTH_STATE_COOKIE` (`__Host-` prefixed in production), with no fallback to un-prefixed legacy cookies, eliminating cookie tossing and session fixation attacks from subdomains.
+   - Logout clears both active and legacy cookie names for clean client hygiene.
 
 ### 3.3 HTTP Response Security Headers (V3.4, V3.7)
 

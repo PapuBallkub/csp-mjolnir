@@ -9,6 +9,7 @@ import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Technology, User } from '#models/index.js';
 
 import { createApp } from '../src/app.js';
+import { signedInAccount } from './helpers/accounts.js';
 
 const TEST_DB = 'mjolnir_test';
 const PASSWORD = 'correct horse battery';
@@ -42,14 +43,10 @@ async function withServer(apiRateLimits, run) {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
 
-  // Registers an account and returns its session cookie
-  const signUp = async (name, { role } = {}) => {
-    const email = emailFor(name);
-    const response = await send('POST', '/api/auth/register', { body: { email, password: PASSWORD, name: 'ทดสอบ' } });
-    assert.equal(response.status, 201);
-    if (role) await User.updateOne({ email }, { $set: { role } });
-    return response.headers.getSetCookie().find((c) => c.startsWith('mjolnir_session=')).split(';')[0];
-  };
+  // A confirmed account, signed in, and its session cookie: registering no
+  // longer signs anyone in (0041)
+  const signUp = async (name, { role } = {}) =>
+    (await signedInAccount(base, { email: emailFor(name), password: PASSWORD, role })).cookie;
 
   try {
     await run({ send, signUp });

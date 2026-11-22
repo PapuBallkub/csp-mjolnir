@@ -13,6 +13,7 @@ import {
 } from '#models/index.js';
 
 import { createApp } from '../src/app.js';
+import { signedInAccount } from './helpers/accounts.js';
 
 const TEST_DB = 'mjolnir_test';
 const PASSWORD = 'correct horse battery';
@@ -55,23 +56,8 @@ after(async () => {
 });
 
 async function signUp(name, { role } = {}) {
-  const email = emailFor(name);
-
-  const response = await fetch(`${baseUrl}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password: PASSWORD, name: NAME }),
-  });
-  assert.equal(response.status, 201);
-
-  const setCookie = response.headers.get('set-cookie');
-  assert.ok(setCookie);
-  const cookie = setCookie.split(';')[0];
-
-  if (role) {
-    await User.updateOne({ email }, { $set: { role } });
-  }
-
+  // A confirmed account, signed in: registering no longer signs anyone in (0041)
+  const { cookie } = await signedInAccount(baseUrl, { email: emailFor(name), password: PASSWORD, name: NAME, role });
   return cookie;
 }
 

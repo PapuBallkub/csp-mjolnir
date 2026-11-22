@@ -12,12 +12,13 @@ import jwt from 'jsonwebtoken';
 
 import { env, isGoogleConfigured } from '#common/config/env.js';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { User } from '#models/index.js';
+import { EmailToken, User } from '#models/index.js';
 
 import { signInWithGoogle } from '../src/features/auth/auth.service.js';
 import { codeChallengeFor } from '../src/features/auth/google.js';
 import { GOOGLE_CERTS_URL } from '../src/features/auth/google-id-token.js';
 import { createApp } from '../src/app.js';
+import { createMailRecorder, createVerifiedUser } from './helpers/accounts.js';
 
 const TEST_DB = 'mjolnir_test';
 
@@ -39,13 +40,16 @@ const NO_RATE_LIMITS = {
   registerByIp: UNLIMITED,
 };
 
+// What would have been emailed: the "Google was linked" notice
+const mail = createMailRecorder();
+
 let server;
 let baseUrl;
 
 before(async () => {
   await connectDatabase({ dbName: TEST_DB });
 
-  server = createApp({ rateLimits: NO_RATE_LIMITS }).listen(0);
+  server = createApp({ rateLimits: NO_RATE_LIMITS, mail }).listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
 
   baseUrl = `http://localhost:${server.address().port}`;
@@ -53,6 +57,7 @@ before(async () => {
 
 after(async () => {
   await User.deleteMany({ email: new RegExp(`-${runId}@example\\.test$`) });
+  await EmailToken.deleteMany({ email: new RegExp(`-${runId}@example\\.test$`) });
 
   await new Promise((resolve) => server.close(resolve));
   await disconnectDatabase();
@@ -163,6 +168,16 @@ test('GET /api/auth/google sends you to Google and remembers the attempt', needs
   assert.ok(!target.href.includes(stored[2]), 'the verifier must not appear in the URL');
 });
 
+test('the PKCE challenge matches RFC 7636’s worked example', () => {
+  // Appendix B. The other tests compare codeChallengeFor with itself, which
+  // still passes if it returns hex or keeps base64's `=`; only Google would
+  // notice. This pair comes from the RFC.
+  assert.equal(
+    codeChallengeFor('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'),
+    'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM',
+  );
+});
+
 test('a sign-in Google vouches for gets a session', needsConfig, async (t) => {
   const start = await startSignIn();
   const seen = fakeGoogle(t, { idToken: idTokenFor({ nonce: start.nonce, name: 'oidc-ok' }) });
@@ -214,6 +229,55 @@ test('Google being unreachable lands on the failure page, not a 500', needsConfi
 
   assert.equal(response.status, 302);
   assert.match(response.headers.get('location'), /auth=failed/);
+});
+
+const signInFailures = (warn) =>
+  warn.mock.calls.map((call) => call.arguments.join(' ')).filter((line) => line.startsWith('Google sign-in failed'));
+
+test('when Google refuses the code, the log says what Google said', needsConfig, async (t) => {
+  const warn = t.mock.method(console, 'warn', () => {});
+  const start = await startSignIn();
+  fakeGoogle(t, {
+    tokenEndpoint: () =>
+      Response.json({ error: 'invalid_grant', error_description: 'Invalid code verifier.' }, { status: 400 }),
+  });
+
+  const response = await callback(`code=test-code&state=${start.state}`, start.cookie);
+
+  assert.match(response.headers.get('location'), /auth=failed/);
+  assert.deepEqual(signInFailures(warn).map((line) => line.replace(/^.*\(/, '(')), [
+    '(token-endpoint: invalid_grant "Invalid code verifier.")',
+  ]);
+});
+
+test('Google’s refusal reaches the log only in the shape RFC 6749 allows', needsConfig, async (t) => {
+  const warn = t.mock.method(console, 'warn', () => {});
+  let body;
+  fakeGoogle(t, {
+    tokenEndpoint: () =>
+      typeof body === 'string' ? new Response(body, { status: 400 }) : Response.json(body, { status: 400 }),
+  });
+
+  const cases = [
+    // A line break would let the description write a log line of its own
+    [{ error: 'invalid_grant', error_description: 'x\nGoogle sign-in succeeded' }, '(token-endpoint: invalid_grant)'],
+    [{ error: 'invalid_grant', error_description: 'x'.repeat(201) }, '(token-endpoint: invalid_grant)'],
+    [{ error: 'invalid_grant', error_description: 'says "hi"' }, '(token-endpoint: invalid_grant)'],
+    [{ error: 'a'.repeat(65), error_description: 'fine' }, '(token-endpoint)'],
+    [{ error: ['invalid_grant'] }, '(token-endpoint)'],
+    [{ error_description: 'no code' }, '(token-endpoint)'],
+    ['<html>not json</html>', '(token-endpoint)'],
+  ];
+
+  for (const [index, [next, expected]] of cases.entries()) {
+    body = next;
+    const start = await startSignIn();
+    await callback(`code=test-code&state=${start.state}`, start.cookie);
+
+    const line = signInFailures(warn)[index];
+    assert.ok(line.endsWith(expected), `case ${index}: ${JSON.stringify(line)}`);
+    assert.ok(!line.includes('\n'), `case ${index}: one line only`);
+  }
 });
 
 // A repeated parameter arrives as an array.
@@ -271,41 +335,93 @@ test('the callback refuses a missing code', needsConfig, async (t) => {
   assert.equal(seen.tokenRequests.length, 0);
 });
 
-test('a first-time Google user gets an account, with no password', async () => {
+test('a first-time Google user gets an account, with no password and a confirmed address', async () => {
   const email = emailFor('new-google');
   const googleId = googleIdFor('new');
 
-  const user = await signInWithGoogle({ googleId, email, emailVerified: true });
+  const { user, linked } = await signInWithGoogle({ googleId, email, emailVerified: true });
   assert.equal(user.email, email);
+  assert.equal(linked, false, 'a new account, not a link');
 
   const stored = await User.findOne({ email }).select('+passwordHash');
   assert.equal(stored.googleId, googleId);
   assert.equal(stored.passwordHash, undefined, 'a Google account has no password to store');
   assert.equal(stored.notificationConsent, false);
+  assert.ok(stored.emailVerifiedAt, 'Google checked the address');
 });
 
-test('a verified address links to the account that already uses it', async () => {
+test('a confirmed account gets Google linked, and keeps its password', async () => {
   const email = emailFor('linked');
+  const existing = await createVerifiedUser({ email, password: 'correct horse battery', name: 'Somchai Test' });
 
-  const registered = await fetch(`${baseUrl}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password: 'correct horse battery', name: 'Somchai Test' }),
-  });
-  const existing = (await registered.json()).user;
+  const { user, linked } = await signInWithGoogle({ googleId: googleIdFor('linked'), email, emailVerified: true });
 
-  const linked = await signInWithGoogle({
-    googleId: googleIdFor('linked'),
-    email,
-    emailVerified: true,
-  });
-
-  assert.equal(linked.id, existing.id, 'linking, not a second account');
+  assert.equal(user.id, existing.id, 'linking, not a second account');
+  assert.equal(linked, true);
   assert.equal(await User.countDocuments({ email }), 1);
 
-  // The password still works: linking adds a way in, it does not replace one.
+  // The address's owner made both, so the password still works: linking adds a
+  // way in, it does not replace one
   const stored = await User.findOne({ email }).select('+passwordHash');
   assert.match(stored.passwordHash, /^\$2[aby]\$/);
+});
+
+test('an account whose address was never confirmed loses its password when Google links', async () => {
+  // How a pre-hijack looked before confirmation existed: a password account on
+  // someone else's address, waiting for its owner to sign in with Google
+  const email = emailFor('pre-hijack');
+  const planted = await User.create({ email, passwordHash: 'the-attackers-hash', name: 'Planted' });
+
+  const { user, linked } = await signInWithGoogle({ googleId: googleIdFor('pre-hijack'), email, emailVerified: true });
+
+  assert.equal(user.id, planted.id);
+  assert.equal(linked, true);
+  const stored = await User.findOne({ email }).select('+passwordHash');
+  assert.equal(stored.passwordHash, undefined, "Google's verified address beats an unconfirmed password");
+  assert.ok(stored.emailVerifiedAt);
+});
+
+test('an account already linked to another Google account is never handed to a second one', async () => {
+  const email = emailFor('two-googles');
+  const first = googleIdFor('two-googles-first');
+  await signInWithGoogle({ googleId: first, email, emailVerified: true });
+
+  await assert.rejects(
+    () => signInWithGoogle({ googleId: googleIdFor('two-googles-second'), email, emailVerified: true }),
+    (error) => error.status === 409 && error.reason === 'google-account-mismatch',
+  );
+
+  const stored = await User.findOne({ email });
+  assert.equal(stored.googleId, first, 'the first Google account keeps it');
+});
+
+test('Google confirming an address drops the registrations still waiting for it', async () => {
+  const email = emailFor('pending-then-google');
+  await EmailToken.create({
+    purpose: 'verify-email',
+    email,
+    tokenHash: crypto.randomBytes(32).toString('hex'),
+    expiresAt: new Date(Date.now() + 60_000),
+    passwordHash: 'a-stranger-typed-this',
+  });
+
+  await signInWithGoogle({ googleId: googleIdFor('pending-then-google'), email, emailVerified: true });
+
+  assert.equal(await EmailToken.countDocuments({ email }), 0, 'none of them could be confirmed now');
+});
+
+test('linking Google through the callback emails the account owner', needsConfig, async (t) => {
+  await createVerifiedUser({ email: emailFor('link-mail'), password: 'correct horse battery' });
+  const start = await startSignIn();
+  fakeGoogle(t, { idToken: idTokenFor({ nonce: start.nonce, name: 'link-mail' }) });
+
+  const response = await callback(`code=test-code&state=${start.state}`, start.cookie);
+  assert.equal(response.status, 302);
+  assert.ok(sessionCookieOf(response), 'signed in');
+
+  const notice = await mail.waitFor(emailFor('link-mail'));
+  assert.equal(notice.subject, 'บัญชี Google เชื่อมกับบัญชีของคุณแล้ว');
+  assert.doesNotMatch(notice.text, /#token=/, 'nothing in it opens anything');
 });
 
 test('an unverified Google address cannot claim an existing account', async () => {
@@ -326,21 +442,22 @@ test('signing in again finds the same account, even if the Google email changed'
   const googleId = googleIdFor('returning');
   const original = emailFor('returning');
 
-  const first = await signInWithGoogle({ googleId, email: original, emailVerified: true });
+  const first = (await signInWithGoogle({ googleId, email: original, emailVerified: true })).user;
   const second = await signInWithGoogle({
     googleId,
     email: emailFor('returning-renamed'),
     emailVerified: true,
   });
 
-  assert.equal(second.id, first.id);
-  assert.equal(second.email, original, 'the googleId is the identity, the address is not');
+  assert.equal(second.user.id, first.id);
+  assert.equal(second.user.email, original, 'the googleId is the identity, the address is not');
+  assert.equal(second.linked, false);
 });
 
 test('a new Google account keeps the name Google reported', async () => {
   const email = emailFor('named-google');
 
-  const user = await signInWithGoogle({
+  const { user } = await signInWithGoogle({
     googleId: googleIdFor('named'),
     email,
     emailVerified: true,
@@ -351,9 +468,9 @@ test('a new Google account keeps the name Google reported', async () => {
   assert.equal(user.role, 'user', 'a Google account is no more privileged than any other');
 });
 
-// $setOnInsert, not $set. Google is the source of a name only for an account it
-// is creating: on a link the address already belongs to someone who may have
-// typed their own name at signup, and on a return they may have changed it.
+// Google is the source of a name only for an account it is creating: on a link
+// the address already belongs to someone who may have typed their own name at
+// signup, and on a return they may have changed it.
 test('signing in with Google again never overwrites the name on the account', async () => {
   const email = emailFor('keeps-name');
   const googleId = googleIdFor('keeps');
@@ -366,25 +483,19 @@ test('signing in with Google again never overwrites the name on the account', as
     name: 'Renamed At Google',
   });
 
-  assert.equal(again.name, 'Original Name');
+  assert.equal(again.user.name, 'Original Name');
 });
 
 test('linking to an existing account leaves the name that account already had', async () => {
   const email = emailFor('link-name');
+  await createVerifiedUser({ email, password: 'correct horse battery', name: 'Typed At Signup' });
 
-  const registered = await fetch(`${baseUrl}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password: 'correct horse battery', name: 'Typed At Signup' }),
-  });
-  assert.equal(registered.status, 201);
-
-  const linked = await signInWithGoogle({
+  const { user } = await signInWithGoogle({
     googleId: googleIdFor('link-name'),
     email,
     emailVerified: true,
     name: 'From Google Profile',
   });
 
-  assert.equal(linked.name, 'Typed At Signup', 'linking adds a way in, it does not rewrite you');
+  assert.equal(user.name, 'Typed At Signup', 'linking adds a way in, it does not rewrite you');
 });

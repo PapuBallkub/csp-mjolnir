@@ -35,6 +35,14 @@
  *   # Every agency in data/egp-agencies.json (ADR 0027), within a time box
  *   node src/pipeline/ingestion/ingest.js --step sweep --until 2026-10-14T21:55:00+07:00
  *
+ *   # Scan stored files that have no scan result yet (--all: every file);
+ *   # --self-test only checks that ClamAV answers and matches signatures
+ *   node src/pipeline/ingestion/ingest.js --step scan
+ *   node src/pipeline/ingestion/ingest.js --step scan --self-test
+ *
+ * Every file a download keeps passes the virus scan first: CLAMD_HOST names
+ * the ClamAV daemon (docker compose up -d clamav).
+ *
  * A new project is downloaded only after the title screen (npm run screen)
  * lets it through (ADR 0026); --skip-screen downloads it anyway.
  *
@@ -62,7 +70,10 @@ import { isPastDeadline, parseUntil } from '../shared/deadline.js';
 import { requestPastProjects, selectPastProjects } from './lib/past-requests.js';
 import { FEED_HOURS, ROUTINE_TYPES, fetchFromProcess3, procurementKindOf } from './sources/process3.js';
 import { isDraftAnnouncement, readPostedDate, readTitle } from './lib/egp-package.js';
-import { getDocumentsDir } from '#common/paths.js';
+import { isProduction } from '#common/config/env.js';
+import { getDocumentsDir, locateStoredFile } from '#common/paths.js';
+import { clamdConfig, clamdScanner, eicarTestString, pingClamd } from '../shared/clamd.js';
+import { fileTypeProblem } from './lib/file-checks.js';
 import { PREVIEW_PAGES, extractText, isPreviewRead } from './lib/ocr.js';
 import { downloadEgpPackage, downloadEgpPricePackage, lookupPackage } from './lib/tor-downloader.js';
 
@@ -85,6 +96,8 @@ function parseCliArgs() {
   let agencies = null; // sweep only these agency codes, e.g. 0307,A004
   let days = 1; // sweep: how many days back a full list is asked again, day by day
   let queues = null; // download, ocr: only these kinds of work (ADR 0030); null is all
+  let all = false; // scan: clean files too, with today's signatures
+  let selfTest = false; // scan: only check that ClamAV is up and matching
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -137,6 +150,10 @@ function parseCliArgs() {
       queues = parseQueues(argv[++i]);
     } else if (arg.startsWith('--queue=')) {
       queues = parseQueues(arg.slice('--queue='.length));
+    } else if (arg === '--all') {
+      all = true;
+    } else if (arg === '--self-test') {
+      selfTest = true;
     }
   }
 
@@ -163,7 +180,7 @@ function parseCliArgs() {
   // An agency list reaches back 7 days at most (manual 4.2)
   if (!(days >= 0 && days <= 7)) throw new Error(`--days takes 0 to 7; got "${days}"`);
 
-  return { step, id, query, limit, source, skipOcr, retryFailed, dept, types, until, skipScreen, agencies, days, dryRun, queues };
+  return { step, id, query, limit, source, skipOcr, retryFailed, dept, types, until, skipScreen, agencies, days, dryRun, queues, all, selfTest };
 }
 
 /**
@@ -193,6 +210,29 @@ async function noteFailure({ projectId, step, error, transient = false, inputKey
 
 // OCR works from the PDF: a new PDF gets new tries
 const pdfHashOf = (tor) => tor.document?.contentHash ?? null;
+
+/**
+ * The virus scanner a step that downloads hands to the downloader. With no
+ * CLAMD_HOST, production downloads nothing; anywhere else new files are kept
+ * unscanned, and the preview withholds them until a rescan. A clamd that's
+ * set but doesn't answer stops the step before any e-GP request.
+ *
+ * @param {object} [options] - Replaced in tests
+ * @returns {Promise<{ scan: Function | null, note?: string } | { refused: string }>}
+ */
+export async function resolveScanner({ config = clamdConfig(), production = isProduction, ping = pingClamd } = {}) {
+  if (!config) {
+    if (production) return { refused: 'CLAMD_HOST is not set: production keeps no file it has not scanned.' };
+    return {
+      scan: null,
+      note: 'CLAMD_HOST is not set: new files are kept unscanned, and the preview withholds them until npm run ingest:scan.',
+    };
+  }
+  if (!(await ping(config))) {
+    return { refused: `ClamAV at ${config.host}:${config.port} did not answer (start it with: docker compose up -d clamav).` };
+  }
+  return { scan: clamdScanner(config) };
+}
 
 /**
  * Service 1: Fetch metadata from procurement sources and pre-filter IT relevance.
@@ -591,6 +631,7 @@ export function applyPackage(tor, { package: pkg, tor: file }) {
     // A new version only when there was an earlier one and it differs
     version: (tor.document?.version ?? 1) + (before && torChanged ? 1 : 0),
     parts: file.parts ?? [],
+    scan: file.scan ?? null,
   };
   return { torChanged };
 }
@@ -687,6 +728,7 @@ export async function runAddStep({
   documentsDir,
   download = downloadEgpPackage,
   downloadPrice = downloadEgpPricePackage,
+  scanning = {},
   now = new Date(),
 }) {
   console.log('\n[ADD] Adding a project from e-GP...');
@@ -698,8 +740,15 @@ export async function runAddStep({
     console.warn(`  -> ${id} is already in the database. To check e-GP for new files: npm run ingest:download -- --id ${id}`);
     return null;
   }
+  const scanner = await resolveScanner(scanning);
+  if (scanner.refused) {
+    console.warn(`  -> Not added: ${scanner.refused}`);
+    return null;
+  }
+  if (scanner.note) console.warn(`  ! ${scanner.note}`);
+  const { scan } = scanner;
 
-  const result = await download({ projectId: id, documentsDir });
+  const result = await download({ projectId: id, documentsDir, scan });
   if (!result.success || result.unchanged) {
     console.warn(`  -> Not added: ${result.error ?? 'e-GP gave no package'}`);
     return null;
@@ -739,11 +788,14 @@ export async function runAddStep({
   const price = await downloadPrice({
     projectId: id,
     documentsDir,
+    scan,
     announcedReferencePrice: tor.referencePriceTHB > 0 ? tor.referencePriceTHB : null,
   });
   if (price.success) {
     tor.priceCheckedAt = now;
     if (price.package) applyPricePackage(tor, price.package);
+  } else {
+    console.warn(`  ! Price package: ${price.error}`);
   }
   await tor.save();
 
@@ -914,7 +966,12 @@ const PASSES_SCREEN = { $or: [{ verdict: { $in: ['it', 'unsure'] } }, { audit: t
  * false (--skip-screen). `queues` narrows it to some kinds of work (ADR 0030);
  * within them, the soonest deadline goes first.
  *
+ * Every file kept passes the virus scan first (resolveScanner): a package
+ * ClamAV flags, or one too large to scan, is a final failure for an admin,
+ * and nothing of it is kept.
+ *
  * @param {Function} [options.download] - downloadEgpPackage; replaced in tests
+ * @param {object} [options.scanning] - resolveScanner's options; replaced in tests
  */
 export async function runDownloadStep({
   id,
@@ -925,6 +982,7 @@ export async function runDownloadStep({
   queues = null,
   download = downloadEgpPackage,
   downloadPrice = downloadEgpPricePackage,
+  scanning = {},
 }) {
   console.log(`\n[Service 2: DOWNLOAD] Downloading e-GP document packages${queues ? ` (${queues.join(', ')})` : ''}...`);
   await fs.mkdir(documentsDir, { recursive: true });
@@ -973,6 +1031,15 @@ export async function runDownloadStep({
     return 0;
   }
 
+  // Before any e-GP request: a scanner that doesn't answer would fail every download
+  const scanner = await resolveScanner(scanning);
+  if (scanner.refused) {
+    console.warn(`  -> Download step not started: ${scanner.refused}`);
+    return 0;
+  }
+  if (scanner.note) console.warn(`  ! ${scanner.note}`);
+  const { scan } = scanner;
+
   console.log(`  -> ${candidates.length} project(s) queued for download.`);
   let successCount = 0;
 
@@ -995,6 +1062,7 @@ export async function runDownloadStep({
       projectId: tor.projectId,
       documentsDir,
       knownZipIds: zipIdsOf('announcement'),
+      scan,
     });
 
     if (!result.success) {
@@ -1003,9 +1071,13 @@ export async function runDownloadStep({
         step: 'download',
         error: result.error,
         transient: Boolean(result.transient),
-        // The same file would stop at the same limit: no use downloading it again
-        // A past project with no package won't get one later either (ADR 0028)
-        final: isTooBig(result.error) || (Boolean(tor.historyRequestedAt) && /No announcement package/.test(result.error)),
+        // The same file would stop at the same limit, or be flagged again: no
+        // use downloading it again (result.final). A past project with no
+        // package won't get one later either (ADR 0028).
+        final:
+          Boolean(result.final) ||
+          isTooBig(result.error) ||
+          (Boolean(tor.historyRequestedAt) && /No announcement package/.test(result.error)),
       });
       console.warn(`        Download failed: ${result.error}${note}`);
       continue;
@@ -1052,11 +1124,15 @@ export async function runDownloadStep({
         projectId: tor.projectId,
         documentsDir,
         knownZipIds: zipIdsOf('price'),
+        scan,
         announcedReferencePrice: tor.referencePriceTHB > 0 ? tor.referencePriceTHB : null,
       });
       if (!price.success) {
-        // Asked again next run; the TOR's own download still counts as done
-        console.warn(`        Price package: ${price.error}`);
+        // Asked again next run; the TOR's own download still counts as done.
+        // One that can only fail the same way (flagged, too large) waits for
+        // the next stage instead of downloading it every night.
+        if (price.final) tor.priceCheckedAt = new Date();
+        console.warn(`        ${price.final ? '! ' : ''}Price package: ${price.error}`);
       } else {
         tor.priceCheckedAt = new Date();
         if (price.none) console.log('        Price package: none in e-GP');
@@ -1256,6 +1332,150 @@ export async function runOcrStep({ id, documentsDir, retryFailed = false, until 
   return successCount;
 }
 
+// A result a rescan doesn't revisit unless asked to: the file is served, or never will be
+const SETTLED = new Set(['clean', 'infected', 'wrong-type']);
+
+/**
+ * The rescan (npm run ingest:scan): scans the stored files that have no result
+ * yet, those kept before files were scanned and those a machine with no
+ * scanner kept. With `all`, clean files are scanned again with today's
+ * signatures. A file ClamAV flags is deleted, and every record of it says
+ * why; one whose first bytes don't match its name stays on disk and is never
+ * served. `selfTest` only checks that clamd is up and matching signatures: it
+ * sends the EICAR test string, which must come back flagged.
+ *
+ * @param {object} options
+ * @param {string} options.documentsDir - Nothing outside it is opened
+ * @param {string|null} [options.id] - One TOR
+ * @param {boolean} [options.all]
+ * @param {boolean} [options.selfTest]
+ * @param {object|null} [options.config] - clamdConfig(); replaced in tests
+ * @param {Function} [options.ping] - pingClamd; replaced in tests
+ * @param {Function|null} [options.scan] - Replaced in tests, which skips config and ping
+ * @returns {Promise<object>} The counts, and `selfTest` true or false after a self-test
+ */
+export async function runScanStep({
+  documentsDir,
+  id = null,
+  all = false,
+  selfTest = false,
+  config,
+  ping = pingClamd,
+  scan = null,
+  now = new Date(),
+}) {
+  console.log(`\n[SCAN] Scanning stored files with ClamAV${all ? ' (clean ones too)' : ''}...`);
+  const totals = { files: 0, clean: 0, infected: 0, wrongType: 0, tooLarge: 0, missing: 0, failed: 0, stoppedBy: null };
+
+  if (!scan) {
+    const where = config === undefined ? clamdConfig() : config;
+    if (!where) {
+      console.warn('  -> CLAMD_HOST is not set: there is no scanner to scan with.');
+      totals.stoppedBy = 'no-scanner';
+      return totals;
+    }
+    if (!(await ping(where))) {
+      console.warn(`  -> ClamAV at ${where.host}:${where.port} did not answer (start it with: docker compose up -d clamav).`);
+      totals.stoppedBy = 'no-answer';
+      return totals;
+    }
+    scan = clamdScanner(where);
+  }
+
+  if (selfTest) {
+    const verdict = await scan(eicarTestString());
+    totals.selfTest = verdict.result === 'infected';
+    if (totals.selfTest) console.log(`  -> ClamAV flagged the EICAR test string as ${verdict.signature}: scanning works.`);
+    else console.error(`  -> ClamAV answered "${verdict.reason ?? verdict.result}" for the EICAR test string: it is not matching signatures.`);
+    return totals;
+  }
+
+  const stored = { $or: [{ 'packages.files.0': { $exists: true } }, { 'document.storagePath': { $ne: null } }] };
+  const tors = await Tor.find(id ? { projectId: id } : stored, { projectId: 1, 'packages.files': 1, document: 1 }).lean();
+
+  for (const tor of tors) {
+    // Every record of each file, by path: a package's file, a TOR part, the TOR itself
+    const byPath = new Map();
+    const note = (storagePath, record, field) => {
+      if (!storagePath) return;
+      if (!byPath.has(storagePath)) byPath.set(storagePath, []);
+      byPath.get(storagePath).push({ record, field });
+    };
+    (tor.packages ?? []).forEach((pkg, p) =>
+      (pkg.files ?? []).forEach((file, f) => note(file.storagePath, file, `packages.${p}.files.${f}.scan`)),
+    );
+    (tor.document?.parts ?? []).forEach((part, k) => note(part.storagePath, part, `document.parts.${k}.scan`));
+    note(tor.document?.storagePath, tor.document, 'document.scan');
+
+    const update = {};
+    const flagged = [];
+    for (const [storagePath, records] of byPath) {
+      const results = records.map(({ record }) => record.scan?.result ?? null);
+      if (results.includes('infected')) continue; // its bytes are gone already
+      if (!all && results.every((result) => SETTLED.has(result))) continue;
+
+      const filePath = locateStoredFile(storagePath, documentsDir);
+      const data = filePath ? await fs.readFile(filePath).catch(() => null) : null;
+      const name = path.basename(storagePath);
+      if (!data) {
+        totals.missing++;
+        console.warn(`     ${tor.projectId}: ${name} is not in the documents folder`);
+        continue;
+      }
+      totals.files++;
+
+      let scanResult;
+      const typeProblem = fileTypeProblem(name, data);
+      if (typeProblem) {
+        totals.wrongType++;
+        scanResult = { result: 'wrong-type', signature: null, scannedAt: now };
+        console.warn(`     ${tor.projectId}: ${name}: ${typeProblem}; never served`);
+      } else {
+        const verdict = await scan(data);
+        if (verdict.result === 'clean') {
+          totals.clean++;
+          scanResult = { result: 'clean', signature: null, scannedAt: now };
+        } else if (verdict.result === 'infected') {
+          totals.infected++;
+          scanResult = { result: 'infected', signature: verdict.signature, scannedAt: now };
+          flagged.push(filePath);
+          console.warn(`     ! ${tor.projectId}: ClamAV flagged ${name} as ${verdict.signature}; the file is deleted`);
+        } else if (verdict.reason === 'too-large') {
+          totals.tooLarge++;
+          scanResult = { result: 'unscanned', signature: null, scannedAt: now };
+          console.warn(`     ${tor.projectId}: ${name} is too large for ClamAV to scan; never served`);
+        } else {
+          totals.failed++;
+          console.warn(`     ${tor.projectId}: ClamAV could not scan ${name} (${verdict.reason})`);
+          if (verdict.reason === 'unreachable') {
+            totals.stoppedBy = 'no-answer';
+            break;
+          }
+          continue;
+        }
+      }
+      for (const { field } of records) update[field] = scanResult;
+    }
+
+    // The records first: a file they call infected is never served, deleted or not
+    if (Object.keys(update).length > 0) await Tor.updateOne({ _id: tor._id }, { $set: update });
+    for (const filePath of flagged) await fs.rm(filePath, { force: true });
+    if (totals.stoppedBy) {
+      console.warn('  -> ClamAV stopped answering: scan stopped.');
+      break;
+    }
+  }
+
+  console.log(
+    `  -> ${totals.files} file(s) scanned: ${totals.clean} clean, ${totals.infected} flagged and deleted, ` +
+      `${totals.wrongType} not the type their name says, ${totals.tooLarge} too large to scan` +
+      (totals.missing ? `; ${totals.missing} recorded but not on disk` : '') +
+      (totals.failed ? `; ${totals.failed} could not be scanned` : '') +
+      '.',
+  );
+  return totals;
+}
+
 async function main() {
   const args = parseCliArgs();
 
@@ -1273,6 +1493,15 @@ async function main() {
   console.log(`Retry failed    : ${args.retryFailed}`);
   if (args.queues) console.log(`Queues          : ${args.queues.join(', ')}`);
   console.log('='.repeat(70));
+
+  // A health check reads nothing stored and writes nothing, so it never
+  // touches the database, not even the run lock: safe on any machine,
+  // production included
+  if (args.step === 'scan' && args.selfTest) {
+    const totals = await runScanStep({ documentsDir: DOCUMENTS_DIR, selfTest: true });
+    if (totals.stoppedBy || totals.selfTest !== true) process.exitCode = 1;
+    return;
+  }
 
   await connectDatabase();
   try {
@@ -1310,6 +1539,14 @@ async function runSteps(args) {
   // Tonight's past projects to read in full (ADR 0028)
   if (args.step === 'history') {
     await runHistoryStep({ dryRun: args.dryRun });
+    return;
+  }
+
+  // Stored files with no scan result yet, or all of them with --all. The
+  // self-test is run by main(), before any database connection.
+  if (args.step === 'scan') {
+    const totals = await runScanStep({ documentsDir: DOCUMENTS_DIR, id: args.id, all: args.all });
+    if (totals.stoppedBy) process.exitCode = 1;
     return;
   }
 

@@ -132,14 +132,14 @@ test('setSessionCookie configures essential security attributes (ASVS V3.3.1, V3
   assert.equal(cookieOpts.domain, undefined, 'cookie must NOT define domain (for __Host- compatibility)');
 });
 
-test('getSessionTokenFromRequest correctly extracts token from active or legacy cookie', () => {
+test('getSessionTokenFromRequest correctly extracts token from active cookie and rejects unknown', () => {
   // 1. From current SESSION_COOKIE
   const req1 = { cookies: { [SESSION_COOKIE]: 'token-from-active' } };
   assert.equal(getSessionTokenFromRequest(req1), 'token-from-active');
 
-  // 2. Fallback to LEGACY_SESSION_COOKIE
-  const req2 = { cookies: { [LEGACY_SESSION_COOKIE]: 'token-from-legacy' } };
-  assert.equal(getSessionTokenFromRequest(req2), 'token-from-legacy');
+  // 2. Ignores unknown cookie names
+  const req2 = { cookies: { other_cookie: 'token-other' } };
+  assert.equal(getSessionTokenFromRequest(req2), null);
 
   // 3. Null if neither exists
   const req3 = { cookies: {} };
@@ -149,14 +149,14 @@ test('getSessionTokenFromRequest correctly extracts token from active or legacy 
   assert.equal(getSessionTokenFromRequest({}), null);
 });
 
-test('getOAuthStateFromRequest correctly extracts OAuth state from active or legacy cookie', () => {
+test('getOAuthStateFromRequest correctly extracts OAuth state from active cookie and rejects unknown', () => {
   // 1. From current OAUTH_STATE_COOKIE
   const req1 = { cookies: { [OAUTH_STATE_COOKIE]: 'state-from-active' } };
   assert.equal(getOAuthStateFromRequest(req1), 'state-from-active');
 
-  // 2. Fallback to LEGACY_OAUTH_STATE_COOKIE
-  const req2 = { cookies: { [LEGACY_OAUTH_STATE_COOKIE]: 'state-from-legacy' } };
-  assert.equal(getOAuthStateFromRequest(req2), 'state-from-legacy');
+  // 2. Ignores unknown cookie names
+  const req2 = { cookies: { other_cookie: 'state-other' } };
+  assert.equal(getOAuthStateFromRequest(req2), null);
 
   // 3. Null if neither exists
   const req3 = { cookies: {} };

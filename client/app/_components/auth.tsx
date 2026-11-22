@@ -23,12 +23,15 @@ export type AuthState =
 
 type AuthValue = AuthState & {
   signIn: (input: { email: string; password: string }) => Promise<ApiError | null>;
+  /** Emails a confirm link; signs no one in (0041). */
   signUp: (input: {
     email: string;
     password: string;
     name: string;
     notificationConsent: boolean;
   }) => Promise<ApiError | null>;
+  /** The link's token and the sign-up password: creates the account and signs in. */
+  confirmEmail: (input: { token: string; password: string }) => Promise<ApiError | null>;
   signOut: () => Promise<ApiError | null>;
   /** FR-12: saves profile fields and updates the in-memory user. */
   updateProfile: (fields: api.UpdateProfilePayload) => Promise<ApiError | null>;
@@ -43,6 +46,7 @@ const AuthContext = createContext<AuthValue>({
   user: null,
   signIn: async () => null,
   signUp: async () => null,
+  confirmEmail: async () => null,
   signOut: async () => null,
   updateProfile: async () => null,
   addToWatchlist: async () => null,
@@ -83,8 +87,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   }, []);
 
+  // Registering signs no one in: the account exists once the emailed link is
+  // opened with the same password, which confirmEmail does
   const signUp: AuthValue["signUp"] = useCallback(async (input) => {
     const result = await api.register(input);
+    return result.ok ? null : result.error;
+  }, []);
+
+  const confirmEmail: AuthValue["confirmEmail"] = useCallback(async (input) => {
+    const result = await api.verifyEmail(input);
     if (!result.ok) return result.error;
     setState({ status: "authenticated", user: result.data.user });
     return null;
@@ -148,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...state,
         signIn,
         signUp,
+        confirmEmail,
         signOut,
         updateProfile,
         addToWatchlist,

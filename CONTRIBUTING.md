@@ -96,10 +96,52 @@ characters:
 node -e "console.log(crypto.randomUUID() + crypto.randomUUID())"
 ```
 
+`PASSWORD_PEPPER` keys the HMAC every password goes through before bcrypt
+([0039](docs/decisions/0039-passwords-are-peppered-before-bcrypt.md)). It is
+required, yours alone like `JWT_SECRET`, and at least 32 bytes; this command
+gives 44 characters:
+
+```
+node -e "console.log(crypto.randomBytes(32).toString('base64'))"
+```
+
+Unlike `JWT_SECRET`, keep it once set. Every password hash on your database
+depends on it, so a new or lost pepper means every password account there
+stops working (Google sign-in doesn't), and each has to be registered again.
+
+Signing up doesn't sign you in. It emails a confirm link, and the account
+exists once you open it and type the same password again
+([0041](docs/decisions/0041-an-address-is-confirmed-before-the-account-exists.md)).
+You don't need a mail account for that locally: with `SMTP_USER` and
+`SMTP_PASS` unset, the server prints the link to its log instead, on a line
+starting `[auth] Development only, no SMTP`. Production never does; there,
+sign-up needs SMTP. An account you made before this change can be claimed:
+register again with the same address and confirm, and its role and profile
+stay.
+
 Running `npm test` in `server/` boots the app against whatever `MONGO_URI`
 points at. The tests that write users send them to a separate `mjolnir_test`
 database and delete them afterwards, so a run against Atlas never touches the
-shared data — keep it that way when you add tests that write.
+shared data — keep it that way when you add tests that write. A test that needs
+someone signed in gets a confirmed account from `server/test/helpers/accounts.js`
+(`signedInAccount`) rather than registering, since registering no longer signs
+anyone in; its `createMailRecorder` stands in for the mailer.
+
+The tests never need ClamAV, the virus scanner: they pass in a fake one. You
+need it only to run the pipeline's download steps for real, or to see document
+previews, since the preview shows only files the scanner passed
+([0040](docs/decisions/0040-files-are-scanned-before-they-are-kept.md)). It
+takes 3–4 GB of memory, so `docker compose up` leaves it out:
+
+```
+docker compose up -d clamav                 # first start downloads signatures, a few minutes
+```
+
+Then set `CLAMD_HOST=127.0.0.1` in `server/.env`, and check it with
+`npm run ingest:scan -- --self-test` from `server/`. Without `CLAMD_HOST` the
+pipeline still runs and keeps new files marked unscanned; `npm run ingest:scan`
+scans them later. That command writes to the database and deletes any file
+ClamAV flags, so check where `MONGO_URI` points before running it.
 
 ## Admin accounts
 

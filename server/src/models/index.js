@@ -14,6 +14,7 @@
 //   export { Tor } from './tor.model.js';
 
 export { User } from './user.model.js';
+export { EmailToken } from './email-token.model.js';
 export { Tor } from './tor.model.js';
 export { TorInsight } from './tor-insight.model.js';
 export { TorInsightVersion } from './tor-insight-version.model.js';

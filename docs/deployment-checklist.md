@@ -72,16 +72,23 @@ Because the session cookie uses `SameSite=Lax` in production to prevent cross-si
 | `NODE_ENV` | `production` | See §1 |
 | `MONGO_URI` | Atlas connection string | Server refuses to boot — this one fails loudly, which is correct |
 | `JWT_SECRET` | A freshly generated secret of at least 32 bytes (`node -e "console.log(crypto.randomUUID() + crypto.randomUUID())"` gives 72 characters), **not** the CI value in `fullstack-ci-setup.yml` and not any developer's local one | Under 32 bytes: the server refuses to boot. Known to anyone else: they can mint a session for any account |
+| `PASSWORD_PEPPER` | Generated once for production, at least 32 bytes (`node -e "console.log(crypto.randomBytes(32).toString('base64'))"` gives 44 characters), **not** the CI value and not any developer's local one. Back it up next to `MONGO_URI`, and never rotate it ([0039](decisions/0039-passwords-are-peppered-before-bcrypt.md)) | Missing or under 32 bytes: the server and the pipeline refuse to start. Lost or changed: every password account stops working; Google sign-in doesn't |
 | `CORS_ORIGIN` | The deployed client origin, exact, **no trailing slash** | The browser rejects every API response and the app looks completely dead |
 | `PORT` | Leave unset on Cloud Run — it injects one | Container listens on the wrong port and fails its health check |
 | `GOOGLE_CLIENT_ID` / `_SECRET` | Production OAuth client | Unset: `/api/auth/google` answers 503. Another client's ID: every Google sign-in fails, because the ID token's `aud` must be this value ([0005](decisions/0005-google-sign-in-links-by-verified-email.md)) |
 | `GOOGLE_REDIRECT_URI` | `https://<api-domain>/api/auth/google/callback` | Google refuses the code exchange |
 | `SHOW_UNREVIEWED_INSIGHTS` | `true` only for a demo deploy, while no one reviews results yet ([0015](decisions/0015-pilot-mode-and-demo-data.md)). Leave it unset for a real launch. | Unset in production: the catalog shows only reviewed results, so before reviews start it is empty. `true` on a real launch: unchecked AI summaries reach the public with no label saying nobody checked them, only the detail page's "AI can be wrong" notice |
 | `TRUST_PROXY_HOPS` | The number of proxies in front of the server — see §5 | Too low: every user on the internet shares one rate limit bucket. Set to `true`: the caller forges `X-Forwarded-For` and the limiter is decorative |
+| `CLAMD_HOST` | `clamav`, which `docker-compose.yml` already sets; or the address of your ClamAV daemon ([0040](decisions/0040-files-are-scanned-before-they-are-kept.md)) | Unset in production: the pipeline downloads nothing, the admin page's add and re-download buttons refuse, and the server still boots. Set, but ClamAV is down: the same, with "did not answer" in the log. Never published to the internet: clamd's port has no password |
+| `SMTP_USER` / `SMTP_PASS` (and `SMTP_HOST`, `SMTP_PORT`) | The mail account the platform sends from | Unset: password sign-up answers 503 "use Google", because an address can't be confirmed without mail ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)); Google sign-in and everything else still work. Wrong: the 202 still arrives, but no confirm email does, and only the server log says why |
+| `EMAIL_FROM` | A sender on a domain you own, which your mail account may send as | Unset, it falls back to an address on `gipdp.go.th`, a government domain this platform isn't: mail reads as the government's, and SPF checks fail, so it lands in spam |
 
 - [ ] All of the above set in the host's secret manager, not baked into an image
 - [ ] `JWT_SECRET` confirmed different from the CI value
       (`ci-not-a-secret-ci-not-a-secret-ci`)
+- [ ] `PASSWORD_PEPPER` confirmed different from the CI value
+      (`ci-not-a-pepper-ci-not-a-pepper-ci`), and backed up where `MONGO_URI` is.
+      Unlike `JWT_SECRET`, it is never rotated: every password hash depends on it
 - [ ] Understood that rotating `JWT_SECRET` signs everyone out, and breaks every
       unsubscribe link already emailed, since that key is derived from it — fine,
       but do it knowingly
@@ -190,10 +197,11 @@ Do not assume these are handled just because the app works.
 - [x] **Session revocation is enforced via Token Versioning.** When a user logs
       out, `tokenVersion` increments in the database, invalidating the session
       token immediately.
-- [ ] **No password reset and no email verification.** A locked-out user has no
-      self-service recovery. Both belong with FR08.
-- [ ] **Registration reveals whether an address already has an account**,
-      because the form has to say so for the person who genuinely forgot.
+- [ ] **No password reset.** A locked-out user has no self-service recovery.
+      Email verification exists since 0041, and reset can reuse its tokens.
+- [x] **Registration no longer reveals whether an address has an account.** It
+      answers the same 202 for every address, and the owner of a taken one gets
+      an email instead of a link (0041).
 
 ---
 
@@ -211,19 +219,32 @@ A checklist you cannot check is a wish list. Run these against the deployed API.
       already sent its request, a password included, in clear; a redirect would
       hide that mistake instead of breaking it. The API never redirects by
       itself, so this is the proxy's or host's setting
-- [ ] Register from the **deployed client**, in a real browser, then reload the
-      page. Still signed in means the cookie survived the round trip; signed out
-      means §1 is wrong.
+- [ ] Register from the **deployed client**, in a real browser, with an address
+      you can read. The confirm email ("ยืนยันอีเมลเพื่อเริ่มใช้ GIPDP") arrives
+      from `EMAIL_FROM`, not in spam; its link opens `/auth/verify` on the
+      client, and the password you chose signs you in. Reload the page: still
+      signed in means the cookie survived the round trip; signed out means §1 is
+      wrong. No email at all: check the SMTP rows in §2 and the server log
+- [ ] Register again with the same address: the same "check your inbox" answer,
+      and an email saying someone tried, with no link
 - [ ] Inspect the `__Host-mjolnir_session` cookie in devtools — `Secure` and
       `SameSite=Lax` must both be present
 - [ ] Sign in with Google end to end, since the redirect URI, `CORS_ORIGIN`,
       the client ID, the attempt cookie and the key fetch all have to agree
       before it works. A failure prints `Google sign-in failed: … (<reason>)`
-      in the server log; the reason says which one
+      in the server log; the reason says which one. When Google refused the
+      code, its own error follows, as in
+      `(token-endpoint: invalid_client "…")` for a wrong client secret, or
+      `(token-endpoint: invalid_grant "…")` for a used or expired code
 - [ ] Fail the same login repeatedly and confirm the 429 arrives at the
       configured attempt, from a machine that is not on the same network as
       another tester
-- [ ] Open a TOR's document from its detail page. The PDF shows, or, on a new
+- [ ] `npm run ingest:scan -- --self-test` inside the server container
+      (`docker compose exec server npm run ingest:scan -- --self-test`) ends with
+      "scanning works". It touches no database, so it's safe here
+- [ ] Open a TOR's document from its detail page. Right after the first deploy
+      with scanning, it shows the "เอกสารนี้ยังตรวจความปลอดภัยไม่เสร็จ" card
+      until the rescan in §8 has run. After that, the PDF shows, or, on a new
       volume the pipeline hasn't filled yet, the "ยังไม่มีสำเนาเอกสารนี้ในระบบของเรา"
       card with its e-GP button. A server log full of `[preview] … missing or
       outside the documents folder` warnings means records point at files this
@@ -252,3 +273,14 @@ have to outlive the container.
       records that laptop's paths. The server finds the same file under its own
       documents folder by the part after `documents`, so this works as long as
       the files themselves were copied too.
+- [ ] **ClamAV runs next to the server,** with 4 GB of memory to spare
+      (ClamAV asks for 3 at least). Start the whole stack with
+      `docker compose -f docker-compose.yml --profile scan up -d`; the
+      `clamav` service is behind that profile, so a plain `up` leaves it out.
+      Its first start downloads signatures into the `clamav-db` volume and
+      takes a few minutes; its health check says when it's ready
+      ([0040](decisions/0040-files-are-scanned-before-they-are-kept.md)).
+- [ ] **Scan what is already stored, right after the deploy that brings
+      scanning.** Every file stored before it has no scan result, so no preview
+      shows until `docker compose exec server npm run ingest:scan` has run once.
+      It writes results and deletes any file ClamAV flags, so run it on purpose.

@@ -117,6 +117,16 @@ const MISSING = {
     code: 'NO_PUBLIC_DOCUMENT_FOR_METHOD',
     message: (id) => `ไม่มีเอกสาร PDF สำหรับโครงการ '${id}'`,
   },
+  // Only a file the virus scan passed is served: one not scanned yet, or one
+  // ClamAV flagged, is withheld, and the page points to e-GP instead
+  'not-scanned': {
+    code: 'DOCUMENT_NOT_SCANNED',
+    message: (id) => `เอกสารของโครงการ '${id}' ยังตรวจความปลอดภัยไม่เสร็จ`,
+  },
+  blocked: {
+    code: 'DOCUMENT_BLOCKED',
+    message: (id) => `ไม่แสดงเอกสารของโครงการ '${id}' เพราะไม่ผ่านการตรวจความปลอดภัยอัตโนมัติ`,
+  },
 };
 
 export async function getTorPreviewHandler(req, res, next) {

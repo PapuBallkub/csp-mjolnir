@@ -14,7 +14,8 @@ The `User` model represents an authenticated account on the platform. It support
 
 ### Authentication & Credential Invariants:
 - **Email as Identity Anchor**: Account identity is bound to a normalized lowercase email.
-- **Password vs Google**: Accounts created via Google Sign-In have no `passwordHash`, while email/password accounts have no `googleId`. If a Google user signs in with an existing email, accounts are safely linked by verified email (ADR 0005).
+- **Password vs Google**: Accounts created via Google Sign-In have no `passwordHash`, while email/password accounts have no `googleId`. If a Google user signs in with an existing email, accounts are linked by verified email (ADR 0005). A confirmed account keeps its password; one never confirmed loses it; one already linked to a different Google account is never relinked (ADR 0041).
+- **No account before its address is confirmed**: registering writes an `EmailToken` ([email-token-schema.md](./email-token-schema.md)), not a `User`. The user is created when the emailed link is opened with the password chosen at sign-up, with `emailVerifiedAt` set (ADR 0041).
 - **Session Handling**: Authentication sessions are stored as cryptographically signed HTTP-only cookies (`gipdp_session`), carrying the user ID and role (ADR 0004, ADR 0012).
 
 ---
@@ -25,7 +26,8 @@ The `User` model represents an authenticated account on the platform. It support
 |---|---|---|---|---|---|
 | `email` | `String` | Required, Unique, Lowercase, Trim | — | Primary contact and identity key. Normalized to lowercase to prevent duplicate collision. | `"developer@company.co.th"` |
 | `name` | `String` | Trim, Max length: 80 chars | `""` | User display name or company contact name. Allows Thai & Unicode characters. | `"สมชาย ใจดี"` |
-| `passwordHash` | `String` | Hidden by default (`select: false`) | `undefined` | Bcrypt password hash. Excluded from query projections by default for security. | `"$2b$10$W7Gq...8f"` |
+| `passwordHash` | `String` | Hidden by default (`select: false`) | `undefined` | bcrypt (cost 12) of the password's HMAC-SHA384 under `PASSWORD_PEPPER`, never of the password itself ([0039](../decisions/0039-passwords-are-peppered-before-bcrypt.md)). Excluded from query projections by default for security. | `"$2b$12$W7Gq...8f"` |
+| `emailVerifiedAt` | `Date` | — | `undefined` | When the address was confirmed: by the emailed link, or by Google when it created or linked the account. Absent means never confirmed, as on accounts from before ADR 0041; a password sign-in to one gets 403 `EMAIL_NOT_VERIFIED` | `"2026-11-22T09:05:00.000Z"` |
 | `googleId` | `String` | Unique, Sparse index | `undefined` | Subject identifier (`sub`) from Google OAuth ID token. Sparse index ensures password-only users don't collide on `null`. | `"109823481239841234981"` |
 | `notificationConsent` | `Boolean` | — | `false` | Explicit opt-in consent for automated email alerts for watched TORs / amendments (FR08). | `true` |
 | `role` | `String` | Enum: `['user', 'admin']`, Indexed | `'user'` | Access control role. Admin rights (`admin`) can view scraper health, OCR confidence, and administrative overrides. | `'user'` or `'admin'` |

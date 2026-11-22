@@ -8,6 +8,7 @@ import { btn, EmptyState, SectionHeading } from "../../../_components/ui";
 import { isDead } from "../../../_components/verdict";
 import * as api from "../../../_lib/api";
 import type { TorInsightSummary } from "../../../_lib/api";
+import { daysLeft } from "../../../_lib/deadline";
 
 type AlertItem = {
   projectId: string;
@@ -136,17 +137,16 @@ export default function WatchlistPage() {
 
       // 2. Approaching Deadline alert (<= 7 days on active items)
       if (facts.submissionDeadline) {
-        const diffMs = new Date(facts.submissionDeadline).getTime() - now.getTime();
-        const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-        if (daysLeft >= 0 && daysLeft <= 7) {
+        const remaining = daysLeft(facts.submissionDeadline, now);
+        if (remaining >= 0 && remaining <= 7) {
           list.push({
             projectId: tor.projectId,
             kind: "closing",
             title,
             message:
-              daysLeft === 0
+              remaining === 0
                 ? "สิ้นสุดการยื่นข้อเสนอวันนี้"
-                : `เหลือเวลาอีก ${daysLeft} วันก่อนปิดรับข้อเสนอ`,
+                : `เหลือเวลาอีก ${remaining} วันก่อนปิดรับข้อเสนอ`,
             date: facts.submissionDeadline,
           });
         }

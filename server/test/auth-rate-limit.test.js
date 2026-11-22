@@ -10,9 +10,10 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { User } from '#models/index.js';
+import { EmailToken, User } from '#models/index.js';
 
 import { createApp } from '../src/app.js';
+import { createMailRecorder, createVerifiedUser, tokenFrom } from './helpers/accounts.js';
 
 const TEST_DB = 'mjolnir_test';
 const PASSWORD = 'correct horse battery';
@@ -29,12 +30,14 @@ before(() => connectDatabase({ dbName: TEST_DB }));
 
 after(async () => {
   await User.deleteMany({ email: new RegExp(`-${runId}@example\\.test$`) });
+  await EmailToken.deleteMany({ email: new RegExp(`-${runId}@example\\.test$`) });
   await disconnectDatabase();
 });
 
-// One server per test, so no test can spend another's budget.
-async function withServer(rateLimits, run) {
-  const server = createApp({ rateLimits }).listen(0);
+// One server per test, so no test can spend another's budget. Registering
+// sends email, so each gets a recorder that sends nothing.
+async function withServer(rateLimits, run, mail = createMailRecorder()) {
+  const server = createApp({ rateLimits, mail }).listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
 
   const send = (method, path, body, headers = {}) =>
@@ -57,7 +60,7 @@ test('failed sign-ins for one account are cut off, as JSON like every other erro
   await withServer(
     { loginByIp: GENEROUS, loginByEmail: { windowMs: 60_000, limit: 2 }, registerByIp: GENEROUS },
     async (send) => {
-      assert.equal((await send('POST', '/api/auth/register', { email, password: PASSWORD, name: NAME })).status, 201);
+      await createVerifiedUser({ email, password: PASSWORD, name: NAME });
 
       const wrong = { email, password: `${PASSWORD}!` };
       assert.equal((await send('POST', '/api/auth/login', wrong)).status, 401);
@@ -80,7 +83,7 @@ test('the right password never spends the account budget', async () => {
   await withServer(
     { loginByIp: GENEROUS, loginByEmail: { windowMs: 60_000, limit: 1 }, registerByIp: GENEROUS },
     async (send) => {
-      await send('POST', '/api/auth/register', { email, password: PASSWORD, name: NAME });
+      await createVerifiedUser({ email, password: PASSWORD, name: NAME });
 
       // Well past a limit of 1. Only failures are counted, so none of these
       // bring the account closer to being locked.
@@ -97,7 +100,7 @@ test('casing cannot buy a second budget for the same account', async () => {
   await withServer(
     { loginByIp: GENEROUS, loginByEmail: { windowMs: 60_000, limit: 2 }, registerByIp: GENEROUS },
     async (send) => {
-      await send('POST', '/api/auth/register', { email, password: PASSWORD, name: NAME });
+      await createVerifiedUser({ email, password: PASSWORD, name: NAME });
 
       // Spend the budget through spellings the key has to normalise away.
       await send('POST', '/api/auth/login', { email: email.toUpperCase(), password: 'wrong-one' });
@@ -134,7 +137,7 @@ test('signing up repeatedly from one address is cut off', async () => {
           password: PASSWORD,
           name: NAME,
         });
-        assert.equal(created.status, 201);
+        assert.equal(created.status, 202);
       }
 
       const blocked = await send('POST', '/api/auth/register', {
@@ -175,10 +178,51 @@ test('a forged X-Forwarded-For cannot buy a fresh address budget', async () => {
         send('POST', '/api/auth/register', { email: emailFor(name), password: PASSWORD, name: NAME },
           forwardedFor ? { 'x-forwarded-for': forwardedFor } : {});
 
-      assert.equal((await signUp('spoof-a')).status, 201);
+      assert.equal((await signUp('spoof-a')).status, 202);
 
       const blocked = await signUp('spoof-b', '203.0.113.7');
       assert.equal(blocked.status, 429, 'the header must not be believed at the default hop count');
     },
+  );
+});
+
+test('one address gets at most three registrations an hour, whether it has an account or not', async () => {
+  // Every registration emails the address typed, so this protects a stranger's
+  // inbox. Every request counts, and every address alike, so a 429 says nothing
+  // about who is registered.
+  const taken = emailFor('inbox-taken');
+  await createVerifiedUser({ email: taken, password: PASSWORD, name: NAME });
+
+  await withServer(
+    { loginByIp: GENEROUS, loginByEmail: GENEROUS, registerByIp: GENEROUS, registerByEmail: { windowMs: 60_000, limit: 3 } },
+    async (send) => {
+      for (const email of [emailFor('inbox-new'), taken]) {
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          assert.equal((await send('POST', '/api/auth/register', { email, password: PASSWORD, name: NAME })).status, 202);
+        }
+        const blocked = await send('POST', '/api/auth/register', { email: email.toUpperCase(), password: PASSWORD, name: NAME });
+        assert.equal(blocked.status, 429, `the 4th for ${email}, in any casing`);
+        assert.match((await blocked.json()).error.message, /1 ชั่วโมง/);
+      }
+    },
+  );
+});
+
+test('confirming is limited per caller, like signing in', async () => {
+  const mail = createMailRecorder();
+  await withServer(
+    { loginByIp: GENEROUS, loginByEmail: GENEROUS, registerByIp: GENEROUS, verifyByIp: { windowMs: 60_000, limit: 2 } },
+    async (send) => {
+      const email = emailFor('verify-limit');
+      assert.equal((await send('POST', '/api/auth/register', { email, password: PASSWORD, name: NAME })).status, 202);
+      const token = tokenFrom(await mail.waitFor(email));
+
+      const wrong = { token, password: `${PASSWORD}!` };
+      assert.equal((await send('POST', '/api/auth/verify-email', wrong)).status, 401);
+      assert.equal((await send('POST', '/api/auth/verify-email', wrong)).status, 401);
+      // Each try is a bcrypt compare, so the third is refused before it's made
+      assert.equal((await send('POST', '/api/auth/verify-email', { token, password: PASSWORD })).status, 429);
+    },
+    mail,
   );
 });

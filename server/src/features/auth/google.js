@@ -11,6 +11,26 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 // A hung connection to Google would otherwise hold the visitor's request open.
 const TOKEN_FETCH_TIMEOUT_MS = 10 * 1000;
 
+// RFC 6749 §5.2 allows only these characters in `error` and
+// `error_description`: printable ASCII without `"` or `\`. That rules out a
+// line break, so a value that fits can't forge a second log line, and it can
+// sit inside quotes without escaping.
+const OAUTH_ERROR_TEXT = /^[\x20\x21\x23-\x5B\x5D-\x7E]+$/;
+
+// What Google said when it refused the code, for the log only:
+// `invalid_grant "<description>"`, just the code, or ''. Google's
+// text is outside input, so a value that doesn't fit the RFC's shape is
+// dropped, not cleaned. Nothing else in the body is read.
+function describeRefusal(body) {
+  const code = body?.error;
+  if (typeof code !== 'string' || code.length > 64 || !OAUTH_ERROR_TEXT.test(code)) {
+    return '';
+  }
+  const text = body.error_description;
+  const fits = typeof text === 'string' && text.length <= 200 && OAUTH_ERROR_TEXT.test(text);
+  return fits ? `${code} "${text}"` : code;
+}
+
 // ASVS V3.3.1, V3.3.3: In production, enforce __Host- cookie prefix. In dev/test,
 // fall back to un-prefixed name because browsers reject __Host- over plain HTTP localhost.
 // The name predates the nonce and the PKCE verifier; the cookie now holds all three.
@@ -19,7 +39,9 @@ export const LEGACY_OAUTH_STATE_COOKIE = 'mjolnir_oauth_state';
 
 export function getOAuthStateFromRequest(req) {
   if (!req?.cookies) return null;
-  return req.cookies[OAUTH_STATE_COOKIE] || req.cookies[LEGACY_OAUTH_STATE_COOKIE] || null;
+  // Strictly enforce the active OAUTH_STATE_COOKIE (__Host-mjolnir_oauth_state in production,
+  // mjolnir_oauth_state in dev/test). No legacy fallback in production to prevent OAuth state fixation.
+  return req.cookies[OAUTH_STATE_COOKIE] || null;
 }
 
 // Long enough to pick an account and type a password, short enough that an
@@ -144,7 +166,12 @@ export async function exchangeCodeForProfile(
   }
 
   if (!response.ok) {
-    throw googleSignInError(400, 'token-endpoint', 'การเข้าสู่ระบบด้วย Google ถูกปฏิเสธ');
+    // A wrong verifier, a used or expired code, a redirect URI or client
+    // secret that doesn't match: all a 400 here, told apart only by Google's
+    // `error`, which the callback adds to its log line.
+    const error = googleSignInError(400, 'token-endpoint', 'การเข้าสู่ระบบด้วย Google ถูกปฏิเสธ');
+    error.refusal = describeRefusal(await response.json().catch(() => null));
+    throw error;
   }
 
   let body;

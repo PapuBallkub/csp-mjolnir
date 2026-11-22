@@ -1,6 +1,7 @@
 # 0011 · A name and a role on the account
 
-Status: accepted · 2026-09-28
+Status: accepted · 2026-09-28 · updated 2026-11-22 (the password ceiling is in
+characters too)
 
 ## Context
 
@@ -145,3 +146,26 @@ against the database, not a flow the product offers. Rejected:
   and genuinely defensible. The script wins only because it validates the role
   against the enum and prints what changed; a mistyped `mongosh` update writes
   `role: 'Admin'` and fails closed with no error anywhere.
+
+## Update · 2026-11-22: the password ceiling is in characters too
+
+The point above about the ceilings was true when written. Since
+[0039](0039-passwords-are-peppered-before-bcrypt.md), a password goes through
+HMAC-SHA384 before bcrypt, so bcrypt always gets 64 characters and truncates
+nothing. The 72-byte limit is gone: a password may be 8 to 128 characters,
+counted by code point, and a Thai password gets the same room as an English one.
+The name ceiling is unchanged.
+
+## Update · 2026-11-22: Google creates accounts with `User.create` now
+
+The first and last points above describe `signInWithGoogle` creating accounts
+through an upsert with `$setOnInsert: { name }`. Since
+[0041](0041-an-address-is-confirmed-before-the-account-exists.md) it looks at
+the account first and creates a new one with `User.create`, so validators run
+on that path. What those points protect still holds: Google names an account
+only when it creates it, and a link never rewrites the name the owner typed
+(tested in `auth-google.test.js`). Neither field became `required`: a Google
+profile may come without a name.
+
+The 80-character Thai name test now signs up through the whole journey
+(register, the emailed link, the password), and expects the confirmation's 200.

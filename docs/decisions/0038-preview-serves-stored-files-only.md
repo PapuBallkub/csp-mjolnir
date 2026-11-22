@@ -140,3 +140,23 @@ today, not a reason never to build it.
   Then choose between the routes above, or a queue: a miss asks the paced
   downloader for the project and the visitor is told to try again shortly, so
   the request itself still never calls e-GP.
+
+## Update · 2026-11-22: only a file the virus scan passed is served
+
+Since [0040](0040-files-are-scanned-before-they-are-kept.md), every stored file
+carries a scan result, and the preview serves a file only when it's `clean`.
+The diagram's "Stored file found" now has two more answers before the 200:
+
+- `404 DOCUMENT_NOT_SCANNED` for a file with no result yet (every file stored
+  before 0040, until the rescan runs) or one kept by a machine with no scanner;
+- `404 DOCUMENT_BLOCKED` for a file ClamAV flagged or whose bytes aren't the
+  type its name says.
+
+The viewer shows a card for each, with the e-GP button, and offers no retry.
+
+**The folder scan is gone.** The consequence above left it to this change: a
+bidding document or announcement with no record has nowhere to keep a scan
+result, so it is no longer served, and the preview answers
+`DOCUMENT_NOT_STORED`. The rule for finding a stored file now lives in
+`locateStoredFile` in `server/src/common/paths.js`, where the rescan uses it
+too.

@@ -48,7 +48,7 @@ flowchart LR
 | `auth` | `/api/auth` | Register, sign in with a password or Google, sign out, "who am I". Exports `requireAuth` and `requireRole`, which every other feature uses to guard its routes | `User`: the account (email, password hash, name, role) |
 | `profile` | `/api/profile` | Saves the capability profile that drives matching (FR-12) | `User.profile` |
 | `watchlist` | `/api/watchlist` | Saves and removes TORs, and lists them with what changed since they were saved (FR-17) | `User.watchlist` |
-| `tors` | `/api/tors` | The catalog with its filters and facets, one TOR's detail, its PDF from the files the pipeline stored ([0038](../decisions/0038-preview-serves-stored-files-only.md)). Decides what the public may see (`visibilityFilter`, `toPublic`) | nothing: reads `Tor` and `TorInsight` |
+| `tors` | `/api/tors` | The catalog with its filters and facets, one TOR's detail, its PDF from the files the pipeline stored and the virus scan passed ([0038](../decisions/0038-preview-serves-stored-files-only.md), [0040](../decisions/0040-files-are-scanned-before-they-are-kept.md)). Decides what the public may see (`visibilityFilter`, `toPublic`) | nothing: reads `Tor` and `TorInsight` |
 | `technologies` | `/api/technologies` | The technology names search can filter by; a signed-in user can ask for a new one | `Technology` (requests) |
 | `notifications` | `/api/notifications` | In-app notification feed, read/unread states, and scheduled email match digest dispatch (FR-14, FR-18) | `Notification`: immutable events and delivery state (`emailSent`, `isRead`) |
 | `admin` | `/api/admin` | The admin dashboard (FR-22), the review workspace (FR-23), pipeline controls: retry, skip, dismiss, add a project, run a fetch | `TorInsight` (corrections), `Technology`, `TitleScreen`, `PipelineFailure`, `IngestionLog` |
@@ -82,6 +82,12 @@ forbids (see [where the rules bend](#where-the-rules-bend)).
 
 `health` and `match` use nothing. `tors` uses no other feature: it's public, so
 it needs no `auth`.
+
+`auth` sends email (confirm links, [0041](../decisions/0041-an-address-is-confirmed-before-the-account-exists.md))
+without depending on `notifications`, which already depends on it: `app.js`
+passes `notifications`' `sendEmail` into `createAuthRoutes` as `mail`. The two
+importing each other would be a cycle, and the injected mailer is also what
+lets a test read the link instead of sending it.
 
 ## Where the features meet the pipelines
 
@@ -148,7 +154,7 @@ Plumbing with no knowledge of any feature. It imports nothing from
 
 | File | What it gives you |
 | :--- | :--- |
-| `config/env.js` | `env`: every environment variable, read and checked once at start. A missing required one (`MONGO_URI`, `JWT_SECRET`) stops the server booting, and so does a `JWT_SECRET` under 32 bytes. Also `isProduction`, `isGoogleConfigured` |
+| `config/env.js` | `env`: every environment variable, read and checked once at start. A missing required one (`MONGO_URI`, `JWT_SECRET`, `PASSWORD_PEPPER`) stops the server booting, and so does either secret under 32 bytes. Also `isProduction`, `isGoogleConfigured` |
 | `db/connect.js` | `connectDatabase`, `disconnectDatabase`: used by the server and every script |
 | `errors/http-error.js` | `HttpError`, and `badRequest`, `unauthorized`, `forbidden`, `notFound`. Throw one from a controller or service; the error handler turns it into a JSON reply |
 | `middleware/error-handler.js` | Every error becomes JSON. In production a 500 says "Internal server error" and nothing more |
@@ -181,6 +187,7 @@ Used by both pipelines, and by `admin`:
 | `insight-versions.js`, `amendments.js` | Keeps the summary a change replaces, records what changed, rolls back ([0031](../decisions/0031-keep-the-summary-a-change-replaces.md), [0032](../decisions/0032-record-what-changed-in-a-tor.md)) |
 | `workable.js`, `queues.js` | Which projects are worth the work, and the three kinds of work in the order a day's delay costs most ([0030](../decisions/0030-run-the-night-in-priority-waves.md)) |
 | `deadline.js` | The time box: with `--until`, a step takes no new work after that time ([0027](../decisions/0027-run-the-pipeline-on-a-schedule.md)) |
+| `clamd.js` | Asks ClamAV whether a file is known to be malicious, over TCP with no npm package ([0040](../decisions/0040-files-are-scanned-before-they-are-kept.md)) |
 | `egp-links.js`, `user-agent.js`, `thai-text.js`, `thai-number-words.js` | e-GP URLs, our honest User-Agent, Thai text helpers |
 
 ## Where the rules bend
