@@ -80,6 +80,7 @@ In [overview/](overview/), except the last two: `pipeline-guide.md` and
 | [tor-schema.md](database/tor-schema.md) | `Tor`: a project as ingestion knows it |
 | [tor-insight-schema.md](database/tor-insight-schema.md) | `TorInsight` and `TorInsightVersion`: the summary, and the versions it replaced |
 | [user-schema.md](database/user-schema.md) | `User`: the account, the profile, the watchlist |
+| [email-token-schema.md](database/email-token-schema.md) | `EmailToken`: a registration waiting for its confirm link |
 | [technology-schema.md](database/technology-schema.md) | `Technology`: the technology vocabulary |
 | [title-screen-schema.md](database/title-screen-schema.md) | `TitleScreen`: Gemini's verdict on a title, before anything is downloaded |
 | [pipeline-run-schema.md](database/pipeline-run-schema.md) | `PipelineLock`, `PipelineFailure`, `PipelineRun`, `FeedPoll`, `IngestionLog` and `RequestStreak`: the pipeline's bookkeeping |

@@ -51,7 +51,7 @@ The main folders only. Each has its own section below, with a row per file.
 ├── client/                 Next.js frontend
 │   ├── app/
 │   │   ├── page.tsx        the introduction page (/)
-│   │   ├── auth/           sign-in (/auth)
+│   │   ├── auth/           sign-in and the confirm-link page (/auth, /auth/verify)
 │   │   ├── (app)/          pages inside the shell: search, tor/[id], watchdog, admin
 │   │   │   └── (private)/  signed-in only: profile, watchlist, notifications
 │   │   ├── _components/    shared UI: shell, badges, the TOR detail sections
@@ -498,6 +498,7 @@ never appears in the URL.
 | :--- | :--- | :--- | :--- |
 | `/` | `page.tsx` | API | everyone |
 | `/auth` | `auth/page.tsx`, `_components/auth-form.tsx` | API | everyone |
+| `/auth/verify` | `auth/verify/page.tsx`, `_components/verify-email-form.tsx` | API | anyone with a confirm link |
 | `/search` | `(app)/search/` | API | everyone; match mode needs a profile |
 | `/tor/[id]` | `(app)/tor/[id]/`, `_components/tor-detail/` | API | everyone |
 | `/watchdog` | `(app)/watchdog/` | API | everyone |
@@ -517,6 +518,7 @@ never appears in the URL.
 | [globals.css](../client/app/globals.css) | Tailwind setup and colour tokens for both themes. |
 | [page.tsx](../client/app/page.tsx) | The introduction page: what GIPDP is, latest TORs, a way into the catalog. |
 | [auth/page.tsx](../client/app/auth/page.tsx) | Checks `?next=` on the server, then renders the sign-in form. |
+| [auth/verify/page.tsx](../client/app/auth/verify/page.tsx) | Where a confirm email links to (`#token=…`). A server component only for its `noindex` metadata; the token after `#` reaches no server, so the form reads it in the browser ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)). |
 | [(app)/layout.tsx](../client/app/(app)/layout.tsx) | Wraps every page in the shell. |
 | [(app)/not-found.tsx](../client/app/(app)/not-found.tsx) | 404 inside the shell. |
 | [(app)/(private)/layout.tsx](../client/app/(app)/(private)/layout.tsx) | Guests see a sign-in prompt instead of the page. A convenience; the API is the real guard. |
@@ -597,8 +599,9 @@ never appears in the URL.
 | [tor-detail/tabs/EligibilityHistoryTab.tsx](../client/app/_components/tor-detail/tabs/EligibilityHistoryTab.tsx) | Who may bid; payment, delivery and evaluation; what changed. |
 | [tor-detail/_lib/tor-helpers.tsx](../client/app/_components/tor-detail/_lib/tor-helpers.tsx) | Money and date formatters, plus small shared pieces: change notices, links to the originals, "not analysed". |
 | [PdfPreviewModal.tsx](../client/app/_components/PdfPreviewModal.tsx) | In-page PDF viewer, for the detail page and admin. When there's no file it says why, by the server's code: no copy stored, too many requests, or a failed load. |
-| [auth.tsx](../client/app/_components/auth.tsx) | `AuthProvider` and `useAuth`: who is signed in (`/api/auth/me`), sign in, up and out. |
-| [auth-form.tsx](../client/app/_components/auth-form.tsx) | Sign-in and sign-up form, with Google. |
+| [auth.tsx](../client/app/_components/auth.tsx) | `AuthProvider` and `useAuth`: who is signed in (`/api/auth/me`), sign in, up (which only sends the email) and out, and `confirmEmail`, which signs in. |
+| [auth-form.tsx](../client/app/_components/auth-form.tsx) | Sign-in and sign-up form, with Google. After sign-up, "check your inbox", with send again and use another address. Also `AuthHeader`, the bar over both account screens. |
+| [verify-email-form.tsx](../client/app/_components/verify-email-form.tsx) | The confirm page: reads the token from the URL's `#` with `useSyncExternalStore`, clears it, and asks for the password chosen at sign-up. Says what to do when the link is expired, used or already confirmed ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)). |
 | [sign-in-prompt.tsx](../client/app/_components/sign-in-prompt.tsx) | What a guest sees in place of a signed-in page. |
 | [prefs.tsx](../client/app/_components/prefs.tsx) | Language (fixed to Thai) and the profile: the server's, or a guest's local one. |
 | [BeforeAfterSlider.tsx](../client/app/_components/BeforeAfterSlider.tsx) | Introduction-page illustration: a scanned government PDF against the GIPDP summary. |
@@ -679,6 +682,7 @@ links down to the reference pages.
 | [tor-schema.md](database/tor-schema.md) | `Tor`, field by field. |
 | [tor-insight-schema.md](database/tor-insight-schema.md) | `TorInsight` and its sub-schemas, field by field. |
 | [user-schema.md](database/user-schema.md) | `User`: account, role, profile, watchlist. |
+| [email-token-schema.md](database/email-token-schema.md) | `EmailToken`: a registration held until its address is confirmed, as the token's hash. |
 | [technology-schema.md](database/technology-schema.md) | `Technology`: the vocabulary. |
 | [title-screen-schema.md](database/title-screen-schema.md) | `TitleScreen`: the title screen's verdicts. |
 | [pipeline-run-schema.md](database/pipeline-run-schema.md) | The pipeline's bookkeeping: `PipelineLock`, `PipelineFailure`, `PipelineRun`, `FeedPoll`, `IngestionLog`, `RequestStreak`. |
