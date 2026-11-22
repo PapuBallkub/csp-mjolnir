@@ -27,7 +27,7 @@ import {
   VersionHistoryDrawer,
 } from "./ReviewEditorComponents";
 import PdfPreviewModal from "../../../../_components/PdfPreviewModal";
-import { getEgpAnnouncementUrl } from "../../../../_lib/format";
+import { getBangkokDateParts, getEgpAnnouncementUrl } from "../../../../_lib/format";
 
 function confidenceTone(value: number): string {
   if (value < 0.7) return "bg-risk text-white";
@@ -124,15 +124,9 @@ function parseIntegerInput(val: string): { valid: boolean; value: number | null 
 
 function toDateInputValue(val: string | null | undefined): string {
   if (!val) return "";
-  const match = val.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (match) return match[1];
-  try {
-    const d = new Date(val);
-    if (!Number.isNaN(d.getTime())) {
-      return d.toISOString().slice(0, 10);
-    }
-  } catch {
-    // fallback
+  const parts = getBangkokDateParts(val);
+  if (parts) {
+    return `${parts.year}-${String(parts.month + 1).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
   }
   return val.slice(0, 10);
 }

@@ -64,8 +64,9 @@ export function getFiscalYear(dateVal, projectId) {
   if (dateVal) {
     const d = new Date(dateVal);
     if (!Number.isNaN(d.getTime())) {
-      const year = d.getFullYear();
-      const month = d.getMonth(); // 0 = Jan, 8 = Sep, 9 = Oct
+      const bkk = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+      const year = bkk.getUTCFullYear();
+      const month = bkk.getUTCMonth(); // 0 = Jan, 8 = Sep, 9 = Oct
       const fyGregorian = month >= 9 ? year + 1 : year;
       return fyGregorian + 543;
     }

@@ -9,6 +9,11 @@ export function buildCspHeader(isProduction: boolean): string {
   // ASVS V3.2.6: In production, automatically upgrade any HTTP requests to HTTPS.
   const upgradeInsecure = isProduction ? "upgrade-insecure-requests;" : "";
 
+  // ASVS V3.2.1, V12.1: Disallow insecure plain HTTP localhost in production connect-src.
+  const connectSrc = isProduction
+    ? "connect-src 'self' https:;"
+    : "connect-src 'self' http://localhost:8000 https:;";
+
   return `
     default-src 'self';
     ${scriptSrc}
@@ -20,7 +25,7 @@ export function buildCspHeader(isProduction: boolean): string {
     base-uri 'self';
     form-action 'self';
     frame-ancestors 'none';
-    connect-src 'self' http://localhost:8000 https:;
+    ${connectSrc}
     ${upgradeInsecure}
   `
     .replace(/\s{2,}/g, " ")

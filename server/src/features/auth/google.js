@@ -39,7 +39,9 @@ export const LEGACY_OAUTH_STATE_COOKIE = 'mjolnir_oauth_state';
 
 export function getOAuthStateFromRequest(req) {
   if (!req?.cookies) return null;
-  return req.cookies[OAUTH_STATE_COOKIE] || req.cookies[LEGACY_OAUTH_STATE_COOKIE] || null;
+  // Strictly enforce the active OAUTH_STATE_COOKIE (__Host-mjolnir_oauth_state in production,
+  // mjolnir_oauth_state in dev/test). No legacy fallback in production to prevent OAuth state fixation.
+  return req.cookies[OAUTH_STATE_COOKIE] || null;
 }
 
 // Long enough to pick an account and type a password, short enough that an

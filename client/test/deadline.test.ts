@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { countdownText, daysLeft, formatThaiDate } from "../app/_lib/deadline.ts";
+import { countdownText, daysLeft, formatThaiDate, formatThaiDateTime } from "../app/_lib/deadline.ts";
 
 test("daysLeft: calculates calendar day delta in Bangkok timezone (UTC+7)", () => {
   // 2026-11-10 10:00:00 UTC = 17:00:00 Bangkok
@@ -51,11 +51,19 @@ test("countdownText: assigns correct urgency tone and localized copy", () => {
   assert.ok(normal.tone.includes("text-ink"));
 });
 
-test("formatThaiDate: formats date with Thai Buddhist year", () => {
+test("formatThaiDate: formats date with Thai Buddhist year in Bangkok time", () => {
   // 2026-11-20 -> พ.ศ. 2569
   const formatted = formatThaiDate("2026-11-20T09:00:00Z");
-  assert.ok(formatted.includes("2569"));
-  assert.ok(formatted.includes("พ.ย."));
+  assert.equal(formatted, "20 พ.ย. 2569");
+
+  // Boundary check: 2026-11-19 17:00:00 UTC is 00:00:00 on Nov 20 in Bangkok
+  assert.equal(formatThaiDate("2026-11-19T17:00:00Z"), "20 พ.ย. 2569");
+});
+
+test("formatThaiDateTime: formats date and time in Bangkok time", () => {
+  assert.equal(formatThaiDateTime("2026-11-20T09:05:00Z"), "20 พ.ย. 2569 16:05");
+  assert.equal(formatThaiDateTime(null), "-");
+  assert.equal(formatThaiDateTime("invalid"), "-");
 });
 
 test("daysLeft: safely defaults now to current date when omitted or undefined", () => {

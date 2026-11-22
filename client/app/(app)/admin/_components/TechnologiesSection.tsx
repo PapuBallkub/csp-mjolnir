@@ -213,7 +213,7 @@ export function TechnologiesSection({
                       <span>
                         {new Date(tech.createdAt).toLocaleDateString(
                           "th-TH",
-                          { dateStyle: "medium" },
+                          { timeZone: "Asia/Bangkok", dateStyle: "medium" },
                         )}
                       </span>
                     )}

@@ -14,7 +14,9 @@ export function useDebounced<T>(value: T, ms: number): T {
 
 /** "1 ต.ค. 2569 14:05", in Thai time */
 export function formatUpdated(iso: string): string {
-  const bangkok = new Date(new Date(iso).getTime() + 7 * 60 * 60 * 1000);
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return formatThaiDate(iso);
+  const bangkok = new Date(d.getTime() + 7 * 60 * 60 * 1000);
   const time = bangkok.toISOString().slice(11, 16);
   return `${formatThaiDate(iso)} ${time}`;
 }

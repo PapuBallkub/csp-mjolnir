@@ -4,22 +4,9 @@ import Link from "next/link";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import { StatusBadge } from "../../../../_components/verdict";
 import { Panel } from "../../../../_components/ui";
-import { formatTHB } from "../../../../_data/tors";
+import { formatTHB, type Status } from "../../../../_data/tors";
+import { formatThaiDateTime as formatThaiDate } from "../../../../_lib/deadline";
 import type { StatusSnapshot } from "../../../../_lib/api";
-import type { Status } from "../../../../_data/tors";
-
-function formatThaiDate(dateStr?: string | Date | null) {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 type SingleStatusItem = {
   projectId: string;

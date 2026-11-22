@@ -4,28 +4,14 @@ import Link from "next/link";
 import { Clock, ExternalLink } from "lucide-react";
 import { Panel } from "../../../../_components/ui";
 import { formatTHB } from "../../../../_data/tors";
+import { daysLeft, formatThaiDateTime as formatThaiDate } from "../../../../_lib/deadline";
 import type { MatchSnapshot, MatchedTorSummary } from "../../../../_lib/api";
-
-function formatThaiDate(dateStr?: string | null) {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function calculateDaysRemaining(deadlineStr?: string | null) {
   if (!deadlineStr) return null;
   const deadline = new Date(deadlineStr);
   if (isNaN(deadline.getTime())) return null;
-  const now = new Date();
-  const diffDays = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return diffDays;
+  return daysLeft(deadlineStr);
 }
 
 export function MatchView({
@@ -100,7 +86,7 @@ export function MatchView({
                               : "text-ink-3"
                           }`}
                         >
-                          ({daysLeft > 0 ? `เหลือ ${daysLeft} วัน` : "สิ้นสุดแล้ว"})
+                          ({daysLeft > 0 ? `เหลือ ${daysLeft} วัน` : daysLeft === 0 ? "ปิดรับวันนี้" : "สิ้นสุดแล้ว"})
                         </span>
                       ) : null}
                     </span>

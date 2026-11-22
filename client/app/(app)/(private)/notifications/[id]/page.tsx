@@ -15,23 +15,11 @@ import {
 import { btn, Panel } from "../../../../_components/ui";
 import * as api from "../../../../_lib/api";
 import type { NotificationFeedItem } from "../../../../_lib/api";
+import { formatThaiDateTime as formatThaiDate } from "../../../../_lib/deadline";
 import { AmendmentView } from "../_components/amendment-view";
 import { StatusChangeView } from "../_components/status-change-view";
 import { DeadlineView } from "../_components/deadline-view";
 import { MatchView } from "../_components/match-view";
-
-function formatThaiDate(dateStr?: string | Date | null) {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function getItemCount(notification: NotificationFeedItem): number {
   const snapshot = notification.snapshot;

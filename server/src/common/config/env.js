@@ -26,7 +26,12 @@ function required(name, hint, { minBytes = 0 } = {}) {
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: Number(process.env.PORT ?? 8000),
-  corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+  // ASVS V3.5, V13.1, V15.2: In production, CORS_ORIGIN is required so the server
+  // never falls back to an insecure default origin like localhost with credentials.
+  corsOrigin:
+    (process.env.NODE_ENV ?? 'development') === 'production' && !process.env.CORS_ORIGIN
+      ? required('CORS_ORIGIN', 'Set CORS_ORIGIN to the production client origin (e.g. https://app.gipdp.go.th).')
+      : (process.env.CORS_ORIGIN ?? 'http://localhost:3000'),
   // How many reverse proxies stand between the internet and this process, which
   // is the only way Express can work out a caller's real address. 0 is right
   // for a local run and for docker compose, where nothing sits in front.
