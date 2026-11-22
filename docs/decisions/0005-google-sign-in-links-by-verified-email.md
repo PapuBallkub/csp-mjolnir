@@ -181,3 +181,11 @@ that names the state it expects:
   missing, and is otherwise unchanged.
 - **The callback learns whether it linked:** `signInWithGoogle` returns
   `{ user, linked }`.
+
+## Update · 2026-11-22: a Google-only account can add a password
+
+The decision the Consequences left to the reset branch:
+[0042](0042-passwords-can-be-changed-reset-and-checked.md) lets an account
+with no password set one through the same emailed link as a reset. The email
+says "set" instead of "reset". `/account` offers it when the account has no
+password, since there's no current one to give.

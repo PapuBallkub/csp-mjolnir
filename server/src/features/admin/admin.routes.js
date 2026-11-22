@@ -49,11 +49,12 @@ export function createAdminRoutes(limits = adminRateLimits, { mail } = {}) {
 
   adminRoutes.use(requireAuth, requireRole('admin'));
 
-  // One budget across the four POSTs that trigger costly external or queue work
-  // (ADR 0007, ASVS V2.4.1, V8): a fetch and a health check call e-GP, a
-  // retry-all puts every failed TOR back in the night's queue, and a
-  // re-extraction sends a summary back to review, which takes it off the public
-  // site. Works alongside SameSite=Lax session cookies as defense-in-depth.
+  // One budget across the five POSTs that trigger costly external, queue or mail
+  // work (ADR 0007, ASVS V2.4.1, V8): a fetch and a health check call e-GP, a
+  // retry-all puts every failed TOR back in the night's queue, a re-extraction
+  // sends a summary back to review, which takes it off the public site, and a
+  // password reset sends a user an email. Works alongside SameSite=Lax session
+  // cookies as defense-in-depth.
   const costly = limitByUser(limits.adminCostly);
 
   // No rate limit: an admin refreshing a dashboard is the intended use, and a

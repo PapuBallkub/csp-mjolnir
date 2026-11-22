@@ -51,7 +51,7 @@ The main folders only. Each has its own section below, with a row per file.
 ├── client/                 Next.js frontend
 │   ├── app/
 │   │   ├── page.tsx        the introduction page (/)
-│   │   ├── auth/           sign-in and the confirm-link page (/auth, /auth/verify)
+│   │   ├── auth/           sign-in, confirm, forgot and reset (/auth, /auth/verify, /auth/forgot, /auth/reset)
 │   │   ├── (app)/          pages inside the shell: search, tor/[id], watchdog, admin
 │   │   │   └── (private)/  signed-in only: profile, watchlist, notifications
 │   │   ├── _components/    shared UI: shell, badges, the TOR detail sections
@@ -207,7 +207,7 @@ that owns the collection. Import models from `#models/index.js`.
 | [tor-insight.model.js](../server/src/models/tor-insight.model.js) | `TorInsight`: the normalized summary extraction builds. Identification, facts, requirements, eligibility, contract terms, lock-spec and price analytics, evidence, review state. Spec: [tor-insight-schema.md](database/tor-insight-schema.md). |
 | [tor-insight-version.model.js](../server/src/models/tor-insight-version.model.js) | `TorInsightVersion`: a summary a change replaced, kept for diffs and rollback ([0031](decisions/0031-keep-the-summary-a-change-replaces.md)). |
 | [user.model.js](../server/src/models/user.model.js) | `User`: account, role, capability profile, watchlist, and when the address was confirmed. Spec: [user-schema.md](database/user-schema.md). |
-| [email-token.model.js](../server/src/models/email-token.model.js) | `EmailToken`: a registration waiting for its confirm link, kept as the token's hash; gone after a day ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)). Spec: [email-token-schema.md](database/email-token-schema.md). |
+| [email-token.model.js](../server/src/models/email-token.model.js) | `EmailToken`: a registration waiting for its confirm link (gone after a day, [0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)), or a reset link (an hour, [0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)), kept as the token's hash. Spec: [email-token-schema.md](database/email-token-schema.md). |
 | [technology.model.js](../server/src/models/technology.model.js) | `Technology`: one canonical name per technology, with aliases ([0014](decisions/0014-price-names-and-insight-data-rules.md)). Spec: [technology-schema.md](database/technology-schema.md). |
 | [project-categories.js](../server/src/models/project-categories.js) | The seven kinds of IT project a TOR can be ([0034](decisions/0034-a-tor-can-have-several-categories.md)). Mirrored in `client/app/_lib/categories.ts`. |
 | [standard-conditions.js](../server/src/models/standard-conditions.js) | The eligibility conditions every e-GP TOR repeats, as keys. |
@@ -228,7 +228,7 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 
 | File | What it is |
 | :--- | :--- |
-| [admin.routes.js](../server/src/features/admin/admin.routes.js) | Every admin URL, built by `createAdminRoutes(limits)`. Guards the whole router with `requireAuth` and `requireRole('admin')`; re-extract, ingest, health-check and retry-all share one limit per admin. |
+| [admin.routes.js](../server/src/features/admin/admin.routes.js) | Every admin URL, built by `createAdminRoutes(limits, { mail })`. Guards the whole router with `requireAuth` and `requireRole('admin')`; re-extract, ingest, health-check, retry-all and the password-reset email share one limit per admin. The reset's handler is auth's. |
 | [admin.controller.js](../server/src/features/admin/admin.controller.js) | Reads params and body, calls the service. A repeated search parameter is a 400. |
 | [admin.service.js](../server/src/features/admin/admin.service.js) | ~2,200 lines; search it by function name. Dashboard data, review queue and workspace (edit, approve, reclassify, re-extract), version rollback, pipeline retry/skip/dismiss, record inspector, manual add, technology vocabulary. |
 | [ops.fixtures.js](../server/src/features/admin/ops.fixtures.js) | Legacy sample dashboard data (retained as fixture reference, no longer loaded by admin service). |
@@ -239,19 +239,21 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 
 | File | What it is |
 | :--- | :--- |
-| [auth.routes.js](../server/src/features/auth/auth.routes.js) | Register, confirm (`verify-email`), login, logout, Google start and callback, `me`. Rate limiters go on here. Built with the mailer `app.js` passes in. |
-| [auth.controller.js](../server/src/features/auth/auth.controller.js) | Sets and clears the session cookie. Registering answers 202 and sends the email after the response; confirming signs in. |
-| [auth.service.js](../server/src/features/auth/auth.service.js) | Holds registrations until confirmed and creates the user then, checks passwords (one bcrypt compare whatever the account), links Google accounts by the rules in [0005](decisions/0005-google-sign-in-links-by-verified-email.md) ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)). `toPublicUser` is the only user shape that leaves the server. |
-| [auth.validation.js](../server/src/features/auth/auth.validation.js) | Checks register, confirm and login bodies. |
+| [auth.routes.js](../server/src/features/auth/auth.routes.js) | Register, confirm (`verify-email`), login, logout, forgot and reset password, change password, Google start and callback, `me`. Rate limiters go on here. Built with the mailer `app.js` passes in. |
+| [auth.controller.js](../server/src/features/auth/auth.controller.js) | Sets and clears the session cookie. Registering answers 202 and sends the email after the response; confirming signs in. A reset clears the cookie and signs nothing in; a change issues a new one ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)). Also the admin-sent reset's handler. |
+| [auth.service.js](../server/src/features/auth/auth.service.js) | Holds registrations until confirmed and creates the user then, checks passwords (one bcrypt compare whatever the account), links Google accounts by the rules in [0005](decisions/0005-google-sign-in-links-by-verified-email.md) ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)), issues reset links and sets or changes passwords ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)). `toPublicUser` is the only user shape that leaves the server; it says `hasPassword` when the hash was fetched. |
+| [auth.validation.js](../server/src/features/auth/auth.validation.js) | Checks register, confirm, login, forgot, reset and change bodies. New passwords go through the policy. |
 | [email-token.js](../server/src/features/auth/email-token.js) | Issues a 256-bit token and its SHA-256; the shape a token must have. |
-| [auth-email.js](../server/src/features/auth/auth-email.js) | The three account emails (confirm, already registered, Google linked) and `sendAfterResponse`, which prints the link instead in development without SMTP. |
+| [password-policy.js](../server/src/features/auth/password-policy.js) | What every new password must pass: 8 to 128 characters, not in the common list, not a context word, the email's name or a word of the user's name give or take digits and symbols ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)). |
+| [data/common-passwords.txt](../server/src/features/auth/data/common-passwords.txt) | 46,945 common breached passwords, from SecLists (MIT). Source, commit and licence in `common-passwords.LICENSE`; rebuilt by `scripts/build-common-passwords.js`. |
+| [auth-email.js](../server/src/features/auth/auth-email.js) | The account emails (confirm, already registered, Google linked, reset or set a password, password changed) and `sendAfterResponse`, which prints the link instead in development without SMTP. |
 | [auth.middleware.js](../server/src/features/auth/auth.middleware.js) | `requireAuth` (loads `req.user` from the cookie) and `requireRole`. |
 | [session.js](../server/src/features/auth/session.js) | Signs and reads the `mjolnir_session` JWT cookie (7 days). |
 | [password.js](../server/src/features/auth/password.js) | HMAC-SHA384 with `PASSWORD_PEPPER`, then bcrypt at cost 12, so the whole password counts ([0039](decisions/0039-passwords-are-peppered-before-bcrypt.md)). |
 | [google.js](../server/src/features/auth/google.js) | Google OAuth: sign-in URL with `state`, `nonce` and PKCE, the cookie that holds all three, code exchange. |
 | [google-id-token.js](../server/src/features/auth/google-id-token.js) | Checks Google's ID token (RS256 signature, `iss`, `aud`, `azp`, `exp`, `nonce`) and caches Google's signing keys ([0005](decisions/0005-google-sign-in-links-by-verified-email.md)). Reads no env and no network of its own, so tests sign their own tokens. |
-| [rate-limit.js](../server/src/features/auth/rate-limit.js) | The numbers: login per IP and per email, register per IP and per email, confirm per IP. |
-| [index.js](../server/src/features/auth/index.js) | Exports routes, `requireAuth`, `requireRole`, `toPublicUser`. |
+| [rate-limit.js](../server/src/features/auth/rate-limit.js) | The numbers: login per IP and per email, register per IP and per email, confirm per IP, forgot per IP and per email, reset per IP, password change per account. |
+| [index.js](../server/src/features/auth/index.js) | Exports routes, `requireAuth`, `requireRole`, `toPublicUser`, and `createAdminPasswordResetHandler`, which the admin router mounts. |
 
 **health**: `/health`, outside `/api`
 
@@ -423,6 +425,7 @@ Run with `npm run <name>`, or `node scripts/<file>` for the one-off ones.
 | [find-comparable.js](../server/scripts/find-comparable.js) | `npm run comparable`: comparable projects and price benchmarks. `--all --save` runs in the nightly job. |
 | [grant-role.js](../server/scripts/grant-role.js) | `npm run role -- <email> admin\|user`. The only way to make an admin. |
 | [backfill-roles.js](../server/scripts/backfill-roles.js) | One-off: writes `name` and `role` onto accounts created before they existed. |
+| [build-common-passwords.js](../server/scripts/build-common-passwords.js) | `node scripts/build-common-passwords.js <file>`: rebuilds the common-password list from a SecLists file you downloaded. No network, no database. |
 | [check-gemini.js](../server/scripts/check-gemini.js) | `npm run gemini:check`: checks the gcloud login, project and model; counts a TOR's tokens. |
 | [fetch-egp-agencies.js](../server/scripts/fetch-egp-agencies.js) | `npm run agencies:fetch`: refreshes `egp-agencies.json` from data.go.th. |
 | [run-schedule.js](../server/scripts/run-schedule.js) | `npm run schedule`: runs the jobs on their schedule from your machine. |
@@ -461,7 +464,9 @@ the `mjolnir_test` database.
   pre-hash on its own, against RFC 4231's published value. `auth-verify`
   covers confirming an address (0041): one answer for every address, the
   token, the password at confirmation, the 503 in production without SMTP (in
-  a child process); `auth.test.js` signs up through the whole journey.
+  a child process); `auth-reset` covers forgot, reset, change and the
+  admin-sent link (0042), and `password-policy` the policy on its own;
+  `auth.test.js` signs up through the whole journey.
 - [test/helpers/accounts.js](../server/test/helpers/accounts.js): outside the
   test glob. A confirmed account straight from the database and its session
   cookie (`signedInAccount`), for tests about something other than signing up,
@@ -499,10 +504,13 @@ never appears in the URL.
 | `/` | `page.tsx` | API | everyone |
 | `/auth` | `auth/page.tsx`, `_components/auth-form.tsx` | API | everyone |
 | `/auth/verify` | `auth/verify/page.tsx`, `_components/verify-email-form.tsx` | API | anyone with a confirm link |
+| `/auth/forgot` | `auth/forgot/page.tsx`, `_components/forgot-password-form.tsx` | API | everyone |
+| `/auth/reset` | `auth/reset/page.tsx`, `_components/reset-password-form.tsx` | API | anyone with a reset link |
 | `/search` | `(app)/search/` | API | everyone; match mode needs a profile |
 | `/tor/[id]` | `(app)/tor/[id]/`, `_components/tor-detail/` | API | everyone |
 | `/watchdog` | `(app)/watchdog/` | API | everyone |
 | `/profile` | `(app)/(private)/profile/` | API | signed in |
+| `/account` | `(app)/(private)/account/page.tsx` | API | signed in |
 | `/watchlist` | `(app)/(private)/watchlist/page.tsx` | API | signed in |
 | `/notifications` | `(app)/(private)/notifications/page.tsx`, `notifications/[id]/page.tsx` | API | signed in |
 | `/admin` | `(app)/admin/page.tsx`, `(app)/admin/_components/` | API | admin |
@@ -519,6 +527,8 @@ never appears in the URL.
 | [page.tsx](../client/app/page.tsx) | The introduction page: what GIPDP is, latest TORs, a way into the catalog. |
 | [auth/page.tsx](../client/app/auth/page.tsx) | Checks `?next=` on the server, then renders the sign-in form. |
 | [auth/verify/page.tsx](../client/app/auth/verify/page.tsx) | Where a confirm email links to (`#token=…`). A server component only for its `noindex` metadata; the token after `#` reaches no server, so the form reads it in the browser ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)). |
+| [auth/forgot/page.tsx](../client/app/auth/forgot/page.tsx) | Asks for a reset link ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)). |
+| [auth/reset/page.tsx](../client/app/auth/reset/page.tsx) | Where a reset email links to (`#token=…`), `noindex`, as `/auth/verify`. |
 | [(app)/layout.tsx](../client/app/(app)/layout.tsx) | Wraps every page in the shell. |
 | [(app)/not-found.tsx](../client/app/(app)/not-found.tsx) | 404 inside the shell. |
 | [(app)/(private)/layout.tsx](../client/app/(app)/(private)/layout.tsx) | Guests see a sign-in prompt instead of the page. A convenience; the API is the real guard. |
@@ -545,7 +555,7 @@ never appears in the URL.
 | [error.tsx](../client/app/(app)/tor/[id]/error.tsx) | The API failed: says so and offers a retry. Never "not found". |
 | [not-found.tsx](../client/app/(app)/tor/[id]/not-found.tsx) | No such TOR, or none the public may see. |
 
-**watchdog, profile, watchlist, notifications**
+**watchdog, profile, account, watchlist, notifications**
 
 | File | What it is |
 | :--- | :--- |
@@ -555,9 +565,10 @@ never appears in the URL.
 | [watchdog/_components/PriceRealitySummary.tsx](../client/app/(app)/watchdog/_components/PriceRealitySummary.tsx) | Standardized 5-card summary row (Sample Size, Median, Average, Price Deviation with <5 sample guard, and Price Span). |
 | [watchdog/_components/LockSpecOverview.tsx](../client/app/(app)/watchdog/_components/LockSpecOverview.tsx) | Circular ว 214 breakdown with sample-relative progress bars and statutory legal citations. |
 | [watchdog/_components/WatchdogEvidenceTable.tsx](../client/app/(app)/watchdog/_components/WatchdogEvidenceTable.tsx) | 4-column compact evidence table with dropdown sorting options and client-side pagination. |
-| [profile/page.tsx](../client/app/(app)/(private)/profile/page.tsx) | Shows the capability profile, or edits it with `?edit=true`. |
+| [profile/page.tsx](../client/app/(app)/(private)/profile/page.tsx) | Shows the capability profile, or edits it with `?edit=true`. Links to `/account`. |
 | [profile/_components/ProfileDisplay.tsx](../client/app/(app)/(private)/profile/_components/ProfileDisplay.tsx) | Read-only profile. |
 | [profile/_components/ProfileEditForm.tsx](../client/app/(app)/(private)/profile/_components/ProfileEditForm.tsx) | ~1,100 lines. Skills from the vocabulary, budget, certifications, entity type, archetypes. |
+| [account/page.tsx](../client/app/(app)/(private)/account/page.tsx) | Account and password: change the password, or, for an account that signs in only with Google, email a link to set one ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)). |
 | [watchlist/page.tsx](../client/app/(app)/(private)/watchlist/page.tsx) | Saved TORs, with a notice on those that changed since saving. |
 | [notifications/page.tsx](../client/app/(app)/(private)/notifications/page.tsx), [notifications/[id]/page.tsx](../client/app/(app)/(private)/notifications/[id]/page.tsx) | In-app notification feed, unread tracking, single notification view, and email alert settings. |
 
@@ -565,7 +576,7 @@ never appears in the URL.
 
 | File | What it is |
 | :--- | :--- |
-| [page.tsx](../client/app/(app)/admin/page.tsx) | ~1,400 lines. Source health, pipeline monitoring, runs, failures, review queue, vocabulary. |
+| [page.tsx](../client/app/(app)/admin/page.tsx) | ~1,400 lines. Source health, pipeline monitoring, runs, failures, review queue, vocabulary, and sending a user a reset link. |
 | [_components/index.ts](../client/app/(app)/admin/_components/index.ts) | Re-exports the sections. |
 | [_components/PipelineMonitoringSection.tsx](../client/app/(app)/admin/_components/PipelineMonitoringSection.tsx) | Pipeline tasks by phase, with search and retry/skip. |
 | [_components/PipelineRunsSection.tsx](../client/app/(app)/admin/_components/PipelineRunsSection.tsx) | Scheduled job runs and their steps. |
@@ -577,6 +588,7 @@ never appears in the URL.
 | [_components/ConfidenceBar.tsx](../client/app/(app)/admin/_components/ConfidenceBar.tsx) | The confidence score as a bar. |
 | [_components/TechnologiesSection.tsx](../client/app/(app)/admin/_components/TechnologiesSection.tsx) | Vocabulary table: confirm, merge, edit, delete. |
 | [_components/AddEditTechnologyModal.tsx](../client/app/(app)/admin/_components/AddEditTechnologyModal.tsx) | Add or edit one technology. |
+| [_components/PasswordResetCard.tsx](../client/app/(app)/admin/_components/PasswordResetCard.tsx) | Sends a user a reset link by address. No password field, and the link never comes back ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)). |
 | [review/[id]/page.tsx](../client/app/(app)/admin/review/[id]/page.tsx) | ~2,600 lines. The review workspace: edit any extracted field, approve, reclassify, re-extract, see and roll back versions, with the PDF alongside. |
 | [review/[id]/ReviewEditorComponents.tsx](../client/app/(app)/admin/review/[id]/ReviewEditorComponents.tsx) | Field editors for the workspace, including the numbered category picker. |
 
@@ -599,9 +611,12 @@ never appears in the URL.
 | [tor-detail/tabs/EligibilityHistoryTab.tsx](../client/app/_components/tor-detail/tabs/EligibilityHistoryTab.tsx) | Who may bid; payment, delivery and evaluation; what changed. |
 | [tor-detail/_lib/tor-helpers.tsx](../client/app/_components/tor-detail/_lib/tor-helpers.tsx) | Money and date formatters, plus small shared pieces: change notices, links to the originals, "not analysed". |
 | [PdfPreviewModal.tsx](../client/app/_components/PdfPreviewModal.tsx) | In-page PDF viewer, for the detail page and admin. When there's no file it says why, by the server's code: no copy stored, too many requests, or a failed load. |
-| [auth.tsx](../client/app/_components/auth.tsx) | `AuthProvider` and `useAuth`: who is signed in (`/api/auth/me`), sign in, up (which only sends the email) and out, and `confirmEmail`, which signs in. |
-| [auth-form.tsx](../client/app/_components/auth-form.tsx) | Sign-in and sign-up form, with Google. After sign-up, "check your inbox", with send again and use another address. Also `AuthHeader`, the bar over both account screens. |
-| [verify-email-form.tsx](../client/app/_components/verify-email-form.tsx) | The confirm page: reads the token from the URL's `#` with `useSyncExternalStore`, clears it, and asks for the password chosen at sign-up. Says what to do when the link is expired, used or already confirmed ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)). |
+| [auth.tsx](../client/app/_components/auth.tsx) | `AuthProvider` and `useAuth`: who is signed in (`/api/auth/me`), sign in, up (which only sends the email) and out, `confirmEmail`, which signs in, and `changePassword`. |
+| [auth-form.tsx](../client/app/_components/auth-form.tsx) | Sign-in and sign-up form, with Google. After sign-up, "check your inbox", with send again and use another address. A "ลืมรหัสผ่าน?" link to `/auth/forgot`. Also `AuthHeader`, the bar over the account screens. |
+| [verify-email-form.tsx](../client/app/_components/verify-email-form.tsx) | The confirm page: reads the token from the URL's `#` with `useLinkToken`, which clears it, and asks for the password chosen at sign-up. Says what to do when the link is expired, used or already confirmed ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)). |
+| [link-token.ts](../client/app/_components/link-token.ts) | `useLinkToken`: the token after `#` in an emailed link, read once per page with `useSyncExternalStore`, then cleared from the address bar. Used by the confirm and reset pages. |
+| [forgot-password-form.tsx](../client/app/_components/forgot-password-form.tsx) | Asks for a reset link; the same answer for every address. |
+| [reset-password-form.tsx](../client/app/_components/reset-password-form.tsx) | The reset page: a new password, then a link to sign in, since a reset signs nothing in ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)). Says what to do when the link is expired or used. |
 | [sign-in-prompt.tsx](../client/app/_components/sign-in-prompt.tsx) | What a guest sees in place of a signed-in page. |
 | [prefs.tsx](../client/app/_components/prefs.tsx) | Language (fixed to Thai) and the profile: the server's, or a guest's local one. |
 | [BeforeAfterSlider.tsx](../client/app/_components/BeforeAfterSlider.tsx) | Introduction-page illustration: a scanned government PDF against the GIPDP summary. |
@@ -682,7 +697,7 @@ links down to the reference pages.
 | [tor-schema.md](database/tor-schema.md) | `Tor`, field by field. |
 | [tor-insight-schema.md](database/tor-insight-schema.md) | `TorInsight` and its sub-schemas, field by field. |
 | [user-schema.md](database/user-schema.md) | `User`: account, role, profile, watchlist. |
-| [email-token-schema.md](database/email-token-schema.md) | `EmailToken`: a registration held until its address is confirmed, as the token's hash. |
+| [email-token-schema.md](database/email-token-schema.md) | `EmailToken`: a registration held until its address is confirmed, or a reset link, as the token's hash. |
 | [technology-schema.md](database/technology-schema.md) | `Technology`: the vocabulary. |
 | [title-screen-schema.md](database/title-screen-schema.md) | `TitleScreen`: the title screen's verdicts. |
 | [pipeline-run-schema.md](database/pipeline-run-schema.md) | The pipeline's bookkeeping: `PipelineLock`, `PipelineFailure`, `PipelineRun`, `FeedPoll`, `IngestionLog`, `RequestStreak`. |
@@ -758,3 +773,4 @@ write a new one that supersedes it ([CONTRIBUTING](../CONTRIBUTING.md#decisions)
 | [0039](decisions/0039-passwords-are-peppered-before-bcrypt.md) | Passwords are peppered (HMAC-SHA384) before bcrypt |
 | [0040](decisions/0040-files-are-scanned-before-they-are-kept.md) | Files from e-GP are checked and virus-scanned before they're kept |
 | [0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md) | An address is confirmed before the account exists |
+| [0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md) | Passwords can be changed, reset and checked |

@@ -112,3 +112,16 @@ for every address; the owner of a taken one gets an email instead of a link.
 Signing in now costs one bcrypt compare whether or not the account exists, so a
 missing account no longer answers faster, and a password sign-in to a
 Google-only account gets the same 401 instead of a 500.
+
+## Update · 2026-11-22: a password can be changed and reset
+
+[0042](0042-passwords-can-be-changed-reset-and-checked.md) adds both, and
+closes two Consequences above.
+
+- **Changing a password signs out the other browsers.** The `tokenVersion`
+  suggested above exists (bumped at logout). A change bumps it too, then
+  issues this browser a new cookie, so every other session ends and this one
+  stays.
+- **A reset ends every session and starts none.** It bumps `tokenVersion`,
+  clears the cookie, and the person signs in with the new password.
+- **"Forgot password" goes somewhere:** `/auth/forgot`, which emails a link.

@@ -44,7 +44,7 @@ All data processed, stored, or transmitted by GIPDP is classified into five dist
 
 ### 3.1 Protection of Sensitive Data in Transit (V14.2.1, V14.2.3)
 
-- **Transmission Exclusively via Body or Header**: User credentials (`email`, `password`) are accepted exclusively via HTTP `POST` request bodies (`/api/auth/login`, `/api/auth/register`, `/api/auth/verify-email`). The one-time confirm token travels in the link's `#` fragment, which the browser never sends to a server, and then in the confirm request's body. Credentials are never passed in URL query parameters where they could leak into browser histories, access logs, or HTTP `Referer` headers.
+- **Transmission Exclusively via Body or Header**: User credentials (`email`, `password`) are accepted exclusively via HTTP `POST` request bodies (`/api/auth/login`, `/api/auth/register`, `/api/auth/verify-email`, `/api/auth/reset-password`, `/api/auth/password`). The one-time confirm and reset tokens travel in the link's `#` fragment, which the browser never sends to a server, and then in the request's body. Credentials are never passed in URL query parameters where they could leak into browser histories, access logs, or HTTP `Referer` headers.
 - **Session Transmission**: Tokens are transmitted exclusively in the `Cookie` header over TLS.
 - **Zero Third-Party Exfiltration**: The platform embeds zero third-party analytics trackers, tracking pixels, or marketing SDKs, ensuring user data is never leaked to external parties.
 

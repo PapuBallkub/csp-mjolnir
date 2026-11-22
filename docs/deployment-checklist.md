@@ -80,7 +80,7 @@ Because the session cookie uses `SameSite=Lax` in production to prevent cross-si
 | `SHOW_UNREVIEWED_INSIGHTS` | `true` only for a demo deploy, while no one reviews results yet ([0015](decisions/0015-pilot-mode-and-demo-data.md)). Leave it unset for a real launch. | Unset in production: the catalog shows only reviewed results, so before reviews start it is empty. `true` on a real launch: unchecked AI summaries reach the public with no label saying nobody checked them, only the detail page's "AI can be wrong" notice |
 | `TRUST_PROXY_HOPS` | The number of proxies in front of the server — see §5 | Too low: every user on the internet shares one rate limit bucket. Set to `true`: the caller forges `X-Forwarded-For` and the limiter is decorative |
 | `CLAMD_HOST` | `clamav`, which `docker-compose.yml` already sets; or the address of your ClamAV daemon ([0040](decisions/0040-files-are-scanned-before-they-are-kept.md)) | Unset in production: the pipeline downloads nothing, the admin page's add and re-download buttons refuse, and the server still boots. Set, but ClamAV is down: the same, with "did not answer" in the log. Never published to the internet: clamd's port has no password |
-| `SMTP_USER` / `SMTP_PASS` (and `SMTP_HOST`, `SMTP_PORT`) | The mail account the platform sends from | Unset: password sign-up answers 503 "use Google", because an address can't be confirmed without mail ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)); Google sign-in and everything else still work. Wrong: the 202 still arrives, but no confirm email does, and only the server log says why |
+| `SMTP_USER` / `SMTP_PASS` (and `SMTP_HOST`, `SMTP_PORT`) | The mail account the platform sends from | Unset: password sign-up answers 503 "use Google", because an address can't be confirmed without mail ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)), and so do forgot-password and the admin-sent reset ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)); Google sign-in and everything else still work. Wrong: the 202 still arrives, but no confirm email does, and only the server log says why |
 | `EMAIL_FROM` | A sender on a domain you own, which your mail account may send as | Unset, it falls back to an address on `gipdp.go.th`, a government domain this platform isn't: mail reads as the government's, and SPF checks fail, so it lands in spam |
 
 - [ ] All of the above set in the host's secret manager, not baked into an image
@@ -191,14 +191,17 @@ Do not assume these are handled just because the app works.
       accounts: each account sees a single failure, so the email limiter never
       trips, and a botnet spreads thin enough that no address does either. The
       honest fix is password strength and breach lists, not rate limiting — do
-      not let a green limiter suggest otherwise.
+      not let a green limiter suggest otherwise. Since 0042 a new password
+      can't be one of the 46,945 most common breached ones, so a spray of those
+      can only land on a password set before then.
 - [ ] **`/api/auth/google/callback` is unlimited**, and does a token exchange
       against Google for an anonymous caller. Deliberate, per 0007.
 - [x] **Session revocation is enforced via Token Versioning.** When a user logs
       out, `tokenVersion` increments in the database, invalidating the session
       token immediately.
-- [ ] **No password reset.** A locked-out user has no self-service recovery.
-      Email verification exists since 0041, and reset can reuse its tokens.
+- [x] **Password reset exists** (0042). A locked-out user asks for a link at
+      `/auth/forgot`. In production it needs SMTP, like sign-up, and answers 503
+      without it.
 - [x] **Registration no longer reveals whether an address has an account.** It
       answers the same 202 for every address, and the owner of a taken one gets
       an email instead of a link (0041).
@@ -227,6 +230,13 @@ A checklist you cannot check is a wish list. Run these against the deployed API.
       wrong. No email at all: check the SMTP rows in §2 and the server log
 - [ ] Register again with the same address: the same "check your inbox" answer,
       and an email saying someone tried, with no link
+- [ ] Ask for a reset at `/auth/forgot` with an address you can read. The
+      email arrives, its link opens `/auth/reset` on the client, and a new
+      password is accepted. Sign in with it: the old one fails, and a browser
+      that was signed in before is signed out. A "รหัสผ่านของคุณถูกเปลี่ยนแล้ว"
+      email follows
+- [ ] Change the password at `/account`: this browser stays signed in,
+      another one is signed out, and the same email arrives
 - [ ] Inspect the `__Host-mjolnir_session` cookie in devtools — `Secure` and
       `SameSite=Lax` must both be present
 - [ ] Sign in with Google end to end, since the redirect URI, `CORS_ORIGIN`,

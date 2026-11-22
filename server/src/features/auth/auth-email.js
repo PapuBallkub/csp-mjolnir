@@ -143,13 +143,14 @@ const masked = (address) => address.replace(/^(.)[^@]*/, '$1***');
  * shows in the response time (V6.3.8), and a slow mail server never holds a
  * request open. Never throws; a failure is logged without the token or link.
  *
- * Without SMTP, development prints the confirm link instead, marked as such,
- * so a developer can sign up without a mail account. Production never gets
- * here without SMTP: registration refuses first.
+ * Without SMTP, development prints the confirm or reset link instead, marked as
+ * such, so a developer can sign up or reset without a mail account. Production
+ * without SMTP sends nothing: the routes that need a link refuse first (503),
+ * and a notice (a changed password, a linked Google account) is skipped.
  *
  * @param {{ configured: boolean, send: Function }} mail
  * @param {{ kind: string, to: string, subject: string, text: string, html: string }} message
- * @param {{ link?: string }} [extra] - The confirm link, for development's log only
+ * @param {{ link?: string }} [extra] - The confirm or reset link, for development's log only
  */
 export function sendAfterResponse(mail, message, { link } = {}) {
   setImmediate(async () => {
