@@ -77,6 +77,10 @@ jobs:
             echo "Waiting for API... (attempt $i)"
             sleep 2
           done
+          if ! curl -sf http://localhost:8000/health | grep -q 'ok'; then
+            echo "API server failed to become healthy"
+            exit 1
+          fi
 
       # --- Client Setup, Build & Background Startup ---
       - name: Install client dependencies
@@ -91,13 +95,24 @@ jobs:
 
       - name: Start Next.js client (background)
         run: |
-          nohup npx next start -p 3000 -H 0.0.0.0 > /tmp/client.log 2>&1 &
+          # Next.js standalone mode requires executing the generated standalone server directly
+          if [ -d .next/standalone/client ]; then
+            cp -r .next/static .next/standalone/client/.next/static 2>/dev/null || true
+            cp -r public .next/standalone/client/public 2>/dev/null || true
+            PORT=3000 HOSTNAME=0.0.0.0 nohup node .next/standalone/client/server.js > /tmp/client.log 2>&1 &
+          elif [ -f .next/standalone/server.js ]; then
+            cp -r .next/static .next/standalone/.next/static 2>/dev/null || true
+            cp -r public .next/standalone/public 2>/dev/null || true
+            PORT=3000 HOSTNAME=0.0.0.0 nohup node .next/standalone/server.js > /tmp/client.log 2>&1 &
+          else
+            PORT=3000 HOSTNAME=0.0.0.0 nohup npx next start -p 3000 -H 0.0.0.0 > /tmp/client.log 2>&1 &
+          fi
         working-directory: client
 
       - name: Wait for client response
         run: |
           for i in $(seq 1 30); do
-            status=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000)
+            status=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000 || true)
             if [ "$status" -ge 200 ] && [ "$status" -lt 400 ]; then
               echo "Client is healthy (HTTP $status)"
               break
@@ -105,6 +120,11 @@ jobs:
             echo "Waiting for client... (attempt $i, HTTP $status)"
             sleep 2
           done
+          final_status=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000 || true)
+          if [ "$final_status" -lt 200 ] || [ "$final_status" -ge 400 ]; then
+            echo "Client failed to become healthy (HTTP $final_status)"
+            exit 1
+          fi
 
       # --- Diagnostic Dump if Health Checks Failed ---
       - name: Dump application logs on failure
@@ -130,6 +150,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: zap-baseline-report
+          if-no-files-found: ignore
           path: |
             report_html.html
             report_md.md
