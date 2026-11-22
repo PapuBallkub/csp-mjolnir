@@ -1,7 +1,5 @@
 # GIPDP — Government IT Procurement Discovery Platform
 
-**Repository:** [https://github.com/PapuBallkub/csp-mjolnir](https://github.com/PapuBallkub/csp-mjolnir)
-
 GIPDP (working title: *Mjölnir*) is a web platform that collects Thai government software and IT procurement notices from e-GP and open-data sources, extracts and normalizes their Terms of Reference (TOR) documents into plain-language summaries, and surfaces risk signals — **Price Reality Check** against historical contracts, **Lock-spec Risk** detection, and **Amendment History / Diffs** — alongside capability-based matching and watchlists for small Thai tech companies and freelance developers.
 
 > **Disclaimer:** GIPDP is a third-party discovery and analysis tool. All official procurement announcements and bidding take place on the Comptroller General's Department e-GP portal ([gprocurement.go.th](https://www.gprocurement.go.th)).
@@ -228,4 +226,4 @@ For full documentation, start at **[docs/README.md](docs/README.md)**:
 Capstone Project — Department of Computer Engineering (Software Engineering, `01219346`), Kasetsart University:
 - Amornrit Sirikham
 - Sivapon Channual
-- Pannawit Mahacharoensiri
+- Pannawit Mahacharoensiri
