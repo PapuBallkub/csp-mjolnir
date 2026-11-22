@@ -53,7 +53,7 @@ export function ForgotPasswordForm() {
               </Link>
             </div>
           ) : (
-            <form className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
+            <form method="post" className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
               <h1 className="text-[17px] leading-thai font-semibold text-ink">ลืมรหัสผ่าน</h1>
               <p className="text-[13px] leading-thai text-ink-2">
                 กรอกอีเมลของบัญชี เราจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ไปให้ บัญชีที่สมัครด้วย Google ใช้ลิงก์นี้ตั้งรหัสผ่านครั้งแรกได้เช่นกัน

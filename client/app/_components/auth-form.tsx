@@ -211,7 +211,7 @@ export function AuthForm({ next }: { next: string | null }) {
 
             {/* noValidate: the browser own-language bubble is unlocalised and
                 would pre-empt our messages, which match what the server says. */}
-            <form className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
+            <form method="post" className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
               {mode === "signup" ? (
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="auth-name">ชื่อที่ใช้แสดง</Label>

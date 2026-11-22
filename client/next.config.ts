@@ -38,6 +38,7 @@ export const permissionsPolicyHeader =
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  poweredByHeader: false,
   async headers() {
     const isProd = process.env.NODE_ENV === "production";
     const cspHeader = buildCspHeader(isProd);
