@@ -15,6 +15,8 @@ jobs:
   zap-baseline:
     name: ZAP Baseline Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     services:
       mongodb:
@@ -135,14 +137,21 @@ jobs:
           echo "==================== CLIENT LOG ===================="
           cat /tmp/client.log || echo "No client log"
 
+      # --- Prepare Workspace Permissions for ZAP Docker Container ---
+      - name: Prepare report files for ZAP
+        run: |
+          touch report_html.html report_md.md report_json.json
+          chmod 666 report_html.html report_md.md report_json.json
+
       # --- OWASP ZAP Scan ---
       - name: OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.15.0
         with:
           target: ${{ github.event.inputs.target || 'http://localhost:3000' }}
           rules_file_name: '.zap/rules.tsv'
+          allow_issue_writing: false
           fail_action: false
-          cmd_options: '-m 3 -T 5 -I'
+          cmd_options: '-m 3 -T 5 -I -r report_html.html -w report_md.md -J report_json.json'
 
       # --- Report Artifacts Upload ---
       - name: Upload ZAP Scan Reports
