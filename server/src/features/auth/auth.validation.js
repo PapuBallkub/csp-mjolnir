@@ -1,16 +1,19 @@
 import { badRequest } from '#common/errors/http-error.js';
 
-import { MAX_PASSWORD_BYTES } from './password.js';
-
 // Loose on purpose: only delivery settles whether an address is real, and that
 // is the FR08 verification mail, not this regex.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const MIN_PASSWORD_LENGTH = 8;
 
-// Characters, not bytes. The password ceiling below is in bytes because bcrypt
-// truncates at 72 of them; nothing truncates a name, and a byte limit would
-// stop a Thai name at about 26 characters for no reason anyone could explain.
+// Characters, not bytes, so a Thai password gets the same room as an English
+// one. Nothing is cut off past bcrypt's 72 bytes any more, because the password
+// is pre-hashed first (password.js). The ceiling is there only to bound the
+// work a single request can ask for.
+const MAX_PASSWORD_LENGTH = 128;
+
+// Characters, not bytes, for the same reason: a byte limit would stop a Thai
+// name at about 26 characters for no reason anyone could explain.
 const MAX_NAME_LENGTH = 80;
 
 // Shared by both entry points below, which is the point: login and register
@@ -32,9 +35,9 @@ function collectCredentials(body) {
     errors.password = 'กรุณากรอกรหัสผ่าน';
   } else if (password.length < MIN_PASSWORD_LENGTH) {
     errors.password = `รหัสผ่านต้องมีความยาวอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`;
-  } else if (Buffer.byteLength(password) > MAX_PASSWORD_BYTES) {
-    // Bytes, not characters: Thai is three bytes each, so this arrives at ~24.
-    errors.password = `รหัสผ่านต้องมีขนาดไม่เกิน ${MAX_PASSWORD_BYTES} ไบต์`;
+  } else if ([...password].length > MAX_PASSWORD_LENGTH) {
+    // Counted by code point, so an emoji is one character, not two.
+    errors.password = `รหัสผ่านต้องมีความยาวไม่เกิน ${MAX_PASSWORD_LENGTH} ตัวอักษร`;
   }
 
   return { email, password, errors };
