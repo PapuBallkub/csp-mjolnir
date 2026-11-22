@@ -1,6 +1,7 @@
 # 0011 · A name and a role on the account
 
-Status: accepted · 2026-09-28
+Status: accepted · 2026-09-28 · updated 2026-11-22 (the password ceiling is in
+characters too)
 
 ## Context
 
@@ -145,3 +146,12 @@ against the database, not a flow the product offers. Rejected:
   and genuinely defensible. The script wins only because it validates the role
   against the enum and prints what changed; a mistyped `mongosh` update writes
   `role: 'Admin'` and fails closed with no error anywhere.
+
+## Update · 2026-11-22: the password ceiling is in characters too
+
+The point above about the ceilings was true when written. Since
+[0039](0039-passwords-are-peppered-before-bcrypt.md), a password goes through
+HMAC-SHA384 before bcrypt, so bcrypt always gets 64 characters and truncates
+nothing. The 72-byte limit is gone: a password may be 8 to 128 characters,
+counted by code point, and a Thai password gets the same room as an English one.
+The name ceiling is unchanged.

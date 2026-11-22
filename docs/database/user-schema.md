@@ -25,7 +25,7 @@ The `User` model represents an authenticated account on the platform. It support
 |---|---|---|---|---|---|
 | `email` | `String` | Required, Unique, Lowercase, Trim | — | Primary contact and identity key. Normalized to lowercase to prevent duplicate collision. | `"developer@company.co.th"` |
 | `name` | `String` | Trim, Max length: 80 chars | `""` | User display name or company contact name. Allows Thai & Unicode characters. | `"สมชาย ใจดี"` |
-| `passwordHash` | `String` | Hidden by default (`select: false`) | `undefined` | Bcrypt password hash. Excluded from query projections by default for security. | `"$2b$10$W7Gq...8f"` |
+| `passwordHash` | `String` | Hidden by default (`select: false`) | `undefined` | bcrypt (cost 12) of the password's HMAC-SHA384 under `PASSWORD_PEPPER`, never of the password itself ([0039](../decisions/0039-passwords-are-peppered-before-bcrypt.md)). Excluded from query projections by default for security. | `"$2b$12$W7Gq...8f"` |
 | `googleId` | `String` | Unique, Sparse index | `undefined` | Subject identifier (`sub`) from Google OAuth ID token. Sparse index ensures password-only users don't collide on `null`. | `"109823481239841234981"` |
 | `notificationConsent` | `Boolean` | — | `false` | Explicit opt-in consent for automated email alerts for watched TORs / amendments (FR08). | `true` |
 | `role` | `String` | Enum: `['user', 'admin']`, Indexed | `'user'` | Access control role. Admin rights (`admin`) can view scraper health, OCR confidence, and administrative overrides. | `'user'` or `'admin'` |
