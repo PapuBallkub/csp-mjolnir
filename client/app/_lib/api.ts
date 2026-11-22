@@ -1333,7 +1333,9 @@ export function getTorInsight(projectId: string) {
 /**
  * The URL of a TOR document's preview. The server streams it from the files
  * the pipeline stored and never fetches from e-GP; when there's no copy it
- * answers 404 DOCUMENT_NOT_STORED, and past its rate limit 429.
+ * answers 404 DOCUMENT_NOT_STORED, and past its rate limit 429. It serves only
+ * a file the virus scan passed: 404 DOCUMENT_NOT_SCANNED for one still
+ * waiting, DOCUMENT_BLOCKED for one the scan flagged.
  */
 export function getTorPdfPreviewUrl(projectId: string, part = 0, role?: string): string {
   const params = new URLSearchParams();

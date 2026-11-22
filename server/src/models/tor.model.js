@@ -26,6 +26,20 @@ const submissionWindowSchema = new mongoose.Schema(
   { _id: false },
 );
 
+// What the virus scan said about a kept file. The preview serves a file only
+// when it's 'clean'; a record from before files were scanned has none, which
+// counts as 'unscanned'. 'infected' and 'wrong-type' come from a rescan of
+// files already stored: a download that finds either keeps nothing.
+const scanSchema = new mongoose.Schema(
+  {
+    result: { type: String, enum: ['clean', 'infected', 'unscanned', 'wrong-type'], required: true },
+    // ClamAV's name for what it found, e.g. "Win.Test.EICAR_HDB-1"
+    signature: { type: String, default: null },
+    scannedAt: { type: Date, default: null },
+  },
+  { _id: false },
+);
+
 // One file kept from a package; e-GP's blank forms aren't kept
 const packageFileSchema = new mongoose.Schema(
   {
@@ -37,6 +51,7 @@ const packageFileSchema = new mongoose.Schema(
     contentHash: { type: String, default: null },
     // 'text' reads as it is; 'scan' and 'garbled' need OCR; null if not a PDF
     textLayer: { type: String, enum: ['text', 'scan', 'garbled'], default: null }, // validators skip null
+    scan: { type: scanSchema, default: null },
   },
   { _id: false },
 );
@@ -48,6 +63,7 @@ const torPartSchema = new mongoose.Schema(
     storagePath: { type: String, required: true },
     pages: { type: Number, default: null },
     contentHash: { type: String, default: null },
+    scan: { type: scanSchema, default: null },
   },
   { _id: false },
 );
@@ -255,6 +271,8 @@ const torSchema = new mongoose.Schema(
       // A TOR an agency split over several files, in reading order; empty for
       // one file. OCR reads them as one document (ADR 0020).
       parts: { type: [torPartSchema], default: [] },
+      // The scan of the file at storagePath (the first part, for a TOR in several)
+      scan: { type: scanSchema, default: null },
     },
 
     // OCR & text extraction results

@@ -1736,7 +1736,8 @@ export async function addManualProcurementRecord({ projectId }) {
 
   if (!tor) {
     const error = new Error(
-      `Could not add project ${cleanId}: e-GP returned no announcement package or the announcement has no readable title.`,
+      `Could not add project ${cleanId}: e-GP returned no announcement package, the announcement has no readable title, ` +
+        'or its files could not be scanned (ClamAV not running, or it flagged a file). The server log says which.',
     );
     error.status = 422;
     throw error;

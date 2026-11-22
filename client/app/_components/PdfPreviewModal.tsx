@@ -63,14 +63,20 @@ function PdfPreviewModalContent({
 
   // Why there's no file to show, which picks the card (ADR 0038). The
   // server reads only what the pipeline stored and never fetches from e-GP, so
-  // "not stored" means we have no copy, and the original is one click away. A
-  // 429 or a failed load is worth retrying; a missing copy isn't.
-  const failure: "rate-limited" | "not-stored" | "failed" =
+  // "not stored" means we have no copy, and the original is one click away. It
+  // serves only a file the virus scan passed: "not scanned" is one still
+  // waiting, "blocked" one the scan flagged. A 429 or a failed load is worth
+  // retrying; the others won't change in a few seconds.
+  const failure: "rate-limited" | "not-stored" | "not-scanned" | "blocked" | "failed" =
     errorDetails?.status === 429
       ? "rate-limited"
       : errorDetails?.code === "DOCUMENT_NOT_STORED" || errorDetails?.code === "NO_PUBLIC_DOCUMENT_FOR_METHOD"
         ? "not-stored"
-        : "failed";
+        : errorDetails?.code === "DOCUMENT_NOT_SCANNED"
+          ? "not-scanned"
+          : errorDetails?.code === "DOCUMENT_BLOCKED"
+            ? "blocked"
+            : "failed";
 
   const startLoading = () => {
     setLoading(true);
@@ -86,36 +92,47 @@ function PdfPreviewModalContent({
     setReloadKey((key) => key + 1);
     startLoading();
   };
-  const retryable = failure !== "not-stored";
+  const retryable = failure === "rate-limited" || failure === "failed";
 
   // The card's heading and line. A missing bidding document or announcement
   // keeps its own wording; a missing TOR says we have no copy, not that e-GP
-  // is still preparing one, which we no longer ask it
-  const missingCard =
-    failure === "rate-limited"
+  // is still preparing one, which we no longer ask it. A flagged file says
+  // what happened and that the check can be wrong, never that the agency did
+  // anything (AGENTS.md §7)
+  const notStoredCard =
+    part === 1
       ? {
-          heading: "เปิดดูเอกสารบ่อยเกินไป",
-          body: "รอสักครู่แล้วลองใหม่ หรือเปิดดูฉบับจริงบน e-GP ได้เลย",
+          heading: "ไม่มีเอกสารประกวดราคาในแพ็กเกจนี้",
+          body: "โครงการในขั้นตอนรับฟังความคิดเห็นร่าง หรือบางประกาศอาจไม่มีการแนบเอกสารประกวดราคาแยกต่างหาก คุณสามารถตรวจสอบเอกสาร TOR หลัก หรือดูประกาศทางการบน e-GP ได้",
         }
-      : failure === "failed"
+      : part === 2
         ? {
-            heading: "เปิดเอกสารไม่สำเร็จ",
-            body: "อาจเป็นที่การเชื่อมต่อ ลองใหม่อีกครั้ง หรือเปิดดูฉบับจริงบน e-GP",
+            heading: "ไม่มีเอกสารประกาศเชิญชวนในแพ็กเกจนี้",
+            body: "แพ็กเกจเอกสารนี้ไม่มีไฟล์ประกาศเชิญชวนแยกต่างหาก คุณสามารถดูเอกสาร TOR หลัก หรือเปิดดูประกาศทางการบน e-GP ได้",
           }
-        : part === 1
-          ? {
-              heading: "ไม่มีเอกสารประกวดราคาในแพ็กเกจนี้",
-              body: "โครงการในขั้นตอนรับฟังความคิดเห็นร่าง หรือบางประกาศอาจไม่มีการแนบเอกสารประกวดราคาแยกต่างหาก คุณสามารถตรวจสอบเอกสาร TOR หลัก หรือดูประกาศทางการบน e-GP ได้",
-            }
-          : part === 2
-            ? {
-                heading: "ไม่มีเอกสารประกาศเชิญชวนในแพ็กเกจนี้",
-                body: "แพ็กเกจเอกสารนี้ไม่มีไฟล์ประกาศเชิญชวนแยกต่างหาก คุณสามารถดูเอกสาร TOR หลัก หรือเปิดดูประกาศทางการบน e-GP ได้",
-              }
-            : {
-                heading: "ยังไม่มีสำเนาเอกสารนี้ในระบบของเรา",
-                body: "เปิดดูฉบับจริงบน e-GP ได้เลย",
-              };
+        : {
+            heading: "ยังไม่มีสำเนาเอกสารนี้ในระบบของเรา",
+            body: "เปิดดูฉบับจริงบน e-GP ได้เลย",
+          };
+  const missingCard = {
+    "rate-limited": {
+      heading: "เปิดดูเอกสารบ่อยเกินไป",
+      body: "รอสักครู่แล้วลองใหม่ หรือเปิดดูฉบับจริงบน e-GP ได้เลย",
+    },
+    "not-scanned": {
+      heading: "เอกสารนี้ยังตรวจความปลอดภัยไม่เสร็จ",
+      body: "ลองใหม่ภายหลัง หรือเปิดดูฉบับจริงบน e-GP ได้เลย",
+    },
+    blocked: {
+      heading: "เราไม่แสดงไฟล์นี้",
+      body: "ไฟล์ไม่ผ่านการตรวจความปลอดภัยอัตโนมัติ (ผลตรวจอาจผิดพลาดได้) ดูข้อมูลโครงการบน e-GP ได้",
+    },
+    failed: {
+      heading: "เปิดเอกสารไม่สำเร็จ",
+      body: "อาจเป็นที่การเชื่อมต่อ ลองใหม่อีกครั้ง หรือเปิดดูฉบับจริงบน e-GP",
+    },
+    "not-stored": notStoredCard,
+  }[failure];
 
   // Close on Escape & Lock body scroll
   useEffect(() => {
