@@ -1,6 +1,7 @@
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 
 import { HttpError } from '#common/errors/http-error.js';
+import { securityEvent } from '#common/logging/security-log.js';
 
 // Counting mechanism only. It lives in common/ rather than in a feature because
 // it knows nothing about what it is guarding — unlike requireAuth, which has to
@@ -15,7 +16,10 @@ import { HttpError } from '#common/errors/http-error.js';
 // Express only knows how many proxies sit in front of it if we tell it. Behind
 // an unconfigured proxy every request reports the proxy's address, so the whole
 // internet shares one bucket and the first burst locks out everyone.
-function build({ windowMs, limit, message, keyGenerator, skip, skipSuccessfulRequests, store }) {
+//
+// `name` is the limit's key in its feature's numbers (loginByIp, adminCostly),
+// so a 429 in the log says which limit tripped.
+function build({ name, windowMs, limit, message, keyGenerator, skip, skipSuccessfulRequests, store }) {
   return rateLimit({
     windowMs,
     limit,
@@ -31,6 +35,8 @@ function build({ windowMs, limit, message, keyGenerator, skip, skipSuccessfulReq
     // API fails as { error: { message } }, and a 429 is not the place to make a
     // client parse a second shape.
     handler: (req, res, next) => {
+      // ASVS V16.3.3: a tripped limit is an attempt worth seeing
+      securityEvent(req, 'ratelimit.exceeded', { limiter: name ?? 'unnamed', userId: req.user?.id });
       next(new HttpError(429, message ?? defaultMessage(windowMs)));
     },
   });

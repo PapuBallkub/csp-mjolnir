@@ -22,6 +22,7 @@ are open questions rather than instructions.
   | Rate limit counters | Need `--max-instances=1` to stay correct | Correct by construction |
   | Cost when idle | Scales to zero | Bills continuously |
   | You maintain | Nothing | A VM |
+  | Request log | The platform's, one entry per request | None, unless a reverse proxy writes one ([0043](decisions/0043-one-line-per-security-event.md)) |
 
 - [ ] **DECIDE — whether production shares the development Atlas cluster.**
       `connectDatabase()` pins `dbName` to `mjolnir` regardless of what the
@@ -79,6 +80,7 @@ Because the session cookie uses `SameSite=Lax` in production to prevent cross-si
 | `GOOGLE_REDIRECT_URI` | `https://<api-domain>/api/auth/google/callback` | Google refuses the code exchange |
 | `SHOW_UNREVIEWED_INSIGHTS` | `true` only for a demo deploy, while no one reviews results yet ([0015](decisions/0015-pilot-mode-and-demo-data.md)). Leave it unset for a real launch. | Unset in production: the catalog shows only reviewed results, so before reviews start it is empty. `true` on a real launch: unchecked AI summaries reach the public with no label saying nobody checked them, only the detail page's "AI can be wrong" notice |
 | `TRUST_PROXY_HOPS` | The number of proxies in front of the server — see §5 | Too low: every user on the internet shares one rate limit bucket. Set to `true`: the caller forges `X-Forwarded-For` and the limiter is decorative |
+| `GOOGLE_CLOUD_PROJECT` | The project's id, on Cloud Run | Unset: security log lines carry no trace id, so Cloud Logging can't show them under their request. Nothing else changes. Extraction needs it as well (Gemini) |
 | `CLAMD_HOST` | `clamav`, which `docker-compose.yml` already sets; or the address of your ClamAV daemon ([0040](decisions/0040-files-are-scanned-before-they-are-kept.md)) | Unset in production: the pipeline downloads nothing, the admin page's add and re-download buttons refuse, and the server still boots. Set, but ClamAV is down: the same, with "did not answer" in the log. Never published to the internet: clamd's port has no password |
 | `SMTP_USER` / `SMTP_PASS` (and `SMTP_HOST`, `SMTP_PORT`) | The mail account the platform sends from | Unset: password sign-up answers 503 "use Google", because an address can't be confirmed without mail ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)), and so do forgot-password and the admin-sent reset ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)); Google sign-in and everything else still work. Wrong: the 202 still arrives, but no confirm email does, and only the server log says why |
 | `EMAIL_FROM` | A sender on a domain you own, which your mail account may send as | Unset, it falls back to an address on `gipdp.go.th`, a government domain this platform isn't: mail reads as the government's, and SPF checks fail, so it lands in spam |
@@ -241,11 +243,14 @@ A checklist you cannot check is a wish list. Run these against the deployed API.
       `SameSite=Lax` must both be present
 - [ ] Sign in with Google end to end, since the redirect URI, `CORS_ORIGIN`,
       the client ID, the attempt cookie and the key fetch all have to agree
-      before it works. A failure prints `Google sign-in failed: … (<reason>)`
-      in the server log; the reason says which one. When Google refused the
-      code, its own error follows, as in
-      `(token-endpoint: invalid_client "…")` for a wrong client secret, or
-      `(token-endpoint: invalid_grant "…")` for a used or expired code
+      before it works. A failure writes an `auth.google.failure` line to the
+      server log; its `reason` says which one. When Google refused the code,
+      its own error follows, as in `token-endpoint: invalid_client "…"` for a
+      wrong client secret, or `token-endpoint: invalid_grant "…"` for a used
+      or expired code
+- [ ] Fail a sign-in on purpose and find its `auth.login.failure` line in the
+      host's log: it has your IP, an `emailHash`, and no address or password
+      (0043). No line at all means the log isn't collected where you looked
 - [ ] Fail the same login repeatedly and confirm the 429 arrives at the
       configured attempt, from a machine that is not on the same network as
       another tester

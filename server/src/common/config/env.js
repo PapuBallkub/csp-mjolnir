@@ -75,6 +75,10 @@ export const env = {
     clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
     redirectUri: process.env.GOOGLE_REDIRECT_URI ?? '',
   },
+  // Optional and not a secret. Extraction reads it for Gemini; the security log
+  // uses it to link a line to Cloud Run's request log by trace id
+  // (common/logging/security-log.js). Unset, lines carry no trace.
+  googleCloudProject: process.env.GOOGLE_CLOUD_PROJECT ?? '',
   // Pilot mode: the API shows TOR insights nobody has reviewed yet, and demo
   // data, each labelled as such. Off, it shows only what a person approved
   // with a score of 80 or more (NFR-17). On by default outside production,

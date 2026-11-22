@@ -189,3 +189,14 @@ The decision the Consequences left to the reset branch:
 with no password set one through the same emailed link as a reset. The email
 says "set" instead of "reset". `/account` offers it when the account has no
 password, since there's no current one to give.
+
+## Update · 2026-11-22: the failure line is a security event
+
+[0043](0043-one-line-per-security-event.md) replaced the `console.warn` above.
+A failed callback is now an `auth.google.failure` JSON line, and its `reason`
+holds what the parentheses held: the check that failed, then Google's refusal
+when there was one (`token-endpoint: invalid_grant "…"`). Three failures that
+happen before Google is asked have reasons of their own: `no_attempt` (no
+attempt cookie), `no_code` (which is also what cancelling at Google looks like)
+and `state_mismatch`. A successful sign-in is an `auth.google.success` line.
+Neither carries the token, the code or the address.

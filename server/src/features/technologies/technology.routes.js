@@ -13,7 +13,12 @@ export function createTechnologyRoutes(limits = technologyRateLimits) {
 
   // Authenticated request to suggest a new technology/standard for admin review.
   // The limiter counts per account, so it has to come after requireAuth.
-  technologyRoutes.post('/request', requireAuth, limitByUser(limits.technologyRequest), requestTechnologyHandler);
+  technologyRoutes.post(
+    '/request',
+    requireAuth,
+    limitByUser({ ...limits.technologyRequest, name: 'technologyRequest' }),
+    requestTechnologyHandler,
+  );
 
   return technologyRoutes;
 }

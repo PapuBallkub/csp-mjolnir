@@ -13,7 +13,7 @@
     "#pipeline/*": "./src/pipeline/*"
   },
   "scripts": {
-    "test": "node --test \"test/**/*.test.js\"",
+    "test": "node --test --import ./test/helpers/quiet-security-log.js \"test/**/*.test.js\"",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "role": "node scripts/grant-role.js",

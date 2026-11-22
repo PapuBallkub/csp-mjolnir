@@ -1,6 +1,7 @@
 import { rateLimit } from 'express-rate-limit';
 
 import { HttpError } from '#common/errors/http-error.js';
+import { securityEvent } from '#common/logging/security-log.js';
 import { limitByIp, limitByUser } from '#common/middleware/rate-limit.js';
 
 const MINUTE = 60 * 1000;
@@ -55,7 +56,7 @@ export const authRateLimits = {
 //
 // This one is not in common/ because an email key only makes sense on an
 // unauthenticated request that carries one in its body.
-function limitByEmail({ windowMs, limit }, { countSuccesses = false, message } = {}) {
+function limitByEmail({ name, windowMs, limit }, { countSuccesses = false, message } = {}) {
   return rateLimit({
     windowMs,
     limit,
@@ -72,6 +73,8 @@ function limitByEmail({ windowMs, limit }, { countSuccesses = false, message } =
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     handler: (req, res, next) => {
+      // The address the attempts were against, as its hash (ASVS V16.3.3)
+      securityEvent(req, 'ratelimit.exceeded', { limiter: name, email: req.body.email });
       next(new HttpError(429, message ?? 'มีการพยายามเข้าสู่ระบบสำหรับบัญชีนี้มากเกินไป กรุณาลองใหม่ในอีก 15 นาที'));
     },
   });
@@ -85,25 +88,27 @@ function limitByEmail({ windowMs, limit }, { countSuccesses = false, message } =
 // still gets every limiter.
 export function createAuthLimiters(overrides = authRateLimits) {
   const limits = { ...authRateLimits, ...overrides };
+  // Each limit carries its key as its name, so a 429 in the log says which one
+  const named = (key) => ({ ...limits[key], name: key });
   return {
-    login: [limitByIp(limits.loginByIp), limitByEmail(limits.loginByEmail)],
+    login: [limitByIp(named('loginByIp')), limitByEmail(named('loginByEmail'))],
     register: [
-      limitByIp(limits.registerByIp),
-      limitByEmail(limits.registerByEmail, {
+      limitByIp(named('registerByIp')),
+      limitByEmail(named('registerByEmail'), {
         countSuccesses: true,
         message: 'สมัครด้วยอีเมลนี้หลายครั้งเกินไป กรุณารอ 1 ชั่วโมงแล้วลองใหม่',
       }),
     ],
-    verify: [limitByIp(limits.verifyByIp)],
+    verify: [limitByIp(named('verifyByIp'))],
     forgot: [
-      limitByIp(limits.forgotByIp),
-      limitByEmail(limits.forgotByEmail, {
+      limitByIp(named('forgotByIp')),
+      limitByEmail(named('forgotByEmail'), {
         countSuccesses: true,
         message: 'ขอลิงก์ตั้งรหัสผ่านสำหรับอีเมลนี้หลายครั้งเกินไป กรุณารอ 1 ชั่วโมงแล้วลองใหม่',
       }),
     ],
-    reset: [limitByIp(limits.resetByIp)],
+    reset: [limitByIp(named('resetByIp'))],
     // After requireAuth: it keys on the signed-in account
-    passwordChange: [limitByUser(limits.passwordChangeByUser)],
+    passwordChange: [limitByUser(named('passwordChangeByUser'))],
   };
 }
