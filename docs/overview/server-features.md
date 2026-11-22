@@ -83,9 +83,12 @@ forbids (see [where the rules bend](#where-the-rules-bend)).
 `health` and `match` use nothing. `tors` uses no other feature: it's public, so
 it needs no `auth`.
 
-`auth` sends email (confirm links, [0041](../decisions/0041-an-address-is-confirmed-before-the-account-exists.md))
-without depending on `notifications`, which already depends on it: `app.js`
-passes `notifications`' `sendEmail` into `createAuthRoutes` as `mail`. The two
+`auth` sends email (confirm and reset links, and a notice when a password
+changes or Google is linked: [0041](../decisions/0041-an-address-is-confirmed-before-the-account-exists.md),
+[0042](../decisions/0042-passwords-can-be-changed-reset-and-checked.md)) without depending on `notifications`, which already
+depends on it: `app.js` passes `notifications`' `sendEmail` into
+`createAuthRoutes`, and into `createAdminRoutes` for the admin-sent reset,
+as `mail`. The two
 importing each other would be a cycle, and the injected mailer is also what
 lets a test read the link instead of sending it.
 

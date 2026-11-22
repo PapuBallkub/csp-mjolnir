@@ -8,3 +8,4 @@ export { RecordInspectorModal } from "./RecordInspectorModal";
 export { AddRecordModal } from "./AddRecordModal";
 export { TechnologiesSection } from "./TechnologiesSection";
 export { AddEditTechnologyModal } from "./AddEditTechnologyModal";
+export { PasswordResetCard } from "./PasswordResetCard";

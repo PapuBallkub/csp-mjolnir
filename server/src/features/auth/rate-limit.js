@@ -1,7 +1,7 @@
 import { rateLimit } from 'express-rate-limit';
 
 import { HttpError } from '#common/errors/http-error.js';
-import { limitByIp } from '#common/middleware/rate-limit.js';
+import { limitByIp, limitByUser } from '#common/middleware/rate-limit.js';
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
@@ -19,8 +19,9 @@ export const authRateLimits = {
   // limiter above, because no single address looks busy. Counts failures only,
   // so someone who types their password correctly never spends budget.
   //
-  // 15 minutes rather than an hour because there is no password reset yet, so
-  // waiting is the only way out. See 0004.
+  // 15 minutes. Password reset is the way out now (0042), so the lockout could
+  // be longer, but a longer one is also a longer lockout for anyone a stranger
+  // locks out on purpose with five bad guesses. See 0004 and 0007.
   loginByEmail: { windowMs: 15 * MINUTE, limit: 5 },
 
   // Caps mass account creation. Signing up is rare per person, so this can be
@@ -35,6 +36,17 @@ export const authRateLimits = {
 
   // Each confirmation is a bcrypt compare, like a login, so the same budget
   verifyByIp: { windowMs: 15 * MINUTE, limit: 30 },
+
+  // Reset links (0042). Like registration: one budget per caller, and one per
+  // inbox counting every request for every address alike, so a 429 says nothing
+  // about who has an account.
+  forgotByIp: { windowMs: HOUR, limit: 10 },
+  forgotByEmail: { windowMs: HOUR, limit: 3 },
+  // Using a link hashes a new password
+  resetByIp: { windowMs: 15 * MINUTE, limit: 30 },
+
+  // Changing a password while signed in: two bcrypt operations each
+  passwordChangeByUser: { windowMs: HOUR, limit: 10 },
 };
 
 // Keyed on the address someone is trying to break into, not on who is asking.
@@ -83,5 +95,15 @@ export function createAuthLimiters(overrides = authRateLimits) {
       }),
     ],
     verify: [limitByIp(limits.verifyByIp)],
+    forgot: [
+      limitByIp(limits.forgotByIp),
+      limitByEmail(limits.forgotByEmail, {
+        countSuccesses: true,
+        message: 'ขอลิงก์ตั้งรหัสผ่านสำหรับอีเมลนี้หลายครั้งเกินไป กรุณารอ 1 ชั่วโมงแล้วลองใหม่',
+      }),
+    ],
+    reset: [limitByIp(limits.resetByIp)],
+    // After requireAuth: it keys on the signed-in account
+    passwordChange: [limitByUser(limits.passwordChangeByUser)],
   };
 }

@@ -115,6 +115,8 @@ Reading it:
 - **A registration is an `EmailToken` until it's confirmed**, not a `User`.
   Opening the emailed link with the password chosen at sign-up creates the user
   and deletes the token ([0041](../decisions/0041-an-address-is-confirmed-before-the-account-exists.md)).
+  A reset link is an `EmailToken` too, holding only the address, for an hour
+  ([0042](../decisions/0042-passwords-can-be-changed-reset-and-checked.md)).
 - **The watchlist lives inside `User`**: an array of `{ projectId, savedAt }`.
   `savedAt` is what "changed since you saved it" compares against
   ([watchlist-changes.md](../features/watchlist-changes.md)).

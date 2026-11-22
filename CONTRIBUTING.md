@@ -119,6 +119,13 @@ sign-up needs SMTP. An account you made before this change can be claimed:
 register again with the same address and confirm, and its role and profile
 stay.
 
+Reset links work the same way: without SMTP, `/auth/forgot` prints the link
+on the same kind of line, as a `reset link`. A new password has to pass the
+policy in [0042](docs/decisions/0042-passwords-can-be-changed-reset-and-checked.md): at least 8 characters, not a
+common password, and not GIPDP's name, your email's name or your own name
+with digits or symbols around it. An old password that fails it still signs
+in.
+
 Running `npm test` in `server/` boots the app against whatever `MONGO_URI`
 points at. The tests that write users send them to a separate `mjolnir_test`
 database and delete them afterwards, so a run against Atlas never touches the

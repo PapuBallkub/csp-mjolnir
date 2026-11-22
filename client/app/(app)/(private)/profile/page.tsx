@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth, useAuthedUser } from "../../../_components/auth";
@@ -95,11 +96,20 @@ export default function ProfilePage() {
           </p>
         </div>
 
-        {savedSuccess && (
-          <div className="rounded-[3px] border border-open-line bg-open-bg px-3 py-1.5 text-[12.5px] font-medium text-open animate-in fade-in">
-            ✓ บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {savedSuccess && (
+            <div className="rounded-[3px] border border-open-line bg-open-bg px-3 py-1.5 text-[12.5px] font-medium text-open animate-in fade-in">
+              ✓ บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว
+            </div>
+          )}
+          {/* How the person signs in lives on its own page (0042) */}
+          <Link
+            href="/account"
+            className="text-[12.5px] text-ink-2 underline underline-offset-2 hover:text-ink"
+          >
+            บัญชีและรหัสผ่าน
+          </Link>
+        </div>
       </header>
 
       {/* Main View/Edit Modes */}

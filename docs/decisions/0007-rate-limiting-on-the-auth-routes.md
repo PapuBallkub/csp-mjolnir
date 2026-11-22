@@ -154,3 +154,25 @@ registering send an email, and added a route that compares a password.
   Wrong passwords are also capped per link: the fifth spends it.
 - **`createAuthLimiters` merges a test's numbers over the defaults,** so a test
   names only the limits it's about, as `apiRateLimits` already did.
+
+## Update · 2026-11-22: four limits for password reset and change
+
+[0042](0042-passwords-can-be-changed-reset-and-checked.md) added two routes
+that send email and two that compare or set a password.
+
+| Limiter | Route | Key | Window | Limit | Counts |
+| :--- | :--- | :--- | ---: | ---: | :--- |
+| `forgotByIp` | `POST /auth/forgot-password` | address | 1 hour | 10 | every request |
+| `forgotByEmail` | `POST /auth/forgot-password` | normalised email | 1 hour | 3 | every request |
+| `resetByIp` | `POST /auth/reset-password` | address | 15 min | 30 | every request |
+| `passwordChangeByUser` | `POST /auth/password` | account | 1 hour | 10 | every request |
+
+- **`forgotByEmail` protects an inbox,** as `registerByEmail` does. It counts
+  every address alike, so a 429 says nothing about who has an account.
+- **`passwordChangeByUser` is per account,** because the route is behind
+  `requireAuth`; each try is a bcrypt compare.
+- **The admin route** (`POST /api/admin/users/password-reset`) shares
+  `adminCostly`, since it sends email.
+- **The login lockout stays at 15 minutes.** A locked-out user can now reset
+  their password, so "waiting is the only way out" above no longer holds. A
+  longer window would also make a malicious lockout last longer, so it stays.

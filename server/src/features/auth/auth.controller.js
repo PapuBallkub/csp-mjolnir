@@ -3,8 +3,25 @@ import { HttpError } from '#common/errors/http-error.js';
 import { constantTimeEqual } from '#common/utils/constant-time-equal.js';
 import { User } from '#models/index.js';
 
-import { alreadyRegisteredEmail, confirmEmail, confirmLink, googleLinkedEmail, sendAfterResponse } from './auth-email.js';
-import { confirmRegistration, requestRegistration, signInWithGoogle, signInWithPassword } from './auth.service.js';
+import {
+  alreadyRegisteredEmail,
+  confirmEmail,
+  confirmLink,
+  googleLinkedEmail,
+  passwordChangedEmail,
+  resetEmail,
+  resetLink,
+  sendAfterResponse,
+} from './auth-email.js';
+import {
+  changePassword,
+  confirmRegistration,
+  requestPasswordReset,
+  requestRegistration,
+  resetPassword,
+  signInWithGoogle,
+  signInWithPassword,
+} from './auth.service.js';
 import {
   assertGoogleConfigured,
   clearOAuthTransaction,
@@ -13,7 +30,14 @@ import {
   issueOAuthTransaction,
   readOAuthTransaction,
 } from './google.js';
-import { parseConfirmation, parseCredentials, parseRegistration } from './auth.validation.js';
+import {
+  parseConfirmation,
+  parseCredentials,
+  parseForgot,
+  parsePasswordChange,
+  parseRegistration,
+  parseReset,
+} from './auth.validation.js';
 import {
   clearSessionCookie,
   getSessionTokenFromRequest,
@@ -72,6 +96,81 @@ export async function verifyEmail(req, res) {
 
   setSessionCookie(res, signSessionToken(user));
   res.json({ user });
+}
+
+// What a reset request answers, whatever the address (0042, ASVS V6.3.8)
+const RESET_SENT = 'ถ้ามีบัญชีที่ใช้อีเมลนี้ เราได้ส่งลิงก์ตั้งรหัสผ่านใหม่ไปแล้ว';
+
+// Reset links need mail as confirm links do; without it, production says so
+function assertMail(mail) {
+  if (!mail.configured && isProduction) {
+    throw new HttpError(503, 'ตอนนี้ยังส่งลิงก์ทางอีเมลไม่ได้ ลองเข้าสู่ระบบด้วย Google', undefined, 'MAIL_UNAVAILABLE');
+  }
+}
+
+/**
+ * Asks for a reset link (ASVS V6.4.3). The same 202 for every address; only an
+ * address with an account gets mail (0042).
+ */
+export function createForgotHandler(mail) {
+  return async function forgotPassword(req, res) {
+    const { email } = parseForgot(req.body);
+    assertMail(mail);
+    const outcome = await requestPasswordReset({ email });
+    res.status(202).json({ message: RESET_SENT });
+    if (outcome.kind !== 'none') {
+      sendAfterResponse(mail, resetEmail(outcome.email, outcome.token, { kind: outcome.kind }), { link: resetLink(outcome.token) });
+    }
+  };
+}
+
+/**
+ * Sets a new password with a reset link. Every session ends, this browser's
+ * cookie is cleared, and nothing signs in: the person signs in with the new
+ * password (the user's decision, 2026-11-22; ASVS V6.3.6). The owner is told.
+ */
+export function createResetHandler(mail) {
+  return async function resetPasswordHandler(req, res) {
+    const { token, password } = parseReset(req.body);
+    const { email } = await resetPassword({ token, password });
+    clearSessionCookie(res);
+    res.json({ message: 'ตั้งรหัสผ่านใหม่แล้ว เข้าสู่ระบบด้วยรหัสผ่านใหม่ได้เลย' });
+    sendAfterResponse(mail, passwordChangedEmail(email));
+  };
+}
+
+/**
+ * Changes the signed-in user's password (ASVS V6.2.2, V6.2.3). Every other
+ * session ends; this browser gets a new cookie, so it stays signed in. The
+ * owner is told (V6.3.7).
+ */
+export function createPasswordChangeHandler(mail) {
+  return async function changePasswordHandler(req, res) {
+    const { currentPassword, newPassword } = parsePasswordChange(req.body);
+    const user = await changePassword({ userId: req.user.id, currentPassword, newPassword });
+    setSessionCookie(res, signSessionToken(user));
+    res.json({ user });
+    sendAfterResponse(mail, passwordChangedEmail(user.email));
+  };
+}
+
+/**
+ * An admin sends a user a reset link (ASVS V6.4.6). The admin names the
+ * address and nothing else: no password can be set or chosen here, and the
+ * response carries no link. Mounted by the admin router, behind its guard.
+ */
+export function createAdminPasswordResetHandler(mail) {
+  return async function adminPasswordReset(req, res) {
+    const { email } = parseForgot(req.body);
+    assertMail(mail);
+    const outcome = await requestPasswordReset({ email, byAdmin: true });
+    res.status(202).json({ message: 'ส่งลิงก์ตั้งรหัสผ่านไปที่อีเมลของผู้ใช้แล้ว' });
+    sendAfterResponse(
+      mail,
+      resetEmail(outcome.email, outcome.token, { kind: outcome.kind, byAdmin: true }),
+      { link: resetLink(outcome.token) },
+    );
+  };
 }
 
 export async function login(req, res) {

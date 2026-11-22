@@ -1,8 +1,11 @@
 import { Router } from 'express';
 
 import {
+  createForgotHandler,
   createGoogleCallbackHandler,
+  createPasswordChangeHandler,
   createRegisterHandler,
+  createResetHandler,
   login,
   logout,
   readCurrentUser,
@@ -30,6 +33,11 @@ export function createAuthRoutes(limits = authRateLimits, { mail } = {}) {
   routes.post('/register', limiters.register, createRegisterHandler(mail));
   routes.post('/verify-email', limiters.verify, verifyEmail);
   routes.post('/login', limiters.login, login);
+
+  // Password reset by email, and change while signed in (0042)
+  routes.post('/forgot-password', limiters.forgot, createForgotHandler(mail));
+  routes.post('/reset-password', limiters.reset, createResetHandler(mail));
+  routes.post('/password', requireAuth, limiters.passwordChange, createPasswordChangeHandler(mail));
 
   // Nothing to limit: clearing a cookie is free, and a logout that can fail
   // leaves someone signed in on a shared machine.

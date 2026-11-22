@@ -172,3 +172,10 @@ flowchart TD
 - **Revisit** if confirm emails are often lost (a resend limit of 3 an hour
   may then be too tight), or if a mail provider needs a link it can track,
   which the `#` fragment can't be.
+
+## Update · 2026-11-22: reset reuses the tokens
+
+[0042](0042-passwords-can-be-changed-reset-and-checked.md) uses `EmailToken`
+with `purpose: 'reset-password'`: the same 32-byte token after `#`, stored as
+its SHA-256, but lasting an hour, and only the latest one per address works.
+Its page reads the token with the same hook as `/auth/verify`.

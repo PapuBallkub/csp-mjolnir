@@ -19,7 +19,7 @@ These apply to any agent working anywhere in the repo. The tag after a rule says
 ### What the code must do
 
 - Signed-in routes use `requireAuth`; admin routes sit behind `requireAuth, requireRole('admin')` at router level ([0011](docs/decisions/0011-a-name-and-a-role-on-the-account.md)). *(`server/test/admin.test.js`)*
-- A user's records are found by `req.user.id`, never by an id from the request. Two exceptions, both a secret only the address's owner received: the HMAC-signed unsubscribe link, and the emailed confirm token, which finds a pending registration whose address then finds the user ([0041](docs/decisions/0041-an-address-is-confirmed-before-the-account-exists.md)). *(review)*
+- A user's records are found by `req.user.id`, never by an id from the request. Three exceptions, each a secret only the address's owner received: the HMAC-signed unsubscribe link; the emailed confirm token, which finds a pending registration whose address then finds the user ([0041](docs/decisions/0041-an-address-is-confirmed-before-the-account-exists.md)); and the emailed reset token, which finds a reset link whose address then finds the user ([0042](docs/decisions/0042-passwords-can-be-changed-reset-and-checked.md)). *(review)*
 - Public responses never carry confidence scores, review internals, or insights below the 80% gate (NFR-17). *(review)*
 - User input goes through `escapeRegex` (`server/src/common/utils/escape-regex.js`) before it reaches `$regex` or `new RegExp`. *(review)*
 - Secrets have no fallback value in code (see `server/src/common/config/env.js`). *(review)*
