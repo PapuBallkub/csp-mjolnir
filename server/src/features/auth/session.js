@@ -33,9 +33,11 @@ const cookieOptions = {
   // Unreadable from JavaScript, so an XSS in the client cannot steal a session.
   httpOnly: true,
   secure: isProduction,
-  // Dev is same-site (:3000 and :8000), so Lax is sent. A deploy that splits the
-  // client and API across domains is cross-site, where only None is sent at all.
-  sameSite: isProduction ? 'none' : 'lax',
+  // ASVS V3.3.2, V3.5: Enforce SameSite=Lax across all environments to prevent
+  // cross-site POST requests (such as empty-body CSRF on logout or admin actions)
+  // from carrying the authenticated session cookie. In production, client and API
+  // share a registrable domain (same-site) or reverse-proxy origin.
+  sameSite: 'lax',
   path: '/',
 };
 
