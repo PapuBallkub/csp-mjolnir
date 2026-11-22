@@ -79,7 +79,7 @@ export function ResetPasswordForm() {
               <div className="h-9 w-full rounded-[3px] bg-line" />
             </div>
           ) : (
-            <form className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
+            <form method="post" className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
               <h1 className="text-[17px] leading-thai font-semibold text-ink">ตั้งรหัสผ่านใหม่</h1>
               <p className="text-[13px] leading-thai text-ink-2">
                 อย่างน้อย 8 ตัวอักษร ไม่ต้องมีตัวเลขหรือสัญลักษณ์ แต่ต้องไม่ใช่รหัสที่ใช้กันทั่วไป หรือชื่อระบบ อีเมล หรือชื่อของคุณต่อด้วยตัวเลข

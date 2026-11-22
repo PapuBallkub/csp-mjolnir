@@ -93,7 +93,7 @@ function ChangePasswordForm({
   const formMessage = error && !currentError && !newError ? error.message : null;
 
   return (
-    <form className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
+    <form method="post" className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
       <h2 className="text-[16px] font-semibold text-ink">เปลี่ยนรหัสผ่าน</h2>
       <p className="text-[13px] leading-thai text-ink-2">
         เมื่อเปลี่ยนแล้ว อุปกรณ์อื่นทั้งหมดจะออกจากระบบ เครื่องนี้ยังอยู่ในระบบ และเราจะส่งอีเมลแจ้งให้ทราบ

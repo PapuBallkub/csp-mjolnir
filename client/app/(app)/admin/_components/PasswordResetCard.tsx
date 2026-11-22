@@ -39,7 +39,7 @@ export function PasswordResetCard() {
         บัญชีผู้ใช้
       </SectionHeading>
       <Panel className="p-4">
-        <form className="flex flex-wrap items-end gap-2" onSubmit={handleSubmit} noValidate>
+        <form method="post" className="flex flex-wrap items-end gap-2" onSubmit={handleSubmit} noValidate>
           <div className="flex min-w-[240px] flex-1 flex-col gap-1.5">
             <label htmlFor="admin-reset-email" className="text-[11px] font-medium text-ink-2">
               อีเมลของผู้ใช้
