@@ -82,6 +82,8 @@ refuses to send back, and `/api/auth/me` answers `401` forever.
 | `GOOGLE_REDIRECT_URI` | `https://<api-domain>/api/auth/google/callback` | Google refuses the code exchange |
 | `SHOW_UNREVIEWED_INSIGHTS` | `true` only for a demo deploy, while no one reviews results yet ([0015](decisions/0015-pilot-mode-and-demo-data.md)). Leave it unset for a real launch. | Unset in production: the catalog shows only reviewed results, so before reviews start it is empty. `true` on a real launch: unchecked AI summaries reach the public with no label saying nobody checked them, only the detail page's "AI can be wrong" notice |
 | `TRUST_PROXY_HOPS` | The number of proxies in front of the server — see §5 | Too low: every user on the internet shares one rate limit bucket. Set to `true`: the caller forges `X-Forwarded-For` and the limiter is decorative |
+| `SMTP_USER` / `SMTP_PASS` (and `SMTP_HOST`, `SMTP_PORT`) | The mail account the platform sends from | Unset: password sign-up answers 503 "use Google", because an address can't be confirmed without mail ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)); Google sign-in and everything else still work. Wrong: the 202 still arrives, but no confirm email does, and only the server log says why |
+| `EMAIL_FROM` | A sender on a domain you own, which your mail account may send as | Unset, it falls back to an address on `gipdp.go.th`, a government domain this platform isn't: mail reads as the government's, and SPF checks fail, so it lands in spam |
 
 - [ ] All of the above set in the host's secret manager, not baked into an image
 - [ ] `JWT_SECRET` confirmed different from the CI value
@@ -197,10 +199,11 @@ Do not assume these are handled just because the app works.
 - [x] **Session revocation is enforced via Token Versioning.** When a user logs
       out, `tokenVersion` increments in the database, invalidating the session
       token immediately.
-- [ ] **No password reset and no email verification.** A locked-out user has no
-      self-service recovery. Both belong with FR08.
-- [ ] **Registration reveals whether an address already has an account**,
-      because the form has to say so for the person who genuinely forgot.
+- [ ] **No password reset.** A locked-out user has no self-service recovery.
+      Email verification exists since 0041, and reset can reuse its tokens.
+- [x] **Registration no longer reveals whether an address has an account.** It
+      answers the same 202 for every address, and the owner of a taken one gets
+      an email instead of a link (0041).
 
 ---
 
@@ -218,9 +221,14 @@ A checklist you cannot check is a wish list. Run these against the deployed API.
       already sent its request, a password included, in clear; a redirect would
       hide that mistake instead of breaking it. The API never redirects by
       itself, so this is the proxy's or host's setting
-- [ ] Register from the **deployed client**, in a real browser, then reload the
-      page. Still signed in means the cookie survived the round trip; signed out
-      means §1 is wrong.
+- [ ] Register from the **deployed client**, in a real browser, with an address
+      you can read. The confirm email ("ยืนยันอีเมลเพื่อเริ่มใช้ GIPDP") arrives
+      from `EMAIL_FROM`, not in spam; its link opens `/auth/verify` on the
+      client, and the password you chose signs you in. Reload the page: still
+      signed in means the cookie survived the round trip; signed out means §1 is
+      wrong. No email at all: check the SMTP rows in §2 and the server log
+- [ ] Register again with the same address: the same "check your inbox" answer,
+      and an email saying someone tried, with no link
 - [ ] Inspect the `mjolnir_session` cookie in devtools — `Secure` and
       `SameSite=None` must both be present
 - [ ] Sign in with Google end to end, since the redirect URI, `CORS_ORIGIN`,

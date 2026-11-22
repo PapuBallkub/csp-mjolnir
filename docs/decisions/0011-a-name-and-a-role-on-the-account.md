@@ -155,3 +155,17 @@ HMAC-SHA384 before bcrypt, so bcrypt always gets 64 characters and truncates
 nothing. The 72-byte limit is gone: a password may be 8 to 128 characters,
 counted by code point, and a Thai password gets the same room as an English one.
 The name ceiling is unchanged.
+
+## Update · 2026-11-22: Google creates accounts with `User.create` now
+
+The first and last points above describe `signInWithGoogle` creating accounts
+through an upsert with `$setOnInsert: { name }`. Since
+[0041](0041-an-address-is-confirmed-before-the-account-exists.md) it looks at
+the account first and creates a new one with `User.create`, so validators run
+on that path. What those points protect still holds: Google names an account
+only when it creates it, and a link never rewrites the name the owner typed
+(tested in `auth-google.test.js`). Neither field became `required`: a Google
+profile may come without a name.
+
+The 80-character Thai name test now signs up through the whole journey
+(register, the emailed link, the password), and expects the confirmation's 200.
