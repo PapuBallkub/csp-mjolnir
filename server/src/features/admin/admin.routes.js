@@ -49,11 +49,11 @@ export function createAdminRoutes(limits = adminRateLimits, { mail } = {}) {
 
   adminRoutes.use(requireAuth, requireRole('admin'));
 
-  // One budget across the four POSTs a forged request could do most with
-  // while the session cookie is still SameSite=None (ADR 0007): a fetch
-  // and a health check call e-GP, a retry-all puts every failed TOR back in the
-  // night's queue, and a re-extraction sends a summary back to review, which
-  // takes it off the public site.
+  // One budget across the four POSTs that trigger costly external or queue work
+  // (ADR 0007, ASVS V2.4.1, V8): a fetch and a health check call e-GP, a
+  // retry-all puts every failed TOR back in the night's queue, and a
+  // re-extraction sends a summary back to review, which takes it off the public
+  // site. Works alongside SameSite=Lax session cookies as defense-in-depth.
   const costly = limitByUser(limits.adminCostly);
 
   // No rate limit: an admin refreshing a dashboard is the intended use, and a

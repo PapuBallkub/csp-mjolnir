@@ -98,7 +98,7 @@ Session identifiers and OAuth transient state are stored exclusively in hardened
      - Must NOT specify a `Domain` attribute (bounds cookie strictly to host origin, preventing subdomain shadowing/tampering).
 2. **Access Control Attributes (V3.3.2)**:
    - `httpOnly: true`: Inaccessible to JavaScript `document.cookie`, defeating token theft via XSS.
-   - `sameSite`: Configured to `'lax'` (or `'none'` when client and API are hosted across distinct production domains with HTTPS) to prevent CSRF.
+   - `sameSite`: Configured strictly to `'lax'` across all environments to prevent CSRF, including on POST routes that accept empty bodies (such as logout or administrative pipeline triggers). The JSON content-type restriction (`express.json()`) is retained as an additional defense-in-depth layer.
 3. **Cookie Size Limit (V3.3.5)**:
    - Before setting cookies, both `setSessionCookie` and `issueOAuthTransaction` assert that the combined length of cookie name and value does not exceed 4096 bytes. Excessively large tokens throw an explicit error to prevent header truncation or denial-of-service.
 4. **Strict Prefix Enforcement & Subdomain Defense**:
