@@ -5,6 +5,7 @@ import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Technology, Tor, User } from '#models/index.js';
 
 import { createApp } from '../src/app.js';
+import { signedInAccount } from './helpers/accounts.js';
 
 const TEST_DB = 'mjolnir_test';
 const PASSWORD = 'correct horse battery';
@@ -42,22 +43,9 @@ after(async () => {
 });
 
 async function signUp(name, { role } = {}) {
-  const email = emailFor(name);
-
-  const response = await fetch(`${baseUrl}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password: PASSWORD, name: NAME }),
-  });
-  assert.equal(response.status, 201);
-
-  if (role) {
-    await User.updateOne({ email }, { role });
-  }
-
-  const cookie = response.headers.get('set-cookie');
-  assert.ok(cookie, 'Registration should set a session cookie');
-  return cookie.split(';')[0];
+  // A confirmed account, signed in: registering no longer signs anyone in (0041)
+  const { cookie } = await signedInAccount(baseUrl, { email: emailFor(name), password: PASSWORD, name: NAME, role });
+  return cookie;
 }
 
 test('Admin Project Autocomplete / Suggestion (FR-24)', async () => {

@@ -1,9 +1,12 @@
 export class HttpError extends Error {
-  constructor(status, message, details) {
+  // `code` is for a client that has to tell two answers with the same status
+  // apart (an expired link from a wrong password, say); the message is for people.
+  constructor(status, message, details, code) {
     super(message);
     this.name = 'HttpError';
     this.status = status;
     this.details = details;
+    if (code) this.code = code;
   }
 }
 

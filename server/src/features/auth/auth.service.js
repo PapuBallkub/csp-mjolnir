@@ -1,9 +1,19 @@
-import { HttpError, unauthorized } from '#common/errors/http-error.js';
-import { User } from '#models/index.js';
+import crypto from 'node:crypto';
 
+import { HttpError, unauthorized } from '#common/errors/http-error.js';
+import { EmailToken, User } from '#models/index.js';
+
+import { hashToken, issueToken } from './email-token.js';
+import { googleSignInError } from './google-id-token.js';
 import { hashPassword, verifyPassword } from './password.js';
 
 const DUPLICATE_KEY = 11000;
+const DAY = 24 * 60 * 60 * 1000;
+
+// A confirm link works once, for a day: mail can be slow, and people don't read
+// it at once. Five wrong passwords spend it.
+const CONFIRM_LINK_MS = DAY;
+const MAX_CONFIRM_ATTEMPTS = 5;
 
 // The only shape of a user that leaves this feature, so there is one place to
 // check that the hash never ships.
@@ -41,44 +51,168 @@ export function toPublicUser(user) {
   };
 }
 
-export async function registerWithPassword({ email, password, name, notificationConsent }) {
+/**
+ * Whether the address on an account was ever confirmed: by the emailed link,
+ * or by Google, which checked it when it created or linked the account.
+ */
+const isAddressVerified = (user) => Boolean(user?.emailVerifiedAt || user?.googleId);
+
+/**
+ * A registration, held until the address is confirmed (0041). No user is
+ * created and nothing is signed in: the caller answers the same 202 whatever
+ * happens here, and sends the email this returns after the response.
+ *
+ * - A new address, or an old account whose address was never confirmed: a
+ *   pending registration, and a confirm link. Confirming an old account claims
+ *   it: whoever controls the mailbox sets its password, and its role and
+ *   profile stay.
+ * - An address that already has a confirmed account: no link, only an email
+ *   telling its owner someone tried.
+ *
+ * The password is hashed in every branch, so how long this takes doesn't say
+ * which branch ran (ASVS V6.3.8).
+ *
+ * @returns {Promise<{ kind: 'confirm', email: string, token: string }
+ *   | { kind: 'already-registered', email: string }>}
+ */
+export async function requestRegistration({ email, password, name, notificationConsent }) {
   const passwordHash = await hashPassword(password);
 
-  try {
-    const user = await User.create({ email, passwordHash, name, notificationConsent });
-    return toPublicUser(user);
-  } catch (error) {
-    // Left to the unique index rather than a lookup first, which two
-    // simultaneous signups would both pass before either one writes.
-    if (error.code === DUPLICATE_KEY) {
-      throw new HttpError(409, 'อีเมลนี้ถูกใช้งานแล้ว', {
-        email: 'อีเมลนี้ถูกใช้งานแล้ว',
-      });
-    }
-    throw error;
+  const existing = await User.findOne({ email }, { emailVerifiedAt: 1, googleId: 1 }).lean();
+  if (isAddressVerified(existing)) {
+    return { kind: 'already-registered', email };
   }
+
+  const { token, tokenHash } = issueToken();
+  await EmailToken.create({
+    purpose: 'verify-email',
+    email,
+    tokenHash,
+    expiresAt: new Date(Date.now() + CONFIRM_LINK_MS),
+    passwordHash,
+    name,
+    notificationConsent,
+  });
+  return { kind: 'confirm', email, token };
 }
+
+const linkProblem = (status, message, code) => new HttpError(status, message, undefined, code);
+const invalidLink = () =>
+  linkProblem(400, 'ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว สมัครอีกครั้งเพื่อรับลิงก์ใหม่', 'LINK_INVALID');
+
+/**
+ * Confirms a registration with its link's token and the password chosen at
+ * sign-up, then creates the account (or claims an old unconfirmed one) with a
+ * confirmed address. Asking for the password is what stops a stranger who
+ * registered your address: if you click their link, it still needs their
+ * password, so your Google sign-in can't later land in their account (0041).
+ *
+ * @returns {Promise<object>} The new user, as toPublicUser shapes it
+ */
+export async function confirmRegistration({ token, password }) {
+  const pending = await EmailToken.findOne({ purpose: 'verify-email', tokenHash: hashToken(token) }).select(
+    '+passwordHash',
+  );
+  if (!pending || pending.expiresAt <= new Date()) throw invalidLink();
+
+  if (!(await verifyPassword(password, pending.passwordHash))) {
+    const counted = await EmailToken.findOneAndUpdate(
+      { _id: pending._id },
+      { $inc: { attempts: 1 } },
+      { returnDocument: 'after' },
+    );
+    if (!counted || counted.attempts >= MAX_CONFIRM_ATTEMPTS) {
+      await EmailToken.deleteOne({ _id: pending._id });
+      throw linkProblem(400, 'กรอกรหัสผ่านผิดหลายครั้งเกินไป ลิงก์นี้ใช้ไม่ได้แล้ว สมัครอีกครั้งเพื่อรับลิงก์ใหม่', 'TOO_MANY_TRIES');
+    }
+    throw linkProblem(401, 'รหัสผ่านไม่ตรงกับที่ตั้งไว้ตอนสมัคร', 'WRONG_PASSWORD');
+  }
+
+  // Spent before anything is created, in one write, so two confirmations of
+  // the same link can't both get through
+  if (!(await EmailToken.findOneAndDelete({ _id: pending._id }))) throw invalidLink();
+
+  const { email, passwordHash, name, notificationConsent } = pending;
+  const confirmedAt = new Date();
+  // An account from before 0041 whose address nobody ever confirmed: claimed.
+  // Its role and profile stay; the password, name and consent are the ones
+  // just confirmed.
+  let user = await User.findOneAndUpdate(
+    { email, emailVerifiedAt: { $exists: false }, googleId: { $exists: false } },
+    { $set: { passwordHash, name, notificationConsent, emailVerifiedAt: confirmedAt } },
+    { returnDocument: 'after' },
+  );
+  if (!user) {
+    try {
+      user = await User.create({ email, passwordHash, name, notificationConsent, emailVerifiedAt: confirmedAt });
+    } catch (error) {
+      if (error.code !== DUPLICATE_KEY) throw error;
+      // Confirmed in the meantime: another link, or Google
+      await dropPendingRegistrations(email);
+      throw linkProblem(409, 'อีเมลนี้ยืนยันแล้ว เข้าสู่ระบบได้เลย', 'ALREADY_VERIFIED');
+    }
+  }
+
+  // Every other link for this address goes too: it has an account now
+  await dropPendingRegistrations(email);
+  return toPublicUser(user);
+}
+
+// Compared against when there is no hash to compare against, so a missing
+// account, an account with no password and a wrong password all cost one
+// bcrypt compare and get the same 401 (ASVS V6.3.8). Made once, at import, so
+// the first unknown address doesn't pay for a hash as well.
+const dummyHash = hashPassword(crypto.randomUUID());
 
 export async function signInWithPassword({ email, password }) {
   // select: false on the schema, so the hash has to be asked for by name.
   const user = await User.findOne({ email }).select('+passwordHash');
 
-  // One message for a missing account and a wrong password. Separate ones tell
-  // anyone who asks which addresses are registered. See 0004.
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+  const matches = await verifyPassword(password, user?.passwordHash ?? (await dummyHash));
+
+  // One message for a missing account, an account that signs in only with
+  // Google, and a wrong password. Separate ones tell anyone who asks which
+  // addresses are registered. See 0004.
+  if (!user?.passwordHash || !matches) {
     throw unauthorized('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+  }
+
+  // Only someone who knows the password gets this far, so saying the address
+  // isn't confirmed tells a stranger nothing
+  if (!isAddressVerified(user)) {
+    throw new HttpError(
+      403,
+      'ยืนยันอีเมลก่อนเข้าสู่ระบบ: สมัครอีกครั้งด้วยอีเมลนี้เพื่อรับลิงก์ยืนยันใหม่',
+      undefined,
+      'EMAIL_NOT_VERIFIED',
+    );
   }
 
   return toPublicUser(user);
 }
 
-// Returning user, linked account, or new account, in that order. Does no
-// network of its own: the caller turns a code into a profile first, which is
-// what makes this testable without Google.
-export async function signInWithGoogle({ googleId, email, emailVerified, name }) {
+/**
+ * Returning user, linked account, or new account, in that order. Does no
+ * network of its own: the caller turns a code into a profile first, which is
+ * what makes this testable without Google.
+ *
+ * `linked` is true when a Google account was just linked to an account that
+ * already existed, which the caller tells the owner about by email.
+ *
+ * @returns {Promise<{ user: object, linked: boolean }>}
+ */
+export async function signInWithGoogle({ googleId, email, emailVerified, name }, { retried = false } = {}) {
   const returning = await User.findOne({ googleId });
   if (returning) {
-    return toPublicUser(returning);
+    // Google confirmed the address when it created or linked this account
+    if (!returning.emailVerifiedAt) {
+      returning.emailVerifiedAt = new Date();
+      await User.updateOne(
+        { _id: returning._id, emailVerifiedAt: { $exists: false } },
+        { $set: { emailVerifiedAt: returning.emailVerifiedAt } },
+      );
+    }
+    return { user: toPublicUser(returning), linked: false };
   }
 
   // Linking by address is only safe once Google vouches for the address.
@@ -88,22 +222,58 @@ export async function signInWithGoogle({ googleId, email, emailVerified, name })
     throw new HttpError(403, 'บัญชี Google ของคุณยังไม่ได้ยืนยันที่อยู่อีเมล');
   }
 
-  // Link-or-create in one atomic write, so two callbacks arriving together
-  // cannot both insert. The filter seeds email on insert.
-  //
-  // $setOnInsert for the name, never $set: Google is the source of a name only
-  // for an account it is creating. On a link, the address already belongs to
-  // someone who may have typed their own name at signup, and overwriting it
-  // with whatever their Google profile says is not ours to do. A returning user
-  // is handled above and never reaches this write at all.
-  const user = await User.findOneAndUpdate(
-    { email },
-    { $set: { googleId }, $setOnInsert: { name } },
-    { new: true, upsert: true },
-  );
+  const existing = await User.findOne({ email }, { googleId: 1, emailVerifiedAt: 1 }).lean();
 
-  return toPublicUser(user);
+  // Already linked to another Google account with the same address: never
+  // replaced, or whoever holds the second one would take the account (V6.8.1)
+  if (existing?.googleId) {
+    throw googleSignInError(409, 'google-account-mismatch', 'อีเมลนี้เชื่อมกับบัญชี Google อื่นอยู่แล้ว');
+  }
+
+  // Each write below names the state it expects, so two callbacks arriving
+  // together can't both act: the loser finds nothing to update, and tries once
+  // more from the top.
+  let user = null;
+  if (existing?.emailVerifiedAt) {
+    // A confirmed account: its owner made both, so the password stays
+    user = await User.findOneAndUpdate(
+      { _id: existing._id, googleId: { $exists: false } },
+      { $set: { googleId } },
+      { returnDocument: 'after' },
+    );
+  } else if (existing) {
+    // An account from before 0041 whose address nobody confirmed. Google's
+    // verified address beats an unconfirmed password, so the password goes:
+    // this is what ends a pre-hijack made before confirmation existed.
+    user = await User.findOneAndUpdate(
+      { _id: existing._id, googleId: { $exists: false }, emailVerifiedAt: { $exists: false } },
+      { $set: { googleId, emailVerifiedAt: new Date() }, $unset: { passwordHash: '' } },
+      { returnDocument: 'after' },
+    );
+  } else {
+    try {
+      // $setOnInsert-like: Google names an account only when it creates one.
+      // On a link, the address's owner may have typed their own name at signup,
+      // and overwriting it with their Google profile's is not ours to do.
+      user = await User.create({ email, googleId, name, emailVerifiedAt: new Date() });
+      await dropPendingRegistrations(email);
+      return { user: toPublicUser(user), linked: false };
+    } catch (error) {
+      if (error.code !== DUPLICATE_KEY) throw error;
+    }
+  }
+
+  if (user) {
+    await dropPendingRegistrations(email);
+    return { user: toPublicUser(user), linked: true };
+  }
+  if (retried) throw new HttpError(409, 'บัญชีนี้กำลังถูกแก้ไข ลองเข้าสู่ระบบอีกครั้ง');
+  return signInWithGoogle({ googleId, email, emailVerified, name }, { retried: true });
 }
+
+// Registrations still waiting for this address can never be confirmed once it
+// has a confirmed account, so they go now rather than at the end of their day
+const dropPendingRegistrations = (email) => EmailToken.deleteMany({ purpose: 'verify-email', email });
 
 // Backs requireAuth. Reading the user per request is what makes a deleted
 // account stop working before its token expires.

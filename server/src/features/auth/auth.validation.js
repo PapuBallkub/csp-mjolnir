@@ -1,7 +1,9 @@
-import { badRequest } from '#common/errors/http-error.js';
+import { badRequest, HttpError } from '#common/errors/http-error.js';
+
+import { TOKEN_PATTERN } from './email-token.js';
 
 // Loose on purpose: only delivery settles whether an address is real, and that
-// is the FR08 verification mail, not this regex.
+// is the confirm link (0041), not this regex.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -75,3 +77,29 @@ export function parseRegistration(body) {
 
   return { email, password, name };
 }
+
+// Confirming a registration (0041). The token's shape is checked before any
+// lookup, and a wrong shape gets the same answer as an unknown or used token.
+// The password has no length rules here: it's compared with the one chosen at
+// sign-up, not set.
+export function parseConfirmation(body) {
+  const token = typeof body?.token === 'string' ? body.token : '';
+  if (!TOKEN_PATTERN.test(token)) {
+    throw new HttpError(400, 'ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว สมัครอีกครั้งเพื่อรับลิงก์ใหม่', undefined, 'LINK_INVALID');
+  }
+
+  const password = typeof body?.password === 'string' ? body.password : '';
+  if (!password) {
+    throw badRequest('กรุณาตรวจสอบข้อมูลที่กรอก', { password: 'กรุณากรอกรหัสผ่านที่ตั้งไว้ตอนสมัคร' });
+  }
+  // A bound on the work one request can ask for, as at sign-up
+  if ([...password].length > MAX_PASSWORD_LENGTH) {
+    throw unauthorizedPassword();
+  }
+
+  return { token, password };
+}
+
+// Longer than any password we accept, so it can't be the one chosen
+const unauthorizedPassword = () =>
+  new HttpError(401, 'รหัสผ่านไม่ตรงกับที่ตั้งไว้ตอนสมัคร', undefined, 'WRONG_PASSWORD');

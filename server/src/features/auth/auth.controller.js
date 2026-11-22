@@ -1,9 +1,10 @@
-import { env } from '#common/config/env.js';
+import { env, isProduction } from '#common/config/env.js';
 import { HttpError } from '#common/errors/http-error.js';
 import { constantTimeEqual } from '#common/utils/constant-time-equal.js';
 import { User } from '#models/index.js';
 
-import { registerWithPassword, signInWithGoogle, signInWithPassword } from './auth.service.js';
+import { alreadyRegisteredEmail, confirmEmail, confirmLink, googleLinkedEmail, sendAfterResponse } from './auth-email.js';
+import { confirmRegistration, requestRegistration, signInWithGoogle, signInWithPassword } from './auth.service.js';
 import {
   assertGoogleConfigured,
   clearOAuthTransaction,
@@ -12,7 +13,7 @@ import {
   issueOAuthTransaction,
   readOAuthTransaction,
 } from './google.js';
-import { parseCredentials, parseRegistration } from './auth.validation.js';
+import { parseConfirmation, parseCredentials, parseRegistration } from './auth.validation.js';
 import {
   clearSessionCookie,
   getSessionTokenFromRequest,
@@ -22,21 +23,55 @@ import {
   signSessionToken,
 } from './session.js';
 
-// Registering signs you in: the password was just chosen by whoever owns the
-// account, so a second form asking for it again proves nothing.
-export async function register(req, res) {
-  const { email, password, name } = parseRegistration(req.body);
+// What registration answers, whatever the address: new, already registered,
+// or waiting for its link. A different answer would tell anyone which
+// addresses have accounts (0041, ASVS V6.3.8).
+const REGISTRATION_SENT = 'ส่งอีเมลแล้ว ทำตามขั้นตอนในอีเมลเพื่อเริ่มใช้งาน';
 
-  const user = await registerWithPassword({
-    email,
-    password,
-    name,
-    // FR08 consent. Absent means no, so a missing field never becomes a signup.
-    notificationConsent: req.body?.notificationConsent === true,
-  });
+/**
+ * Registering no longer signs you in, and creates no account: it sends a link
+ * to the address, and the account exists once the link is opened and the
+ * password typed again (0041). So someone who types a stranger's address gets
+ * nothing they can sign in to.
+ *
+ * @param {{ configured: boolean, send: Function }} mail - How email goes out (app.js)
+ */
+export function createRegisterHandler(mail) {
+  return async function register(req, res) {
+    const { email, password, name } = parseRegistration(req.body);
+
+    // Production can't confirm an address without mail, so it doesn't pretend
+    // to: Google sign-in still works. Development prints the link instead.
+    if (!mail.configured && isProduction) {
+      throw new HttpError(503, 'ตอนนี้ยังสมัครด้วยอีเมลไม่ได้ ลองเข้าสู่ระบบด้วย Google', undefined, 'SIGNUP_UNAVAILABLE');
+    }
+
+    const outcome = await requestRegistration({
+      email,
+      password,
+      name,
+      // FR08 consent. Absent means no, so a missing field never becomes a signup.
+      notificationConsent: req.body?.notificationConsent === true,
+    });
+
+    res.status(202).json({ message: REGISTRATION_SENT });
+
+    if (outcome.kind === 'confirm') {
+      sendAfterResponse(mail, confirmEmail(outcome.email, outcome.token), { link: confirmLink(outcome.token) });
+    } else {
+      sendAfterResponse(mail, alreadyRegisteredEmail(outcome.email));
+    }
+  };
+}
+
+// The link's page posts the token and the password chosen at sign-up; a match
+// creates the account and signs it in, so there is no second step
+export async function verifyEmail(req, res) {
+  const { token, password } = parseConfirmation(req.body);
+  const user = await confirmRegistration({ token, password });
 
   setSessionCookie(res, signSessionToken(user));
-  res.status(201).json({ user });
+  res.json({ user });
 }
 
 export async function login(req, res) {
@@ -75,7 +110,11 @@ export function startGoogleSignIn(req, res) {
 
 // The browser is mid-navigation here, so a failure has to land the person on a
 // page rather than on a JSON error body.
-export async function completeGoogleSignIn(req, res) {
+export function createGoogleCallbackHandler(mail) {
+  return (req, res) => completeGoogleSignIn(req, res, mail);
+}
+
+async function completeGoogleSignIn(req, res, mail) {
   assertGoogleConfigured();
 
   const { code, state } = req.query;
@@ -98,9 +137,11 @@ export async function completeGoogleSignIn(req, res) {
       nonce: transaction.nonce,
       codeVerifier: transaction.codeVerifier,
     });
-    const user = await signInWithGoogle(profile);
+    const { user, linked } = await signInWithGoogle(profile);
     setSessionCookie(res, signSessionToken(user));
     res.redirect(env.corsOrigin);
+    // The account existed before this Google account joined it: tell its owner
+    if (linked) sendAfterResponse(mail, googleLinkedEmail(user.email));
   } catch (error) {
     // Every expected failure (Google unreachable, a rejected code, a token that
     // fails a check, an unverified address) is an HttpError. Anything else is a

@@ -5,6 +5,7 @@ import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Tor, TorInsight, User } from '#models/index.js';
 
 import { createApp } from '../src/app.js';
+import { signedInAccount } from './helpers/accounts.js';
 
 const TEST_DB = 'mjolnir_test';
 const PASSWORD = 'correct horse battery';
@@ -72,11 +73,9 @@ function sessionCookie(response) {
   return setCookie ? setCookie.split(';')[0] : null;
 }
 
+// A confirmed account, signed in: registering no longer signs anyone in (0041)
 async function registerAndGetCookie(name) {
-  const res = await send('POST', '/api/auth/register', {
-    body: { email: emailFor(name), password: PASSWORD, name },
-  });
-  return sessionCookie(res);
+  return (await signedInAccount(baseUrl, { email: emailFor(name), password: PASSWORD, name })).cookie;
 }
 
 test('watchlist: returns 401 for unauthenticated requests', async () => {
@@ -194,10 +193,7 @@ test('watchlist: user watchlists are completely isolated', async () => {
 
 test('watchlist: watchlist persists across login and logout', async () => {
   const email = emailFor('wl-persist');
-  const regRes = await send('POST', '/api/auth/register', {
-    body: { email, password: PASSWORD, name: 'Persist User' },
-  });
-  const cookie1 = sessionCookie(regRes);
+  const { cookie: cookie1 } = await signedInAccount(baseUrl, { email, password: PASSWORD, name: 'Persist User' });
 
   await send('PUT', `/api/watchlist/${sampleProjectId}`, { cookie: cookie1 });
   await send('POST', '/api/auth/logout', { cookie: cookie1 });
