@@ -1,5 +1,6 @@
 import { env, isProduction } from '#common/config/env.js';
 import { HttpError } from '#common/errors/http-error.js';
+import { securityEvent } from '#common/logging/security-log.js';
 import { constantTimeEqual } from '#common/utils/constant-time-equal.js';
 import { User } from '#models/index.js';
 
@@ -47,6 +48,27 @@ import {
   signSessionToken,
 } from './session.js';
 
+// What a failure was, for the log line (0043): the reason the service attached,
+// our own error code, or "policy" when a new password was refused. The client
+// never sees `reason`; the error handler sends only message, details and code.
+function failureReason(error) {
+  if (typeof error?.reason === 'string') return error.reason;
+  if (typeof error?.code === 'string') return error.code.toLowerCase();
+  if (error?.details?.password || error?.details?.newPassword) return 'policy';
+  return 'error';
+}
+
+// Runs one step of a sign-in or password flow, logging it if it fails, then
+// rethrowing so the answer is the same as without the log (ASVS V16.3.1)
+async function loggingFailure(req, event, fields, work) {
+  try {
+    return await work();
+  } catch (error) {
+    securityEvent(req, event, { ...fields, userId: fields.userId ?? error?.userId, reason: failureReason(error) });
+    throw error;
+  }
+}
+
 // What registration answers, whatever the address: new, already registered,
 // or waiting for its link. A different answer would tell anyone which
 // addresses have accounts (0041, ASVS V6.3.8).
@@ -78,6 +100,7 @@ export function createRegisterHandler(mail) {
       notificationConsent: req.body?.notificationConsent === true,
     });
 
+    securityEvent(req, 'auth.register.requested', { email: outcome.email, kind: outcome.kind });
     res.status(202).json({ message: REGISTRATION_SENT });
 
     if (outcome.kind === 'confirm') {
@@ -92,8 +115,11 @@ export function createRegisterHandler(mail) {
 // creates the account and signs it in, so there is no second step
 export async function verifyEmail(req, res) {
   const { token, password } = parseConfirmation(req.body);
-  const user = await confirmRegistration({ token, password });
+  const user = await loggingFailure(req, 'auth.email.confirm_failed', {}, () =>
+    confirmRegistration({ token, password }),
+  );
 
+  securityEvent(req, 'auth.email.confirmed', { userId: user.id });
   setSessionCookie(res, signSessionToken(user));
   res.json({ user });
 }
@@ -117,6 +143,7 @@ export function createForgotHandler(mail) {
     const { email } = parseForgot(req.body);
     assertMail(mail);
     const outcome = await requestPasswordReset({ email });
+    securityEvent(req, 'auth.password_reset.requested', { email, kind: outcome.kind });
     res.status(202).json({ message: RESET_SENT });
     if (outcome.kind !== 'none') {
       sendAfterResponse(mail, resetEmail(outcome.email, outcome.token, { kind: outcome.kind }), { link: resetLink(outcome.token) });
@@ -132,7 +159,10 @@ export function createForgotHandler(mail) {
 export function createResetHandler(mail) {
   return async function resetPasswordHandler(req, res) {
     const { token, password } = parseReset(req.body);
-    const { email } = await resetPassword({ token, password });
+    const { email, userId } = await loggingFailure(req, 'auth.password_reset.failed', {}, () =>
+      resetPassword({ token, password }),
+    );
+    securityEvent(req, 'auth.password_reset.completed', { userId });
     clearSessionCookie(res);
     res.json({ message: 'ตั้งรหัสผ่านใหม่แล้ว เข้าสู่ระบบด้วยรหัสผ่านใหม่ได้เลย' });
     sendAfterResponse(mail, passwordChangedEmail(email));
@@ -147,7 +177,10 @@ export function createResetHandler(mail) {
 export function createPasswordChangeHandler(mail) {
   return async function changePasswordHandler(req, res) {
     const { currentPassword, newPassword } = parsePasswordChange(req.body);
-    const user = await changePassword({ userId: req.user.id, currentPassword, newPassword });
+    const user = await loggingFailure(req, 'auth.password.change_failed', { userId: req.user.id }, () =>
+      changePassword({ userId: req.user.id, currentPassword, newPassword }),
+    );
+    securityEvent(req, 'auth.password.changed', { userId: user.id });
     setSessionCookie(res, signSessionToken(user));
     res.json({ user });
     sendAfterResponse(mail, passwordChangedEmail(user.email));
@@ -175,8 +208,11 @@ export function createAdminPasswordResetHandler(mail) {
 
 export async function login(req, res) {
   const { email, password } = parseCredentials(req.body);
-  const user = await signInWithPassword({ email, password });
+  const user = await loggingFailure(req, 'auth.login.failure', { email }, () =>
+    signInWithPassword({ email, password }),
+  );
 
+  securityEvent(req, 'auth.login.success', { userId: user.id });
   setSessionCookie(res, signSessionToken(user));
   res.json({ user });
 }
@@ -192,6 +228,7 @@ export async function logout(req, res) {
   if (session?.userId) {
     // ASVS V7.4.1: Invalidate active tokens by bumping tokenVersion
     await User.updateOne({ _id: session.userId }, { $inc: { tokenVersion: 1 } }).catch(() => {});
+    securityEvent(req, 'auth.logout', { userId: session.userId });
   }
 
   clearSessionCookie(res);
@@ -228,6 +265,9 @@ async function completeGoogleSignIn(req, res, mail) {
     !transaction ||
     !constantTimeEqual(state, transaction.state)
   ) {
+    // No code is also what a person cancelling at Google looks like
+    const reason = !transaction ? 'no_attempt' : typeof code !== 'string' || !code ? 'no_code' : 'state_mismatch';
+    securityEvent(req, 'auth.google.failure', { reason });
     return res.redirect(`${env.corsOrigin}/?auth=failed`);
   }
 
@@ -237,6 +277,7 @@ async function completeGoogleSignIn(req, res, mail) {
       codeVerifier: transaction.codeVerifier,
     });
     const { user, linked } = await signInWithGoogle(profile);
+    securityEvent(req, 'auth.google.success', { userId: user.id, linked });
     setSessionCookie(res, signSessionToken(user));
     res.redirect(env.corsOrigin);
     // The account existed before this Google account joined it: tell its owner
@@ -252,8 +293,7 @@ async function completeGoogleSignIn(req, res, mail) {
     // The reason belongs in the log, not in the URL bar, followed by what Google
     // said when it refused the code. Never the token, never the address.
     const why = [error.reason, error.refusal].filter(Boolean).join(': ');
-    const reason = why ? ` (${why})` : '';
-    console.warn(`Google sign-in failed: ${error.message}${reason}`);
+    securityEvent(req, 'auth.google.failure', { reason: why || 'unknown' });
     res.redirect(`${env.corsOrigin}/?auth=failed`);
   }
 }

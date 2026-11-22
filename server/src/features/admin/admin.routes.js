@@ -25,6 +25,7 @@ import {
   handleUpdateReview,
   readOperations,
 } from './admin.controller.js';
+import { auditAdminAction } from './audit.js';
 import { adminRateLimits } from './rate-limit.js';
 
 /**
@@ -55,7 +56,14 @@ export function createAdminRoutes(limits = adminRateLimits, { mail } = {}) {
   // sends a summary back to review, which takes it off the public site, and a
   // password reset sends a user an email. Works alongside SameSite=Lax session
   // cookies as defense-in-depth.
-  const costly = limitByUser(limits.adminCostly);
+  const costly = limitByUser({ ...limits.adminCostly, name: 'adminCostly' });
+
+  // Every route that changes something goes through here, so none can be
+  // added without its audit line (ADR 0043). The fields named are the only
+  // ones from the body the line keeps: never extracted text or free text.
+  // The audit runs before the limiter, so a refused attempt is a line too.
+  const write = (method, path, picks, ...handlers) =>
+    adminRoutes[method](path, auditAdminAction(picks), ...handlers);
 
   // No rate limit: an admin refreshing a dashboard is the intended use, and a
   // limiter here would eventually hide a pipeline failure behind a 429.
@@ -65,55 +73,55 @@ export function createAdminRoutes(limits = adminRateLimits, { mail } = {}) {
   adminRoutes.get('/review/:projectId', handleGetReviewItem);
 
   // Review actions: manually edit extracted fields, approve, or reclassify (FR-23)
-  adminRoutes.patch('/review/:projectId', handleUpdateReview);
+  write('patch', '/review/:projectId', ['action'], handleUpdateReview);
 
   // Queue a document for re-extraction
-  adminRoutes.post('/review/:projectId/re-extract', costly, handleReExtract);
+  write('post', '/review/:projectId/re-extract', [], costly, handleReExtract);
 
   // The summaries a change replaced, and bringing one back (NFR-07, ADR 0031)
   adminRoutes.get('/review/:projectId/versions', handleListVersions);
-  adminRoutes.post('/review/:projectId/rollback', handleRollback);
+  write('post', '/review/:projectId/rollback', ['version'], handleRollback);
 
   // Trigger on-demand ingestion poll across procurement feeds
-  adminRoutes.post('/ingest', costly, handleTriggerIngest);
+  write('post', '/ingest', ['source', 'limit'], costly, handleTriggerIngest);
 
   // Health check: test connectivity & latency for procurement sources (FR-22)
-  adminRoutes.post('/health-check', costly, handleCheckSourcesHealth);
+  write('post', '/health-check', ['source'], costly, handleCheckSourcesHealth);
 
   // Send a user a link to set a new password (ADR 0042, ASVS V6.4.6). The admin
   // names the address and nothing else, and never sees the link. auth owns the
   // handler; it sends email, so it shares the costly budget.
-  adminRoutes.post('/users/password-reset', costly, createAdminPasswordResetHandler(mail));
+  write('post', '/users/password-reset', ['email'], costly, createAdminPasswordResetHandler(mail));
 
   // Re-trigger / retry a failed pipeline step (FR-24)
-  adminRoutes.post('/pipeline/retry', handleRetryPipelineStep);
+  write('post', '/pipeline/retry', ['projectId', 'step', 'runNow'], handleRetryPipelineStep);
 
   // Bulk retry all transient pipeline failures (FR-24)
-  adminRoutes.post('/pipeline/retry-all', costly, handleRetryAllPipelineFailures);
+  write('post', '/pipeline/retry-all', ['step', 'transientOnly'], costly, handleRetryAllPipelineFailures);
 
   // Advance past a stuck pipeline step (FR-24)
-  adminRoutes.post('/pipeline/skip', handleSkipPipelineStep);
+  write('post', '/pipeline/skip', ['projectId', 'step'], handleSkipPipelineStep);
 
   // Query pipeline tasks with phase filtering and search (FR-24)
   adminRoutes.get('/pipeline/tasks', handleGetPipelineTasks);
 
   // Dismiss a permanent pipeline failure (FR-24)
-  adminRoutes.post('/pipeline/dismiss', handleDismissPipelineFailure);
+  write('post', '/pipeline/dismiss', ['projectId', 'step'], handleDismissPipelineFailure);
 
   // Record-level lifecycle diagnostics (FR-24)
   adminRoutes.get('/pipeline/record/:projectId', handleGetPipelineRecord);
 
   // Manually add procurement record from e-GP reference (FR-24)
-  adminRoutes.post('/pipeline/add', handleAddManualRecord);
+  write('post', '/pipeline/add', ['projectId'], handleAddManualRecord);
 
   // Live project suggestion / autocomplete for Project Inspector (FR-24)
   adminRoutes.get('/projects/suggest', handleSuggestProjects);
 
   // Technology and standard vocabulary administration (directory, review, add, edit, delete)
   adminRoutes.get('/technologies', handleGetAdminTechnologies);
-  adminRoutes.post('/technologies', handleCreateAdminTechnology);
-  adminRoutes.patch('/technologies/:id', handleUpdateAdminTechnology);
-  adminRoutes.delete('/technologies/:id', handleDeleteAdminTechnology);
+  write('post', '/technologies', ['name'], handleCreateAdminTechnology);
+  write('patch', '/technologies/:id', ['name', 'status'], handleUpdateAdminTechnology);
+  write('delete', '/technologies/:id', [], handleDeleteAdminTechnology);
 
   return adminRoutes;
 }

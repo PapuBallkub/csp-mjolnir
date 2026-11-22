@@ -189,19 +189,27 @@ export async function signInWithPassword({ email, password }) {
 
   // One message for a missing account, an account that signs in only with
   // Google, and a wrong password. Separate ones tell anyone who asks which
-  // addresses are registered. See 0004.
+  // addresses are registered. See 0004. The log needs to tell them apart, so
+  // the error carries which it was in `reason`, which never reaches the client
+  // (0043).
   if (!user?.passwordHash || !matches) {
-    throw unauthorized('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+    throw Object.assign(unauthorized('อีเมลหรือรหัสผ่านไม่ถูกต้อง'), {
+      reason: !user ? 'unknown_account' : !user.passwordHash ? 'no_password' : 'wrong_password',
+      userId: user?._id,
+    });
   }
 
   // Only someone who knows the password gets this far, so saying the address
   // isn't confirmed tells a stranger nothing
   if (!isAddressVerified(user)) {
-    throw new HttpError(
-      403,
-      'ยืนยันอีเมลก่อนเข้าสู่ระบบ: สมัครอีกครั้งด้วยอีเมลนี้เพื่อรับลิงก์ยืนยันใหม่',
-      undefined,
-      'EMAIL_NOT_VERIFIED',
+    throw Object.assign(
+      new HttpError(
+        403,
+        'ยืนยันอีเมลก่อนเข้าสู่ระบบ: สมัครอีกครั้งด้วยอีเมลนี้เพื่อรับลิงก์ยืนยันใหม่',
+        undefined,
+        'EMAIL_NOT_VERIFIED',
+      ),
+      { reason: 'unverified', userId: user._id },
     );
   }
 
@@ -341,7 +349,7 @@ export async function requestPasswordReset({ email, byAdmin = false }) {
  * user's decision, 2026-11-22). The link also proves the mailbox, so an address
  * never confirmed becomes confirmed.
  *
- * @returns {Promise<{ email: string }>} Whom to tell that the password changed
+ * @returns {Promise<{ email: string, userId: string }>} Whom to tell that the password changed, and whose it was
  */
 export async function resetPassword({ token, password }) {
   const held = await EmailToken.findOne({ purpose: 'reset-password', tokenHash: hashToken(token) });
@@ -366,7 +374,7 @@ export async function resetPassword({ token, password }) {
     { $set: { passwordHash }, $inc: { tokenVersion: 1 }, $min: { emailVerifiedAt: new Date() } },
   );
   await EmailToken.deleteMany({ purpose: 'reset-password', email: user.email });
-  return { email: user.email };
+  return { email: user.email, userId: String(user._id) };
 }
 
 const resetLinkInvalid = () => linkProblem(400, 'ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว ขอลิงก์ตั้งรหัสผ่านใหม่อีกครั้ง', 'LINK_INVALID');

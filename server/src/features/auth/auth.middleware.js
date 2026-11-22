@@ -1,4 +1,5 @@
 import { forbidden, unauthorized } from '#common/errors/http-error.js';
+import { securityEvent } from '#common/logging/security-log.js';
 
 import { findUserById } from './auth.service.js';
 import { readSessionToken, getSessionTokenFromRequest, clearSessionCookie } from './session.js';
@@ -13,9 +14,13 @@ export async function requireAuth(req, res, next) {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.set('Pragma', 'no-cache');
 
-  const session = readSessionToken(getSessionTokenFromRequest(req));
+  const token = getSessionTokenFromRequest(req);
+  const session = readSessionToken(token);
 
   if (!session?.userId) {
+    // Logged only when a cookie came and failed (ASVS V16.3.1). No cookie at
+    // all is every signed-out visitor: the client asks /me on every page load.
+    if (token) securityEvent(req, 'auth.session.rejected', { reason: 'invalid' });
     throw unauthorized('กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ');
   }
 
@@ -24,6 +29,10 @@ export async function requireAuth(req, res, next) {
   // ASVS V7.4.1: If account is deleted or tokenVersion does not match (session was revoked on logout),
   // reject immediately and clear the cookie.
   if (!user || (user.tokenVersion ?? 0) !== session.tokenVersion) {
+    securityEvent(req, 'auth.session.rejected', {
+      reason: user ? 'revoked' : 'account_gone',
+      userId: session.userId,
+    });
     clearSessionCookie(res);
     throw unauthorized('กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ');
   }
@@ -50,6 +59,12 @@ export function requireRole(...roles) {
     }
 
     if (!roles.includes(req.user.role)) {
+      // ASVS V16.3.2: a signed-in account asking for what its role doesn't allow
+      securityEvent(req, 'authz.denied', {
+        userId: req.user.id,
+        role: req.user.role,
+        required: roles.join(','),
+      });
       throw forbidden('พื้นที่นี้สำหรับผู้ดูแลระบบเท่านั้น');
     }
 

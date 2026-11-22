@@ -47,13 +47,30 @@ function failTorsRequest(nodeEnv) {
   // dotenv prints a line of its own on stdout, so look for ours
   const line = result.stdout.split('\n').find((l) => l.startsWith('RESULT '));
   assert.ok(line, `the app never answered (exit ${result.status}):\n${result.stderr}`);
-  return JSON.parse(line.slice('RESULT '.length));
+  return { ...JSON.parse(line.slice('RESULT '.length)), stderr: result.stderr };
 }
 
 test('a 500 in production says "Internal server error" and nothing more', () => {
   const { status, body } = failTorsRequest('production');
   assert.equal(status, 500);
   assert.deepEqual(body, { error: { message: 'Internal server error' } });
+});
+
+test('the 500 the client never sees the cause of is logged on stderr as one JSON line, with its stack (ADR 0043)', () => {
+  const { stderr } = failTorsRequest('production');
+  const logged = stderr
+    .split('\n')
+    .filter((l) => l.startsWith('{'))
+    .map((l) => JSON.parse(l))
+    .find((entry) => entry.event === 'server.error');
+
+  assert.ok(logged, `no server.error line on stderr:\n${stderr}`);
+  assert.equal(logged.severity, 'ERROR');
+  assert.equal(logged.status, 500);
+  assert.equal(logged.method, 'GET');
+  assert.equal(logged.path, '/api/tors');
+  assert.match(logged.message, /buffering timed out/);
+  assert.match(logged.message, /\n {4}at /, 'the stack is inside the one line');
 });
 
 test('a 500 in development shows the real error, so the production case is the flag at work', () => {

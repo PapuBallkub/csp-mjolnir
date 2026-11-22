@@ -19,6 +19,7 @@ import { codeChallengeFor } from '../src/features/auth/google.js';
 import { GOOGLE_CERTS_URL } from '../src/features/auth/google-id-token.js';
 import { createApp } from '../src/app.js';
 import { createMailRecorder, createVerifiedUser } from './helpers/accounts.js';
+import { captureSecurityLog } from './helpers/security-log.js';
 
 const TEST_DB = 'mjolnir_test';
 
@@ -199,7 +200,7 @@ test('a sign-in Google vouches for gets a session', needsConfig, async (t) => {
 });
 
 test('a token carrying another sign-in’s nonce is refused, and the log says why', needsConfig, async (t) => {
-  const warn = t.mock.method(console, 'warn', () => {});
+  const log = captureSecurityLog(t);
   const start = await startSignIn();
   const other = crypto.randomBytes(32).toString('base64url');
   fakeGoogle(t, { idToken: idTokenFor({ nonce: other, name: 'oidc-replayed' }) });
@@ -211,13 +212,12 @@ test('a token carrying another sign-in’s nonce is refused, and the log says wh
   assert.equal(sessionCookieOf(response), undefined, 'no session');
   assert.equal(await User.exists({ email: emailFor('oidc-replayed') }), null, 'no account made');
 
-  const [line] = warn.mock.calls.map((call) => call.arguments.join(' '));
-  assert.match(line, /^Google sign-in failed: .*\(nonce\)$/);
-  assert.ok(!line.includes(emailFor('oidc-replayed')), 'the address stays out of the log');
+  assert.deepEqual(signInFailures(log), ['nonce']);
+  assert.ok(!log.raw().includes(emailFor('oidc-replayed')), 'the address stays out of the log');
 });
 
 test('Google being unreachable lands on the failure page, not a 500', needsConfig, async (t) => {
-  t.mock.method(console, 'warn', () => {});
+  captureSecurityLog(t);
   const start = await startSignIn();
   fakeGoogle(t, {
     tokenEndpoint: () => {
@@ -231,11 +231,11 @@ test('Google being unreachable lands on the failure page, not a 500', needsConfi
   assert.match(response.headers.get('location'), /auth=failed/);
 });
 
-const signInFailures = (warn) =>
-  warn.mock.calls.map((call) => call.arguments.join(' ')).filter((line) => line.startsWith('Google sign-in failed'));
+// Each failed sign-in's reason, as its auth.google.failure line carries it (ADR 0043)
+const signInFailures = (log) => log.events('auth.google.failure').map((line) => line.reason);
 
 test('when Google refuses the code, the log says what Google said', needsConfig, async (t) => {
-  const warn = t.mock.method(console, 'warn', () => {});
+  const log = captureSecurityLog(t);
   const start = await startSignIn();
   fakeGoogle(t, {
     tokenEndpoint: () =>
@@ -245,13 +245,11 @@ test('when Google refuses the code, the log says what Google said', needsConfig,
   const response = await callback(`code=test-code&state=${start.state}`, start.cookie);
 
   assert.match(response.headers.get('location'), /auth=failed/);
-  assert.deepEqual(signInFailures(warn).map((line) => line.replace(/^.*\(/, '(')), [
-    '(token-endpoint: invalid_grant "Invalid code verifier.")',
-  ]);
+  assert.deepEqual(signInFailures(log), ['token-endpoint: invalid_grant "Invalid code verifier."']);
 });
 
 test('Google’s refusal reaches the log only in the shape RFC 6749 allows', needsConfig, async (t) => {
-  const warn = t.mock.method(console, 'warn', () => {});
+  const log = captureSecurityLog(t);
   let body;
   fakeGoogle(t, {
     tokenEndpoint: () =>
@@ -260,13 +258,13 @@ test('Google’s refusal reaches the log only in the shape RFC 6749 allows', nee
 
   const cases = [
     // A line break would let the description write a log line of its own
-    [{ error: 'invalid_grant', error_description: 'x\nGoogle sign-in succeeded' }, '(token-endpoint: invalid_grant)'],
-    [{ error: 'invalid_grant', error_description: 'x'.repeat(201) }, '(token-endpoint: invalid_grant)'],
-    [{ error: 'invalid_grant', error_description: 'says "hi"' }, '(token-endpoint: invalid_grant)'],
-    [{ error: 'a'.repeat(65), error_description: 'fine' }, '(token-endpoint)'],
-    [{ error: ['invalid_grant'] }, '(token-endpoint)'],
-    [{ error_description: 'no code' }, '(token-endpoint)'],
-    ['<html>not json</html>', '(token-endpoint)'],
+    [{ error: 'invalid_grant', error_description: 'x\nGoogle sign-in succeeded' }, 'token-endpoint: invalid_grant'],
+    [{ error: 'invalid_grant', error_description: 'x'.repeat(201) }, 'token-endpoint: invalid_grant'],
+    [{ error: 'invalid_grant', error_description: 'says "hi"' }, 'token-endpoint: invalid_grant'],
+    [{ error: 'a'.repeat(65), error_description: 'fine' }, 'token-endpoint'],
+    [{ error: ['invalid_grant'] }, 'token-endpoint'],
+    [{ error_description: 'no code' }, 'token-endpoint'],
+    ['<html>not json</html>', 'token-endpoint'],
   ];
 
   for (const [index, [next, expected]] of cases.entries()) {
@@ -274,10 +272,10 @@ test('Google’s refusal reaches the log only in the shape RFC 6749 allows', nee
     const start = await startSignIn();
     await callback(`code=test-code&state=${start.state}`, start.cookie);
 
-    const line = signInFailures(warn)[index];
-    assert.ok(line.endsWith(expected), `case ${index}: ${JSON.stringify(line)}`);
-    assert.ok(!line.includes('\n'), `case ${index}: one line only`);
+    assert.equal(signInFailures(log)[index], expected, `case ${index}`);
   }
+  assert.equal(log.raw().split('\n').length, cases.length, 'one line per failure');
+  assert.ok(!log.raw().includes('Google sign-in succeeded'), 'the description never reaches the log');
 });
 
 // A repeated parameter arrives as an array.

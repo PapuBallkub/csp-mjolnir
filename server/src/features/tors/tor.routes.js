@@ -14,7 +14,7 @@ export function createTorRoutes(limits = torRateLimits) {
 
   // One limiter on both paths: /pdf is an alias, and two instances would
   // each keep their own count, doubling the budget
-  const previewLimit = limitByIp(limits.preview);
+  const previewLimit = limitByIp({ ...limits.preview, name: 'preview' });
   torRoutes.get('/:projectId/preview', previewLimit, getTorPreviewHandler);
   torRoutes.get('/:projectId/pdf', previewLimit, getTorPreviewHandler);
 
