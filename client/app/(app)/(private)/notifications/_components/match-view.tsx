@@ -86,7 +86,7 @@ export function MatchView({
                               : "text-ink-3"
                           }`}
                         >
-                          ({daysLeft > 0 ? `เหลือ ${daysLeft} วัน` : "สิ้นสุดแล้ว"})
+                          ({daysLeft > 0 ? `เหลือ ${daysLeft} วัน` : daysLeft === 0 ? "ปิดรับวันนี้" : "สิ้นสุดแล้ว"})
                         </span>
                       ) : null}
                     </span>
