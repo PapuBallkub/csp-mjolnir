@@ -22,7 +22,7 @@ GIPDP (working title: *Mjölnir*) is a web platform that collects Thai governmen
 ## Prerequisites
 
 - **Node.js** 22+ and **npm**
-- **MongoDB** (either a local MongoDB instance running on `localhost:27017` or a MongoDB Atlas connection string)
+- **MongoDB** (either **Docker** to run the included `mongo:8` container, a local MongoDB instance on `localhost:27017`, or a MongoDB Atlas connection string)
 
 ---
 
@@ -32,10 +32,14 @@ Before running the application, configure both the backend (`server/.env`) and f
 
 ### 1. Backend Configuration (`server/.env`)
 
-Copy the example environment file:
+Copy the example environment file from the repository root:
 
 ```bash
+# PowerShell / Git Bash / macOS / Linux
 cp server/.env.example server/.env
+
+# Windows Command Prompt (cmd.exe)
+copy server\.env.example server\.env
 ```
 
 #### Core Required Variables
@@ -69,16 +73,20 @@ You have two options for configuring `MONGO_URI` in `server/.env`:
   ```env
   MONGO_URI=mongodb://localhost:27017
   ```
-  Connects to a local MongoDB instance on your machine. After starting the server, you can populate it with sample data using `npm run technologies:seed` and `npm run seed` inside `server/`.
+  Connects to a local MongoDB instance on your machine. If you use Docker, start the project's pre-configured MongoDB 8 container (defined in `docker-compose.override.yml`) from the repository root:
+  ```bash
+  docker compose up -d mongo
+  ```
+  After starting the server, you can populate the local database with sample data using `npm run technologies:seed` and `npm run seed` inside `server/`.
 - **Setting Option 2 — Shared MongoDB Atlas Cluster (Real Scraped Dataset):**
   ```env
   MONGO_URI=mongodb+srv://<user>:<password>@<cluster-url>/?retryWrites=true&w=majority
   ```
   Connects to the MongoDB Atlas cluster containing scraped e-GP notices and extracted TOR insights (requires your current IP address to be on the Atlas Network Access allowlist).
 
-#### External Service Settings (Google OAuth 2.0 & Gmail SMTP)
+#### External Service Settings (Google OAuth 2.0, Gmail SMTP & Google Cloud / Vertex AI Gemini)
 
-To enable **Sign in with Google** and **Email Notifications / Account Confirmation Emails**, configure the following variables in `server/.env` by following our step-by-step Wiki guides:
+To enable **Sign in with Google**, **Email Notifications / Account Confirmation Emails**, and **AI TOR Extraction (Gemini on Vertex AI)**, configure the following optional variables in `server/.env`:
 
 1. **Google OAuth 2.0 (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`):**
    - **Setup Guide:** [Setting Up Google OAuth 2.0 Credentials (Wiki)](https://github.com/PapuBallkub/csp-mjolnir/wiki/Setting-Up-Google-OAuth-2.0-Credentials)
@@ -100,14 +108,27 @@ To enable **Sign in with Google** and **Email Notifications / Account Confirmati
    ```
    *(In local development, if `SMTP_USER` and `SMTP_PASS` are left unset, the server prints account-confirmation and password-reset links directly to the terminal console under `[auth] Development only, no SMTP`.)*
 
+3. **Google Cloud / Vertex AI Gemini (`GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GEMINI_MODEL`):**
+   - **Setup Guide:** [Setting Up Google Cloud & Vertex AI Gemini (Wiki)](https://github.com/PapuBallkub/csp-mjolnir/wiki/Setting-Up-Google-Cloud-&-Vertex-AI-Gemini)
+   ```env
+   GOOGLE_CLOUD_PROJECT=<your-google-cloud-project-id>
+   GOOGLE_CLOUD_LOCATION=global
+   GEMINI_MODEL=gemini-3.7-flash
+   ```
+   *(Used only when running the AI screening and extraction pipeline commands such as `npm run screen`, `npm run extract`, or admin re-extraction; the web server boots and serves existing TORs without it. No API key is stored in `.env` — authenticate once via the Google Cloud CLI with `gcloud auth login`, `gcloud config set project <GOOGLE_CLOUD_PROJECT>`, and `gcloud auth application-default login`, then verify with `npm run gemini:check`.)*
+
 ---
 
 ### 2. Frontend Configuration (`client/.env.local`)
 
-Copy the example environment file in `client/`:
+Copy the example environment file in `client/` from the repository root:
 
 ```bash
+# PowerShell / Git Bash / macOS / Linux
 cp client/.env.example client/.env.local
+
+# Windows Command Prompt (cmd.exe)
+copy client\.env.example client\.env.local
 ```
 
 Default contents of `client/.env.local`:
@@ -122,9 +143,20 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ## How to Install and Run the Application
 
-Open two terminals — one for the Backend API (`server/`) and one for the Frontend Web App (`client/`):
+### Step 1: Start Local MongoDB (if using Setting Option 1)
 
-### Step 1: Install and Start the Backend API (`http://localhost:8000`)
+If `MONGO_URI` points to `mongodb://localhost:27017`, make sure MongoDB is running before starting the backend:
+
+```bash
+# Using Docker Compose (recommended — persists data in the mongo-data volume)
+docker compose up -d mongo
+```
+
+*(Skip this step if `MONGO_URI` in `server/.env` points to MongoDB Atlas, or if you already have a native MongoDB service running on port `27017`.)*
+
+### Step 2: Install and Start the Backend API (`http://localhost:8000`)
+
+Open two terminals — one for the Backend API (`server/`) and one for the Frontend Web App (`client/`):
 
 ```bash
 cd server
@@ -140,7 +172,7 @@ npm run technologies:seed
 npm run seed
 ```
 
-### Step 2: Install and Start the Frontend (`http://localhost:3000`)
+### Step 3: Install and Start the Frontend (`http://localhost:3000`)
 
 ```bash
 cd client
@@ -148,7 +180,7 @@ npm install
 npm run dev
 ```
 
-### Step 3: Access the Application
+### Step 4: Access the Application
 
 - **Web Application:** [http://localhost:3000](http://localhost:3000)
 - **Backend API Health Check:** [http://localhost:8000/api/health](http://localhost:8000/api/health)
