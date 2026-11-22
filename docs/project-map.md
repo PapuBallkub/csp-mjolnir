@@ -732,6 +732,8 @@ links down to the reference pages.
 | [v14-data-protection.md](security/v14-data-protection.md) | Five-tier sensitive data classification, cache protection, data retention, and OWASP ASVS Chapter 14 traceability matrix. |
 | [v15-secure-coding-and-architecture.md](security/v15-secure-coding-and-architecture.md) | SBOM, vulnerability remediation schedule, heavy task decoupling, defensive coding, and OWASP ASVS Chapter 15 traceability matrix. |
 | [v16-security-logging-and-error-handling.md](security/v16-security-logging-and-error-handling.md) | Multi-layer logging inventory, sensitive data masking, fail-secure error handling, and OWASP ASVS Chapter 16 traceability matrix. |
+| [sast-codeql-guide.md](security/sast-codeql-guide.md) | Static Application Security Testing (SAST) architecture, GitHub CodeQL taint tracking, rulesets, and CI integration. |
+| [dast-zap-guide.md](security/dast-zap-guide.md) | Dynamic Application Security Testing (DAST) architecture, OWASP ZAP baseline scan, lifecycle, reporting artifacts, and local execution. |
 
 ### docs/decisions
 
