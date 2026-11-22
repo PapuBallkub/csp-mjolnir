@@ -124,6 +124,16 @@ address. Anything that isn't an `HttpError` is still thrown, so a real bug still
 surfaces. `state` is compared in constant time, and a repeated `code` or
 `state` parameter (an array) is refused before Google is asked.
 
+**When Google refuses the code, the log says what Google said.** A wrong
+verifier, a used or expired code, and a redirect URI or client secret that
+doesn't match all come back as a 400, told apart only by the reply's `error`.
+So the reason becomes, for example, `token-endpoint: invalid_grant "…"`, with
+Google's description in the quotes.
+Google's text is outside input: `error` and `error_description` are kept only
+in the characters RFC 6749 §5.2 allows (printable ASCII without `"` or `\`, so
+no line break can forge a log line), up to 64 and 200 characters, and dropped
+otherwise. Nothing else in the reply is read.
+
 **Still no new dependency.** `jsonwebtoken` verifies with a `KeyObject`, and
 `crypto.createPublicKey({ key, format: 'jwk' })` imports Google's keys.
 

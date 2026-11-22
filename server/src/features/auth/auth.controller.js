@@ -109,9 +109,10 @@ export async function completeGoogleSignIn(req, res) {
       throw error;
     }
 
-    // The reason belongs in the log, not in the URL bar. Never the token, never
-    // the address.
-    const reason = error.reason ? ` (${error.reason})` : '';
+    // The reason belongs in the log, not in the URL bar, followed by what Google
+    // said when it refused the code. Never the token, never the address.
+    const why = [error.reason, error.refusal].filter(Boolean).join(': ');
+    const reason = why ? ` (${why})` : '';
     console.warn(`Google sign-in failed: ${error.message}${reason}`);
     res.redirect(`${env.corsOrigin}/?auth=failed`);
   }

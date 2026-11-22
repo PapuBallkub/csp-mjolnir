@@ -185,7 +185,7 @@ Plumbing every feature uses. Never imports from `features/` ([0003](decisions/00
 
 | File | What it is |
 | :--- | :--- |
-| [config/env.js](../server/src/common/config/env.js) | Reads and checks environment variables once. Boot stops without `MONGO_URI` or `JWT_SECRET`, or with a `JWT_SECRET` under 32 bytes. |
+| [config/env.js](../server/src/common/config/env.js) | Reads and checks environment variables once. Boot stops without `MONGO_URI`, `JWT_SECRET` or `PASSWORD_PEPPER`, or with either secret under 32 bytes. |
 | [db/connect.js](../server/src/common/db/connect.js) | Connects Mongoose, pins the database name `mjolnir`, registers every model. |
 | [errors/http-error.js](../server/src/common/errors/http-error.js) | `HttpError` and `badRequest`, `unauthorized`, `forbidden`, `notFound`. Throw these from services. |
 | [middleware/error-handler.js](../server/src/common/middleware/error-handler.js) | Turns any thrown error into JSON; hides 500 details in production. |
@@ -243,7 +243,7 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 | [auth.validation.js](../server/src/features/auth/auth.validation.js) | Checks register and login bodies. |
 | [auth.middleware.js](../server/src/features/auth/auth.middleware.js) | `requireAuth` (loads `req.user` from the cookie) and `requireRole`. |
 | [session.js](../server/src/features/auth/session.js) | Signs and reads the `mjolnir_session` JWT cookie (7 days). |
-| [password.js](../server/src/features/auth/password.js) | bcrypt at cost 12; rejects passwords over 72 bytes. |
+| [password.js](../server/src/features/auth/password.js) | HMAC-SHA384 with `PASSWORD_PEPPER`, then bcrypt at cost 12, so the whole password counts ([0039](decisions/0039-passwords-are-peppered-before-bcrypt.md)). |
 | [google.js](../server/src/features/auth/google.js) | Google OAuth: sign-in URL with `state`, `nonce` and PKCE, the cookie that holds all three, code exchange. |
 | [google-id-token.js](../server/src/features/auth/google-id-token.js) | Checks Google's ID token (RS256 signature, `iss`, `aud`, `azp`, `exp`, `nonce`) and caches Google's signing keys ([0005](decisions/0005-google-sign-in-links-by-verified-email.md)). Reads no env and no network of its own, so tests sign their own tokens. |
 | [rate-limit.js](../server/src/features/auth/rate-limit.js) | The numbers: login per IP and per email, register per IP. |
@@ -443,13 +443,14 @@ the `mjolnir_test` database.
   `profile`, `technology`, `matchmaker`, `similarity`, `price-benchmark`,
   `lock-spec`. Also `tor-insight` (the model), `tor-awaiting-visibility` (what
   the public sees in pilot mode), `seed-data`, `ingestion-log`,
-  `migrate-categories`, `smoke` (the app boots), `env` (the `JWT_SECRET`
-  minimum) and `error-handler` (a 500 hides its cause in production), the last
+  `migrate-categories`, `smoke` (the app boots), `env` (the `JWT_SECRET` and
+  `PASSWORD_PEPPER` checks) and `error-handler` (a 500 hides its cause in production), the last
   two in a child process. `api-rate-limit` drives the limits outside auth with
   small numbers, and `input-checks` sends wrong types to the routes that used
   to give a 500. `auth-google-token` checks the Google ID token and key cache
   with tokens it signs itself, and `auth-google` drives the callback with
-  `fetch` mocked, so nothing calls Google.
+  `fetch` mocked, so nothing calls Google. `auth-password` checks the
+  pre-hash on its own, against RFC 4231's published value.
 - [test/pipeline/extraction/fixtures.js](../server/test/pipeline/extraction/fixtures.js):
   shared fake TORs and AI answers.
 - [test/pipeline/ingestion/fixtures/](../server/test/pipeline/ingestion/fixtures/):
@@ -735,3 +736,4 @@ write a new one that supersedes it ([CONTRIBUTING](../CONTRIBUTING.md#decisions)
 | [0036](decisions/0036-thai-only-interface.md) | The interface is Thai only |
 | [0037](decisions/0037-missing-deadlines-for-drafts-and-open-projects.md) | Wording for missing deadlines in draft and open projects |
 | [0038](decisions/0038-preview-serves-stored-files-only.md) | The PDF preview serves only files the pipeline stored |
+| [0039](decisions/0039-passwords-are-peppered-before-bcrypt.md) | Passwords are peppered (HMAC-SHA384) before bcrypt |

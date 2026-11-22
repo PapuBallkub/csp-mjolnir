@@ -163,6 +163,16 @@ test('GET /api/auth/google sends you to Google and remembers the attempt', needs
   assert.ok(!target.href.includes(stored[2]), 'the verifier must not appear in the URL');
 });
 
+test('the PKCE challenge matches RFC 7636’s worked example', () => {
+  // Appendix B. The other tests compare codeChallengeFor with itself, which
+  // still passes if it returns hex or keeps base64's `=`; only Google would
+  // notice. This pair comes from the RFC.
+  assert.equal(
+    codeChallengeFor('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'),
+    'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM',
+  );
+});
+
 test('a sign-in Google vouches for gets a session', needsConfig, async (t) => {
   const start = await startSignIn();
   const seen = fakeGoogle(t, { idToken: idTokenFor({ nonce: start.nonce, name: 'oidc-ok' }) });
@@ -214,6 +224,55 @@ test('Google being unreachable lands on the failure page, not a 500', needsConfi
 
   assert.equal(response.status, 302);
   assert.match(response.headers.get('location'), /auth=failed/);
+});
+
+const signInFailures = (warn) =>
+  warn.mock.calls.map((call) => call.arguments.join(' ')).filter((line) => line.startsWith('Google sign-in failed'));
+
+test('when Google refuses the code, the log says what Google said', needsConfig, async (t) => {
+  const warn = t.mock.method(console, 'warn', () => {});
+  const start = await startSignIn();
+  fakeGoogle(t, {
+    tokenEndpoint: () =>
+      Response.json({ error: 'invalid_grant', error_description: 'Invalid code verifier.' }, { status: 400 }),
+  });
+
+  const response = await callback(`code=test-code&state=${start.state}`, start.cookie);
+
+  assert.match(response.headers.get('location'), /auth=failed/);
+  assert.deepEqual(signInFailures(warn).map((line) => line.replace(/^.*\(/, '(')), [
+    '(token-endpoint: invalid_grant "Invalid code verifier.")',
+  ]);
+});
+
+test('Google’s refusal reaches the log only in the shape RFC 6749 allows', needsConfig, async (t) => {
+  const warn = t.mock.method(console, 'warn', () => {});
+  let body;
+  fakeGoogle(t, {
+    tokenEndpoint: () =>
+      typeof body === 'string' ? new Response(body, { status: 400 }) : Response.json(body, { status: 400 }),
+  });
+
+  const cases = [
+    // A line break would let the description write a log line of its own
+    [{ error: 'invalid_grant', error_description: 'x\nGoogle sign-in succeeded' }, '(token-endpoint: invalid_grant)'],
+    [{ error: 'invalid_grant', error_description: 'x'.repeat(201) }, '(token-endpoint: invalid_grant)'],
+    [{ error: 'invalid_grant', error_description: 'says "hi"' }, '(token-endpoint: invalid_grant)'],
+    [{ error: 'a'.repeat(65), error_description: 'fine' }, '(token-endpoint)'],
+    [{ error: ['invalid_grant'] }, '(token-endpoint)'],
+    [{ error_description: 'no code' }, '(token-endpoint)'],
+    ['<html>not json</html>', '(token-endpoint)'],
+  ];
+
+  for (const [index, [next, expected]] of cases.entries()) {
+    body = next;
+    const start = await startSignIn();
+    await callback(`code=test-code&state=${start.state}`, start.cookie);
+
+    const line = signInFailures(warn)[index];
+    assert.ok(line.endsWith(expected), `case ${index}: ${JSON.stringify(line)}`);
+    assert.ok(!line.includes('\n'), `case ${index}: one line only`);
+  }
 });
 
 // A repeated parameter arrives as an array.

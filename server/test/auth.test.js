@@ -5,10 +5,13 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 
+import bcrypt from 'bcryptjs';
+
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { User } from '#models/index.js';
 
 import { createApp } from '../src/app.js';
+import { prehash } from '../src/features/auth/password.js';
 
 const TEST_DB = 'mjolnir_test';
 const PASSWORD = 'correct horse battery';
@@ -120,13 +123,61 @@ test('a bad password is refused per field, and writes nothing', async () => {
   assert.equal(await User.countDocuments({ email }), 0);
 });
 
-test('a password past the bcrypt 72-byte ceiling is refused, not truncated', async () => {
-  const response = await send('POST', '/api/auth/register', {
-    body: { email: emailFor('long'), password: 'a'.repeat(73), name: NAME },
-  });
+test('a 64-character Thai password registers and signs in (V6.2.9)', async () => {
+  // 192 bytes: refused while the ceiling was bcrypt's 72
+  const email = emailFor('thai-password');
+  const password = 'กขคง'.repeat(16);
 
-  assert.equal(response.status, 400);
-  assert.match((await response.json()).error.details.password, /72 ไบต์/);
+  const registered = await send('POST', '/api/auth/register', { body: { email, password, name: NAME } });
+  assert.equal(registered.status, 201);
+
+  const login = await send('POST', '/api/auth/login', { body: { email, password } });
+  assert.equal(login.status, 200);
+});
+
+test('the password ceiling is 128 characters, counted as characters, not bytes', async () => {
+  const at = await send('POST', '/api/auth/register', {
+    body: { email: emailFor('pw-128'), password: 'ก'.repeat(128), name: NAME },
+  });
+  assert.equal(at.status, 201, '128 Thai characters is 384 bytes and must be accepted');
+
+  // Four bytes and two UTF-16 units each, but one character to the person typing
+  const emoji = await send('POST', '/api/auth/register', {
+    body: { email: emailFor('pw-emoji'), password: '🔒'.repeat(128), name: NAME },
+  });
+  assert.equal(emoji.status, 201, 'an emoji counts once');
+
+  const over = await send('POST', '/api/auth/register', {
+    body: { email: emailFor('pw-129'), password: 'ก'.repeat(129), name: NAME },
+  });
+  assert.equal(over.status, 400);
+  assert.match((await over.json()).error.details.password, /128 ตัวอักษร/);
+  assert.equal(await User.countDocuments({ email: emailFor('pw-129') }), 0);
+});
+
+test('a password is used in full, even past bcrypt’s 72 bytes', async () => {
+  // bcrypt alone would see only the 72 shared bytes, and let the second one in
+  const email = emailFor('no-truncation');
+  const password = `${'a'.repeat(72)}X`;
+
+  const registered = await send('POST', '/api/auth/register', { body: { email, password, name: NAME } });
+  assert.equal(registered.status, 201, '73 bytes, refused before this change');
+
+  const nearly = await send('POST', '/api/auth/login', { body: { email, password: `${'a'.repeat(72)}Y` } });
+  assert.equal(nearly.status, 401, 'only the last character differs, and that has to count');
+
+  const right = await send('POST', '/api/auth/login', { body: { email, password } });
+  assert.equal(right.status, 200);
+});
+
+test('the stored hash is bcrypt of the peppered password, never of the password itself', async () => {
+  const email = emailFor('peppered');
+  await send('POST', '/api/auth/register', { body: { email, password: PASSWORD, name: NAME } });
+
+  const { passwordHash } = await User.findOne({ email }).select('+passwordHash');
+  assert.match(passwordHash, /^\$2b\$12\$/, 'bcrypt, cost 12');
+  assert.equal(await bcrypt.compare(PASSWORD, passwordHash), false, 'the raw password must not match');
+  assert.equal(await bcrypt.compare(prehash(PASSWORD), passwordHash), true);
 });
 
 test('signing in needs the right password, and says no more than that', async () => {
@@ -224,8 +275,8 @@ test('registering needs a name, and reports it beside every other bad field', as
 });
 
 test('a name past 80 characters is refused by length, not by bytes', async () => {
-  // Thai is three bytes a character. A byte ceiling here — the rule bcrypt
-  // forces on passwords — would stop this at about 26, so this has to pass.
+  // Thai is three bytes a character. A byte ceiling here would stop this at
+  // about 26, so this has to pass.
   const thai = 'ก'.repeat(80);
   const ok = await send('POST', '/api/auth/register', {
     body: { email: emailFor('thainame'), password: PASSWORD, name: thai },

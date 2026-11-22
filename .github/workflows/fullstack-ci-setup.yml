@@ -68,6 +68,8 @@ jobs:
       # secret never goes in a workflow file. 32 bytes or more, or the server
       # refuses to boot (env.js).
       JWT_SECRET: ci-not-a-secret-ci-not-a-secret-ci
+      # Throwaway too, same rule: 32 bytes or more, never a real pepper.
+      PASSWORD_PEPPER: ci-not-a-pepper-ci-not-a-pepper-ci
       # Also throwaway. Present so the Google sign-in tests run here, the
       # callback included; they mock fetch, so nothing in the suite calls Google.
       GOOGLE_CLIENT_ID: ci-not-a-client

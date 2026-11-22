@@ -96,6 +96,19 @@ characters:
 node -e "console.log(crypto.randomUUID() + crypto.randomUUID())"
 ```
 
+`PASSWORD_PEPPER` keys the HMAC every password goes through before bcrypt
+([0039](docs/decisions/0039-passwords-are-peppered-before-bcrypt.md)). It is
+required, yours alone like `JWT_SECRET`, and at least 32 bytes; this command
+gives 44 characters:
+
+```
+node -e "console.log(crypto.randomBytes(32).toString('base64'))"
+```
+
+Unlike `JWT_SECRET`, keep it once set. Every password hash on your database
+depends on it, so a new or lost pepper means every password account there
+stops working (Google sign-in doesn't), and each has to be registered again.
+
 Running `npm test` in `server/` boots the app against whatever `MONGO_URI`
 points at. The tests that write users send them to a separate `mjolnir_test`
 database and delete them afterwards, so a run against Atlas never touches the
