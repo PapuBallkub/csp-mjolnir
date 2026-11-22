@@ -11,7 +11,7 @@ you need them.
    through them, the day's schedule, what isn't built yet.
 2. [server-features.md](overview/server-features.md): how the server is laid out by
    feature, which parts depend on which, and what they share.
-3. [data-model.md](overview/data-model.md): the 12 collections and how they connect.
+3. [data-model.md](overview/data-model.md): the 14 collections and how they connect.
 4. [pipeline-guide.md](pipeline-guide.md): the pipeline in plain words, and
    how to run it.
 
@@ -80,6 +80,7 @@ In [overview/](overview/), except the last two: `pipeline-guide.md` and
 | [tor-schema.md](database/tor-schema.md) | `Tor`: a project as ingestion knows it |
 | [tor-insight-schema.md](database/tor-insight-schema.md) | `TorInsight` and `TorInsightVersion`: the summary, and the versions it replaced |
 | [user-schema.md](database/user-schema.md) | `User`: the account, the profile, the watchlist |
+| [email-token-schema.md](database/email-token-schema.md) | `EmailToken`: a registration waiting for its confirm link |
 | [technology-schema.md](database/technology-schema.md) | `Technology`: the technology vocabulary |
 | [title-screen-schema.md](database/title-screen-schema.md) | `TitleScreen`: Gemini's verdict on a title, before anything is downloaded |
 | [pipeline-run-schema.md](database/pipeline-run-schema.md) | `PipelineLock`, `PipelineFailure`, `PipelineRun`, `FeedPoll`, `IngestionLog` and `RequestStreak`: the pipeline's bookkeeping |
@@ -111,7 +112,7 @@ what's built; the last column says which:
 
 ### Decisions
 
-[decisions/](decisions/) holds 40 decision records (ADRs), one per file,
+[decisions/](decisions/) holds 41 decision records (ADRs), one per file,
 numbered in the order they were made. Each says what was decided, why, and
 what it costs. [project-map.md](project-map.md) lists them all with a line
 each. Lock-spec's record was 0030 until 2026-11-13 and is now 0035, so an

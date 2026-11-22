@@ -45,7 +45,7 @@ Session security must guarantee:
 - **Single-Use Authorization Code Exchange**: The authorization code returned by Google identity services is immediately exchanged server-to-server for an ID token, verified with Google's public keys, and discarded.
 - **Decoupled Session Lifetime (V7.6.1)**: GIPDP does not inherit or maintain an ongoing session with Google Identity. Upon successful Google authentication, GIPDP mints its own internal 24-hour session JWT. Terminating a Google session does not automatically close GIPDP, and logging out of GIPDP does not alter the user's primary Google account.
 - **Explicit User Action (V7.6.2)**: Sessions are minted solely upon explicit, user-initiated action:
-  - Submitting credentials to `POST /api/auth/login` or `POST /api/auth/register`.
+  - Submitting credentials to `POST /api/auth/login`, or confirming an address at `POST /api/auth/verify-email` (the emailed link plus the sign-up password). `POST /api/auth/register` mints no session since [ADR 0041](../decisions/0041-an-address-is-confirmed-before-the-account-exists.md).
   - Initiating the OAuth redirect via `GET /api/auth/google`.
   - Transient OAuth state is protected via a cryptographically random, short-lived (10-minute) HMAC-signed state cookie (`mjolnir_oauth_state`).
 
@@ -123,7 +123,7 @@ sequenceDiagram
 | **154** | **V7.2.1** | L1 | Token verification using trusted backend service | **COMPLIANT** | `session.js` validates tokens using `jwt.verify` and `env.jwtSecret`. Checked on every private route in `auth.middleware.js`. |
 | **155** | **V7.2.2** | L1 | Dynamically generated self-contained tokens | **COMPLIANT** | `session.js#L25` dynamically signs JWT with user ID, `tokenVersion`, and expiration. |
 | **156** | **V7.2.3** | L1 | Reference tokens have 128-bit entropy from CSPRNG | **N/A** | Out-of-Scope: GIPDP uses self-contained signed JWTs (`jwt.sign`), not opaque reference tokens. |
-| **157** | **V7.2.4** | L1 | New token minted on authentication, old token discarded | **COMPLIANT** | `auth.controller.js` (`login`, `register`) and `google.js` call `setSessionCookie(res, signSessionToken(user))`, overwriting any prior cookie. |
+| **157** | **V7.2.4** | L1 | New token minted on authentication, old token discarded | **COMPLIANT** | `auth.controller.js` (`login`, `verifyEmail`) and the Google callback call `setSessionCookie(res, signSessionToken(user))`, overwriting any prior cookie. |
 | **158** | **V7.3.1** | L1 | Inactivity timeout enforced | **COMPLIANT (Trade-off)** | Documented architectural trade-off (§2.1, ADR 0012). Strict 24h absolute TTL without idle window prevents disruptive session termination during document analysis. |
 | **159** | **V7.3.2** | L2 | Absolute maximum session lifetime enforced | **COMPLIANT** | `jwt.verify` strictly rejects expired tokens (`TokenExpiredError`). 24h TTL enforced in `session.js` per SRS NFR-11. |
 | **160** | **V7.4.1** | L1 | Session termination disallows further use | **COMPLIANT** | `auth.controller.js#logout` increments `tokenVersion` in MongoDB and clears cookie. `auth.middleware.js` rejects prior tokens immediately. |

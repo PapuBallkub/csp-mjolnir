@@ -51,7 +51,7 @@ The main folders only. Each has its own section below, with a row per file.
 ├── client/                 Next.js frontend
 │   ├── app/
 │   │   ├── page.tsx        the introduction page (/)
-│   │   ├── auth/           sign-in (/auth)
+│   │   ├── auth/           sign-in and the confirm-link page (/auth, /auth/verify)
 │   │   ├── (app)/          pages inside the shell: search, tor/[id], watchdog, admin
 │   │   │   └── (private)/  signed-in only: profile, watchlist, notifications
 │   │   ├── _components/    shared UI: shell, badges, the TOR detail sections
@@ -206,7 +206,8 @@ that owns the collection. Import models from `#models/index.js`.
 | [tor.model.js](../server/src/models/tor.model.js) | `Tor`: one e-GP project as ingestion knows it. Feed fields, package files, OCR text, status, announcement history, changes, `pipelineStatus`. Spec: [tor-schema.md](database/tor-schema.md). |
 | [tor-insight.model.js](../server/src/models/tor-insight.model.js) | `TorInsight`: the normalized summary extraction builds. Identification, facts, requirements, eligibility, contract terms, lock-spec and price analytics, evidence, review state. Spec: [tor-insight-schema.md](database/tor-insight-schema.md). |
 | [tor-insight-version.model.js](../server/src/models/tor-insight-version.model.js) | `TorInsightVersion`: a summary a change replaced, kept for diffs and rollback ([0031](decisions/0031-keep-the-summary-a-change-replaces.md)). |
-| [user.model.js](../server/src/models/user.model.js) | `User`: account, role, capability profile, watchlist. Spec: [user-schema.md](database/user-schema.md). |
+| [user.model.js](../server/src/models/user.model.js) | `User`: account, role, capability profile, watchlist, and when the address was confirmed. Spec: [user-schema.md](database/user-schema.md). |
+| [email-token.model.js](../server/src/models/email-token.model.js) | `EmailToken`: a registration waiting for its confirm link, kept as the token's hash; gone after a day ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)). Spec: [email-token-schema.md](database/email-token-schema.md). |
 | [technology.model.js](../server/src/models/technology.model.js) | `Technology`: one canonical name per technology, with aliases ([0014](decisions/0014-price-names-and-insight-data-rules.md)). Spec: [technology-schema.md](database/technology-schema.md). |
 | [project-categories.js](../server/src/models/project-categories.js) | The seven kinds of IT project a TOR can be ([0034](decisions/0034-a-tor-can-have-several-categories.md)). Mirrored in `client/app/_lib/categories.ts`. |
 | [standard-conditions.js](../server/src/models/standard-conditions.js) | The eligibility conditions every e-GP TOR repeats, as keys. |
@@ -238,16 +239,18 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 
 | File | What it is |
 | :--- | :--- |
-| [auth.routes.js](../server/src/features/auth/auth.routes.js) | Register, login, logout, Google start and callback, `me`. Rate limiters go on here. |
-| [auth.controller.js](../server/src/features/auth/auth.controller.js) | Sets and clears the session cookie. |
-| [auth.service.js](../server/src/features/auth/auth.service.js) | Creates and finds users, checks passwords, links Google accounts. `toPublicUser` is the only user shape that leaves the server. |
-| [auth.validation.js](../server/src/features/auth/auth.validation.js) | Checks register and login bodies. |
+| [auth.routes.js](../server/src/features/auth/auth.routes.js) | Register, confirm (`verify-email`), login, logout, Google start and callback, `me`. Rate limiters go on here. Built with the mailer `app.js` passes in. |
+| [auth.controller.js](../server/src/features/auth/auth.controller.js) | Sets and clears the session cookie. Registering answers 202 and sends the email after the response; confirming signs in. |
+| [auth.service.js](../server/src/features/auth/auth.service.js) | Holds registrations until confirmed and creates the user then, checks passwords (one bcrypt compare whatever the account), links Google accounts by the rules in [0005](decisions/0005-google-sign-in-links-by-verified-email.md) ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)). `toPublicUser` is the only user shape that leaves the server. |
+| [auth.validation.js](../server/src/features/auth/auth.validation.js) | Checks register, confirm and login bodies. |
+| [email-token.js](../server/src/features/auth/email-token.js) | Issues a 256-bit token and its SHA-256; the shape a token must have. |
+| [auth-email.js](../server/src/features/auth/auth-email.js) | The three account emails (confirm, already registered, Google linked) and `sendAfterResponse`, which prints the link instead in development without SMTP. |
 | [auth.middleware.js](../server/src/features/auth/auth.middleware.js) | `requireAuth` (loads `req.user` from the cookie) and `requireRole`. |
 | [session.js](../server/src/features/auth/session.js) | Signs and reads the `mjolnir_session` JWT cookie (7 days). |
 | [password.js](../server/src/features/auth/password.js) | HMAC-SHA384 with `PASSWORD_PEPPER`, then bcrypt at cost 12, so the whole password counts ([0039](decisions/0039-passwords-are-peppered-before-bcrypt.md)). |
 | [google.js](../server/src/features/auth/google.js) | Google OAuth: sign-in URL with `state`, `nonce` and PKCE, the cookie that holds all three, code exchange. |
 | [google-id-token.js](../server/src/features/auth/google-id-token.js) | Checks Google's ID token (RS256 signature, `iss`, `aud`, `azp`, `exp`, `nonce`) and caches Google's signing keys ([0005](decisions/0005-google-sign-in-links-by-verified-email.md)). Reads no env and no network of its own, so tests sign their own tokens. |
-| [rate-limit.js](../server/src/features/auth/rate-limit.js) | The numbers: login per IP and per email, register per IP. |
+| [rate-limit.js](../server/src/features/auth/rate-limit.js) | The numbers: login per IP and per email, register per IP and per email, confirm per IP. |
 | [index.js](../server/src/features/auth/index.js) | Exports routes, `requireAuth`, `requireRole`, `toPublicUser`. |
 
 **health**: `/health`, outside `/api`
@@ -455,7 +458,14 @@ the `mjolnir_test` database.
   to give a 500. `auth-google-token` checks the Google ID token and key cache
   with tokens it signs itself, and `auth-google` drives the callback with
   `fetch` mocked, so nothing calls Google. `auth-password` checks the
-  pre-hash on its own, against RFC 4231's published value.
+  pre-hash on its own, against RFC 4231's published value. `auth-verify`
+  covers confirming an address (0041): one answer for every address, the
+  token, the password at confirmation, the 503 in production without SMTP (in
+  a child process); `auth.test.js` signs up through the whole journey.
+- [test/helpers/accounts.js](../server/test/helpers/accounts.js): outside the
+  test glob. A confirmed account straight from the database and its session
+  cookie (`signedInAccount`), for tests about something other than signing up,
+  and `createMailRecorder`, a mailer that sends nothing and keeps every message.
 - [test/pipeline/extraction/fixtures.js](../server/test/pipeline/extraction/fixtures.js):
   shared fake TORs and AI answers.
 - [test/pipeline/ingestion/fixtures/](../server/test/pipeline/ingestion/fixtures/):
@@ -488,6 +498,7 @@ never appears in the URL.
 | :--- | :--- | :--- | :--- |
 | `/` | `page.tsx` | API | everyone |
 | `/auth` | `auth/page.tsx`, `_components/auth-form.tsx` | API | everyone |
+| `/auth/verify` | `auth/verify/page.tsx`, `_components/verify-email-form.tsx` | API | anyone with a confirm link |
 | `/search` | `(app)/search/` | API | everyone; match mode needs a profile |
 | `/tor/[id]` | `(app)/tor/[id]/`, `_components/tor-detail/` | API | everyone |
 | `/watchdog` | `(app)/watchdog/` | API | everyone |
@@ -507,6 +518,7 @@ never appears in the URL.
 | [globals.css](../client/app/globals.css) | Tailwind setup and colour tokens for both themes. |
 | [page.tsx](../client/app/page.tsx) | The introduction page: what GIPDP is, latest TORs, a way into the catalog. |
 | [auth/page.tsx](../client/app/auth/page.tsx) | Checks `?next=` on the server, then renders the sign-in form. |
+| [auth/verify/page.tsx](../client/app/auth/verify/page.tsx) | Where a confirm email links to (`#token=…`). A server component only for its `noindex` metadata; the token after `#` reaches no server, so the form reads it in the browser ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)). |
 | [(app)/layout.tsx](../client/app/(app)/layout.tsx) | Wraps every page in the shell. |
 | [(app)/not-found.tsx](../client/app/(app)/not-found.tsx) | 404 inside the shell. |
 | [(app)/(private)/layout.tsx](../client/app/(app)/(private)/layout.tsx) | Guests see a sign-in prompt instead of the page. A convenience; the API is the real guard. |
@@ -587,8 +599,9 @@ never appears in the URL.
 | [tor-detail/tabs/EligibilityHistoryTab.tsx](../client/app/_components/tor-detail/tabs/EligibilityHistoryTab.tsx) | Who may bid; payment, delivery and evaluation; what changed. |
 | [tor-detail/_lib/tor-helpers.tsx](../client/app/_components/tor-detail/_lib/tor-helpers.tsx) | Money and date formatters, plus small shared pieces: change notices, links to the originals, "not analysed". |
 | [PdfPreviewModal.tsx](../client/app/_components/PdfPreviewModal.tsx) | In-page PDF viewer, for the detail page and admin. When there's no file it says why, by the server's code: no copy stored, too many requests, or a failed load. |
-| [auth.tsx](../client/app/_components/auth.tsx) | `AuthProvider` and `useAuth`: who is signed in (`/api/auth/me`), sign in, up and out. |
-| [auth-form.tsx](../client/app/_components/auth-form.tsx) | Sign-in and sign-up form, with Google. |
+| [auth.tsx](../client/app/_components/auth.tsx) | `AuthProvider` and `useAuth`: who is signed in (`/api/auth/me`), sign in, up (which only sends the email) and out, and `confirmEmail`, which signs in. |
+| [auth-form.tsx](../client/app/_components/auth-form.tsx) | Sign-in and sign-up form, with Google. After sign-up, "check your inbox", with send again and use another address. Also `AuthHeader`, the bar over both account screens. |
+| [verify-email-form.tsx](../client/app/_components/verify-email-form.tsx) | The confirm page: reads the token from the URL's `#` with `useSyncExternalStore`, clears it, and asks for the password chosen at sign-up. Says what to do when the link is expired, used or already confirmed ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)). |
 | [sign-in-prompt.tsx](../client/app/_components/sign-in-prompt.tsx) | What a guest sees in place of a signed-in page. |
 | [prefs.tsx](../client/app/_components/prefs.tsx) | Language (fixed to Thai) and the profile: the server's, or a guest's local one. |
 | [BeforeAfterSlider.tsx](../client/app/_components/BeforeAfterSlider.tsx) | Introduction-page illustration: a scanned government PDF against the GIPDP summary. |
@@ -649,7 +662,7 @@ links down to the reference pages.
 | :--- | :--- |
 | [system-overview.md](overview/system-overview.md) | GIPDP on one page: the parts and how a TOR travels through them, the day's schedule, who uses what, what isn't built yet. |
 | [server-features.md](overview/server-features.md) | How the server is put together: the layers in a feature, what each feature owns, how features and pipelines depend on each other, what's shared, where the layout's rules bend. |
-| [data-model.md](overview/data-model.md) | The 12 collections: an ER diagram of how they connect by `projectId`, the pipeline's bookkeeping, who writes and reads each. |
+| [data-model.md](overview/data-model.md) | The 14 collections: an ER diagram of how they connect by `projectId`, the pipeline's bookkeeping, who writes and reads each. |
 | [what-the-public-sees.md](overview/what-the-public-sees.md) | The gate between the database and the public: what hides a TOR, pilot mode, what a visible TOR carries, what stays internal. |
 | [analysis-overview.md](overview/analysis-overview.md) | How the price check (FR-19) and lock-spec (FR-20, FR-21) reach their verdicts, when they run, and their known limits. |
 
@@ -669,6 +682,7 @@ links down to the reference pages.
 | [tor-schema.md](database/tor-schema.md) | `Tor`, field by field. |
 | [tor-insight-schema.md](database/tor-insight-schema.md) | `TorInsight` and its sub-schemas, field by field. |
 | [user-schema.md](database/user-schema.md) | `User`: account, role, profile, watchlist. |
+| [email-token-schema.md](database/email-token-schema.md) | `EmailToken`: a registration held until its address is confirmed, as the token's hash. |
 | [technology-schema.md](database/technology-schema.md) | `Technology`: the vocabulary. |
 | [title-screen-schema.md](database/title-screen-schema.md) | `TitleScreen`: the title screen's verdicts. |
 | [pipeline-run-schema.md](database/pipeline-run-schema.md) | The pipeline's bookkeeping: `PipelineLock`, `PipelineFailure`, `PipelineRun`, `FeedPoll`, `IngestionLog`, `RequestStreak`. |
@@ -743,3 +757,4 @@ write a new one that supersedes it ([CONTRIBUTING](../CONTRIBUTING.md#decisions)
 | [0038](decisions/0038-preview-serves-stored-files-only.md) | The PDF preview serves only files the pipeline stored |
 | [0039](decisions/0039-passwords-are-peppered-before-bcrypt.md) | Passwords are peppered (HMAC-SHA384) before bcrypt |
 | [0040](decisions/0040-files-are-scanned-before-they-are-kept.md) | Files from e-GP are checked and virus-scanned before they're kept |
+| [0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md) | An address is confirmed before the account exists |

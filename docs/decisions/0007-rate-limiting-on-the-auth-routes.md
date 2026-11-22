@@ -134,3 +134,23 @@ V2.3.2 ask for.
 
 Why the preview needed a limit even after it stopped calling e-GP:
 [0038](0038-preview-serves-stored-files-only.md).
+
+## Update · 2026-11-22: two limits for confirming an address
+
+[0041](0041-an-address-is-confirmed-before-the-account-exists.md) made
+registering send an email, and added a route that compares a password.
+
+| Limiter | Route | Key | Window | Limit | Counts |
+| :--- | :--- | :--- | ---: | ---: | :--- |
+| `registerByEmail` | `POST /auth/register` | normalised email | 1 hour | 3 | every request |
+| `verifyByIp` | `POST /auth/verify-email` | address | 15 min | 30 | every request |
+
+- **`registerByEmail` protects an inbox,** not an account: each registration
+  emails the address typed, so without it anyone could flood a stranger's
+  inbox with confirm links. It counts every request, for every address alike,
+  whether it has an account or not, so a 429 says nothing about who is
+  registered. It runs after `registerByIp`, which still caps mass sign-up.
+- **`verifyByIp`** is login's budget, because each try is a bcrypt compare.
+  Wrong passwords are also capped per link: the fifth spends it.
+- **`createAuthLimiters` merges a test's numbers over the defaults,** so a test
+  names only the limits it's about, as `apiRateLimits` already did.

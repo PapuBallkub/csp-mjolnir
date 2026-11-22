@@ -97,3 +97,17 @@ with HKDF (label `gipdp:unsubscribe:v1`), so one key never does two jobs and
 there is still only one secret to set. Rotating `JWT_SECRET` still breaks
 every unsubscribe link already emailed, as it did before
 ([notifications-and-alerts.md](../features/notifications-and-alerts.md)).
+
+## Update · 2026-11-22: registering no longer signs you in
+
+Since [0041](0041-an-address-is-confirmed-before-the-account-exists.md),
+`POST /api/auth/register` creates no account and sets no cookie. It answers
+202 and emails a link, and the session is set by `POST /api/auth/verify-email`,
+when the link is opened with the password chosen at sign-up. "Registering signs
+you in" above no longer holds.
+
+**The leak in the Consequences is closed.** Registration answers the same 202
+for every address; the owner of a taken one gets an email instead of a link.
+Signing in now costs one bcrypt compare whether or not the account exists, so a
+missing account no longer answers faster, and a password sign-in to a
+Google-only account gets the same 401 instead of a 500.

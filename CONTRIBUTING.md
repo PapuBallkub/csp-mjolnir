@@ -109,10 +109,23 @@ Unlike `JWT_SECRET`, keep it once set. Every password hash on your database
 depends on it, so a new or lost pepper means every password account there
 stops working (Google sign-in doesn't), and each has to be registered again.
 
+Signing up doesn't sign you in. It emails a confirm link, and the account
+exists once you open it and type the same password again
+([0041](docs/decisions/0041-an-address-is-confirmed-before-the-account-exists.md)).
+You don't need a mail account for that locally: with `SMTP_USER` and
+`SMTP_PASS` unset, the server prints the link to its log instead, on a line
+starting `[auth] Development only, no SMTP`. Production never does; there,
+sign-up needs SMTP. An account you made before this change can be claimed:
+register again with the same address and confirm, and its role and profile
+stay.
+
 Running `npm test` in `server/` boots the app against whatever `MONGO_URI`
 points at. The tests that write users send them to a separate `mjolnir_test`
 database and delete them afterwards, so a run against Atlas never touches the
-shared data — keep it that way when you add tests that write.
+shared data — keep it that way when you add tests that write. A test that needs
+someone signed in gets a confirmed account from `server/test/helpers/accounts.js`
+(`signedInAccount`) rather than registering, since registering no longer signs
+anyone in; its `createMailRecorder` stands in for the mailer.
 
 The tests never need ClamAV, the virus scanner: they pass in a fake one. You
 need it only to run the pipeline's download steps for real, or to see document

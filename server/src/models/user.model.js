@@ -12,10 +12,9 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    // Not required, for the same reason passwordHash is not: signInWithGoogle
-    // creates accounts through findOneAndUpdate(upsert), where runValidators is
-    // off by default, so a required field there is enforced or not depending on
-    // an option nobody set. Shape here, invariant in features/auth — see 0005.
+    // Not required: a Google profile may come without a name, and an account
+    // Google creates takes whatever it gives. Shape here, invariant in
+    // features/auth — see 0005.
     // Characters, not bytes: a byte ceiling would give a Thai name about 26.
     name: {
       type: String,
@@ -34,6 +33,12 @@ const userSchema = new mongoose.Schema(
       // sparse, or every password-only user collides on a null googleId.
       unique: true,
       sparse: true,
+    },
+    // When the address was confirmed: by the emailed link (0041), or by Google
+    // when it created or linked the account. Absent means never confirmed. No
+    // default, so an account from before 0041 reads as unconfirmed, as it is.
+    emailVerifiedAt: {
+      type: Date,
     },
     // FR08 consent. A field, so it can be withdrawn later.
     notificationConsent: {

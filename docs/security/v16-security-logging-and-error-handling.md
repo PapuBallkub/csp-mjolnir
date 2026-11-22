@@ -101,6 +101,7 @@ In development, detailed error stacks facilitate rapid debugging. In production,
   }
   ```
 - **Result**: Attackers receive only `{ "error": "Internal server error" }`. Database schema details and internal file paths are completely suppressed.
+- **Messages written for users still show** ([ADR 0041](../decisions/0041-an-address-is-confirmed-before-the-account-exists.md)): an `HttpError` with a 5xx status, such as the 503 telling someone to sign up with Google while mail isn't configured, keeps its message in production. Only errors the code didn't expect are masked.
 
 ### 5.2 Graceful Degradation (V16.5.2)
 
@@ -128,7 +129,7 @@ In Express 5, all unhandled synchronous exceptions and asynchronous promise reje
 | **319** | **V16.2.2** | L1 | Time sources synchronized, UTC ISO timestamps | **COMPLIANT** | All log entries and MongoDB timestamps use `new Date().toISOString()` (UTC standard). |
 | **320** | **V16.2.3** | L1 | Logs stored only to documented files and services | **COMPLIANT** | Logs written exclusively to container stdout/stderr and MongoDB `ingestionlogs` collection. |
 | **321** | **V16.2.4** | L1 | Logs can be read and correlated by log processor | **COMPLIANT** | Structured JSON logging format facilitates correlation and ingestion by Cloud Logging / Datadog. |
-| **322** | **V16.2.5** | L1 | Sensitive data excluded from logs | **COMPLIANT** | Passwords, password hashes, JWT secrets, session tokens, and Gemini keys are never logged. |
+| **322** | **V16.2.5** | L1 | Sensitive data excluded from logs | **COMPLIANT** | Passwords, password hashes, JWT secrets, session tokens, and Gemini keys are never logged. One development-only exception ([ADR 0041](../decisions/0041-an-address-is-confirmed-before-the-account-exists.md)): with no SMTP configured, the server prints the confirm link, with its one-time token, so a developer can sign up; the address is masked, and production never prints it. A failed send is logged without the token. |
 | **323** | **V16.3.1** | L1 | All authentication operations logged (success and failure) | **COMPLIANT** | Login successes, failed credential rejections (401), registration, and logout events are recorded. |
 | **324** | **V16.3.2** | L1 | Failed authorization attempts logged | **COMPLIANT** | 403 Forbidden rejections captured and logged by `errorHandler`. |
 | **325** | **V16.3.3** | L1 | Security events defined in documentation are logged | **COMPLIANT** | Rate limit trips (429), payload size rejections (413), and validation errors (400) are logged. |
@@ -136,7 +137,7 @@ In Express 5, all unhandled synchronous exceptions and asynchronous promise reje
 | **327** | **V16.4.1** | L1 | Logging components encode data to prevent log injection | **COMPLIANT** | Structured JSON formatting prevents CRLF log splitting and newline injection. |
 | **328** | **V16.4.2** | L1 | Logs protected from unauthorized access and modification | **COMPLIANT** | Ingestion logs in MongoDB protected by `requireAuth, requireRole('admin')`. Container logs protected by Cloud IAM. |
 | **329** | **V16.4.3** | L2 | Logs securely transmitted to separate system | **N/A** | Out-of-Scope: Prototype environment uses local Docker / Cloud Run logging streams. |
-| **330** | **V16.5.1** | L1 | Generic error message returned in production | **COMPLIANT** | `error-handler.js#L17` returns `"Internal server error"` when `status >= 500 && isProduction`. |
+| **330** | **V16.5.1** | L1 | Generic error message returned in production | **COMPLIANT** | `error-handler.js` returns `"Internal server error"` for an unexpected error when `status >= 500 && isProduction`. Since [ADR 0041](../decisions/0041-an-address-is-confirmed-before-the-account-exists.md), an `HttpError` keeps its own message, because it is one written for users (e.g. the 503 "sign up with Google" when mail isn't configured); it never carries internals. |
 | **331** | **V16.5.2** | L1 | Graceful degradation when external resource fails | **COMPLIANT** | External feed or Gemini API outages do not crash web server; pre-cached TOR data remains available. |
 | **332** | **V16.5.3** | L1 | Fail-secure design (fails closed) | **COMPLIANT** | Unauthenticated requests fail closed (401); unverified TOR summaries fail closed into review queue (NFR-17). |
 | **333** | **V16.5.4** | L1 | Last resort error handler catches all unhandled exceptions | **COMPLIANT** | Express 5 4-parameter error handler middleware captures all synchronous errors and rejected promises. |

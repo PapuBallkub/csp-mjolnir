@@ -2,13 +2,13 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 
-import { env, isProduction } from '#common/config/env.js';
+import { env, isEmailConfigured, isProduction } from '#common/config/env.js';
 import { errorHandler } from '#common/middleware/error-handler.js';
 import { notFoundHandler } from '#common/middleware/not-found.js';
 import { adminRateLimits, createAdminRoutes } from '#features/admin/index.js';
 import { authRateLimits, createAuthRoutes } from '#features/auth/index.js';
 import { healthRoutes } from '#features/health/index.js';
-import { createNotificationRoutes } from '#features/notifications/index.js';
+import { createNotificationRoutes, sendEmail } from '#features/notifications/index.js';
 import { createProfileRoutes } from '#features/profile/index.js';
 import { createTechnologyRoutes, technologyRateLimits } from '#features/technologies/index.js';
 import { createTorRoutes, torRateLimits } from '#features/tors/index.js';
@@ -24,7 +24,15 @@ export const apiRateLimits = { ...torRateLimits, ...technologyRateLimits, ...adm
 // rather than sized around how many requests the tests happen to make.
 // apiRateLimits is merged over the defaults, so a test names only the limit it
 // is about.
-export function createApp({ rateLimits = authRateLimits, apiRateLimits: apiLimits = {} } = {}) {
+//
+// mail is how accounts send email (confirm links, 0041). Wired here rather
+// than imported by auth, because notifications already imports auth's
+// requireAuth, and a test passes its own so nothing is really sent.
+export function createApp({
+  rateLimits = authRateLimits,
+  apiRateLimits: apiLimits = {},
+  mail = { configured: isEmailConfigured, send: sendEmail },
+} = {}) {
   const limits = { ...apiRateLimits, ...apiLimits };
   const app = express();
 
@@ -75,7 +83,7 @@ export function createApp({ rateLimits = authRateLimits, apiRateLimits: apiLimit
   // limiter here would eventually report an outage that is not one.
   app.use('/health', healthRoutes);
 
-  app.use('/api/auth', createAuthRoutes(rateLimits));
+  app.use('/api/auth', createAuthRoutes(rateLimits, { mail }));
 
   // Guarded inside the feature rather than here: the router applies
   // requireAuth and requireRole('admin') to everything mounted under it, so a

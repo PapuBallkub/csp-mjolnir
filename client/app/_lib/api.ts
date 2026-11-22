@@ -46,14 +46,16 @@ export type AuthUser = {
 };
 
 /**
- * `details` is keyed by field name and arrives only on a 400 (validation) or a
- * 409 (duplicate email). Everything else — 401, 429, 503, and a failure to
- * reach the server at all — carries a message and nothing more.
+ * `details` is keyed by field name and arrives only on a 400 (validation).
+ * `code` arrives where one status has more than one meaning, so a screen can
+ * tell them apart: an expired confirm link (`LINK_INVALID`) from a wrong
+ * password (`WRONG_PASSWORD`), say. Everything else carries a message only.
  */
 export type ApiError = {
   status: number;
   message: string;
   details?: Record<string, string>;
+  code?: string;
 };
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError };
@@ -88,7 +90,12 @@ async function readError(response: Response): Promise<ApiError> {
     const error = body?.error;
 
     if (typeof error?.message === "string") {
-      return { status: response.status, message: error.message, details: error.details };
+      return {
+        status: response.status,
+        message: error.message,
+        details: error.details,
+        ...(typeof error.code === "string" ? { code: error.code } : {}),
+      };
     }
   } catch {
     // A proxy timing out returns HTML, and a 502 from anything in front of the
@@ -141,13 +148,29 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<ApiResu
 
 type UserResponse = { user: AuthUser };
 
+/**
+ * Registering creates no account and signs no one in (0041): it emails a
+ * confirm link, and answers the same 202 whatever the address, so the page
+ * can't tell (and doesn't need to) whether one already has an account.
+ */
 export function register(body: {
   email: string;
   password: string;
   name: string;
   notificationConsent: boolean;
 }) {
-  return request<UserResponse>("/api/auth/register", {
+  return request<{ message: string }>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * The confirm link's token, with the password chosen at sign-up. A match
+ * creates the account and signs it in.
+ */
+export function verifyEmail(body: { token: string; password: string }) {
+  return request<UserResponse>("/api/auth/verify-email", {
     method: "POST",
     body: JSON.stringify(body),
   });

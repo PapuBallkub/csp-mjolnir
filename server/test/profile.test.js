@@ -5,6 +5,7 @@ import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { User } from '#models/index.js';
 
 import { createApp } from '../src/app.js';
+import { signedInAccount } from './helpers/accounts.js';
 
 const TEST_DB = 'mjolnir_test';
 const PASSWORD = 'correct horse battery';
@@ -46,12 +47,10 @@ function send(method, path, { body, cookie } = {}) {
   });
 }
 
-// Helper: register and get session cookie
+// Helper: a confirmed account, signed in, and its session cookie. Registering
+// no longer signs anyone in (0041).
 async function registerAndGetCookie(name) {
-  const res = await send('POST', '/api/auth/register', {
-    body: { email: emailFor(name), password: PASSWORD, name },
-  });
-  return res.headers.get('set-cookie');
+  return (await signedInAccount(baseUrl, { email: emailFor(name), password: PASSWORD, name })).cookie;
 }
 
 test('profile: returns 401 when not authenticated', async () => {
@@ -239,11 +238,8 @@ test('profile: cross-field check against existing budgetMax', async () => {
 test('profile: persists across sessions and visible on GET /api/auth/me', async () => {
   const email = emailFor('profile-persist');
 
-  // Register and save
-  const regRes = await send('POST', '/api/auth/register', {
-    body: { email, password: PASSWORD, name: 'Persist Test' },
-  });
-  const cookie1 = regRes.headers.get('set-cookie');
+  // Sign up and save
+  const { cookie: cookie1 } = await signedInAccount(baseUrl, { email, password: PASSWORD, name: 'Persist Test' });
   await send('PATCH', '/api/profile', {
     body: { skills: ['Vue.js'], budgetMin: 200000, budgetMax: 2000000 },
     cookie: cookie1,

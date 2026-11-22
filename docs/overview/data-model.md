@@ -1,6 +1,6 @@
 # The data model
 
-GIPDP keeps everything in one MongoDB database: 13 collections, each with a
+GIPDP keeps everything in one MongoDB database: 14 collections, each with a
 Mongoose schema in `server/src/models/`. This page shows how they connect and
 who writes each one. The field-by-field detail is in [database/](../database/).
 
@@ -26,6 +26,7 @@ erDiagram
     TOR_INSIGHT ||--o{ TOR_INSIGHT_VERSION : "keeps what a change replaced in"
     USER ||--o{ WATCHLIST_ENTRY : "saves (embedded in User)"
     USER ||--o{ NOTIFICATION : "receives"
+    EMAIL_TOKEN |o--o| USER : "becomes, once confirmed (by address)"
     WATCHLIST_ENTRY }o--|| TOR : "points to"
     USER |o--o{ TOR_INSIGHT : "reviewedBy (an admin)"
     USER |o--o{ TOR_INSIGHT_VERSION : "supersededBy (an admin)"
@@ -73,12 +74,18 @@ erDiagram
     USER {
         objectId _id PK
         string email "unique"
+        date emailVerifiedAt "absent: never confirmed"
         string role "user or admin"
         object profile "skills, budget range, archetypes: drives matching"
     }
     WATCHLIST_ENTRY {
         string projectId FK
         date savedAt
+    }
+    EMAIL_TOKEN {
+        string tokenHash PK "SHA-256; the token is only in the email"
+        string email "the address it went to"
+        date expiresAt "TTL: gone after a day"
     }
     TECHNOLOGY {
         string name PK "the canonical name"
@@ -105,6 +112,9 @@ Reading it:
   `TorInsightVersion`** with the `Tor` state that went with it, so an admin
   can roll back (NFR-07, [0031](../decisions/0031-keep-the-summary-a-change-replaces.md)).
   `Tor.amendments[].insightVersion` says which version a change replaced.
+- **A registration is an `EmailToken` until it's confirmed**, not a `User`.
+  Opening the emailed link with the password chosen at sign-up creates the user
+  and deletes the token ([0041](../decisions/0041-an-address-is-confirmed-before-the-account-exists.md)).
 - **The watchlist lives inside `User`**: an array of `{ projectId, savedAt }`.
   `savedAt` is what "changed since you saved it" compares against
   ([watchlist-changes.md](../features/watchlist-changes.md)).
@@ -149,6 +159,7 @@ explains why.
 | `torinsightversions` | `pipeline/shared/insight-versions.js` | — | The same file, for `admin`'s version list and rollback | No |
 | `titlescreens` | `pipeline/extraction/screen.js` | `admin` (review verdicts), `scripts/remove-datago-records.js` | Ingestion (what to download, history picks), `run-job.js`, `admin`, `npm run report` | No |
 | `users` | `auth` (the account) | `profile` (`profile`), `watchlist` (`watchlist`), `npm run role` | `auth` on every signed-in request | Only to that user |
+| `emailtokens` | `auth` (registering, confirming, Google sign-in) | MongoDB's TTL monitor (expiry) | `auth` only | No |
 | `technologies` | Extraction (`vocabulary.js`) | `technologies` (requests, as `new`), `admin` (curation) | Search filters, extraction | Yes, `GET /api/technologies` |
 | `notifications` | `notifications` (`notification-feed.service.js`, `match-notification.service.js`) | — | `notifications` (`GET /api/notifications`) | Only to that user |
 | `pipelinefailures` | `pipeline/shared/failures.js` | `admin` (retry, skip, dismiss) | The pipelines, `admin` | No |

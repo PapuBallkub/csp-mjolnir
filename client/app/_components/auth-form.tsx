@@ -40,11 +40,24 @@ function FieldError({ message }: { message?: string }) {
   );
 }
 
-/** Where each path lands when there is no validated ?next= to return to. */
+/** Where signing in lands when there is no validated ?next= to return to. */
 const AFTER_SIGN_IN = "/search";
-// Signing up leaves you with an empty profile, and matching is the product —
-// so a new account goes where it can say what it builds, not to the catalog.
-const AFTER_SIGN_UP = "/profile";
+
+/** The bar over both account screens: this one and the confirm-link page. */
+export function AuthHeader() {
+  return (
+    <header className="border-b border-line bg-surface">
+      <div className="mx-auto flex max-w-[1000px] items-center gap-4 px-4 py-2.5">
+        <Link href="/">
+          <Wordmark />
+        </Link>
+        <div className="ml-auto flex items-center gap-2">
+          <ThemeToggle />
+        </div>
+      </div>
+    </header>
+  );
+}
 
 /**
  * A utility screen, deliberately not a design showcase (AGENTS §4.6). The one
@@ -65,6 +78,10 @@ export function AuthForm({ next }: { next: string | null }) {
   const [consent, setConsent] = useState(false);
   const [pending, setPending] = useState(false);
   const [formError, setFormError] = useState<ApiError | null>(null);
+  // Where the confirm email went, once sign-up is sent: the form gives way to
+  // "check your inbox". Registering signs no one in (0041).
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [resent, setResent] = useState(false);
 
   // Already signed in — a login form is not what this person needs. replace,
   // so Back does not return them to it.
@@ -72,7 +89,7 @@ export function AuthForm({ next }: { next: string | null }) {
     if (status === "authenticated") router.replace(next ?? AFTER_SIGN_IN);
   }, [status, next, router]);
 
-  // 400 and 409 both carry per-field details; everything else is one message.
+  // 400 carries per-field details; everything else is one message.
   const fieldErrors = formError?.details ?? {};
   const formMessage = formError && !formError.details ? formError.message : null;
 
@@ -84,132 +101,77 @@ export function AuthForm({ next }: { next: string | null }) {
     setFormError(null);
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function sendSignUp() {
     setPending(true);
     setFormError(null);
+    const error = await signUp({ email, password, name, notificationConsent: consent });
+    setPending(false);
+    if (error) {
+      setFormError(error);
+      return false;
+    }
+    setSentTo(email.trim().toLowerCase());
+    return true;
+  }
 
-    const error =
-      mode === "signup"
-        ? await signUp({ email, password, name, notificationConsent: consent })
-        : await signIn({ email, password });
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
+    if (mode === "signup") {
+      await sendSignUp();
+      return;
+    }
+
+    setPending(true);
+    setFormError(null);
+    const error = await signIn({ email, password });
     if (error) {
       setFormError(error);
       setPending(false);
       return;
     }
+    router.replace(next ?? AFTER_SIGN_IN);
+  }
 
-    router.replace(next ?? (mode === "signup" ? AFTER_SIGN_UP : AFTER_SIGN_IN));
+  // The same values again, under the same limits: one endpoint less than a
+  // separate "resend", and the answer is the same 202
+  async function resend() {
+    setResent(false);
+    setResent(await sendSignUp());
+  }
+
+  function useAnotherAddress() {
+    setSentTo(null);
+    setResent(false);
+    setFormError(null);
+    setPassword("");
   }
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-[1000px] items-center gap-4 px-4 py-2.5">
-          <Link href="/">
-            <Wordmark />
-          </Link>
-          <div className="ml-auto flex items-center gap-2">
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      <AuthHeader />
 
       <main className="mx-auto grid w-full max-w-[1000px] flex-1 items-start gap-8 px-4 py-10 lg:grid-cols-2 lg:py-16">
-        <Panel className="p-5">
-          <div className="mb-4 flex gap-1 border-b border-line">
-            {(["signin", "signup"] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => switchMode(option)}
-                className={`-mb-px border-b-2 px-2 py-2 text-[13px] font-medium transition-colors ${
-                  mode === option
-                    ? "border-ink text-ink"
-                    : "border-transparent text-ink-3 hover:text-ink-2"
-                }`}
-              >
-                {option === "signin" ? "เข้าสู่ระบบ" : "สมัครใช้งาน"}
-              </button>
-            ))}
-          </div>
-
-          {/* noValidate: the browser own-language bubble is unlocalised and
-              would pre-empt our messages, which match what the server says. */}
-          <form className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
-            {mode === "signup" ? (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="auth-name">ชื่อที่ใช้แสดง</Label>
-                <input
-                  id="auth-name"
-                  name="name"
-                  type="text"
-                  autoComplete="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="สุชาติ ว."
-                  className={input}
-                />
-                <FieldError message={fieldErrors.name} />
-              </div>
-            ) : null}
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="auth-email">อีเมล</Label>
-              <input
-                id="auth-email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.co.th"
-                className={`${input} font-mono`}
-              />
-              <FieldError message={fieldErrors.email} />
+        {sentTo ? (
+          <Panel className="flex flex-col gap-3 p-5">
+            <div role="status" className="flex flex-col gap-2">
+              <h2 className="text-[17px] leading-thai font-semibold text-ink">ตรวจอีเมลของคุณ</h2>
+              {/* The same words whether the address is new or already has an
+                  account: both get an email, and the page says nothing more */}
+              <p className="text-[13px] leading-thai text-ink-2">
+                เราส่งอีเมลไปที่ <span className="font-mono text-ink">{sentTo}</span> แล้ว
+                ทำตามขั้นตอนในอีเมลเพื่อเริ่มใช้งาน ถ้าไม่เห็น ลองดูในโฟลเดอร์สแปม
+              </p>
+              <p className="text-[12px] leading-thai text-ink-3">
+                ลิงก์ในอีเมลใช้ได้ครั้งเดียว ภายใน 24 ชั่วโมง และจะถามรหัสผ่านที่คุณเพิ่งตั้ง
+              </p>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-baseline justify-between">
-                <Label htmlFor="auth-password">รหัสผ่าน</Label>
-                {mode === "signin" ? (
-                  <span className="text-[11px] text-ink-3">
-                    ยังรีเซ็ตรหัสผ่านไม่ได้
-                  </span>
-                ) : null}
-              </div>
-              <input
-                id="auth-password"
-                name="password"
-                type="password"
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={input}
-              />
-              <FieldError message={fieldErrors.password} />
-              {mode === "signup" ? (
-                <p className="text-[11px] text-ink-3">
-                  อย่างน้อย 8 ตัวอักษร
-                </p>
-              ) : null}
-            </div>
-
-            {mode === "signup" ? (
-              <label className="flex cursor-pointer items-start gap-2 text-[12px] leading-thai text-ink-2">
-                <input
-                  type="checkbox"
-                  checked={consent}
-                  onChange={(e) => setConsent(e.target.checked)}
-                  className="mt-1 h-3.5 w-3.5 shrink-0 accent-ink"
-                />
-                <span>
-                  ยินยอมให้ส่งอีเมลแจ้งเตือนงานที่เหมาะสมกับโปรไฟล์ ถอนความยินยอมได้ทุกเมื่อ
-                </span>
-              </label>
+            {resent ? (
+              <p role="status" className="text-[12px] leading-thai text-ink-2">
+                ส่งอีกครั้งแล้ว
+              </p>
             ) : null}
-
             {formMessage ? (
               <p
                 role="alert"
@@ -219,32 +181,156 @@ export function AuthForm({ next }: { next: string | null }) {
               </p>
             ) : null}
 
-            <button type="submit" disabled={pending} className={`${btn.primary} w-full`}>
-              {pending
-                ? "กำลังดำเนินการ…"
-                : mode === "signin"
-                  ? "เข้าสู่ระบบ"
-                  : "สมัครใช้งาน"}
-            </button>
-
-            <div className="flex items-center gap-3 py-1">
-              <span className="h-px flex-1 bg-line" />
-              <span className="text-[11px] font-medium text-ink-3">
-                หรือ
-              </span>
-              <span className="h-px flex-1 bg-line" />
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={resend} disabled={pending} className={btn.secondary}>
+                {pending ? "กำลังส่ง…" : "ส่งอีกครั้ง"}
+              </button>
+              <button type="button" onClick={useAnotherAddress} className={btn.secondary}>
+                ใช้อีเมลอื่น
+              </button>
+            </div>
+          </Panel>
+        ) : (
+          <Panel className="p-5">
+            <div className="mb-4 flex gap-1 border-b border-line">
+              {(["signin", "signup"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => switchMode(option)}
+                  className={`-mb-px border-b-2 px-2 py-2 text-[13px] font-medium transition-colors ${
+                    mode === option
+                      ? "border-ink text-ink"
+                      : "border-transparent text-ink-3 hover:text-ink-2"
+                  }`}
+                >
+                  {option === "signin" ? "เข้าสู่ระบบ" : "สมัครใช้งาน"}
+                </button>
+              ))}
             </div>
 
-            {/* An anchor, not a button with onClick: this has to be a
-                top-level navigation. A fetch would follow the 302 to
-                accounts.google.com and die on CORS, and the state cookie
-                would never be set. */}
-            <a href={googleSignInUrl} className={`${btn.secondary} w-full`}>
-              <GoogleMark />
-              ดำเนินการต่อด้วย Google
-            </a>
-          </form>
-        </Panel>
+            {/* noValidate: the browser own-language bubble is unlocalised and
+                would pre-empt our messages, which match what the server says. */}
+            <form className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
+              {mode === "signup" ? (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="auth-name">ชื่อที่ใช้แสดง</Label>
+                  <input
+                    id="auth-name"
+                    name="name"
+                    type="text"
+                    autoComplete="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="สุชาติ ว."
+                    className={input}
+                  />
+                  <FieldError message={fieldErrors.name} />
+                </div>
+              ) : null}
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="auth-email">อีเมล</Label>
+                <input
+                  id="auth-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.co.th"
+                  className={`${input} font-mono`}
+                />
+                <FieldError message={fieldErrors.email} />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-baseline justify-between">
+                  <Label htmlFor="auth-password">รหัสผ่าน</Label>
+                  {mode === "signin" ? (
+                    <span className="text-[11px] text-ink-3">
+                      ยังรีเซ็ตรหัสผ่านไม่ได้
+                    </span>
+                  ) : null}
+                </div>
+                <input
+                  id="auth-password"
+                  name="password"
+                  type="password"
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={input}
+                />
+                <FieldError message={fieldErrors.password} />
+                {mode === "signup" ? (
+                  <p className="text-[11px] text-ink-3">
+                    อย่างน้อย 8 ตัวอักษร
+                  </p>
+                ) : null}
+              </div>
+
+              {mode === "signup" ? (
+                <label className="flex cursor-pointer items-start gap-2 text-[12px] leading-thai text-ink-2">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    className="mt-1 h-3.5 w-3.5 shrink-0 accent-ink"
+                  />
+                  <span>
+                    ยินยอมให้ส่งอีเมลแจ้งเตือนงานที่เหมาะสมกับโปรไฟล์ ถอนความยินยอมได้ทุกเมื่อ
+                  </span>
+                </label>
+              ) : null}
+
+              {formMessage ? (
+                <div
+                  role="alert"
+                  className="flex flex-col gap-2 rounded-[3px] border border-risk-line bg-risk-bg px-2.5 py-2 text-[12px] leading-thai text-risk"
+                >
+                  <p>{formMessage}</p>
+                  {/* The right password on an address never confirmed: signing
+                      up again with it sends a new link, and keeps the account */}
+                  {formError?.code === "EMAIL_NOT_VERIFIED" ? (
+                    <button
+                      type="button"
+                      onClick={() => switchMode("signup")}
+                      className="self-start font-medium underline underline-offset-2"
+                    >
+                      สมัครอีกครั้งด้วยอีเมลนี้
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <button type="submit" disabled={pending} className={`${btn.primary} w-full`}>
+                {pending
+                  ? "กำลังดำเนินการ…"
+                  : mode === "signin"
+                    ? "เข้าสู่ระบบ"
+                    : "สมัครใช้งาน"}
+              </button>
+
+              <div className="flex items-center gap-3 py-1">
+                <span className="h-px flex-1 bg-line" />
+                <span className="text-[11px] font-medium text-ink-3">
+                  หรือ
+                </span>
+                <span className="h-px flex-1 bg-line" />
+              </div>
+
+              {/* An anchor, not a button with onClick: this has to be a
+                  top-level navigation. A fetch would follow the 302 to
+                  accounts.google.com and die on CORS, and the state cookie
+                  would never be set. */}
+              <a href={googleSignInUrl} className={`${btn.secondary} w-full`}>
+                <GoogleMark />
+                ดำเนินการต่อด้วย Google
+              </a>
+            </form>
+          </Panel>
+        )}
 
         <div className="flex flex-col gap-4 lg:pt-4">
           <h1 className="text-[24px] leading-thai font-semibold tracking-tight text-ink">
