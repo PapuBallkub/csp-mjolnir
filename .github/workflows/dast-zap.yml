@@ -1,0 +1,136 @@
+name: DAST — OWASP ZAP Baseline Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target URL to scan (default: http://localhost:3000)'
+        required: false
+        default: 'http://localhost:3000'
+  schedule:
+    # Weekly Sunday at midnight UTC
+    - cron: '0 0 * * 0'
+
+jobs:
+  zap-baseline:
+    name: ZAP Baseline Scan
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:8
+        env:
+          GLIBC_TUNABLES: glibc.pthread.rseq=1
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      MONGO_URI: mongodb://localhost:27017/mjolnir_dast
+      JWT_SECRET: ci-not-a-secret-ci-not-a-secret-ci
+      PASSWORD_PEPPER: ci-not-a-pepper-ci-not-a-pepper-ci
+      GOOGLE_CLIENT_ID: ci-not-a-client
+      GOOGLE_CLIENT_SECRET: ci-not-a-secret
+      GOOGLE_REDIRECT_URI: http://localhost:8000/api/auth/google/callback
+      CORS_ORIGIN: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --- Node Setup ---
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      # --- Server Setup & Background Startup ---
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: server
+
+      - name: Seed database with demo records
+        run: npm run seed -- --demo
+        working-directory: server
+
+      - name: Start Express API server (background)
+        run: |
+          nohup node src/server.js > /tmp/server.log 2>&1 &
+        working-directory: server
+
+      - name: Wait for API health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health | grep -q 'ok'; then
+              echo "API server is healthy"
+              break
+            fi
+            echo "Waiting for API... (attempt $i)"
+            sleep 2
+          done
+
+      # --- Client Setup, Build & Background Startup ---
+      - name: Install client dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Build client application
+        run: npm run build
+        working-directory: client
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+
+      - name: Start Next.js client (background)
+        run: |
+          nohup npx next start -p 3000 -H 0.0.0.0 > /tmp/client.log 2>&1 &
+        working-directory: client
+
+      - name: Wait for client response
+        run: |
+          for i in $(seq 1 30); do
+            status=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000)
+            if [ "$status" -ge 200 ] && [ "$status" -lt 400 ]; then
+              echo "Client is healthy (HTTP $status)"
+              break
+            fi
+            echo "Waiting for client... (attempt $i, HTTP $status)"
+            sleep 2
+          done
+
+      # --- Diagnostic Dump if Health Checks Failed ---
+      - name: Dump application logs on failure
+        if: failure()
+        run: |
+          echo "==================== SERVER LOG ===================="
+          cat /tmp/server.log || echo "No server log"
+          echo "==================== CLIENT LOG ===================="
+          cat /tmp/client.log || echo "No client log"
+
+      # --- OWASP ZAP Scan ---
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: ${{ github.event.inputs.target || 'http://localhost:3000' }}
+          rules_file_name: '.zap/rules.tsv'
+          fail_action: false
+          cmd_options: '-m 3 -T 5 -I'
+
+      # --- Report Artifacts Upload ---
+      - name: Upload ZAP Scan Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: |
+            report_html.html
+            report_md.md
+            report_json.json

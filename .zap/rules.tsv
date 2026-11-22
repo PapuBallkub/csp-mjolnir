@@ -1,0 +1,5 @@
+# OWASP ZAP Baseline Scan Rules Configuration
+# Format: <rule-id>\t<action: IGNORE|WARN|FAIL>\t<description>
+# Examples:
+# 10015	IGNORE	(Incomplete or No Cache-control Header Set - public pages)
+# 10038	IGNORE	(Content Security Policy (CSP) Header Not Set - development origin)

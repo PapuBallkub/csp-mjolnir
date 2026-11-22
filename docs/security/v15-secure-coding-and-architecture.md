@@ -34,6 +34,13 @@ All third-party dependencies and framework components are actively monitored for
 - **Cryptographic Hash Locking**: Every package installation is pinned with exact versions and subresource integrity hashes (SHA-512) in `package-lock.json`. CI builds enforce clean installations (`npm ci`) to guarantee deterministic builds and protect against upstream dependency tampering.
 - **Dependency Hygiene Rule (`AGENTS.md`)**: No package is added from memory. Every package must be verified (`npm view <name>`: repository, maintainers, downloads), Node.js standard built-ins are preferred over external libraries, and justifications must be stated in pull requests.
 
+### 2.3 Automated Security Scanning in CI/CD Pipeline (V15.2.1, Grading Criteria #14 & #15)
+
+The CI/CD pipeline enforces three automated security verification layers:
+1. **Dependency Vulnerability Audit (SCA):** Automated `npm audit --omit=dev --audit-level=high` runs in `.github/workflows/fullstack-ci-setup.yml` on both `client` and `server` for every push and PR.
+2. **Static Application Security Testing (SAST):** Automated **GitHub CodeQL** analysis (`github/codeql-action/init@v3` & `analyze@v3`) scans JavaScript and TypeScript across the entire codebase on every push and PR, uploading findings directly to the GitHub Security Code Scanning tab.
+3. **Dynamic Application Security Testing (DAST):** Automated **OWASP ZAP Baseline Scan** (`.github/workflows/dast-zap.yml`) tests the live full-stack application (MongoDB + Express API + Next.js frontend) on-demand and on a weekly schedule. Detailed in [DAST Guide](./dast-zap-guide.md).
+
 ---
 
 ## 3. Architecture Decoupling & Availability Defenses (ASVS V15.1.3, V15.2.2)
@@ -122,7 +129,7 @@ State updates across collections use MongoDB atomic operators (`$set`, `$inc`, `
 | **298** | **V15.1.3** | L1 | Heavy and resource-intensive functionality documented | **COMPLIANT** | Documented in this file (§3.1) and ADR 0013/0030. OCR and LLM extractions run in background jobs. |
 | **299** | **V15.1.4** | L1 | High-risk components highlighted in documentation | **N/A** | Out-of-Scope: GIPDP does not use high-risk native binaries or unsafe deserializers. |
 | **300** | **V15.1.5** | L1 | Dangerous functionality documented | **N/A** | Out-of-Scope: No code execution or dynamic script evaluation. |
-| **301** | **V15.2.1** | L1 | Components do not breach update timeframes | **COMPLIANT** | Verified via regular `npm audit` and CI dependency security scans. |
+| **301** | **V15.2.1** | L1 | Components do not breach update timeframes | **COMPLIANT** | Enforced via automated `npm audit` and CodeQL SAST in `.github/workflows/fullstack-ci-setup.yml`, plus scheduled/on-demand OWASP ZAP DAST scans in `.github/workflows/dast-zap.yml` ([DAST Guide](./dast-zap-guide.md)). |
 | **302** | **V15.2.2** | L1 | Defenses implemented against loss of availability | **COMPLIANT** | Workload decoupling (§3.1), rate limiting (`rate-limit.js`), request pacer (`request-pacer.js`, NFR-03). |
 | **303** | **V15.2.3** | L1 | Production code excludes extraneous functionality | **COMPLIANT** | Test suites in `server/test` and dev scripts (`server/scripts/test-notify.js`) excluded from production routes. |
 | **304** | **V15.2.4** | L2 | Defense against dependency confusion attacks | **N/A** | Out-of-Scope: GIPDP uses public npm registry packages only; no internal private npm registry. |
