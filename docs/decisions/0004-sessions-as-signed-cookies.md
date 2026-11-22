@@ -53,11 +53,12 @@ what make the choice safe rather than merely convenient:
    preflight is answered for one named origin. This is why there is no CSRF
    token — and why **adding `express.urlencoded()` would quietly remove the
    protection**.
-3. **The cookie is `SameSite=Lax` in development and `None` in production.**
-   Client and API differ only by port locally, which is same-site; split across
-   Vercel and a separate API host they are cross-site, where nothing but `None`
-   is sent at all. `None` also requires `Secure`, which is why it is tied to
-   `NODE_ENV` rather than set outright.
+3. **The cookie is `SameSite=Lax` across all environments.**
+   Client and API differ only by port locally, which is same-site; in production,
+   they share a registrable domain or origin so `SameSite=Lax` prevents cross-site
+   POST requests (including empty-body POST routes like `/api/auth/logout` or
+   administrative triggers) from carrying the session cookie. `Secure` and the
+   `__Host-` prefix are enforced when `NODE_ENV=production`.
 
 ## Consequences
 

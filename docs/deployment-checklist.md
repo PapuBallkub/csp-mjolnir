@@ -47,18 +47,15 @@ once:
 
 | Where | With `NODE_ENV=production` | Without it |
 | :--- | :--- | :--- |
-| `session.js` | `secure: true` | Session cookie sent over plain HTTP |
-| `session.js` | `sameSite: 'none'` | **`'lax'` — the browser never sends the cookie cross-site, so signing in appears to succeed and every request after it is anonymous** |
+| `session.js` | `secure: true`, `__Host-mjolnir_session` | Session cookie sent over plain HTTP (`mjolnir_session`) |
+| `session.js` | `sameSite: 'lax'` | `'lax'` — consistent across environments; production client and API must share a site (registrable domain or reverse proxy) |
 | `google.js` | OAuth state cookie `secure: true` | Same exposure |
 | `connect.js` | `autoIndex: false` | Rebuilds every index on every boot, against populated Atlas |
 | `error-handler.js` | `"Internal server error"` | Internal error messages and paths returned to clients |
 | `app.js` | `Strict-Transport-Security` sent | No HSTS: a browser will try plain HTTP again |
 | `env.js` | Pilot mode off unless `SHOW_UNREVIEWED_INSIGHTS=true` | Pilot mode on: unreviewed AI summaries and demo data are public (§2) |
 
-The second row is the dangerous one. A client on one domain and an API on
-another is cross-site, and `SameSite=Lax` cookies are not sent cross-site at
-all. Nothing errors: registration returns `201`, sets a cookie the browser then
-refuses to send back, and `/api/auth/me` answers `401` forever.
+Because the session cookie uses `SameSite=Lax` in production to prevent cross-site request forgery (CSRF) on POST endpoints that accept empty bodies, the deployed client and API must be **same-site** (sharing a registrable domain, e.g. `app.example.com` and `api.example.com`, or routed under one origin via `/api/*`). Deploying client and API on unrelated public suffix domains (e.g. `*.vercel.app` and `*.run.app` without a custom domain or rewrite) is cross-site, and the browser will not attach a `SameSite=Lax` cookie to cross-site `fetch()` requests.
 
 - [x] **RESOLVED — the image sets it.** `server/Dockerfile` has
       `ENV NODE_ENV=production` (2026-11-21), the way `client/Dockerfile` does,
@@ -217,8 +214,8 @@ A checklist you cannot check is a wish list. Run these against the deployed API.
 - [ ] Register from the **deployed client**, in a real browser, then reload the
       page. Still signed in means the cookie survived the round trip; signed out
       means §1 is wrong.
-- [ ] Inspect the `mjolnir_session` cookie in devtools — `Secure` and
-      `SameSite=None` must both be present
+- [ ] Inspect the `__Host-mjolnir_session` cookie in devtools — `Secure` and
+      `SameSite=Lax` must both be present
 - [ ] Sign in with Google end to end, since the redirect URI, `CORS_ORIGIN`,
       the client ID, the attempt cookie and the key fetch all have to agree
       before it works. A failure prints `Google sign-in failed: … (<reason>)`

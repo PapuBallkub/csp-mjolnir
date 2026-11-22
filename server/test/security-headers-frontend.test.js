@@ -128,7 +128,7 @@ test('setSessionCookie configures essential security attributes (ASVS V3.3.1, V3
   assert.equal(cookieValue, 'valid-session-jwt');
   assert.equal(cookieOpts.httpOnly, true, 'cookie must have HttpOnly: true');
   assert.equal(cookieOpts.path, '/', "cookie path must be explicitly '/'");
-  assert.ok(cookieOpts.sameSite, 'cookie must define sameSite attribute');
+  assert.equal(cookieOpts.sameSite, 'lax', "cookie must enforce SameSite=Lax across environments (ASVS V3.3.2)");
   assert.equal(cookieOpts.domain, undefined, 'cookie must NOT define domain (for __Host- compatibility)');
 });
 
