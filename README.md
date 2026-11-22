@@ -228,4 +228,4 @@ For full documentation, start at **[docs/README.md](docs/README.md)**:
 Capstone Project — Department of Computer Engineering (Software Engineering, `01219346`), Kasetsart University:
 - Amornrit Sirikham
 - Sivapon Channual
-- Pannawit Mahacharoensiri
+- Pannawit Mahacharoensiri
