@@ -117,7 +117,9 @@ Which collection holds what: [data-model.md](data-model.md).
   public e-GP documents, so nothing private leaks. Only files the pipeline
   stored are served, and the route never calls e-GP itself: when the file isn't
   on disk, the answer is 404 `DOCUMENT_NOT_STORED` and the viewer links to e-GP
-  ([0038](../decisions/0038-preview-serves-stored-files-only.md)).
+  ([0038](../decisions/0038-preview-serves-stored-files-only.md)). A file the
+  virus scan hasn't passed is withheld too: `DOCUMENT_NOT_SCANNED` or
+  `DOCUMENT_BLOCKED` ([0040](../decisions/0040-files-are-scanned-before-they-are-kept.md)).
 - **The technology list.** `GET /api/technologies` returns every name in the
   vocabulary, including ones a signed-in user has just requested (`new`) and
   ones an admin rejected.

@@ -188,6 +188,18 @@ You need:
   ```
   docker compose up -d mongo
   ```
+- **ClamAV, the virus scanner,** if you'll download documents. Every file is
+  scanned before it's kept, and the preview shows only files that passed
+  ([0040](decisions/0040-files-are-scanned-before-they-are-kept.md)). It needs
+  3–4 GB of free memory; the first start downloads its signatures (about
+  300 MB) and takes a few minutes:
+  ```
+  docker compose up -d clamav
+  ```
+  Then add `CLAMD_HOST=127.0.0.1` to `server/.env`, and check it from the
+  `server` folder with `npm run ingest:scan -- --self-test`. Without it the
+  pipeline still runs, but keeps new files unscanned, and their previews stay
+  off until you scan them.
 - **Access to Gemini.** Ask the team for the Google Cloud project and the
   `aiplatform.user` role, then follow "Setup, once per person" in
   [pipeline.md](pipeline.md#setup-once-per-person).
@@ -211,6 +223,8 @@ Run from anywhere else, npm says it "could not read package.json".
 | Run one round by hand | `npm run job -- poll` (or `sweep`, or `process`) |
 | See what happened in the last 24 hours | `npm run report` |
 | Add one project the feed never showed | `npm run ingest:add -- --id 69109028093` |
+| Check the virus scanner is up and working | `npm run ingest:scan -- --self-test` (touches no database) |
+| Scan stored files that have no scan result yet | `npm run ingest:scan` (writes results and deletes flagged files: check which database first) |
 | Import past IT contracts from data.go.th, once | `npm run history:import -- --dry-run` to see the counts, then without `--dry-run` |
 | Sort those past projects' titles with Gemini | `npm run screen -- --past --limit 200` (costs Gemini; run by hand only) |
 | See which past projects tonight's run would read in full | `npm run ingest -- --step history --dry-run` |
@@ -259,6 +273,10 @@ step it took.
 | "asked again by day: … cut off" | An agency posted more than 20 of one kind in one day; some of that day is missing. Rare. |
 | **NO ANSWER** from the feed outside office hours, run after run | The feed is down or blocking us. Look at the logs. |
 | A project at "attempt 3 of 3" | It's skipped from now on. Look at its error. |
+| "ClamAV flagged … as …" | The virus scanner matched a file in that project's package, so nothing of the package was kept. It may be a false alarm. Tell the team, who can check the project on e-GP and retry with `--retry-failed` after ClamAV's next signature update. |
+| "is too large for ClamAV to scan" | One file is over 200 MB. Nothing of the package was kept. Rare. |
+| "ClamAV at … did not answer" | The scanner is stopped: `docker compose up -d clamav`. Nothing was downloaded. |
+| "CLAMD_HOST is not set" | This computer has no scanner configured. New files are kept unscanned and get no preview until `npm run ingest:scan`. |
 | A Gemini call taking over a minute | Gemini is slow at times. Normal. |
 
 ## Built-in safety
@@ -271,6 +289,9 @@ step it took.
 - **Gives up instead of hammering:** a project that keeps failing stops after
   3 tries, a feed that stops answering stops being asked, and a file too big
   to download isn't downloaded again.
+- **Checks every file before keeping it:** a zip is refused if it would unpack
+  to far more than it should, only PDF, Excel and Word files are kept, and
+  each is virus-scanned first. Visitors are only ever shown files that passed.
 - **Never rewrites the source:** the original documents and the e-GP page
   stay one click away from every summary, and they are the authority.
 
