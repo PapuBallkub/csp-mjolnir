@@ -33,7 +33,7 @@ The main folders only. Each has its own section below, with a row per file.
 │   ├── src/
 │   │   ├── server.js       entry point: connects to MongoDB, then listens
 │   │   ├── app.js          builds the app, mounts each feature under /api
-│   │   ├── common/         config, database connection, errors, middleware
+│   │   ├── common/         config, database connection, errors, middleware, the security log
 │   │   ├── models/         every Mongoose schema, shape only
 │   │   ├── features/       one folder per API feature: routes → controller → service
 │   │   │                   admin, auth, health, lock-spec, match,
@@ -188,9 +188,10 @@ Plumbing every feature uses. Never imports from `features/` ([0003](decisions/00
 | [config/env.js](../server/src/common/config/env.js) | Reads and checks environment variables once. Boot stops without `MONGO_URI`, `JWT_SECRET` or `PASSWORD_PEPPER`, or with either secret under 32 bytes. |
 | [db/connect.js](../server/src/common/db/connect.js) | Connects Mongoose, pins the database name `mjolnir`, registers every model. |
 | [errors/http-error.js](../server/src/common/errors/http-error.js) | `HttpError` and `badRequest`, `unauthorized`, `forbidden`, `notFound`. Throw these from services. |
-| [middleware/error-handler.js](../server/src/common/middleware/error-handler.js) | Turns any thrown error into JSON; hides 500 details in production. |
+| [middleware/error-handler.js](../server/src/common/middleware/error-handler.js) | Turns any thrown error into JSON; hides 500 details in production. Logs a 500 as one `server.error` line with its stack, and a 413 as `request.too_large` ([0043](decisions/0043-one-line-per-security-event.md)). |
 | [middleware/not-found.js](../server/src/common/middleware/not-found.js) | JSON 404 for an unknown route. |
-| [middleware/rate-limit.js](../server/src/common/middleware/rate-limit.js) | The counting mechanism for rate limits, in memory: `limitByIp`, and `limitByUser` for routes behind `requireAuth`. Features choose the numbers ([0007](decisions/0007-rate-limiting-on-the-auth-routes.md)). |
+| [middleware/rate-limit.js](../server/src/common/middleware/rate-limit.js) | The counting mechanism for rate limits, in memory: `limitByIp`, and `limitByUser` for routes behind `requireAuth`. Features choose the numbers ([0007](decisions/0007-rate-limiting-on-the-auth-routes.md)). Each limit carries a `name`, and a 429 is logged with it. |
+| [logging/security-log.js](../server/src/common/logging/security-log.js) | `securityEvent`: one JSON line per security event, on stdout, with only allowlisted fields and an address only as a keyed hash. `logServerError` for 500s, on stderr. `SECURITY_EVENTS` is the list of events ([0043](decisions/0043-one-line-per-security-event.md)). |
 | [utils/escape-regex.js](../server/src/common/utils/escape-regex.js) | Escapes characters with special meaning in regular expressions to prevent ReDoS and regex syntax errors. |
 | [paths.js](../server/src/common/paths.js) | Where documents are kept (`getDocumentsDir`), and `locateStoredFile`, which finds a recorded file and opens nothing outside that folder. The preview and the rescan both use it. |
 | [utils/constant-time-equal.js](../server/src/common/utils/constant-time-equal.js) | Compares two strings in constant time, for values an attacker guesses at (the OAuth `state` and `nonce`). |
@@ -228,7 +229,8 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 
 | File | What it is |
 | :--- | :--- |
-| [admin.routes.js](../server/src/features/admin/admin.routes.js) | Every admin URL, built by `createAdminRoutes(limits, { mail })`. Guards the whole router with `requireAuth` and `requireRole('admin')`; re-extract, ingest, health-check, retry-all and the password-reset email share one limit per admin. The reset's handler is auth's. |
+| [admin.routes.js](../server/src/features/admin/admin.routes.js) | Every admin URL, built by `createAdminRoutes(limits, { mail })`. Guards the whole router with `requireAuth` and `requireRole('admin')`; re-extract, ingest, health-check, retry-all and the password-reset email share one limit per admin. The reset's handler is auth's. Every write is registered through `write()`, which audits it. |
+| [audit.js](../server/src/features/admin/audit.js) | `auditAdminAction`: the first handler of every admin write, logging `admin.action` (who, which route, on what, the result) when the response closes ([0043](decisions/0043-one-line-per-security-event.md)). |
 | [admin.controller.js](../server/src/features/admin/admin.controller.js) | Reads params and body, calls the service. A repeated search parameter is a 400. |
 | [admin.service.js](../server/src/features/admin/admin.service.js) | ~2,200 lines; search it by function name. Dashboard data, review queue and workspace (edit, approve, reclassify, re-extract), version rollback, pipeline retry/skip/dismiss, record inspector, manual add, technology vocabulary. |
 | [ops.fixtures.js](../server/src/features/admin/ops.fixtures.js) | Legacy sample dashboard data (retained as fixture reference, no longer loaded by admin service). |
@@ -466,11 +468,17 @@ the `mjolnir_test` database.
   token, the password at confirmation, the 503 in production without SMTP (in
   a child process); `auth-reset` covers forgot, reset, change and the
   admin-sent link (0042), and `password-policy` the policy on its own;
-  `auth.test.js` signs up through the whole journey.
+  `auth.test.js` signs up through the whole journey. `security-log` checks
+  the log helper on its own, and `security-events` the lines the routes write
+  (0043), including that every admin write route is audited.
 - [test/helpers/accounts.js](../server/test/helpers/accounts.js): outside the
   test glob. A confirmed account straight from the database and its session
   cookie (`signedInAccount`), for tests about something other than signing up,
   and `createMailRecorder`, a mailer that sends nothing and keeps every message.
+- [test/helpers/security-log.js](../server/test/helpers/security-log.js):
+  `captureSecurityLog(t)`, the security log's lines for one test.
+  [quiet-security-log.js](../server/test/helpers/quiet-security-log.js) beside
+  it is loaded first by `npm test` and silences the lines for every other test.
 - [test/pipeline/extraction/fixtures.js](../server/test/pipeline/extraction/fixtures.js):
   shared fake TORs and AI answers.
 - [test/pipeline/ingestion/fixtures/](../server/test/pipeline/ingestion/fixtures/):
@@ -774,3 +782,4 @@ write a new one that supersedes it ([CONTRIBUTING](../CONTRIBUTING.md#decisions)
 | [0040](decisions/0040-files-are-scanned-before-they-are-kept.md) | Files from e-GP are checked and virus-scanned before they're kept |
 | [0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md) | An address is confirmed before the account exists |
 | [0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md) | Passwords can be changed, reset and checked |
+| [0043](decisions/0043-one-line-per-security-event.md) | One line per security event |

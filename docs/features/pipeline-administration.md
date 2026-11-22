@@ -183,4 +183,4 @@ All endpoints reside under the `/api/admin` router and strictly enforce `require
 | **Invalid e-GP Reference** | Strict Regex & Format Check | Client and server enforce `/^\d{11}$/`, preventing directory traversal or invalid parameters. |
 | **Infinite Retry Loops** | Max Attempt Enforcement | `PipelineFailure` caps automated retries at `MAX_ATTEMPTS = 3`; manual retry is required to reset attempt counts. |
 | **Rate Limit Violations (NFR-03)** | Request Pacer | `request-pacer.js` keeps all calls to `process3.gprocurement.go.th` at least 1,000ms apart. |
-| **Audit Trails** | Source & Admin Attribution | Manually ingested records set `source: 'manual'`; re-extraction and dismissal log timestamps and reasons in `TorInsight.metadata`. |
+| **Audit Trails** | Source & Admin Attribution | Manually ingested records set `source: 'manual'`; re-extraction and dismissal log timestamps and reasons in `TorInsight.metadata`. Every admin write is also an `admin.action` line in the server's log: the admin, the route, the record and the result, failures included ([0043](../decisions/0043-one-line-per-security-event.md)). |

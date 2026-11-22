@@ -126,6 +126,17 @@ common password, and not GIPDP's name, your email's name or your own name
 with digits or symbols around it. An old password that fails it still signs
 in.
 
+The server writes one JSON line to its output for each security event: a
+sign-in, a failure, a rejected session, a 403, a 429, an admin write
+([0043](docs/decisions/0043-one-line-per-security-event.md)). If you add something security-relevant, log it with
+`securityEvent(req, 'event.name', { userId, reason })` from
+`#common/logging/security-log.js`, and add the event to `SECURITY_EVENTS`
+there. Pass an address as `email` and it's hashed. Never pass a password,
+token or cookie; the helper drops fields it doesn't know anyway. A new admin
+write goes through `write()` in `admin.routes.js`, or a test fails.
+`npm test` silences these lines; a test about them captures them with
+`test/helpers/security-log.js`.
+
 Running `npm test` in `server/` boots the app against whatever `MONGO_URI`
 points at. The tests that write users send them to a separate `mjolnir_test`
 database and delete them afterwards, so a run against Atlas never touches the

@@ -13,7 +13,7 @@ the rules bend. For a one-line description of every file, see the
 server/src/
 ├── server.js     connects to MongoDB, then listens
 ├── app.js        builds the Express app and mounts each feature's router
-├── common/       config, database connection, errors, middleware
+├── common/       config, database connection, errors, middleware, the security log
 ├── models/       every Mongoose schema, shape only
 ├── features/     one folder per feature
 └── pipeline/     ingestion, extraction, the scheduled jobs, and what they share
@@ -160,9 +160,10 @@ Plumbing with no knowledge of any feature. It imports nothing from
 | `config/env.js` | `env`: every environment variable, read and checked once at start. A missing required one (`MONGO_URI`, `JWT_SECRET`, `PASSWORD_PEPPER`) stops the server booting, and so does either secret under 32 bytes. Also `isProduction`, `isGoogleConfigured` |
 | `db/connect.js` | `connectDatabase`, `disconnectDatabase`: used by the server and every script |
 | `errors/http-error.js` | `HttpError`, and `badRequest`, `unauthorized`, `forbidden`, `notFound`. Throw one from a controller or service; the error handler turns it into a JSON reply |
-| `middleware/error-handler.js` | Every error becomes JSON. In production a 500 says "Internal server error" and nothing more |
+| `middleware/error-handler.js` | Every error becomes JSON. In production a 500 says "Internal server error" and nothing more; the server's log gets the stack |
 | `middleware/not-found.js` | Unknown routes get a JSON 404, not an HTML page |
 | `middleware/rate-limit.js` | `limitByIp`, and `limitByUser` for routes behind `requireAuth`: the counting. Each feature that limits a route keeps its numbers in its own `rate-limit.js` (`auth`, `tors`, `technologies`, `admin`), and `app.js` gathers them ([0007](../decisions/0007-rate-limiting-on-the-auth-routes.md)) |
+| `logging/security-log.js` | `securityEvent(req, event, fields)`: one JSON line per security event (sign-ins, rejected sessions, 403s, 429s, admin writes), with only allowlisted fields and an address only as a keyed hash. `requireAuth`, both limiters, the error handler, `auth` and `admin` call it ([0043](../decisions/0043-one-line-per-security-event.md)) |
 
 ### `models/`
 
