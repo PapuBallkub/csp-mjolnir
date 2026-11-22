@@ -226,7 +226,10 @@ A checklist you cannot check is a wish list. Run these against the deployed API.
 - [ ] Sign in with Google end to end, since the redirect URI, `CORS_ORIGIN`,
       the client ID, the attempt cookie and the key fetch all have to agree
       before it works. A failure prints `Google sign-in failed: … (<reason>)`
-      in the server log; the reason says which one
+      in the server log; the reason says which one. When Google refused the
+      code, its own error follows, as in
+      `(token-endpoint: invalid_client "…")` for a wrong client secret, or
+      `(token-endpoint: invalid_grant "…")` for a used or expired code
 - [ ] Fail the same login repeatedly and confirm the 429 arrives at the
       configured attempt, from a machine that is not on the same network as
       another tester
