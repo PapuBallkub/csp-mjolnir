@@ -16,8 +16,7 @@ const userSchema = new mongoose.Schema(
     // creates accounts through findOneAndUpdate(upsert), where runValidators is
     // off by default, so a required field there is enforced or not depending on
     // an option nobody set. Shape here, invariant in features/auth — see 0005.
-    // Characters, not bytes: the 72-byte ceiling on a password exists because
-    // bcrypt truncates, and there is no such reason to give a Thai name ~26.
+    // Characters, not bytes: a byte ceiling would give a Thai name about 26.
     name: {
       type: String,
       trim: true,

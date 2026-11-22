@@ -50,7 +50,19 @@ export const env = {
     'Generate one with: node -e "console.log(crypto.randomUUID() + crypto.randomUUID())".',
     { minBytes: 32 },
   ),
-  // Optional, unlike the two above: the server runs fine without Google
+  // Keys the HMAC that every password goes through before bcrypt
+  // (features/auth/password.js). Kept outside the database on purpose: a leaked
+  // users collection is useless without it. Its own secret, not derived from
+  // JWT_SECRET, so that rotating JWT_SECRET to sign everyone out doesn't also
+  // lock everyone out. It can't be rotated itself: every password hash depends
+  // on it, and losing it makes every password account unusable, so back it up
+  // like MONGO_URI. Per-developer, like JWT_SECRET.
+  passwordPepper: required(
+    'PASSWORD_PEPPER',
+    'Generate one with: node -e "console.log(crypto.randomBytes(32).toString(\'base64\'))".',
+    { minBytes: 32 },
+  ),
+  // Optional, unlike the three above: the server runs fine without Google
   // sign-in, and requiring it would stop CI and every teammate who has not set
   // it up. The routes answer 503 when it is missing.
   google: {

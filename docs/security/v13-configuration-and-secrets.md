@@ -102,8 +102,9 @@ To ensure high availability and prevent resource exhaustion under load, GIPDP im
    - The application enforces **no fallback defaults** in code for sensitive values:
      - `MONGO_URI`: Required. Server refuses to boot if absent.
      - `JWT_SECRET`: Required. Server verifies length is at least 32 bytes (256 bits), throwing immediately on startup if invalid.
+     - `PASSWORD_PEPPER`: Required, at least 32 bytes, checked the same way. Keys the HMAC-SHA384 every password goes through before bcrypt ([0039](../decisions/0039-passwords-are-peppered-before-bcrypt.md)).
 3. **Principle of Least Privilege (V13.3.2)**:
-   - Backend secrets (`JWT_SECRET`, `MONGO_URI`, `GEMINI_API_KEY`, `EMAIL_PASS`) are isolated exclusively to `server/src`.
+   - Backend secrets (`JWT_SECRET`, `PASSWORD_PEPPER`, `MONGO_URI`, `GEMINI_API_KEY`, `EMAIL_PASS`) are isolated exclusively to `server/src`.
    - The Next.js client receives zero backend secrets. Only public configuration variables prefixed with `NEXT_PUBLIC_` reach the browser bundle.
 
 ---

@@ -75,6 +75,7 @@ refuses to send back, and `/api/auth/me` answers `401` forever.
 | `NODE_ENV` | `production` | See §1 |
 | `MONGO_URI` | Atlas connection string | Server refuses to boot — this one fails loudly, which is correct |
 | `JWT_SECRET` | A freshly generated secret of at least 32 bytes (`node -e "console.log(crypto.randomUUID() + crypto.randomUUID())"` gives 72 characters), **not** the CI value in `fullstack-ci-setup.yml` and not any developer's local one | Under 32 bytes: the server refuses to boot. Known to anyone else: they can mint a session for any account |
+| `PASSWORD_PEPPER` | Generated once for production, at least 32 bytes (`node -e "console.log(crypto.randomBytes(32).toString('base64'))"` gives 44 characters), **not** the CI value and not any developer's local one. Back it up next to `MONGO_URI`, and never rotate it ([0039](decisions/0039-passwords-are-peppered-before-bcrypt.md)) | Missing or under 32 bytes: the server and the pipeline refuse to start. Lost or changed: every password account stops working; Google sign-in doesn't |
 | `CORS_ORIGIN` | The deployed client origin, exact, **no trailing slash** | The browser rejects every API response and the app looks completely dead |
 | `PORT` | Leave unset on Cloud Run — it injects one | Container listens on the wrong port and fails its health check |
 | `GOOGLE_CLIENT_ID` / `_SECRET` | Production OAuth client | Unset: `/api/auth/google` answers 503. Another client's ID: every Google sign-in fails, because the ID token's `aud` must be this value ([0005](decisions/0005-google-sign-in-links-by-verified-email.md)) |
@@ -85,6 +86,9 @@ refuses to send back, and `/api/auth/me` answers `401` forever.
 - [ ] All of the above set in the host's secret manager, not baked into an image
 - [ ] `JWT_SECRET` confirmed different from the CI value
       (`ci-not-a-secret-ci-not-a-secret-ci`)
+- [ ] `PASSWORD_PEPPER` confirmed different from the CI value
+      (`ci-not-a-pepper-ci-not-a-pepper-ci`), and backed up where `MONGO_URI` is.
+      Unlike `JWT_SECRET`, it is never rotated: every password hash depends on it
 - [ ] Understood that rotating `JWT_SECRET` signs everyone out, and breaks every
       unsubscribe link already emailed, since that key is derived from it — fine,
       but do it knowingly
@@ -222,7 +226,10 @@ A checklist you cannot check is a wish list. Run these against the deployed API.
 - [ ] Sign in with Google end to end, since the redirect URI, `CORS_ORIGIN`,
       the client ID, the attempt cookie and the key fetch all have to agree
       before it works. A failure prints `Google sign-in failed: … (<reason>)`
-      in the server log; the reason says which one
+      in the server log; the reason says which one. When Google refused the
+      code, its own error follows, as in
+      `(token-endpoint: invalid_client "…")` for a wrong client secret, or
+      `(token-endpoint: invalid_grant "…")` for a used or expired code
 - [ ] Fail the same login repeatedly and confirm the 429 arrives at the
       configured attempt, from a machine that is not on the same network as
       another tester
