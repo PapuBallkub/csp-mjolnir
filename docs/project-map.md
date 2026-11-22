@@ -24,6 +24,7 @@ The main folders only. Each has its own section below, with a row per file.
 
 ```text
 .
+├── README.md               project overview, installation, and the two setup options
 ├── AGENTS.md               agent rules + frontend design guide; AI agents read it first
 ├── CONTRIBUTING.md         where to start, branches, commits, when docs change
 ├── docker-compose*.yml     the stack; the override adds a local MongoDB
@@ -153,6 +154,7 @@ nightly `process` job runs the same steps in priority order
 
 | File | What it is |
 | :--- | :--- |
+| [README.md](../README.md) | Project overview, repository link, environment configuration (including Google OAuth 2.0 and Gmail SMTP wiki guides), and instructions for installing and running the application. |
 | [AGENTS.md](../AGENTS.md) | Rules for every agent change (databases, scripts, packages, secrets, access), then the frontend design guide: audiences, screens, data fields, visual and copy rules. Read the guide before touching `client/app/`. |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Setup, branches, commit style, how to record a decision. |
 | [docker-compose.yml](../docker-compose.yml) | Production stack: server and client containers, and the `server-data` volume that keeps stored documents, logs and extractions across containers. |
