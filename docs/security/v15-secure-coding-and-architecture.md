@@ -38,8 +38,8 @@ All third-party dependencies and framework components are actively monitored for
 
 The CI/CD pipeline enforces three automated security verification layers:
 1. **Dependency Vulnerability Audit (SCA):** Automated `npm audit --omit=dev --audit-level=high` runs in `.github/workflows/fullstack-ci-setup.yml` on both `client` and `server` for every push and PR.
-2. **Static Application Security Testing (SAST):** Automated **GitHub CodeQL** analysis (`github/codeql-action/init@v3` & `analyze@v3`) scans JavaScript and TypeScript across the entire codebase on every push and PR, uploading findings directly to the GitHub Security Code Scanning tab.
-3. **Dynamic Application Security Testing (DAST):** Automated **OWASP ZAP Baseline Scan** (`.github/workflows/dast-zap.yml`) tests the live full-stack application (MongoDB + Express API + Next.js frontend) on-demand and on a weekly schedule. Detailed in [DAST Guide](./dast-zap-guide.md).
+2. **Static Application Security Testing (SAST):** Automated **GitHub CodeQL** analysis (`github/codeql-action/init@v3` & `analyze@v3`) scans JavaScript and TypeScript across the entire codebase on every push and PR, uploading findings directly to the GitHub Security Code Scanning tab. Detailed in [SAST CodeQL Guide](./sast-codeql-guide.md).
+3. **Dynamic Application Security Testing (DAST):** Automated **OWASP ZAP Baseline Scan** (`.github/workflows/dast-zap.yml`) tests the live full-stack application (MongoDB + Express API + Next.js frontend) on-demand and on a weekly schedule. Detailed in [DAST ZAP Guide](./dast-zap-guide.md).
 
 ---
 
