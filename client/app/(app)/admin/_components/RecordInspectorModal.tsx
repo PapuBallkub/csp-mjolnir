@@ -10,7 +10,6 @@ export function RecordInspectorModal({
   record,
   isLoading,
   error,
-  lang,
   onClose,
   onRetryStep,
   onDismissFailure,
@@ -20,7 +19,6 @@ export function RecordInspectorModal({
   record: PipelineRecordDiagnostics | null;
   isLoading: boolean;
   error: string | null;
-  lang: "th" | "en";
   onClose: () => void;
   onRetryStep: (pid: string, step: string, maxPages?: number) => Promise<void>;
   onDismissFailure: (pid: string, step: string) => Promise<void>;
@@ -41,9 +39,7 @@ export function RecordInspectorModal({
   const formatMoney = (val: number | null | undefined) =>
     typeof val === "number" && val > 0
       ? `฿${val.toLocaleString()}`
-      : lang === "th"
-      ? "ไม่ได้ระบุ"
-      : "Not stated";
+      : "ไม่ได้ระบุ";
 
   const formatDate = (iso: string | null | undefined) =>
     iso ? iso.slice(0, 16).replace("T", " ") : "—";
@@ -105,12 +101,7 @@ export function RecordInspectorModal({
                 ) : null}
               </div>
               <h2 className="mt-1.5 text-[16px] font-semibold leading-snug text-ink truncate">
-                {record?.title ||
-                  (isLoading
-                    ? lang === "th"
-                      ? "กำลังโหลดข้อมูล..."
-                      : "Loading..."
-                    : projectId)}
+                {record?.title || (isLoading ? "กำลังโหลดข้อมูล..." : projectId)}
               </h2>
               {record?.agency ? (
                 <p className="mt-0.5 text-[12px] text-ink-3 truncate">{record.agency}</p>
@@ -132,15 +123,15 @@ export function RecordInspectorModal({
               {[
                 {
                   id: "progression",
-                  label: lang === "th" ? "ลำดับขั้น & สถานะ (Progression)" : "Stage Progression",
+                  label: "ลำดับขั้น & สถานะ (Progression)",
                 },
                 {
                   id: "intelligence",
-                  label: lang === "th" ? "การสกัด AI & ความเสี่ยง (Intelligence)" : "AI & Risk Check",
+                  label: "การสกัด AI & ความเสี่ยง (Intelligence)",
                 },
                 {
                   id: "document",
-                  label: lang === "th" ? "เอกสารแนบ & รายละเอียด (Details)" : "Document & Metadata",
+                  label: "เอกสารแนบ & รายละเอียด (Details)",
                 },
               ].map((t) => (
                 <button
@@ -166,15 +157,13 @@ export function RecordInspectorModal({
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-ink" />
               <p className="mt-3 text-[13px] text-ink-2">
-                {lang === "th"
-                  ? "กำลังดึงข้อมูลการประมวลผลของโครงการ..."
-                  : "Fetching record lifecycle diagnostics..."}
+                กำลังดึงข้อมูลการประมวลผลของโครงการ...
               </p>
             </div>
           ) : error ? (
             <div className="rounded-[3px] border border-risk-line bg-risk-bg p-4 text-center">
               <p className="font-semibold text-risk text-[14px]">
-                {lang === "th" ? "ไม่พบข้อมูลโครงการ" : "Record Diagnostic Lookup Failed"}
+                ไม่พบข้อมูลโครงการ
               </p>
               <p className="mt-1 text-[12px] text-risk/80">{error}</p>
             </div>
@@ -188,20 +177,18 @@ export function RecordInspectorModal({
                     <div className="rounded-[3px] border border-risk-line bg-risk-bg/50 p-4">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[12px] font-bold text-risk uppercase">
-                          ⚠️ {lang === "th" ? "พบข้อผิดพลาดในขั้นตอน" : "Active Failure in Step"}:{" "}
+                          ⚠️ พบข้อผิดพลาดในขั้นตอน:{" "}
                           {record.activeFailure.step}
                         </span>
                         <span className="font-mono tnum text-[11px] text-risk">
-                          {lang === "th"
-                            ? `ครั้งที่ ${record.activeFailure.attempts} / 3`
-                            : `Attempt ${record.activeFailure.attempts} of 3`}
+                          {`ครั้งที่ ${record.activeFailure.attempts} / 3`}
                         </span>
                       </div>
                       <p className="mt-2 text-[12px] leading-relaxed text-risk">
                         {record.activeFailure.lastError}
                       </p>
                       <p className="mt-1 text-[10px] text-risk/70">
-                        {lang === "th" ? "ผิดพลาดล่าสุดเมื่อ" : "Last failure"}:{" "}
+                        ผิดพลาดล่าสุดเมื่อ:{" "}
                         <span className="font-mono tnum">{formatDate(record.activeFailure.lastFailedAt)}</span>
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -219,9 +206,7 @@ export function RecordInspectorModal({
                         >
                           {retrying
                             ? "..."
-                            : lang === "th"
-                            ? `รีเซ็ตและสั่งรันขั้นตอน ${record.activeFailure.step} ใหม่`
-                            : `Retry ${record.activeFailure.step} Step`}
+                            : `รีเซ็ตและสั่งรันขั้นตอน ${record.activeFailure.step} ใหม่`}
                         </button>
                         <button
                           type="button"
@@ -233,7 +218,7 @@ export function RecordInspectorModal({
                           }}
                           className={`${btn.secondary} h-7 px-3 text-[11px] text-risk`}
                         >
-                          {lang === "th" ? "ละเว้นข้อผิดพลาดนี้ (Dismiss)" : "Dismiss Failure"}
+                          ละเว้นข้อผิดพลาดนี้ (Dismiss)
                         </button>
                       </div>
                     </div>
@@ -244,16 +229,14 @@ export function RecordInspectorModal({
                     <div className="rounded-[3px] border border-amend-line bg-amend-bg/40 p-4">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[12px] font-bold text-amend uppercase">
-                          ⚠️ {lang === "th" ? "เอกสารถูกตัดทอนเนื่องจากเกินขีดจำกัดหน้า (Truncated)" : "Document Truncated"}
+                          ⚠️ เอกสารถูกตัดทอนเนื่องจากเกินขีดจำกัดหน้า (Truncated)
                         </span>
                         <span className="font-mono tnum text-[11px] text-amend">
-                          {record.stages.ocr.pagesRead ?? 150} / {record.stages.ocr.totalPages ?? record.document?.pages ?? "150+"} {lang === "th" ? "หน้า" : "pages"}
+                          {record.stages.ocr.pagesRead ?? 150} / {record.stages.ocr.totalPages ?? record.document?.pages ?? "150+"} หน้า
                         </span>
                       </div>
                       <p className="mt-2 text-[12px] leading-relaxed text-ink-2">
-                        {lang === "th"
-                          ? `ระบบหยุดอ่านที่หน้า ${record.stages.ocr.pagesRead ?? 150} ตามข้อจำกัดความปลอดภัยของ OCR (ปกติ 150 หน้า) ทำให้เนื้อหาบางส่วนอาจยังไม่ได้ถูกสกัดหรือตรวจสอบ`
-                          : `OCR processing stopped at page ${record.stages.ocr.pagesRead ?? 150} due to the configured page safety limit (default 150 pages). Some requirements may not have been extracted.`}
+                        {`ระบบหยุดอ่านที่หน้า ${record.stages.ocr.pagesRead ?? 150} ตามข้อจำกัดความปลอดภัยของ OCR (ปกติ 150 หน้า) ทำให้เนื้อหาบางส่วนอาจยังไม่ได้ถูกสกัดหรือตรวจสอบ`}
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
@@ -268,9 +251,7 @@ export function RecordInspectorModal({
                         >
                           {retrying
                             ? "..."
-                            : lang === "th"
-                            ? "อ่าน OCR ต่อด้วยขีดจำกัด 300 หน้า (Retry with 300 pages)"
-                            : "Retry OCR with 300 pages limit"}
+                            : "อ่าน OCR ต่อด้วยขีดจำกัด 300 หน้า (Retry with 300 pages)"}
                         </button>
                       </div>
                     </div>
@@ -279,35 +260,33 @@ export function RecordInspectorModal({
                   {/* 5-Stage Progression Chain */}
                   <div>
                     <Label>
-                      {lang === "th"
-                        ? "ลำดับขั้นการประมวลผล (Stage Progression)"
-                        : "Pipeline Stage Progression"}
+                      ลำดับขั้นการประมวลผล (Stage Progression)
                     </Label>
                     <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-5">
                       {[
                         {
                           key: "fetched",
-                          title: lang === "th" ? "1. ดึงประกาศ" : "1. Fetched",
+                          title: "1. ดึงประกาศ",
                           stage: record.stages.fetched,
                         },
                         {
                           key: "downloaded",
-                          title: lang === "th" ? "2. ดาวน์โหลด" : "2. Downloaded",
+                          title: "2. ดาวน์โหลด",
                           stage: record.stages.downloaded,
                         },
                         {
                           key: "ocr",
-                          title: lang === "th" ? "3. ทำ OCR" : "3. OCR Text",
+                          title: "3. ทำ OCR",
                           stage: record.stages.ocr,
                         },
                         {
                           key: "extracted",
-                          title: lang === "th" ? "4. สกัดข้อมูล" : "4. Extracted",
+                          title: "4. สกัดข้อมูล",
                           stage: record.stages.extracted,
                         },
                         {
                           key: "reviewed",
-                          title: lang === "th" ? "5. ตรวจทาน" : "5. Reviewed",
+                          title: "5. ตรวจทาน",
                           stage: record.stages.reviewed,
                         },
                       ].map(({ key, title, stage }) => (
@@ -331,16 +310,10 @@ export function RecordInspectorModal({
                             {stage.done
                               ? stage.confidence
                                 ? `${Math.round(stage.confidence)}%`
-                                : lang === "th"
-                                ? "เสร็จสิ้น"
-                                : "Done"
+                                : "เสร็จสิ้น"
                               : stage.error
-                              ? lang === "th"
-                                ? "ขัดข้อง"
-                                : "Failed"
-                              : lang === "th"
-                              ? "รอดำเนินการ"
-                              : "Pending"}
+                              ? "ขัดข้อง"
+                              : "รอดำเนินการ"}
                           </p>
                         </div>
                       ))}
@@ -357,9 +330,7 @@ export function RecordInspectorModal({
                     <Panel className="p-3">
                       <div className="flex items-center justify-between">
                         <Label>
-                          {lang === "th"
-                            ? "การคัดกรองหัวข้อ (Title Screen)"
-                            : "Title Screening Intelligence"}
+                          การคัดกรองหัวข้อ (Title Screen)
                         </Label>
                         <span
                           className={`rounded-[2px] px-1.5 py-0.5 text-[10px] font-semibold ${
@@ -373,7 +344,7 @@ export function RecordInspectorModal({
                       </div>
                       <p className="mt-1.5 text-[12px] leading-relaxed text-ink-2">
                         {record.titleScreen.reason ||
-                          (lang === "th" ? "ไม่มีเหตุผลระบุ" : "No reason recorded")}
+                          "ไม่มีเหตุผลระบุ"}
                       </p>
                       {record.titleScreen.category ? (
                         <p className="mt-1 text-[11px] text-ink-3">
@@ -387,7 +358,7 @@ export function RecordInspectorModal({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Panel className="p-3">
                       <Label>
-                        {lang === "th" ? "ความมั่นใจ OCR (Optical Char)" : "OCR Confidence"}
+                        ความมั่นใจ OCR (Optical Char)
                       </Label>
                       <div className="mt-2 flex items-baseline justify-between">
                         <span className="font-mono tnum text-[22px] font-bold text-ink">
@@ -411,7 +382,7 @@ export function RecordInspectorModal({
 
                     <Panel className="p-3">
                       <Label>
-                        {lang === "th" ? "ความมั่นใจการสกัด AI" : "AI Extraction Score"}
+                        ความมั่นใจการสกัด AI
                       </Label>
                       <div className="mt-2 flex items-baseline justify-between">
                         <span className="font-mono tnum text-[22px] font-bold text-ink">
@@ -446,7 +417,7 @@ export function RecordInspectorModal({
                   <div className="grid grid-cols-2 gap-2 text-[12px]">
                     <Panel className="p-2.5">
                       <span className="text-ink-3 text-[11px]">
-                        {lang === "th" ? "งบประมาณ (Budget)" : "Budget"}:
+                        งบประมาณ (Budget):
                       </span>
                       <p className="font-mono tnum font-medium text-ink mt-0.5">
                         {formatMoney(record.budgetTHB)}
@@ -454,7 +425,7 @@ export function RecordInspectorModal({
                     </Panel>
                     <Panel className="p-2.5">
                       <span className="text-ink-3 text-[11px]">
-                        {lang === "th" ? "ราคากลาง (Reference Price)" : "Reference Price"}:
+                        ราคากลาง (Reference Price):
                       </span>
                       <p className="font-mono tnum font-medium text-ink mt-0.5">
                         {formatMoney(record.referencePriceTHB)}
@@ -471,7 +442,7 @@ export function RecordInspectorModal({
                   <Panel className="p-3.5">
                     <div className="flex items-center justify-between">
                       <Label>
-                        {lang === "th" ? "เอกสารแนบจาก e-GP" : "e-GP Document Attachment"}
+                        เอกสารแนบจาก e-GP
                       </Label>
                       <button
                         type="button"
@@ -479,7 +450,7 @@ export function RecordInspectorModal({
                         className={`${btn.secondary} text-[11px] h-7 px-2.5 flex items-center gap-1 cursor-pointer`}
                       >
                         <span>📄</span>
-                        <span>{lang === "th" ? "พรีวิว PDF" : "Preview PDF"}</span>
+                        <span>พรีวิว PDF</span>
                       </button>
                     </div>
                     {record.document ? (
@@ -508,9 +479,7 @@ export function RecordInspectorModal({
                           <div className="flex justify-between border-b border-line pb-1.5 text-amend">
                             <span className="text-[12px] font-medium">OCR Truncation:</span>
                             <span className="font-semibold text-[11px]">
-                              {lang === "th"
-                                ? `⚠️ ตัดทอนที่ ${record.stages.ocr.pagesRead ?? 150} หน้า`
-                                : `⚠️ Truncated at ${record.stages.ocr.pagesRead ?? 150} pages`}
+                              {`⚠️ ตัดทอนที่ ${record.stages.ocr.pagesRead ?? 150} หน้า`}
                             </span>
                           </div>
                         ) : null}
@@ -521,9 +490,7 @@ export function RecordInspectorModal({
                       </div>
                     ) : (
                       <p className="mt-2 text-[12px] text-ink-3 italic">
-                        {lang === "th"
-                          ? "ยังไม่มีเอกสารแนบที่ดาวน์โหลด"
-                          : "No downloaded document package"}
+                        ยังไม่มีเอกสารแนบที่ดาวน์โหลด
                       </p>
                     )}
                   </Panel>
@@ -531,7 +498,7 @@ export function RecordInspectorModal({
                   {/* Metadata Box */}
                   <Panel className="p-3.5">
                     <Label>
-                      {lang === "th" ? "ข้อมูลและไทม์ไลน์ประกาศ" : "Procurement Timeline & Meta"}
+                      ข้อมูลและไทม์ไลน์ประกาศ
                     </Label>
                     <div className="mt-2 space-y-2 text-[12px]">
                       <div className="flex justify-between border-b border-line pb-1.5">
@@ -571,9 +538,7 @@ export function RecordInspectorModal({
                 >
                   {reExtracting
                     ? "..."
-                    : lang === "th"
-                    ? "↻ สั่งอ่านเอกสารใหม่ (Re-extract)"
-                    : "↻ Re-extract"}
+                    : "↻ สั่งอ่านเอกสารใหม่ (Re-extract)"}
                 </button>
                 <button
                   type="button"
@@ -581,7 +546,7 @@ export function RecordInspectorModal({
                   className={`${btn.secondary} h-8 px-3 text-[12px] flex items-center gap-1 cursor-pointer`}
                 >
                   <span>📄</span>
-                  <span>{lang === "th" ? "พรีวิว PDF" : "Preview PDF"}</span>
+                  <span>พรีวิว PDF</span>
                 </button>
                 <a
                   href={`/tor/${record.projectId}`}
@@ -589,7 +554,7 @@ export function RecordInspectorModal({
                   rel="noreferrer"
                   className={`${btn.secondary} h-8 px-3 text-[12px]`}
                 >
-                  {lang === "th" ? "เปิดดูบนเว็บ" : "View in Catalog"} ↗
+                  เปิดดูบนเว็บ ↗
                 </a>
                 <a
                   href={`https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${record.projectId}`}
@@ -607,7 +572,7 @@ export function RecordInspectorModal({
             onClick={onClose}
             className={`${btn.primary} h-8 px-4 text-[12px]`}
           >
-            {lang === "th" ? "ปิด" : "Close"}
+            ปิด
           </button>
         </div>
       </div>
@@ -624,7 +589,6 @@ export function RecordInspectorModal({
             ? `https://process5.gprocurement.go.th/egp-agpc01-web/announcement?keywordSearch=${record.projectId}`
             : null
         }
-        lang={lang}
       />
     </div>
   );

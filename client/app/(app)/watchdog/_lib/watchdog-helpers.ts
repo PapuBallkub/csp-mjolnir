@@ -23,32 +23,16 @@ export const THAI_MONTHS_SHORT = [
   "ธ.ค.",
 ];
 
-export const EN_MONTHS_SHORT = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
 export function formatMonthBucket(monthKey: string): {
   key: string;
+  label: string;
   labelTh: string;
-  labelEn: string;
   quarter: string;
 } {
   const [yStr, mStr] = monthKey.split("-");
   const year = Number(yStr);
   const monthIdx = Math.max(0, Math.min(11, Number(mStr) - 1));
   const beShort = String(year + 543).slice(-2);
-  const enShort = String(year).slice(-2);
 
   // Thai Fiscal Year starts in October (month index 9 -> Q1 of next FY)
   const fyYearShort = String((monthIdx >= 9 ? year + 1 : year) + 543).slice(-2);
@@ -61,10 +45,11 @@ export function formatMonthBucket(monthKey: string): {
           ? 3
           : 4;
 
+  const label = `${THAI_MONTHS_SHORT[monthIdx]} ${beShort}`;
   return {
     key: monthKey,
-    labelTh: `${THAI_MONTHS_SHORT[monthIdx]} ${beShort}`,
-    labelEn: `${EN_MONTHS_SHORT[monthIdx]} ${enShort}`,
+    label,
+    labelTh: label,
     quarter: `Q${fyQuarter}/${fyYearShort}`,
   };
 }
@@ -75,8 +60,8 @@ export function formatMonthBucket(monthKey: string): {
  */
 export function generateMonthRange(startMonthKey: string, endMonthKey: string): Array<{
   key: string;
+  label: string;
   labelTh: string;
-  labelEn: string;
   quarter: string;
 }> {
   if (!startMonthKey || !endMonthKey || startMonthKey > endMonthKey) return [];
@@ -84,7 +69,7 @@ export function generateMonthRange(startMonthKey: string, endMonthKey: string): 
   const [endY, endM] = endMonthKey.split("-").map(Number);
   if (!startY || !startM || !endY || !endM) return [];
 
-  const months: Array<{ key: string; labelTh: string; labelEn: string; quarter: string }> = [];
+  const months: Array<{ key: string; label: string; labelTh: string; quarter: string }> = [];
   let curY = startY;
   let curM = startM;
   let count = 0;
@@ -240,7 +225,7 @@ export function mapApiTorToWatchdog(tor: TorInsightSummary): WatchdogProjectReco
       seen.add(cat);
       triggers.push({
         category: cat,
-        summary: { th: f.title, en: f.title },
+        summary: f.title,
         clauseExcerpt: f.sourceExcerpt || f.requirementText || "",
       });
     }
@@ -249,10 +234,7 @@ export function mapApiTorToWatchdog(tor: TorInsightSummary): WatchdogProjectReco
     const primaryCat = inferTriggerFromTechAndVerdict(tor);
     triggers.push({
       category: primaryCat,
-      summary: {
-        th: tor.analytics.lockSpec?.verdictText || "พบเงื่อนไขที่อาจจำกัดการแข่งขัน",
-        en: tor.analytics.lockSpec?.verdictText || "Potential competition barrier",
-      },
+      summary: tor.analytics.lockSpec?.verdictText || "พบเงื่อนไขที่อาจจำกัดการแข่งขัน",
       clauseExcerpt: "",
     });
     if (lockSpecScore >= 70) {
@@ -262,10 +244,7 @@ export function mapApiTorToWatchdog(tor: TorInsightSummary): WatchdogProjectReco
           : "Specification Tailoring";
       triggers.push({
         category: secondCat,
-        summary: {
-          th: "พบเงื่อนไขจำกัดการแข่งขันเพิ่มเติมตามเกณฑ์ ว 214",
-          en: "Additional Circular ว 214 barrier detected",
-        },
+        summary: "พบเงื่อนไขจำกัดการแข่งขันเพิ่มเติมตามเกณฑ์ ว 214",
         clauseExcerpt: "",
       });
     }
@@ -274,14 +253,8 @@ export function mapApiTorToWatchdog(tor: TorInsightSummary): WatchdogProjectReco
   return {
     id: tor.projectId,
     egpRef: tor.projectId,
-    title: {
-      th: tor.identification.titleTh,
-      en: tor.identification.titleEn || tor.identification.titleTh,
-    },
-    agency: {
-      th: tor.identification.agency,
-      en: tor.identification.agency,
-    },
+    title: tor.identification.titleTh,
+    agency: tor.identification.agency,
     category,
     archetype,
     complexity,

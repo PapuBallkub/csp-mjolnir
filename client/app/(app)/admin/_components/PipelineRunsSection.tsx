@@ -3,10 +3,8 @@ import { Panel, SectionHeading } from "../../../_components/ui";
 
 export function PipelineRunsSection({
   runs,
-  lang,
 }: {
   runs?: PipelineRunItem[];
-  lang: "th" | "en";
 }) {
   if (!runs || runs.length === 0) return null;
 
@@ -15,16 +13,12 @@ export function PipelineRunsSection({
       <SectionHeading
         right={
           <span className="text-[11px] text-ink-3">
-            {runs.length} {lang === "th" ? "รอบล่าสุด" : "recent runs"}
+            {runs.length} รอบล่าสุด
           </span>
         }
-        sub={
-          lang === "th"
-            ? "บันทึกการทำงานของคำสั่งอัตโนมัติ (poll, sweep, process) พร้อมสถานะของแต่ละขั้นตอน"
-            : "Execution telemetry for cron & scheduled pipeline jobs with step breakdown."
-        }
+        sub="บันทึกการทำงานของคำสั่งอัตโนมัติ (poll, sweep, process) พร้อมสถานะของแต่ละขั้นตอน"
       >
-        {lang === "th" ? "ประวัติการรัน Job อัตโนมัติ" : "Scheduled job execution history"}
+        ประวัติการรัน Job อัตโนมัติ
       </SectionHeading>
 
       <Panel className="w-full overflow-x-auto shadow-xs">
@@ -32,11 +26,11 @@ export function PipelineRunsSection({
           <thead>
             <tr className="border-b border-line bg-surface-2">
               {[
-                { text: lang === "th" ? "เวลาเริ่มต้น" : "Timestamp", right: false },
-                { text: lang === "th" ? "งาน (Job)" : "Job", right: false },
-                { text: lang === "th" ? "ผลลัพธ์" : "Outcome", right: false },
-                { text: lang === "th" ? "เวลาที่ใช้" : "Duration", right: true },
-                { text: lang === "th" ? "ขั้นตอนย่อย" : "Steps", right: false },
+                { text: "เวลาเริ่มต้น", right: false },
+                { text: "งาน (Job)", right: false },
+                { text: "ผลลัพธ์", right: false },
+                { text: "เวลาที่ใช้", right: true },
+                { text: "ขั้นตอนย่อย", right: false },
               ].map((col) => (
                 <th
                   key={col.text}
@@ -51,7 +45,7 @@ export function PipelineRunsSection({
           </thead>
           <tbody>
             {runs.map((run) => (
-              <PipelineRunRow key={run.id} run={run} lang={lang} />
+              <PipelineRunRow key={run.id} run={run} />
             ))}
           </tbody>
         </table>
@@ -62,10 +56,8 @@ export function PipelineRunsSection({
 
 export function PipelineRunRow({
   run,
-  lang,
 }: {
   run: PipelineRunItem;
-  lang: "th" | "en";
 }) {
   return (
     <tr className="border-b border-line align-middle last:border-b-0 hover:bg-surface-2/40">
@@ -120,7 +112,7 @@ export function PipelineRunRow({
             ))
           ) : (
             <span className="text-[11px] text-ink-3 italic">
-              {lang === "th" ? "ไม่มีขั้นตอนย่อย" : "No step details"}
+              ไม่มีขั้นตอนย่อย
             </span>
           )}
         </div>

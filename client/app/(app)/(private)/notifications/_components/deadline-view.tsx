@@ -6,11 +6,11 @@ import { Panel } from "../../../../_components/ui";
 import { formatTHB } from "../../../../_data/tors";
 import type { DeadlineSnapshot } from "../../../../_lib/api";
 
-function formatThaiDate(dateStr?: string | Date | null, lang: "th" | "en" = "th") {
+function formatThaiDate(dateStr?: string | Date | null) {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", {
+  return d.toLocaleDateString("th-TH", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -31,10 +31,8 @@ type SingleDeadlineItem = {
 
 export function DeadlineView({
   snapshot,
-  lang,
 }: {
   snapshot: DeadlineSnapshot & { items?: SingleDeadlineItem[] };
-  lang: "th" | "en";
 }) {
   const items: SingleDeadlineItem[] =
     Array.isArray(snapshot.items) && snapshot.items.length > 0
@@ -54,7 +52,7 @@ export function DeadlineView({
   if (items.length === 0 || !items[0].projectTitle) {
     return (
       <Panel className="p-6 text-center text-ink-3">
-        {lang === "th" ? "ไม่มีรายการโครงการในภาพถ่ายนี้" : "No project items in this snapshot."}
+        ไม่มีรายการโครงการในภาพถ่ายนี้
       </Panel>
     );
   }
@@ -94,29 +92,25 @@ export function DeadlineView({
               <div>
                 <span className="text-[12px] font-medium text-orange-900 dark:text-orange-300">
                   {item.deadlineType === "comment"
-                    ? lang === "th"
-                      ? "แจ้งเตือนกำหนดสิ้นสุดการรับฟังความคิดเห็น"
-                      : "Comment Deadline Warning"
-                    : lang === "th"
-                    ? "แจ้งเตือนกำหนดเวลาสิ้นสุดการยื่นข้อเสนอ"
-                    : "Submission Deadline Warning"}
+                    ? "แจ้งเตือนกำหนดสิ้นสุดการรับฟังความคิดเห็น"
+                    : "แจ้งเตือนกำหนดเวลาสิ้นสุดการยื่นข้อเสนอ"}
                 </span>
                 <div className="mt-1 flex items-baseline gap-2">
                   <span className="text-[26px] font-bold text-orange-600 dark:text-orange-400">
                     {item.daysRemaining}
                   </span>
                   <span className="text-[14px] font-semibold text-orange-950 dark:text-orange-200">
-                    {lang === "th" ? "วันสุดท้ายก่อนปิดรับ" : "days remaining"}
+                    วันสุดท้ายก่อนปิดรับ
                   </span>
                 </div>
               </div>
               {item.deadlineDate ? (
                 <div className="rounded border border-orange-200 bg-surface/80 p-2.5 text-left sm:text-right dark:border-orange-900/40">
                   <span className="text-[11px] text-ink-3">
-                    {lang === "th" ? "วันและเวลาปิดรับข้อเสนอ" : "Deadline Date"}
+                    วันและเวลาปิดรับข้อเสนอ
                   </span>
                   <p className="mt-0.5 text-[13.5px] font-semibold text-ink">
-                    {formatThaiDate(item.deadlineDate, lang)}
+                    {formatThaiDate(item.deadlineDate)}
                   </p>
                 </div>
               ) : null}
@@ -130,7 +124,7 @@ export function DeadlineView({
                 href={`/tor/${item.projectId}`}
                 className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-ink-2 hover:text-ink hover:underline cursor-pointer"
               >
-                <span>{lang === "th" ? "เปิดดูรายละเอียดโครงการ TOR" : "View TOR Details"}</span>
+                <span>เปิดดูรายละเอียดโครงการ TOR</span>
                 <ExternalLink className="h-3.5 w-3.5" />
               </Link>
             </div>

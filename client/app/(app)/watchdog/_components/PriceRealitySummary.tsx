@@ -1,16 +1,15 @@
 "use client";
 
 import { TrendingDown, TrendingUp } from "lucide-react";
-import { formatTHBCompact, type Lang } from "../../../_data/tors";
+import { formatTHBCompact } from "../../../_data/tors";
 import { Label, Panel, SectionHeading } from "../../../_components/ui";
 import { type PriceRealityMetrics } from "../_lib/types";
 
 export type PriceRealitySummaryProps = {
-  lang: Lang;
   metrics: PriceRealityMetrics;
 };
 
-export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps) {
+export function PriceRealitySummary({ metrics }: PriceRealitySummaryProps) {
   const isAvgHigher = metrics.overallAverage >= metrics.overallMedian;
   const avgDelta = metrics.overallMedian > 0
     ? Math.round(((metrics.overallAverage - metrics.overallMedian) / metrics.overallMedian) * 100)
@@ -19,15 +18,9 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
   return (
     <section className="mb-8">
       <SectionHeading
-        sub={
-          lang === "th"
-            ? "วิเคราะห์ความสมเหตุสมผลของราคากลางเทียบกับฐานข้อมูลโครงการประเภทเดียวกันในอดีต"
-            : "Statistical analysis of reference prices against historical peer medians and distributions."
-        }
+        sub="วิเคราะห์ความสมเหตุสมผลของราคากลางเทียบกับฐานข้อมูลโครงการประเภทเดียวกันในอดีต"
       >
-        {lang === "th"
-          ? "สรุปผลวิเคราะห์ราคากลาง (Reference Price Reality Check)"
-          : "Reference Price Reality Check Summary"}
+        สรุปผลวิเคราะห์ราคากลาง (Reference Price Reality Check)
       </SectionHeading>
 
       {/* 5 Summary Metric Cards in 2 Rows */}
@@ -38,7 +31,7 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
           <Panel className="p-3.5 flex flex-col">
             <div className="min-h-[20px]">
               <Label>
-                {lang === "th" ? "จำนวนโครงการที่ตรวจวิเคราะห์ (Sample Size)" : "Analyzed tenders (Sample Size)"}
+                จำนวนโครงการที่ตรวจวิเคราะห์ (Sample Size)
               </Label>
             </div>
             <div className="mt-1.5 h-8 flex items-baseline">
@@ -46,15 +39,13 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
                 {metrics.torCount.toLocaleString()}
               </span>
               <span className="ml-1.5 font-sans text-[13px] font-normal text-ink-3">
-                {lang === "th" ? "โครงการ" : "tenders"}
+                โครงการ
               </span>
             </div>
             <div className="mt-2 h-5" />
             <div className="mt-3.5 pt-3 border-t border-line/60 flex-1">
               <p className="text-[11.5px] leading-thai text-ink-3">
-                {lang === "th"
-                  ? "จำนวนประกาศจัดซื้อจัดจ้างทั้งหมดที่ตรงตามเงื่อนไขตัวกรอง ช่วยสะท้อนขนาดกลุ่มตัวอย่างเพื่อยืนยันความน่าเชื่อถือของสถิติราคาในตลาด"
-                  : "Total procurement notices matching the active filter criteria, reflecting the sample size to verify market price statistical reliability."}
+                จำนวนประกาศจัดซื้อจัดจ้างทั้งหมดที่ตรงตามเงื่อนไขตัวกรอง ช่วยสะท้อนขนาดกลุ่มตัวอย่างเพื่อยืนยันความน่าเชื่อถือของสถิติราคาในตลาด
               </p>
             </div>
           </Panel>
@@ -63,7 +54,7 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
           <Panel className="p-3.5 flex flex-col">
             <div className="min-h-[20px]">
               <Label>
-                {lang === "th" ? "ค่ามัธยฐานราคากลาง (Median)" : "Historical median"}
+                ค่ามัธยฐานราคากลาง (Median)
               </Label>
             </div>
             <div className="mt-1.5 h-8 flex items-baseline">
@@ -74,9 +65,7 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
             <div className="mt-2 h-5" />
             <div className="mt-3.5 pt-3 border-t border-line/60 flex-1">
               <p className="text-[11.5px] leading-thai text-ink-3">
-                {lang === "th"
-                  ? "ราคากึ่งกลางของกลุ่มโครงการที่ไม่ถูกทำให้ผิดเพี้ยนจากโครงการที่ราคาสูงผิดปกติ ช่วยให้เห็นว่าโครงการขนาดทั่วไปควรมีราคากลางประมาณเท่าใด"
-                  : "The midpoint price of this project group unskewed by extreme high-budget projects, showing what a typical project should roughly cost."}
+                ราคากึ่งกลางของกลุ่มโครงการที่ไม่ถูกทำให้ผิดเพี้ยนจากโครงการที่ราคาสูงผิดปกติ ช่วยให้เห็นว่าโครงการขนาดทั่วไปควรมีราคากลางประมาณเท่าใด
               </p>
             </div>
           </Panel>
@@ -85,7 +74,7 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
           <Panel className="p-3.5 flex flex-col">
             <div className="min-h-[20px]">
               <Label>
-                {lang === "th" ? "ค่าเฉลี่ยราคากลาง (Average)" : "Historical average"}
+                ค่าเฉลี่ยราคากลาง (Average)
               </Label>
             </div>
             <div className="mt-1.5 h-8 flex items-baseline">
@@ -105,7 +94,7 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
                     {isAvgHigher ? "+" : ""}{avgDelta}%
                   </span>
                   <span className="font-sans text-ink-3">
-                    {lang === "th" ? "เทียบกับค่ามัธยฐาน" : "vs median"}
+                    เทียบกับค่ามัธยฐาน
                   </span>
                 </div>
               ) : (
@@ -114,11 +103,9 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
             </div>
             <div className="mt-3.5 pt-3 border-t border-line/60 flex-1">
               <p className="text-[11.5px] leading-thai text-ink-3">
-                {lang === "th"
-                  ? isAvgHigher && avgDelta >= 15
-                    ? "มูลค่าราคากลางเฉลี่ยทางคณิตศาสตร์ที่สูงกว่ามัธยฐานอย่างมีนัยสำคัญ ช่วยชี้ว่ามีโครงการขนาดใหญ่พิเศษดึงค่าเฉลี่ยของทั้งกลุ่มตลาดขึ้น"
-                    : "มูลค่าราคากลางเฉลี่ยทางคณิตศาสตร์ของทุกโครงการ ช่วยสะท้อนภาพรวมงบประมาณและยืนยันว่าการกระจายตัวของราคามีความสม่ำเสมอ"
-                  : "Arithmetic mean across all projects, showing overall budget magnitude and whether mega-projects skew the market average."}
+                {isAvgHigher && avgDelta >= 15
+                  ? "มูลค่าราคากลางเฉลี่ยทางคณิตศาสตร์ที่สูงกว่ามัธยฐานอย่างมีนัยสำคัญ ช่วยชี้ว่ามีโครงการขนาดใหญ่พิเศษดึงค่าเฉลี่ยของทั้งกลุ่มตลาดขึ้น"
+                  : "มูลค่าราคากลางเฉลี่ยทางคณิตศาสตร์ของทุกโครงการ ช่วยสะท้อนภาพรวมงบประมาณและยืนยันว่าการกระจายตัวของราคามีความสม่ำเสมอ"}
               </p>
             </div>
           </Panel>
@@ -130,7 +117,7 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
           <Panel className="p-3.5 flex flex-col">
             <div className="min-h-[20px]">
               <Label>
-                {lang === "th" ? "อัตราราคาเบี่ยงเบน (Price Deviation)" : "Market Price Deviation"}
+                อัตราราคาเบี่ยงเบน (Price Deviation)
               </Label>
             </div>
             {metrics.torCount >= 5 ? (
@@ -146,9 +133,7 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
                 </div>
                 <div className="mt-2 h-5 flex items-center">
                   <span className="text-[11.5px] leading-none text-ink-2 font-medium">
-                    {lang === "th"
-                      ? `ราคาสูงเกินกรอบ ${metrics.highOutlierCount} · ต่ำผิดปกติ ${metrics.lowOutlierCount}`
-                      : `High outliers ${metrics.highOutlierCount} · Low outliers ${metrics.lowOutlierCount}`}
+                    {`ราคาสูงเกินกรอบ ${metrics.highOutlierCount} · ต่ำผิดปกติ ${metrics.lowOutlierCount}`}
                   </span>
                 </div>
               </>
@@ -163,9 +148,7 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
                   <span className="inline-flex items-center gap-1 rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-3">
                     <span>ℹ</span>
                     <span>
-                      {lang === "th"
-                        ? "ข้อมูลไม่เพียงพอ (<5 โครงการ)"
-                        : "Insufficient data (<5 projects)"}
+                      ข้อมูลไม่เพียงพอ (&lt; 5 โครงการ)
                     </span>
                   </span>
                 </div>
@@ -173,13 +156,9 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
             )}
             <div className="mt-3.5 pt-3 border-t border-line/60 flex-1">
               <p className="text-[11.5px] leading-thai text-ink-3">
-                {lang === "th"
-                  ? metrics.torCount >= 5
-                    ? "สัดส่วนโครงการที่ราคากลางเบี่ยงเบนเกิน ±15% จากมัธยฐาน ช่วยตรวจจับโครงการที่ตั้งราคาสูงหรือต่ำผิดปกติ เพื่อเฝ้าระวังความเสี่ยงด้านงบประมาณ"
-                    : "ต้องมีขนาดกลุ่มตัวอย่างอย่างน้อย 5 โครงการเพื่อคำนวณสัดส่วนความเบี่ยงเบนทางสถิติที่น่าเชื่อถือ"
-                  : metrics.torCount >= 5
-                    ? "Share of projects with reference prices deviating beyond ±15% of median, helping detect abnormal price points to monitor budgetary risk."
-                    : "Requires at least 5 projects in the active sample to calculate reliable statistical price deviation."}
+                {metrics.torCount >= 5
+                  ? "สัดส่วนโครงการที่ราคากลางเบี่ยงเบนเกิน ±15% จากมัธยฐาน ช่วยตรวจจับโครงการที่ตั้งราคาสูงหรือต่ำผิดปกติ เพื่อเฝ้าระวังความเสี่ยงด้านงบประมาณ"
+                  : "ต้องมีขนาดกลุ่มตัวอย่างอย่างน้อย 5 โครงการเพื่อคำนวณสัดส่วนความเบี่ยงเบนทางสถิติที่น่าเชื่อถือ"}
               </p>
             </div>
           </Panel>
@@ -188,7 +167,7 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
           <Panel className="p-3.5 flex flex-col">
             <div className="min-h-[20px]">
               <Label>
-                {lang === "th" ? "ช่วงราคากลางที่พบ (Price Span)" : "Reference price range"}
+                ช่วงราคากลางที่พบ (Price Span)
               </Label>
             </div>
             <div className="mt-1.5 h-8 flex items-baseline">
@@ -202,20 +181,14 @@ export function PriceRealitySummary({ lang, metrics }: PriceRealitySummaryProps)
             </div>
             <div className="mt-2 h-5 flex items-center">
               <span className="text-[11.5px] leading-none text-ink-2 font-medium">
-                {lang === "th"
-                  ? metrics.minPrice === metrics.maxPrice && metrics.torCount > 0
-                    ? "ราคากลางโครงการในกลุ่มตัวกรองนี้"
-                    : "ราคากลางต่ำสุด – สูงสุดในกลุ่มตัวกรองนี้"
-                  : metrics.minPrice === metrics.maxPrice && metrics.torCount > 0
-                    ? "Reference price in this group"
-                    : "Minimum and maximum reference prices"}
+                {metrics.minPrice === metrics.maxPrice && metrics.torCount > 0
+                  ? "ราคากลางโครงการในกลุ่มตัวกรองนี้"
+                  : "ราคากลางต่ำสุด – สูงสุดในกลุ่มตัวกรองนี้"}
               </span>
             </div>
             <div className="mt-3.5 pt-3 border-t border-line/60 flex-1">
               <p className="text-[11.5px] leading-thai text-ink-3">
-                {lang === "th"
-                  ? "ขอบเขตขนาดราคากลางต่ำสุดถึงสูงสุดของโครงการในกลุ่มนี้ ช่วยให้เห็นสเกลขนาดงบประมาณจัดซื้อจัดจ้างจริงที่พบในตลาด"
-                  : "Minimum to maximum reference price boundaries in this group, showing the actual scale of procurement budgets found in the market."}
+                ขอบเขตขนาดราคากลางต่ำสุดถึงสูงสุดของโครงการในกลุ่มนี้ ช่วยให้เห็นสเกลขนาดงบประมาณจัดซื้อจัดจ้างจริงที่พบในตลาด
               </p>
             </div>
           </Panel>

@@ -5,8 +5,6 @@ import { X } from "lucide-react";
 import {
   formatTHB,
   formatTHBCompact,
-  pick,
-  type Lang,
 } from "../../../_data/tors";
 import { EmptyState, Well } from "../../../_components/ui";
 import { NORMAL_BAND_PCT, type TimePoint } from "../_lib/types";
@@ -22,7 +20,6 @@ import { computeAverage, computeMedian } from "../_lib/watchdog-helpers";
  */
 export function PriceTrendLineChart({
   series,
-  lang,
   activeBucket,
   onSelectBucket,
   showOnlyExisting = false,
@@ -31,7 +28,6 @@ export function PriceTrendLineChart({
   filterMaxPrice = 0,
 }: {
   series: TimePoint[];
-  lang: Lang;
   activeBucket?: string | null;
   onSelectBucket?: (key: string | null) => void;
   showOnlyExisting?: boolean;
@@ -108,7 +104,7 @@ export function PriceTrendLineChart({
     if (torCount === 0) {
       return {
         key: "all",
-        label: lang === "th" ? "ทุกช่วงเวลา (ภาพรวม)" : "All periods (Overview)",
+        label: "ทุกช่วงเวลา (ภาพรวม)",
         torCount: 0,
         medianTHB: 0,
         averageTHB: 0,
@@ -123,7 +119,7 @@ export function PriceTrendLineChart({
     const avg = computeAverage(prices);
     return {
       key: "all",
-      label: lang === "th" ? "ทุกช่วงเวลา (ภาพรวม)" : "All periods (Overview)",
+      label: "ทุกช่วงเวลา (ภาพรวม)",
       torCount,
       medianTHB: med,
       averageTHB: avg,
@@ -132,22 +128,14 @@ export function PriceTrendLineChart({
       highRiskCount: allProjects.filter((p) => p.lockSpecLevel === "high").length,
       projects: allProjects,
     };
-  }, [series, lang]);
+  }, [series]);
 
   const nonEmpty = series.filter((pt) => pt.torCount > 0);
   if (nonEmpty.length === 0) {
     return (
       <EmptyState
-        headline={
-          lang === "th"
-            ? "ไม่มีข้อมูลแนวโน้มราคาสำหรับตัวกรองชุดนี้"
-            : "No price trend data for this filter combination"
-        }
-        body={
-          lang === "th"
-            ? "ลองปรับเปลี่ยนสถานะ หมวดหมู่งาน รูปแบบระบบ หรือล้างตัวกรองเพื่อดูภาพรวมทั้งหมด"
-            : "Try broadening the category, system archetype, or resetting filters."
-        }
+        headline="ไม่มีข้อมูลแนวโน้มราคาสำหรับตัวกรองชุดนี้"
+        body="ลองปรับเปลี่ยนสถานะ หมวดหมู่งาน รูปแบบระบบ หรือล้างตัวกรองเพื่อดูภาพรวมทั้งหมด"
       />
     );
   }
@@ -243,21 +231,19 @@ export function PriceTrendLineChart({
           <span className="inline-flex items-center gap-2">
             <span className="h-[2.5px] w-5 bg-ink" />
             <span>
-              {lang === "th" ? "ค่ามัธยฐานราคากลาง (Median)" : "Reference price median"}
+              ค่ามัธยฐานราคากลาง (Median)
             </span>
           </span>
           <span className="inline-flex items-center gap-2">
             <span className="h-0 w-5 border-t-2 border-dashed border-ink-3" />
             <span>
-              {lang === "th" ? "ค่าเฉลี่ยราคากลาง (Average)" : "Reference price average"}
+              ค่าเฉลี่ยราคากลาง (Average)
             </span>
           </span>
           <span className="inline-flex items-center gap-2">
             <span className="h-3 w-5 rounded-[2px] border border-line-2 bg-surface-3" />
             <span>
-              {lang === "th"
-                ? `กรอบราคาปกติ (±${NORMAL_BAND_PCT}% จากค่ามัธยฐาน)`
-                : `Normal corridor (±${NORMAL_BAND_PCT}% of median)`}
+              {`กรอบราคาปกติ (±${NORMAL_BAND_PCT}% จากค่ามัธยฐาน)`}
             </span>
           </span>
         </div>
@@ -271,28 +257,26 @@ export function PriceTrendLineChart({
               className="inline-flex items-center gap-1.5 rounded-[2px] border border-line-2 bg-surface-2 px-2 py-0.5 font-medium text-ink hover:bg-surface-3 cursor-pointer mr-1"
             >
               <span>
-                {lang === "th"
-                  ? `กรองเฉพาะช่วง: ${series.find((s) => s.key === activeBucket)?.label}`
-                  : `Filtered to: ${series.find((s) => s.key === activeBucket)?.label}`}
+                {`กรองเฉพาะช่วง: ${series.find((s) => s.key === activeBucket)?.label}`}
               </span>
               <X className="h-3 w-3 text-ink-3" />
             </button>
           ) : null}
 
           <span className="text-ink-3 font-medium">
-            {lang === "th" ? "ระดับความเสี่ยงล็อกสเปก:" : "Lock-spec risk:"}
+            ระดับความเสี่ยงล็อกสเปก:
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-open" />
-            <span>{lang === "th" ? "เปิดกว้าง (Low)" : "Low"}</span>
+            <span>เปิดกว้าง (Low)</span>
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-amend" />
-            <span>{lang === "th" ? "ปานกลาง (Medium)" : "Medium"}</span>
+            <span>ปานกลาง (Medium)</span>
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-risk" />
-            <span>{lang === "th" ? "เสี่ยงสูง (High)" : "High"}</span>
+            <span>เสี่ยงสูง (High)</span>
           </span>
         </div>
       </div>
@@ -304,11 +288,7 @@ export function PriceTrendLineChart({
           className="h-auto w-full min-w-[640px] select-none"
           role="img"
           onMouseLeave={() => setHoveredKey(null)}
-          aria-label={
-            lang === "th"
-              ? "กราฟเส้นแสดงแนวโน้มค่ามัธยฐานและค่าเฉลี่ยราคากลางตามช่วงเวลา"
-              : "Line chart showing historical median and average reference price over time"
-          }
+          aria-label="กราฟเส้นแสดงแนวโน้มค่ามัธยฐานและค่าเฉลี่ยราคากลางตามช่วงเวลา"
         >
           {/* Horizontal grid lines & Y-axis labels with filter change indicators */}
           {yTicks.map((tick, tIdx) => {
@@ -459,16 +439,10 @@ export function PriceTrendLineChart({
                         : "var(--color-open)";
                   const riskLabel =
                     proj.lockSpecLevel === "high"
-                      ? lang === "th"
-                        ? "เสี่ยงสูง (High Risk)"
-                        : "High Risk"
+                      ? "เสี่ยงสูง (High Risk)"
                       : proj.lockSpecLevel === "medium"
-                        ? lang === "th"
-                          ? "ปานกลาง (Medium Risk)"
-                          : "Medium Risk"
-                        : lang === "th"
-                          ? "เปิดกว้าง (Low Risk)"
-                          : "Low Risk";
+                        ? "ปานกลาง (Medium Risk)"
+                        : "เปิดกว้าง (Low Risk)";
                   // Slight horizontal jitter when multiple projects share the same bucket
                   const spread = Math.min(24, plottedProjects.length * 4);
                   const offset =
@@ -486,7 +460,7 @@ export function PriceTrendLineChart({
                       strokeWidth="1.2"
                     >
                       <title>
-                        {`${pick(proj.title, lang)} — ${formatTHB(proj.referencePriceTHB)} · ${riskLabel}`}
+                        {`${proj.title} — ${formatTHB(proj.referencePriceTHB)} · ${riskLabel}`}
                       </title>
                     </circle>
                   );
@@ -605,15 +579,13 @@ export function PriceTrendLineChart({
             <span className="font-mono font-semibold text-ink">{inspectedPoint.label}</span>
             <span className="text-ink-3">·</span>
             <span className={inspectedPoint.torCount === 0 ? "text-ink-3 italic" : "text-ink-2"}>
-              {lang === "th"
-                ? `${inspectedPoint.torCount.toLocaleString()} โครงการที่ตรวจวิเคราะห์ในช่วงเวลานี้`
-                : `${inspectedPoint.torCount.toLocaleString()} analyzed TORs in this period`}
+              {`${inspectedPoint.torCount.toLocaleString()} โครงการที่ตรวจวิเคราะห์ในช่วงเวลานี้`}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 font-mono tnum">
             <span>
               <span className="font-sans text-ink-3">
-                {lang === "th" ? "ค่ามัธยฐาน: " : "Median: "}
+                ค่ามัธยฐาน: 
               </span>
               <strong className={inspectedPoint.medianTHB > 0 ? "text-ink" : "text-ink-3 font-normal"}>
                 {formatTHB(inspectedPoint.medianTHB)}
@@ -621,7 +593,7 @@ export function PriceTrendLineChart({
             </span>
             <span>
               <span className="font-sans text-ink-3">
-                {lang === "th" ? "ค่าเฉลี่ย: " : "Average: "}
+                ค่าเฉลี่ย: 
               </span>
               <span className={inspectedPoint.averageTHB > 0 ? "text-ink-2" : "text-ink-3"}>
                 {formatTHB(inspectedPoint.averageTHB)}
@@ -629,7 +601,7 @@ export function PriceTrendLineChart({
             </span>
             <span>
               <span className="font-sans text-ink-3">
-                {lang === "th" ? "กรอบปกติ (±15%): " : "Normal band (±15%): "}
+                กรอบปกติ (±15%): 
               </span>
               <span className={inspectedPoint.medianTHB > 0 ? "text-ink-2" : "text-ink-3"}>
                 {inspectedPoint.medianTHB > 0
@@ -651,9 +623,7 @@ export function PriceTrendLineChart({
             className="h-3.5 w-3.5 rounded border-line-2 text-ink focus:ring-0 cursor-pointer"
           />
           <span>
-            {lang === "th"
-              ? "แสดงเฉพาะช่วงเวลาที่มีข้อมูลโครงการ (ย่อแกนเวลาตามข้อมูลจริง)"
-              : "Show only periods with projects (Data-driven timeline)"}
+            แสดงเฉพาะช่วงเวลาที่มีข้อมูลโครงการ (ย่อแกนเวลาตามข้อมูลจริง)
           </span>
         </label>
       </div>

@@ -1,4 +1,3 @@
-import type { Bi } from "../../../_data/tors";
 import type { TorInsightSummary, TorListParams, TorStatus } from "../../../_lib/api";
 
 export type Mode = "filter" | "match";
@@ -11,35 +10,35 @@ export const PAGE_SIZE = DEFAULT_PAGE_SIZE;
 /** Matched mode ranks at most this many TORs that use one of the user's skills */
 export const MATCH_LIMIT = 100;
 
-export const BUDGET_BANDS: { id: string; label: Bi; min?: number; max?: number }[] = [
-  { id: "any", label: { th: "ทุกช่วง", en: "Any" } },
-  { id: "u1", label: { th: "ต่ำกว่า 1 ล้าน", en: "Under ฿1M" }, max: 1_000_000 },
-  { id: "1-5", label: { th: "1–5 ล้าน", en: "฿1M–5M" }, min: 1_000_000, max: 5_000_000 },
-  { id: "5-20", label: { th: "5–20 ล้าน", en: "฿5M–20M" }, min: 5_000_000, max: 20_000_000 },
-  { id: "20+", label: { th: "เกิน 20 ล้าน", en: "Over ฿20M" }, min: 20_000_000 },
+export const BUDGET_BANDS: { id: string; label: string; min?: number; max?: number }[] = [
+  { id: "any", label: "ทุกช่วง" },
+  { id: "u1", label: "ต่ำกว่า 1 ล้าน", max: 1_000_000 },
+  { id: "1-5", label: "1–5 ล้าน", min: 1_000_000, max: 5_000_000 },
+  { id: "5-20", label: "5–20 ล้าน", min: 5_000_000, max: 20_000_000 },
+  { id: "20+", label: "เกิน 20 ล้าน", min: 20_000_000 },
 ];
 
-export const DEADLINE_BANDS: { id: string; label: Bi; days?: number }[] = [
-  { id: "any", label: { th: "ไม่จำกัด", en: "Any" } },
-  { id: "7", label: { th: "ยื่นข้อเสนอภายใน 7 วัน", en: "Bids due within 7 days" }, days: 7 },
-  { id: "14", label: { th: "ยื่นข้อเสนอภายใน 14 วัน", en: "Bids due within 14 days" }, days: 14 },
-  { id: "30", label: { th: "ยื่นข้อเสนอภายใน 30 วัน", en: "Bids due within 30 days" }, days: 30 },
+export const DEADLINE_BANDS: { id: string; label: string; days?: number }[] = [
+  { id: "any", label: "ไม่จำกัด" },
+  { id: "7", label: "ยื่นข้อเสนอภายใน 7 วัน", days: 7 },
+  { id: "14", label: "ยื่นข้อเสนอภายใน 14 วัน", days: 14 },
+  { id: "30", label: "ยื่นข้อเสนอภายใน 30 วัน", days: 30 },
 ];
 
-export const SORTS: { id: Sort; label: Bi }[] = [
-  { id: "newest", label: { th: "ประกาศล่าสุด", en: "Newest" } },
-  { id: "match-desc", label: { th: "เหมาะสมกับคุณมากที่สุด", en: "Highest match" } },
-  { id: "match-asc", label: { th: "เหมาะสมกับคุณน้อยที่สุด", en: "Lowest match" } },
-  { id: "deadline", label: { th: "ใกล้ครบกำหนดยื่นข้อเสนอ", en: "Bids due soonest" } },
-  { id: "budget-desc", label: { th: "ราคากลางสูงสุด", en: "Highest price" } },
-  { id: "budget-asc", label: { th: "ราคากลางต่ำสุด", en: "Lowest price" } },
+export const SORTS: { id: Sort; label: string }[] = [
+  { id: "newest", label: "ประกาศล่าสุด" },
+  { id: "match-desc", label: "เหมาะสมกับคุณมากที่สุด" },
+  { id: "match-asc", label: "เหมาะสมกับคุณน้อยที่สุด" },
+  { id: "deadline", label: "ใกล้ครบกำหนดยื่นข้อเสนอ" },
+  { id: "budget-desc", label: "ราคากลางสูงสุด" },
+  { id: "budget-asc", label: "ราคากลางต่ำสุด" },
 ];
 
 export const SCORE_FLOORS = [
-  { id: 0, label: { th: "ทุกคะแนน", en: "Any score" } },
-  { id: 50, label: { th: "50 ขึ้นไป", en: "50 and up" } },
-  { id: 70, label: { th: "70 ขึ้นไป — เหมาะสม", en: "70+ — real fits" } },
-  { id: 85, label: { th: "85 ขึ้นไป — เหมาะสมมาก", en: "85+ — strong fits" } },
+  { id: 0, label: "ทุกคะแนน" },
+  { id: 50, label: "50 ขึ้นไป" },
+  { id: 70, label: "70 ขึ้นไป — เหมาะสม" },
+  { id: 85, label: "85 ขึ้นไป — เหมาะสมมาก" },
 ] as const;
 
 export const HIGH_RISK = 70;

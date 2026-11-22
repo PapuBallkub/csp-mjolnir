@@ -1,6 +1,6 @@
 "use client";
 
-import { pick, type Lang, type RiskLevel } from "../../../_data/tors";
+import type { RiskLevel } from "../../../_data/tors";
 import {
   LOCK_SPEC_TRIGGERS_META,
   type LockSpecTriggerId,
@@ -9,7 +9,6 @@ import { Panel, SectionHeading } from "../../../_components/ui";
 import { RiskMeter, TONE } from "../../../_components/verdict";
 
 export type LockSpecOverviewProps = {
-  lang: Lang;
   extractedCount: number;
   lowCount: number;
   medCount: number;
@@ -18,7 +17,6 @@ export type LockSpecOverviewProps = {
 };
 
 export function LockSpecOverview({
-  lang,
   extractedCount,
   lowCount,
   medCount,
@@ -32,15 +30,9 @@ export function LockSpecOverview({
   return (
     <section className="mb-8">
       <SectionHeading
-        sub={
-          lang === "th"
-            ? "สรุปสัดส่วนความเสี่ยงล็อกสเปกและประเภทข้อกำหนดที่พบตามเกณฑ์หนังสือเวียนกรมบัญชีกลาง ด่วนที่สุด ที่ กค (กวจ) 0405.2/ว 214"
-            : "Distribution of lock-spec risk levels and statutory trigger categories under Comptroller General Circular ว 214."
-        }
+        sub="สรุปสัดส่วนความเสี่ยงล็อกสเปกและประเภทข้อกำหนดที่พบตามเกณฑ์หนังสือเวียนกรมบัญชีกลาง ด่วนที่สุด ที่ กค (กวจ) 0405.2/ว 214"
       >
-        {lang === "th"
-          ? "ภาพรวมความเสี่ยงล็อกสเปกและเงื่อนไขจำกัดการแข่งขัน"
-          : "Lock-Spec Statutory Risk Overview"}
+        ภาพรวมความเสี่ยงล็อกสเปกและเงื่อนไขจำกัดการแข่งขัน
       </SectionHeading>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
@@ -49,13 +41,11 @@ export function LockSpecOverview({
           <div>
             <div className="flex items-baseline justify-between gap-2">
               <h3 className="text-[14px] font-semibold text-ink">
-                {lang === "th"
-                  ? "สัดส่วนระดับความเสี่ยงในกลุ่มนี้"
-                  : "Risk tier distribution in this slice"}
+                สัดส่วนระดับความเสี่ยงในกลุ่มนี้
               </h3>
               <span className="font-mono text-[11px] text-ink-3">
                 {extractedCount}{" "}
-                {lang === "th" ? "โครงการที่วิเคราะห์" : "analyzed TORs"}
+                โครงการที่วิเคราะห์
               </span>
             </div>
 
@@ -92,40 +82,22 @@ export function LockSpecOverview({
                 [
                   {
                     level: "high" as RiskLevel,
-                    label: {
-                      th: "ความเสี่ยงสูง (คะแนน ≥ 70)",
-                      en: "High risk (score ≥ 70)",
-                    },
-                    desc: {
-                      th: "พบข้อกำหนดจำกัดการแข่งขันตั้งแต่ 2 หมวดขึ้นไป",
-                      en: "Triggers 2 or more Circular ว 214 barriers",
-                    },
+                    label: "ความเสี่ยงสูง (คะแนน ≥ 70)",
+                    desc: "พบข้อกำหนดจำกัดการแข่งขันตั้งแต่ 2 หมวดขึ้นไป",
                     count: highCount,
                     pct: highPct,
                   },
                   {
                     level: "medium" as RiskLevel,
-                    label: {
-                      th: "ความเสี่ยงปานกลาง (คะแนน 35–69)",
-                      en: "Medium risk (score 35–69)",
-                    },
-                    desc: {
-                      th: "พบข้อกำหนดที่แคบกว่าเกณฑ์มาตรฐาน 1 หมวด",
-                      en: "Triggers 1 Circular ว 214 barrier",
-                    },
+                    label: "ความเสี่ยงปานกลาง (คะแนน 35–69)",
+                    desc: "พบข้อกำหนดที่แคบกว่าเกณฑ์มาตรฐาน 1 หมวด",
                     count: medCount,
                     pct: medPct,
                   },
                   {
                     level: "low" as RiskLevel,
-                    label: {
-                      th: "ความเสี่ยงต่ำ / เปิดกว้าง (คะแนน < 35)",
-                      en: "Low risk / open competition (< 35)",
-                    },
-                    desc: {
-                      th: "ไม่พบเงื่อนไขล็อกสเปกตามเกณฑ์ ว 214",
-                      en: "No statutory lock-spec barriers detected",
-                    },
+                    label: "ความเสี่ยงต่ำ / เปิดกว้าง (คะแนน < 35)",
+                    desc: "ไม่พบเงื่อนไขล็อกสเปกตามเกณฑ์ ว 214",
                     count: lowCount,
                     pct: lowPct,
                   },
@@ -139,11 +111,11 @@ export function LockSpecOverview({
                     <div className="flex items-center gap-2">
                       <RiskMeter level={row.level} />
                       <span className="text-[13px] font-medium text-ink">
-                        {pick(row.label, lang)}
+                        {row.label}
                       </span>
                     </div>
                     <p className="mt-0.5 text-[11.5px] leading-thai text-ink-3">
-                      {pick(row.desc, lang)}
+                      {row.desc}
                     </p>
                   </div>
                   <div className="shrink-0 text-right font-mono tnum">
@@ -158,9 +130,7 @@ export function LockSpecOverview({
           </div>
 
           <p className="mt-3 border-t border-line pt-2.5 text-[11px] leading-thai text-ink-3">
-            {lang === "th"
-              ? "เกณฑ์จำแนกอิงตามหนังสือเวียน ว 214 เพื่อเปิดเผยระดับการแข่งขันที่เป็นธรรม"
-              : "Classified per Circular ว 214 to surface competitive neutrality."}
+            เกณฑ์จำแนกอิงตามหนังสือเวียน ว 214 เพื่อเปิดเผยระดับการแข่งขันที่เป็นธรรม
           </p>
         </Panel>
 
@@ -169,9 +139,7 @@ export function LockSpecOverview({
           <div>
             <div className="flex items-baseline justify-between gap-2">
               <h3 className="text-[14px] font-semibold text-ink">
-                {lang === "th"
-                  ? "จำแนกตามเกณฑ์หนังสือเวียน ว 214 (3 หมวดหลัก)"
-                  : "Circular ว 214 statutory criteria breakdown"}
+                จำแนกตามเกณฑ์หนังสือเวียน ว 214 (3 หมวดหลัก)
               </h3>
             </div>
 
@@ -194,21 +162,21 @@ export function LockSpecOverview({
                           {trig.code}
                         </span>
                         <span className="text-[13px] font-semibold leading-snug text-ink sm:text-[13.5px]">
-                          {trig.id === "Vendor Lock-in" && lang === "th" ? (
+                          {trig.id === "Vendor Lock-in" ? (
                             <>
                               เรียกหนังสือแต่งตั้งตัวแทนจำหน่าย (MAF)
                               <br />
                               <span>ในงานจ้างพัฒนาระบบ</span>
                             </>
                           ) : (
-                            pick(trig.title, lang)
+                            trig.title
                           )}
                         </span>
                       </div>
                       <span className="shrink-0 whitespace-nowrap pt-0.5 font-mono tnum text-[13px] font-semibold text-ink">
                         {count}{" "}
                         <span className="font-sans text-[11.5px] font-normal text-ink-3">
-                          {lang === "th" ? "โครงการ" : "TORs"}
+                          โครงการ
                         </span>
                         <span className="ml-1 text-[11.5px] font-normal text-ink-3">
                           ({pct}%)
@@ -217,7 +185,7 @@ export function LockSpecOverview({
                     </div>
 
                     <p className="text-[12px] leading-thai text-ink-2">
-                      {pick(trig.description, lang)}
+                      {trig.description}
                     </p>
 
                     {/* Frequency bar: exact same width across all 3 cards */}
@@ -229,7 +197,7 @@ export function LockSpecOverview({
                         />
                       </div>
                       <span className="truncate text-right font-mono text-[10.5px] text-ink-3 sm:whitespace-normal">
-                        {pick(trig.legalRef, lang)}
+                        {trig.legalRef}
                       </span>
                     </div>
                   </div>

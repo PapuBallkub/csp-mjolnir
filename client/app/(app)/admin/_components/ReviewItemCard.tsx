@@ -12,13 +12,11 @@ import { ConfidenceBar } from "./ConfidenceBar";
 
 export function ReviewItemCard({
   item,
-  lang,
   resolution,
   onResolution,
   onSuccess,
 }: {
   item: ReviewItem;
-  lang: "th" | "en";
   resolution: string | null;
   onResolution: (text: string) => void;
   onSuccess?: () => void;
@@ -41,7 +39,7 @@ export function ReviewItemCard({
 
     setIsSubmitting(false);
     if (res.ok) {
-      const msg = lang === "th" ? "จัดประเภทเป็นงานนอกขอบเขตแล้ว" : "Reclassified out of scope";
+      const msg = "จัดประเภทเป็นงานนอกขอบเขตแล้ว";
       setSavedSuccess(msg);
       onResolution(msg);
       onSuccess?.();
@@ -61,7 +59,7 @@ export function ReviewItemCard({
 
     setIsSubmitting(false);
     if (res.ok) {
-      const msg = lang === "th" ? "ยืนยันการจัดประเภทแล้ว" : "Classification confirmed";
+      const msg = "ยืนยันการจัดประเภทแล้ว";
       setSavedSuccess(msg);
       onResolution(msg);
       onSuccess?.();
@@ -79,7 +77,7 @@ export function ReviewItemCard({
 
     setIsSubmitting(false);
     if (res.ok) {
-      const msg = lang === "th" ? "ส่งอ่านใหม่แล้ว" : "Re-queued";
+      const msg = "ส่งอ่านใหม่แล้ว";
       setSavedSuccess(msg);
       onResolution(msg);
       onSuccess?.();
@@ -109,30 +107,30 @@ export function ReviewItemCard({
             <span className="font-mono tnum text-[11px] font-semibold text-ink-3">{item.docId}</span>
             {isReviewed ? (
               <span className="rounded-[2px] border border-open-line bg-open-bg px-2 py-0.5 text-[11px] font-medium text-open">
-                {lang === "th" ? "✓ ตรวจทานแล้ว" : "✓ Reviewed"}
+                ✓ ตรวจทานแล้ว
               </span>
             ) : isExcluded ? (
               <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-medium text-risk">
-                {lang === "th" ? "คัดออกนอกขอบเขต" : "Excluded"}
+                คัดออกนอกขอบเขต
               </span>
             ) : (
               <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-0.5 text-[11px] font-medium text-amend">
-                {lang === "th" ? "รอตรวจทาน" : "Pending review"}
+                รอตรวจทาน
               </span>
             )}
             {item.misclassified ? (
               <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-medium text-risk">
-                {lang === "th" ? "⚠️ อาจจัดประเภทผิด" : "⚠️ Likely misclassified"}
+                ⚠️ อาจจัดประเภทผิด
               </span>
             ) : null}
             {item.ocr != null && item.ocr < 0.8 ? (
               <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-medium text-risk">
-                {lang === "th" ? "⚠️ OCR ต่ำ (< 80%)" : "⚠️ Low OCR (< 80%)"}
+                ⚠️ OCR ต่ำ (&lt; 80%)
               </span>
             ) : null}
             {item.extraction < 0.8 ? (
               <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-medium text-risk">
-                {lang === "th" ? "⚠️ AI สกัดต่ำ (< 80%)" : "⚠️ Low AI (< 80%)"}
+                ⚠️ AI สกัดต่ำ (&lt; 80%)
               </span>
             ) : null}
             {resolution ? (
@@ -150,9 +148,7 @@ export function ReviewItemCard({
           {item.misclassified ? (
             <div className="mt-3 rounded-[3px] border border-line bg-surface-2 p-3 text-[12px]">
               <p className="font-medium text-ink-2">
-                {lang === "th"
-                  ? `ระบบจัดเป็น “${item.misclassified.predicted}” แต่เนื้อหาน่าจะเป็น “${item.misclassified.likely}”`
-                  : `Classified as “${item.misclassified.predicted}”, but the content reads as “${item.misclassified.likely}”.`}
+                {`ระบบจัดเป็น “${item.misclassified.predicted}” แต่เนื้อหาน่าจะเป็น “${item.misclassified.likely}”`}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
@@ -161,13 +157,7 @@ export function ReviewItemCard({
                   onClick={handleReclassify}
                   className={`${btn.primary} text-[11px]`}
                 >
-                  {isSubmitting
-                    ? lang === "th"
-                      ? "กำลังบันทึก..."
-                      : "Saving..."
-                    : lang === "th"
-                      ? "จัดประเภทใหม่เป็นงานนอกขอบเขต"
-                      : "Reclassify as out of scope"}
+                  {isSubmitting ? "กำลังบันทึก..." : "จัดประเภทใหม่เป็นงานนอกขอบเขต"}
                 </button>
                 <button
                   type="button"
@@ -175,7 +165,7 @@ export function ReviewItemCard({
                   onClick={handleConfirmClassification}
                   className={`${btn.secondary} text-[11px]`}
                 >
-                  {lang === "th" ? "ยืนยันว่าถูกต้องแล้ว" : "Classification is correct"}
+                  ยืนยันว่าถูกต้องแล้ว
                 </button>
               </div>
             </div>
@@ -211,7 +201,7 @@ export function ReviewItemCard({
             rel="noreferrer"
             className={`${btn.secondary} text-[11px] h-7.5 px-2.5 whitespace-nowrap flex items-center gap-1`}
           >
-            <span>{lang === "th" ? "ดูหน้าเว็บ" : "GIPDP"}</span>
+            <span>ดูหน้าเว็บ</span>
             <span className="text-[10px] opacity-70">↗</span>
           </a>
           <a
@@ -227,11 +217,11 @@ export function ReviewItemCard({
             type="button"
             disabled={isSubmitting}
             onClick={handleReExtract}
-            title={lang === "th" ? "สั่งอ่านเอกสารใหม่" : "Re-queue extraction"}
+            title="สั่งอ่านเอกสารใหม่"
             className={`${btn.ghost} h-7.5 px-2 text-[11px] flex items-center gap-1 text-ink-3 hover:text-ink cursor-pointer`}
           >
             <span className="text-[13px]">↻</span>
-            <span>{lang === "th" ? "อ่านใหม่" : "Re-read"}</span>
+            <span>อ่านใหม่</span>
           </button>
         </div>
 
@@ -240,7 +230,7 @@ export function ReviewItemCard({
           href={`/admin/review/${item.docId}`}
           className={`${btn.primary} text-[12px] h-8 px-3.5 flex items-center gap-1.5 shadow-2xs`}
         >
-          <span>{lang === "th" ? "🔍 ตรวจทานและแก้ไขข้อมูล" : "🔍 Review & Edit Facts"}</span>
+          <span>🔍 ตรวจทานและแก้ไขข้อมูล</span>
           <span className="text-[10px] opacity-75">↗</span>
         </Link>
       </div>

@@ -12,7 +12,6 @@ import {
   FileEdit,
   Mail,
 } from "lucide-react";
-import { useLang } from "../../../../_components/prefs";
 import { btn, Panel } from "../../../../_components/ui";
 import * as api from "../../../../_lib/api";
 import type { NotificationFeedItem } from "../../../../_lib/api";
@@ -21,11 +20,11 @@ import { StatusChangeView } from "../_components/status-change-view";
 import { DeadlineView } from "../_components/deadline-view";
 import { MatchView } from "../_components/match-view";
 
-function formatThaiDate(dateStr?: string | Date | null, lang: "th" | "en" = "th") {
+function formatThaiDate(dateStr?: string | Date | null) {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", {
+  return d.toLocaleDateString("th-TH", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -47,56 +46,32 @@ function getItemCount(notification: NotificationFeedItem): number {
   return 1;
 }
 
-function getHeaderContent(type: string, count: number, lang: "th" | "en") {
+function getHeaderContent(type: string, count: number) {
   switch (type) {
     case "status_change":
       return {
-        badgeText: lang === "th" ? "เปลี่ยนสถานะ" : "Status Changed",
-        title:
-          lang === "th"
-            ? `สรุป ${count} โครงการที่มีการเปลี่ยนสถานะ`
-            : `Summary: ${count} projects with status changes`,
-        subtitle:
-          lang === "th"
-            ? "ระบบรวบรวมรายการโครงการที่คุณติดตามที่มีการเปลี่ยนแปลงสถานะล่าสุด"
-            : `Latest status changes recorded for your watched projects.`,
+        badgeText: "เปลี่ยนสถานะ",
+        title: `สรุป ${count} โครงการที่มีการเปลี่ยนสถานะ`,
+        subtitle: "ระบบรวบรวมรายการโครงการที่คุณติดตามที่มีการเปลี่ยนแปลงสถานะล่าสุด",
       };
     case "amendment":
       return {
-        badgeText: lang === "th" ? "แก้ไขเอกสาร TOR" : "TOR Amendment",
-        title:
-          lang === "th"
-            ? `สรุป ${count} โครงการที่มีการแก้ไขเอกสาร TOR`
-            : `Summary: ${count} projects with TOR amendments`,
-        subtitle:
-          lang === "th"
-            ? "ระบบรวบรวมรายการโครงการที่คุณติดตามที่มีการแก้ไขเปลี่ยนแปลงข้อกำหนดหรือเอกสารโครงการ"
-            : `TOR amendments recorded for your watched projects.`,
+        badgeText: "แก้ไขเอกสาร TOR",
+        title: `สรุป ${count} โครงการที่มีการแก้ไขเอกสาร TOR`,
+        subtitle: "ระบบรวบรวมรายการโครงการที่คุณติดตามที่มีการแก้ไขเปลี่ยนแปลงข้อกำหนดหรือเอกสารโครงการ",
       };
     case "deadline":
       return {
-        badgeText: lang === "th" ? "ใกล้ปิดรับข้อเสนอ" : "Deadline Approaching",
-        title:
-          lang === "th"
-            ? `สรุป ${count} โครงการที่ใกล้ปิดรับข้อเสนอ`
-            : `Summary: ${count} projects approaching deadline`,
-        subtitle:
-          lang === "th"
-            ? "ระบบรวบรวมรายการโครงการที่คุณติดตามที่กำลังจะถึงกำหนดสิ้นสุดการยื่นข้อเสนอ"
-            : `Approaching deadlines detected across your watched projects.`,
+        badgeText: "ใกล้ปิดรับข้อเสนอ",
+        title: `สรุป ${count} โครงการที่ใกล้ปิดรับข้อเสนอ`,
+        subtitle: "ระบบรวบรวมรายการโครงการที่คุณติดตามที่กำลังจะถึงกำหนดสิ้นสุดการยื่นข้อเสนอ",
       };
     case "match":
     default:
       return {
-        badgeText: lang === "th" ? "เหมาะสมกับโปรไฟล์" : "Profile Match",
-        title:
-          lang === "th"
-            ? `สรุป ${count} โครงการที่เหมาะสมกับโปรไฟล์ของคุณ`
-            : `Summary: ${count} tenders matching your profile`,
-        subtitle:
-          lang === "th"
-            ? "ระบบตรวจพบคัดกรองโครงการประกาศใหม่บนระบบ e-GP ที่มีข้อกำหนดทางเทคนิคและงบประมาณเหมาะสมกับโปรไฟล์ของคุณ"
-            : `New procurement notices detected on e-GP matching your capability profile.`,
+        badgeText: "เหมาะสมกับโปรไฟล์",
+        title: `สรุป ${count} โครงการที่เหมาะสมกับโปรไฟล์ของคุณ`,
+        subtitle: "ระบบตรวจพบคัดกรองโครงการประกาศใหม่บนระบบ e-GP ที่มีข้อกำหนดทางเทคนิคและงบประมาณเหมาะสมกับโปรไฟล์ของคุณ",
       };
   }
 }
@@ -104,7 +79,6 @@ function getHeaderContent(type: string, count: number, lang: "th" | "en") {
 export default function NotificationDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { lang } = useLang();
 
   const [notification, setNotification] = useState<NotificationFeedItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -159,27 +133,24 @@ export default function NotificationDetailPage() {
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-2 hover:text-ink"
         >
           <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-          <span>{lang === "th" ? "กลับไปยังรายการแจ้งเตือน" : "Back to notifications"}</span>
+          <span>กลับไปยังรายการแจ้งเตือน</span>
         </Link>
         <Panel className="mt-4 p-8 text-center">
           <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
             <AlertTriangle className="h-5 w-5" />
           </div>
           <h2 className="text-[16px] font-semibold text-ink">
-            {lang === "th" ? "ไม่พบข้อมูลการแจ้งเตือน" : "Notification Not Found"}
+            ไม่พบข้อมูลการแจ้งเตือน
           </h2>
           <p className="mt-1 text-[13px] text-ink-3">
-            {error ||
-              (lang === "th"
-                ? "การแจ้งเตือนนี้อาจถูกลบไปแล้ว"
-                : "This notification may have been removed.")}
+            {error || "การแจ้งเตือนนี้อาจถูกลบไปแล้ว"}
           </p>
           <button
             type="button"
             onClick={() => router.push("/notifications")}
             className={`${btn.primary} mt-4 cursor-pointer`}
           >
-            {lang === "th" ? "ดูการแจ้งเตือนทั้งหมด" : "View all notifications"}
+            ดูการแจ้งเตือนทั้งหมด
           </button>
         </Panel>
       </div>
@@ -188,7 +159,7 @@ export default function NotificationDetailPage() {
 
   const snapshot = notification.snapshot || {};
   const itemCount = getItemCount(notification);
-  const headerContent = getHeaderContent(notification.type, itemCount, lang);
+  const headerContent = getHeaderContent(notification.type, itemCount);
 
   return (
     <div className="mx-auto max-w-[900px] px-4 py-8">
@@ -199,7 +170,7 @@ export default function NotificationDetailPage() {
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-2 transition-colors hover:text-ink"
         >
           <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-          <span>{lang === "th" ? "กลับไปยังรายการแจ้งเตือน" : "Back to notifications"}</span>
+          <span>กลับไปยังรายการแจ้งเตือน</span>
         </Link>
       </div>
 
@@ -235,14 +206,14 @@ export default function NotificationDetailPage() {
             )}
 
             <span className="text-[12px] text-ink-3">
-              {formatThaiDate(notification.createdAt, lang)}
+              {formatThaiDate(notification.createdAt)}
             </span>
           </div>
 
           {notification.emailSent && notification.emailSentAt ? (
             <span className="inline-flex items-center gap-1.5 text-[11px] text-ink-3">
               <Mail className="h-3.5 w-3.5" />
-              <span>{lang === "th" ? "ส่งอีเมลแจ้งเตือนแล้ว" : "Email sent"}</span>
+              <span>ส่งอีเมลแจ้งเตือนแล้ว</span>
             </span>
           ) : null}
         </div>
@@ -259,7 +230,7 @@ export default function NotificationDetailPage() {
           </div>
           <div className="shrink-0 self-start sm:self-center">
             <span className="inline-flex items-center rounded-md border border-line bg-surface-2 px-3 py-1 text-[12.5px] font-medium text-ink-2">
-              {lang === "th" ? `${itemCount} โครงการ` : `${itemCount} projects`}
+              {`${itemCount} โครงการ`}
             </span>
           </div>
         </div>
@@ -268,13 +239,13 @@ export default function NotificationDetailPage() {
       {/* Project Cards (Polymorphic Snapshot Body) */}
       <main className="space-y-4">
         {notification.type === "amendment" ? (
-          <AmendmentView snapshot={snapshot as unknown as Parameters<typeof AmendmentView>[0]["snapshot"]} lang={lang} />
+          <AmendmentView snapshot={snapshot as unknown as Parameters<typeof AmendmentView>[0]["snapshot"]} />
         ) : notification.type === "status_change" ? (
-          <StatusChangeView snapshot={snapshot as unknown as Parameters<typeof StatusChangeView>[0]["snapshot"]} lang={lang} />
+          <StatusChangeView snapshot={snapshot as unknown as Parameters<typeof StatusChangeView>[0]["snapshot"]} />
         ) : notification.type === "deadline" ? (
-          <DeadlineView snapshot={snapshot as unknown as Parameters<typeof DeadlineView>[0]["snapshot"]} lang={lang} />
+          <DeadlineView snapshot={snapshot as unknown as Parameters<typeof DeadlineView>[0]["snapshot"]} />
         ) : (
-          <MatchView snapshot={snapshot as unknown as Parameters<typeof MatchView>[0]["snapshot"]} lang={lang} />
+          <MatchView snapshot={snapshot as unknown as Parameters<typeof MatchView>[0]["snapshot"]} />
         )}
       </main>
 
@@ -282,7 +253,7 @@ export default function NotificationDetailPage() {
       {itemCount >= 10 ? (
         <div className="mt-8 flex justify-center border-t border-line pt-4">
           <Link href="/notifications" className={`${btn.ghost} cursor-pointer`}>
-            {lang === "th" ? "กลับหน้ารายการแจ้งเตือน" : "Back to notifications"}
+            กลับหน้ารายการแจ้งเตือน
           </Link>
         </div>
       ) : null}
@@ -290,9 +261,7 @@ export default function NotificationDetailPage() {
       {/* Third-party Disclaimer */}
       <footer className="mt-8 text-center text-[12px] text-ink-3">
         <p>
-          {lang === "th"
-            ? "แพลตฟอร์มนี้เป็นเครื่องมือช่วยค้นหาและติดตามประกาศจัดซื้อจัดจ้างภาครัฐ ไม่ใช่ระบบยื่นข้อเสนอทางการ การยื่นข้อเสนอและการติดต่อหน่วยงานต้องดำเนินการผ่านระบบ e-GP ทางการของกรมบัญชีกลางเท่านั้น"
-            : "This platform is a discovery and tracking tool. Official bidding and agency submissions must be conducted through the official e-GP portal."}
+          แพลตฟอร์มนี้เป็นเครื่องมือช่วยค้นหาและติดตามประกาศจัดซื้อจัดจ้างภาครัฐ ไม่ใช่ระบบยื่นข้อเสนอทางการ การยื่นข้อเสนอและการติดต่อหน่วยงานต้องดำเนินการผ่านระบบ e-GP ทางการของกรมบัญชีกลางเท่านั้น
         </p>
       </footer>
     </div>

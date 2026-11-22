@@ -43,15 +43,11 @@ test("formatTHBCompact: compact notation for millions and thousands", () => {
 });
 
 test("formatDate: localizes dates into Thai Buddhist format", () => {
-  const dateStr = formatDate("2026-11-20T00:00:00Z", "th");
+  const dateStr = formatDate("2026-11-20T00:00:00Z");
   assert.ok(dateStr.includes("20"));
   assert.ok(dateStr.includes("พ.ย."));
   assert.ok(dateStr.includes("2569"));
-
-  const dateEn = formatDate("2026-11-20T00:00:00Z", "en");
-  assert.ok(dateEn.includes("20"));
-  assert.ok(dateEn.includes("Nov"));
-  assert.ok(dateEn.includes("2026"));
+  assert.equal(formatDate(null), "ไม่ระบุ");
 });
 
 test("getEgpAnnouncementUrl: generates search URL on process5", () => {

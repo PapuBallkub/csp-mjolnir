@@ -1,6 +1,4 @@
 import Link from "next/link";
-import type { Lang } from "../../../_data/tors";
-import { pick } from "../../../_data/tors";
 import type { ApiResult, TorFacets, TorStatus } from "../../../_lib/api";
 import { STATUS_GROUPS, announcementLabel } from "../../../_lib/stage";
 import { STATUSES, showsEveryStatus } from "../../../_lib/catalog";
@@ -10,7 +8,6 @@ import { BUDGET_BANDS, DEADLINE_BANDS, toggle } from "../_lib/types";
 import { Check, FacetList, FilterGroup, GroupLabel, Radio } from "./SearchCommon";
 
 export function FilterRail({
-  lang,
   statuses,
   setStatuses,
   amendedOnly,
@@ -34,7 +31,6 @@ export function FilterRail({
   facets,
   onRetryFacets,
 }: {
-  lang: Lang;
   statuses: TorStatus[];
   setStatuses: (statuses: TorStatus[]) => void;
   amendedOnly: boolean;
@@ -62,7 +58,7 @@ export function FilterRail({
     <Panel className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-line bg-surface-2 px-3 py-2.5">
         <h2 className="text-[12px] font-semibold text-ink">
-          {lang === "th" ? "ตัวกรอง" : "Filters"}
+          ตัวกรอง
         </h2>
         {activeCount > 0 ? (
           <button
@@ -70,19 +66,19 @@ export function FilterRail({
             onClick={clearAll}
             className="text-[11px] text-ink-2 underline underline-offset-2 hover:text-ink cursor-pointer"
           >
-            {lang === "th" ? `ล้างทั้งหมด (${activeCount})` : `Clear all (${activeCount})`}
+            {`ล้างทั้งหมด (${activeCount})`}
           </button>
         ) : null}
       </div>
 
-      <FilterGroup title={lang === "th" ? "สถานะ" : "Status"}>
+      <FilterGroup title="สถานะ">
         {STATUSES.map((status) => (
           <Check
             key={status}
             checked={statuses.includes(status)}
             onChange={() => setStatuses(toggle(statuses, status))}
             wrap
-            label={<GroupLabel lang={lang} {...STATUS_GROUPS[status]} />}
+            label={<GroupLabel {...STATUS_GROUPS[status]} />}
             count={facets?.ok ? facets.data.statuses[status] : undefined}
           />
         ))}
@@ -92,7 +88,7 @@ export function FilterRail({
             onClick={() => setStatuses(STATUSES)}
             className="self-start text-[11px] leading-thai text-ink-2 underline underline-offset-2 hover:text-ink cursor-pointer"
           >
-            {lang === "th" ? "แสดงทุกสถานะ รวมโครงการในอดีต" : "Show every status, past projects too"}
+            แสดงทุกสถานะ รวมโครงการในอดีต
           </button>
         ) : null}
         <div className="mt-0.5 border-t border-line pt-2.5">
@@ -102,8 +98,7 @@ export function FilterRail({
             wrap
             label={
               <GroupLabel
-                lang={lang}
-                label={{ th: "เฉพาะที่แก้ไขแล้ว", en: "Amended only" }}
+                label="เฉพาะที่แก้ไขแล้ว"
                 members={[announcementLabel("D2")]}
               />
             }
@@ -112,36 +107,32 @@ export function FilterRail({
         </div>
       </FilterGroup>
 
-      <FilterGroup title={lang === "th" ? "ความเหมาะสมกับทักษะของคุณ" : "Profile fit"}>
+      <FilterGroup title="ความเหมาะสมกับทักษะของคุณ">
         {!canMatch ? (
           <div className="space-y-1.5">
             <p className="text-[11.5px] leading-thai text-ink-3">
-              {lang === "th"
-                ? "ลงชื่อเข้าใช้เพื่อกรองและจัดอันดับตามทักษะและงบประมาณของคุณ"
-                : "Sign in to filter and rank tenders by your skills and budget"}
+              ลงชื่อเข้าใช้เพื่อกรองและจัดอันดับตามทักษะและงบประมาณของคุณ
             </p>
             <Link
               href="/auth"
               className="inline-block text-[11.5px] font-medium text-ink underline underline-offset-2 hover:opacity-80 cursor-pointer"
             >
-              {lang === "th" ? "ลงชื่อเข้าใช้ →" : "Sign in →"}
+              ลงชื่อเข้าใช้ →
             </Link>
           </div>
         ) : !hasSkills ? (
           <div className="space-y-1.5">
             <span className="inline-block rounded-[3px] border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-              {lang === "th" ? "ยังไม่ได้ตั้งค่าโปรไฟล์" : "Profile not configured yet"}
+              ยังไม่ได้ตั้งค่าโปรไฟล์
             </span>
             <p className="text-[11.5px] leading-thai text-ink-3">
-              {lang === "th"
-                ? "ตั้งค่าเงื่อนไขในโปรไฟล์เพื่อเปิดใช้งานการคำนวณและกรองคะแนนความเหมาะสม"
-                : "Set up your profile preferences to activate match scoring and filtering."}
+              ตั้งค่าเงื่อนไขในโปรไฟล์เพื่อเปิดใช้งานการคำนวณและกรองคะแนนความเหมาะสม
             </p>
             <Link
               href="/profile"
               className="inline-block text-[11.5px] font-medium text-ink underline underline-offset-2 hover:opacity-80 cursor-pointer"
             >
-              {lang === "th" ? "ไปที่หน้าตั้งค่าโปรไฟล์ →" : "Go to Profile Settings →"}
+              ไปที่หน้าตั้งค่าโปรไฟล์ →
             </Link>
           </div>
         ) : (
@@ -149,15 +140,9 @@ export function FilterRail({
             <div>
               <span className="text-[13px] leading-thai text-ink-2">
                 {minScore > 0 ? (
-                  lang === "th" ? (
-                    `ตั้งแต่ ${minScore}% ขึ้นไป`
-                  ) : (
-                    `${minScore}%+ and up`
-                  )
-                ) : lang === "th" ? (
-                  "ทุกคะแนน (0%)"
+                  `ตั้งแต่ ${minScore}% ขึ้นไป`
                 ) : (
-                  "All scores (0%)"
+                  "ทุกคะแนน (0%)"
                 )}
               </span>
             </div>
@@ -169,7 +154,7 @@ export function FilterRail({
               step={5}
               value={minScore}
               onChange={(e) => setMinScore(Number(e.target.value))}
-              aria-label={lang === "th" ? "คะแนนขั้นต่ำในการจับคู่" : "Minimum match score"}
+              aria-label="คะแนนขั้นต่ำในการจับคู่"
               className="h-1.5 w-full cursor-pointer accent-ink my-1"
             />
 
@@ -182,44 +167,44 @@ export function FilterRail({
         )}
       </FilterGroup>
 
-      <FilterGroup title={lang === "th" ? "คัดกรองความเสี่ยง" : "Risk"}>
+      <FilterGroup title="คัดกรองความเสี่ยง">
         <Check
           checked={hideHighRisk}
           onChange={() => setHideHighRisk(!hideHighRisk)}
-          label={lang === "th" ? "ซ่อนงานเสี่ยงล็อกสเปกสูง" : "Hide high lock-spec risk"}
+          label="ซ่อนงานเสี่ยงล็อกสเปกสูง"
           trailing={<RiskMeter level="high" />}
         />
       </FilterGroup>
 
-      <FilterGroup title={lang === "th" ? "ราคากลาง" : "Reference price"}>
+      <FilterGroup title="ราคากลาง">
         {BUDGET_BANDS.map((b) => (
           <Radio
             key={b.id}
             name="budget"
             checked={budgetBand === b.id}
             onChange={() => setBudgetBand(b.id)}
-            label={pick(b.label, lang)}
+            label={b.label}
           />
         ))}
       </FilterGroup>
 
-      <FilterGroup title={lang === "th" ? "กำหนดยื่นข้อเสนอ" : "Deadline"}>
+      <FilterGroup title="กำหนดยื่นข้อเสนอ">
         {DEADLINE_BANDS.map((b) => (
           <Radio
             key={b.id}
             name="deadline"
             checked={deadlineBand === b.id}
             onChange={() => setDeadlineBand(b.id)}
-            label={pick(b.label, lang)}
+            label={b.label}
           />
         ))}
       </FilterGroup>
 
-      <FilterGroup title={lang === "th" ? "เทคโนโลยี" : "Tech stack"}>
-        <FacetList facets={facets} onRetry={onRetryFacets} lang={lang}>
+      <FilterGroup title="เทคโนโลยี">
+        <FacetList facets={facets} onRetry={onRetryFacets}>
           {(data) =>
             data.technologies.length === 0 ? (
-              <p className="text-[12px] text-ink-3">{lang === "th" ? "ยังไม่มีข้อมูล" : "None yet"}</p>
+              <p className="text-[12px] text-ink-3">ยังไม่มีข้อมูล</p>
             ) : (
               <div className="-mr-1 flex max-h-52 flex-col gap-2 overflow-y-auto pr-1">
                 {data.technologies.map((term) => (
@@ -237,11 +222,11 @@ export function FilterRail({
         </FacetList>
       </FilterGroup>
 
-      <FilterGroup title={lang === "th" ? "หน่วยงาน" : "Agency"}>
-        <FacetList facets={facets} onRetry={onRetryFacets} lang={lang}>
+      <FilterGroup title="หน่วยงาน">
+        <FacetList facets={facets} onRetry={onRetryFacets}>
           {(data) =>
             data.agencies.length === 0 ? (
-              <p className="text-[12px] text-ink-3">{lang === "th" ? "ยังไม่มีข้อมูล" : "None yet"}</p>
+              <p className="text-[12px] text-ink-3">ยังไม่มีข้อมูล</p>
             ) : (
               <div className="-mr-1 flex max-h-52 flex-col gap-2 overflow-y-auto pr-1">
                 {data.agencies.map((agency) => (
@@ -262,4 +247,3 @@ export function FilterRail({
     </Panel>
   );
 }
-

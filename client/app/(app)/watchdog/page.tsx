@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLang } from "../../_components/prefs";
 import { btn, EmptyState, Panel, SectionHeading } from "../../_components/ui";
 import {
   ARCHETYPE_OPTIONS,
@@ -46,7 +45,6 @@ const ALL_ARCHETYPES: SystemArchetype[] = ARCHETYPE_OPTIONS.filter((a) => a.id !
 );
 
 export default function WatchdogPage() {
-  const { lang } = useLang();
 
   // Real Data State (Strictly real data; no mock data fallback)
   const [liveProjects, setLiveProjects] = useState<WatchdogProjectRecord[] | null>(null);
@@ -192,12 +190,12 @@ export default function WatchdogPage() {
   const agencies = useMemo(() => {
     const map = new Map<string, { th: string; en: string; count: number }>();
     for (const p of allProjects) {
-      const key = p.agency.th;
+      const key = p.agency;
       const existing = map.get(key);
       if (existing) {
         existing.count += 1;
       } else {
-        map.set(key, { th: p.agency.th, en: p.agency.en, count: 1 });
+        map.set(key, { th: p.agency, en: p.agency, count: 1 });
       }
     }
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
@@ -226,7 +224,7 @@ export default function WatchdogPage() {
       // System Archetype
       if (!selectedArchetypes.includes(p.archetype)) return false;
       // Agency (Multi-select)
-      if (agencies.length > 0 && !selectedAgencies.includes(p.agency.th)) return false;
+      if (agencies.length > 0 && !selectedAgencies.includes(p.agency)) return false;
       // Price Range (min and max)
       if (minPriceTHB > 0 && p.referencePriceTHB < minPriceTHB) return false;
       if (maxPriceTHB > 0 && p.referencePriceTHB > maxPriceTHB) return false;
@@ -257,8 +255,8 @@ export default function WatchdogPage() {
   const timeSeries = useMemo<TimePoint[]>(() => {
     let activeMonths: Array<{
       key: string;
-      labelTh: string;
-      labelEn: string;
+      label: string;
+      labelTh?: string;
       quarter: string;
     }>;
 
@@ -298,7 +296,7 @@ export default function WatchdogPage() {
 
         return {
           key: m.key,
-          label: lang === "th" ? m.labelTh : m.labelEn,
+          label: m.label ?? m.labelTh,
           torCount: inMonth.length,
           medianTHB: med,
           averageTHB: avg,
@@ -335,7 +333,6 @@ export default function WatchdogPage() {
     availableMonths,
     filteredByTopBar,
     timeGrain,
-    lang,
     effectiveStartMonth,
     effectiveEndMonth,
     isDateRangeInvalid,
@@ -453,14 +450,10 @@ export default function WatchdogPage() {
       {/* Page Header */}
       <header className="mb-5">
         <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-ink">
-          {lang === "th"
-            ? "ภาพรวมราคาและความเสี่ยง"
-            : "Market Pricing & Risk Overview"}
+          ภาพรวมราคาและความเสี่ยง
         </h1>
         <p className="mt-1.5 max-w-2xl text-[14px] leading-thai text-ink-2">
-          {lang === "th"
-            ? "วิเคราะห์ภาพรวมราคากลางเปรียบเทียบกับราคาตลาด และตรวจดูข้อกำหนดที่อาจจำกัดการแข่งขัน"
-            : "Analyze macro reference price trends against market baselines and inspect procurement risk signals."}
+          วิเคราะห์ภาพรวมราคากลางเปรียบเทียบกับราคาตลาด และตรวจดูข้อกำหนดที่อาจจำกัดการแข่งขัน
         </p>
       </header>
 
@@ -468,50 +461,34 @@ export default function WatchdogPage() {
       {dataSource === "loading" ? (
         <Panel className="p-8 text-center">
           <p className="text-[14px] text-ink-2">
-            {lang === "th" ? "กำลังดึงข้อมูลโครงการและสถิติราคาจากฐานข้อมูล..." : "Loading procurement data..."}
+            กำลังดึงข้อมูลโครงการและสถิติราคาจากฐานข้อมูล...
           </p>
         </Panel>
       ) : dataSource === "error" ? (
         <EmptyState
-          headline={
-            lang === "th"
-              ? "ไม่สามารถเชื่อมต่อฐานข้อมูลได้ในขณะนี้"
-              : "Unable to connect to database"
-          }
-          body={
-            lang === "th"
-              ? "เกิดข้อผิดพลาดในการดึงข้อมูลประกาศจัดซื้อจัดจ้าง กรุณาตรวจสอบว่าเซิร์ฟเวอร์เปิดทำงานอยู่แล้วลองใหม่อีกครั้ง"
-              : "Failed to fetch procurement opportunities. Please check if the server is running."
-          }
+          headline="ไม่สามารถเชื่อมต่อฐานข้อมูลได้ในขณะนี้"
+          body="เกิดข้อผิดพลาดในการดึงข้อมูลประกาศจัดซื้อจัดจ้าง กรุณาตรวจสอบว่าเซิร์ฟเวอร์เปิดทำงานอยู่แล้วลองใหม่อีกครั้ง"
           action={
             <button
               type="button"
               onClick={() => setFetchTrigger((prev) => prev + 1)}
               className={btn.primary}
             >
-              {lang === "th" ? "ลองใหม่อีกครั้ง" : "Retry"}
+              ลองใหม่อีกครั้ง
             </button>
           }
         />
       ) : allProjects.length === 0 ? (
         <EmptyState
-          headline={
-            lang === "th"
-              ? "ยังไม่มีข้อมูลโครงการสำหรับการวิเคราะห์"
-              : "No procurement data available yet"
-          }
-          body={
-            lang === "th"
-              ? "ยังไม่พบประกาศจัดซื้อจัดจ้างในระบบ เมื่อมีข้อมูลประกาศเข้ามาแดชบอร์ดจะสรุปภาพรวมราคาและความเสี่ยงโดยอัตโนมัติ"
-              : "No procurement projects have been ingested yet. Trends and risk signals will appear automatically once data is available."
-          }
+          headline="ยังไม่มีข้อมูลโครงการสำหรับการวิเคราะห์"
+          body="ยังไม่พบประกาศจัดซื้อจัดจ้างในระบบ เมื่อมีข้อมูลประกาศเข้ามาแดชบอร์ดจะสรุปภาพรวมราคาและความเสี่ยงโดยอัตโนมัติ"
           action={
             <button
               type="button"
               onClick={() => setFetchTrigger((prev) => prev + 1)}
               className={btn.secondary}
             >
-              {lang === "th" ? "รีเฟรชข้อมูล" : "Refresh"}
+              รีเฟรชข้อมูล
             </button>
           }
         />
@@ -519,7 +496,6 @@ export default function WatchdogPage() {
         <>
           {/* SECTION 1: Universal Top Filter Bar (The only place to influence data) */}
           <WatchdogFilterBar
-            lang={lang}
             selectedStatuses={selectedStatuses}
             onToggleStatus={toggleStatus}
             onSelectAllStatuses={() => setSelectedStatuses(ALL_STATUSES)}
@@ -565,11 +541,7 @@ export default function WatchdogPage() {
           {/* SECTION 2: Macro Trend Line Chart */}
           <section className="mb-8">
             <SectionHeading
-              sub={
-                lang === "th"
-                  ? "เปรียบเทียบแนวโน้มราคากลางผ่านค่ามัธยฐาน (เส้นทึบ) และค่าเฉลี่ย (เส้นประ) ตามตัวกรองข้อมูล พร้อมจุดแสดงโครงการจริงในแต่ละช่วงเวลา"
-                  : "Compare reference price trends via historical median (solid) and average (dashed) lines across active filters, with individual project dots plotted over time."
-              }
+              sub="เปรียบเทียบแนวโน้มราคากลางผ่านค่ามัธยฐาน (เส้นทึบ) และค่าเฉลี่ย (เส้นประ) ตามตัวกรองข้อมูล พร้อมจุดแสดงโครงการจริงในแต่ละช่วงเวลา"
               right={
                 <div className="inline-flex rounded-[3px] border border-line bg-surface-2 p-0.5">
                   <button
@@ -581,7 +553,7 @@ export default function WatchdogPage() {
                         : "text-ink-3 hover:text-ink"
                     }`}
                   >
-                    {lang === "th" ? "รายเดือน" : "Monthly"}
+                    รายเดือน
                   </button>
                   <button
                     type="button"
@@ -592,20 +564,17 @@ export default function WatchdogPage() {
                         : "text-ink-3 hover:text-ink"
                     }`}
                   >
-                    {lang === "th" ? "รายไตรมาส" : "Quarterly"}
+                    รายไตรมาส
                   </button>
                 </div>
               }
             >
-              {lang === "th"
-                ? "แนวโน้มราคากลางภายในตลาด (Market Reference Price Trends)"
-                : "Market Reference Price Trends"}
+              แนวโน้มราคากลางภายในตลาด (Market Reference Price Trends)
             </SectionHeading>
 
             <Panel className="p-4">
               <PriceTrendLineChart
                 series={timeSeries}
-                lang={lang}
                 activeBucket={null}
                 onSelectBucket={() => {}}
                 showOnlyExisting={showOnlyExistingProjects}
@@ -617,11 +586,10 @@ export default function WatchdogPage() {
           </section>
 
           {/* SECTION 3: Price Reality Check Summary (Clearly emphasizes Reference Price vs Budget) */}
-          <PriceRealitySummary lang={lang} metrics={priceMetrics} />
+          <PriceRealitySummary metrics={priceMetrics} />
 
           {/* SECTION 4: Lock-Spec Statutory Overview (Read-Only Status Gauge) */}
           <LockSpecOverview
-            lang={lang}
             extractedCount={lockSpecMetrics.extractedCount}
             lowCount={lockSpecMetrics.lowCount}
             medCount={lockSpecMetrics.medCount}
@@ -631,7 +599,6 @@ export default function WatchdogPage() {
 
           {/* SECTION 5: Evidence Board Table (Audit Trail) */}
           <WatchdogEvidenceTable
-            lang={lang}
             tableProjects={filteredByTopBar}
             onResetFilters={resetAllFilters}
             dataSource={dataSource}

@@ -47,11 +47,11 @@ export function formatSignedDiff(
   };
 }
 
-export function getScopeSize(budget: number | null): { th: string; en: string } {
-  if (!budget) return { th: "ไม่ระบุขนาด", en: "Unspecified" };
-  if (budget < 5_000_000) return { th: "ทำคนเดียว / ทีมเล็ก", en: "Solo / Small team" };
-  if (budget <= 30_000_000) return { th: "ทีมขนาดกลาง (2–5 คน)", en: "Mid-size team" };
-  return { th: "องค์กร / บริษัทขนาดใหญ่", en: "Firm-sized" };
+export function getScopeSize(budget: number | null): string {
+  if (!budget) return "ไม่ระบุขนาด";
+  if (budget < 5_000_000) return "ทำคนเดียว / ทีมเล็ก";
+  if (budget <= 30_000_000) return "ทีมขนาดกลาง (2–5 คน)";
+  return "องค์กร / บริษัทขนาดใหญ่";
 }
 
 export function formatDateString(val: string | Date | null | undefined): string {
@@ -119,7 +119,7 @@ export function NotAnalysed({ heading }: { heading: string }) {
 
 /** What changed, in the page's words; the rows it doesn't show are left out. */
 export function ChangeRows({ rows }: { rows: ChangeRow[] }) {
-  const shown = rows.flatMap((row) => describeRow(row, "th") ?? []);
+  const shown = rows.flatMap((row) => describeRow(row) ?? []);
   if (shown.length === 0) return null;
   return (
     <ul className="mt-2 flex flex-col gap-1 text-[13px] leading-thai">
@@ -156,8 +156,8 @@ export function OriginalLinks({ change }: { change: TorChange }) {
 
 /** Who said it changed: the agency's notice, or the platform's finding, muted like Closed. */
 export function ChangeSourceLine({ change }: { change: TorChange }) {
-  const when = changeWhen(change, "th");
-  const by = CHANGE_SOURCE[change.source]?.by?.th ?? "";
+  const when = changeWhen(change);
+  const by = CHANGE_SOURCE[change.source]?.by ?? "";
   return (
     <p className="mt-0.5 text-[12px] leading-thai text-ink-3">
       {by}
@@ -169,7 +169,7 @@ export function ChangeSourceLine({ change }: { change: TorChange }) {
 export function FoundNote() {
   return (
     <p className="mt-2 rounded-[2px] border border-dashed border-closed-line bg-surface px-2.5 py-1.5 text-[12.5px] leading-thai text-ink-2">
-      {FOUND_NOTE.th}
+      {FOUND_NOTE}
     </p>
   );
 }
@@ -183,9 +183,9 @@ export function ChangeNotice({ change }: { change: TorChange }) {
   const { title, body } = pendingNotice(change);
   return (
     <div className="mt-3 max-w-4xl rounded-[3px] border border-l-[4px] border-amend-line border-l-amend bg-amend-bg px-3.5 py-3">
-      <p className="text-[14px] font-semibold leading-thai text-amend">{title.th}</p>
+      <p className="text-[14px] font-semibold leading-thai text-amend">{title}</p>
       <ChangeSourceLine change={change} />
-      <p className="mt-1 text-[12.5px] leading-thai text-ink-2">{body.th}</p>
+      <p className="mt-1 text-[12.5px] leading-thai text-ink-2">{body}</p>
       {change.source === "package" ? <FoundNote /> : null}
       <ChangeRows rows={change.changes} />
       <OriginalLinks change={change} />
@@ -196,10 +196,10 @@ export function ChangeNotice({ change }: { change: TorChange }) {
 /** One change in the history: worded by the stage that changed, as text, not a badge. */
 export function ChangeEntry({ change }: { change: TorChange }) {
   const heading = changeHeading(change.stage);
-  const nothingShown = change.changes.every((row) => describeRow(row, "th") === null);
+  const nothingShown = change.changes.every((row) => describeRow(row) === null);
   return (
     <li className="border-l-2 border-line pl-3.5">
-      <p className="text-[14px] font-semibold leading-thai text-ink">{heading.th}</p>
+      <p className="text-[14px] font-semibold leading-thai text-ink">{heading}</p>
       <ChangeSourceLine change={change} />
       {change.source === "package" ? <FoundNote /> : null}
       <ChangeRows rows={change.changes} />

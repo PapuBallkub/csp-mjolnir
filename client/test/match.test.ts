@@ -64,7 +64,7 @@ function createMockTor(overrides: Partial<TorInsightSummary> = {}): TorInsightSu
 function createMockProfile(overrides: Partial<Profile> = {}): Profile {
   return {
     name: "สมชาย ทดสอบ",
-    role: { th: "ผู้ใช้ระบบ", en: "Platform User" },
+    role: "ผู้ใช้ระบบ",
     email: "user@example.com",
     skills: ["Next.js", "React", "Node.js", "PostgreSQL"],
     budgetMin: 500_000,

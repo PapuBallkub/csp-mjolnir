@@ -120,21 +120,20 @@ export function CatalogRow({
         {/* Tier 2: Status & Risk Badges (always on left side) */}
         <div className="flex items-center gap-1.5 border-b border-line/40 pb-1.5 overflow-hidden whitespace-nowrap min-w-0">
           <div className="shrink-0">
-            <LifecycleBadge status={iden.status} stage={stage} lang="th" />
+            <LifecycleBadge status={iden.status} stage={stage} />
           </div>
-          {change ? <div className="shrink-0"><ChangeMarker source={change} lang="th" /></div> : null}
+          {change ? <div className="shrink-0"><ChangeMarker source={change} /></div> : null}
           {analytics.lockSpec ? (
             <div className="shrink-0">
               <LockSpecBadge
                 level={riskLevel(analytics.lockSpec.riskScore)}
                 score={analytics.lockSpec.riskScore}
-                lang="th"
               />
             </div>
           ) : null}
           {analytics.priceAnalysis ? (
             <div className="shrink-0">
-              <PriceDeltaBadge delta={analytics.priceAnalysis.diffPercentage} lang="th" />
+              <PriceDeltaBadge delta={analytics.priceAnalysis.diffPercentage} />
             </div>
           ) : null}
           {missing ? <span className="truncate text-[10.5px] text-ink-3">{missing}</span> : null}
@@ -174,7 +173,7 @@ export function CatalogRow({
           <div className="flex flex-col justify-between min-h-[44px]">
             <span className="text-[10px] font-medium text-ink-3 uppercase tracking-wider">กำหนดยื่นข้อเสนอ</span>
             <div className="mt-1">
-              <TorDeadline status={iden.status} facts={facts} now={currentDate} lang="th" align="start" hideLabel={true} />
+              <TorDeadline status={iden.status} facts={facts} now={currentDate} align="start" hideLabel={true} />
             </div>
           </div>
 
@@ -188,7 +187,7 @@ export function CatalogRow({
                   className="relative z-10 flex flex-col gap-0.5 transition-opacity hover:opacity-80"
                   title={`คะแนนความเหมาะสม ${match.score}/100 — คลิกดูวิเคราะห์ฉบับเต็ม`}
                 >
-                  <MatchScore score={match.score} lang="th" match={match} />
+                  <MatchScore score={match.score} match={match} />
                   <span className="text-[10.5px] text-ink-3 leading-tight truncate">
                     {match.score >= 70 ? "✓ เหมาะสมกับทักษะของคุณ" : match.score >= 50 ? "เหมาะสมบางส่วน" : "เหมาะสมเล็กน้อย"}
                   </span>
@@ -228,7 +227,7 @@ export function CatalogRow({
                 <span>เฉพาะนิติบุคคล</span>
               </span>
             ) : tor.companiesOnly ? (
-              <CompaniesOnlyBadge lang="th" />
+              <CompaniesOnlyBadge />
             ) : null}
 
             {/* Divider between qualification badge and tech stack */}

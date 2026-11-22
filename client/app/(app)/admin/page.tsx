@@ -33,7 +33,6 @@ import {
   TechnologiesSection,
   AddEditTechnologyModal,
 } from "./_components";
-import { useLang } from "../../_components/prefs";
 import { SignInPrompt } from "../../_components/sign-in-prompt";
 import { btn, EmptyState, input, Panel, SectionHeading } from "../../_components/ui";
 
@@ -171,7 +170,6 @@ function HistoryTabSkeleton() {
 }
 
 export default function AdminPage() {
-  const { lang } = useLang();
   const [ops, setOps] = useState<AdminOperations | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -207,13 +205,11 @@ export default function AdminPage() {
       <div className="mx-auto w-full max-w-[1240px] px-4 py-10">
         <SignInPrompt
           next="/admin"
-          headline={lang === "th" ? "ส่วนนี้สำหรับผู้ดูแลระบบ" : "This area is for administrators"}
+          headline={"ส่วนนี้สำหรับผู้ดูแลระบบ"}
           body={
-            lang === "th"
-              ? "เข้าสู่ระบบด้วยบัญชีผู้ดูแลเพื่อดูสถานะ scraper และคิวตรวจทาน"
-              : "Sign in with an administrator account to see scraper health and the review queue."
+            "เข้าสู่ระบบด้วยบัญชีผู้ดูแลเพื่อดูสถานะ scraper และคิวตรวจทาน"
           }
-          cta={lang === "th" ? "เข้าสู่ระบบ" : "Sign in"}
+          cta={"เข้าสู่ระบบ"}
         />
       </div>
     );
@@ -225,18 +221,12 @@ export default function AdminPage() {
         <EmptyState
           headline={
             error.status === 403
-              ? lang === "th"
-                ? "บัญชีของคุณไม่มีสิทธิ์เข้าถึงส่วนนี้"
-                : "Your account does not have access to this area"
-              : lang === "th"
-                ? "โหลดข้อมูลไม่สำเร็จ"
-                : "Could not load the dashboard"
+              ? "บัญชีของคุณไม่มีสิทธิ์เข้าถึงส่วนนี้"
+              : "โหลดข้อมูลไม่สำเร็จ"
           }
           body={
             error.status === 403
-              ? lang === "th"
-                ? "ส่วนนี้จำกัดเฉพาะผู้ดูแลระบบ หากคุณควรมีสิทธิ์ ให้ติดต่อคนในทีมเพื่อกำหนดบทบาทให้"
-                : "Administrator accounts only. If you should have access, ask a teammate to grant it."
+              ? "ส่วนนี้จำกัดเฉพาะผู้ดูแลระบบ หากคุณควรมีสิทธิ์ ให้ติดต่อคนในทีมเพื่อกำหนดบทบาทให้"
               : error.message
           }
         />
@@ -248,7 +238,6 @@ export default function AdminPage() {
     <Suspense fallback={<div className="mx-auto w-full max-w-[1240px] px-4 py-6 min-h-[640px]" />}>
       <AdminDashboard
         ops={ops}
-        lang={lang}
         onRefresh={loadOperations}
         isRefreshing={isRefreshing}
       />
@@ -260,12 +249,10 @@ export type AdminJob = "overview" | "review" | "failures" | "history" | "technol
 
 function AdminDashboard({
   ops,
-  lang,
   onRefresh,
   isRefreshing,
 }: {
   ops: AdminOperations | null;
-  lang: "th" | "en";
   onRefresh: () => void;
   isRefreshing: boolean;
 }) {
@@ -444,7 +431,7 @@ function AdminDashboard({
     const res = await adminUpdateTechnology(id, { status: "confirmed" });
     if (res.ok) {
       setTechActionMsg({
-        text: lang === "th" ? `อนุมัติ ${name} เรียบร้อยแล้ว` : `Approved ${name} successfully.`,
+        text: `อนุมัติ ${name} เรียบร้อยแล้ว`,
         type: "success",
       });
       refreshTechnologies();
@@ -455,14 +442,14 @@ function AdminDashboard({
 
   const handleRejectTech = async (id: string, name: string) => {
     const confirmed = window.confirm(
-      lang === "th" ? `ยืนยันปฏิเสธคำขอ "${name}" หรือไม่?` : `Reject request for "${name}"?`,
+      `ยืนยันปฏิเสธคำขอ "${name}" หรือไม่?`,
     );
     if (!confirmed) return;
     setTechActionMsg(null);
     const res = await adminUpdateTechnology(id, { status: "rejected" });
     if (res.ok) {
       setTechActionMsg({
-        text: lang === "th" ? `ปฏิเสธคำขอ ${name} เรียบร้อยแล้ว` : `Rejected request for ${name}.`,
+        text: `ปฏิเสธคำขอ ${name} เรียบร้อยแล้ว`,
         type: "success",
       });
       refreshTechnologies();
@@ -473,14 +460,14 @@ function AdminDashboard({
 
   const handleDeleteTech = async (id: string, name: string) => {
     const confirmed = window.confirm(
-      lang === "th" ? `ยืนยันลบ "${name}" ออกจากระบบหรือไม่?` : `Delete "${name}" from system?`,
+      `ยืนยันลบ "${name}" ออกจากระบบหรือไม่?`,
     );
     if (!confirmed) return;
     setTechActionMsg(null);
     const res = await adminDeleteTechnology(id);
     if (res.ok) {
       setTechActionMsg({
-        text: lang === "th" ? `ลบ ${name} ออกจากระบบแล้ว` : `Deleted ${name}.`,
+        text: `ลบ ${name} ออกจากระบบแล้ว`,
         type: "success",
       });
       refreshTechnologies();
@@ -517,7 +504,7 @@ function AdminDashboard({
     e.preventDefault();
     const name = techForm.name.trim();
     if (!name) {
-      setTechFormError(lang === "th" ? "กรุณาระบุชื่อ" : "Name is required");
+      setTechFormError("กรุณาระบุชื่อ");
       return;
     }
 
@@ -540,7 +527,7 @@ function AdminDashboard({
       if (res.ok) {
         setIsTechModalOpen(false);
         setTechActionMsg({
-          text: lang === "th" ? `บันทึกข้อมูล ${name} เรียบร้อยแล้ว` : `Updated ${name} successfully.`,
+          text: `บันทึกข้อมูล ${name} เรียบร้อยแล้ว`,
           type: "success",
         });
         refreshTechnologies();
@@ -558,7 +545,7 @@ function AdminDashboard({
       if (res.ok) {
         setIsTechModalOpen(false);
         setTechActionMsg({
-          text: lang === "th" ? `เพิ่ม ${name} เข้าสู่คลังคำศัพท์เรียบร้อยแล้ว` : `Added ${name} successfully.`,
+          text: `เพิ่ม ${name} เข้าสู่คลังคำศัพท์เรียบร้อยแล้ว`,
           type: "success",
         });
         refreshTechnologies();
@@ -588,9 +575,7 @@ function AdminDashboard({
     const cleanId = addProjectId.trim();
     if (!/^\d{11}$/.test(cleanId)) {
       setAddError(
-        lang === "th"
-          ? "รหัสโครงการต้องเป็นตัวเลข 11 หลัก เช่น 69099683466"
-          : "e-GP project ID must be exactly 11 digits (e.g. 69099683466)",
+        "รหัสโครงการต้องเป็นตัวเลข 11 หลัก เช่น 69099683466",
       );
       return;
     }
@@ -604,9 +589,7 @@ function AdminDashboard({
       setPipelineActionMsg({
         type: "success",
         text:
-          lang === "th"
-            ? `เพิ่มโครงการ ${res.data.projectId} และดาวน์โหลดเอกสาร e-GP เรียบร้อยแล้ว`
-            : `Project ${res.data.projectId} added and e-GP package downloaded successfully.`,
+          `เพิ่มโครงการ ${res.data.projectId} และดาวน์โหลดเอกสาร e-GP เรียบร้อยแล้ว`,
       });
       onRefresh();
       handleInspect(cleanId);
@@ -630,13 +613,9 @@ function AdminDashboard({
       setPipelineActionMsg({
         type: "success",
         text:
-          lang === "th"
-            ? runNow
+          runNow
               ? `สั่งรันขั้นตอน (${step}) สำหรับโครงการ ${projectId} ทันทีเรียบร้อยแล้ว`
-              : `รีเซ็ตและส่งโครงการ ${projectId} ขั้นตอน (${step}) เข้าคิวประมวลผลใหม่เรียบร้อยแล้ว`
-            : runNow
-              ? `Executed step ${step} immediately for project ${projectId}.`
-              : `Re-queued project ${projectId} for ${step} processing.`,
+              : `รีเซ็ตและส่งโครงการ ${projectId} ขั้นตอน (${step}) เข้าคิวประมวลผลใหม่เรียบร้อยแล้ว`,
       });
       onRefresh();
     } else {
@@ -656,9 +635,7 @@ function AdminDashboard({
       setPipelineActionMsg({
         type: "success",
         text:
-          lang === "th"
-            ? `ส่งข้อผิดพลาดชั่วคราวทั้งหมด (${res.data.clearedCount} รายการ) กลับเข้าคิวประมวลผลแล้ว`
-            : `Bulk re-queued ${res.data.clearedCount} transient failure(s).`,
+          `ส่งข้อผิดพลาดชั่วคราวทั้งหมด (${res.data.clearedCount} รายการ) กลับเข้าคิวประมวลผลแล้ว`,
       });
       onRefresh();
     } else {
@@ -671,9 +648,7 @@ function AdminDashboard({
 
   const handleDismissFailure = async (projectId: string, step: string) => {
     const confirmMsg =
-      lang === "th"
-        ? `ยืนยันการละเว้นข้อผิดพลาดของโครงการ ${projectId} (${step})? ระบบจะยกเว้นเอกสารนี้และไม่ดึงมาประมวลผลซ้ำอีก`
-        : `Confirm dismissing failure for project ${projectId} (${step})? The pipeline will exclude this document from future runs.`;
+      `ยืนยันการละเว้นข้อผิดพลาดของโครงการ ${projectId} (${step})? ระบบจะยกเว้นเอกสารนี้และไม่ดึงมาประมวลผลซ้ำอีก`;
     if (!window.confirm(confirmMsg)) return;
 
     const key = `${projectId}-${step}`;
@@ -685,9 +660,7 @@ function AdminDashboard({
       setPipelineActionMsg({
         type: "success",
         text:
-          lang === "th"
-            ? `ละเว้นข้อผิดพลาดโครงการ ${projectId} (${step}) เรียบร้อยแล้ว`
-            : `Dismissed failure for project ${projectId} (${step}).`,
+          `ละเว้นข้อผิดพลาดโครงการ ${projectId} (${step}) เรียบร้อยแล้ว`,
       });
       onRefresh();
     } else {
@@ -764,15 +737,15 @@ function AdminDashboard({
           const sName = id === "process3" ? "e-GP (RSS)" : id === "datago" ? "data.go.th" : id;
           const statusText =
             r.status === "ok"
-              ? lang === "th" ? "ปกติ" : "Healthy"
+              ? "ปกติ"
               : r.status === "degraded"
-                ? lang === "th" ? "ล่าช้า" : "Degraded"
-                : lang === "th" ? "ขัดข้อง" : "Down";
+                ? "ล่าช้า"
+                : "ขัดข้อง";
           return `${sName}: ${statusText} (${r.latencyMs}ms)`;
         })
         .join(" · ");
       setCheckMessage(
-        (lang === "th" ? "ผลการตรวจสอบการเชื่อมต่อ: " : "Health check complete: ") + summary,
+        ("ผลการตรวจสอบการเชื่อมต่อ: ") + summary,
       );
       onRefresh();
     } else {
@@ -783,23 +756,23 @@ function AdminDashboard({
   const stats = [
     {
       value: pipelineStats.totalIndexedTors ?? 29,
-      label: { th: "เอกสารทั้งหมดในระบบ", en: "Total in catalog" },
+      label: "เอกสารทั้งหมดในระบบ",
     },
     {
       value: pipelineStats.docsIngestedToday,
-      label: { th: "เอกสารเข้าวันนี้", en: "Ingested today" },
+      label: "เอกสารเข้าวันนี้",
     },
     {
       value: pipelineStats.docsAwaitingReview ?? pendingCount,
-      label: { th: "รอตรวจทาน", en: "Awaiting review" },
+      label: "รอตรวจทาน",
     },
     {
       value: `${Math.round(pipelineStats.avgOcrConfidence * 100)}%`,
-      label: { th: "ความมั่นใจ OCR เฉลี่ย", en: "Avg OCR confidence" },
+      label: "ความมั่นใจ OCR เฉลี่ย",
     },
     {
       value: `${Math.round(pipelineStats.avgExtractionConfidence * 100)}%`,
-      label: { th: "ความมั่นใจการสกัดข้อมูล", en: "Avg extraction confidence" },
+      label: "ความมั่นใจการสกัดข้อมูล",
     },
     ...(pipelineStats.requestStreak &&
     (pipelineStats.requestStreak.inARow >= 180 ||
@@ -807,16 +780,10 @@ function AdminDashboard({
       ? [
           {
             value: `${pipelineStats.requestStreak.inARow} / ${pipelineStats.requestStreak.limit}`,
-            label: {
-              th:
-                pipelineStats.requestStreak.cooldownRemainingMs > 0
-                  ? `e-GP Pacer (คูลดาวน์ ${Math.ceil(pipelineStats.requestStreak.cooldownRemainingMs / 60000)}น.)`
-                  : "e-GP ใกล้ถึงขีดจำกัด (Burst)",
-              en:
-                pipelineStats.requestStreak.cooldownRemainingMs > 0
-                  ? `e-GP Pacer (Cooldown ${Math.ceil(pipelineStats.requestStreak.cooldownRemainingMs / 60000)}m)`
-                  : "e-GP Request Streak (Near limit)",
-            },
+            label:
+              pipelineStats.requestStreak.cooldownRemainingMs > 0
+                ? `e-GP Pacer (คูลดาวน์ ${Math.ceil(pipelineStats.requestStreak.cooldownRemainingMs / 60000)}น.)`
+                : "e-GP ใกล้ถึงขีดจำกัด (Burst)",
           },
         ]
       : []),
@@ -825,22 +792,22 @@ function AdminDashboard({
   const ADMIN_JOBS: {
     id: AdminJob;
     icon: string;
-    label: { th: string; en: string };
-    description: { th: string; en: string };
+    label: string;
+    description: string;
     badge?: number;
     badgeTone?: "risk" | "amend" | "neutral";
   }[] = [
     {
       id: "overview",
       icon: "📊",
-      label: { th: "ภาพรวม & สแครปเปอร์", en: "Overview & Sources" },
-      description: { th: "ตัวชี้วัด, Funnel และสุขภาพแหล่งข้อมูล", en: "KPIs, funnel stages & source health" },
+      label: "ภาพรวม & สแครปเปอร์",
+      description: "ตัวชี้วัด, Funnel และสุขภาพแหล่งข้อมูล",
     },
     {
       id: "review",
       icon: "📋",
-      label: { th: "คิวตรวจทานเอกสาร", en: "Review Queue" },
-      description: { th: "ความมั่นใจ < 80% หรือจัดประเภทผิด", en: "Confidence < 80% or misclassified" },
+      label: "คิวตรวจทานเอกสาร",
+      description: "ความมั่นใจ < 80% หรือจัดประเภทผิด",
       badge:
         ops && (pipelineStats.docsAwaitingReview ?? pendingCount) > 0
           ? (pipelineStats.docsAwaitingReview ?? pendingCount)
@@ -850,31 +817,31 @@ function AdminDashboard({
     {
       id: "failures",
       icon: "⚙️",
-      label: { th: "เฝ้าระวัง Pipeline", en: "Pipeline Monitoring" },
-      description: { th: "ตัวกรองทุกขั้นตอน & จัดการรายโครงการ", en: "Monitor stages, filters & step controls" },
+      label: "เฝ้าระวัง Pipeline",
+      description: "ตัวกรองทุกขั้นตอน & จัดการรายโครงการ",
       badge: (ops?.pipelineFailures?.length ?? 0) > 0 ? ops?.pipelineFailures?.length : undefined,
       badgeTone: "risk",
     },
     {
       id: "history",
       icon: "⏱️",
-      label: { th: "ประวัติงาน & บันทึก", en: "Runs & Audit Logs" },
-      description: { th: "รอบประมวลผลและ Audit Log", en: "Scheduled runs and activity logs" },
+      label: "ประวัติงาน & บันทึก",
+      description: "รอบประมวลผลและ Audit Log",
       badge: (ops?.pipelineRuns?.length ?? 0) > 0 ? ops?.pipelineRuns?.length : undefined,
       badgeTone: "neutral",
     },
     {
       id: "technologies",
       icon: "🏷️",
-      label: { th: "คลังเทคโนโลยี & มาตรฐาน", en: "Tech & Standards" },
-      description: { th: "จัดการคำขอและคลังคำศัพท์ระบบ", en: "Vocabulary directory & review" },
+      label: "คลังเทคโนโลยี & มาตรฐาน",
+      description: "จัดการคำขอและคลังคำศัพท์ระบบ",
       badge: techPendingCount > 0 ? techPendingCount : undefined,
       badgeTone: "amend",
     },
   ];
 
   const activeJobObj = ADMIN_JOBS.find((j) => j.id === activeJob) ?? ADMIN_JOBS[0];
-  const currentJobLabel = activeJobObj.label[lang];
+  const currentJobLabel = activeJobObj.label;
 
   const adminRail = (
     <div className="flex flex-col gap-4">
@@ -882,7 +849,7 @@ function AdminDashboard({
       <Panel className="overflow-hidden">
         <div className="border-b border-line bg-surface-2 px-3.5 py-2.5">
           <h2 className="text-[12px] font-semibold text-ink">
-            {lang === "th" ? "หน้าที่ผู้ดูแล (Admin Jobs)" : "Operational Jobs"}
+            {"หน้าที่ผู้ดูแล (Admin Jobs)"}
           </h2>
         </div>
 
@@ -908,7 +875,7 @@ function AdminDashboard({
                   <div className="flex items-center gap-2">
                     <span className="text-[13px]">{job.icon}</span>
                     <span className="text-[13px] leading-tight font-medium">
-                      {job.label[lang]}
+                      {job.label}
                     </span>
                   </div>
                   <p
@@ -916,7 +883,7 @@ function AdminDashboard({
                       isActive ? "text-surface/80" : "text-ink-3"
                     }`}
                   >
-                    {job.description[lang]}
+                    {job.description}
                   </p>
                 </div>
 
@@ -952,16 +919,14 @@ function AdminDashboard({
               ADMIN OPS
             </span>
             <span className="text-[11px] text-ink-3">
-              {lang === "th" ? "แดชบอร์ดดูแลระบบและความสมบูรณ์ข้อมูล" : "Pipeline Telemetry & Data Integrity"}
+              {"แดชบอร์ดดูแลระบบและความสมบูรณ์ข้อมูล"}
             </span>
           </div>
           <h1 className="mt-1.5 text-[24px] sm:text-[28px] leading-tight font-bold tracking-tight text-ink">
-            {lang === "th" ? "สุขภาพระบบเก็บข้อมูลและการตรวจสอบข้อมูล" : "Pipeline Health & Data Integrity"}
+            {"สุขภาพระบบเก็บข้อมูลและการตรวจสอบข้อมูล"}
           </h1>
           <p className="mt-1 text-[13px] text-ink-2">
-            {lang === "th"
-              ? "ระบบติดตามการดึงข้อมูล e-GP ตรวจสอบความถูกต้องของการสกัดข้อความ และจัดการงานที่ติดขัด"
-              : "Operational telemetry, extraction verification queue, and automated failure recovery."}
+            {"ระบบติดตามการดึงข้อมูล e-GP ตรวจสอบความถูกต้องของการสกัดข้อความ และจัดการงานที่ติดขัด"}
           </p>
         </div>
 
@@ -995,7 +960,7 @@ function AdminDashboard({
                     }
                   }
                 }}
-                placeholder={lang === "th" ? "ตรวจสอบโครงการ (รหัส/ชื่อ)..." : "Inspect project (ID/title)..."}
+                placeholder={"ตรวจสอบโครงการ (รหัส/ชื่อ)..."}
                 className={`${input} h-9 pr-7 text-[12px] w-full font-mono placeholder:font-sans`}
               />
               <button
@@ -1008,7 +973,7 @@ function AdminDashboard({
                 }}
                 disabled={!searchInspectorId.trim()}
                 className="absolute right-1 text-ink-3 hover:text-ink disabled:opacity-30 p-1.5 cursor-pointer"
-                title={lang === "th" ? "ตรวจสอบสถานะรายโครงการ (Enter)" : "Inspect Record (Enter)"}
+                title={"ตรวจสอบสถานะรายโครงการ (Enter)"}
               >
                 {isSuggesting ? (
                   <span className="animate-spin inline-block text-[11px]">↻</span>
@@ -1022,7 +987,7 @@ function AdminDashboard({
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute left-0 right-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-[3px] border border-line bg-surface shadow-2xl text-[12px]">
                 <div className="px-2.5 py-1.5 text-[10px] uppercase font-semibold text-ink-3 bg-surface-2 border-b border-line flex justify-between items-center">
-                  <span>{lang === "th" ? "โครงการที่พบ" : "Matches"}</span>
+                  <span>{"โครงการที่พบ"}</span>
                   <span className="font-mono">{suggestions.length}</span>
                 </div>
                 <ul className="divide-y divide-line/40">
@@ -1072,7 +1037,7 @@ function AdminDashboard({
             className={`${btn.primary} h-9 px-3.5 text-[12px]`}
           >
             <span className="text-[14px] leading-none">+</span>
-            <span>{lang === "th" ? "เพิ่มโครงการ e-GP" : "Add e-GP Project"}</span>
+            <span>{"เพิ่มโครงการ e-GP"}</span>
           </button>
 
           {/* Refresh Button */}
@@ -1081,14 +1046,14 @@ function AdminDashboard({
             onClick={onRefresh}
             disabled={isRefreshing || checkingSourceIds.length > 0}
             className={`${btn.secondary} h-9 px-3 text-[12px]`}
-            aria-label={lang === "th" ? "รีเฟรชสถานะ" : "Refresh status"}
+            aria-label={"รีเฟรชสถานะ"}
           >
             {isRefreshing ? (
               <span className="animate-spin inline-block">↻</span>
             ) : (
               "↻"
             )}{" "}
-            <span className="hidden sm:inline">{lang === "th" ? "รีเฟรช" : "Refresh"}</span>
+            <span className="hidden sm:inline">{"รีเฟรช"}</span>
           </button>
         </div>
       </header>
@@ -1104,7 +1069,7 @@ function AdminDashboard({
             className={`${btn.secondary} w-full justify-between`}
           >
             <span className="flex items-center gap-2">
-              <span className="text-ink-3">{lang === "th" ? "หน้าที่งาน:" : "Admin job:"}</span>
+              <span className="text-ink-3">{"หน้าที่งาน:"}</span>
               <span className="font-semibold text-ink flex items-center gap-1.5">
                 <span>{activeJobObj.icon}</span>
                 <span>{currentJobLabel}</span>
@@ -1133,17 +1098,17 @@ function AdminDashboard({
               {/* KPI Stats Strip */}
               <div className="mb-6 grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                 {stats.map((stat) => (
-                  <Panel key={stat.label.en} className="px-3 py-2.5">
+                  <Panel key={stat.label} className="px-3 py-2.5">
                     <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
                       {stat.value}
                     </p>
-                    <p className="mt-1.5 text-[11px] leading-thai text-ink-3">{stat.label[lang]}</p>
+                    <p className="mt-1.5 text-[11px] leading-thai text-ink-3">{stat.label}</p>
                   </Panel>
                 ))}
               </div>
 
               {/* Pipeline Stage Funnel (FR-24) */}
-              <PipelineStageFunnel stageSnapshot={ops.stageSnapshot} lang={lang} />
+              <PipelineStageFunnel stageSnapshot={ops.stageSnapshot} />
 
       {/* Scrapers by Source */}
       <section className="mb-8 w-full">
@@ -1156,12 +1121,12 @@ function AdminDashboard({
                 disabled={checkingSourceIds.length > 0 || isRefreshing}
                 className={btn.primary}
               >
-                {lang === "th" ? "ทดสอบการเชื่อมต่อทุกแหล่ง" : "Check All Sources"}
+                {"ทดสอบการเชื่อมต่อทุกแหล่ง"}
               </button>
             </div>
           }
         >
-          {lang === "th" ? "สถานะการเชื่อมต่อแหล่งข้อมูล" : "Data sources & connectivity"}
+          {"สถานะการเชื่อมต่อแหล่งข้อมูล"}
         </SectionHeading>
 
         {checkMessage ? (
@@ -1185,13 +1150,13 @@ function AdminDashboard({
             <thead>
               <tr className="border-b border-line bg-surface-2">
                 {[
-                  { text: lang === "th" ? "แหล่งข้อมูล" : "Source", right: false },
-                  { text: lang === "th" ? "สถานะ" : "Health", right: false },
-                  { text: lang === "th" ? "14 วันล่าสุด" : "Last 14 runs", right: false },
-                  { text: lang === "th" ? "ความพร้อมใช้" : "Uptime", right: true },
-                  { text: lang === "th" ? "เอกสารในระบบ" : "Docs in system", right: true },
-                  { text: lang === "th" ? "รอบล่าสุด" : "Last run", right: true },
-                  { text: lang === "th" ? "คำสั่ง" : "Action", right: true },
+                  { text: "แหล่งข้อมูล", right: false },
+                  { text: "สถานะ", right: false },
+                  { text: "14 วันล่าสุด", right: false },
+                  { text: "ความพร้อมใช้", right: true },
+                  { text: "เอกสารในระบบ", right: true },
+                  { text: "รอบล่าสุด", right: true },
+                  { text: "คำสั่ง", right: true },
                 ].map((column) => (
                   <th
                     key={column.text}
@@ -1231,7 +1196,7 @@ function AdminDashboard({
                         HEALTH[source.health]?.chip ?? "border-line bg-surface-2 text-ink-2"
                       }`}
                     >
-                      {HEALTH[source.health]?.label[lang] ?? source.health}
+                      {HEALTH[source.health]?.label ?? source.health}
                     </span>
                   </td>
                   <td className="px-3 py-2.5">
@@ -1248,10 +1213,10 @@ function AdminDashboard({
                           }`}
                           title={
                             succeeded === null
-                              ? (lang === "th" ? "ยังไม่มีรอบทำงาน" : "No run recorded yet")
+                              ? ("ยังไม่มีรอบทำงาน")
                               : succeeded
-                                ? (lang === "th" ? "สำเร็จ" : "Succeeded")
-                                : (lang === "th" ? "ล้มเหลว" : "Failed")
+                                ? ("สำเร็จ")
+                                : ("ล้มเหลว")
                           }
                         />
                       ))}
@@ -1279,7 +1244,7 @@ function AdminDashboard({
                       {checkingSourceIds.includes(source.id) ? (
                         <span className="animate-spin inline-block mr-1">↻</span>
                       ) : null}
-                      {lang === "th" ? "ทดสอบการเชื่อมต่อ" : "Check health"}
+                      {"ทดสอบการเชื่อมต่อ"}
                     </button>
                   </td>
                 </tr>
@@ -1301,21 +1266,21 @@ function AdminDashboard({
               <SectionHeading
                 right={
                   <span className="text-[11px] text-ink-3">
-                    {pendingCount} {lang === "th" ? "รอดำเนินการ" : "pending"}
+                    {pendingCount} {"รอดำเนินการ"}
                   </span>
                 }
               >
-                {lang === "th" ? "คิวตรวจทานผลการอ่านเอกสาร" : "Extraction review queue"}
+                {"คิวตรวจทานผลการอ่านเอกสาร"}
               </SectionHeading>
 
               {/* Row 1: Filter Tabs */}
               <div className="mb-3 flex flex-wrap gap-1.5 border-b border-line pb-3">
                 {[
-                  { id: "all", label: { th: `ทั้งหมด (${reviewQueue.length})`, en: `All (${reviewQueue.length})` } },
-                  { id: "pending", label: { th: `รอตรวจทาน (${pendingCount})`, en: `Pending (${pendingCount})` } },
-                  { id: "low-confidence", label: { th: `⚠️ มั่นใจต่ำ (< 80%) (${lowConfidenceCount})`, en: `⚠️ Low Conf (< 80%) (${lowConfidenceCount})` } },
-                  { id: "misclassified", label: { th: `ตรวจประเภท (${misclassifiedCount})`, en: `Misclassified (${misclassifiedCount})` } },
-                  { id: "reviewed", label: { th: `ตรวจทานแล้ว (${reviewedCount})`, en: `Reviewed (${reviewedCount})` } },
+                  { id: "all", label: `ทั้งหมด (${reviewQueue.length})` },
+                  { id: "pending", label: `รอตรวจทาน (${pendingCount})` },
+                  { id: "low-confidence", label: `⚠️ มั่นใจต่ำ (< 80%) (${lowConfidenceCount})` },
+                  { id: "misclassified", label: `ตรวจประเภท (${misclassifiedCount})` },
+                  { id: "reviewed", label: `ตรวจทานแล้ว (${reviewedCount})` },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -1327,7 +1292,7 @@ function AdminDashboard({
                         : "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
                     }`}
                   >
-                    {tab.label[lang]}
+                    {tab.label}
                   </button>
                 ))}
               </div>
@@ -1342,7 +1307,7 @@ function AdminDashboard({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={lang === "th" ? "ค้นหาด้วยเลขโครงการ / ชื่อ..." : "Filter by project ID / title..."}
+                    placeholder={"ค้นหาด้วยเลขโครงการ / ชื่อ..."}
                     className={`${input} text-[12px] h-8 pl-8 pr-7 w-full`}
                   />
                   {searchQuery && (
@@ -1350,7 +1315,7 @@ function AdminDashboard({
                       type="button"
                       onClick={() => setSearchQuery("")}
                       className="absolute inset-y-0 right-2 flex items-center text-ink-3 hover:text-ink text-[12px] cursor-pointer"
-                      title={lang === "th" ? "ล้างคำค้นหา" : "Clear search"}
+                      title={"ล้างคำค้นหา"}
                     >
                       ✕
                     </button>
@@ -1359,7 +1324,7 @@ function AdminDashboard({
 
                 <div className="flex items-center gap-2">
                   <span className="text-[12px] text-ink-3 whitespace-nowrap">
-                    {lang === "th" ? "เรียงตาม:" : "Sort by:"}
+                    {"เรียงตาม:"}
                   </span>
                   <select
                     value={sortOption}
@@ -1367,16 +1332,16 @@ function AdminDashboard({
                     className="h-8 rounded-[3px] border border-line bg-surface px-2.5 text-[12px] text-ink focus:border-ink-2 focus:outline-none cursor-pointer"
                   >
                     <option value="confidence-asc">
-                      {lang === "th" ? "คะแนนความมั่นใจต่ำสุดก่อน" : "Lowest Confidence First"}
+                      {"คะแนนความมั่นใจต่ำสุดก่อน"}
                     </option>
                     <option value="confidence-desc">
-                      {lang === "th" ? "คะแนนความมั่นใจสูงสุดก่อน" : "Highest Confidence First"}
+                      {"คะแนนความมั่นใจสูงสุดก่อน"}
                     </option>
                     <option value="newest">
-                      {lang === "th" ? "อัปเดตล่าสุด" : "Newest First"}
+                      {"อัปเดตล่าสุด"}
                     </option>
                     <option value="budget-desc">
-                      {lang === "th" ? "งบประมาณสูงสุด" : "Highest Budget"}
+                      {"งบประมาณสูงสุด"}
                     </option>
                   </select>
                 </div>
@@ -1384,7 +1349,7 @@ function AdminDashboard({
 
               {sortedQueue.length === 0 ? (
                 <Panel className="p-6 text-center text-[13px] text-ink-3">
-                  {lang === "th" ? "ไม่พบรายการในเงื่อนไขที่เลือก" : "No items match the selected filter."}
+                  {"ไม่พบรายการในเงื่อนไขที่เลือก"}
                 </Panel>
               ) : (
                 <div className="flex flex-col gap-2">
@@ -1392,7 +1357,6 @@ function AdminDashboard({
                     <ReviewItemCard
                       key={item.docId}
                       item={item}
-                      lang={lang}
                       isOpen={expanded === item.docId}
                       onToggle={() => setExpanded(expanded === item.docId ? null : item.docId)}
                       resolution={handled[item.docId] || null}
@@ -1409,7 +1373,6 @@ function AdminDashboard({
           {/* Job 3: Pipeline Monitoring & Control (FR-24) */}
           <div className={activeJob === "failures" ? "block w-full" : "hidden"}>
             <PipelineMonitoringSection
-              lang={lang}
               onInspect={handleInspect}
               onRetry={handleRetryStep}
               onRetryAllTransient={handleRetryAllTransient}
@@ -1434,7 +1397,7 @@ function AdminDashboard({
                     {recentLogs.length}
                   </p>
                   <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
-                    {lang === "th" ? "รอบบันทึกล่าสุด" : "Recent ingestion runs"}
+                    {"รอบบันทึกล่าสุด"}
                   </p>
                 </Panel>
                 <Panel className="px-3 py-2.5">
@@ -1444,7 +1407,7 @@ function AdminDashboard({
                       : "100%"}
                   </p>
                   <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
-                    {lang === "th" ? "อัตราความสำเร็จ" : "Success rate"}
+                    {"อัตราความสำเร็จ"}
                   </p>
                 </Panel>
                 <Panel className="px-3 py-2.5">
@@ -1452,7 +1415,7 @@ function AdminDashboard({
                     {recentLogs.reduce((acc, l) => acc + (l.itemsDiscovered || 0), 0)}
                   </p>
                   <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
-                    {lang === "th" ? "เอกสารค้นพบทั้งหมด" : "Total discovered"}
+                    {"เอกสารค้นพบทั้งหมด"}
                   </p>
                 </Panel>
                 <Panel className="px-3 py-2.5">
@@ -1460,7 +1423,7 @@ function AdminDashboard({
                     {recentLogs.reduce((acc, l) => acc + (l.itemsIngested || 0), 0)}
                   </p>
                   <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
-                    {lang === "th" ? "เอกสารบันทึกสำเร็จ" : "Total ingested"}
+                    {"เอกสารบันทึกสำเร็จ"}
                   </p>
                 </Panel>
               </div>
@@ -1468,7 +1431,6 @@ function AdminDashboard({
               {/* Scheduled Job History (FR-24) */}
               <PipelineRunsSection
                 runs={ops.pipelineRuns}
-                lang={lang}
               />
 
               {/* Recent Ingestion Execution Activity */}
@@ -1477,11 +1439,11 @@ function AdminDashboard({
                   <SectionHeading
                     right={
                       <span className="text-[11px] text-ink-3">
-                        {recentLogs.length} {lang === "th" ? "รอบล่าสุด" : "recent runs"}
+                        {recentLogs.length} {"รอบล่าสุด"}
                       </span>
                     }
                   >
-                    {lang === "th" ? "ประวัติการดึงข้อมูลล่าสุด" : "Recent ingestion activity"}
+                    {"ประวัติการดึงข้อมูลล่าสุด"}
                   </SectionHeading>
 
                   <Panel className="w-full overflow-x-auto shadow-xs">
@@ -1489,12 +1451,12 @@ function AdminDashboard({
                       <thead>
                         <tr className="border-b border-line bg-surface-2">
                           {[
-                            { text: lang === "th" ? "เวลาเริ่มต้น" : "Timestamp", right: false },
-                            { text: lang === "th" ? "แหล่งข้อมูล" : "Source", right: false },
-                            { text: lang === "th" ? "สถานะ" : "Status", right: false },
-                            { text: lang === "th" ? "เวลาที่ใช้" : "Duration", right: true },
-                            { text: lang === "th" ? "ค้นพบ / บันทึก" : "Discovered / Ingested", right: true },
-                            { text: lang === "th" ? "ผลการทำงาน" : "Details", right: false },
+                            { text: "เวลาเริ่มต้น", right: false },
+                            { text: "แหล่งข้อมูล", right: false },
+                            { text: "สถานะ", right: false },
+                            { text: "เวลาที่ใช้", right: true },
+                            { text: "ค้นพบ / บันทึก", right: true },
+                            { text: "ผลการทำงาน", right: false },
                           ].map((column) => (
                             <th
                               key={column.text}
@@ -1527,7 +1489,7 @@ function AdminDashboard({
                                   HEALTH[log.status]?.chip ?? "border-line bg-surface-2 text-ink-2"
                                 }`}
                               >
-                                {HEALTH[log.status]?.label[lang] ?? log.status}
+                                {HEALTH[log.status]?.label ?? log.status}
                               </span>
                             </td>
                             <td className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink-2">
@@ -1543,7 +1505,7 @@ function AdminDashboard({
                                 <span className="text-risk">{log.error}</span>
                               ) : (
                                 <span className="text-open">
-                                  {lang === "th" ? "สำเร็จ เรียบร้อย" : "Completed successfully"}
+                                  {"สำเร็จ เรียบร้อย"}
                                 </span>
                               )}
                             </td>
@@ -1557,7 +1519,7 @@ function AdminDashboard({
 
               {(!recentLogs || recentLogs.length === 0) && (!ops.pipelineRuns || ops.pipelineRuns.length === 0) ? (
                 <Panel className="w-full p-8 text-center text-ink-3">
-                  <p className="text-[13px]">{lang === "th" ? "ยังไม่มีประวัติการทำงานในระบบ" : "No execution history recorded yet."}</p>
+                  <p className="text-[13px]">{"ยังไม่มีประวัติการทำงานในระบบ"}</p>
                 </Panel>
               ) : null}
             </div>
@@ -1589,7 +1551,6 @@ function AdminDashboard({
               onDelete={handleDeleteTech}
               onOpenAdd={handleOpenAddTech}
               onOpenEdit={handleOpenEditTech}
-              lang={lang}
             />
           </div>
         </main>
@@ -1602,7 +1563,6 @@ function AdminDashboard({
           record={diagnosticRecord}
           isLoading={isInspectorLoading}
           error={inspectorError}
-          lang={lang}
           onClose={() => {
             setInspectingProjectId(null);
             setDiagnosticRecord(null);
@@ -1622,9 +1582,7 @@ function AdminDashboard({
               setPipelineActionMsg({
                 type: "success",
                 text:
-                  lang === "th"
-                    ? `เริ่มอ่านเอกสารโครงการ ${pid} ใหม่เรียบร้อยแล้ว`
-                    : `Re-extraction queued for project ${pid}`,
+                  `เริ่มอ่านเอกสารโครงการ ${pid} ใหม่เรียบร้อยแล้ว`,
               });
               onRefresh();
               handleInspect(pid);
@@ -1642,7 +1600,6 @@ function AdminDashboard({
           onSubmit={handleAddProject}
           isLoading={isAddingProject}
           error={addError}
-          lang={lang}
           onClose={() => {
             setIsAddModalOpen(false);
             setAddError(null);
@@ -1660,7 +1617,6 @@ function AdminDashboard({
           onSubmit={handleSaveTech}
           isLoading={isSubmittingTech}
           error={techFormError}
-          lang={lang}
           onClose={() => {
             setIsTechModalOpen(false);
             setTechFormError(null);

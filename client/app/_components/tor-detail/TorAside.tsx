@@ -1,4 +1,5 @@
 import type { TorInsightDetail } from "../../_lib/api";
+import type { DeadlineInfo } from "../../_lib/stage";
 import { isDead } from "../verdict";
 import { Fact, Label, Panel, btn } from "../ui";
 import { formatMoney, formatDateString } from "./_lib/tor-helpers";
@@ -18,7 +19,7 @@ export function TorAside({
   fiscalYear: number | null;
   officialEgpUrl: string | null;
   onPreviewPdf: () => void;
-  deadline: { kind: string; date: string | null; label: { th: string; en: string }; missing: { th: string; en: string } };
+  deadline: DeadlineInfo;
   isSaved?: boolean;
   isPopping?: boolean;
   toggleLoading?: boolean;
@@ -45,7 +46,7 @@ export function TorAside({
         <div className="mt-4 flex flex-col border-t border-line/60 pt-2">
           {/* Deadline */}
           {deadline.kind === "comment" ? (
-            <Fact label={deadline.label.th}>
+            <Fact label={deadline.label}>
               {deadline.date ? (
                 isDead(iden.status) ? (
                   <div className="flex flex-col sm:items-end gap-0.5">
@@ -62,11 +63,11 @@ export function TorAside({
                   </span>
                 )
               ) : (
-                <span className="text-[13px] text-ink-3">{deadline.missing.th}</span>
+                <span className="text-[13px] text-ink-3">{deadline.missing}</span>
               )}
             </Fact>
           ) : (
-            <Fact label={deadline.label.th}>
+            <Fact label={deadline.label}>
               {deadline.date ? (
                 isDead(iden.status) ? (
                   <div className="flex flex-col sm:items-end gap-0.5">
@@ -83,7 +84,7 @@ export function TorAside({
                   </span>
                 )
               ) : (
-                <span className="text-[13px] text-ink-3">{deadline.missing.th}</span>
+                <span className="text-[13px] text-ink-3">{deadline.missing}</span>
               )}
             </Fact>
           )}

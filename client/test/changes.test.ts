@@ -46,22 +46,21 @@ test("the marker says where the latest change came from, and never repeats the b
 });
 
 test("a change is worded by the stage that changed, as text", () => {
-  assert.equal(changeHeading("draft").th, "ร่าง TOR เปลี่ยน");
-  assert.equal(changeHeading("invitation").th, "ประกาศเชิญชวนเปลี่ยน");
-  assert.equal(changeHeading(null).th, "เอกสาร TOR เปลี่ยน", "a stage that couldn't be read");
+  assert.equal(changeHeading("draft"), "ร่าง TOR เปลี่ยน");
+  assert.equal(changeHeading("invitation"), "ประกาศเชิญชวนเปลี่ยน");
+  assert.equal(changeHeading(null), "เอกสาร TOR เปลี่ยน", "a stage that couldn't be read");
 });
 
 test("when it changed: the notice's date, or between the two checks", () => {
-  assert.equal(changeWhen(change({ source: "feed", date: day(6) }), "th"), "ประกาศเมื่อ 6 ต.ค. 2569");
-  assert.equal(changeWhen(change({ previousCheckAt: day(20) }), "th"), "เปลี่ยนระหว่าง 20 ต.ค. 2569 ถึง 25 ต.ค. 2569");
-  assert.equal(changeWhen(change({ previousCheckAt: day(20) }), "en"), "Changed between 20 Oct 2026 and 25 Oct 2026");
-  assert.equal(changeWhen(change({ previousCheckAt: day(25) }), "th"), "พบเมื่อ 25 ต.ค. 2569", "both on one day");
-  assert.equal(changeWhen(change({}), "th"), "พบเมื่อ 25 ต.ค. 2569", "no check before it");
+  assert.equal(changeWhen(change({ source: "feed", date: day(6) })), "ประกาศเมื่อ 6 ต.ค. 2569");
+  assert.equal(changeWhen(change({ previousCheckAt: day(20) })), "เปลี่ยนระหว่าง 20 ต.ค. 2569 ถึง 25 ต.ค. 2569");
+  assert.equal(changeWhen(change({ previousCheckAt: day(25) })), "พบเมื่อ 25 ต.ค. 2569", "both on one day");
+  assert.equal(changeWhen(change({})), "พบเมื่อ 25 ต.ค. 2569", "no check before it");
   assert.equal(
-    changeWhen(change({ previousCheckAt: day(20), date: day(22) }), "th"),
+    changeWhen(change({ previousCheckAt: day(20), date: day(22) })),
     "เปลี่ยนระหว่าง 20 ต.ค. 2569 ถึง 25 ต.ค. 2569 · เอกสารลงวันที่ 22 ต.ค. 2569",
   );
-  assert.equal(changeWhen(change({ detectedAt: null }), "th"), null);
+  assert.equal(changeWhen(change({ detectedAt: null })), null);
 });
 
 test("a row is said in the page's own words and units", () => {
@@ -72,29 +71,29 @@ test("a row is said in the page's own words and units", () => {
     after,
   });
 
-  assert.deepEqual(describeRow(row("facts.referencePriceTHB", "3000000", "3100000"), "th"), {
+  assert.deepEqual(describeRow(row("facts.referencePriceTHB", "3000000", "3100000")), {
     label: "ราคากลาง",
     text: "฿3,000,000 → ฿3,100,000",
   });
-  assert.equal(describeRow(row("facts.submissionDeadline", day(20), day(27)), "th")?.text, "20 ต.ค. 2569 → 27 ต.ค. 2569");
-  assert.equal(describeRow(row("facts.deliveryPeriodDays", null, "120"), "th")?.text, "ไม่ระบุ → 120 วัน");
-  assert.equal(describeRow(row("facts.warrantyYears", "1", "2"), "en")?.text, "1 year → 2 years");
-  assert.equal(describeRow(row("technicalRequirements.requiredTechnologies", null, "NGINX Plus"), "th")?.text, "เพิ่ม NGINX Plus");
-  assert.equal(describeRow(row("technicalRequirements.requiredTechnologies", "Redis", null), "en")?.text, "Removed Redis");
-  assert.deepEqual(describeRow(row("document", "a.zip", "b.zip"), "th"), { label: "เอกสาร TOR", text: "มีไฟล์ฉบับใหม่" }, "not the zip names");
+  assert.equal(describeRow(row("facts.submissionDeadline", day(20), day(27)))?.text, "20 ต.ค. 2569 → 27 ต.ค. 2569");
+  assert.equal(describeRow(row("facts.deliveryPeriodDays", null, "120"))?.text, "ไม่ระบุ → 120 วัน");
+  assert.equal(describeRow(row("facts.warrantyYears", "1", "2"))?.text, "1 ปี → 2 ปี");
+  assert.equal(describeRow(row("technicalRequirements.requiredTechnologies", null, "NGINX Plus"))?.text, "เพิ่ม NGINX Plus");
+  assert.equal(describeRow(row("technicalRequirements.requiredTechnologies", "Redis", null))?.text, "ตัด Redis ออก");
+  assert.deepEqual(describeRow(row("document", "a.zip", "b.zip")), { label: "เอกสาร TOR", text: "มีไฟล์ฉบับใหม่" }, "not the zip names");
 
   // Of the standard conditions, only the one the page shows
-  assert.equal(describeRow(row("eligibility.standardConditions", null, "juristic-person"), "th")?.text, "เพิ่มเงื่อนไข เฉพาะนิติบุคคล");
-  assert.equal(describeRow(row("eligibility.standardConditions", null, "not-bankrupt"), "th"), null);
-  assert.equal(describeRow(row("facts.somethingNew", "1", "2"), "th"), null, "a field the page doesn't know");
+  assert.equal(describeRow(row("eligibility.standardConditions", null, "juristic-person"))?.text, "เพิ่มเงื่อนไข เฉพาะนิติบุคคล");
+  assert.equal(describeRow(row("eligibility.standardConditions", null, "not-bankrupt")), null);
+  assert.equal(describeRow(row("facts.somethingNew", "1", "2")), null, "a field the page doesn't know");
 });
 
 test("the changed fields, named once, for a short line", () => {
   assert.equal(
-    changedFields(["facts.referencePriceTHB", "facts.submissionDeadline", "eligibility.standardConditions", "facts.unknown"], "th"),
+    changedFields(["facts.referencePriceTHB", "facts.submissionDeadline", "eligibility.standardConditions", "facts.unknown"]),
     "ราคากลาง, วันยื่นข้อเสนอ",
   );
-  assert.equal(changedFields([], "th"), "");
+  assert.equal(changedFields([]), "");
 });
 
 test("the banner follows the latest change the summary predates", () => {
@@ -106,9 +105,9 @@ test("the banner follows the latest change the summary predates", () => {
   assert.equal(pendingChange([read, fileChanged]), fileChanged);
   assert.equal(pendingChange([fileChanged, announced]), announced);
 
-  assert.equal(pendingNotice(fileChanged).title.th, "ประกาศเชิญชวนเปลี่ยน · สรุปด้านล่างมาจากฉบับก่อนหน้า");
-  assert.match(pendingNotice(fileChanged).body.th, /แสดงตามประกาศล่าสุดแล้ว$/, "the package came: its facts already show");
-  assert.match(pendingNotice(announced).body.th, /ยังไม่ได้ดาวน์โหลด/, "no package yet: nothing new shows");
+  assert.equal(pendingNotice(fileChanged).title, "ประกาศเชิญชวนเปลี่ยน · สรุปด้านล่างมาจากฉบับก่อนหน้า");
+  assert.match(pendingNotice(fileChanged).body, /แสดงตามประกาศล่าสุดแล้ว$/, "the package came: its facts already show");
+  assert.match(pendingNotice(announced).body, /ยังไม่ได้ดาวน์โหลด/, "no package yet: nothing new shows");
 });
 
 test("changed since you saved: found after the reader saved it", () => {

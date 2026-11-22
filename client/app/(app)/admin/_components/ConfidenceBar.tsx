@@ -1,17 +1,17 @@
 import type { SourceHealth } from "../../../_lib/api";
 
-export const HEALTH: Record<SourceHealth, { chip: string; label: { th: string; en: string } }> = {
+export const HEALTH: Record<SourceHealth, { chip: string; label: string }> = {
   ok: {
     chip: "border-open-line bg-open-bg text-open",
-    label: { th: "ปกติ", en: "Healthy" },
+    label: "ปกติ",
   },
   degraded: {
     chip: "border-amend-line bg-amend-bg text-amend",
-    label: { th: "ไม่เสถียร", en: "Degraded" },
+    label: "ไม่เสถียร",
   },
   failed: {
     chip: "border-risk-line bg-risk-bg text-risk",
-    label: { th: "ล้มเหลว", en: "Failing" },
+    label: "ล้มเหลว",
   },
 };
 

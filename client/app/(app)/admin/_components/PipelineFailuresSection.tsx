@@ -6,7 +6,6 @@ import { btn, Panel, SectionHeading } from "../../../_components/ui";
 
 export function PipelineFailuresSection({
   failures,
-  lang,
   onInspect,
   onRetry,
   onRetryAllTransient,
@@ -17,7 +16,6 @@ export function PipelineFailuresSection({
   actionMsg,
 }: {
   failures?: PipelineFailureItem[];
-  lang: "th" | "en";
   onInspect: (projectId: string) => void;
   onRetry: (projectId: string, step: string, runNow?: boolean) => Promise<void>;
   onRetryAllTransient?: () => Promise<void>;
@@ -36,7 +34,7 @@ export function PipelineFailuresSection({
           failureCount > 0 ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] text-risk font-semibold">
-                {failureCount} {lang === "th" ? "รายการที่ติดขัด" : "stuck task(s)"}
+                {failureCount} รายการที่ติดขัด
               </span>
               {onRetryAllTransient ? (
                 <button
@@ -44,26 +42,22 @@ export function PipelineFailuresSection({
                   onClick={onRetryAllTransient}
                   disabled={retryingAll}
                   className={`${btn.primary} text-[11px] py-1 px-2.5 cursor-pointer`}
-                  title={lang === "th" ? "เคลียร์และส่งรายการชั่วคราวทั้งหมดกลับเข้าคิว" : "Bulk retry all transient failures"}
+                  title="เคลียร์และส่งรายการชั่วคราวทั้งหมดกลับเข้าคิว"
                 >
                   {retryingAll ? (
                     <span className="animate-spin inline-block mr-1">↻</span>
                   ) : (
                     <span className="inline-block mr-1">↻</span>
                   )}
-                  {lang === "th" ? "เริ่มใหม่ทั้งหมด (Transient)" : "Retry All Transient"}
+                  เริ่มใหม่ทั้งหมด (Transient)
                 </button>
               ) : null}
             </div>
           ) : null
         }
-        sub={
-          lang === "th"
-            ? "รายการงานที่ติดขัดหรือล้มเหลวระหว่างดาวน์โหลด, OCR หรือสกัดข้อมูลด้วย AI พร้อมคำสั่งสั่งรันใหม่"
-            : "Tasks that stopped or failed during download, OCR, or extraction with diagnostic error codes and retry triggers."
-        }
+        sub="รายการงานที่ติดขัดหรือล้มเหลวระหว่างดาวน์โหลด, OCR หรือสกัดข้อมูลด้วย AI พร้อมคำสั่งสั่งรันใหม่"
       >
-        {lang === "th" ? "งานที่ติดขัดในระบบ (Stuck & Failed Tasks)" : "Stuck & failed pipeline tasks"}
+        งานที่ติดขัดในระบบ (Stuck & Failed Tasks)
       </SectionHeading>
 
       {actionMsg && (
@@ -83,9 +77,7 @@ export function PipelineFailuresSection({
           <div className="flex items-center gap-2.5">
             <span className="text-open text-[16px] font-bold">✓</span>
             <span className="text-[13px] leading-thai text-ink-2 font-medium">
-              {lang === "th"
-                ? "ระบบทำงานราบรื่น — ไม่มีงานที่ติดค้างในขั้นตอน Download, OCR หรือ Extraction"
-                : "All pipeline stages are healthy — no stuck or failed tasks."}
+              ระบบทำงานราบรื่น — ไม่มีงานที่ติดค้างในขั้นตอน Download, OCR หรือ Extraction
             </span>
           </div>
           <span className="text-[11px] text-ink-3">0 failures</span>
@@ -96,13 +88,13 @@ export function PipelineFailuresSection({
             <thead>
               <tr className="border-b border-line bg-surface-2">
                 {[
-                  { text: lang === "th" ? "รหัส / โครงการ" : "Project", right: false },
-                  { text: lang === "th" ? "ขั้นตอน" : "Step", right: false },
-                  { text: lang === "th" ? "ลักษณะปัญหา" : "Nature", right: false },
-                  { text: lang === "th" ? "พยายาม" : "Attempts", right: true },
-                  { text: lang === "th" ? "ข้อความแจ้งเตือนข้อผิดพลาด" : "Diagnostic message", right: false },
-                  { text: lang === "th" ? "เวลาที่พบ" : "Last failed", right: true },
-                  { text: lang === "th" ? "การจัดการ" : "Action", right: true },
+                  { text: "รหัส / โครงการ", right: false },
+                  { text: "ขั้นตอน", right: false },
+                  { text: "ลักษณะปัญหา", right: false },
+                  { text: "พยายาม", right: true },
+                  { text: "ข้อความแจ้งเตือนข้อผิดพลาด", right: false },
+                  { text: "เวลาที่พบ", right: true },
+                  { text: "การจัดการ", right: true },
                 ].map((col) => (
                   <th
                     key={col.text}
@@ -120,7 +112,6 @@ export function PipelineFailuresSection({
                 <PipelineFailureRow
                   key={`${failure.projectId}-${failure.step}`}
                   failure={failure}
-                  lang={lang}
                   onInspect={onInspect}
                   onRetry={onRetry}
                   onDismiss={onDismiss}
@@ -138,7 +129,6 @@ export function PipelineFailuresSection({
 
 export function PipelineFailureRow({
   failure,
-  lang,
   onInspect,
   onRetry,
   onDismiss,
@@ -146,7 +136,6 @@ export function PipelineFailureRow({
   isDismissing,
 }: {
   failure: PipelineFailureItem;
-  lang: "th" | "en";
   onInspect: (projectId: string) => void;
   onRetry: (projectId: string, step: string, runNow?: boolean) => Promise<void>;
   onDismiss: (projectId: string, step: string) => Promise<void>;
@@ -169,7 +158,7 @@ export function PipelineFailureRow({
           type="button"
           onClick={() => onInspect(failure.projectId)}
           className="font-mono text-[12px] font-bold text-ink hover:text-open hover:underline cursor-pointer text-left block"
-          title={lang === "th" ? "คลิกเพื่อตรวจสอบสถานะรายโครงการ" : "Click to inspect record"}
+          title="คลิกเพื่อตรวจสอบสถานะรายโครงการ"
         >
           {failure.projectId} 🔍
         </button>
@@ -186,11 +175,11 @@ export function PipelineFailureRow({
       <td className="px-3 py-2.5">
         {failure.lastTransient ? (
           <span className="inline-flex rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-[2px] text-[10px] font-medium text-amend">
-            {lang === "th" ? "⚠️ ขัดข้องชั่วคราว" : "⚠️ Transient"}
+            ⚠️ ขัดข้องชั่วคราว
           </span>
         ) : (
           <span className="inline-flex rounded-[2px] border border-risk-line bg-risk-bg px-1.5 py-[2px] text-[10px] font-medium text-risk">
-            {lang === "th" ? "❌ ผิดพลาดถาวร" : "❌ Defect"}
+            ❌ ผิดพลาดถาวร
           </span>
         )}
       </td>
@@ -210,9 +199,7 @@ export function PipelineFailureRow({
               onClick={() => setIsExpanded(!isExpanded)}
               className="text-[11px] text-ink-3 underline hover:text-ink cursor-pointer"
             >
-              {isExpanded
-                ? lang === "th" ? "ย่อ" : "Collapse"
-                : lang === "th" ? "ดูเต็ม..." : "Expand..."}
+              {isExpanded ? "ย่อ" : "ดูเต็ม..."}
             </button>
           )}
           <button
@@ -220,9 +207,7 @@ export function PipelineFailureRow({
             onClick={handleCopy}
             className="text-[10px] text-ink-3 hover:text-ink cursor-pointer"
           >
-            {isCopied
-              ? (lang === "th" ? "✓ คัดลอกแล้ว" : "✓ Copied")
-              : (lang === "th" ? "📋 คัดลอก" : "📋 Copy")}
+            {isCopied ? "✓ คัดลอกแล้ว" : "📋 คัดลอก"}
           </button>
         </div>
         {isExpanded && (
@@ -242,14 +227,14 @@ export function PipelineFailureRow({
             disabled={isRetrying || isDismissing}
             className={`${btn.secondary} text-[11px] py-1 px-2.5`}
             aria-label={`Re-queue ${failure.step} for ${failure.projectId}`}
-            title={lang === "th" ? "เคลียร์ข้อผิดพลาดและเข้าคิวรอรอบเวลา" : "Clear error and re-queue for next scheduled run"}
+            title="เคลียร์ข้อผิดพลาดและเข้าคิวรอรอบเวลา"
           >
             {isRetrying ? (
               <span className="animate-spin inline-block mr-1">↻</span>
             ) : (
               "↻ "
             )}
-            {lang === "th" ? "เข้าคิวใหม่" : "Re-queue"}
+            เข้าคิวใหม่
           </button>
           <button
             type="button"
@@ -257,9 +242,9 @@ export function PipelineFailureRow({
             disabled={isRetrying || isDismissing}
             className={`${btn.primary} text-[11px] py-1 px-2.5`}
             aria-label={`Run now ${failure.step} for ${failure.projectId}`}
-            title={lang === "th" ? "สั่งรันขั้นตอนทันทีไม่ต้องรอรอบเวลา" : "Execute step immediately on-demand"}
+            title="สั่งรันขั้นตอนทันทีไม่ต้องรอรอบเวลา"
           >
-            {lang === "th" ? "รันทันที" : "Run Now"}
+            รันทันที
           </button>
           <button
             type="button"
@@ -267,12 +252,12 @@ export function PipelineFailureRow({
             disabled={isRetrying || isDismissing}
             className={`${btn.ghost} text-[11px] py-1 px-2 text-ink-3 hover:text-risk`}
             aria-label={`Dismiss failure for ${failure.projectId}`}
-            title={lang === "th" ? "ยกเว้นข้อผิดพลาดนี้อย่างถาวร" : "Dismiss failure permanently"}
+            title="ยกเว้นข้อผิดพลาดนี้อย่างถาวร"
           >
             {isDismissing ? (
               <span className="animate-spin inline-block mr-1">↻</span>
             ) : null}
-            {lang === "th" ? "ละเว้น" : "Dismiss"}
+            ละเว้น
           </button>
         </div>
       </td>

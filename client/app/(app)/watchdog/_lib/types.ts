@@ -14,93 +14,72 @@ export type TableSort =
   | "price-asc"
   | "newest";
 
-export const TABLE_SORT_OPTIONS: { id: TableSort; label: { th: string; en: string } }[] = [
+export const TABLE_SORT_OPTIONS: { id: TableSort; label: string }[] = [
   {
     id: "lockspec-desc",
-    label: {
-      th: "ความเสี่ยงล็อกสเปกสูงสุด",
-      en: "Highest lock-spec risk",
-    },
+    label: "ความเสี่ยงล็อกสเปกสูงสุด",
   },
   {
     id: "lockspec-asc",
-    label: {
-      th: "ความเสี่ยงล็อกสเปกต่ำสุด",
-      en: "Lowest lock-spec risk",
-    },
+    label: "ความเสี่ยงล็อกสเปกต่ำสุด",
   },
   {
     id: "price-delta-desc",
-    label: {
-      th: "ส่วนต่างราคาเบี่ยงเบนมากที่สุด",
-      en: "Highest price deviation",
-    },
+    label: "ส่วนต่างราคาเบี่ยงเบนมากที่สุด",
   },
   {
     id: "price-delta-asc",
-    label: {
-      th: "ส่วนต่างราคาใกล้เคียงปกติที่สุด",
-      en: "Lowest price deviation",
-    },
+    label: "ส่วนต่างราคาใกล้เคียงปกติที่สุด",
   },
   {
     id: "price-desc",
-    label: {
-      th: "ราคากลางสูงสุด",
-      en: "Highest reference price",
-    },
+    label: "ราคากลางสูงสุด",
   },
   {
     id: "price-asc",
-    label: {
-      th: "ราคากลางต่ำสุด",
-      en: "Lowest reference price",
-    },
+    label: "ราคากลางต่ำสุด",
   },
   {
     id: "newest",
-    label: {
-      th: "ประกาศล่าสุด",
-      en: "Newest announcement",
-    },
+    label: "ประกาศล่าสุด",
   },
 ];
 export type PriceBandId = "all" | "u5" | "5-10" | "10-20" | "20+";
 
 export const PRICE_BAND_OPTIONS: {
   id: PriceBandId;
-  label: { th: string; en: string };
+  label: string;
   min?: number;
   max?: number;
 }[] = [
-  { id: "all", label: { th: "ทุกระดับราคากลาง", en: "All price ranges" } },
-  { id: "u5", label: { th: "ต่ำกว่า 5 ล้านบาท", en: "Under ฿5M" }, max: 5_000_000 },
+  { id: "all", label: "ทุกระดับราคากลาง" },
+  { id: "u5", label: "ต่ำกว่า 5 ล้านบาท", max: 5_000_000 },
   {
     id: "5-10",
-    label: { th: "5 – 10 ล้านบาท", en: "฿5M – ฿10M" },
+    label: "5 – 10 ล้านบาท",
     min: 5_000_000,
     max: 10_000_000,
   },
   {
     id: "10-20",
-    label: { th: "10 – 20 ล้านบาท", en: "฿10M – ฿20M" },
+    label: "10 – 20 ล้านบาท",
     min: 10_000_000,
     max: 20_000_000,
   },
-  { id: "20+", label: { th: "เกิน 20 ล้านบาทขึ้นไป", en: "Over ฿20M" }, min: 20_000_000 },
+  { id: "20+", label: "เกิน 20 ล้านบาทขึ้นไป", min: 20_000_000 },
 ];
 
 export const PRICE_PRESETS: {
   id: string;
-  label: { th: string; en: string };
+  label: string;
   min: number;
   max: number; // 0 = unconstrained
 }[] = [
-  { id: "all", label: { th: "ทุกช่วงราคา", en: "All prices" }, min: 0, max: 0 },
-  { id: "u5", label: { th: "ต่ำกว่า 5M", en: "< ฿5M" }, min: 0, max: 5_000_000 },
-  { id: "5-10", label: { th: "5M – 10M", en: "฿5M – ฿10M" }, min: 5_000_000, max: 10_000_000 },
-  { id: "10-20", label: { th: "10M – 20M", en: "฿10M – ฿20M" }, min: 10_000_000, max: 20_000_000 },
-  { id: "20+", label: { th: "เกิน 20M+", en: "> ฿20M" }, min: 20_000_000, max: 0 },
+  { id: "all", label: "ทุกช่วงราคา", min: 0, max: 0 },
+  { id: "u5", label: "ต่ำกว่า 5M", min: 0, max: 5_000_000 },
+  { id: "5-10", label: "5M – 10M", min: 5_000_000, max: 10_000_000 },
+  { id: "10-20", label: "10M – 20M", min: 10_000_000, max: 20_000_000 },
+  { id: "20+", label: "เกิน 20M+", min: 20_000_000, max: 0 },
 ];
 
 export type TimePoint = {
