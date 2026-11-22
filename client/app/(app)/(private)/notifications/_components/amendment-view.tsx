@@ -4,20 +4,8 @@ import Link from "next/link";
 import { ExternalLink, FileText } from "lucide-react";
 import { Panel } from "../../../../_components/ui";
 import { formatTHB } from "../../../../_data/tors";
+import { formatThaiDateTime as formatThaiDate } from "../../../../_lib/deadline";
 import type { AmendmentSnapshot } from "../../../../_lib/api";
-
-function formatThaiDate(dateStr?: string | Date | null) {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 type SingleAmendmentItem = {
   projectId: string;

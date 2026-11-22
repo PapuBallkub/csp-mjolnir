@@ -1,8 +1,8 @@
-import { formatDate } from "./format.ts";
+import { BANGKOK_OFFSET_MS, formatDate } from "./format.ts";
 
 // Deadlines are set in Thai time, so "days left" counts Bangkok calendar days (UTC+7)
 const DAY = 24 * 60 * 60 * 1000;
-const BANGKOK = 7 * 60 * 60 * 1000;
+const BANGKOK = BANGKOK_OFFSET_MS;
 const bangkokDay = (time: number) => Math.floor((time + BANGKOK) / DAY);
 
 export function daysLeft(deadline: string, now: Date = new Date()): number {
@@ -43,6 +43,20 @@ export function countdownText(days: number): { text: string; tone: string } {
 
 /** e.g. "19 ต.ค. 2569", in Thai time; the Thai year is the Buddhist one */
 export function formatThaiDate(iso: string): string {
-  const date = new Date(new Date(iso).getTime() + BANGKOK);
-  return formatDate(date.toISOString().slice(0, 10));
+  return formatDate(iso);
+}
+
+/** Formats a date-time in Bangkok time (UTC+7) with Thai Buddhist year and HH:mm. e.g. "20 พ.ย. 2569 16:05" */
+export function formatThaiDateTime(dateStr?: string | Date | null): string {
+  if (!dateStr) return "-";
+  const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
+  if (isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString("th-TH", {
+    timeZone: "Asia/Bangkok",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

@@ -349,6 +349,20 @@ export async function getDynamicReviewQueue() {
   }
 }
 
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+function toBangkokDateString(val) {
+  if (!val) return null;
+  if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+  const d = typeof val === 'string' ? new Date(val) : val;
+  if (!d || Number.isNaN(d.getTime())) return null;
+  const bkk = new Date(d.getTime() + BANGKOK_OFFSET_MS);
+  const y = bkk.getUTCFullYear();
+  const m = String(bkk.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(bkk.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 /**
  * Retrieves a single normalized TOR document for detailed admin review (FR-23).
  */
@@ -390,22 +404,16 @@ export async function getTorReviewItem(projectId) {
     // 2. Key Facts
     budgetTHB: tor?.budgetTHB ?? insight?.facts?.budgetTHB ?? null,
     referencePriceTHB: tor?.referencePriceTHB ?? insight?.facts?.referencePriceTHB ?? null,
-    submissionDeadline: tor?.submissionDeadline
-      ? new Date(tor.submissionDeadline).toISOString().slice(0, 10)
-      : insight?.facts?.submissionDeadline
-      ? new Date(insight.facts.submissionDeadline).toISOString().slice(0, 10)
-      : null,
-    commentDeadline: insight?.facts?.commentDeadline
-      ? new Date(insight.facts.commentDeadline).toISOString().slice(0, 10)
-      : null,
+    submissionDeadline: toBangkokDateString(
+      tor?.submissionDeadline ?? insight?.facts?.submissionDeadline,
+    ),
+    commentDeadline: toBangkokDateString(insight?.facts?.commentDeadline),
     deliveryPeriodDays: insight?.facts?.deliveryPeriodDays ?? null,
     procurementMethod: insight?.facts?.procurementMethod || null,
     contractDurationDays: insight?.facts?.contractDurationDays ?? null,
     warrantyYears: insight?.facts?.warrantyYears ?? null,
     penaltyClause: insight?.facts?.penaltyClause || null,
-    postedDate: insight?.facts?.postedDate
-      ? new Date(insight.facts.postedDate).toISOString().slice(0, 10)
-      : null,
+    postedDate: toBangkokDateString(insight?.facts?.postedDate),
 
     // 3. Project Overview
     objective: insight?.overview?.objective || null,
@@ -465,9 +473,7 @@ export async function getTorReviewItem(projectId) {
     // 10. Amendment Information
     amendmentInfo: {
       isAmended: Boolean(insight?.amendmentInfo?.isAmended),
-      lastAmendedDate: insight?.amendmentInfo?.lastAmendedDate
-        ? new Date(insight.amendmentInfo.lastAmendedDate).toISOString().slice(0, 10)
-        : null,
+      lastAmendedDate: toBangkokDateString(insight?.amendmentInfo?.lastAmendedDate),
       amendmentSummary: insight?.amendmentInfo?.amendmentSummary || '',
       changedSections: insight?.amendmentInfo?.changedSections || [],
     },
@@ -500,11 +506,9 @@ export async function getTorReviewItem(projectId) {
       agency: insight?.identification?.agency || tor?.agency || '',
       budgetTHB: tor?.budgetTHB ?? insight?.facts?.budgetTHB ?? null,
       referencePriceTHB: tor?.referencePriceTHB ?? insight?.facts?.referencePriceTHB ?? null,
-      submissionDeadline: tor?.submissionDeadline
-        ? new Date(tor.submissionDeadline).toISOString().slice(0, 10)
-        : insight?.facts?.submissionDeadline
-        ? new Date(insight.facts.submissionDeadline).toISOString().slice(0, 10)
-        : null,
+      submissionDeadline: toBangkokDateString(
+        tor?.submissionDeadline ?? insight?.facts?.submissionDeadline,
+      ),
       ingestedAt: insight?.metadata?.processedAt
         ? new Date(insight.metadata.processedAt).toISOString().slice(0, 16).replace('T', ' ')
         : new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -1736,7 +1740,8 @@ export async function addManualProcurementRecord({ projectId }) {
 
   if (!tor) {
     const error = new Error(
-      `Could not add project ${cleanId}: e-GP returned no announcement package or the announcement has no readable title.`,
+      `Could not add project ${cleanId}: e-GP returned no announcement package, the announcement has no readable title, ` +
+        'or its files could not be scanned (ClamAV not running, or it flagged a file). The server log says which.',
     );
     error.status = 422;
     throw error;

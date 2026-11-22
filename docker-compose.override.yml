@@ -56,5 +56,12 @@ services:
       mongo:
         condition: service_healthy
 
+  # For the pipeline run on this computer (npm run pipeline, npm run job), with
+  # CLAMD_HOST=127.0.0.1 in server/.env. Loopback only, like mongo: clamd
+  # answers anyone who can reach it, with no password.
+  clamav:
+    ports:
+      - "127.0.0.1:3310:3310"
+
 volumes:
   mongo-data:

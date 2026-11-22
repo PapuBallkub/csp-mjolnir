@@ -887,6 +887,7 @@ To ensure users can check facts against the authoritative government document wi
    - **Part 2 (Announcement Letter):** The formal invitation notice stating ราคากลาง and submission dates (`annoudoc_*.pdf`).
 3. **Stored files only (`GET /api/tors/:projectId/preview`, [0038](../decisions/0038-preview-serves-stored-files-only.md)):**
    - Serves the file the pipeline stored: from the newest package (or the one `zipId` or `version` names), then the TOR's own document and its parts. It works during e-GP outages, because it never calls e-GP.
+   - Serves only a file the virus scan passed ([0040](../decisions/0040-files-are-scanned-before-they-are-kept.md)). One not scanned yet, or one the scan flagged, is withheld, never swapped for an older package's copy.
    - Serves documents with `Content-Type: application/pdf` and `Content-Disposition: inline`, bypassing external iframe embedding (CORS/X-Frame-Options) restrictions. Thai file names arrive intact (`filename*`).
    - Limited to 60 previews per 10 minutes per address, shared with `/pdf` ([0007](../decisions/0007-rate-limiting-on-the-auth-routes.md)).
    - When there's no file, the viewer says why, from the server's code, and keeps the e-GP button:
@@ -895,6 +896,8 @@ To ensure users can check facts against the authoritative government document wi
      | :--- | :--- |
      | 404 `DOCUMENT_NOT_STORED` | TOR tab: "ยังไม่มีสำเนาเอกสารนี้ในระบบของเรา" (we have no copy yet) and "เปิดดูฉบับจริงบน e-GP ได้เลย". Bidding and announcement tabs keep their own "not in this package" wording |
      | 404 `NO_PUBLIC_DOCUMENT_FOR_METHOD` | The procurement-method explanation (direct, selective, e-market), unchanged |
+     | 404 `DOCUMENT_NOT_SCANNED` | "เอกสารนี้ยังตรวจความปลอดภัยไม่เสร็จ" (the safety check isn't done yet) and "ลองใหม่ภายหลัง หรือเปิดดูฉบับจริงบน e-GP ได้เลย". No retry button: it won't change in seconds |
+     | 404 `DOCUMENT_BLOCKED` | "เราไม่แสดงไฟล์นี้" (we don't show this file), saying it didn't pass the automatic check and that the check can be wrong ("ผลตรวจอาจผิดพลาดได้"). It names no one and accuses no one |
      | 429 | "เปิดดูเอกสารบ่อยเกินไป" (too many documents opened) with a "ลองใหม่" (try again) button |
      | Network error, 5xx, 400, or not a PDF | "เปิดเอกสารไม่สำเร็จ" (the document didn't load) with "ลองใหม่" |
 4. **Session History Protection:** The client fetches the PDF stream as a Blob object URL in memory rather than directing the iframe directly to a URL. This prevents iframe subframe navigations from polluting the browser's top-level session history (`window.history`), preserving expected browser back-button behavior.

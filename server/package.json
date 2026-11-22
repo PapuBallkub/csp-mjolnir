@@ -22,6 +22,7 @@
     "ingest:download": "node src/pipeline/ingestion/ingest.js --step download",
     "ingest:ocr": "node src/pipeline/ingestion/ingest.js --step ocr",
     "ingest:add": "node src/pipeline/ingestion/ingest.js --step add",
+    "ingest:scan": "node src/pipeline/ingestion/ingest.js --step scan",
     "history:import": "node src/pipeline/ingestion/import-history.js",
     "agencies:fetch": "node scripts/fetch-egp-agencies.js",
     "gemini:check": "node scripts/check-gemini.js",

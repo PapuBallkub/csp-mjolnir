@@ -7,6 +7,7 @@ import type {
   WatchdogProjectRecord,
 } from "../../../_data/watchdog";
 import type { TorInsightSummary } from "../../../_lib/api";
+import { getBangkokDateParts } from "../../../_lib/format.ts";
 
 export const THAI_MONTHS_SHORT = [
   "ม.ค.",
@@ -188,9 +189,9 @@ export function mapApiTorToWatchdog(tor: TorInsightSummary): WatchdogProjectReco
   if (refPrice <= 0) return null;
 
   const rawDate = tor.facts.postedDate || tor.createdAt || "2026-10-01";
-  const parsedDate = new Date(rawDate);
-  const isoDate = !Number.isNaN(parsedDate.getTime())
-    ? parsedDate.toISOString().slice(0, 10)
+  const parts = getBangkokDateParts(rawDate);
+  const isoDate = parts
+    ? `${parts.year}-${String(parts.month + 1).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`
     : "2026-10-01";
   const month = isoDate.slice(0, 7);
 

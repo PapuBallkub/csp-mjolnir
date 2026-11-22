@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { env } from '#common/config/env.js';
-import { getDocumentsDir } from '#common/paths.js';
+import { locateStoredFile } from '#common/paths.js';
 import { escapeRegex } from '#common/utils/escape-regex.js';
 import { Tor, TorInsight } from '#models/index.js';
 
@@ -574,32 +574,6 @@ function publicDocument(document) {
   return { fileName, sizeBytes, pages, documentType };
 }
 
-/**
- * Where a stored file is on this machine, or null. Nothing outside the
- * documents folder is ever opened (ASVS V5.3.2).
- *
- * The pipeline records absolute paths, and those differ between machines: a
- * laptop writes D:\…\server\data\documents\…, a container /app/data/documents/….
- * A recorded path is used as it is only when it already points inside this
- * machine's documents folder. Otherwise the part after its last segment named
- * like that folder is looked for under ours, so a database filled on a laptop
- * still works with the server in Docker.
- */
-function locateStoredFile(storagePath) {
-  if (typeof storagePath !== 'string' || storagePath === '') return null;
-  const root = path.resolve(getDocumentsDir());
-  const inside = (candidate) => candidate.startsWith(root + path.sep);
-
-  const asRecorded = path.resolve(storagePath);
-  if (inside(asRecorded)) return asRecorded;
-
-  const segments = storagePath.split(/[\\/]+/);
-  const at = segments.lastIndexOf(path.basename(root));
-  if (at === -1) return null;
-  const moved = path.resolve(root, ...segments.slice(at + 1));
-  return inside(moved) ? moved : null;
-}
-
 /** The file's size if `filePath` is a regular file, else null. */
 function sizeOf(filePath) {
   try {
@@ -626,8 +600,11 @@ function publishesNoDocuments(tor) {
  * visitor's click must not start a download of its own (ADR 0038).
  *
  * Looks in this order: the packages (newest first, or the one `zipId` or
- * `version` picks), then the TOR's own document and its parts, then, for a
- * bidding document or announcement with no record, the project's folder.
+ * `version` picks), then the TOR's own document and its parts. Only a file
+ * the virus scan passed is served: one with no clean result is withheld,
+ * never swapped for an older package's copy, which would show a superseded
+ * document without saying so. A file with no record isn't served at all,
+ * since it has nowhere to keep a scan result.
  *
  * @param {string} projectId - 11-digit e-GP project ID
  * @param {object} [options] - already checked by the controller
@@ -638,8 +615,11 @@ function publishesNoDocuments(tor) {
  * @returns {Promise<
  *   | { file: { path: string, fileName: string, size: number } }
  *   | { reason: 'no-tor' }
- *   | { reason: 'not-stored' | 'no-public-document', procurementMethod: string|null, title: string|null }
+ *   | { reason: 'not-stored' | 'no-public-document' | 'not-scanned' | 'blocked',
+ *       procurementMethod: string|null, title: string|null }
  * >}
+ *   'not-scanned': stored, but not scanned yet. 'blocked': ClamAV flagged it,
+ *   or its bytes aren't the type its name says.
  */
 export async function findStoredDocument(projectId, { part = 0, role = null, zipId = null, version = null } = {}) {
   if (!projectId || typeof projectId !== 'string') return { reason: 'no-tor' };
@@ -660,12 +640,24 @@ export async function findStoredDocument(projectId, { part = 0, role = null, zip
   // A record that names a file we can't find: the container was recreated
   // without its volume, or the path points outside the documents folder
   let recordedButMissing = false;
-  const fromRecord = (storagePath, fileName) => {
-    if (!storagePath) return null;
-    const filePath = locateStoredFile(storagePath);
+  // Why the file picked isn't served, once one is: 'blocked' or 'not-scanned'
+  let withheld = null;
+  const fromRecord = (record, fileName) => {
+    if (!record?.storagePath) return null;
+    const result = record.scan?.result ?? 'unscanned';
+    // Before the disk: a flagged file's bytes are deleted on purpose
+    if (result === 'infected' || result === 'wrong-type') {
+      withheld = 'blocked';
+      return null;
+    }
+    const filePath = locateStoredFile(record.storagePath);
     const size = filePath ? sizeOf(filePath) : null;
     if (size === null) {
       recordedButMissing = true;
+      return null;
+    }
+    if (result !== 'clean') {
+      withheld = 'not-scanned';
       return null;
     }
     return { path: filePath, fileName: fileName || path.basename(filePath), size };
@@ -682,57 +674,30 @@ export async function findStoredDocument(projectId, { part = 0, role = null, zip
       candidatePackages = [tor.packages[version - 1]];
     }
 
-    for (let i = candidatePackages.length - 1; i >= 0 && !file; i--) {
+    for (let i = candidatePackages.length - 1; i >= 0 && !file && !withheld; i--) {
       const matched = candidatePackages[i]?.files?.find?.((f) => f.role === targetRole);
-      if (matched) file = fromRecord(matched.storagePath, matched.fileName);
+      if (matched) file = fromRecord(matched, matched.fileName);
     }
   }
 
-  if (!file && targetRole === 'tor') {
+  if (!file && !withheld && targetRole === 'tor') {
     const parts = tor.document?.parts;
     if (part > 0 && Array.isArray(parts) && parts[part]) {
-      file = fromRecord(parts[part].storagePath, parts[part].fileName);
+      file = fromRecord(parts[part], parts[part].fileName);
     } else if (tor.document?.storagePath) {
-      file = fromRecord(tor.document.storagePath, tor.document.fileName || `${id}_TOR.pdf`);
-    }
-  }
-
-  // Files with no record yet: e-GP's own names for the bidding document
-  // (doc_…) and the announcement (annoudoc…) in the project's folder. PR 07
-  // decides whether this stays, since a scan result needs a record to sit on.
-  if (!file && (targetRole === 'bidding' || targetRole === 'announcement')) {
-    const projectDir = locateStoredFile(path.join(getDocumentsDir(), id));
-    const prefixes = targetRole === 'bidding' ? ['doc_', 'bidding'] : ['annoudoc', 'announ'];
-    let entries = [];
-    try {
-      entries = projectDir ? fs.readdirSync(projectDir, { recursive: true }) : [];
-    } catch {
-      // No folder for this project
-    }
-    for (const entry of entries) {
-      const base = path.basename(String(entry)).toLowerCase();
-      if (!base.endsWith('.pdf')) continue;
-      if (!(base.startsWith(prefixes[0]) || base.includes(prefixes[1]))) continue;
-      const filePath = locateStoredFile(path.join(projectDir, String(entry)));
-      const size = filePath ? sizeOf(filePath) : null;
-      if (size !== null) {
-        file = { path: filePath, fileName: path.basename(filePath), size };
-        break;
-      }
+      file = fromRecord(tor.document, tor.document.fileName || `${id}_TOR.pdf`);
     }
   }
 
   if (file) return { file };
 
+  const about = { procurementMethod: tor.procurementMethod || null, title: tor.title || null };
+  if (withheld) return { reason: withheld, ...about };
   if (recordedButMissing) {
     // The project ID only: the recorded path is the server's business
     console.warn(`[preview] ${id}: a recorded ${targetRole} file is missing or outside the documents folder`);
   }
-  return {
-    reason: publishesNoDocuments(tor) ? 'no-public-document' : 'not-stored',
-    procurementMethod: tor.procurementMethod || null,
-    title: tor.title || null,
-  };
+  return { reason: publishesNoDocuments(tor) ? 'no-public-document' : 'not-stored', ...about };
 }
 
 

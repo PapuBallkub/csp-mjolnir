@@ -121,3 +121,15 @@ date shows without paying for another extraction.
   time; the opening time is kept in the package for the page to show later.
 - **A draft's comment deadline is still unknown:** no document states it
   ([0019](0019-stage-badges-and-deadlines-that-say-what-for.md)).
+
+## Update · 2026-11-22: only five file types are kept, and only after a scan
+
+"Any other file that isn't a known blank form" is narrower since
+[0040](0040-files-are-scanned-before-they-are-kept.md). A file is kept only
+when it's a PDF, Excel or Word file (`.pdf`, `.xls`, `.xlsx`, `.doc`, `.docx`)
+whose first bytes match its name, and only after ClamAV has scanned it. A file
+that fails the type check is dropped and named in the package's `problems`;
+one ClamAV flags fails the whole package. A zip is now refused before it's
+unpacked if it holds more than 100 files or unpacks to more than the limits in
+0040. The packages measured on 2026-11-22 held only PDF and Excel files, so the
+TOR, the announcement and the bidding document are found as before.

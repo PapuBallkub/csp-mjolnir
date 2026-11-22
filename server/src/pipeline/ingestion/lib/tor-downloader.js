@@ -5,7 +5,9 @@
  * 1. A project's announcement package, keeping its project files and reading
  *    its announcement in code (downloadEgpPackage, ADR 0020).
  * 2. A single PDF from a direct URL (downloadTorPdf).
- * Every download is capped at 50 MB and paced (ADR 0016).
+ * Every download is capped at 50 MB and paced (ADR 0016). A package is
+ * unpacked only within limits, and each file it keeps passes a type check and
+ * the virus scan before it's parsed or written (file-checks.js).
  */
 
 import crypto from 'node:crypto';
@@ -19,6 +21,7 @@ import { paceRequest } from '../../shared/request-pacer.js';
 import { USER_AGENT } from '../../shared/user-agent.js';
 import { convertThaiDigitsToArabic } from '../../shared/thai-text.js';
 import { baseName, pickTorFiles, readPackageFacts, readPriceForm, roleOfEntry } from './egp-package.js';
+import { checkKeptFiles, zipLimitProblem, zipLimitsFor } from './file-checks.js';
 import { extractText } from './ocr.js';
 import { textLayerOf } from './text-layer.js';
 
@@ -29,6 +32,8 @@ const MAX_PDF_SIZE_BYTES = 50 * 1024 * 1024; // 50MB safety limit for large scan
 // EGP_PACKAGE_MAX_MB raises the limit for a retry by hand.
 const parsedPackageMb = Number.parseInt(process.env.EGP_PACKAGE_MAX_MB ?? '', 10);
 const MAX_PACKAGE_SIZE_BYTES = (parsedPackageMb > 0 ? parsedPackageMb : 200) * 1024 * 1024;
+// What a package may unpack to follows the same setting
+const ZIP_LIMITS = zipLimitsFor(MAX_PACKAGE_SIZE_BYTES);
 
 // Who we are, honestly: no browser's name, no page we didn't come from
 const EGP_SERVICE_HEADERS = {
@@ -192,11 +197,14 @@ export async function lookupPackage({ kind, projectId, pace = paceRequest }) {
  * Asks e-GP for a project's current package of one kind, and downloads it
  * unless it's one already downloaded.
  *
+ * A zip over `limits` is refused from its central directory, before any
+ * entry is unpacked (ASVS V5.2.3).
+ *
  * @returns {Promise<
  *   | { failed: object } | { none: true } | { unchanged: true, zipId: string }
  *   | { zipId: string, name: string, entries: { name: string, data: Buffer }[] }>}
  */
-async function fetchPackage({ kind, projectId, knownZipIds, maxSizeBytes, pace }) {
+async function fetchPackage({ kind, projectId, knownZipIds, maxSizeBytes, limits, pace }) {
   const found = await lookupPackage({ kind, projectId, pace });
   if (found.failed || found.none) return found;
   const { zipId } = found;
@@ -229,10 +237,16 @@ async function fetchPackage({ kind, projectId, knownZipIds, maxSizeBytes, pace }
     return { zipId, name, entries: [{ name: `${projectId}.pdf`, data: buffer }] };
   }
   try {
-    const entries = new AdmZip(buffer)
-      .getEntries()
-      .filter((entry) => !entry.isDirectory)
-      .map((entry) => ({ name: entry.entryName, data: entry.getData() }));
+    const listed = new AdmZip(buffer).getEntries().filter((entry) => !entry.isDirectory);
+    const tooMuch = zipLimitProblem(
+      listed.map((entry) => ({ name: entry.entryName, size: entry.header.size })),
+      limits,
+    );
+    // The same bytes stop at the same limit: no use downloading them again
+    if (tooMuch) {
+      return { failed: { success: false, error: `e-GP package ${name} for ${projectId} ${tooMuch}.`, final: true } };
+    }
+    const entries = listed.map((entry) => ({ name: entry.entryName, data: entry.getData() }));
     return { zipId, name, entries };
   } catch (err) {
     return { failed: { success: false, error: `e-GP package ${name} for ${projectId} is not a zip: ${err.message}` } };
@@ -256,34 +270,46 @@ const packageFolder = (documentsDir, projectId, { name, zipId }) =>
  * @param {string[]} [params.knownZipIds] - Packages already downloaded: if
  *   e-GP's current one is among them, nothing is downloaded
  * @param {number} [params.maxSizeBytes]
+ * @param {object} [params.limits] - What the package may unpack to (zipLimitsFor)
+ * @param {((data: Buffer) => Promise<object>) | null} [params.scan] - The virus
+ *   scanner (clamd.js); null keeps the files unscanned, never served
  * @param {Date} [params.now]
  * @param {Function} [params.pace] - Waits before each request (NFR-03); replaced in tests
  * @returns {Promise<
  *   | { success: true, unchanged: true, zipId: string }
  *   | { success: true, unchanged: false, package: object, tor: object }
- *   | { success: false, error: string, transient?: boolean }>}
- *   `transient` is true when e-GP didn't answer, so trying again later may work.
+ *   | { success: false, error: string, transient?: boolean, final?: boolean }>}
+ *   `transient` is true when e-GP or the scanner didn't answer, so trying again
+ *   later may work; `final` when trying again can only fail the same way.
  */
 export async function downloadEgpPackage({
   projectId,
   documentsDir,
   knownZipIds = [],
   maxSizeBytes = MAX_PACKAGE_SIZE_BYTES,
+  limits = ZIP_LIMITS,
+  scan = null,
   now = new Date(),
   pace = paceRequest,
 }) {
-  const fetched = await fetchPackage({ kind: 'announcement', projectId, knownZipIds, maxSizeBytes, pace });
+  const fetched = await fetchPackage({ kind: 'announcement', projectId, knownZipIds, maxSizeBytes, limits, pace });
   if (fetched.failed) return fetched.failed;
   // The price package is not a stand-in: its one page is a price form, not a TOR
   if (fetched.none) return { success: false, error: `No announcement package in e-GP for project ${projectId}.` };
   if (fetched.unchanged) return { success: true, unchanged: true, zipId: fetched.zipId };
-  const { zipId, name, entries } = fetched;
+  const { zipId, name } = fetched;
+
+  // e-GP's blank forms are dropped unread; the rest is checked before anything parses it
+  const checked = await checkKeptFiles(
+    fetched.entries.filter((entry) => roleOfEntry(entry.name) !== 'form'),
+    { scan, label: `e-GP package ${name} for ${projectId}`, now },
+  );
+  if (checked.failed) return checked.failed;
 
   const files = [];
   const texts = {};
-  for (const entry of entries) {
+  for (const entry of checked.entries) {
     const role = roleOfEntry(entry.name);
-    if (role === 'form') continue;
     const file = {
       role,
       fileName: safeFileName(entry.name),
@@ -292,6 +318,7 @@ export async function downloadEgpPackage({
       data: entry.data,
       pages: null,
       textLayer: null,
+      scan: entry.scan,
     };
     if (/\.pdf$/i.test(file.fileName)) {
       const { text, pages } = await readPdf(entry.data);
@@ -324,6 +351,7 @@ export async function downloadEgpPackage({
     announcementText: texts.announcement,
     biddingText: texts.bidding,
   });
+  problems.unshift(...checked.problems);
   if (files.some((file) => file.role === 'announcement') && !texts.announcement) {
     problems.push('The announcement has no readable text layer');
   }
@@ -361,8 +389,9 @@ function torDocumentOf(parts) {
     // Only when there are several: OCR reads them in order as one document
     parts:
       parts.length > 1
-        ? parts.map(({ fileName, storagePath, pages, contentHash }) => ({ fileName, storagePath, pages, contentHash }))
+        ? parts.map(({ fileName, storagePath, pages, contentHash, scan }) => ({ fileName, storagePath, pages, contentHash, scan }))
         : [],
+    scan: first.scan ?? null,
   };
 }
 
@@ -388,21 +417,26 @@ export async function downloadEgpPricePackage({
   documentsDir,
   knownZipIds = [],
   maxSizeBytes = MAX_PACKAGE_SIZE_BYTES,
+  limits = ZIP_LIMITS,
+  scan = null,
   now = new Date(),
   pace = paceRequest,
   ocr = extractText,
   announcedReferencePrice = null,
 }) {
-  const fetched = await fetchPackage({ kind: 'price', projectId, knownZipIds, maxSizeBytes, pace });
+  const fetched = await fetchPackage({ kind: 'price', projectId, knownZipIds, maxSizeBytes, limits, pace });
   if (fetched.failed) return fetched.failed;
   if (fetched.none) return { success: true, none: true };
   if (fetched.unchanged) return { success: true, unchanged: true, zipId: fetched.zipId };
-  const { zipId, name, entries } = fetched;
+  const { zipId, name } = fetched;
+
+  const checked = await checkKeptFiles(fetched.entries, { scan, label: `e-GP price package ${name} for ${projectId}`, now });
+  if (checked.failed) return checked.failed;
 
   const folder = packageFolder(documentsDir, projectId, { name, zipId });
   await fs.mkdir(folder, { recursive: true });
   const files = [];
-  for (const entry of entries) {
+  for (const entry of checked.entries) {
     const file = {
       role: 'other',
       fileName: safeFileName(entry.name),
@@ -411,6 +445,7 @@ export async function downloadEgpPricePackage({
       contentHash: computeContentHash(entry.data),
       pages: null,
       textLayer: null,
+      scan: entry.scan,
     };
     await fs.writeFile(file.storagePath, entry.data);
     files.push(file);
@@ -419,7 +454,7 @@ export async function downloadEgpPricePackage({
   // The form: pB0.pdf, the only file in every price package we've seen
   const pdfs = files.filter((file) => /\.pdf$/i.test(file.fileName));
   const form = pdfs.find((file) => /^pb0\.pdf$/i.test(file.fileName)) ?? pdfs[0];
-  const problems = [];
+  const problems = [...checked.problems];
   let text = '';
   if (form) {
     form.role = 'price-form';

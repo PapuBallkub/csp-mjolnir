@@ -340,6 +340,8 @@ test('production without SMTP refuses password sign-up with a 503, before any lo
       MONGO_URI: 'mongodb://127.0.0.1:1/never-connected',
       JWT_SECRET: 'test-not-a-secret-test-not-a-secret',
       PASSWORD_PEPPER: 'test-not-a-pepper-test-not-a-pepper',
+      // Required in production since #358, like the two secrets
+      CORS_ORIGIN: 'https://gipdp.example.com',
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
     },
   });

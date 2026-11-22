@@ -311,6 +311,16 @@ or one TOR's with `--id`. It takes:
   project won't get one later.
 
 What it does with a package:
+- **Checks it before keeping anything**
+  ([0040](decisions/0040-files-are-scanned-before-they-are-kept.md)):
+  - a zip over 100 files, or unpacking to more than 200 MB in one file or
+    400 MB in all, is refused before it's unpacked;
+  - only PDF, Excel and Word files whose first bytes match their names are
+    kept; any other file is dropped and named in the package's problems;
+  - every file kept is scanned by ClamAV first. A file ClamAV flags, or one
+    too large to scan, fails the whole package: nothing of it is kept, and it
+    isn't tried again until `--retry-failed`. A scanner that stops answering
+    mid-run is a passing failure, tried again next run.
 - **Keeps the project files** in `server/data/documents/<projectId>/<package>/`:
   the announcement, the bidding document, the TOR (in one file or several),
   and any extra file. e-GP's blank forms are left out.
@@ -333,6 +343,12 @@ npm run ingest:download -- --id 69109028093
 `--id` works on a project already in the database. For one that isn't, use
 `ingest:add`.
 
+**It needs ClamAV** (`CLAMD_HOST`; start it with `docker compose up -d clamav`).
+If `CLAMD_HOST` is set and clamd doesn't answer, the step doesn't start, so no
+e-GP request is wasted. With `CLAMD_HOST` unset, production downloads nothing;
+anywhere else the files are kept marked unscanned, with a warning, and the
+preview withholds them until `ingest:scan`. `ingest:add` works the same way.
+
 ### `npm run ingest:add`
 **Adds a project found by hand,** one the feed never showed us, from e-GP's
 own documents:
@@ -348,6 +364,33 @@ pipeline`) pick it up next. A project already in the database is refused.
 ```
 npm run ingest:add -- --id 69109028093
 ```
+
+### `npm run ingest:scan`
+**Scans the files already stored** that have no result yet: those kept before
+files were scanned, and those a machine with no scanner kept
+([0040](decisions/0040-files-are-scanned-before-they-are-kept.md)). For each
+file it checks the type, sends it to ClamAV, and writes the result on every
+record of that file. The preview serves only files marked clean.
+- **A file ClamAV flags is deleted**; its records stay, saying what was found,
+  and the preview shows "blocked".
+- **A file whose bytes aren't its type** stays on disk and is never served.
+- **A file too large to scan** stays unscanned, never served.
+- **If ClamAV stops answering,** the step stops.
+
+It writes to the database and deletes files, so check which database
+`MONGO_URI` points at first. Run it once after the deploy that brought
+scanning, since every file stored before then has no result.
+
+```
+npm run ingest:scan                  # files with no result yet
+npm run ingest:scan -- --id 69109028093
+npm run ingest:scan -- --all         # clean files too, with today's signatures
+npm run ingest:scan -- --self-test   # is ClamAV up and matching? Touches no database
+```
+
+`--self-test` sends the EICAR test string, built in memory, and passes only if
+ClamAV flags it. It reads no stored file and never connects to MongoDB, so it's
+safe on any machine, production included.
 
 ### `npm run ingest:ocr`
 **Extracts the text**, in two passes over workable TORs and the past

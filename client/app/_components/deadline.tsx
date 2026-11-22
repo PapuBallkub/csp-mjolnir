@@ -1,4 +1,5 @@
-import { daysUntil, formatDate, type Status } from "../_data/tors";
+import type { Status } from "../_data/tors";
+import { daysUntil, formatDate } from "../_lib/format";
 import type { TorStatus } from "../_lib/api";
 import { deadlineOf } from "../_lib/stage";
 import { isDead } from "./verdict";
