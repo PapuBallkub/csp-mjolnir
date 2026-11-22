@@ -88,7 +88,7 @@ export function createApp({
   // Guarded inside the feature rather than here: the router applies
   // requireAuth and requireRole('admin') to everything mounted under it, so a
   // route added later cannot be left open by forgetting a middleware. See 0011.
-  app.use('/api/admin', createAdminRoutes(limits));
+  app.use('/api/admin', createAdminRoutes(limits, { mail }));
   app.use('/api/tors', createTorRoutes(limits));
   app.use('/api/technologies', createTechnologyRoutes(limits));
   app.use('/api/profile', createProfileRoutes());

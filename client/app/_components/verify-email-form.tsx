@@ -2,29 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import type { ApiError } from "../_lib/api";
 import { useAuth } from "./auth";
 import { AuthHeader } from "./auth-form";
+import { useLinkToken } from "./link-token";
 import { btn, input, Label, Panel } from "./ui";
 
 // A new account has an empty profile, and matching is the product, so it goes
 // where it can say what it builds, not to the catalog
 const AFTER_CONFIRM = "/profile";
-
-// The link puts the token after `#`, which never leaves the browser: no server
-// or proxy log sees it (0041)
-const TOKEN_IN_HASH = /(?:^#|&)token=([A-Za-z0-9_-]{43})(?:&|$)/;
-
-// Kept once read, because the page clears the hash right after. A link opened
-// later in the same tab brings its own token, which replaces this one.
-let linkToken: string | null = null;
-function readLinkToken() {
-  const inHash = TOKEN_IN_HASH.exec(window.location.hash)?.[1];
-  if (inHash) linkToken = inHash;
-  return linkToken;
-}
-const noUpdates = () => () => {};
 
 type Ending = "no-token" | "invalid" | "too-many" | "already";
 
@@ -68,20 +55,13 @@ export function VerifyEmailForm() {
   const router = useRouter();
   const { confirmEmail } = useAuth();
 
-  // undefined on the server, which never sees the hash; the browser reads it
-  const token = useSyncExternalStore<string | null | undefined>(noUpdates, readLinkToken, () => undefined);
+  // undefined on the server, which never sees the hash; the browser reads it,
+  // then clears it from the address bar
+  const token = useLinkToken();
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [ending, setEnding] = useState<Ending | null>(null);
-
-  // Out of the address bar, history and any screenshot, once read. Next
-  // integrates replaceState with its router, so this changes nothing else.
-  useEffect(() => {
-    if (token && window.location.hash) {
-      window.history.replaceState(null, "", window.location.pathname + window.location.search);
-    }
-  }, [token]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -32,6 +32,8 @@ type AuthValue = AuthState & {
   }) => Promise<ApiError | null>;
   /** The link's token and the sign-up password: creates the account and signs in. */
   confirmEmail: (input: { token: string; password: string }) => Promise<ApiError | null>;
+  /** Changes the password; this browser stays signed in, every other one is signed out (0042). */
+  changePassword: (input: { currentPassword: string; newPassword: string }) => Promise<ApiError | null>;
   signOut: () => Promise<ApiError | null>;
   /** FR-12: saves profile fields and updates the in-memory user. */
   updateProfile: (fields: api.UpdateProfilePayload) => Promise<ApiError | null>;
@@ -47,6 +49,7 @@ const AuthContext = createContext<AuthValue>({
   signIn: async () => null,
   signUp: async () => null,
   confirmEmail: async () => null,
+  changePassword: async () => null,
   signOut: async () => null,
   updateProfile: async () => null,
   addToWatchlist: async () => null,
@@ -96,6 +99,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const confirmEmail: AuthValue["confirmEmail"] = useCallback(async (input) => {
     const result = await api.verifyEmail(input);
+    if (!result.ok) return result.error;
+    setState({ status: "authenticated", user: result.data.user });
+    return null;
+  }, []);
+
+  // The server re-issues this browser's cookie with the new token version, so
+  // the session goes on here while every other one ends
+  const changePassword: AuthValue["changePassword"] = useCallback(async (input) => {
+    const result = await api.changePassword(input);
     if (!result.ok) return result.error;
     setState({ status: "authenticated", user: result.data.user });
     return null;
@@ -160,6 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         confirmEmail,
+        changePassword,
         signOut,
         updateProfile,
         addToWatchlist,

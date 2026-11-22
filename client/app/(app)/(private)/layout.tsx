@@ -5,8 +5,8 @@ import { useAuth } from "../../_components/auth";
 import { SignInPrompt } from "../../_components/sign-in-prompt";
 
 /**
- * The three routes the SRS reserves for signed-in users: profile and
- * preferences, saved opportunities, and notifications. Everything else —
+ * The routes the SRS reserves for signed-in users: profile and preferences,
+ * saved opportunities, notifications, and the account itself (0042). Everything else —
  * landing, search, TOR detail, the watchdog dashboard — stays open to guests.
  *
  * A route group rather than a check inside each page, so the rule is visible
@@ -47,11 +47,12 @@ export default function PrivateLayout({ children }: { children: React.ReactNode 
   return <>{children}</>;
 }
 
-type PromptKey = "profile" | "watchlist" | "notifications";
+type PromptKey = "profile" | "watchlist" | "notifications" | "account";
 
 function promptKeyFor(pathname: string): PromptKey {
   if (pathname.startsWith("/watchlist")) return "watchlist";
   if (pathname.startsWith("/notifications")) return "notifications";
+  if (pathname.startsWith("/account")) return "account";
   return "profile";
 }
 
@@ -69,6 +70,11 @@ const PROMPTS: Record<PromptKey, { headline: string; body: string; cta: string }
     headline: "โปรไฟล์คือสิ่งที่ระบบจับคู่ใช้อ่าน",
     body: "บอกเราว่าคุณทำอะไรได้ แล้วรายการประกาศจะจัดลำดับใหม่ให้เหมาะสมกับคุณ",
     cta: "สมัครหรือเข้าสู่ระบบ",
+  },
+  account: {
+    headline: "บัญชีและรหัสผ่านเป็นของแต่ละคน",
+    body: "เข้าสู่ระบบเพื่อเปลี่ยนรหัสผ่าน ถ้าลืมรหัสผ่าน ขอลิงก์ตั้งรหัสผ่านใหม่ได้จากหน้าเข้าสู่ระบบ",
+    cta: "เข้าสู่ระบบ",
   },
   notifications: {
     headline: "การแจ้งเตือนต้องมีปลายทางที่จะส่งไป",

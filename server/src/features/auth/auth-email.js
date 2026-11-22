@@ -1,14 +1,18 @@
 import { env, isProduction } from '#common/config/env.js';
 
-// The three emails accounts send (0041). None carries anything a user typed,
+// The emails accounts send (0041, 0042). None carries anything a user typed,
 // not even their name, so there is nothing to escape: the only variable part
 // is a link we built. Thai, plain and short (AGENTS.md §7). Transactional mail,
 // so it needs no consent, unlike FR-14's match emails.
 
 const LINK_HOURS = 24;
+const RESET_LINK_HOURS = 1;
 
 /** Where the confirm page is. The token goes after `#`, so no server log sees it. */
 export const confirmLink = (token) => `${env.corsOrigin}/auth/verify#token=${token}`;
+
+/** Where the reset page is, the token after `#` for the same reason. */
+export const resetLink = (token) => `${env.corsOrigin}/auth/reset#token=${token}`;
 
 const wrap = (paragraphs) =>
   [
@@ -82,6 +86,55 @@ export function googleLinkedEmail(to) {
   };
 }
 
+/**
+ * A link to set a new password (ASVS V6.4.3). `kind` is 'set' for an account
+ * with no password yet (Google only), so the words fit; `byAdmin` says an admin
+ * sent it (V6.4.6), who never saw the link.
+ */
+export function resetEmail(to, token, { kind = 'reset', byAdmin = false } = {}) {
+  const link = resetLink(token);
+  const action = kind === 'set' ? 'ตั้งรหัสผ่าน' : 'ตั้งรหัสผ่านใหม่';
+  const why = byAdmin
+    ? `ผู้ดูแลระบบ GIPDP ส่งลิงก์${action}ให้บัญชีที่ใช้อีเมลนี้`
+    : `มีคนขอลิงก์${action}สำหรับบัญชี GIPDP ที่ใช้อีเมลนี้`;
+  const lines = [
+    why,
+    `ถ้าคุณต้องการ${action} เปิดลิงก์นี้: ${link}`,
+    `ลิงก์ใช้ได้ครั้งเดียว ภายใน ${RESET_LINK_HOURS} ชั่วโมง และเมื่อตั้งแล้ว ทุกอุปกรณ์จะออกจากระบบ`,
+    'ถ้าไม่ได้ขอ ไม่ต้องทำอะไร รหัสผ่านเดิมยังใช้ได้',
+  ];
+  return {
+    kind: byAdmin ? 'admin-reset' : kind,
+    to,
+    subject: `${action}สำหรับ GIPDP`,
+    text: lines.join('\n\n'),
+    html: wrap([
+      why,
+      `ถ้าคุณต้องการ${action} <a href="${link}">เปิดลิงก์นี้</a>`,
+      lines[2],
+      lines[3],
+    ]),
+  };
+}
+
+/** The password just changed, by the account page or by a reset link (ASVS V6.3.7). */
+export function passwordChangedEmail(to) {
+  const forgot = `${env.corsOrigin}/auth/forgot`;
+  return {
+    kind: 'password-changed',
+    to,
+    subject: 'รหัสผ่านของคุณถูกเปลี่ยนแล้ว',
+    text: [
+      'รหัสผ่านของบัญชี GIPDP ที่ใช้อีเมลนี้เพิ่งถูกเปลี่ยน และทุกอุปกรณ์ออกจากระบบแล้ว',
+      `ถ้าไม่ใช่คุณ ขอลิงก์ตั้งรหัสผ่านใหม่ได้ที่: ${forgot}`,
+    ].join('\n\n'),
+    html: wrap([
+      'รหัสผ่านของบัญชี GIPDP ที่ใช้อีเมลนี้เพิ่งถูกเปลี่ยน และทุกอุปกรณ์ออกจากระบบแล้ว',
+      `ถ้าไม่ใช่คุณ <a href="${forgot}">ขอลิงก์ตั้งรหัสผ่านใหม่</a>`,
+    ]),
+  };
+}
+
 // The address as a log may show it: enough to tell two test accounts apart
 const masked = (address) => address.replace(/^(.)[^@]*/, '$1***');
 
@@ -102,7 +155,7 @@ export function sendAfterResponse(mail, message, { link } = {}) {
   setImmediate(async () => {
     if (!mail.configured) {
       if (isProduction) return;
-      const what = link ? `confirm link: ${link}` : `no link (${message.kind})`;
+      const what = link ? `${message.kind} link: ${link}` : `no link (${message.kind})`;
       console.info(`[auth] Development only, no SMTP. Email to ${masked(message.to)}, ${what}`);
       return;
     }

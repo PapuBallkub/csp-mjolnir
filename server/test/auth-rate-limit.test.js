@@ -226,3 +226,41 @@ test('confirming is limited per caller, like signing in', async () => {
     mail,
   );
 });
+
+test('one address gets at most three reset requests an hour, whether it has an account or not', async () => {
+  // Each one emails the address, so this protects an inbox; and it applies to
+  // every address alike, so a 429 says nothing about who has an account (0042)
+  const known = emailFor('forgot-known');
+  await createVerifiedUser({ email: known, password: PASSWORD, name: NAME });
+
+  await withServer(
+    { loginByIp: GENEROUS, loginByEmail: GENEROUS, forgotByIp: GENEROUS, forgotByEmail: { windowMs: 60_000, limit: 3 } },
+    async (send) => {
+      for (const email of [known, emailFor('forgot-nobody')]) {
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          assert.equal((await send('POST', '/api/auth/forgot-password', { email })).status, 202);
+        }
+        const blocked = await send('POST', '/api/auth/forgot-password', { email: email.toUpperCase() });
+        assert.equal(blocked.status, 429, `the 4th for ${email}, in any casing`);
+      }
+    },
+  );
+});
+
+test('changing a password is limited per account', async () => {
+  const email = emailFor('change-limit');
+  await createVerifiedUser({ email, password: PASSWORD, name: NAME });
+
+  await withServer(
+    { loginByIp: GENEROUS, loginByEmail: GENEROUS, passwordChangeByUser: { windowMs: 60_000, limit: 2 } },
+    async (send) => {
+      const signedIn = await send('POST', '/api/auth/login', { email, password: PASSWORD });
+      const cookie = signedIn.headers.getSetCookie().find((c) => c.startsWith('mjolnir_session=')).split(';')[0];
+      const wrong = { currentPassword: 'not the password', newPassword: 'a fresh pair of shoes' };
+      assert.equal((await send('POST', '/api/auth/password', wrong, { cookie })).status, 401);
+      assert.equal((await send('POST', '/api/auth/password', wrong, { cookie })).status, 401);
+      // Each try is two bcrypt operations: the third is refused before either
+      assert.equal((await send('POST', '/api/auth/password', wrong, { cookie })).status, 429);
+    },
+  );
+});

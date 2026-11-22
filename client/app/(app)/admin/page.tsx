@@ -32,6 +32,7 @@ import {
   AddRecordModal,
   TechnologiesSection,
   AddEditTechnologyModal,
+  PasswordResetCard,
 } from "./_components";
 import { SignInPrompt } from "../../_components/sign-in-prompt";
 import { btn, EmptyState, input, Panel, SectionHeading } from "../../_components/ui";
@@ -1255,6 +1256,8 @@ function AdminDashboard({
       </section>
             </div>
             )}
+            {/* A user's account: send them a reset link (0042) */}
+            <PasswordResetCard />
           </div>
 
           {/* Job 2: Extraction Review Queue (FR-23, NFR-17) */}

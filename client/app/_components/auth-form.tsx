@@ -248,9 +248,12 @@ export function AuthForm({ next }: { next: string | null }) {
                 <div className="flex items-baseline justify-between">
                   <Label htmlFor="auth-password">รหัสผ่าน</Label>
                   {mode === "signin" ? (
-                    <span className="text-[11px] text-ink-3">
-                      ยังรีเซ็ตรหัสผ่านไม่ได้
-                    </span>
+                    <Link
+                      href="/auth/forgot"
+                      className="text-[11px] text-ink-2 underline underline-offset-2 hover:text-ink"
+                    >
+                      ลืมรหัสผ่าน?
+                    </Link>
                   ) : null}
                 </div>
                 <input

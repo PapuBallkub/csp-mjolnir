@@ -6,9 +6,16 @@ import { EmailToken, User } from '#models/index.js';
 import { hashToken, issueToken } from './email-token.js';
 import { googleSignInError } from './google-id-token.js';
 import { hashPassword, verifyPassword } from './password.js';
+import { passwordProblem } from './password-policy.js';
 
 const DUPLICATE_KEY = 11000;
-const DAY = 24 * 60 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
+
+// A reset link works once, for an hour, and only the latest one: a new request
+// deletes the older ones (0042). Short, because unlike a confirm link it sets
+// the password of an account that already exists.
+const RESET_LINK_MS = HOUR;
 
 // A confirm link works once, for a day: mail can be slow, and people don't read
 // it at once. Five wrong passwords spend it.
@@ -48,7 +55,17 @@ export function toPublicUser(user) {
     },
     watchlist: (user.watchlist ?? []).map((w) => (typeof w === 'string' ? w : w.projectId)),
     createdAt: user.createdAt,
+    ...passwordFlag(user),
   };
+}
+
+// Whether the account has a password, so the account page can offer "change"
+// or "set one by email" (0042). Never the hash. The hash is select: false, so a
+// copy of the user fetched without it can't tell: the field is then left out,
+// not reported as false. Auth's own lookups fetch it.
+function passwordFlag(user) {
+  const selected = typeof user.isSelected === 'function' ? user.isSelected('passwordHash') : 'passwordHash' in user;
+  return selected ? { hasPassword: Boolean(user.passwordHash) } : {};
 }
 
 /**
@@ -141,7 +158,7 @@ export async function confirmRegistration({ token, password }) {
     { email, emailVerifiedAt: { $exists: false }, googleId: { $exists: false } },
     { $set: { passwordHash, name, notificationConsent, emailVerifiedAt: confirmedAt } },
     { returnDocument: 'after' },
-  );
+  ).select('+passwordHash');
   if (!user) {
     try {
       user = await User.create({ email, passwordHash, name, notificationConsent, emailVerifiedAt: confirmedAt });
@@ -202,7 +219,7 @@ export async function signInWithPassword({ email, password }) {
  * @returns {Promise<{ user: object, linked: boolean }>}
  */
 export async function signInWithGoogle({ googleId, email, emailVerified, name }, { retried = false } = {}) {
-  const returning = await User.findOne({ googleId });
+  const returning = await User.findOne({ googleId }).select('+passwordHash');
   if (returning) {
     // Google confirmed the address when it created or linked this account
     if (!returning.emailVerifiedAt) {
@@ -240,7 +257,7 @@ export async function signInWithGoogle({ googleId, email, emailVerified, name },
       { _id: existing._id, googleId: { $exists: false } },
       { $set: { googleId } },
       { returnDocument: 'after' },
-    );
+    ).select('+passwordHash');
   } else if (existing) {
     // An account from before 0041 whose address nobody confirmed. Google's
     // verified address beats an unconfirmed password, so the password goes:
@@ -249,7 +266,7 @@ export async function signInWithGoogle({ googleId, email, emailVerified, name },
       { _id: existing._id, googleId: { $exists: false }, emailVerifiedAt: { $exists: false } },
       { $set: { googleId, emailVerifiedAt: new Date() }, $unset: { passwordHash: '' } },
       { returnDocument: 'after' },
-    );
+    ).select('+passwordHash');
   } else {
     try {
       // $setOnInsert-like: Google names an account only when it creates one.
@@ -275,9 +292,123 @@ export async function signInWithGoogle({ googleId, email, emailVerified, name },
 // has a confirmed account, so they go now rather than at the end of their day
 const dropPendingRegistrations = (email) => EmailToken.deleteMany({ purpose: 'verify-email', email });
 
+/**
+ * A reset link for an address (0042), or nothing: the caller answers the same
+ * 202 either way, and sends what this returns after the response (ASVS V6.3.8).
+ *
+ * - An account, with or without a password: a new reset token, which replaces
+ *   any older one. An account with no password (Google only) gets "set a
+ *   password" instead of "reset".
+ * - No account (or only a registration waiting for its link): nothing is sent.
+ *   The same kind of write still happens, so the two take the same time.
+ *
+ * With byAdmin, an unknown address is a 404: admins may know which accounts
+ * exist, and the message says an admin sent it. The admin never sees the token.
+ *
+ * @returns {Promise<{ kind: 'reset' | 'set', email: string, token: string } | { kind: 'none' }>}
+ */
+export async function requestPasswordReset({ email, byAdmin = false }) {
+  const user = await User.findOne({ email }).select('+passwordHash').lean();
+  await EmailToken.deleteMany({ purpose: 'reset-password', email });
+
+  if (!user) {
+    if (byAdmin) throw new HttpError(404, 'ไม่มีบัญชีที่ใช้อีเมลนี้');
+    // As much work as the branch below, so the answer's timing says nothing
+    const padding = await EmailToken.create({
+      purpose: 'reset-password',
+      email,
+      tokenHash: issueToken().tokenHash,
+      expiresAt: new Date(Date.now() + RESET_LINK_MS),
+    });
+    await EmailToken.deleteOne({ _id: padding._id });
+    return { kind: 'none' };
+  }
+
+  const { token, tokenHash } = issueToken();
+  await EmailToken.create({
+    purpose: 'reset-password',
+    email,
+    tokenHash,
+    expiresAt: new Date(Date.now() + RESET_LINK_MS),
+  });
+  return { kind: user.passwordHash ? 'reset' : 'set', email, token };
+}
+
+/**
+ * Sets a new password with a reset link's token. Every session ends
+ * (tokenVersion), and nothing signs in: the person signs in with the new
+ * password, so the emailed link alone is never a session (ASVS V6.3.6; the
+ * user's decision, 2026-11-22). The link also proves the mailbox, so an address
+ * never confirmed becomes confirmed.
+ *
+ * @returns {Promise<{ email: string }>} Whom to tell that the password changed
+ */
+export async function resetPassword({ token, password }) {
+  const held = await EmailToken.findOne({ purpose: 'reset-password', tokenHash: hashToken(token) });
+  if (!held || held.expiresAt <= new Date()) throw resetLinkInvalid();
+
+  const user = await User.findOne({ email: held.email }, { email: 1, name: 1 }).lean();
+  if (!user) {
+    await EmailToken.deleteOne({ _id: held._id });
+    throw resetLinkInvalid();
+  }
+
+  // Checked before the link is spent, so a refused password can be replaced
+  const problem = passwordProblem(password, { email: user.email, name: user.name });
+  if (problem) throw new HttpError(400, 'กรุณาตรวจสอบข้อมูลที่กรอก', { password: problem });
+
+  // Spent in one write, so two uses of the same link can't both set a password
+  if (!(await EmailToken.findOneAndDelete({ _id: held._id }))) throw resetLinkInvalid();
+
+  const passwordHash = await hashPassword(password);
+  await User.updateOne(
+    { _id: user._id },
+    { $set: { passwordHash }, $inc: { tokenVersion: 1 }, $min: { emailVerifiedAt: new Date() } },
+  );
+  await EmailToken.deleteMany({ purpose: 'reset-password', email: user.email });
+  return { email: user.email };
+}
+
+const resetLinkInvalid = () => linkProblem(400, 'ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว ขอลิงก์ตั้งรหัสผ่านใหม่อีกครั้ง', 'LINK_INVALID');
+
+/**
+ * Changes the signed-in user's password: the current one, then the new one,
+ * which has to pass the policy with the account's own email and name (ASVS
+ * V6.2.2, V6.2.3). Every session ends (tokenVersion); the caller signs this
+ * browser in again with the user this returns.
+ *
+ * @returns {Promise<object>} The user, as toPublicUser shapes it, with the new tokenVersion
+ */
+export async function changePassword({ userId, currentPassword, newPassword }) {
+  const user = await User.findById(userId).select('+passwordHash');
+  if (!user) throw unauthorized();
+  if (!user.passwordHash) {
+    throw new HttpError(
+      400,
+      'บัญชีนี้ยังไม่มีรหัสผ่าน ตั้งรหัสผ่านด้วยลิงก์ทางอีเมล',
+      undefined,
+      'NO_PASSWORD',
+    );
+  }
+  if (!(await verifyPassword(currentPassword, user.passwordHash))) {
+    throw new HttpError(401, 'รหัสผ่านปัจจุบันไม่ถูกต้อง', { currentPassword: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' }, 'WRONG_PASSWORD');
+  }
+
+  const problem = passwordProblem(newPassword, { email: user.email, name: user.name });
+  if (problem) throw new HttpError(400, 'กรุณาตรวจสอบข้อมูลที่กรอก', { newPassword: problem });
+
+  const updated = await User.findOneAndUpdate(
+    { _id: user._id },
+    { $set: { passwordHash: await hashPassword(newPassword) }, $inc: { tokenVersion: 1 } },
+    { returnDocument: 'after' },
+  ).select('+passwordHash');
+  return toPublicUser(updated);
+}
+
 // Backs requireAuth. Reading the user per request is what makes a deleted
-// account stop working before its token expires.
+// account stop working before its token expires. The hash is fetched only to
+// say whether the account has one (passwordFlag); it never leaves this file.
 export async function findUserById(userId) {
-  const user = await User.findById(userId);
+  const user = await User.findById(userId).select('+passwordHash');
   return user ? toPublicUser(user) : null;
 }

@@ -43,6 +43,12 @@ export type AuthUser = {
   profile: UserProfile;
   watchlist: string[];
   createdAt: string;
+  /**
+   * Whether the account has a password, so the account page offers "change" or
+   * "set one by email". Present on /me and auth's own answers; other features'
+   * answers may leave it out, so read it from me() where it matters.
+   */
+  hasPassword?: boolean;
 };
 
 /**
@@ -171,6 +177,44 @@ export function register(body: {
  */
 export function verifyEmail(body: { token: string; password: string }) {
   return request<UserResponse>("/api/auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * Asks for a link to set a new password (0042). The same 202 whatever the
+ * address, so the page can't tell, and doesn't need to, whether it has an account.
+ */
+export function forgotPassword(body: { email: string }) {
+  return request<{ message: string }>("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * Sets a new password with a reset link's token. Signs nothing in: every
+ * session ends, and the person signs in with the new password.
+ */
+export function resetPassword(body: { token: string; password: string }) {
+  return request<{ message: string }>("/api/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/** Changes the signed-in user's password; this browser stays signed in. */
+export function changePassword(body: { currentPassword: string; newPassword: string }) {
+  return request<UserResponse>("/api/auth/password", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/** An admin sends a user a reset link; the answer never carries it (0042). */
+export function adminSendPasswordReset(body: { email: string }) {
+  return request<{ message: string }>("/api/admin/users/password-reset", {
     method: "POST",
     body: JSON.stringify(body),
   });

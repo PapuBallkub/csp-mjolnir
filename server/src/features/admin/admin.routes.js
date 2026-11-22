@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import { limitByUser } from '#common/middleware/rate-limit.js';
-import { requireAuth, requireRole } from '#features/auth/index.js';
+import { createAdminPasswordResetHandler, requireAuth, requireRole } from '#features/auth/index.js';
 
 import {
   handleAddManualRecord,
@@ -40,9 +40,11 @@ import { adminRateLimits } from './rate-limit.js';
  * what sets — reverse them and every request 401s, an administrator's
  * included.
  *
- * Built per app, so a test can drive the real limiter with its own numbers.
+ * Built per app, so a test can drive the real limiter with its own numbers, and
+ * pass the mailer the password-reset action sends with.
  */
-export function createAdminRoutes(limits = adminRateLimits) {
+export function createAdminRoutes(limits = adminRateLimits, { mail } = {}) {
+  if (!mail) throw new Error('createAdminRoutes needs a mailer: { configured, send }');
   const adminRoutes = Router();
 
   adminRoutes.use(requireAuth, requireRole('admin'));
@@ -76,6 +78,11 @@ export function createAdminRoutes(limits = adminRateLimits) {
 
   // Health check: test connectivity & latency for procurement sources (FR-22)
   adminRoutes.post('/health-check', costly, handleCheckSourcesHealth);
+
+  // Send a user a link to set a new password (ADR 0042, ASVS V6.4.6). The admin
+  // names the address and nothing else, and never sees the link. auth owns the
+  // handler; it sends email, so it shares the costly budget.
+  adminRoutes.post('/users/password-reset', costly, createAdminPasswordResetHandler(mail));
 
   // Re-trigger / retry a failed pipeline step (FR-24)
   adminRoutes.post('/pipeline/retry', handleRetryPipelineStep);

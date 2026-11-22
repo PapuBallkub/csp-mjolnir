@@ -5,4 +5,7 @@
 export { createAuthRoutes } from './auth.routes.js';
 export { requireAuth, requireRole } from './auth.middleware.js';
 export { toPublicUser } from './auth.service.js';
+// The admin router mounts it behind its own guard: an admin sends a user a
+// reset link, and never sees it (0042, ASVS V6.4.6)
+export { createAdminPasswordResetHandler } from './auth.controller.js';
 export { authRateLimits } from './rate-limit.js';
