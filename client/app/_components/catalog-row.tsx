@@ -215,7 +215,7 @@ export function CatalogRow({
         </div>
 
         {/* Tier 4: Tech Stack Chips & Qualification Badges (Single line) */}
-        <div className="flex h-6 items-center justify-between gap-2 pt-0.5 overflow-hidden">
+        <div className="flex min-h-6 items-center justify-between gap-2 pt-0.5">
           <div className="flex items-center gap-2 overflow-hidden flex-nowrap min-w-0">
             {/* Qualification Badge (single, prioritized) */}
             {match?.disqualifiedDirectBid ? (

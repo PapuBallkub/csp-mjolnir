@@ -1125,7 +1125,7 @@ export default function DedicatedReviewPage({
 
   if (authError) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-12">
+      <div className="mx-auto w-full max-w-4xl px-4 py-12">
         <SignInPrompt
           next={`/admin/review/${projectId}`}
           headline={"ส่วนนี้สำหรับผู้ดูแลระบบ"}
@@ -1140,7 +1140,7 @@ export default function DedicatedReviewPage({
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-12 text-center text-ink-3">
+      <div className="mx-auto w-full max-w-5xl px-4 py-12 text-center text-ink-3">
         <p className="animate-pulse text-[14px]">
           {"กำลังโหลดข้อมูล TOR สำหรับการตรวจทาน..."}
         </p>
@@ -1150,7 +1150,7 @@ export default function DedicatedReviewPage({
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-12">
+      <div className="mx-auto w-full max-w-4xl px-4 py-12">
         <EmptyState
           headline={"ไม่พบเอกสาร TOR"}
           body={`ไม่พบข้อมูลสำหรับรหัสโครงการ ${projectId}`}
@@ -1165,7 +1165,7 @@ export default function DedicatedReviewPage({
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
+    <div className="mx-auto w-full max-w-6xl px-4 py-6">
       {/* Top Bar Header (offset below App Shell header at 53px) */}
       <div className="sticky top-[53px] z-20 mb-6 flex flex-col gap-2.5 rounded-[3px] border border-line bg-surface/95 px-4 py-2.5 backdrop-blur shadow-sm xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-wrap items-center gap-2 text-[12px]">

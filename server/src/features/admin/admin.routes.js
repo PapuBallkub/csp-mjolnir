@@ -13,6 +13,7 @@ import {
   handleGetPipelineRecord,
   handleGetPipelineTasks,
   handleGetReviewItem,
+  handleListReviewQueue,
   handleListVersions,
   handleReExtract,
   handleRetryAllPipelineFailures,
@@ -68,6 +69,9 @@ export function createAdminRoutes(limits = adminRateLimits, { mail } = {}) {
   // No rate limit: an admin refreshing a dashboard is the intended use, and a
   // limiter here would eventually hide a pipeline failure behind a 429.
   adminRoutes.get('/operations', readOperations);
+
+  // Paginated, filterable, searchable review queue (FR-23, NFR-17)
+  adminRoutes.get('/review-queue', handleListReviewQueue);
 
   // Get single review item for dedicated review workspace (FR-23)
   adminRoutes.get('/review/:projectId', handleGetReviewItem);

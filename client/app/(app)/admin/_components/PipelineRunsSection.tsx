@@ -1,6 +1,21 @@
 import type { PipelineRunItem } from "../../../_lib/api";
 import { Panel, SectionHeading } from "../../../_components/ui";
 
+function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "0 ms";
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  const totalSec = ms / 1000;
+  if (totalSec < 60) return `${totalSec.toFixed(1)} วิ.`;
+  const totalMin = Math.floor(totalSec / 60);
+  const remSec = Math.round(totalSec % 60);
+  if (totalMin < 60) {
+    return remSec > 0 ? `${totalMin} น. ${remSec} วิ.` : `${totalMin} น.`;
+  }
+  const hours = Math.floor(totalMin / 60);
+  const remMin = totalMin % 60;
+  return remMin > 0 ? `${hours} ชม. ${remMin} น.` : `${hours} ชม.`;
+}
+
 export function PipelineRunsSection({
   runs,
 }: {
@@ -34,7 +49,7 @@ export function PipelineRunsSection({
               ].map((col) => (
                 <th
                   key={col.text}
-                  className={`px-3.5 py-2.5 text-[11px] font-medium text-ink-3 ${
+                  className={`px-3.5 py-2.5 text-[11px] font-medium text-ink-3 whitespace-nowrap ${
                     col.right ? "text-right" : ""
                   }`}
                 >
@@ -64,14 +79,14 @@ export function PipelineRunRow({
       <td className="px-3.5 py-2.5 font-mono tnum text-[12px] text-ink-2 whitespace-nowrap">
         {run.startedAt}
       </td>
-      <td className="px-3.5 py-2.5">
-        <span className="rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] text-ink font-semibold uppercase">
+      <td className="px-3.5 py-2.5 whitespace-nowrap">
+        <span className="inline-flex whitespace-nowrap rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] text-ink font-semibold uppercase">
           {run.job}
         </span>
       </td>
-      <td className="px-3.5 py-2.5">
+      <td className="px-3.5 py-2.5 whitespace-nowrap">
         <span
-          className={`inline-flex rounded-[2px] border px-2 py-0.5 text-[11px] uppercase font-medium ${
+          className={`inline-flex whitespace-nowrap rounded-[2px] border px-2 py-0.5 text-[11px] uppercase font-medium ${
             run.outcome === "done"
               ? "border-open-line bg-open-bg text-open"
               : run.outcome === "timed-out"
@@ -84,18 +99,19 @@ export function PipelineRunRow({
           {run.outcome}
         </span>
       </td>
-      <td className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink-2">
-        {run.durationMs > 1000
-          ? `${(run.durationMs / 1000).toFixed(1)}s`
-          : `${run.durationMs}ms`}
+      <td
+        className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink-2 whitespace-nowrap"
+        title={run.durationMs > 1000 ? `${(run.durationMs / 1000).toFixed(1)}s` : `${run.durationMs}ms`}
+      >
+        {formatDuration(run.durationMs)}
       </td>
-      <td className="px-3.5 py-2.5">
+      <td className="px-3.5 py-2.5 min-w-[320px]">
         <div className="flex flex-wrap gap-1">
           {run.steps && run.steps.length > 0 ? (
             run.steps.map((step, idx) => (
               <span
                 key={idx}
-                className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-[1px] text-[10px] ${
+                className={`inline-flex items-center gap-1 whitespace-nowrap rounded-[2px] border px-1.5 py-[1px] text-[10px] ${
                   step.exitCode === 0
                     ? "border-line bg-surface text-ink-2"
                     : step.exitCode === null

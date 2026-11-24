@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { BeforeAfterSlider } from "./_components/BeforeAfterSlider";
 import { CatalogRow, CatalogRowSkeleton } from "./_components/catalog-row";
-import { HeaderControls, Wordmark } from "./_components/shell";
+import { SiteFooter, SiteHeader } from "./_components/shell";
 import { useAuth } from "./_components/auth";
 import { useProfile } from "./_components/prefs";
 import { listTors, type TorInsightSummary } from "./_lib/api";
@@ -48,14 +48,6 @@ function AuthFailedNotice() {
     </div>
   );
 }
-
-const QUICK_FILTERS = [
-  { label: "🟢 เปิดรับข้อเสนออยู่", href: "/search?statuses=D0" },
-  { label: "🛡️ เสี่ยงล็อกสเปกต่ำ", href: "/search?hideHighRisk=true" },
-  { label: "💻 ฟรีแลนซ์ยื่นได้", href: "/search?q=บุคคลธรรมดา" },
-  { label: "☁️ Cloud & Server", href: "/search?tech=Cloud,Windows+Server" },
-  { label: "🤖 AI & Machine Learning", href: "/search?tech=Python,AI" },
-];
 
 const SHIELDS = [
   {
@@ -157,38 +149,7 @@ export default function LandingPage() {
       </Suspense>
 
       {/* Navigation Header */}
-      <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex min-h-[52px] max-w-[1240px] items-center gap-3 sm:gap-4 px-3 sm:px-4 py-2.5">
-          <Link
-            href="/"
-            className="flex h-[26px] items-center shrink-0 transition-opacity hover:opacity-80"
-            title="หน้าแรก GIPDP"
-          >
-            <Wordmark />
-          </Link>
-          <nav className="-mx-1 hidden sm:flex min-w-0 items-center gap-1 overflow-x-auto px-1">
-            <Link
-              href="/search"
-              className="rounded-[3px] px-2.5 py-1.5 text-[13px] text-ink-2 hover:bg-surface-2 hover:text-ink transition-colors"
-            >
-              ค้นหาประกาศ
-            </Link>
-            <Link
-              href="/watchlist"
-              className="rounded-[3px] px-2.5 py-1.5 text-[13px] text-ink-2 hover:bg-surface-2 hover:text-ink transition-colors"
-            >
-              รายการติดตาม
-            </Link>
-            <Link
-              href="/watchdog"
-              className="rounded-[3px] px-2.5 py-1.5 text-[13px] text-ink-2 hover:bg-surface-2 hover:text-ink transition-colors"
-            >
-              ตรวจสอบราคา/การแก้ไข
-            </Link>
-          </nav>
-          <HeaderControls className="ml-auto" />
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="flex-1">
         {/* ========================================================= */}
@@ -261,25 +222,17 @@ export default function LandingPage() {
         {/* ========================================================= */}
         <section className="bg-surface-2 border-b border-line py-12 sm:py-16">
           <div className="mx-auto max-w-[1040px] px-4">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
-              <div>
-                <h2 className="text-[20px] sm:text-[24px] font-bold tracking-tight text-ink">
-                  ค้นหาประกาศจัดซื้อจัดจ้างจริงที่เปิดรับอยู่
-                </h2>
-                <p className="mt-1 text-[13px] text-ink-2 leading-thai">
-                  รวบรวมประกาศจาก e-GP และหน่วยงานรัฐทั่วประเทศ ถอดรหัสและพร้อมตรวจสอบความเสี่ยงแล้ว
-                </p>
-              </div>
-              <Link
-                href="/search"
-                className="text-[13px] font-semibold text-open hover:underline shrink-0"
-              >
-                ดูทั้งหมดในแคตตาล็อก →
-              </Link>
+            <div className="mb-6">
+              <h2 className="text-[20px] sm:text-[24px] font-bold tracking-tight text-ink">
+                ค้นหาประกาศจัดซื้อจัดจ้างจริงที่เปิดรับอยู่
+              </h2>
+              <p className="mt-1 text-[13px] text-ink-2 leading-thai">
+                รวบรวมประกาศจาก e-GP และหน่วยงานรัฐทั่วประเทศ ถอดรหัสและพร้อมตรวจสอบความเสี่ยงแล้ว
+              </p>
             </div>
 
             {/* Interactive Search Bar Form */}
-            <form onSubmit={handleSearchSubmit} className="mb-4">
+            <form onSubmit={handleSearchSubmit} className="mb-8">
               <div className="flex gap-2 rounded-lg border border-line bg-surface p-1.5 shadow-sm">
                 <div className="relative flex-1 flex items-center pl-3">
                   <svg
@@ -307,20 +260,6 @@ export default function LandingPage() {
                 </button>
               </div>
             </form>
-
-            {/* Quick Filter Tags */}
-            <div className="flex flex-wrap items-center gap-1.5 mb-8">
-              <span className="text-[12px] font-medium text-ink-3 mr-1">ช็อตคัตยอดนิยม:</span>
-              {QUICK_FILTERS.map((f) => (
-                <Link
-                  key={f.href}
-                  href={f.href}
-                  className="rounded-[3px] border border-line bg-surface px-2.5 py-1 text-[12px] text-ink-2 hover:bg-surface-3 hover:text-ink transition-colors"
-                >
-                  {f.label}
-                </Link>
-              ))}
-            </div>
 
             {/* Featured Live TOR Cards */}
             <div className="space-y-3">
@@ -460,15 +399,7 @@ export default function LandingPage() {
       </main>
 
       {/* Official Disclaimer Footer */}
-      <footer className="border-t border-line bg-surface">
-        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-4 text-[11.5px] text-ink-3">
-          <Wordmark className="opacity-70" />
-          <span className="leading-thai">
-            แพลตฟอร์มค้นหาและวิเคราะห์ประกาศจัดซื้อจัดจ้างภาครัฐด้าน IT (เครื่องมืออิสระบุคคลที่สาม — การยื่นข้อเสนอและการประมูลทางการทั้งหมดทำผ่านระบบ e-GP ของกรมบัญชีกลาง)
-          </span>
-          <span className="ml-auto font-mono text-[11px] text-ink-4">01219346 · Kasetsart University</span>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

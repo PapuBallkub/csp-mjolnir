@@ -10,6 +10,7 @@ import {
   adminDismissPipelineFailure,
   adminGetPipelineRecord,
   adminGetTechnologies,
+  adminListReviewQueue,
   adminOperations,
   adminReExtract,
   adminRetryAllPipelineFailures,
@@ -17,9 +18,13 @@ import {
   adminSuggestProjects,
   adminUpdateTechnology,
   type AdminOperations,
+  type AdminTechnologiesCounts,
   type AdminTechnology,
   type ApiError,
   type PipelineRecordDiagnostics,
+  type ReviewQueuePageResult,
+  type ReviewQueueSort,
+  type ReviewQueueTab,
   type SuggestedProject,
 } from "../../_lib/api";
 import {
@@ -335,9 +340,20 @@ function AdminDashboard({
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Tech & Standards State
+  const TECH_PAGE_SIZE = 50;
   const [techList, setTechList] = useState<AdminTechnology[]>([]);
+  const [techUserRequests, setTechUserRequests] = useState<AdminTechnology[]>([]);
   const [techPendingCount, setTechPendingCount] = useState(0);
+  const [techCounts, setTechCounts] = useState<AdminTechnologiesCounts>({
+    all: 0,
+    confirmed: 0,
+    aiNew: 0,
+    userRequests: 0,
+    rejected: 0,
+  });
   const [techTotal, setTechTotal] = useState(0);
+  const [techPage, setTechPage] = useState(1);
+  const [techTotalPages, setTechTotalPages] = useState(1);
   const [isTechLoading, setIsTechLoading] = useState(true);
   const [techSearch, setTechSearch] = useState("");
   const [techStatusFilter, setTechStatusFilter] = useState<string>("all");
@@ -391,41 +407,49 @@ function AdminDashboard({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch technologies when filters or search change
+  // Fetch technologies when filters, search, or page change
   const refreshTechnologies = useCallback(async () => {
     setIsTechLoading(true);
     const res = await adminGetTechnologies({
       status: techStatusFilter,
       search: techSearch,
-      limit: 100,
+      page: techPage,
+      limit: TECH_PAGE_SIZE,
     });
     setIsTechLoading(false);
     if (res.ok) {
       setTechList(res.data.items);
+      setTechUserRequests(res.data.userRequestItems ?? []);
       setTechPendingCount(res.data.pendingRequestsCount);
       setTechTotal(res.data.total);
+      setTechTotalPages(res.data.totalPages || 1);
+      if (res.data.counts) setTechCounts(res.data.counts);
     }
-  }, [techStatusFilter, techSearch]);
+  }, [techStatusFilter, techSearch, techPage]);
 
   useEffect(() => {
     let cancelled = false;
     adminGetTechnologies({
       status: techStatusFilter,
       search: techSearch,
-      limit: 100,
+      page: techPage,
+      limit: TECH_PAGE_SIZE,
     }).then((res) => {
       if (cancelled) return;
       setIsTechLoading(false);
       if (res.ok) {
         setTechList(res.data.items);
+        setTechUserRequests(res.data.userRequestItems ?? []);
         setTechPendingCount(res.data.pendingRequestsCount);
         setTechTotal(res.data.total);
+        setTechTotalPages(res.data.totalPages || 1);
+        if (res.data.counts) setTechCounts(res.data.counts);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [techStatusFilter, techSearch]);
+  }, [techStatusFilter, techSearch, techPage]);
 
   const handleApproveTech = async (id: string, name: string) => {
     setTechActionMsg(null);
@@ -672,59 +696,92 @@ function AdminDashboard({
     }
   };
 
-  // Review Queue Search, Filter & Sort
-  const [filterTab, setFilterTab] = useState<"all" | "pending" | "misclassified" | "low-confidence" | "reviewed">("all");
-  const [sortOption, setSortOption] = useState<"confidence-asc" | "confidence-desc" | "newest" | "budget-desc">("confidence-asc");
+  // Review Queue Search, Filter, Sort & Server-side Pagination (FR-23, NFR-17)
+  const REVIEW_PAGE_SIZE = 25;
+  const [filterTab, setFilterTab] = useState<ReviewQueueTab>("ready");
+  const [sortOption, setSortOption] = useState<ReviewQueueSort>("newest");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedReviewQuery, setDebouncedReviewQuery] = useState("");
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewState, setReviewState] = useState<{
+    key: string;
+    data: ReviewQueuePageResult;
+  } | null>(null);
+  const [reviewRefreshTick, setReviewRefreshTick] = useState(0);
 
-  const pendingCount = reviewQueue.filter(
-    (item) => !handled[item.docId] && item.reviewStatus !== "approved",
-  ).length;
-  const misclassifiedCount = reviewQueue.filter((item) => item.misclassified).length;
-  const lowConfidenceCount = reviewQueue.filter(
-    (item) => (item.ocr != null && item.ocr < 0.8) || item.extraction < 0.8,
-  ).length;
-  const reviewedCount = reviewQueue.filter(
-    (item) => Boolean(handled[item.docId]) || item.reviewStatus === "approved",
-  ).length;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedReviewQuery(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  const filteredQueue = reviewQueue.filter((item) => {
-    const isHandled = Boolean(handled[item.docId]) || item.reviewStatus === "approved";
-    if (filterTab === "pending" && isHandled) return false;
-    if (filterTab === "misclassified" && !item.misclassified) return false;
-    if (filterTab === "low-confidence" && !((item.ocr != null && item.ocr < 0.8) || item.extraction < 0.8)) return false;
-    if (filterTab === "reviewed" && !isHandled) return false;
+  const reviewQueryKey = `${filterTab}|${sortOption}|${debouncedReviewQuery}|${reviewPage}|${reviewRefreshTick}`;
+  const reviewData = reviewState?.data ?? null;
+  const reviewLoading = activeJob === "review" && reviewState?.key !== reviewQueryKey;
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      const matchId = item.docId.toLowerCase().includes(q);
-      const matchTitle = item.title.toLowerCase().includes(q);
-      const matchAgency = item.agency.toLowerCase().includes(q);
-      if (!matchId && !matchTitle && !matchAgency) return false;
-    }
-    return true;
-  });
+  useEffect(() => {
+    if (activeJob !== "review") return;
+    let cancelled = false;
 
-  const sortedQueue = [...filteredQueue].sort((a, b) => {
-    if (sortOption === "confidence-asc") {
-      const aScore = Math.min(a.extraction, a.ocr ?? a.extraction);
-      const bScore = Math.min(b.extraction, b.ocr ?? b.extraction);
-      return aScore - bScore;
-    }
-    if (sortOption === "confidence-desc") {
-      const aScore = Math.min(a.extraction, a.ocr ?? a.extraction);
-      const bScore = Math.min(b.extraction, b.ocr ?? b.extraction);
-      return bScore - aScore;
-    }
-    if (sortOption === "budget-desc") {
-      const aBudget = a.details?.budgetTHB ?? 0;
-      const bBudget = b.details?.budgetTHB ?? 0;
-      return bBudget - aBudget;
-    }
-    const aDate = a.ingestedAt ? new Date(a.ingestedAt.replace(" ", "T")).getTime() : 0;
-    const bDate = b.ingestedAt ? new Date(b.ingestedAt.replace(" ", "T")).getTime() : 0;
-    return bDate - aDate;
-  });
+    adminListReviewQueue({
+      tab: filterTab,
+      sort: sortOption,
+      q: debouncedReviewQuery,
+      page: reviewPage,
+      limit: REVIEW_PAGE_SIZE,
+    }).then((res) => {
+      if (cancelled) return;
+      if (res.ok) {
+        setReviewState({ key: reviewQueryKey, data: res.data });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeJob, filterTab, sortOption, debouncedReviewQuery, reviewPage, reviewQueryKey]);
+
+  const handleReviewSuccess = useCallback(() => {
+    setReviewRefreshTick((t) => t + 1);
+    onRefresh();
+  }, [onRefresh]);
+
+  const pendingCount =
+    reviewData?.counts.pending ??
+    reviewQueue.filter((item) => !handled[item.docId] && item.reviewStatus !== "approved").length;
+  const readyCount =
+    reviewData?.counts.ready ??
+    reviewQueue.filter(
+      (item) =>
+        !handled[item.docId] &&
+        item.reviewStatus !== "approved" &&
+        !item.misclassified &&
+        item.extraction >= 0.8,
+    ).length;
+  const misclassifiedCount =
+    reviewData?.counts.misclassified ??
+    reviewQueue.filter(
+      (item) => !handled[item.docId] && item.reviewStatus !== "approved" && item.misclassified,
+    ).length;
+  const lowConfidenceCount =
+    reviewData?.counts.lowConfidence ??
+    reviewQueue.filter(
+      (item) =>
+        !handled[item.docId] &&
+        item.reviewStatus !== "approved" &&
+        !item.misclassified &&
+        item.extraction < 0.8,
+    ).length;
+  const reviewedCount =
+    reviewData?.counts.reviewed ??
+    reviewQueue.filter((item) => Boolean(handled[item.docId]) || item.reviewStatus === "approved").length;
+
+  const displayedReviewItems = reviewData ? reviewData.items : reviewQueue;
+  const reviewTotal = reviewData ? reviewData.total : displayedReviewItems.length;
+  const reviewTotalPages = reviewData ? reviewData.totalPages : 1;
+  const reviewStart = reviewTotal === 0 ? 0 : (reviewPage - 1) * REVIEW_PAGE_SIZE + 1;
+  const reviewEnd = Math.min(reviewPage * REVIEW_PAGE_SIZE, reviewTotal);
 
   const handleHealthCheck = async (sourceId: string = "all") => {
     const targets = sourceId === "all" ? scraperSources.map((s) => s.id) : [sourceId];
@@ -1279,16 +1336,18 @@ function AdminDashboard({
               {/* Row 1: Filter Tabs */}
               <div className="mb-3 flex flex-wrap gap-1.5 border-b border-line pb-3">
                 {[
-                  { id: "all", label: `ทั้งหมด (${reviewQueue.length})` },
-                  { id: "pending", label: `รอตรวจทาน (${pendingCount})` },
-                  { id: "low-confidence", label: `⚠️ มั่นใจต่ำ (< 80%) (${lowConfidenceCount})` },
-                  { id: "misclassified", label: `ตรวจประเภท (${misclassifiedCount})` },
-                  { id: "reviewed", label: `ตรวจทานแล้ว (${reviewedCount})` },
+                  { id: "ready", label: `✓ พร้อมอนุมัติ (≥ 80%) (${readyCount.toLocaleString()})` },
+                  { id: "low-confidence", label: `⚠️ มั่นใจต่ำ (< 80%) (${lowConfidenceCount.toLocaleString()})` },
+                  { id: "misclassified", label: `ตรวจประเภท (${misclassifiedCount.toLocaleString()})` },
+                  { id: "reviewed", label: `ตรวจทานแล้ว (${reviewedCount.toLocaleString()})` },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setFilterTab(tab.id as typeof filterTab)}
+                    onClick={() => {
+                      setFilterTab(tab.id as ReviewQueueTab);
+                      setReviewPage(1);
+                    }}
                     className={`rounded-[3px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
                       filterTab === tab.id
                         ? "bg-ink text-surface"
@@ -1309,14 +1368,20 @@ function AdminDashboard({
                   <input
                     type="text"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={"ค้นหาด้วยเลขโครงการ / ชื่อ..."}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setReviewPage(1);
+                    }}
+                    placeholder={"ค้นหาด้วยเลขโครงการ / ชื่อ / หน่วยงาน..."}
                     className={`${input} text-[12px] h-8 pl-8 pr-7 w-full`}
                   />
                   {searchQuery && (
                     <button
                       type="button"
-                      onClick={() => setSearchQuery("")}
+                      onClick={() => {
+                        setSearchQuery("");
+                        setReviewPage(1);
+                      }}
                       className="absolute inset-y-0 right-2 flex items-center text-ink-3 hover:text-ink text-[12px] cursor-pointer"
                       title={"ล้างคำค้นหา"}
                     >
@@ -1325,49 +1390,89 @@ function AdminDashboard({
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] text-ink-3 whitespace-nowrap">
-                    {"เรียงตาม:"}
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-mono text-[11.5px] text-ink-3">
+                    {reviewTotal > 0
+                      ? `แสดง ${reviewStart.toLocaleString()}–${reviewEnd.toLocaleString()} จาก ${reviewTotal.toLocaleString()} รายการ`
+                      : "0 รายการ"}
                   </span>
-                  <select
-                    value={sortOption}
-                    onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
-                    className="h-8 rounded-[3px] border border-line bg-surface px-2.5 text-[12px] text-ink focus:border-ink-2 focus:outline-none cursor-pointer"
-                  >
-                    <option value="confidence-asc">
-                      {"คะแนนความมั่นใจต่ำสุดก่อน"}
-                    </option>
-                    <option value="confidence-desc">
-                      {"คะแนนความมั่นใจสูงสุดก่อน"}
-                    </option>
-                    <option value="newest">
-                      {"อัปเดตล่าสุด"}
-                    </option>
-                    <option value="budget-desc">
-                      {"งบประมาณสูงสุด"}
-                    </option>
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] text-ink-3 whitespace-nowrap">
+                      {"เรียงตาม:"}
+                    </span>
+                    <select
+                      value={sortOption}
+                      onChange={(e) => {
+                        setSortOption(e.target.value as ReviewQueueSort);
+                        setReviewPage(1);
+                      }}
+                      className="h-8 rounded-[3px] border border-line bg-surface px-2.5 text-[12px] text-ink focus:border-ink-2 focus:outline-none cursor-pointer"
+                    >
+                      <option value="confidence-asc">
+                        {"คะแนนความมั่นใจต่ำสุดก่อน"}
+                      </option>
+                      <option value="confidence-desc">
+                        {"คะแนนความมั่นใจสูงสุดก่อน"}
+                      </option>
+                      <option value="newest">
+                        {"อัปเดตล่าสุด"}
+                      </option>
+                      <option value="budget-desc">
+                        {"งบประมาณสูงสุด"}
+                      </option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {sortedQueue.length === 0 ? (
+              {reviewLoading && !reviewData ? (
+                <ReviewTabSkeleton />
+              ) : displayedReviewItems.length === 0 ? (
                 <Panel className="p-6 text-center text-[13px] text-ink-3">
                   {"ไม่พบรายการในเงื่อนไขที่เลือก"}
                 </Panel>
               ) : (
-                <div className="flex flex-col gap-2">
-                  {sortedQueue.map((item) => (
-                    <ReviewItemCard
-                      key={item.docId}
-                      item={item}
-                      isOpen={expanded === item.docId}
-                      onToggle={() => setExpanded(expanded === item.docId ? null : item.docId)}
-                      resolution={handled[item.docId] || null}
-                      onResolution={(text) => setHandled((prev) => ({ ...prev, [item.docId]: text }))}
-                      onSuccess={onRefresh}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className={`flex flex-col gap-2 transition-opacity ${reviewLoading ? "opacity-60" : ""}`}>
+                    {displayedReviewItems.map((item) => (
+                      <ReviewItemCard
+                        key={item.docId}
+                        item={item}
+                        isOpen={expanded === item.docId}
+                        onToggle={() => setExpanded(expanded === item.docId ? null : item.docId)}
+                        resolution={handled[item.docId] || null}
+                        onResolution={(text) => setHandled((prev) => ({ ...prev, [item.docId]: text }))}
+                        onSuccess={handleReviewSuccess}
+                      />
+                    ))}
+                  </div>
+
+                  {reviewTotalPages > 1 ? (
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+                      <span className="font-mono text-[12px] text-ink-3">
+                        {`หน้า ${reviewPage} จาก ${reviewTotalPages}`}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={reviewPage <= 1 || reviewLoading}
+                          onClick={() => setReviewPage((p) => Math.max(1, p - 1))}
+                          className={`${btn.secondary} h-8 px-3 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed`}
+                        >
+                          ← ก่อนหน้า
+                        </button>
+                        <button
+                          type="button"
+                          disabled={reviewPage >= reviewTotalPages || reviewLoading}
+                          onClick={() => setReviewPage((p) => Math.min(reviewTotalPages, p + 1))}
+                          className={`${btn.secondary} h-8 px-3 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed`}
+                        >
+                          ถัดไป →
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
               )}
             </section>
             )}
@@ -1463,7 +1568,7 @@ function AdminDashboard({
                           ].map((column) => (
                             <th
                               key={column.text}
-                              className={`px-3.5 py-2.5 text-[11px] font-medium text-ink-3 ${
+                              className={`px-3.5 py-2.5 text-[11px] font-medium text-ink-3 whitespace-nowrap ${
                                 column.right ? "text-right" : ""
                               }`}
                             >
@@ -1481,26 +1586,26 @@ function AdminDashboard({
                             <td className="px-3.5 py-2.5 font-mono tnum text-[12px] text-ink-2 whitespace-nowrap">
                               {log.startedAt}
                             </td>
-                            <td className="px-3.5 py-2.5">
-                              <span className="rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] text-ink font-medium">
+                            <td className="px-3.5 py-2.5 whitespace-nowrap">
+                              <span className="inline-flex whitespace-nowrap rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] text-ink font-medium">
                                 {log.source === "process3" ? "process3 (e-GP)" : "datago (data.go.th)"}
                               </span>
                             </td>
-                            <td className="px-3.5 py-2.5">
+                            <td className="px-3.5 py-2.5 whitespace-nowrap">
                               <span
-                                className={`inline-flex rounded-[2px] border px-2 py-0.5 text-[11px] font-medium ${
+                                className={`inline-flex whitespace-nowrap rounded-[2px] border px-2 py-0.5 text-[11px] font-medium ${
                                   HEALTH[log.status]?.chip ?? "border-line bg-surface-2 text-ink-2"
                                 }`}
                               >
                                 {HEALTH[log.status]?.label ?? log.status}
                               </span>
                             </td>
-                            <td className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink-2">
+                            <td className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink-2 whitespace-nowrap">
                               {log.durationMs > 1000
                                 ? `${(log.durationMs / 1000).toFixed(1)}s`
                                 : `${log.durationMs}ms`}
                             </td>
-                            <td className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink font-semibold">
+                            <td className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink font-semibold whitespace-nowrap">
                               {log.itemsDiscovered} / {log.itemsIngested}
                             </td>
                             <td className="px-3.5 py-2.5 text-[12px]">
@@ -1533,18 +1638,28 @@ function AdminDashboard({
           <div className={activeJob === "technologies" ? "block w-full" : "hidden"}>
             <TechnologiesSection
               technologies={techList}
+              userRequestItems={techUserRequests}
               isLoading={isTechLoading}
               pendingCount={techPendingCount}
+              counts={techCounts}
               totalCount={techTotal}
+              page={techPage}
+              totalPages={techTotalPages}
+              onPageChange={(nextPage) => {
+                setIsTechLoading(true);
+                setTechPage(nextPage);
+              }}
               search={techSearch}
               onSearchChange={(val) => {
                 setIsTechLoading(true);
                 setTechSearch(val);
+                setTechPage(1);
               }}
               statusFilter={techStatusFilter}
               onStatusFilterChange={(val) => {
                 setIsTechLoading(true);
                 setTechStatusFilter(val);
+                setTechPage(1);
               }}
               categoryFilter={techCategoryFilter}
               onCategoryFilterChange={setTechCategoryFilter}

@@ -446,7 +446,7 @@ export default function WatchdogPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 sm:px-6 py-6">
+    <div className="mx-auto w-full max-w-[1100px] px-4 sm:px-6 py-6">
       {/* Page Header */}
       <header className="mb-5">
         <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-ink">

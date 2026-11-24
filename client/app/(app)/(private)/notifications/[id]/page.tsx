@@ -102,7 +102,7 @@ export default function NotificationDetailPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-[900px] px-4 py-8">
+      <div className="mx-auto w-full max-w-[900px] px-4 py-8">
         <div className="mb-4 h-6 w-32 animate-pulse rounded bg-surface-2" />
         <div className="mb-6 h-28 animate-pulse rounded-md border border-line bg-surface-2" />
         <div className="space-y-4">
@@ -115,7 +115,7 @@ export default function NotificationDetailPage() {
 
   if (error || !notification) {
     return (
-      <div className="mx-auto max-w-[900px] px-4 py-8">
+      <div className="mx-auto w-full max-w-[900px] px-4 py-8">
         <Link
           href="/notifications"
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-2 hover:text-ink"
@@ -150,7 +150,7 @@ export default function NotificationDetailPage() {
   const headerContent = getHeaderContent(notification.type, itemCount);
 
   return (
-    <div className="mx-auto max-w-[900px] px-4 py-8">
+    <div className="mx-auto w-full max-w-[900px] px-4 py-8">
       {/* Top back navigation */}
       <div className="mb-4">
         <Link

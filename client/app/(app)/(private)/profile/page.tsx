@@ -82,7 +82,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1020px] px-4 py-8">
+    <div className="mx-auto w-full max-w-[1020px] px-4 py-8">
       {/* Header */}
       <header className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
         <div>
