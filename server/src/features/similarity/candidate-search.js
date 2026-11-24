@@ -43,25 +43,35 @@ export const STABLE_STATUSES = ['Closed', 'Awarded'];
 export const MIN_CONFIDENCE_SCORE = 80;
 
 /** Query filters for candidate peer selection in MongoDB (ADR 0021 & NFR-17). */
-export const CANDIDATE_FILTERS = {
+export const candidateFilters = (now = new Date()) => ({
   ...FULL_EXTRACTION,
-  'identification.status': { $in: STABLE_STATUSES },
   'metadata.confidenceScore': { $gte: MIN_CONFIDENCE_SCORE },
-};
+  $or: [
+    { 'identification.status': { $in: STABLE_STATUSES } },
+    { 'identification.status': 'Open', 'facts.submissionDeadline': { $lt: now } },
+  ],
+});
+
+export const CANDIDATE_FILTERS = candidateFilters();
 
 /**
  * Checks whether an in-memory project candidate meets stability and quality criteria:
  * 1. Full extraction (ADR 0028)
- * 2. Concluded status: 'Closed' or 'Awarded' only
+ * 2. Concluded status: 'Closed' or 'Awarded', or 'Open' past its deadline (FR-19)
  * 3. Confidence score >= 80% (NFR-17)
  *
  * @param {object} tor
+ * @param {Date} [now=new Date()]
  * @returns {boolean}
  */
-export const isEligibleCandidate = (tor) => {
+export const isEligibleCandidate = (tor, now = new Date()) => {
   if (!isFullExtraction(tor)) return false;
   const status = tor?.identification?.status;
-  if (!STABLE_STATUSES.includes(status)) return false;
+  const deadline = tor?.facts?.submissionDeadline;
+  const isConcluded =
+    STABLE_STATUSES.includes(status) ||
+    (status === 'Open' && deadline && new Date(deadline) < now);
+  if (!isConcluded) return false;
   const score = tor?.metadata?.confidenceScore;
   if (typeof score !== 'number' || score < MIN_CONFIDENCE_SCORE) return false;
   return true;
@@ -92,6 +102,7 @@ export async function findComparableProjects(targetTor, options = {}) {
   const {
     limit = 5,
     candidatesPool = null,
+    now = new Date(),
   } = options;
 
   const targetCategories = getProjectCategories(targetTor);
@@ -107,7 +118,7 @@ export async function findComparableProjects(targetTor, options = {}) {
   if (Array.isArray(candidatesPool)) {
     candidates = candidatesPool.filter((cand) => {
       if (cand.projectId === targetTor.projectId) return false;
-      if (!isEligibleCandidate(cand)) return false;
+      if (!isEligibleCandidate(cand, now)) return false;
       if (!sharesCategory(targetTor, cand)) return false;
       const price = getProjectPrice(cand);
       return price !== null && price > 0;
@@ -115,11 +126,22 @@ export async function findComparableProjects(targetTor, options = {}) {
   } else {
     candidates = await TorInsight.find({
       projectId: { $ne: targetTor.projectId },
-      ...CANDIDATE_FILTERS,
-      'identification.categories': { $in: targetCategories },
-      $or: [
-        { 'facts.referencePriceTHB': { $gt: 0 } },
-        { 'facts.budgetTHB': { $gt: 0 } },
+      $and: [
+        FULL_EXTRACTION,
+        { 'metadata.confidenceScore': { $gte: MIN_CONFIDENCE_SCORE } },
+        {
+          $or: [
+            { 'identification.status': { $in: STABLE_STATUSES } },
+            { 'identification.status': 'Open', 'facts.submissionDeadline': { $lt: now } },
+          ],
+        },
+        { 'identification.categories': { $in: targetCategories } },
+        {
+          $or: [
+            { 'facts.referencePriceTHB': { $gt: 0 } },
+            { 'facts.budgetTHB': { $gt: 0 } },
+          ],
+        },
       ],
     })
       .select({

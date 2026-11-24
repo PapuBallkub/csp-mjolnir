@@ -115,15 +115,12 @@ How the candidates are scored:
 
 ### Known limits
 
-- **TORs followed from open to award don't become candidates yet.** The
-  candidate rule reads the status copied into the summary when it was
-  extracted. A winner announcement doesn't update that copy, and Closed is
-  never stored at all. So in practice the candidates are the past projects
-  from data.go.th.
 - **"No similar projects found" looks like "not analysed".** With no
   candidates, the stored analysis has no median and no projects, and the API
   sends `null`, the same as a TOR the comparison never ran on
   ([what-the-public-sees.md](what-the-public-sees.md#what-a-visible-tor-carries)).
+
+*(Note: TORs followed from open to award now become candidates as intended: ingestion keeps `TorInsight.identification.status` in sync with `Tor` updates like winner announcements W0 and signed contracts, and Open TORs past their submission deadline are recognized as concluded peers).*
 
 ## Lock-spec (FR-20 rules, FR-21 flag)
 
