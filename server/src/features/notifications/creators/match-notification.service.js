@@ -48,7 +48,7 @@ export function buildMatchSnapshot(matchedPairs) {
  * @param {number} [options.minScore=70]
  * @returns {Array<{ tor: Object, matchResult: Object }>}
  */
-export function evaluateUserCandidateMatches(user, candidateTors, { minScore = 70 } = {}) {
+export function evaluateUserCandidateMatches(user, candidateTors, { minScore = 70, now = new Date() } = {}) {
   const profile = user.profile ?? {};
 
   // If match notifications are disabled by the user or profile is completely unconfigured
@@ -60,6 +60,11 @@ export function evaluateUserCandidateMatches(user, candidateTors, { minScore = 7
   const matches = [];
 
   for (const tor of candidateTors) {
+    const deadline = tor.facts?.submissionDeadline ?? tor.submissionDeadline ?? null;
+    if (deadline && new Date(deadline) < now) {
+      continue;
+    }
+
     const matchResult = calculateMatchScore(tor, profile);
     if (!matchResult || matchResult.score < effectiveMinScore) {
       continue;
@@ -87,25 +92,36 @@ export function evaluateUserCandidateMatches(user, candidateTors, { minScore = 7
 /**
  * Finds candidate active IT TORs from the database that are eligible for matching.
  * Per NFR-17, in production only approved extractions with confidence >= 80% are surfaced.
+ * Active TORs must be Open or Draft, and must not have passed their submission deadline.
+ *
+ * @param {Date} [now=new Date()]
  */
-export async function getActiveCandidateTors() {
-  const baseFilter = {
-    'identification.status': { $in: ['Open', 'Draft'] },
-    'metadata.excluded': null,
-    'metadata.awaitingFullText': { $ne: true },
-    'metadata.titleOnly': { $ne: true },
-  };
+export async function getActiveCandidateTors(now = new Date()) {
+  const conditions = [
+    { 'identification.status': { $in: ['Open', 'Draft'] } },
+    { 'metadata.excluded': null },
+    { 'metadata.awaitingFullText': { $ne: true } },
+    { 'metadata.titleOnly': { $ne: true } },
+    {
+      $or: [
+        { 'facts.submissionDeadline': null },
+        { 'facts.submissionDeadline': { $gte: now } },
+      ],
+    },
+  ];
 
   // In production, strictly enforce >= 80 confidence (NFR-17).
   // In development/pilot, allow demo data or unreviewed records if configured.
   if (!env.showUnreviewedInsights) {
-    baseFilter.$or = [
-      { 'metadata.confidenceScore': { $gte: 80 } },
-      { 'metadata.reviewStatus': 'approved' },
-    ];
+    conditions.push({
+      $or: [
+        { 'metadata.confidenceScore': { $gte: 80 } },
+        { 'metadata.reviewStatus': 'approved' },
+      ],
+    });
   }
 
-  return TorInsight.find(baseFilter).lean();
+  return TorInsight.find({ $and: conditions }).lean();
 }
 
 /**

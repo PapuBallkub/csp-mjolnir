@@ -21,7 +21,7 @@
 
 import { pathToFileURL } from 'node:url';
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
-import { Tor } from '#models/index.js';
+import { Tor, TorInsight } from '#models/index.js';
 import { RunLockHeldError, withRunLock } from '../shared/run-lock.js';
 import { procurementKindOf } from './sources/process3.js';
 import {
@@ -101,6 +101,15 @@ export async function upsertPastContracts(rows) {
     })),
     { ordered: false },
   );
+
+  const projectIds = rows.map((row) => row.projectId).filter(Boolean);
+  if (projectIds.length > 0) {
+    await TorInsight.updateMany(
+      { projectId: { $in: projectIds } },
+      { $set: { 'identification.status': 'Awarded' } },
+    );
+  }
+
   return { inserted: result.upsertedCount, updated: result.matchedCount };
 }
 

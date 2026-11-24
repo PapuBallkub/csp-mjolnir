@@ -409,6 +409,37 @@ test('findComparableProjects: accepts only Closed and Awarded statuses (rejects 
   assert.deepEqual(ids, ['CAND_AWARDED', 'CAND_CLOSED']);
 });
 
+test('findComparableProjects: accepts Open TOR past its deadline as concluded (Closed)', async () => {
+  const target = {
+    projectId: 'TARGET_PAST_DEADLINE',
+    identification: { categories: ['software-development'], titleTh: 'ระบบทดสอบกำหนดเวลา' },
+    facts: { referencePriceTHB: 2000000 },
+    overview: { systemArchetype: 'web-portal', complexityTier: 'standard' },
+  };
+
+  const pool = [
+    {
+      projectId: 'CAND_OPEN_PAST',
+      identification: { categories: ['software-development'], status: 'Open' },
+      facts: { referencePriceTHB: 2000000, submissionDeadline: new Date('2025-01-01T00:00:00Z') },
+      metadata: { confidenceScore: 90 },
+    },
+    {
+      projectId: 'CAND_OPEN_FUTURE',
+      identification: { categories: ['software-development'], status: 'Open' },
+      facts: { referencePriceTHB: 2000000, submissionDeadline: new Date('2030-01-01T00:00:00Z') },
+      metadata: { confidenceScore: 90 },
+    },
+  ];
+
+  const results = await findComparableProjects(target, {
+    candidatesPool: pool,
+    now: new Date('2026-11-24T00:00:00Z'),
+  });
+  assert.equal(results.length, 1);
+  assert.equal(results[0].projectId, 'CAND_OPEN_PAST');
+});
+
 test('findComparableProjects: filters out candidates below 80% confidence score (NFR-17)', async () => {
   const target = {
     projectId: 'TARGET_CONF',

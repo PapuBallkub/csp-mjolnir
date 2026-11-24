@@ -300,3 +300,49 @@ test('notifications: renders watchlist digest email with amendment, status chang
   assert.ok(html.includes('https://gipdp.go.th/unsubscribe?token=watchlist999'));
   assert.ok(text.includes('https://gipdp.go.th/unsubscribe?token=watchlist999'));
 });
+
+test('notifications: evaluateUserCandidateMatches excludes candidate TORs past submission deadline', () => {
+  const user = {
+    email: 'test@example.com',
+    profile: {
+      skills: ['Node.js', 'React'],
+      budgetMin: 1_000_000,
+      budgetMax: 5_000_000,
+      matchNotification: {
+        enabled: true,
+        minScore: 70,
+      },
+    },
+  };
+
+  const candidates = [
+    {
+      projectId: 'EXPIRED_TOR',
+      title: 'โครงการระบบเก่า',
+      facts: {
+        budgetTHB: 3_000_000,
+        submissionDeadline: new Date('2026-11-03T12:00:00Z'),
+      },
+      technicalRequirements: {
+        requiredTechnologies: ['Node.js', 'React'],
+      },
+    },
+    {
+      projectId: 'ACTIVE_TOR',
+      title: 'โครงการระบบใหม่',
+      facts: {
+        budgetTHB: 3_000_000,
+        submissionDeadline: new Date('2026-12-01T12:00:00Z'),
+      },
+      technicalRequirements: {
+        requiredTechnologies: ['Node.js', 'React'],
+      },
+    },
+  ];
+
+  const now = new Date('2026-11-24T00:00:00Z');
+  const matches = evaluateUserCandidateMatches(user, candidates, { minScore: 70, now });
+
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0].tor.projectId, 'ACTIVE_TOR');
+});

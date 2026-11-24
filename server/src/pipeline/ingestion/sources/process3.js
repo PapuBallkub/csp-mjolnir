@@ -17,7 +17,7 @@ import { XMLParser } from 'fast-xml-parser';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
-import { Tor } from '#models/index.js';
+import { Tor, TorInsight } from '#models/index.js';
 import { convertThaiDigitsToArabic } from '../../shared/thai-text.js';
 import {
   resolveAndDownloadEgpTorDocument,
@@ -423,6 +423,17 @@ export async function fetchFromProcess3({
             if (final.latestCode) updatedTor.announceType = final.latestCode;
             await updatedTor.save();
           }
+
+          // Keep TorInsight in sync with Tor live status & amendment flags (FR-19)
+          await TorInsight.updateOne(
+            { projectId: String(torId) },
+            {
+              $set: {
+                'identification.status': final.status,
+                'amendmentInfo.isAmended': final.isAmended,
+              },
+            },
+          );
         }
 
         if (existing) updated++;
