@@ -14,6 +14,9 @@ import {
   getProjectComplexityTier,
   SYSTEM_ARCHETYPES,
   COMPLEXITY_TIERS,
+  isComplexityCompatible,
+  isScaleCompatible,
+  MIN_SCALE_RATIO,
   findComparableProjects,
 } from '#features/similarity/index.js';
 
@@ -39,6 +42,23 @@ test('calculateScaleProximity: calculates ratio of smaller to larger price', () 
   assert.equal(calculateScaleProximity(5000000, 10000000), 0.5);
   assert.equal(calculateScaleProximity(10000000, 5000000), 0.5);
   assert.equal(calculateScaleProximity(null, 5000000), 0.5); // neutral fallback
+});
+
+test('isScaleCompatible: enforces 10x order-of-magnitude scale guardrail (ADR 0044)', () => {
+  assert.equal(MIN_SCALE_RATIO, 0.10);
+  // Allowed: within 10x window
+  assert.equal(isScaleCompatible(10_000_000, 10_000_000), true); // 1x
+  assert.equal(isScaleCompatible(10_000_000, 18_000_000), true); // 1.8x (+80% premium)
+  assert.equal(isScaleCompatible(10_000_000, 1_000_000), true); // 10x exactly
+  assert.equal(isScaleCompatible(500_000, 5_000_000), true); // 10x exactly
+
+  // Disqualified: gross order-of-magnitude scope mismatches (>10x)
+  assert.equal(isScaleCompatible(495_000_000, 1_500_000), false); // 330x mismatch (+33,000%)
+  assert.equal(isScaleCompatible(495_000_000, 801_350), false); // 617x mismatch
+  assert.equal(isScaleCompatible(145_000_000, 2_100_000), false); // 69x mismatch (+6,800%)
+  assert.equal(isScaleCompatible(500_000, 5_500_000), false); // 11x mismatch
+  assert.equal(isScaleCompatible(0, 5_000_000), false); // invalid price
+  assert.equal(isScaleCompatible(null, 5_000_000), false); // missing price
 });
 
 test('calculateTechSimilarity: Jaccard overlap on technology names', () => {
@@ -86,6 +106,20 @@ test('calculateComplexitySimilarity: computes step distances between tiers corre
   // Null fallback -> neutral 0.5
   assert.equal(calculateComplexitySimilarity(torBasic, torNull), 0.5);
   assert.equal(calculateComplexitySimilarity(torNull, torEnterprise), 0.5);
+});
+
+test('isComplexityCompatible: strictly segregates enterprise from standard and basic', () => {
+  assert.equal(isComplexityCompatible('enterprise', 'enterprise'), true);
+  assert.equal(isComplexityCompatible('enterprise', 'standard'), false);
+  assert.equal(isComplexityCompatible('enterprise', 'basic'), false);
+  assert.equal(isComplexityCompatible('standard', 'enterprise'), false);
+  assert.equal(isComplexityCompatible('basic', 'enterprise'), false);
+  assert.equal(isComplexityCompatible('standard', 'basic'), true);
+  assert.equal(isComplexityCompatible('basic', 'standard'), true);
+  assert.equal(isComplexityCompatible('standard', 'standard'), true);
+  assert.equal(isComplexityCompatible('basic', 'basic'), true);
+  assert.equal(isComplexityCompatible(null, 'enterprise'), true);
+  assert.equal(isComplexityCompatible('enterprise', null), true);
 });
 
 test('findComparableProjects: filters and ranks candidate projects properly', async () => {
@@ -232,6 +266,144 @@ test('findComparableProjects: matches realistic project 69109062251 (maintenance
   assert.equal(results.length, 2, 'Should find both maintenance-and-support projects');
   assert.ok(results[0].score > 0.8, 'Top score should be high (>80%)');
   assert.ok(results[1].score > 0.7, 'Second score should also be high (>70%)');
+});
+
+test('findComparableProjects: enterprise project strictly isolates to enterprise candidates', async () => {
+  const enterpriseProject = {
+    projectId: '68039469567',
+    identification: {
+      titleTh: 'โครงการจัดหาและติดตั้งระบบเครือข่ายสื่อสารความเร็วสูง Data Center',
+      categories: ['network-and-security'],
+    },
+    facts: {
+      budgetTHB: 89845000,
+      referencePriceTHB: 89845000,
+    },
+    overview: {
+      systemArchetype: 'infra-networking',
+      complexityTier: 'enterprise',
+    },
+    technicalRequirements: {
+      requiredTechnologies: [{ name: 'BGP' }],
+    },
+  };
+
+  const pool = [
+    // Candidate 1: Same category, but standard tier -> MUST be rejected
+    {
+      projectId: 'CAND_STANDARD',
+      identification: {
+        categories: ['network-and-security'],
+        titleTh: 'จ้างบำรุงรักษาระบบเครือข่ายสำนักงาน',
+        status: 'Awarded',
+      },
+      metadata: { confidenceScore: 90 },
+      facts: { referencePriceTHB: 2100000 },
+      overview: { systemArchetype: 'infra-networking', complexityTier: 'standard' },
+    },
+    // Candidate 2: Same category, basic tier -> MUST be rejected
+    {
+      projectId: 'CAND_BASIC',
+      identification: {
+        categories: ['network-and-security'],
+        titleTh: 'จัดหาอุปกรณ์เครือข่ายย่อย',
+        status: 'Awarded',
+      },
+      metadata: { confidenceScore: 90 },
+      facts: { referencePriceTHB: 850000 },
+      overview: { systemArchetype: 'infra-networking', complexityTier: 'basic' },
+    },
+    // Candidate 3: Same category and enterprise tier -> MUST be accepted
+    {
+      projectId: 'CAND_ENTERPRISE',
+      identification: {
+        categories: ['network-and-security'],
+        titleTh: 'โครงการติดตั้งระบบเครือข่าย SD-WAN ประจำศูนย์ข้อมูลหลัก',
+        status: 'Awarded',
+      },
+      metadata: { confidenceScore: 90 },
+      facts: { referencePriceTHB: 82500000 },
+      overview: { systemArchetype: 'infra-networking', complexityTier: 'enterprise' },
+      technicalRequirements: { requiredTechnologies: [{ name: 'BGP' }] },
+    },
+  ];
+
+  const results = await findComparableProjects(enterpriseProject, { candidatesPool: pool });
+
+  assert.equal(results.length, 1, 'Enterprise project must only match enterprise candidates');
+  assert.equal(results[0].projectId, 'CAND_ENTERPRISE');
+  assert.equal(results[0].referencePriceTHB, 82500000);
+});
+
+test('findComparableProjects: returns empty array (N=0) when no compatible enterprise peers exist', async () => {
+  const enterpriseProject = {
+    projectId: 'MEGA_001',
+    identification: {
+      titleTh: 'โครงการศูนย์ข้อมูลหลักภาครัฐ',
+      categories: ['network-and-security'],
+    },
+    facts: { referencePriceTHB: 144999500 },
+    overview: { systemArchetype: 'infra-networking', complexityTier: 'enterprise' },
+  };
+
+  const poolWithoutEnterprise = [
+    {
+      projectId: 'CAND_ROUTINE',
+      identification: { categories: ['network-and-security'], status: 'Awarded' },
+      metadata: { confidenceScore: 90 },
+      facts: { referencePriceTHB: 2100000 },
+      overview: { systemArchetype: 'infra-networking', complexityTier: 'standard' },
+    },
+  ];
+
+  const results = await findComparableProjects(enterpriseProject, { candidatesPool: poolWithoutEnterprise });
+  assert.equal(results.length, 0, 'Must return N=0 instead of false-matching with ฿2.1M routine project');
+});
+
+test('findComparableProjects: ฿495M project rejects ฿1.5M routine maintenance peers via 10x scale guardrail (ADR 0044)', async () => {
+  const target495M = {
+    projectId: 'PROJECT_495M',
+    identification: {
+      titleTh: 'โครงการบริหารจัดการและให้บริการศูนย์ข้อมูลภาครัฐ (Data Center)',
+      categories: ['maintenance-and-support'],
+    },
+    facts: {
+      budgetTHB: 496600000,
+      referencePriceTHB: 495000000,
+    },
+    overview: {
+      systemArchetype: 'infra-networking',
+      complexityTier: 'enterprise',
+    },
+  };
+
+  const routinePool = [
+    {
+      projectId: 'CAND_1',
+      identification: { categories: ['maintenance-and-support'], status: 'Awarded' },
+      metadata: { confidenceScore: 90 },
+      facts: { referencePriceTHB: 801350 },
+      overview: { systemArchetype: 'infra-networking', complexityTier: 'enterprise' },
+    },
+    {
+      projectId: 'CAND_2',
+      identification: { categories: ['maintenance-and-support'], status: 'Awarded' },
+      metadata: { confidenceScore: 90 },
+      facts: { referencePriceTHB: 907200 },
+      overview: { systemArchetype: 'infra-networking', complexityTier: 'enterprise' },
+    },
+    {
+      projectId: 'CAND_3',
+      identification: { categories: ['maintenance-and-support'], status: 'Awarded' },
+      metadata: { confidenceScore: 90 },
+      facts: { referencePriceTHB: 1500000 },
+      overview: { systemArchetype: 'infra-networking', complexityTier: 'enterprise' },
+    },
+  ];
+
+  // Zero peers should match because of the 10x scale guardrail (even if they share category, archetype, and tier)
+  const results = await findComparableProjects(target495M, { candidatesPool: routinePool });
+  assert.equal(results.length, 0, 'Scale guardrail must prevent comparing ฿495M to ฿1.5M maintenance');
 });
 
 test('findComparableProjects: full extractions only, not title-level or waiting records (ADR 0028)', async () => {
