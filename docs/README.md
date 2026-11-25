@@ -114,11 +114,21 @@ what's built; the last column says which:
 
 ### Decisions
 
-[decisions/](decisions/) holds 43 decision records (ADRs), one per file,
+[decisions/](decisions/) holds 44 decision records (ADRs), one per file,
 numbered in the order they were made. Each says what was decided, why, and
 what it costs. [project-map.md](project-map.md) lists them all with a line
 each. Lock-spec's record was 0030 until 2026-11-13 and is now 0035, so an
 older comment citing "ADR 0030" for lock-spec means 0035.
+
+Feature-level design & decision plans (architecture choices, use cases, and
+Mermaid sequence/class diagrams from planning) live in
+[decisions/design-plans/](decisions/design-plans/):
+
+| Page | What it covers |
+| :--- | :--- |
+| [notification-decision-plan.md](decisions/design-plans/notification-decision-plan.md) | Notification System (Part 1): core architecture & match alerts (`FR-13`, `FR-14`) |
+| [watchlist-notification-decision-plan.md](decisions/design-plans/watchlist-notification-decision-plan.md) | Notification System (Part 2): watchlist amendment, status & deadline alerts (`FR-17`, `FR-18`) |
+| [watchdog-decision-plan.md](decisions/design-plans/watchdog-decision-plan.md) | Watchdog page & reality-check/lock-spec design (`FR-19`, `FR-20`, `FR-21`) |
 
 ## Writing docs here
 
