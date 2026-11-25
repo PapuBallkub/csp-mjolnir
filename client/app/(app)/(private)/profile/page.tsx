@@ -8,7 +8,6 @@ import * as api from "../../../_lib/api";
 import type { ApiError, TechnologyItem, UserProfile } from "../../../_lib/api";
 import { ProfileDisplay } from "./_components/ProfileDisplay";
 import { ProfileEditForm } from "./_components/ProfileEditForm";
-
 export default function ProfilePage() {
   const user = useAuthedUser();
   const { updateProfile } = useAuth();
@@ -84,28 +83,31 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto max-w-[1020px] px-4 py-8">
       {/* Header */}
-      <header className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <h1 className="text-[24px] font-bold tracking-tight text-ink sm:text-[28px]">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-[22px] font-semibold text-ink sm:text-[26px]">
             {mode === "view" ? "โปรไฟล์ความสามารถของฉัน" : "แก้ไขโปรไฟล์ความสามารถ"}
           </h1>
-          <p className="mt-1 text-[13.5px] leading-thai text-ink-2">
+          <p className="mt-1 max-w-2xl text-[13px] leading-thai text-ink-2">
             {mode === "view"
               ? "ข้อมูลสำหรับวิเคราะห์ความเหมาะสมกับประกาศจัดซื้อจัดจ้างภาครัฐ (Match Scoring) และแจ้งเตือนโครงการที่เหมาะสม"
               : "ปรับปรุงข้อมูลทักษะ ช่วงงบประมาณ และเกณฑ์คุณสมบัติของคุณ"}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {savedSuccess && (
-            <div className="rounded-[3px] border border-open-line bg-open-bg px-3 py-1.5 text-[12.5px] font-medium text-open animate-in fade-in">
+            <div
+              role="status"
+              className="rounded-full border border-open-line bg-open-bg px-3.5 py-1.5 text-[12px] font-medium text-open"
+            >
               ✓ บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว
             </div>
           )}
           {/* How the person signs in lives on its own page (0042) */}
           <Link
             href="/account"
-            className="text-[12.5px] text-ink-2 underline underline-offset-2 hover:text-ink"
+            className="inline-flex h-8 items-center rounded-full border border-line px-3.5 text-[12px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
           >
             บัญชีและรหัสผ่าน
           </Link>
