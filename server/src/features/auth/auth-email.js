@@ -14,32 +14,64 @@ export const confirmLink = (token) => `${env.corsOrigin}/auth/verify#token=${tok
 /** Where the reset page is, the token after `#` for the same reason. */
 export const resetLink = (token) => `${env.corsOrigin}/auth/reset#token=${token}`;
 
-const wrap = (paragraphs) =>
-  [
-    '<div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#1a1a1a;max-width:520px">',
-    ...paragraphs.map((p) => `<p>${p}</p>`),
-    '<p style="color:#666;font-size:13px">GIPDP เป็นเครื่องมือค้นหาประกาศจัดซื้อจัดจ้างภาครัฐ ไม่ใช่ระบบของรัฐ การยื่นข้อเสนอทั้งหมดทำบนระบบ e-GP</p>',
-    '</div>',
-  ].join('');
+const p = (text, extra = '') =>
+  `<p style="margin:0 0 14px 0;font-size:14px;color:#334155;line-height:1.6;${extra}">${text}</p>`;
+
+const ctaButton = (href, label) =>
+  `<div style="margin:20px 0;"><a href="${href}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:600;">${label} &rarr;</a></div>`;
+
+const cautionBox = (text) =>
+  `<div style="margin-top:20px;padding:12px 16px;background-color:#fffbeb;border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:6px;font-size:13px;color:#92400e;line-height:1.6;">&#9888;&#65039; ${text}</div>`;
+
+const wrap = (title, bodyItems) =>
+  `<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no">
+  <title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans Thai',sans-serif;color:#0f172a;line-height:1.5;">
+  <div style="max-width:620px;margin:24px auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+    <div style="background:#0f172a;padding:24px 28px;color:#ffffff;">
+      <div style="font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#94a3b8;">
+        GIPDP · Government IT Procurement Discovery Platform
+      </div>
+      <h1 style="margin:8px 0 0 0;font-size:20px;font-weight:700;color:#ffffff;">
+        ${title}
+      </h1>
+    </div>
+    <div style="padding:28px;">
+      ${bodyItems.join('\n      ')}
+    </div>
+    <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 28px;font-size:12px;color:#64748b;line-height:1.6;">
+      <p style="margin:0;">
+        <strong>ข้อความปฏิเสธความรับผิดชอบ (Disclaimer):</strong> GIPDP เป็นเครื่องมือค้นหาประกาศจัดซื้อจัดจ้างภาครัฐ ไม่ใช่ระบบของรัฐ การยื่นข้อเสนอทั้งหมดทำบนระบบ e-GP
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
 
 /** Someone signed up with this address: the link that creates the account. */
 export function confirmEmail(to, token) {
   const link = confirmLink(token);
+  const subject = 'ยืนยันอีเมลเพื่อเปิดใช้งานบัญชีของคุณกับระบบ GIPDP';
   return {
     kind: 'confirm',
     to,
-    subject: 'ยืนยันอีเมลเพื่อเริ่มใช้ GIPDP',
+    subject,
     text: [
-      'มีคนสมัครใช้ GIPDP ด้วยอีเมลนี้',
-      `ถ้าเป็นคุณ เปิดลิงก์นี้แล้วกรอกรหัสผ่านที่ตั้งไว้ตอนสมัคร: ${link}`,
+      `มีคนสมัครใช้งานระบบ GIPDP ด้วยอีเมลนี้ ถ้าเป็นคุณ เปิดลิงก์นี้แล้วกรอกรหัสผ่านที่ตั้งไว้ตอนสมัคร: ${link}`,
       `ลิงก์ใช้ได้ครั้งเดียว ภายใน ${LINK_HOURS} ชั่วโมง`,
       'ถ้าไม่ใช่คุณ ไม่ต้องทำอะไร บัญชีจะไม่ถูกสร้างจนกว่าจะยืนยัน',
     ].join('\n\n'),
-    html: wrap([
-      'มีคนสมัครใช้ GIPDP ด้วยอีเมลนี้',
-      `ถ้าเป็นคุณ <a href="${link}">เปิดลิงก์นี้</a> แล้วกรอกรหัสผ่านที่ตั้งไว้ตอนสมัคร`,
-      `ลิงก์ใช้ได้ครั้งเดียว ภายใน ${LINK_HOURS} ชั่วโมง`,
-      'ถ้าไม่ใช่คุณ ไม่ต้องทำอะไร บัญชีจะไม่ถูกสร้างจนกว่าจะยืนยัน',
+    html: wrap(subject, [
+      p('มีคนสมัครใช้งานระบบ GIPDP ด้วยอีเมลนี้ ถ้าเป็นคุณ กดปุ่มด้านล่างเพื่อเปิดลิงก์ แล้วกรอกรหัสผ่านที่ตั้งไว้ตอนสมัคร', 'font-size:15px;color:#1e293b;'),
+      ctaButton(link, 'ยืนยันอีเมล'),
+      p(`ลิงก์ใช้ได้ครั้งเดียว ภายใน ${LINK_HOURS} ชั่วโมง`, 'margin-bottom:0;'),
+      cautionBox('<strong>ถ้าไม่ใช่คุณ:</strong> ไม่ต้องทำอะไร บัญชีจะไม่ถูกสร้างจนกว่าจะยืนยัน'),
     ]),
   };
 }
@@ -47,19 +79,21 @@ export function confirmEmail(to, token) {
 /** Someone tried to sign up with an address that already has an account. */
 export function alreadyRegisteredEmail(to) {
   const signIn = `${env.corsOrigin}/auth`;
+  const subject = 'มีคนพยายามสมัครด้วยอีเมลของคุณ';
   return {
     kind: 'already-registered',
     to,
-    subject: 'มีคนพยายามสมัครด้วยอีเมลของคุณ',
+    subject,
     text: [
       'มีคนพยายามสมัครใช้ GIPDP ด้วยอีเมลนี้ แต่อีเมลนี้มีบัญชีอยู่แล้ว',
       `ถ้าเป็นคุณ เข้าสู่ระบบได้เลย (ด้วย Google ถ้าคุณสมัครด้วย Google): ${signIn}`,
       'ถ้าไม่ใช่คุณ ไม่มีอะไรเปลี่ยนแปลง บัญชีของคุณยังเหมือนเดิม',
     ].join('\n\n'),
-    html: wrap([
-      'มีคนพยายามสมัครใช้ GIPDP ด้วยอีเมลนี้ แต่อีเมลนี้มีบัญชีอยู่แล้ว',
-      `ถ้าเป็นคุณ <a href="${signIn}">เข้าสู่ระบบได้เลย</a> (ด้วย Google ถ้าคุณสมัครด้วย Google)`,
-      'ถ้าไม่ใช่คุณ ไม่มีอะไรเปลี่ยนแปลง บัญชีของคุณยังเหมือนเดิม',
+    html: wrap(subject, [
+      p('มีคนพยายามสมัครใช้ GIPDP ด้วยอีเมลนี้ แต่อีเมลนี้มีบัญชีอยู่แล้ว', 'font-size:15px;color:#1e293b;'),
+      p('ถ้าเป็นคุณ เข้าสู่ระบบได้เลย (ด้วย Google ถ้าคุณสมัครด้วย Google)'),
+      ctaButton(signIn, 'เข้าสู่ระบบ'),
+      cautionBox('<strong>ถ้าไม่ใช่คุณ:</strong> ไม่มีอะไรเปลี่ยนแปลง บัญชีของคุณยังเหมือนเดิม'),
     ]),
   };
 }
@@ -71,17 +105,18 @@ export function alreadyRegisteredEmail(to) {
  * address, so the email never says to reply.
  */
 export function googleLinkedEmail(to) {
+  const subject = 'บัญชี Google เชื่อมกับบัญชีของคุณแล้ว';
   return {
     kind: 'google-linked',
     to,
-    subject: 'บัญชี Google เชื่อมกับบัญชีของคุณแล้ว',
+    subject,
     text: [
       'บัญชี Google ที่ใช้อีเมลนี้เพิ่งถูกเชื่อมกับบัญชี GIPDP ของคุณ จากนี้เข้าสู่ระบบด้วย Google ได้',
       'ถ้าไม่ใช่คุณ แปลว่ามีคนอื่นเข้าถึงบัญชี Google ที่ใช้อีเมลนี้ได้ ให้เปลี่ยนรหัสผ่าน Google และตรวจความปลอดภัยของบัญชีที่ https://myaccount.google.com/security',
     ].join('\n\n'),
-    html: wrap([
-      'บัญชี Google ที่ใช้อีเมลนี้เพิ่งถูกเชื่อมกับบัญชี GIPDP ของคุณ จากนี้เข้าสู่ระบบด้วย Google ได้',
-      'ถ้าไม่ใช่คุณ แปลว่ามีคนอื่นเข้าถึงบัญชี Google ที่ใช้อีเมลนี้ได้ ให้เปลี่ยนรหัสผ่าน Google และตรวจความปลอดภัยของบัญชีที่ https://myaccount.google.com/security',
+    html: wrap(subject, [
+      p('บัญชี Google ที่ใช้อีเมลนี้เพิ่งถูกเชื่อมกับบัญชี GIPDP ของคุณ จากนี้เข้าสู่ระบบด้วย Google ได้', 'font-size:15px;color:#1e293b;'),
+      cautionBox('<strong>ถ้าไม่ใช่คุณ:</strong> แปลว่ามีคนอื่นเข้าถึงบัญชี Google ที่ใช้อีเมลนี้ได้ ให้เปลี่ยนรหัสผ่าน Google และตรวจความปลอดภัยของบัญชีที่ <a href="https://myaccount.google.com/security" style="color:#92400e;text-decoration:underline;font-weight:600;">myaccount.google.com/security</a>'),
     ]),
   };
 }
@@ -94,6 +129,7 @@ export function googleLinkedEmail(to) {
 export function resetEmail(to, token, { kind = 'reset', byAdmin = false } = {}) {
   const link = resetLink(token);
   const action = kind === 'set' ? 'ตั้งรหัสผ่าน' : 'ตั้งรหัสผ่านใหม่';
+  const subject = `${action}สำหรับ GIPDP`;
   const why = byAdmin
     ? `ผู้ดูแลระบบ GIPDP ส่งลิงก์${action}ให้บัญชีที่ใช้อีเมลนี้`
     : `มีคนขอลิงก์${action}สำหรับบัญชี GIPDP ที่ใช้อีเมลนี้`;
@@ -106,13 +142,14 @@ export function resetEmail(to, token, { kind = 'reset', byAdmin = false } = {}) 
   return {
     kind: byAdmin ? 'admin-reset' : kind,
     to,
-    subject: `${action}สำหรับ GIPDP`,
+    subject,
     text: lines.join('\n\n'),
-    html: wrap([
-      why,
-      `ถ้าคุณต้องการ${action} <a href="${link}">เปิดลิงก์นี้</a>`,
-      lines[2],
-      lines[3],
+    html: wrap(subject, [
+      p(why, 'font-size:15px;color:#1e293b;'),
+      p(`ถ้าคุณต้องการ${action} กดปุ่มด้านล่างเพื่อเปิดลิงก์`),
+      ctaButton(link, action),
+      p(lines[2], 'margin-bottom:0;'),
+      cautionBox(`<strong>ถ้าไม่ได้ขอ:</strong> ไม่ต้องทำอะไร รหัสผ่านเดิมยังใช้ได้`),
     ]),
   };
 }
@@ -120,17 +157,19 @@ export function resetEmail(to, token, { kind = 'reset', byAdmin = false } = {}) 
 /** The password just changed, by the account page or by a reset link (ASVS V6.3.7). */
 export function passwordChangedEmail(to) {
   const forgot = `${env.corsOrigin}/auth/forgot`;
+  const subject = 'รหัสผ่านของคุณถูกเปลี่ยนแล้ว';
   return {
     kind: 'password-changed',
     to,
-    subject: 'รหัสผ่านของคุณถูกเปลี่ยนแล้ว',
+    subject,
     text: [
       'รหัสผ่านของบัญชี GIPDP ที่ใช้อีเมลนี้เพิ่งถูกเปลี่ยน และทุกอุปกรณ์ออกจากระบบแล้ว',
       `ถ้าไม่ใช่คุณ ขอลิงก์ตั้งรหัสผ่านใหม่ได้ที่: ${forgot}`,
     ].join('\n\n'),
-    html: wrap([
-      'รหัสผ่านของบัญชี GIPDP ที่ใช้อีเมลนี้เพิ่งถูกเปลี่ยน และทุกอุปกรณ์ออกจากระบบแล้ว',
-      `ถ้าไม่ใช่คุณ <a href="${forgot}">ขอลิงก์ตั้งรหัสผ่านใหม่</a>`,
+    html: wrap(subject, [
+      p('รหัสผ่านของบัญชี GIPDP ที่ใช้อีเมลนี้เพิ่งถูกเปลี่ยน และทุกอุปกรณ์ออกจากระบบแล้ว', 'font-size:15px;color:#1e293b;'),
+      p('ถ้าไม่ใช่คุณ สามารถขอลิงก์ตั้งรหัสผ่านใหม่ได้ทันที'),
+      ctaButton(forgot, 'ขอลิงก์ตั้งรหัสผ่านใหม่'),
     ]),
   };
 }

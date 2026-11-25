@@ -225,7 +225,7 @@ A checklist you cannot check is a wish list. Run these against the deployed API.
       hide that mistake instead of breaking it. The API never redirects by
       itself, so this is the proxy's or host's setting
 - [ ] Register from the **deployed client**, in a real browser, with an address
-      you can read. The confirm email ("ยืนยันอีเมลเพื่อเริ่มใช้ GIPDP") arrives
+      you can read. The confirm email ("ยืนยันอีเมลเพื่อเปิดใช้งานบัญชีของคุณกับระบบ GIPDP") arrives
       from `EMAIL_FROM`, not in spam; its link opens `/auth/verify` on the
       client, and the password you chose signs you in. Reload the page: still
       signed in means the cookie survived the round trip; signed out means §1 is
