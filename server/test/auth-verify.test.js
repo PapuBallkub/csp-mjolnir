@@ -108,7 +108,7 @@ test('a new address gets a link; an address with an account gets a notice instea
   await register(taken);
 
   const link = await mail.waitFor(fresh);
-  assert.equal(link.subject, 'ยืนยันอีเมลเพื่อเริ่มใช้ GIPDP');
+  assert.equal(link.subject, 'ยืนยันอีเมลเพื่อเปิดใช้งานบัญชีของคุณกับระบบ GIPDP');
   assert.ok(tokenFrom(link), 'a confirm link');
   assert.match(link.text, /\/auth\/verify#token=/, 'after #, so no server log sees the token');
 
