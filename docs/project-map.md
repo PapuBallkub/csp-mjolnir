@@ -787,6 +787,7 @@ write a new one that supersedes it ([CONTRIBUTING](../CONTRIBUTING.md#decisions)
 | [0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md) | An address is confirmed before the account exists |
 | [0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md) | Passwords can be changed, reset and checked |
 | [0043](decisions/0043-one-line-per-security-event.md) | One line per security event |
+| [0044](decisions/0044-price-benchmark-scale-guardrails.md) | Price benchmark order-of-magnitude scale guardrails |
 
 #### docs/decisions/design-plans
 
@@ -797,3 +798,4 @@ Feature-level decision & design plans (architecture, use cases, and inline Merma
 | [notification-decision-plan.md](decisions/design-plans/notification-decision-plan.md) | Notification System (Part 1): core architecture & match alerts (`FR-13`, `FR-14`) |
 | [watchlist-notification-decision-plan.md](decisions/design-plans/watchlist-notification-decision-plan.md) | Notification System (Part 2): watchlist amendment, status & deadline alerts (`FR-17`, `FR-18`) |
 | [watchdog-decision-plan.md](decisions/design-plans/watchdog-decision-plan.md) | Watchdog page & reality-check/lock-spec design (`FR-19`, `FR-20`, `FR-21`) |
+

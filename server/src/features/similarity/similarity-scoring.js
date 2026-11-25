@@ -106,6 +106,26 @@ export function calculateScaleProximity(priceA, priceB) {
 }
 
 /**
+ * Minimum scale proximity required for peer benchmarking (ADR 0044).
+ * Projects differing by more than one order of magnitude (10x, scale ratio < 0.10)
+ * represent categorically mismatched operational scopes and cannot legitimately
+ * baseline each other's market rates.
+ */
+export const MIN_SCALE_RATIO = 0.10;
+
+/**
+ * Checks whether two project prices fall within the order-of-magnitude scale guardrail (ADR 0044).
+ *
+ * @param {number|null} priceA
+ * @param {number|null} priceB
+ * @returns {boolean}
+ */
+export function isScaleCompatible(priceA, priceB) {
+  if (!priceA || !priceB || priceA <= 0 || priceB <= 0) return false;
+  return calculateScaleProximity(priceA, priceB) >= MIN_SCALE_RATIO;
+}
+
+/**
  * Calculates Jaccard similarity between two technology stacks.
  * S_tech = |TechA ∩ TechB| / |TechA ∪ TechB| in [0, 1].
  *
@@ -184,6 +204,24 @@ export function getProjectComplexityTier(tor) {
     return tier;
   }
   return null;
+}
+
+/**
+ * Determines whether two complexity tiers can legitimately benchmark against each other.
+ * Enterprise tier represents high-concurrency / mission-critical infrastructure
+ * and is strictly segregated: enterprise projects cannot be benchmarked against
+ * standard or basic tiers to prevent astronomical false-positive price anomalies.
+ *
+ * @param {string|null} tierA
+ * @param {string|null} tierB
+ * @returns {boolean}
+ */
+export function isComplexityCompatible(tierA, tierB) {
+  if (!tierA || !tierB) return true;
+  if (tierA === 'enterprise' || tierB === 'enterprise') {
+    return tierA === tierB;
+  }
+  return true;
 }
 
 /**

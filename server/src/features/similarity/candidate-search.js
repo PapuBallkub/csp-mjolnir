@@ -12,7 +12,11 @@ import {
   calculateCompositeSimilarity,
   getFiscalYear,
   getProjectCategories,
+  getProjectComplexityTier,
   getProjectPrice,
+  isComplexityCompatible,
+  isScaleCompatible,
+  MIN_SCALE_RATIO,
   sharesCategory,
 } from './similarity-scoring.js';
 
@@ -107,6 +111,7 @@ export async function findComparableProjects(targetTor, options = {}) {
 
   const targetCategories = getProjectCategories(targetTor);
   const targetPrice = getProjectPrice(targetTor);
+  const targetTier = getProjectComplexityTier(targetTor);
 
   // Without a category or valid price, reliable benchmarking cannot be established
   if (targetCategories.length === 0 || !targetPrice || targetPrice <= 0) {
@@ -115,13 +120,23 @@ export async function findComparableProjects(targetTor, options = {}) {
 
   let candidates = [];
 
+  const minScalePrice = Math.round(targetPrice * MIN_SCALE_RATIO);
+  const maxScalePrice = Math.round(targetPrice / MIN_SCALE_RATIO);
+
   if (Array.isArray(candidatesPool)) {
     candidates = candidatesPool.filter((cand) => {
       if (cand.projectId === targetTor.projectId) return false;
       if (!isEligibleCandidate(cand, now)) return false;
       if (!sharesCategory(targetTor, cand)) return false;
+      // Enterprise targets strictly isolate to enterprise peers to prevent steep percentage distortion
+      if (targetTier === 'enterprise' && getProjectComplexityTier(cand) !== 'enterprise') {
+        return false;
+      }
       const price = getProjectPrice(cand);
-      return price !== null && price > 0;
+      if (price === null || price <= 0) return false;
+      // Order-of-magnitude scale sanity guardrail (ADR 0044)
+      if (!isScaleCompatible(targetPrice, price)) return false;
+      return true;
     });
   } else {
     candidates = await TorInsight.find({
@@ -136,10 +151,12 @@ export async function findComparableProjects(targetTor, options = {}) {
           ],
         },
         { 'identification.categories': { $in: targetCategories } },
+        ...(targetTier === 'enterprise' ? [{ 'overview.complexityTier': 'enterprise' }] : []),
+        // Order-of-magnitude scale guardrail in MongoDB query (ADR 0044)
         {
           $or: [
-            { 'facts.referencePriceTHB': { $gt: 0 } },
-            { 'facts.budgetTHB': { $gt: 0 } },
+            { 'facts.referencePriceTHB': { $gte: minScalePrice, $lte: maxScalePrice } },
+            { 'facts.budgetTHB': { $gte: minScalePrice, $lte: maxScalePrice } },
           ],
         },
       ],
