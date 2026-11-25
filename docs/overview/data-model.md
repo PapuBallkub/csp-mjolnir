@@ -157,7 +157,7 @@ explains why.
 | Collection | Main writer | Also written by | Read by | Public? |
 | :--- | :--- | :--- | :--- | :--- |
 | `tors` | Ingestion (fetch, download, OCR, `history:import`) | `pipeline/shared/amendments.js` | `tors`, extraction, `admin` | Yes, through `toPublic` |
-| `torinsights` | Extraction (`process-tor.js`; `screen.js` for title-only records) | `admin` (corrections), `insight-versions.js` (rollback), `find-comparable.js` (`analytics`) | `tors`, `watchlist`, `admin`, `reality-check` | Yes, once visible ([0015](../decisions/0015-pilot-mode-and-demo-data.md), NFR-17) |
+| `torinsights` | Extraction (`process-tor.js`; `screen.js` for title-only records) | `admin` (corrections), `insight-versions.js` (rollback), `find-comparable.js` (`analytics`) | `tors`, `watchlist`, `admin`, `similarity`, `price-reality-check`, `lock-spec` | Yes, once visible ([0015](../decisions/0015-pilot-mode-and-demo-data.md), NFR-17) |
 | `torinsightversions` | `pipeline/shared/insight-versions.js` | — | The same file, for `admin`'s version list and rollback | No |
 | `titlescreens` | `pipeline/extraction/screen.js` | `admin` (review verdicts), `scripts/remove-datago-records.js` | Ingestion (what to download, history picks), `run-job.js`, `admin`, `npm run report` | No |
 | `users` | `auth` (the account) | `profile` (`profile`), `watchlist` (`watchlist`), `npm run role` | `auth` on every signed-in request | Only to that user |
@@ -176,8 +176,10 @@ explains why.
 - Every field of a collection: [tor-schema.md](../database/tor-schema.md),
   [tor-insight-schema.md](../database/tor-insight-schema.md),
   [user-schema.md](../database/user-schema.md),
+  [email-token-schema.md](../database/email-token-schema.md),
   [technology-schema.md](../database/technology-schema.md),
   [title-screen-schema.md](../database/title-screen-schema.md),
+  [notification-schema.md](../database/notification-schema.md),
   [pipeline-run-schema.md](../database/pipeline-run-schema.md).
 - How the code that writes them is laid out: [server-features.md](server-features.md).
 - The model files: `server/src/models/`, one per collection, all exported from
