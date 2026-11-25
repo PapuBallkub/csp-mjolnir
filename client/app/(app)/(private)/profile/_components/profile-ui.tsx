@@ -86,17 +86,30 @@ export function Tile({
   );
 }
 
-/** Neutral tag for a saved value (skill, certification, archetype). */
+const PILL_TONE = {
+  ink: "text-ink",
+  "ink-2": "text-ink-2",
+  "ink-3": "text-ink-3",
+} as const;
+
+/**
+ * Neutral tag for a saved value (skill, certification, archetype).
+ * Text colour comes from `tone`, not `className`: a second `text-*` class
+ * would compete with the base one, and stylesheet order would pick the winner.
+ * Icons inside keep their own colour classes.
+ */
 export function Pill({
   children,
+  tone = "ink",
   className = "",
 }: {
   children: ReactNode;
+  tone?: keyof typeof PILL_TONE;
   className?: string;
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11.5px] text-ink ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11.5px] ${PILL_TONE[tone]} ${className}`}
     >
       {children}
     </span>

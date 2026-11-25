@@ -309,9 +309,9 @@ export function ProfileDisplay({
                   <ul className="flex flex-wrap gap-1.5">
                     {archetypes.map((id) => (
                       <li key={id}>
-                        <Pill>
+                        <Pill tone="ink-3">
                           <Check className="h-3 w-3 shrink-0 text-open" aria-hidden="true" />
-                          <span className="text-ink-3">{ARCHETYPE_LABELS[id] || id}</span>
+                          <span>{ARCHETYPE_LABELS[id] || id}</span>
                         </Pill>
                       </li>
                     ))}
@@ -336,9 +336,9 @@ export function ProfileDisplay({
                   <ul className="flex flex-wrap gap-1.5">
                     {certifications.map((cert) => (
                       <li key={cert}>
-                        <Pill>
+                        <Pill tone="ink-3">
                           <Award className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                          <span className="text-ink-3">{cert}</span>
+                          <span>{cert}</span>
                         </Pill>
                       </li>
                     ))}
@@ -362,7 +362,7 @@ export function ProfileDisplay({
             <ul className="mt-4 flex flex-wrap gap-1.5">
               {profile.skills.map((skill) => (
                 <li key={skill}>
-                  <Pill className="text-ink-3">{skill}</Pill>
+                  <Pill tone="ink-3">{skill}</Pill>
                 </li>
               ))}
             </ul>
