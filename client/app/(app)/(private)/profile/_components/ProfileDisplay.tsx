@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import {
   AlertTriangle,
   Award,
@@ -12,7 +12,7 @@ import {
 import type { AuthUser, UserProfile } from "../../../../_lib/api";
 import { formatTHB } from "../../../../_data/tors";
 import { isProfileBaseline } from "../../../../_lib/match";
-import { btn, Chip, Panel, SectionHeading } from "../../../../_components/ui";
+import { Card, CardHeader, Inset, Pill, StatusPill, Tile, pbtn } from "./profile-ui";
 
 const ARCHETYPE_LABELS: Record<string, string> = {
   "web-portal": "เว็บพอร์ทัล / เว็บไซต์ระบบงาน",
@@ -26,6 +26,16 @@ const ARCHETYPE_LABELS: Record<string, string> = {
   "infra-networking": "เครือข่าย / เซิร์ฟเวอร์ / Cloud / CCTV",
   other: "ระบบเฉพาะด้านอื่นๆ",
 };
+
+/** What an unconfigured profile is missing, in the order the match score weighs it. */
+const SETUP_STEPS = [
+  { title: "ทักษะเทคโนโลยี", weight: "40%", body: "ภาษาโปรแกรม เฟรมเวิร์ก และเครื่องมือพัฒนาซอฟต์แวร์" },
+  { title: "ช่วงงบประมาณที่รับงาน", weight: "20%", body: "วงเงินขั้นต่ำและเพดานราคากลางโครงการที่พร้อมรับ" },
+  { title: "สถาปัตยกรรมระบบ", weight: "15%", body: "รูปแบบและประเภทสถาปัตยกรรมระบบงานที่ถนัด" },
+  { title: "มูลค่าผลงานสัญญาเดิม", weight: "10%", body: "มูลค่าสัญญาเดียวสูงสุดในอดีตเทียบกับเกณฑ์คุณสมบัติ" },
+  { title: "สถานะนิติบุคคล / ฟรีแลนซ์", weight: "10%", body: "ความเข้ากันได้กับเงื่อนไขเฉพาะนิติบุคคลของโครงการ" },
+  { title: "ใบรับรองและมาตรฐานสากล", weight: "5%", body: "มาตรฐานคุณภาพและกระบวนการทำงานที่ได้รับการรับรอง" },
+] as const;
 
 export function ProfileDisplay({
   user,
@@ -105,75 +115,74 @@ export function ProfileDisplay({
     return { score, missingItems };
   }, [profile]);
 
+  const archetypes = profile.preferredArchetypes ?? [];
+  const certifications = profile.certifications ?? [];
+  const minScore = profile.matchNotification?.minScore ?? 75;
+  const includeSubcontract = profile.matchNotification?.includeSubcontract ?? true;
+  const deadlineDays = profile.deadlineNoticeDays ?? 3;
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* 1. PROFILE OVERVIEW HEADER */}
-      <Panel className="px-5 py-6 sm:px-8 sm:py-7">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-line pb-6">
-          <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-line bg-surface-2 font-mono text-[20px] font-bold text-ink">
-              {user.name ? user.name.slice(0, 1).toUpperCase() : "U"}
+    <div className="flex flex-col gap-5">
+      {/* 1. PROFILE OVERVIEW */}
+      <Card className="p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-[19px] font-semibold leading-tight text-ink">
+                {user.name || "ผู้ใช้งาน"}
+              </h2>
+              <span
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
+                  isJuristic
+                    ? "border-open-line bg-open-bg text-open"
+                    : "border-line bg-surface-2 text-ink-2"
+                }`}
+              >
+                {isJuristic ? (
+                  <>
+                    <Building2 className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    <span>นิติบุคคล (บริษัท / หจก.)</span>
+                  </>
+                ) : (
+                  <>
+                    <User className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    <span>บุคคลธรรมดา / ฟรีแลนซ์</span>
+                  </>
+                )}
+              </span>
             </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-[20px] font-semibold text-ink leading-tight">
-                  {user.name || "ผู้ใช้งาน"}
-                </h2>
-                <span
-                  className={`inline-flex items-center rounded-[3px] border px-2 py-0.5 text-[11px] font-medium ${
-                    isJuristic
-                      ? "border-open-line bg-open-bg text-open"
-                      : "border-line bg-surface-2 text-ink-2"
-                  }`}
-                >
-                  {isJuristic ? (
-                    <>
-                      <Building2 className="mr-1 h-3 w-3 shrink-0" />
-                      <span>นิติบุคคล (บริษัท / หจก.)</span>
-                    </>
-                  ) : (
-                    <>
-                      <User className="mr-1 h-3 w-3 shrink-0" />
-                      <span>บุคคลธรรมดา / ฟรีแลนซ์</span>
-                    </>
-                  )}
-                </span>
-              </div>
-              <p className="mt-1 font-mono text-[13px] text-ink-3">{user.email}</p>
-            </div>
+            <p className="mt-1 text-[12.5px] text-ink-3">{user.email}</p>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 shrink-0 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={onEdit}
-              className={`${btn.primary} inline-flex items-center justify-center gap-1.5 text-[13px] whitespace-nowrap`}
-            >
-              <Pencil className="h-3.5 w-3.5 shrink-0" />
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button type="button" onClick={onEdit} className={`${pbtn.primary} whitespace-nowrap`}>
+              <Pencil className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span>แก้ไขข้อมูลโปรไฟล์</span>
             </button>
-            <Link
-              href="/search?sort=match-desc"
-              className={`${btn.secondary} inline-flex items-center justify-center gap-1.5 text-[13px] whitespace-nowrap`}
-            >
-              <Search className="h-3.5 w-3.5 shrink-0" />
+            <Link href="/search?sort=match-desc" className={`${pbtn.secondary} whitespace-nowrap`}>
+              <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span>ดูประกาศที่เหมาะสมกับฉัน</span>
             </Link>
           </div>
         </div>
 
-        {/* Profile Completeness Bar */}
-        <div className="mt-6 rounded-[4px] border border-line bg-surface-2/40 p-4">
-          <div className="flex items-center justify-between gap-2 text-[13px]">
-            <span className="font-semibold text-ink">
-              ความสมบูรณ์ของโปรไฟล์ (Profile Completeness)
-            </span>
-            <span className="font-mono font-bold text-ink whitespace-nowrap shrink-0 tnum">
+        {/* Profile completeness */}
+        <Inset className="mt-5 p-4">
+          <div className="flex items-baseline justify-between gap-3 text-[12.5px]">
+            <span className="font-semibold text-ink">ความสมบูรณ์ของโปรไฟล์</span>
+            <span className="tnum shrink-0 whitespace-nowrap text-[15px] font-semibold text-ink">
               {completeness.score}%
             </span>
           </div>
 
-          <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-surface-3">
+          <div
+            role="progressbar"
+            aria-label="ความสมบูรณ์ของโปรไฟล์"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={completeness.score}
+            className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-surface-3"
+          >
             <div
               className={`h-full rounded-full transition-all duration-300 ${
                 completeness.score >= 80
@@ -187,296 +196,231 @@ export function ProfileDisplay({
           </div>
 
           {completeness.missingItems.length > 0 ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-ink-3">
-              <span className="font-medium text-ink-2">คำแนะนำเพิ่มความแม่นยำ:</span>
-              {completeness.missingItems.map((item) => (
-                <span
-                  key={item.id}
-                  className="inline-flex items-center gap-1 rounded bg-surface px-2 py-0.5 text-ink-2 border border-line"
-                >
-                  <span>•</span>
-                  <span>{item.th}</span>
-                </span>
-              ))}
+            <div className="mt-3.5">
+              <p className="text-[11.5px] font-medium text-ink-2">คำแนะนำเพิ่มความแม่นยำ</p>
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                {completeness.missingItems.map((item) => (
+                  <li
+                    key={item.id}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-[11.5px] text-ink-2"
+                  >
+                    <span aria-hidden="true" className="text-ink-3">+</span>
+                    <span>{item.th}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : (
-            <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-open">
-              <Check className="h-3.5 w-3.5 shrink-0" />
+            <p className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-medium text-open">
+              <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span>ข้อมูลโปรไฟล์ครบถ้วนสมบูรณ์ พร้อมรับการวิเคราะห์ผลจับคู่ 100%</span>
             </p>
           )}
-        </div>
-      </Panel>
+        </Inset>
+      </Card>
 
-      {/* 2. CAPABILITY SECTION: SINGLE SETUP BLOCK (IF UNCONFIGURED BASELINE) OR FULL 5-CARD DASHBOARD */}
+      {/* 2. CAPABILITIES: setup prompt for an unconfigured profile, or the saved values */}
       {isProfileBaseline(profile) ? (
-        <section className="rounded-[3px] border border-line bg-surface-2 p-6 text-center sm:p-9 shadow-xs dark:bg-surface-2/50">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-amber-300/80 bg-amber-100/70 text-amber-700 shadow-2xs dark:border-amber-700/60 dark:bg-amber-950/50 dark:text-amber-400">
-            <AlertTriangle className="h-5 w-5" />
+        <Card className="p-6 text-center sm:p-9">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-amber-300/80 bg-amber-100/70 text-amber-700 dark:border-amber-700/60 dark:bg-amber-950/50 dark:text-amber-400">
+            <AlertTriangle className="h-5 w-5" aria-hidden="true" />
           </div>
-          <h3 className="mt-3.5 text-[17px] font-semibold text-ink">
+          <h3 className="mt-3.5 text-[16px] font-semibold text-ink">
             ยังไม่ได้ตั้งค่าโปรไฟล์ความสามารถ
           </h3>
-          <p className="mx-auto mt-2 max-w-xl text-[13px] leading-thai text-ink-2">
+          <p className="mx-auto mt-2 max-w-xl text-[12.5px] leading-thai text-ink-2">
             ระบบจับคู่ประกาศ TOR (Match Scoring) และการแจ้งเตือนงานใหม่ยังไม่ทำงาน
             คุณสามารถกดปุ่ม <span className="font-medium text-ink">&ldquo;แก้ไขข้อมูลโปรไฟล์&rdquo;</span> ด้านบนเพื่อระบุทักษะ เครื่องมือ และเงื่อนไขการรับงานของคุณ
           </p>
 
-          <div className="mx-auto mt-7 grid max-w-3xl grid-cols-1 gap-3 border-t border-line/60 pt-6 text-left sm:grid-cols-2 lg:grid-cols-3">
-            {/* 1. Skills (40%) */}
-            <div className="rounded-[4px] border border-line/90 bg-surface-3 p-3.5 dark:bg-surface-3/60">
-              <span className="text-[12px] font-semibold text-ink-2">1. ทักษะเทคโนโลยี (40%)</span>
-              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
-                ภาษาโปรแกรม เฟรมเวิร์ก และเครื่องมือพัฒนาซอฟต์แวร์
-              </p>
-            </div>
-
-            {/* 2. Budget (20%) */}
-            <div className="rounded-[4px] border border-line/90 bg-surface-3 p-3.5 dark:bg-surface-3/60">
-              <span className="text-[12px] font-semibold text-ink-2">2. ช่วงงบประมาณที่รับงาน (20%)</span>
-              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
-                วงเงินขั้นต่ำและเพดานราคากลางโครงการที่พร้อมรับ
-              </p>
-            </div>
-
-            {/* 3. Archetypes (15%) */}
-            <div className="rounded-[4px] border border-line/90 bg-surface-3 p-3.5 dark:bg-surface-3/60">
-              <span className="text-[12px] font-semibold text-ink-2">3. สถาปัตยกรรมระบบ (15%)</span>
-              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
-                รูปแบบและประเภทสถาปัตยกรรมระบบงานที่ถนัด
-              </p>
-            </div>
-
-            {/* 4. Past Experience (10%) */}
-            <div className="rounded-[4px] border border-line/90 bg-surface-3 p-3.5 dark:bg-surface-3/60">
-              <span className="text-[12px] font-semibold text-ink-2">4. มูลค่าผลงานสัญญาเดิม (10%)</span>
-              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
-                มูลค่าสัญญาเดียวสูงสุดในอดีตเทียบกับเกณฑ์คุณสมบัติ
-              </p>
-            </div>
-
-            {/* 5. Entity Type (10%) */}
-            <div className="rounded-[4px] border border-line/90 bg-surface-3 p-3.5 dark:bg-surface-3/60">
-              <span className="text-[12px] font-semibold text-ink-2">5. สถานะนิติบุคคล / ฟรีแลนซ์ (10%)</span>
-              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
-                ความเข้ากันได้กับเงื่อนไขเฉพาะนิติบุคคลของโครงการ
-              </p>
-            </div>
-
-            {/* 6. Certifications (5%) */}
-            <div className="rounded-[4px] border border-line/90 bg-surface-3 p-3.5 dark:bg-surface-3/60">
-              <span className="text-[12px] font-semibold text-ink-2">6. ใบรับรองและมาตรฐานสากล (5%)</span>
-              <p className="mt-1 text-[11.5px] leading-thai text-ink-3">
-                มาตรฐานคุณภาพและกระบวนการทำงานที่ได้รับการรับรอง
-              </p>
-            </div>
-          </div>
-        </section>
+          <ol className="mx-auto mt-7 grid max-w-3xl grid-cols-1 gap-2.5 text-left sm:grid-cols-2 lg:grid-cols-3">
+            {SETUP_STEPS.map((step, i) => (
+              <li key={step.title}>
+                <Inset className="flex h-full gap-3 p-3.5">
+                  <span
+                    aria-hidden="true"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line-2 bg-surface text-[11px] font-semibold text-ink-2"
+                  >
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-ink-2">
+                      {step.title} <span className="font-normal text-ink-3">({step.weight})</span>
+                    </p>
+                    <p className="mt-1 text-[11.5px] leading-thai text-ink-3">{step.body}</p>
+                  </div>
+                </Inset>
+              </li>
+            ))}
+          </ol>
+        </Card>
       ) : (
         <>
-          {/* 2. CORE CAPABILITY CARDS GRID */}
           <div className="grid gap-5 sm:grid-cols-2">
-            {/* Card 1: Budget Range */}
-            <Panel className="p-5">
-              <div className="flex items-center justify-between border-b border-line/60 pb-3">
-                <SectionHeading sub="ช่วงมูลค่าโครงการภาครัฐที่คุณรับงานได้">
-                  ช่วงงบประมาณที่รับงาน
-                </SectionHeading>
-              </div>
-              <div className="mt-4">
-                <p className="font-mono text-[22px] font-bold text-ink">
+            {/* Budget range */}
+            <Card className="flex flex-col p-5">
+              <CardHeader
+                title="ช่วงงบประมาณที่รับงาน"
+                sub="ช่วงมูลค่าโครงการภาครัฐที่คุณรับงานได้"
+              />
+              <Inset className="mt-4 flex-1 p-4">
+                <p className="tnum text-[19px] font-semibold leading-snug text-ink">
                   {profile.budgetMin === 0 && (profile.budgetMax === 0 || profile.budgetMax >= 10_000_000_000)
                     ? "ไม่จำกัดช่วงงบประมาณ"
                     : profile.budgetMax === 0 || profile.budgetMax >= 10_000_000_000
                     ? `${formatTHB(profile.budgetMin)} ขึ้นไป`
                     : `${formatTHB(profile.budgetMin)} – ${formatTHB(profile.budgetMax)}`}
                 </p>
-                <p className="mt-1 text-[12px] leading-thai text-ink-3">
+                <p className="mt-1.5 text-[11.5px] leading-thai text-ink-3">
                   ใช้คำนวณคะแนน Financial Budget Fit (น้ำหนัก 20%) เทียบกับราคากลางโครงการ
                 </p>
-              </div>
-            </Panel>
+              </Inset>
+            </Card>
 
-            {/* Card 2: Past Single Contract */}
-            <Panel className="p-5">
-              <div className="flex items-center justify-between border-b border-line/60 pb-3">
-                <SectionHeading sub="ผลงานสัญญาเดียวสูงสุดในอดีต (เพื่อประเมินเกณฑ์ ~40%)">
-                  มูลค่าผลงานสัญญาเดิมสูงสุด
-                </SectionHeading>
-              </div>
-              <div className="mt-4">
-                <p className="font-mono text-[22px] font-bold text-ink">
+            {/* Past single contract */}
+            <Card className="flex flex-col p-5">
+              <CardHeader
+                title="มูลค่าผลงานสัญญาเดิมสูงสุด"
+                sub="ผลงานสัญญาเดียวสูงสุดในอดีต (เพื่อประเมินเกณฑ์ ~40%)"
+              />
+              <Inset className="mt-4 flex-1 p-4">
+                <p
+                  className={`tnum text-[19px] font-semibold leading-snug ${
+                    (profile.maxPastPortfolioTHB ?? 0) > 0 ? "text-ink" : "text-ink-3"
+                  }`}
+                >
                   {(profile.maxPastPortfolioTHB ?? 0) > 0
                     ? formatTHB(profile.maxPastPortfolioTHB ?? 0)
                     : "ยังไม่ได้ระบุ"}
                 </p>
-                <p className="mt-1 text-[12px] leading-thai text-ink-3">
+                <p className="mt-1.5 text-[11.5px] leading-thai text-ink-3">
                   งานจัดซื้อจัดจ้างภาครัฐมักกำหนดผลงานสัญญาเดียวไม่น้อยกว่า 30%–50% ของราคากลาง
                 </p>
-              </div>
-            </Panel>
+              </Inset>
+            </Card>
 
-            {/* Card 3: Preferred Archetypes */}
-            <Panel className="p-5">
-              <div className="flex items-center justify-between border-b border-line/60 pb-3">
-                <SectionHeading sub="ประเภทสถาปัตยกรรมระบบที่คุณมีความเชี่ยวชาญ">
-                  สถาปัตยกรรมระบบที่ถนัด
-                </SectionHeading>
-                <span className="font-mono text-[12px] text-ink-3">
-                  {(profile.preferredArchetypes ?? []).length} ประเภท
-                </span>
-              </div>
+            {/* Preferred archetypes */}
+            <Card className="p-5">
+              <CardHeader
+                title="สถาปัตยกรรมระบบที่ถนัด"
+                sub="ประเภทสถาปัตยกรรมระบบที่คุณมีความเชี่ยวชาญ"
+                right={<CountBadge>{archetypes.length} ประเภท</CountBadge>}
+              />
               <div className="mt-4">
-                {(profile.preferredArchetypes ?? []).length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {(profile.preferredArchetypes ?? []).map((id) => (
-                      <span
-                        key={id}
-                        className="inline-flex items-center gap-1 rounded-[3px] border border-line bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-ink"
-                      >
-                        <Check className="h-3 w-3 text-open shrink-0" />
-                        <span>{ARCHETYPE_LABELS[id] || id}</span>
-                      </span>
+                {archetypes.length > 0 ? (
+                  <ul className="flex flex-wrap gap-1.5">
+                    {archetypes.map((id) => (
+                      <li key={id}>
+                        <Pill tone="ink-3">
+                          <Check className="h-3 w-3 shrink-0 text-open" aria-hidden="true" />
+                          <span>{ARCHETYPE_LABELS[id] || id}</span>
+                        </Pill>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 ) : (
-                  <p className="text-[13px] text-ink-3">
+                  <p className="text-[12.5px] leading-thai text-ink-3">
                     ยังไม่ได้ระบุ (ระบบจะพิจารณาให้คะแนนพื้นฐานในทุกประเภทระบบ)
                   </p>
                 )}
               </div>
-            </Panel>
+            </Card>
 
-            {/* Card 4: Certifications & Standards */}
-            <Panel className="p-5">
-              <div className="flex items-center justify-between border-b border-line/60 pb-3">
-                <SectionHeading sub="มาตรฐานการพัฒนาและบริหารจัดการที่ได้รับรอง">
-                  ใบรับรองและมาตรฐานสากล
-                </SectionHeading>
-                <span className="font-mono text-[12px] text-ink-3">
-                  {(profile.certifications ?? []).length} รายการ
-                </span>
-              </div>
+            {/* Certifications */}
+            <Card className="p-5">
+              <CardHeader
+                title="ใบรับรองและมาตรฐานสากล"
+                sub="มาตรฐานการพัฒนาและบริหารจัดการที่ได้รับรอง"
+                right={<CountBadge>{certifications.length} รายการ</CountBadge>}
+              />
               <div className="mt-4">
-                {(profile.certifications ?? []).length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {(profile.certifications ?? []).map((cert) => (
-                      <span
-                        key={cert}
-                        className="inline-flex items-center gap-1 rounded-[3px] border border-line bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-ink"
-                      >
-                        <Award className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
-                        <span>{cert}</span>
-                      </span>
+                {certifications.length > 0 ? (
+                  <ul className="flex flex-wrap gap-1.5">
+                    {certifications.map((cert) => (
+                      <li key={cert}>
+                        <Pill tone="ink-3">
+                          <Award className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                          <span>{cert}</span>
+                        </Pill>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 ) : (
-                  <p className="text-[13px] text-ink-3">
+                  <p className="text-[12.5px] leading-thai text-ink-3">
                     ยังไม่ได้ระบุใบรับรอง (หากมี ISO 29110, ISO 27001 จะช่วยเพิ่มคะแนนความเหมาะสม)
                   </p>
                 )}
               </div>
-            </Panel>
+            </Card>
           </div>
 
-          {/* 3. TECHNICAL SKILLS & STACK CARD */}
-          <Panel className="p-5 sm:p-6">
-            <div className="flex items-center justify-between border-b border-line/60 pb-3">
-              <SectionHeading sub="เทคโนโลยี เครื่องมือ และภาษาโปรแกรมที่คุณและทีมเชี่ยวชาญ (น้ำหนัก 40%)">
-                ทักษะและเทคโนโลยีที่คุณเชี่ยวชาญ
-              </SectionHeading>
-              <span className="font-mono text-[13px] font-semibold text-ink">
-                {profile.skills.length} ทักษะ
-              </span>
-            </div>
-
-            <div className="mt-4">
-              <div className="flex flex-wrap gap-2">
-                {profile.skills.map((skill) => (
-                  <Chip key={skill} className="px-2.5 py-1 text-[12px]">
-                    {skill}
-                  </Chip>
-                ))}
-              </div>
-            </div>
-          </Panel>
+          {/* Technical skills */}
+          <Card className="p-5 sm:p-6">
+            <CardHeader
+              title="ทักษะและเทคโนโลยีที่คุณเชี่ยวชาญ"
+              sub="เทคโนโลยี เครื่องมือ และภาษาโปรแกรมที่คุณและทีมเชี่ยวชาญ (น้ำหนัก 40%)"
+              right={<CountBadge>{profile.skills.length} ทักษะ</CountBadge>}
+            />
+            <ul className="mt-4 flex flex-wrap gap-1.5">
+              {profile.skills.map((skill) => (
+                <li key={skill}>
+                  <Pill tone="ink-3">{skill}</Pill>
+                </li>
+              ))}
+            </ul>
+          </Card>
         </>
       )}
 
-      {/* 4. MATCH NOTIFICATION SETTINGS CARD */}
-      <Panel className="p-5 sm:p-6">
-        <div className="flex items-center justify-between border-b border-line/60 pb-3">
-          <SectionHeading sub="สถานะการแจ้งเตือนงานใหม่ในระบบและช่องทางอีเมล">
-            การตั้งค่าการแจ้งเตือน (Notification Preferences)
-          </SectionHeading>
-          <button
-            type="button"
-            onClick={onEdit}
-            className={`${btn.secondary} text-[12px] shrink-0`}
-          >
-            แก้ไขการตั้งค่า
-          </button>
-        </div>
+      {/* 3. NOTIFICATION PREFERENCES */}
+      <Card className="p-5 sm:p-6">
+        <CardHeader
+          title="การตั้งค่าการแจ้งเตือน"
+          sub="สถานะการแจ้งเตือนงานใหม่ในระบบและช่องทางอีเมล"
+          right={
+            <button type="button" onClick={onEdit} className={`${pbtn.secondary} h-8 px-3.5 text-[12px]`}>
+              แก้ไขการตั้งค่า
+            </button>
+          }
+        />
 
         <div className="mt-4">
           {!user.notificationConsent ? (
-            <div className="rounded-[4px] border border-line bg-surface-2/40 p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[13px] font-semibold text-ink">
-                  การรับการแจ้งเตือนจากระบบ (System Notifications)
-                </span>
-                <span className="rounded px-2 py-0.5 text-[11px] font-semibold bg-surface-2 text-ink-3 border border-line">
-                  ปิดรับการแจ้งเตือน
-                </span>
+            <Inset className="p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[12.5px] font-semibold text-ink">การรับการแจ้งเตือนจากระบบ</span>
+                <StatusPill on={false}>ปิดรับการแจ้งเตือน</StatusPill>
               </div>
-              <p className="mt-2 text-[12.5px] text-ink-2">
+              <p className="mt-2 text-[12px] leading-thai text-ink-2">
                 คุณยังไม่ได้เปิดรับการแจ้งเตือนจากระบบ (ปิดการแจ้งเตือนทั้งในระบบและทางอีเมล)
               </p>
-            </div>
+            </Inset>
           ) : (
-            <div className="space-y-4">
-              {/* Delivery Channels Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Channel 1: In-App Feed & Bell */}
-                <div className="rounded-[4px] border border-line bg-surface-2/40 p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-semibold text-ink">
-                      การแจ้งเตือนในระบบ (In-App Feed & Bell)
-                    </span>
-                    <span
-                      className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
-                        user.notificationConsent
-                          ? "bg-open-bg text-open border border-open-line"
-                          : "bg-surface-2 text-ink-3 border border-line"
-                      }`}
-                    >
+            <div className="flex flex-col gap-3">
+              {/* Delivery channels */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Inset className="p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[12.5px] font-semibold text-ink">การแจ้งเตือนในระบบ</span>
+                    <StatusPill on={!!user.notificationConsent}>
                       {user.notificationConsent ? "เปิดใช้งาน" : "ปิดอยู่"}
-                    </span>
+                    </StatusPill>
                   </div>
-                  <p className="mt-2 text-[12.5px] text-ink-2">
+                  <p className="mt-2 text-[12px] leading-thai text-ink-2">
                     {user.notificationConsent
                       ? "แสดงการแจ้งเตือนในกล่องข้อความและกระดิ่ง (โครงการที่เหมาะสมกับโปรไฟล์, สถานะเปลี่ยนแปลง, แก้ไข TOR, และเตือนใกล้หมดเขต)"
                       : "ปิดรับการแจ้งเตือนในระบบ"}
                   </p>
-                </div>
+                </Inset>
 
-                {/* Channel 2: Email Digest */}
-                <div className="rounded-[4px] border border-line bg-surface-2/40 p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-semibold text-ink">
-                      สรุปแจ้งเตือนทางอีเมล (Email Digest)
-                    </span>
-                    <span
-                      className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
-                        profile.matchNotification?.enabled
-                          ? "bg-open-bg text-open border border-open-line"
-                          : "bg-surface-2 text-ink-3 border border-line"
-                      }`}
-                    >
+                <Inset className="p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[12.5px] font-semibold text-ink">สรุปแจ้งเตือนทางอีเมล</span>
+                    <StatusPill on={!!profile.matchNotification?.enabled}>
                       {profile.matchNotification?.enabled ? "เปิดใช้งาน" : "ปิดอยู่"}
-                    </span>
+                    </StatusPill>
                   </div>
-                  <p className="mt-2 text-[12.5px] text-ink-2">
+                  <p className="mt-2 text-[12px] leading-thai text-ink-2">
                     {profile.matchNotification?.enabled
                       ? `ส่งสรุปโครงการและอัปเดตแบบ${
                           profile.matchNotification?.frequency === "weekly"
@@ -485,76 +429,61 @@ export function ProfileDisplay({
                         } ไปยัง ${user.email}`
                       : "ปิดรับสรุปทางอีเมล"}
                   </p>
-                </div>
+                </Inset>
               </div>
 
-              {/* Grouped Alert Criteria & Rules Card */}
-              <div className="rounded-[4px] border border-line bg-surface-2/40 p-4">
-                <div className="border-b border-line/50 pb-2.5">
-                  <h4 className="text-[13px] font-semibold text-ink">
-                    เกณฑ์และเงื่อนไขการแจ้งเตือน (Alert Criteria & Rules)
-                  </h4>
-                </div>
+              {/* Alert criteria */}
+              <Inset className="p-4">
+                <h3 className="text-[12.5px] font-semibold text-ink">เกณฑ์และเงื่อนไขการแจ้งเตือน</h3>
 
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {/* Criteria 1: Matching Score */}
-                  <div className="rounded-[3px] border border-line/70 bg-surface p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[12px] font-medium text-ink-2">
-                        เกณฑ์ความเหมาะสม (Match Score)
-                      </span>
-                      <span className="font-mono text-[12px] font-semibold text-ink">
-                        {profile.matchNotification?.minScore ?? 75}%
-                      </span>
+                <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                  <Tile>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-[11.5px] font-medium text-ink-2">เกณฑ์ความเหมาะสม</span>
+                      <span className="tnum text-[13px] font-semibold text-ink">{minScore}%</span>
                     </div>
-                    <p className="mt-1 text-[11.5px] text-ink-3">
-                      แจ้งเตือนโครงการที่มีคะแนนความเหมาะสมตั้งแต่ {profile.matchNotification?.minScore ?? 75}% ขึ้นไป
+                    <p className="mt-1 text-[11px] leading-thai text-ink-3">
+                      แจ้งเตือนโครงการที่มีคะแนนความเหมาะสมตั้งแต่ {minScore}% ขึ้นไป
                     </p>
-                  </div>
+                  </Tile>
 
-                  {/* Criteria 2: Subcontracting & Consortium Opportunities */}
-                  <div className="rounded-[3px] border border-line/70 bg-surface p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[12px] font-medium text-ink-2">
-                        งานช่วง / ร่วมค้า (Subcontract)
-                      </span>
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-[10.5px] font-semibold ${
-                          (profile.matchNotification?.includeSubcontract ?? true)
-                            ? "bg-open-bg text-open border border-open-line"
-                            : "bg-surface-2 text-ink-3 border border-line"
-                        }`}
-                      >
-                        {(profile.matchNotification?.includeSubcontract ?? true) ? "เปิดรับคำแนะนำ" : "ปิดอยู่"}
-                      </span>
+                  <Tile>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-[11.5px] font-medium text-ink-2">งานช่วง / ร่วมค้า</span>
+                      <StatusPill on={includeSubcontract}>
+                        {includeSubcontract ? "เปิดรับคำแนะนำ" : "ปิดอยู่"}
+                      </StatusPill>
                     </div>
-                    <p className="mt-1 text-[11.5px] text-ink-3">
-                      {(profile.matchNotification?.includeSubcontract ?? true)
+                    <p className="mt-1 text-[11px] leading-thai text-ink-3">
+                      {includeSubcontract
                         ? "แนะนำโครงการที่เป็นไปได้แบบ Subcontract/JV สำหรับบุคคลธรรมดา"
                         : "ไม่รวมโครงการที่ TOR กำหนดเฉพาะนิติบุคคล"}
                     </p>
-                  </div>
+                  </Tile>
 
-                  {/* Criteria 3: Watchlist & Deadline Advance Warning */}
-                  <div className="rounded-[3px] border border-line/70 bg-surface p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[12px] font-medium text-ink-2">
-                        แจ้งเตือนก่อนปิดรับข้อเสนอ (Deadline Warning)
-                      </span>
-                      <span className="font-mono text-[12px] font-semibold text-ink">
-                        {profile.deadlineNoticeDays ?? 3} วัน
-                      </span>
+                  <Tile>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-[11.5px] font-medium text-ink-2">แจ้งก่อนปิดรับข้อเสนอ</span>
+                      <span className="tnum text-[13px] font-semibold text-ink">{deadlineDays} วัน</span>
                     </div>
-                    <p className="mt-1 text-[11.5px] text-ink-3">
-                      แจ้งเตือนล่วงหน้า {profile.deadlineNoticeDays ?? 3} วันก่อนปิดรับข้อเสนอ
+                    <p className="mt-1 text-[11px] leading-thai text-ink-3">
+                      แจ้งเตือนล่วงหน้า {deadlineDays} วันก่อนปิดรับข้อเสนอ
                     </p>
-                  </div>
+                  </Tile>
                 </div>
-              </div>
+              </Inset>
             </div>
           )}
         </div>
-      </Panel>
+      </Card>
     </div>
+  );
+}
+
+function CountBadge({ children }: { children: ReactNode }) {
+  return (
+    <span className="tnum inline-flex items-center rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-ink-2">
+      {children}
+    </span>
   );
 }

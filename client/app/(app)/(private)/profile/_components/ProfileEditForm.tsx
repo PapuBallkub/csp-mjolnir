@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import type { ApiError, AuthUser, TechnologyItem, UserProfile } from "../../../../_lib/api";
 import { formatTHB } from "../../../../_data/tors";
-import { btn, input, Label, Panel, SectionHeading } from "../../../../_components/ui";
+import { Building2, User as UserIcon } from "lucide-react";
+import { Label } from "../../../../_components/ui";
+import { Card, CardHeader, Inset, Tile, field, pbtn, toggleChip } from "./profile-ui";
 
 const CERTIFICATION_CATEGORIES = [
   {
@@ -279,125 +281,118 @@ export function ProfileEditForm({
     }
   };
 
+  const entityType = draft.entityType ?? "juristic";
+  const ENTITY_OPTIONS = [
+    {
+      id: "juristic" as const,
+      icon: Building2,
+      title: "นิติบุคคล (บริษัท / หจก.)",
+      body: "เหมาะสำหรับยื่นประกวดราคา e-Bidding และโครงการทุกขนาด รองรับเงื่อนไขเฉพาะนิติบุคคล",
+    },
+    {
+      id: "individual" as const,
+      icon: UserIcon,
+      title: "บุคคลธรรมดา / ฟรีแลนซ์",
+      body: "เหมาะสำหรับงานวิธีเฉพาะเจาะจง (งบไม่เกิน ฿500,000), งานที่ปรึกษา หรือรับงานช่วง (Subcontract)",
+    },
+  ];
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      {/* Top Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[4px] border border-line bg-surface p-4">
-        <div>
-          <h2 className="text-[17px] font-semibold text-ink">
-            โหมดแก้ไขข้อมูลโปรไฟล์ (Profile Editor)
-          </h2>
-          <p className="text-[12px] text-ink-3">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      {/* Top action bar */}
+      <Card as="div" className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center sm:px-5">
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-semibold text-ink">โหมดแก้ไขข้อมูลโปรไฟล์</h2>
+          <p className="mt-0.5 text-[12px] leading-thai text-ink-3">
             ปรับปรุงข้อมูลความสามารถเพื่อเพิ่มความแม่นยำในการจับคู่งานจัดซื้อจัดจ้างภาครัฐ
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={saving}
-            className={btn.secondary}
-          >
+        <div className="flex shrink-0 items-center gap-2">
+          <button type="button" onClick={onCancel} disabled={saving} className={pbtn.secondary}>
             ยกเลิก
           </button>
-          <button
-            type="submit"
-            disabled={saving || !!budgetError}
-            className={btn.primary}
-          >
+          <button type="submit" disabled={saving || !!budgetError} className={pbtn.primary}>
             {saving ? "กำลังบันทึก…" : "✓ บันทึกข้อมูลโปรไฟล์"}
           </button>
         </div>
-      </div>
+      </Card>
 
       {saveError && (
-        <div className="rounded-[3px] border border-red-300 bg-red-50 p-3 text-[13px] text-red-700">
+        <div
+          role="alert"
+          className="rounded-xl border border-risk-line bg-risk-bg px-4 py-3 text-[12.5px] text-risk"
+        >
           {saveError}
         </div>
       )}
 
-      {/* 1. Account Info (Read-only) */}
-      <Panel className="px-5 py-6 sm:px-7 sm:py-6">
-        <SectionHeading sub="ข้อมูลพื้นฐานสำหรับแสดงในระบบและส่งการแจ้งเตือน">
-          บัญชีผู้ใช้
-        </SectionHeading>
-        <div className="grid gap-4 sm:grid-cols-2">
+      {/* 1. Account info (read-only) */}
+      <Card className="p-5 sm:p-6">
+        <CardHeader title="บัญชีผู้ใช้" sub="ข้อมูลพื้นฐานสำหรับแสดงในระบบและส่งการแจ้งเตือน" />
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5">
             <Label>ชื่อที่แสดง</Label>
-            <input value={user.name} readOnly className={`${input} text-ink-2 bg-surface-2/50`} />
+            <input value={user.name} readOnly className={`${field} bg-surface-2/60 text-ink-2`} />
           </label>
           <label className="flex flex-col gap-1.5">
             <Label>อีเมล</Label>
-            <input value={user.email} readOnly className={`${input} font-mono text-ink-2 bg-surface-2/50`} />
+            <input value={user.email} readOnly className={`${field} bg-surface-2/60 text-ink-2`} />
           </label>
         </div>
-      </Panel>
+      </Card>
 
-      {/* 2. Entity Type (Juristic vs Individual) */}
-      <Panel className="px-5 py-6 sm:px-7 sm:py-6">
-        <SectionHeading sub="สถานะทางกฎหมายสำหรับเข้าร่วมการจัดซื้อจัดจ้างภาครัฐ ใช้ประเมินเงื่อนไขเฉพาะนิติบุคคล">
-          ประเภทผู้ประกอบการ (Bidding Entity Type)
-        </SectionHeading>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => setDraft((prev) => ({ ...prev, entityType: "juristic" }))}
-            className={`flex flex-col items-start gap-1.5 rounded-[4px] border p-3.5 text-left transition-colors cursor-pointer ${(draft.entityType ?? "juristic") === "juristic"
-              ? "border-ink bg-surface-2 shadow-xs"
-              : "border-line bg-surface hover:border-ink/40 hover:bg-surface-2"
-              }`}
-          >
-            <div className="flex w-full items-center justify-between">
-              <span className="text-[13px] font-semibold text-ink">
-                🏢 นิติบุคคล (บริษัท / หจก.)
-              </span>
-              <span
-                className={`inline-block h-3.5 w-3.5 rounded-full border ${(draft.entityType ?? "juristic") === "juristic"
-                  ? "border-4 border-ink bg-surface"
-                  : "border-line bg-surface"
-                  }`}
-              />
-            </div>
-            <p className="text-[11.5px] leading-thai text-ink-3">
-              เหมาะสำหรับยื่นประกวดราคา e-Bidding และโครงการทุกขนาด รองรับเงื่อนไขเฉพาะนิติบุคคล
-            </p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setDraft((prev) => ({ ...prev, entityType: "individual" }))}
-            className={`flex flex-col items-start gap-1.5 rounded-[4px] border p-3.5 text-left transition-colors cursor-pointer ${draft.entityType === "individual"
-              ? "border-ink bg-surface-2 shadow-xs"
-              : "border-line bg-surface hover:border-ink/40 hover:bg-surface-2"
-              }`}
-          >
-            <div className="flex w-full items-center justify-between">
-              <span className="text-[13px] font-semibold text-ink">
-                👤 บุคคลธรรมดา / ฟรีแลนซ์
-              </span>
-              <span
-                className={`inline-block h-3.5 w-3.5 rounded-full border ${draft.entityType === "individual"
-                  ? "border-4 border-ink bg-surface"
-                  : "border-line bg-surface"
-                  }`}
-              />
-            </div>
-            <p className="text-[11.5px] leading-thai text-ink-3">
-              เหมาะสำหรับงานวิธีเฉพาะเจาะจง (งบไม่เกิน ฿500,000), งานที่ปรึกษา หรือรับงานช่วง (Subcontract)
-            </p>
-          </button>
+      {/* 2. Entity type */}
+      <Card className="p-5 sm:p-6">
+        <CardHeader
+          title="ประเภทผู้ประกอบการ"
+          sub="สถานะทางกฎหมายสำหรับเข้าร่วมการจัดซื้อจัดจ้างภาครัฐ ใช้ประเมินเงื่อนไขเฉพาะนิติบุคคล"
+        />
+        <div role="radiogroup" aria-label="ประเภทผู้ประกอบการ" className="mt-4 grid gap-3 sm:grid-cols-2">
+          {ENTITY_OPTIONS.map((opt) => {
+            const selected = entityType === opt.id;
+            const Icon = opt.icon;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setDraft((prev) => ({ ...prev, entityType: opt.id }))}
+                className={`flex cursor-pointer flex-col items-start gap-1.5 rounded-xl border p-4 text-left transition-colors ${
+                  selected
+                    ? "border-ink bg-surface-2 ring-1 ring-ink"
+                    : "border-line bg-surface hover:border-ink/40 hover:bg-surface-2"
+                }`}
+              >
+                <div className="flex w-full items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-2 text-[12.5px] font-semibold text-ink">
+                    <Icon className="h-3.5 w-3.5 shrink-0 text-ink-2" aria-hidden="true" />
+                    {opt.title}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className={`inline-block h-4 w-4 shrink-0 rounded-full border bg-surface ${
+                      selected ? "border-[5px] border-ink" : "border-line-2"
+                    }`}
+                  />
+                </div>
+                <p className="text-[11.5px] leading-thai text-ink-3">{opt.body}</p>
+              </button>
+            );
+          })}
         </div>
-      </Panel>
+      </Card>
 
-      {/* 3. Budget Range & Past Portfolio */}
-      <Panel className="px-5 py-6 sm:px-7 sm:py-6">
-        <SectionHeading sub="กำหนดช่วงงบประมาณโครงการที่คุณสามารถรับงานได้ (บาท)">
-          ช่วงงบที่คุณรับงาน (Budget Range)
-        </SectionHeading>
+      {/* 3. Budget range & past portfolio */}
+      <Card className="p-5 sm:p-6">
+        <CardHeader
+          title="ช่วงงบที่คุณรับงาน"
+          sub="กำหนดช่วงงบประมาณโครงการที่คุณสามารถรับงานได้ (บาท)"
+        />
 
-        <div className="flex max-w-md items-center gap-2">
-          <div className="flex-1">
+        <Inset className="mt-4 p-4">
+          <div className="flex max-w-md items-center gap-2">
             <input
               type="number"
               value={draft.budgetMin}
@@ -410,12 +405,10 @@ export function ProfileEditForm({
                   budgetMin: Math.max(0, Number(e.target.value)),
                 }))
               }
-              className={`${input} font-mono tnum`}
+              className={`${field} tnum flex-1`}
               aria-label="งบต่ำสุด"
             />
-          </div>
-          <span className="text-ink-3">–</span>
-          <div className="flex-1">
+            <span aria-hidden="true" className="text-ink-3">–</span>
             <input
               type="number"
               value={draft.budgetMax}
@@ -429,81 +422,81 @@ export function ProfileEditForm({
                   budgetMax: Math.max(0, Number(e.target.value)),
                 }))
               }
-              className={`${input} font-mono tnum`}
+              className={`${field} tnum flex-1`}
               aria-label="งบสูงสุด"
             />
           </div>
-        </div>
 
-        <p className="mt-2 font-mono tnum text-[12px] text-ink-3">
-          {draft.budgetMin === 0 &&
-            (draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET)
-            ? "ไม่จำกัดช่วงงบประมาณ (รับทุกขนาดงาน)"
-            : draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET
-              ? `${formatTHB(draft.budgetMin)} ขึ้นไป (ไม่จำกัดเพดาน)`
-              : `${formatTHB(draft.budgetMin)} – ${formatTHB(draft.budgetMax)}`}
-        </p>
+          <p className="tnum mt-2 text-[12px] text-ink-2">
+            {draft.budgetMin === 0 &&
+              (draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET)
+              ? "ไม่จำกัดช่วงงบประมาณ (รับทุกขนาดงาน)"
+              : draft.budgetMax === 0 || draft.budgetMax >= PLATFORM_MAX_BUDGET
+                ? `${formatTHB(draft.budgetMin)} ขึ้นไป (ไม่จำกัดเพดาน)`
+                : `${formatTHB(draft.budgetMin)} – ${formatTHB(draft.budgetMax)}`}
+          </p>
+          {budgetError && (
+            <p role="alert" className="mt-1.5 text-[12px] font-medium text-red-600 dark:text-red-400">
+              {budgetError}
+            </p>
+          )}
 
-        {/* Quick Budget Presets */}
-        <div className="mt-3 space-y-1.5">
-          <span className="text-[11px] font-medium text-ink-3">เลือกช่วงงบด่วน (ปุ่มลัด):</span>
-          <div className="flex flex-wrap gap-1.5">
-            {BUDGET_PRESETS.map((preset) => {
-              const active =
-                draft.budgetMin === preset.min &&
-                (draft.budgetMax === preset.max ||
-                  (preset.max === PLATFORM_MAX_BUDGET && draft.budgetMax === 0));
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      budgetMin: preset.min,
-                      budgetMax: preset.max,
-                    }))
-                  }
-                  title={preset.hint}
-                  className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${active
-                    ? "border-ink bg-ink text-surface shadow-xs"
-                    : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
-                    }`}
-                >
-                  {preset.label}
-                </button>
-              );
-            })}
+          <div className="mt-3.5">
+            <span className="text-[11px] font-medium text-ink-3">เลือกช่วงงบด่วน</span>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {BUDGET_PRESETS.map((preset) => {
+                const active =
+                  draft.budgetMin === preset.min &&
+                  (draft.budgetMax === preset.max ||
+                    (preset.max === PLATFORM_MAX_BUDGET && draft.budgetMax === 0));
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        budgetMin: preset.min,
+                        budgetMax: preset.max,
+                      }))
+                    }
+                    title={preset.hint}
+                    className={toggleChip(active)}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </Inset>
 
-        {/* Max Past Portfolio */}
-        <div className="mt-6 border-t border-line pt-5">
-          <div className="flex items-center justify-between">
-            <Label>มูลค่าสัญญาผลงานสูงสุดที่ผ่านมา (บาท)</Label>
-            <span className="text-[11px] text-ink-3 font-mono tnum">
+        {/* Max past portfolio */}
+        <Inset className="mt-3 p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <Label htmlFor="max-past-portfolio">มูลค่าสัญญาผลงานสูงสุดที่ผ่านมา (บาท)</Label>
+            <span className="tnum text-[11.5px] text-ink-2">
               {(draft.maxPastPortfolioTHB ?? 0) > 0
                 ? formatTHB(draft.maxPastPortfolioTHB ?? 0)
                 : "ไม่ระบุ"}
             </span>
           </div>
-          <div className="mt-1.5 max-w-xs">
-            <input
-              type="number"
-              value={draft.maxPastPortfolioTHB ?? 0}
-              step={100_000}
-              min={0}
-              max={PLATFORM_MAX_BUDGET}
-              onChange={(e) =>
-                setDraft((prev) => ({
-                  ...prev,
-                  maxPastPortfolioTHB: Math.max(0, Number(e.target.value)),
-                }))
-              }
-              className={`${input} font-mono tnum`}
-              aria-label="มูลค่าสัญญาผลงานสูงสุด"
-            />
-          </div>
+          <input
+            id="max-past-portfolio"
+            type="number"
+            value={draft.maxPastPortfolioTHB ?? 0}
+            step={100_000}
+            min={0}
+            max={PLATFORM_MAX_BUDGET}
+            onChange={(e) =>
+              setDraft((prev) => ({
+                ...prev,
+                maxPastPortfolioTHB: Math.max(0, Number(e.target.value)),
+              }))
+            }
+            className={`${field} tnum mt-1.5 max-w-xs`}
+          />
           <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
             TOR ภาครัฐมักกำหนดให้ผู้ยื่นมีผลงานสัญญาเดียวไม่น้อยกว่า 30% – 50% ของราคากลาง เพื่อประเมินขีดความสามารถ
           </p>
@@ -514,43 +507,40 @@ export function ProfileEditForm({
                 <button
                   key={preset.value}
                   type="button"
+                  aria-pressed={active}
                   onClick={() =>
                     setDraft((prev) => ({
                       ...prev,
                       maxPastPortfolioTHB: preset.value,
                     }))
                   }
-                  className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${active
-                    ? "border-ink bg-ink text-surface shadow-xs"
-                    : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
-                    }`}
+                  className={toggleChip(active)}
                 >
                   {preset.label}
                 </button>
               );
             })}
           </div>
-        </div>
+        </Inset>
+      </Card>
 
-        {budgetError && <p className="mt-2 text-[12px] font-medium text-red-600">{budgetError}</p>}
-      </Panel>
-
-      {/* 4. Preferred System Archetypes */}
-      <Panel className="px-5 py-6 sm:px-7 sm:py-6">
-        <div className="flex items-center justify-between border-b border-line/60 pb-3">
-          <SectionHeading sub="เลือกประเภทระบบที่คุณมีความเชี่ยวชาญ ระบบจะจัดอันดับงานในหมวดหมู่นี้ให้สูงเป็นพิเศษ (เลือกได้สูงสุด 10 รายการ)">
-            สถาปัตยกรรมระบบที่ถนัด (Preferred Archetypes)
-          </SectionHeading>
-          {(draft.preferredArchetypes ?? []).length > 0 && (
-            <button
-              type="button"
-              onClick={() => setDraft((prev) => ({ ...prev, preferredArchetypes: [] }))}
-              className="cursor-pointer text-[11px] text-ink-3 underline hover:text-red-600"
-            >
-              ล้างทั้งหมด
-            </button>
-          )}
-        </div>
+      {/* 4. Preferred system archetypes */}
+      <Card className="p-5 sm:p-6">
+        <CardHeader
+          title="สถาปัตยกรรมระบบที่ถนัด"
+          sub="เลือกประเภทระบบที่คุณมีความเชี่ยวชาญ ระบบจะจัดอันดับงานในหมวดหมู่นี้ให้สูงเป็นพิเศษ (เลือกได้สูงสุด 10 รายการ)"
+          right={
+            (draft.preferredArchetypes ?? []).length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setDraft((prev) => ({ ...prev, preferredArchetypes: [] }))}
+                className={pbtn.quiet}
+              >
+                ล้างทั้งหมด
+              </button>
+            ) : null
+          }
+        />
 
         <div className="mt-4 flex flex-wrap gap-2">
           {CANONICAL_ARCHETYPES.map((arch) => {
@@ -559,6 +549,7 @@ export function ProfileEditForm({
               <button
                 key={arch.id}
                 type="button"
+                aria-pressed={selected}
                 onClick={() => {
                   setDraft((prev) => {
                     const current = prev.preferredArchetypes ?? [];
@@ -570,43 +561,35 @@ export function ProfileEditForm({
                     return { ...prev, preferredArchetypes: next };
                   });
                 }}
-                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-[4px] border px-3 py-1.5 text-[12px] font-medium transition-colors ${selected
-                  ? "border-ink bg-ink text-surface shadow-xs"
-                  : "border-line bg-surface-2 text-ink-2 hover:border-ink/50 hover:bg-surface-3 hover:text-ink"
-                  }`}
+                className={`${toggleChip(selected)} py-1.5`}
               >
-                <span>{selected ? "✓" : "+"}</span>
+                <span aria-hidden="true">{selected ? "✓" : "+"}</span>
                 <span>{arch.label}</span>
               </button>
             );
           })}
         </div>
-      </Panel>
+      </Card>
 
-      {/* 5. Technical Skills */}
-      <Panel className="px-5 py-6 sm:px-7 sm:py-6">
-        <div className="flex items-center justify-between border-b border-line/60 pb-3">
-          <SectionHeading sub="เลือกเทคโนโลยีที่คุณเชี่ยวชาญเพื่อใช้จับคู่งานจัดซื้อจัดจ้างภาครัฐ (น้ำหนัก 40%)">
-            ทักษะและเทคโนโลยี (Skills & Technologies)
-          </SectionHeading>
-          {draft.skills.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setClearConfirmTarget("skills")}
-              className="cursor-pointer text-[11px] text-ink-3 underline hover:text-red-600"
-            >
-              ล้างทั้งหมด
-            </button>
-          )}
-        </div>
+      {/* 5. Technical skills */}
+      <Card className="p-5 sm:p-6">
+        <CardHeader
+          title="ทักษะและเทคโนโลยี"
+          sub="เลือกเทคโนโลยีที่คุณเชี่ยวชาญเพื่อใช้จับคู่งานจัดซื้อจัดจ้างภาครัฐ (น้ำหนัก 40%)"
+          right={
+            draft.skills.length > 0 ? (
+              <button type="button" onClick={() => setClearConfirmTarget("skills")} className={pbtn.quiet}>
+                ล้างทั้งหมด
+              </button>
+            ) : null
+          }
+        />
 
-        {/* Selected skills zone */}
+        {/* Selected skills */}
         {draft.skills.length > 0 && (
-          <div className="mt-4 rounded-md border border-line bg-surface-2/40 p-3.5">
-            <div className="mb-2.5 flex items-center justify-between text-[12px]">
-              <span className="font-semibold text-ink">
-                ทักษะที่คุณเลือกแล้ว ({draft.skills.length})
-              </span>
+          <Inset className="mt-4 p-4">
+            <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 text-[12px]">
+              <span className="font-semibold text-ink">ทักษะที่คุณเลือกแล้ว ({draft.skills.length})</span>
               <span className="text-[11px] text-ink-3">คลิกแท็กเพื่อนำออก</span>
             </div>
 
@@ -616,31 +599,30 @@ export function ProfileEditForm({
                   key={skill}
                   type="button"
                   onClick={() => handleToggleSkill(skill)}
-                  className="group inline-flex cursor-pointer items-center gap-1.5 rounded-[3px] border border-ink/80 bg-ink px-2.5 py-1 font-mono text-[11px] font-medium text-surface transition-colors hover:border-red-600 hover:bg-red-600"
+                  aria-label={`นำ ${skill} ออก`}
+                  className="group inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink bg-ink py-1 pl-3 pr-2 text-[11.5px] font-medium text-surface transition-colors hover:border-red-600 hover:bg-red-600"
                 >
                   <span>{skill}</span>
-                  <span aria-hidden="true" className="text-[11px] opacity-70 group-hover:opacity-100">
-                    ✕
-                  </span>
+                  <span aria-hidden="true" className="opacity-70 group-hover:opacity-100">✕</span>
                 </button>
               ))}
             </div>
 
             {draft.skills.length > 12 && (
-              <div className="mt-2.5 pt-2 border-t border-line/60 flex justify-center">
+              <div className="mt-3 flex justify-center">
                 <button
                   type="button"
                   onClick={() => setIsSkillsSelectedExpanded(!isSkillsSelectedExpanded)}
-                  className="cursor-pointer text-[11px] font-medium text-ink-2 hover:text-ink"
+                  className={pbtn.quiet}
                 >
                   {isSkillsSelectedExpanded ? "ย่อลง ▴" : "ดูทั้งหมด ▾"}
                 </button>
               </div>
             )}
-          </div>
+          </Inset>
         )}
 
-        {/* Search Input */}
+        {/* Search */}
         <div className="relative mt-4 max-w-md">
           <input
             type="text"
@@ -649,70 +631,55 @@ export function ProfileEditForm({
             onFocus={() => setIsSkillSearchFocused(true)}
             onBlur={() => setTimeout(() => setIsSkillSearchFocused(false), 200)}
             placeholder="ค้นหาเทคโนโลยี (เช่น React, Python, Docker, PostgreSQL)..."
-            className={`${input} text-[12px]`}
+            aria-label="ค้นหาเทคโนโลยี"
+            className={`${field} rounded-full px-4 text-[12px]`}
           />
 
           {isSkillSearchFocused && skillSuggestions.length > 0 && (
-            <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-[3px] border border-line bg-surface shadow-lg">
-              <ul className="py-1">
-                {skillSuggestions.map((skill) => {
-                  const on = draft.skills.includes(skill);
-                  return (
-                    <li key={skill}>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          handleToggleSkill(skill);
-                          setSearchSkill("");
-                        }}
-                        className="flex w-full items-center justify-between px-3 py-1.5 text-left text-[12px] font-mono hover:bg-surface-2 cursor-pointer"
-                      >
-                        <span className={on ? "font-semibold text-ink" : "text-ink-2"}>{skill}</span>
-                        <span className={`text-[10px] ${on ? "text-green-600 font-bold" : "text-ink-3"}`}>
-                          {on ? "✓ เลือกแล้ว" : "+ เพิ่ม"}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+            <SuggestionList
+              items={skillSuggestions}
+              isOn={(s) => draft.skills.includes(s)}
+              onPick={(s) => {
+                handleToggleSkill(s);
+                setSearchSkill("");
+              }}
+            />
           )}
         </div>
 
-        {/* Category Tabs & Bank */}
-        <div className="mt-4 space-y-2.5">
-          <div className="flex flex-wrap gap-1 border-b border-line pb-2">
-            {TECH_CATEGORY_GROUPS.map((grp) => (
-              <button
-                key={grp.id}
-                type="button"
-                onClick={() => setSelectedTechCategory(grp.id)}
-                className={`cursor-pointer rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${selectedTechCategory === grp.id
-                  ? "bg-ink text-surface"
-                  : "text-ink-3 hover:bg-surface-2 hover:text-ink"
+        {/* Category tabs & skill bank */}
+        <div className="mt-4">
+          <div className="flex flex-wrap gap-1 rounded-xl bg-surface-2/70 p-1">
+            {TECH_CATEGORY_GROUPS.map((grp) => {
+              const active = selectedTechCategory === grp.id;
+              return (
+                <button
+                  key={grp.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setSelectedTechCategory(grp.id)}
+                  className={`cursor-pointer rounded-lg px-3 py-1.5 text-[11.5px] font-medium transition-colors ${
+                    active ? "bg-surface text-ink shadow-xs ring-1 ring-line" : "text-ink-3 hover:text-ink"
                   }`}
-              >
-                {grp.label}
-              </button>
-            ))}
+                >
+                  {grp.label}
+                </button>
+              );
+            })}
           </div>
 
-          <div className="flex flex-wrap gap-1.5 max-h-60 overflow-y-auto p-1">
+          <div className="mt-3 flex max-h-60 flex-wrap gap-1.5 overflow-y-auto p-0.5">
             {visibleSkills.map((skill) => {
               const on = draft.skills.includes(skill);
               return (
                 <button
                   key={skill}
                   type="button"
+                  aria-pressed={on}
                   onClick={() => handleToggleSkill(skill)}
-                  className={`cursor-pointer inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 font-mono text-[11px] transition-colors ${on
-                    ? "border-ink bg-ink text-surface"
-                    : "border-line bg-surface-2 text-ink-2 hover:border-ink/40"
-                    }`}
+                  className={toggleChip(on, "sm")}
                 >
-                  <span>{on ? "✓" : "+"}</span>
+                  <span aria-hidden="true">{on ? "✓" : "+"}</span>
                   <span>{skill}</span>
                 </button>
               );
@@ -720,40 +687,41 @@ export function ProfileEditForm({
           </div>
 
           {selectedTechCategory === "all" && categoryFilteredSkills.length > COLLAPSED_SKILLS_LIMIT && (
-            <div className="text-center pt-1">
+            <div className="pt-2 text-center">
               <button
                 type="button"
                 onClick={() => setIsSkillsBankExpanded(!isSkillsBankExpanded)}
-                className="cursor-pointer text-[11.5px] font-medium text-ink-2 hover:text-ink"
+                className={pbtn.quiet}
               >
                 {isSkillsBankExpanded ? "ย่อรายการทักษะ ▴" : `แสดงรายการทักษะทั้งหมด (${displaySkills.length}) ▾`}
               </button>
             </div>
           )}
         </div>
-      </Panel>
+      </Card>
 
       {/* 6. Certifications */}
-      <Panel className="px-5 py-6 sm:px-7 sm:py-6">
-        <div className="flex items-center justify-between border-b border-line/60 pb-3">
-          <SectionHeading sub="ใบรับรองมาตรฐานสากล เช่น ISO 29110, ISO 27001, CMMI (น้ำหนัก 5%)">
-            ใบรับรองและมาตรฐาน (Certifications)
-          </SectionHeading>
-          {draft.certifications.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setClearConfirmTarget("certifications")}
-              className="cursor-pointer text-[11px] text-ink-3 underline hover:text-red-600"
-            >
-              ล้างทั้งหมด
-            </button>
-          )}
-        </div>
+      <Card className="p-5 sm:p-6">
+        <CardHeader
+          title="ใบรับรองและมาตรฐาน"
+          sub="ใบรับรองมาตรฐานสากล เช่น ISO 29110, ISO 27001, CMMI (น้ำหนัก 5%)"
+          right={
+            draft.certifications.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setClearConfirmTarget("certifications")}
+                className={pbtn.quiet}
+              >
+                ล้างทั้งหมด
+              </button>
+            ) : null
+          }
+        />
 
         {/* Selected certs */}
         {draft.certifications.length > 0 && (
-          <div className="mt-4 rounded-md border border-line bg-surface-2/40 p-3.5">
-            <div className="mb-2 flex items-center justify-between text-[12px]">
+          <Inset className="mt-4 p-4">
+            <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 text-[12px]">
               <span className="font-semibold text-ink">
                 มาตรฐานที่คุณเลือกแล้ว ({draft.certifications.length})
               </span>
@@ -765,29 +733,30 @@ export function ProfileEditForm({
                   key={cert}
                   type="button"
                   onClick={() => handleToggleCert(cert)}
-                  className="group inline-flex cursor-pointer items-center gap-1.5 rounded-[3px] border border-ink/80 bg-ink px-2.5 py-1 text-[11px] font-medium text-surface transition-colors hover:border-red-600 hover:bg-red-600"
+                  aria-label={`นำ ${cert} ออก`}
+                  className="group inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink bg-ink py-1 pl-3 pr-2 text-[11.5px] font-medium text-surface transition-colors hover:border-red-600 hover:bg-red-600"
                 >
                   <span>{cert}</span>
-                  <span className="opacity-70 group-hover:opacity-100">✕</span>
+                  <span aria-hidden="true" className="opacity-70 group-hover:opacity-100">✕</span>
                 </button>
               ))}
             </div>
 
             {draft.certifications.length > 8 && (
-              <div className="mt-2.5 pt-2 border-t border-line/60 flex justify-center">
+              <div className="mt-3 flex justify-center">
                 <button
                   type="button"
                   onClick={() => setIsCertsSelectedExpanded(!isCertsSelectedExpanded)}
-                  className="cursor-pointer text-[11px] font-medium text-ink-2 hover:text-ink"
+                  className={pbtn.quiet}
                 >
                   {isCertsSelectedExpanded ? "ย่อลง ▴" : "ดูทั้งหมด ▾"}
                 </button>
               </div>
             )}
-          </div>
+          </Inset>
         )}
 
-        {/* Search Certs */}
+        {/* Search certs */}
         <div className="relative mt-4 max-w-md">
           <input
             type="text"
@@ -796,43 +765,27 @@ export function ProfileEditForm({
             onFocus={() => setIsCertSearchFocused(true)}
             onBlur={() => setTimeout(() => setIsCertSearchFocused(false), 200)}
             placeholder="ค้นหามาตรฐาน (เช่น ISO 29110, ISO 27001, CMMI)..."
-            className={`${input} text-[12px]`}
+            aria-label="ค้นหามาตรฐาน"
+            className={`${field} rounded-full px-4 text-[12px]`}
           />
 
           {isCertSearchFocused && certSuggestions.length > 0 && (
-            <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-[3px] border border-line bg-surface shadow-lg">
-              <ul className="py-1">
-                {certSuggestions.map((c) => {
-                  const on = draft.certifications.includes(c);
-                  return (
-                    <li key={c}>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          handleToggleCert(c);
-                          setSearchCert("");
-                        }}
-                        className="flex w-full items-center justify-between px-3 py-1.5 text-left text-[12px] hover:bg-surface-2 cursor-pointer"
-                      >
-                        <span className={on ? "font-semibold text-ink" : "text-ink-2"}>{c}</span>
-                        <span className={`text-[10px] ${on ? "text-green-600 font-bold" : "text-ink-3"}`}>
-                          {on ? "✓ เลือกแล้ว" : "+ เพิ่ม"}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+            <SuggestionList
+              items={certSuggestions}
+              isOn={(c) => draft.certifications.includes(c)}
+              onPick={(c) => {
+                handleToggleCert(c);
+                setSearchCert("");
+              }}
+            />
           )}
         </div>
 
-        {/* Categories list */}
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {/* Category groups */}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {CERTIFICATION_CATEGORIES.map((cat) => (
-            <div key={cat.key} className="rounded border border-line p-3">
-              <h4 className="text-[12px] font-semibold text-ink mb-2">{cat.title}</h4>
+            <Inset key={cat.key} className="p-3.5">
+              <h3 className="mb-2.5 text-[12px] font-semibold text-ink">{cat.title}</h3>
               <div className="flex flex-wrap gap-1.5">
                 {cat.items.map((item) => {
                   const on = draft.certifications.includes(item);
@@ -840,301 +793,273 @@ export function ProfileEditForm({
                     <button
                       key={item}
                       type="button"
+                      aria-pressed={on}
                       onClick={() => handleToggleCert(item)}
-                      className={`cursor-pointer inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 text-[11px] transition-colors ${on
-                        ? "border-ink bg-ink text-surface"
-                        : "border-line bg-surface-2 text-ink-2 hover:border-ink/40"
-                        }`}
+                      className={`${toggleChip(on, "sm")} ${on ? "" : "bg-surface"}`}
                     >
-                      <span>{on ? "✓" : "+"}</span>
+                      <span aria-hidden="true">{on ? "✓" : "+"}</span>
                       <span>{item}</span>
                     </button>
                   );
                 })}
               </div>
-            </div>
+            </Inset>
           ))}
         </div>
-      </Panel>
+      </Card>
 
-      {/* 7. Notification Preferences */}
-      <Panel className="px-5 py-6 sm:px-7 sm:py-6">
-        <SectionHeading sub="จัดการช่องทางและเกณฑ์การแจ้งเตือนโครงการที่เหมาะสมกับคุณ">
-          การตั้งค่าการแจ้งเตือน (Notification Preferences)
-        </SectionHeading>
+      {/* 7. Notification preferences */}
+      <Card className="p-5 sm:p-6">
+        <CardHeader
+          title="การตั้งค่าการแจ้งเตือน"
+          sub="จัดการช่องทางและเกณฑ์การแจ้งเตือนโครงการที่เหมาะสมกับคุณ"
+        />
 
-        <div className="mt-5 space-y-5">
-          {/* Master Notification Consent & Delivery Channels */}
-          <div className="rounded-[4px] border border-line bg-surface-2/40 p-4 sm:p-5">
+        <div className="mt-4 flex flex-col gap-3">
+          {/* Master consent & delivery channels */}
+          <Inset className="p-4 sm:p-5">
             <div className="flex items-start gap-3">
               <input
                 type="checkbox"
                 id="master-notification-consent"
                 checked={consent}
                 onChange={(e) => setConsent(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-pointer accent-ink shrink-0"
+                className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-line accent-ink"
               />
               <div className="min-w-0 flex-1">
                 <label
                   htmlFor="master-notification-consent"
-                  className="text-[13.5px] font-semibold text-ink cursor-pointer select-none block"
+                  className="block cursor-pointer select-none text-[13px] font-semibold text-ink"
                 >
-                  ต้องการรับการแจ้งเตือนจากระบบ (Receive System Notifications)
+                  ต้องการรับการแจ้งเตือนจากระบบ
                 </label>
-                <p className="mt-0.5 text-[12px] leading-thai text-ink-3">
+                <p className="mt-0.5 text-[11.5px] leading-thai text-ink-3">
                   เปิดรับการแจ้งเตือนโครงการจัดซื้อจัดจ้างภาครัฐที่เหมาะสมกับโปรไฟล์และการอัปเดตประกาศจากระบบ GIPDP (ตาม พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล PDPA)
                 </p>
               </div>
             </div>
 
-            {/* Channels directly under "Receive System Notifications" */}
             {consent && (
-              <div className="mt-4 border-t border-line/50 pt-3.5 pl-7 sm:pl-7">
-                <div className="space-y-3.5">
-                  {/* Channel 1: In-App Feed & Bell */}
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="channel-in-app"
-                      checked={consent}
-                      disabled
-                      className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-default accent-ink shrink-0"
-                    />
-                    <label htmlFor="channel-in-app" className="text-[13px] leading-thai text-ink select-none">
-                      <span className="font-medium text-ink">
-                        แจ้งเตือนในระบบ (In-App Feed & Bell)
-                      </span>
-                      <span className="ml-2 text-[11px] font-normal text-open">เปิดใช้งานตามสิทธิ์ระบบ</span>
-                      <span className="block text-[11.5px] text-ink-3 mt-0.5">
-                        แสดงการแจ้งเตือนในกล่องข้อความและไอคอนกระดิ่งบนเว็บไซต์ (โครงการที่เหมาะสมกับโปรไฟล์, สถานะเปลี่ยนแปลง, แก้ไข TOR, และเตือนใกล้หมดเขต)
-                      </span>
+              <div className="mt-4 flex flex-col gap-2.5 sm:pl-7">
+                {/* Channel 1: in-app */}
+                <Tile className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="channel-in-app"
+                    checked={consent}
+                    disabled
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-default rounded border-line accent-ink"
+                  />
+                  <label htmlFor="channel-in-app" className="select-none text-[12.5px] leading-thai text-ink">
+                    <span className="font-medium text-ink">แจ้งเตือนในระบบ</span>
+                    <span className="ml-2 text-[11px] font-normal text-open">เปิดใช้งานตามสิทธิ์ระบบ</span>
+                    <span className="mt-0.5 block text-[11.5px] text-ink-3">
+                      แสดงการแจ้งเตือนในกล่องข้อความและไอคอนกระดิ่งบนเว็บไซต์ (โครงการที่เหมาะสมกับโปรไฟล์, สถานะเปลี่ยนแปลง, แก้ไข TOR, และเตือนใกล้หมดเขต)
+                    </span>
+                  </label>
+                </Tile>
+
+                {/* Channel 2: email digest */}
+                <Tile className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="channel-email-digest"
+                    checked={draft.matchNotification?.enabled ?? false}
+                    onChange={(e) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        matchNotification: {
+                          enabled: e.target.checked,
+                          minScore: prev.matchNotification?.minScore ?? 75,
+                          frequency: prev.matchNotification?.frequency ?? "daily",
+                          includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
+                        },
+                      }))
+                    }
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-line accent-ink"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <label
+                      htmlFor="channel-email-digest"
+                      className="block cursor-pointer select-none text-[12.5px] font-medium leading-thai text-ink"
+                    >
+                      ส่งสรุปทางอีเมล
                     </label>
-                  </div>
+                    <span className="mt-0.5 block text-[11.5px] text-ink-3">
+                      ส่งสรุปโครงการและอัปเดตใหม่ไปยัง <span className="text-ink-2">{user.email}</span>
+                    </span>
 
-                  {/* Channel 2: Email Digest */}
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="channel-email-digest"
-                      checked={draft.matchNotification?.enabled ?? false}
-                      onChange={(e) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          matchNotification: {
-                            enabled: e.target.checked,
-                            minScore: prev.matchNotification?.minScore ?? 75,
-                            frequency: prev.matchNotification?.frequency ?? "daily",
-                            includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
-                          },
-                        }))
-                      }
-                      className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-pointer accent-ink shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <label htmlFor="channel-email-digest" className="text-[13px] font-medium leading-thai text-ink cursor-pointer select-none block">
-                        ส่งสรุปทางอีเมล (Email Digest)
-                      </label>
-                      <span className="block text-[11.5px] text-ink-3 mt-0.5">
-                        ส่งสรุปโครงการและอัปเดตใหม่ไปยัง <span className="font-mono text-ink-2">{user.email}</span>
-                      </span>
-
-                      {/* Frequency - shown when email digest is ticked */}
-                      {draft.matchNotification?.enabled && (
-                        <div className="mt-2.5 flex items-center gap-5 text-[12px]">
-                          <span className="font-medium text-ink-2">ความถี่:</span>
+                    {draft.matchNotification?.enabled && (
+                      <fieldset className="mt-3">
+                        <legend className="sr-only">ความถี่ของอีเมลสรุป</legend>
+                        <div className="inline-flex flex-wrap gap-1 rounded-full bg-surface-2 p-1">
                           {[
                             { id: "daily", label: "สรุปรายวัน (08:00 น.)" },
                             { id: "weekly", label: "สรุปรายสัปดาห์ (วันจันทร์)" },
-                          ].map((freq) => (
-                            <label
-                              key={freq.id}
-                              className="flex items-center gap-1.5 cursor-pointer text-ink"
-                            >
-                              <input
-                                type="radio"
-                                name="notif-frequency"
-                                checked={
-                                  (draft.matchNotification?.frequency ?? "daily") === freq.id ||
-                                  (draft.matchNotification?.frequency === "instant" && freq.id === "daily")
-                                }
-                                onChange={() => {
-                                  setDraft((prev) => ({
-                                    ...prev,
-                                    matchNotification: {
-                                      enabled: true,
-                                      minScore: prev.matchNotification?.minScore ?? 75,
-                                      frequency: freq.id as "daily" | "weekly",
-                                      includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
-                                    },
-                                  }));
-                                }}
-                                className="accent-ink cursor-pointer"
-                              />
-                              <span>{freq.label}</span>
-                            </label>
-                          ))}
+                          ].map((freq) => {
+                            const checked =
+                              (draft.matchNotification?.frequency ?? "daily") === freq.id ||
+                              (draft.matchNotification?.frequency === "instant" && freq.id === "daily");
+                            return (
+                              <label
+                                key={freq.id}
+                                className={`flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-(color:--focus) ${
+                                  checked ? "bg-ink text-surface" : "text-ink-2 hover:text-ink"
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="notif-frequency"
+                                  checked={checked}
+                                  onChange={() => {
+                                    setDraft((prev) => ({
+                                      ...prev,
+                                      matchNotification: {
+                                        enabled: true,
+                                        minScore: prev.matchNotification?.minScore ?? 75,
+                                        frequency: freq.id as "daily" | "weekly",
+                                        includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
+                                      },
+                                    }));
+                                  }}
+                                  className="sr-only"
+                                />
+                                <span>{freq.label}</span>
+                              </label>
+                            );
+                          })}
                         </div>
-                      )}
-                    </div>
+                      </fieldset>
+                    )}
                   </div>
-                </div>
+                </Tile>
               </div>
             )}
-          </div>
+          </Inset>
 
-          {/* Conditional parts: Hidden when consent is not true */}
           {!consent ? (
-            <div className="rounded-[4px] border border-line-2 bg-surface-2/20 p-4 text-center">
-              <p className="text-[12.5px] text-ink-3">
+            <div className="rounded-xl border border-dashed border-line-2 px-4 py-5 text-center">
+              <p className="mx-auto max-w-xl text-[12px] leading-thai text-ink-3">
                 ปิดรับการแจ้งเตือนอยู่ — เปิดตัวเลือก &quot;ต้องการรับการแจ้งเตือนจากระบบ&quot; ด้านบนเพื่อตั้งค่าการแจ้งเตือนโครงการที่เหมาะสมกับโปรไฟล์และรายการติดตามของคุณ
               </p>
             </div>
           ) : (
-            <div className="space-y-5">
-              {/* Grouped: Alert Criteria & Rules (TOR Matching + Deadline) */}
-              <div className="rounded-[4px] border border-line bg-surface-2/30 p-4 sm:p-5">
-                <div className="border-b border-line/60 pb-3">
-                  <h4 className="text-[14px] font-semibold text-ink">
-                    เกณฑ์และเงื่อนไขการแจ้งเตือน (Alert Criteria & Rules)
-                  </h4>
-                  <p className="mt-0.5 text-[12px] text-ink-3">
-                    กำหนดเกณฑ์คะแนนความเหมาะสมสำหรับประกาศใหม่ และระยะเวลาแจ้งเตือนล่วงหน้าสำหรับโครงการในรายการติดตาม
-                  </p>
-                </div>
+            <Inset className="p-4 sm:p-5">
+              <h3 className="text-[13px] font-semibold text-ink">เกณฑ์และเงื่อนไขการแจ้งเตือน</h3>
+              <p className="mt-0.5 text-[11.5px] leading-thai text-ink-3">
+                กำหนดเกณฑ์คะแนนความเหมาะสมสำหรับประกาศใหม่ และระยะเวลาแจ้งเตือนล่วงหน้าสำหรับโครงการในรายการติดตาม
+              </p>
 
-                <div className="mt-4 space-y-5">
-                  {/* Criterion 1: TOR Matching Threshold */}
-                  <div>
-                    <span className="text-[12.5px] font-semibold text-ink block">
-                      เกณฑ์คะแนนความเหมาะสมขั้นต่ำ (Match Score Threshold)
-                    </span>
-                    <p className="mt-0.5 text-[11.5px] text-ink-3">
-                      แจ้งเตือนเมื่อพบโครงการใหม่ที่มีคะแนนความเหมาะสมกับโปรไฟล์ของคุณถึงเกณฑ์ที่กำหนด
-                    </p>
-                    <div className="mt-2.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[12px] font-medium text-ink-2">
-                          แจ้งเตือนเมื่อคะแนนถึง:
-                        </span>
-                        <span className="rounded-[3px] border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink">
-                          {draft.matchNotification?.minScore ?? 75}%
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2.5 w-full max-w-xs">
-                        <input
-                          id="match-score-threshold"
-                          name="matchMinScore"
-                          type="range"
-                          min={50}
-                          max={95}
-                          step={5}
-                          aria-label="เกณฑ์คะแนนความเหมาะสมขั้นต่ำ"
-                          value={draft.matchNotification?.minScore ?? 75}
-                          onChange={(e) => {
-                            const val = Number(e.target.value);
-                            setDraft((prev) => ({
-                              ...prev,
-                              matchNotification: {
-                                enabled: prev.matchNotification?.enabled ?? false,
-                                minScore: val,
-                                frequency: prev.matchNotification?.frequency ?? "daily",
-                                includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
-                              },
-                            }));
-                          }}
-                          className="h-1.5 w-full cursor-pointer accent-ink my-auto"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Divider between criteria */}
-                  <div className="border-t border-line/50" />
-
-                  {/* Criterion 2: Subcontracting & Consortium Opportunities (Decision 0033) */}
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="criterion-include-subcontract"
-                      checked={draft.matchNotification?.includeSubcontract ?? true}
-                      onChange={(e) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          matchNotification: {
-                            enabled: prev.matchNotification?.enabled ?? false,
-                            minScore: prev.matchNotification?.minScore ?? 75,
-                            frequency: prev.matchNotification?.frequency ?? "daily",
-                            includeSubcontract: e.target.checked,
-                          },
-                        }))
-                      }
-                      className="mt-0.5 h-4 w-4 rounded border-line text-ink cursor-pointer accent-ink shrink-0"
-                    />
-                    <label htmlFor="criterion-include-subcontract" className="text-[12.5px] leading-thai text-ink cursor-pointer select-none">
-                      <span className="font-semibold text-ink block">
-                        แนะนำโครงการสำหรับรับงานช่วงหรือกิจการร่วมค้า (Subcontract / Joint Venture)
-                      </span>
-                      <span className="block text-[11.5px] text-ink-3 mt-0.5">
-                        รวมโครงการที่ตรงกับทักษะของคุณ แม้ TOR จะกำหนดคุณสมบัติเฉพาะนิติบุคคล (แนะนำสำหรับบุคคลธรรมดา/ฟรีแลนซ์ เพื่อไม่พลาดโอกาสร่วมงานหรือรับงานช่วง)
-                      </span>
+              <div className="mt-4 flex flex-col gap-2.5">
+                {/* Criterion 1: match threshold */}
+                <Tile className="p-4">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <label htmlFor="match-threshold" className="text-[12.5px] font-semibold text-ink">
+                      เกณฑ์คะแนนความเหมาะสมขั้นต่ำ
                     </label>
-                  </div>
-
-                  {/* Divider between criteria */}
-                  <div className="border-t border-line/50" />
-
-                  {/* Criterion 3: Deadline Advance Warning */}
-                  <div>
-                    <span className="text-[12.5px] font-semibold text-ink block">
-                      ระยะเวลาแจ้งเตือนล่วงหน้าก่อนปิดรับข้อเสนอ (Deadline Advance Warning)
+                    <span className="tnum rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-[11.5px] font-semibold text-ink">
+                      {draft.matchNotification?.minScore ?? 75}%
                     </span>
-                    <p className="mt-0.5 text-[11.5px] text-ink-3">
-                      กำหนดจำนวนวันล่วงหน้าก่อนสิ้นสุดกำหนดยื่นข้อเสนอสำหรับโครงการในรายการติดตาม (Watchlist)
-                    </p>
-
-                    <div className="mt-2.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[12px] font-medium text-ink-2">
-                          แจ้งเตือนล่วงหน้า:
-                        </span>
-                        <span className="rounded-[3px] border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink">
-                          {draft.deadlineNoticeDays ?? 3} วัน
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2.5 w-full max-w-xs">
-                        <input
-                          id="deadline-notice-days"
-                          name="deadlineNoticeDays"
-                          type="range"
-                          min={1}
-                          max={30}
-                          step={1}
-                          aria-label="ระยะเวลาแจ้งเตือนล่วงหน้าก่อนปิดรับข้อเสนอ (วัน)"
-                          value={draft.deadlineNoticeDays ?? 3}
-                          onChange={(e) => {
-                            const val = Number(e.target.value);
-                            setDraft((prev) => ({
-                              ...prev,
-                              deadlineNoticeDays: val,
-                            }));
-                          }}
-                          className="h-1.5 w-full cursor-pointer accent-ink my-auto"
-                        />
-                      </div>
-                    </div>
-                    <p className="mt-1.5 text-[11px] text-ink-3">
-                      * ระบบจะส่งการแจ้งเตือนล่วงหน้า {draft.deadlineNoticeDays ?? 3} วันก่อนปิดรับข้อเสนอ (และแจ้งเตือนรอบสรุป 7 วันสำหรับโครงการระยะยาว)
-                    </p>
                   </div>
-                </div>
+                  <p className="mt-0.5 text-[11.5px] leading-thai text-ink-3">
+                    แจ้งเตือนเมื่อพบโครงการใหม่ที่มีคะแนนความเหมาะสมกับโปรไฟล์ของคุณถึงเกณฑ์ที่กำหนด
+                  </p>
+                  <input
+                    id="match-threshold"
+                    type="range"
+                    min={50}
+                    max={95}
+                    step={5}
+                    value={draft.matchNotification?.minScore ?? 75}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setDraft((prev) => ({
+                        ...prev,
+                        matchNotification: {
+                          enabled: prev.matchNotification?.enabled ?? false,
+                          minScore: val,
+                          frequency: prev.matchNotification?.frequency ?? "daily",
+                          includeSubcontract: prev.matchNotification?.includeSubcontract ?? true,
+                        },
+                      }));
+                    }}
+                    className="mt-3 h-1.5 w-full max-w-sm cursor-pointer accent-ink"
+                  />
+                </Tile>
+
+                {/* Criterion 2: subcontract / JV (decision 0033) */}
+                <Tile className="flex items-start gap-3 p-4">
+                  <input
+                    type="checkbox"
+                    id="criterion-include-subcontract"
+                    checked={draft.matchNotification?.includeSubcontract ?? true}
+                    onChange={(e) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        matchNotification: {
+                          enabled: prev.matchNotification?.enabled ?? false,
+                          minScore: prev.matchNotification?.minScore ?? 75,
+                          frequency: prev.matchNotification?.frequency ?? "daily",
+                          includeSubcontract: e.target.checked,
+                        },
+                      }))
+                    }
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-line accent-ink"
+                  />
+                  <label
+                    htmlFor="criterion-include-subcontract"
+                    className="cursor-pointer select-none text-[12.5px] leading-thai text-ink"
+                  >
+                    <span className="block font-semibold text-ink">
+                      แนะนำโครงการสำหรับรับงานช่วงหรือกิจการร่วมค้า (Subcontract / JV)
+                    </span>
+                    <span className="mt-0.5 block text-[11.5px] text-ink-3">
+                      รวมโครงการที่ตรงกับทักษะของคุณ แม้ TOR จะกำหนดคุณสมบัติเฉพาะนิติบุคคล (แนะนำสำหรับบุคคลธรรมดา/ฟรีแลนซ์ เพื่อไม่พลาดโอกาสร่วมงานหรือรับงานช่วง)
+                    </span>
+                  </label>
+                </Tile>
+
+                {/* Criterion 3: deadline advance warning */}
+                <Tile className="p-4">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <label htmlFor="deadline-notice" className="text-[12.5px] font-semibold text-ink">
+                      แจ้งเตือนล่วงหน้าก่อนปิดรับข้อเสนอ
+                    </label>
+                    <span className="tnum rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-[11.5px] font-semibold text-ink">
+                      {draft.deadlineNoticeDays ?? 3} วัน
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[11.5px] leading-thai text-ink-3">
+                    กำหนดจำนวนวันล่วงหน้าก่อนสิ้นสุดกำหนดยื่นข้อเสนอสำหรับโครงการในรายการติดตาม (Watchlist)
+                  </p>
+                  <input
+                    id="deadline-notice"
+                    type="range"
+                    min={1}
+                    max={30}
+                    step={1}
+                    value={draft.deadlineNoticeDays ?? 3}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setDraft((prev) => ({
+                        ...prev,
+                        deadlineNoticeDays: val,
+                      }));
+                    }}
+                    className="mt-3 h-1.5 w-full max-w-sm cursor-pointer accent-ink"
+                  />
+                  <p className="mt-2 text-[11px] leading-thai text-ink-3">
+                    * ระบบจะส่งการแจ้งเตือนล่วงหน้า {draft.deadlineNoticeDays ?? 3} วันก่อนปิดรับข้อเสนอ (และแจ้งเตือนรอบสรุป 7 วันสำหรับโครงการระยะยาว)
+                  </p>
+                </Tile>
               </div>
-            </div>
+            </Inset>
           )}
         </div>
-      </Panel>
+      </Card>
 
-      {/* Bottom Save / Cancel Bar */}
-      <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
+      {/* Bottom save / cancel */}
+      <div className="flex items-center justify-end gap-2 pt-1">
         <button
           type="button"
           onClick={() => {
@@ -1145,143 +1070,166 @@ export function ProfileEditForm({
             }
           }}
           disabled={saving}
-          className={btn.secondary}
+          className={pbtn.secondary}
         >
           ยกเลิก
         </button>
-        <button
-          type="submit"
-          disabled={saving || !!budgetError}
-          className={btn.primary}
-        >
+        <button type="submit" disabled={saving || !!budgetError} className={pbtn.primary}>
           {saving ? "กำลังบันทึก…" : "✓ บันทึกข้อมูลโปรไฟล์"}
         </button>
       </div>
 
-      {/* Floating Unsaved Changes Bar */}
+      {/* Floating unsaved-changes bar */}
       {isDirty && (
         <aside
           role="status"
           aria-live="polite"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full border border-line bg-surface/95 px-4 py-2.5 shadow-xl backdrop-blur-md transition-all"
+          className="fixed bottom-6 left-1/2 z-40 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-surface/95 py-2 pl-4 pr-2 shadow-xl backdrop-blur-md"
         >
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
             </span>
-            <span className="text-[12.5px] font-medium text-ink whitespace-nowrap">
-              คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก
+            <span className="truncate text-[12px] font-medium text-ink">
+              มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก
             </span>
           </div>
 
-          <div className="h-4 w-px bg-line" />
-
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
               onClick={() => setCancelConfirmOpen(true)}
               disabled={saving}
-              className="rounded-full px-2.5 py-1 text-[12px] font-medium text-ink-3 hover:bg-surface-2 hover:text-ink transition-colors"
+              className="cursor-pointer rounded-full px-3 py-1.5 text-[12px] font-medium text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
             >
               ยกเลิก
             </button>
             <button
               type="submit"
               disabled={saving || !!budgetError}
-              className="rounded-full bg-ink px-3.5 py-1 text-[12px] font-medium text-surface hover:opacity-90 transition-opacity"
+              className="cursor-pointer rounded-full bg-ink px-3.5 py-1.5 text-[12px] font-medium text-surface transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {saving ? "กำลังบันทึก…" : "✓ บันทึกข้อมูล"}
+              {saving ? "กำลังบันทึก…" : "✓ บันทึก"}
             </button>
           </div>
         </aside>
       )}
 
-      {/* Cancel Confirmation Modal */}
+      {/* Cancel confirmation */}
       {cancelConfirmOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
-          onClick={() => setCancelConfirmOpen(false)}
-        >
-          <div
-            className="w-full max-w-sm rounded-[4px] border border-line bg-surface p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-[15px] font-semibold text-ink">
-              ยกเลิกการแก้ไขข้อมูล?
-            </h3>
-            <p className="mt-2 text-[12.5px] leading-thai text-ink-2">
-              คุณมีการเปลี่ยนแปลงข้อมูลโปรไฟล์ที่ยังไม่ได้บันทึก หากยกเลิก ข้อมูลที่แก้ไขไว้จะถูกละทิ้งทั้งหมด
-            </p>
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setCancelConfirmOpen(false)}
-                className={btn.secondary}
-              >
-                แก้ไขต่อ
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCancelConfirmOpen(false);
-                  onCancel();
-                }}
-                className={`${btn.primary} bg-red-600 hover:bg-red-700`}
-              >
-                ยืนยันยกเลิก
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="ยกเลิกการแก้ไขข้อมูล?"
+          body="คุณมีการเปลี่ยนแปลงข้อมูลโปรไฟล์ที่ยังไม่ได้บันทึก หากยกเลิก ข้อมูลที่แก้ไขไว้จะถูกละทิ้งทั้งหมด"
+          dismissLabel="แก้ไขต่อ"
+          confirmLabel="ยืนยันยกเลิก"
+          onDismiss={() => setCancelConfirmOpen(false)}
+          onConfirm={() => {
+            setCancelConfirmOpen(false);
+            onCancel();
+          }}
+        />
       )}
 
-      {/* Clear Confirmation Modal */}
+      {/* Clear confirmation */}
       {clearConfirmTarget && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
-          onClick={() => setClearConfirmTarget(null)}
-        >
-          <div
-            className="w-full max-w-sm rounded-[4px] border border-line bg-surface p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-[15px] font-semibold text-ink">
-              ยืนยันการล้างข้อมูล
-            </h3>
-            <p className="mt-2 text-[12.5px] leading-thai text-ink-2">
-              คุณต้องการลบรายการ{clearConfirmTarget === "skills" ? "ทักษะทั้งหมด" : "ใบรับรองทั้งหมด"}ที่เลือกไว้ออกใช่หรือไม่?
-            </p>
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setClearConfirmTarget(null)}
-                className={btn.secondary}
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (clearConfirmTarget === "skills") {
-                    setDraft((prev) => ({ ...prev, skills: [] }));
-                  } else {
-                    setDraft((prev) => ({ ...prev, certifications: [] }));
-                  }
-                  setClearConfirmTarget(null);
-                }}
-                className={`${btn.primary} bg-red-600 hover:bg-red-700`}
-              >
-                ยืนยันการล้าง
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="ยืนยันการล้างข้อมูล"
+          body={`คุณต้องการลบรายการ${clearConfirmTarget === "skills" ? "ทักษะทั้งหมด" : "ใบรับรองทั้งหมด"}ที่เลือกไว้ออกใช่หรือไม่?`}
+          dismissLabel="ยกเลิก"
+          confirmLabel="ยืนยันการล้าง"
+          onDismiss={() => setClearConfirmTarget(null)}
+          onConfirm={() => {
+            if (clearConfirmTarget === "skills") {
+              setDraft((prev) => ({ ...prev, skills: [] }));
+            } else {
+              setDraft((prev) => ({ ...prev, certifications: [] }));
+            }
+            setClearConfirmTarget(null);
+          }}
+        />
       )}
     </form>
+  );
+}
+
+function SuggestionList({
+  items,
+  isOn,
+  onPick,
+}: {
+  items: string[];
+  isOn: (item: string) => boolean;
+  onPick: (item: string) => void;
+}) {
+  return (
+    <div className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-56 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lg">
+      <ul>
+        {items.map((item) => {
+          const on = isOn(item);
+          return (
+            <li key={item}>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onPick(item);
+                }}
+                className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-1.5 text-left text-[12px] hover:bg-surface-2"
+              >
+                <span className={on ? "font-semibold text-ink" : "text-ink-2"}>{item}</span>
+                <span className={`shrink-0 text-[10.5px] ${on ? "font-semibold text-open" : "text-ink-3"}`}>
+                  {on ? "✓ เลือกแล้ว" : "+ เพิ่ม"}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function ConfirmDialog({
+  title,
+  body,
+  dismissLabel,
+  confirmLabel,
+  onDismiss,
+  onConfirm,
+}: {
+  title: string;
+  body: string;
+  dismissLabel: string;
+  confirmLabel: string;
+  onDismiss: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
+      onClick={onDismiss}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-confirm-title"
+        className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="profile-confirm-title" className="text-[15px] font-semibold text-ink">
+          {title}
+        </h3>
+        <p className="mt-2 text-[12.5px] leading-thai text-ink-2">{body}</p>
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <button type="button" onClick={onDismiss} className={pbtn.secondary}>
+            {dismissLabel}
+          </button>
+          <button type="button" onClick={onConfirm} className={pbtn.danger}>
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

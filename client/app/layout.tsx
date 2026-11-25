@@ -1,36 +1,23 @@
 import type { Metadata } from "next";
+import { Kanit } from "next/font/google";
 import localFont from "next/font/local";
 import { AuthProvider } from "./_components/auth";
 import { PrefsProvider } from "./_components/prefs";
 import "./globals.css";
 
-// Unified IBM Plex typography family:
-// IBM Plex Sans Thai (designed by Cadson Demak) pairs with IBM Plex Sans (Latin)
-// and IBM Plex Mono (tabular metrics and project IDs) for cohesive proportions.
-const ibmPlexSansThai = localFont({
-  src: [
-    { path: "./fonts/IBMPlexSansThai-Light.woff2", weight: "300", style: "normal" },
-    { path: "./fonts/IBMPlexSansThai-Regular.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/IBMPlexSansThai-Medium.woff2", weight: "500", style: "normal" },
-    { path: "./fonts/IBMPlexSansThai-SemiBold.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/IBMPlexSansThai-Bold.woff2", weight: "700", style: "normal" },
-  ],
-  variable: "--font-plex-thai",
+// Kanit (Cadson Demak) covers Thai and Latin in one family, so mixed strings
+// like "ติดตั้ง NGINX Plus บน Windows Server 2019" share one set of metrics.
+// It is not a variable font: each weight is its own file, so load only the
+// weights the UI uses (font-normal / medium / semibold / bold). next/font
+// self-hosts the files at build time; visitors never call Google.
+const kanit = Kanit({
+  weight: ["400", "500", "600", "700"],
+  subsets: ["thai", "latin"],
+  variable: "--font-kanit",
   display: "swap",
 });
 
-const ibmPlexSans = localFont({
-  src: [
-    { path: "./fonts/IBMPlexSans-Light.woff2", weight: "300", style: "normal" },
-    { path: "./fonts/IBMPlexSans-Regular.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/IBMPlexSans-Medium.woff2", weight: "500", style: "normal" },
-    { path: "./fonts/IBMPlexSans-SemiBold.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/IBMPlexSans-Bold.woff2", weight: "700", style: "normal" },
-  ],
-  variable: "--font-plex-sans",
-  display: "swap",
-});
-
+// IBM Plex Mono stays for tabular metrics and project IDs.
 const plexMono = localFont({
   src: [
     { path: "./fonts/IBMPlexMono-Regular.woff2", weight: "400", style: "normal" },
@@ -65,7 +52,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="th"
-      className={`${ibmPlexSansThai.variable} ${ibmPlexSans.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${kanit.variable} ${plexMono.variable} h-full antialiased`}
       style={{ scrollbarGutter: "stable" }}
       suppressHydrationWarning
     >
