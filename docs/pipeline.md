@@ -1,5 +1,7 @@
 # Pipeline commands
 
+> **Document Role:** Operational CLI Command Reference & Runbook — for the conceptual overview, see [pipeline-guide.md](pipeline-guide.md).
+
 New to the pipeline? Start with [the plain-words guide](pipeline-guide.md):
 what it does, the journey of a project, and how to run and check it.
 
@@ -19,7 +21,7 @@ fetch ─► download ─► OCR ─► Tor              Tor ─► classify ─
 
 - **Ingestion** finds TORs, downloads their PDFs, and turns them into text.
 - **Extraction** reads that text with Gemini and writes the normalized summary.
-  Sese [AI extraction](#ai-extraction).
+  See [AI extraction](#ai-extraction).
 
 Run every command from `server/`. The database named in `server/.env` must be
 reachable.

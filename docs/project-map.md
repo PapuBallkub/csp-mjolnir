@@ -87,7 +87,7 @@ group pages and share a layout, but don't appear in the URL.
 | Change which value wins, feed or AI | [assemble.js](../server/src/pipeline/extraction/assemble.js) |
 | Change when the pipeline runs | [schedule.js](../server/src/pipeline/jobs/schedule.js), [run-job.js](../server/src/pipeline/jobs/run-job.js), [queues.js](../server/src/pipeline/shared/queues.js) |
 | Change how fast we call e-GP | [request-pacer.js](../server/src/pipeline/shared/request-pacer.js) (NFR-03) |
-| Change the catalog page | [client/app/(app)/search/](../client/app/(app)/search/) |
+| Change the catalog page | [client/app/(app)/search/](<../client/app/(app)/search/>) |
 | Change the TOR detail page | [client/app/_components/tor-detail/](../client/app/_components/tor-detail/); the route file only loads data |
 | Change a badge, status colour or risk marker | [verdict.tsx](../client/app/_components/verdict.tsx) and [stage.ts](../client/app/_lib/stage.ts) |
 | Call a new endpoint from the client | [api.ts](../client/app/_lib/api.ts), the only client file that calls `fetch` |
@@ -122,7 +122,7 @@ nightly `process` job runs the same steps in priority order
   [client/app/_lib/match.ts](../client/app/_lib/match.ts), computed in the
   browser. The server copy in
   [features/match/matchmaker.js](../server/src/features/match/matchmaker.js)
-  is not called by any route yet, only by its test. Change both together.
+  evaluates match alerts in `notifications` (`match-notification.service.js`); keep both aligned when changing the scoring formula.
 - **"ADR 0030" in a lock-spec file means 0035.** Lock-spec's decision was
   numbered 0030 until 2026-11-13, a number the night waves already had. A
   comment written before then that cites "ADR 0030" for lock-spec means
@@ -138,13 +138,9 @@ nightly `process` job runs the same steps in priority order
   [admin.service.js](../server/src/features/admin/admin.service.js) previously fell back
   to sample fixtures when the review queue was empty or a query failed. That fallback
   was removed (#316) so empty review queues and live telemetry are reported honestly.
-- **Unused files.** [tor-row.tsx](../client/app/_components/tor-row.tsx) is
-  imported by nothing; [catalog-row.tsx](../client/app/_components/catalog-row.tsx)
-  replaced it. In [modules.tsx](../client/app/_components/modules.tsx) only
+- **Unused files.** In [modules.tsx](../client/app/_components/modules.tsx) only
   `AmendmentModule` is used (on `/watchdog`); the detail page draws its own
-  modules in `DecisionSupportTab.tsx`, so
-  [price-scale.tsx](../client/app/_components/price-scale.tsx) is unused too.
-  `client/public/*.svg` are create-next-app leftovers.
+  modules in `DecisionSupportTab.tsx`. `client/public/*.svg` are create-next-app leftovers.
 - **Two files named AGENTS.md.** The [root one](../AGENTS.md) holds the rules
   for every agent change and the frontend design guide.
   [client/AGENTS.md](../client/AGENTS.md) is a note that `next dev` writes for
@@ -197,6 +193,7 @@ Plumbing every feature uses. Never imports from `features/` ([0003](decisions/00
 | [utils/escape-regex.js](../server/src/common/utils/escape-regex.js) | Escapes characters with special meaning in regular expressions to prevent ReDoS and regex syntax errors. |
 | [paths.js](../server/src/common/paths.js) | Where documents are kept (`getDocumentsDir`), and `locateStoredFile`, which finds a recorded file and opens nothing outside that folder. The preview and the rescan both use it. |
 | [utils/constant-time-equal.js](../server/src/common/utils/constant-time-equal.js) | Compares two strings in constant time, for values an attacker guesses at (the OAuth `state` and `nonce`). |
+| [utils/sanitize.js](../server/src/common/utils/sanitize.js) | HTML/text sanitization helper for outbound emails and extracted text. |
 
 ### server/models
 
@@ -215,6 +212,7 @@ that owns the collection. Import models from `#models/index.js`.
 | [project-categories.js](../server/src/models/project-categories.js) | The seven kinds of IT project a TOR can be ([0034](decisions/0034-a-tor-can-have-several-categories.md)). Mirrored in `client/app/_lib/categories.ts`. |
 | [standard-conditions.js](../server/src/models/standard-conditions.js) | The eligibility conditions every e-GP TOR repeats, as keys. |
 | [title-screen.model.js](../server/src/models/title-screen.model.js) | `TitleScreen`: Gemini's `it` / `not_it` / `unsure` on a title, before anything is downloaded ([0026](decisions/0026-screen-titles-before-downloading.md)). Spec: [title-screen-schema.md](database/title-screen-schema.md). |
+| [notification.model.js](../server/src/models/notification.model.js) | `Notification`: immutable in-app and email alert snapshots (`match`, `amendment`, `deadline`, `status_change`). Spec: [notification-schema.md](database/notification-schema.md). |
 | [pipeline-run.model.js](../server/src/models/pipeline-run.model.js) | `PipelineRun`: one scheduled job, its steps and how each ended ([0027](decisions/0027-run-the-pipeline-on-a-schedule.md)). Spec: [pipeline-run-schema.md](database/pipeline-run-schema.md). |
 | [pipeline-failure.model.js](../server/src/models/pipeline-failure.model.js) | `PipelineFailure`: a TOR stuck at a step. Deleted when the step succeeds ([0016](decisions/0016-pipeline-runs-are-safe-to-repeat.md)). Spec: [pipeline-run-schema.md](database/pipeline-run-schema.md). |
 | [pipeline-lock.model.js](../server/src/models/pipeline-lock.model.js) | `PipelineLock`: a lease so two runs of one pipeline never overlap. Spec: [pipeline-run-schema.md](database/pipeline-run-schema.md). |
@@ -252,7 +250,7 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 | [data/common-passwords.txt](../server/src/features/auth/data/common-passwords.txt) | 46,945 common breached passwords, from SecLists (MIT). Source, commit and licence in `common-passwords.LICENSE`; rebuilt by `scripts/build-common-passwords.js`. |
 | [auth-email.js](../server/src/features/auth/auth-email.js) | The account emails (confirm, already registered, Google linked, reset or set a password, password changed) and `sendAfterResponse`, which prints the link instead in development without SMTP. |
 | [auth.middleware.js](../server/src/features/auth/auth.middleware.js) | `requireAuth` (loads `req.user` from the cookie) and `requireRole`. |
-| [session.js](../server/src/features/auth/session.js) | Signs and reads the `mjolnir_session` JWT cookie (7 days). |
+| [session.js](../server/src/features/auth/session.js) | Signs and reads the `mjolnir_session` JWT cookie (24 hours, NFR-11). |
 | [password.js](../server/src/features/auth/password.js) | HMAC-SHA384 with `PASSWORD_PEPPER`, then bcrypt at cost 12, so the whole password counts ([0039](decisions/0039-passwords-are-peppered-before-bcrypt.md)). |
 | [google.js](../server/src/features/auth/google.js) | Google OAuth: sign-in URL with `state`, `nonce` and PKCE, the cookie that holds all three, code exchange. |
 | [google-id-token.js](../server/src/features/auth/google-id-token.js) | Checks Google's ID token (RS256 signature, `iss`, `aud`, `azp`, `exp`, `nonce`) and caches Google's signing keys ([0005](decisions/0005-google-sign-in-links-by-verified-email.md)). Reads no env and no network of its own, so tests sign their own tokens. |
@@ -270,7 +268,7 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 
 | File | What it is |
 | :--- | :--- |
-| [matchmaker.js](../server/src/features/match/matchmaker.js) | Server copy of the FR-13 match score ([0033](decisions/0033-capability-profile-and-match-scoring.md)). Only its test calls it today. |
+| [matchmaker.js](../server/src/features/match/matchmaker.js) | Server copy of the FR-13 match score ([0033](decisions/0033-capability-profile-and-match-scoring.md)). Called by `notifications` (`match-notification.service.js`) for match digests; browser scores use `client/app/_lib/match.ts`. |
 | [index.js](../server/src/features/match/index.js) | Exports `calculateMatchScore`. |
 
 **profile**: `/api/profile`, signed in
@@ -287,7 +285,7 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 | File | What it is |
 | :--- | :--- |
 | [similarity-scoring.js](../server/src/features/similarity/similarity-scoring.js) | Pure similarity math: Jaccard tech stack, archetype matching, complexity step distance, category order ([0021](decisions/0021-find-comparable-projects.md), [0034](decisions/0034-a-tor-can-have-several-categories.md)). |
-| [candidate-search.js](../server/src/features/similarity/candidate-search.js) | Finds and ranks comparable historical candidate tenders from MongoDB without circular price filtering ([0021](decisions/0021-find-comparable-projects.md), [0028](decisions/0028-past-projects-from-data-go-th.md)). |
+| [candidate-search.js](../server/src/features/similarity/candidate-search.js) | Finds and ranks comparable historical candidate tenders from MongoDB without circular price filtering ([0021](decisions/0021-find-comparable-projects.md), [0028](decisions/0028-past-projects-from-data-go-th.md), [0044](decisions/0044-price-benchmark-scale-guardrails.md)). |
 | [index.js](../server/src/features/similarity/index.js) | Exports similarity math, candidate filters, plus `FULL_EXTRACTION` / `isFullExtraction`. |
 
 **price-reality-check**: no route; called by the pipeline and scripts
@@ -341,7 +339,9 @@ imports; a request goes `*.routes.js` → `*.controller.js` → `*.service.js`.
 | [notification-feed.service.js](../server/src/features/notifications/notification-feed.service.js) | Notification queries, unread count badge, and mark-as-read transitions. |
 | [email.service.js](../server/src/features/notifications/email.service.js) | Nodemailer transport with HMAC-signed PDPA 1-click unsubscribe links, keyed with an HKDF key derived from `JWT_SECRET`. |
 | [templates/match-digest.template.js](../server/src/features/notifications/templates/match-digest.template.js) | HTML/text email digest templates with zero-width URL defanging. |
+| [templates/watchlist-digest.template.js](../server/src/features/notifications/templates/watchlist-digest.template.js) | HTML/text email digest template for watchlist amendment, status-change, and deadline alerts. |
 | [creators/match-notification.service.js](../server/src/features/notifications/creators/match-notification.service.js) | Evaluates candidate matches and triggers digest notifications. |
+| [creators/watchlist-notification.service.js](../server/src/features/notifications/creators/watchlist-notification.service.js) | Evaluates watchlisted TORs for status changes, amendments, and approaching deadlines and stages alerts. |
 | [creators/find-notification-duplication.js](../server/src/features/notifications/creators/find-notification-duplication.js) | De-duplication check against past notifications. |
 | [index.js](../server/src/features/notifications/index.js) | Public surface for notifications. |
 
@@ -539,80 +539,83 @@ never appears in the URL.
 | [auth/verify/page.tsx](../client/app/auth/verify/page.tsx) | Where a confirm email links to (`#token=…`). A server component only for its `noindex` metadata; the token after `#` reaches no server, so the form reads it in the browser ([0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md)). |
 | [auth/forgot/page.tsx](../client/app/auth/forgot/page.tsx) | Asks for a reset link ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)). |
 | [auth/reset/page.tsx](../client/app/auth/reset/page.tsx) | Where a reset email links to (`#token=…`), `noindex`, as `/auth/verify`. |
-| [(app)/layout.tsx](../client/app/(app)/layout.tsx) | Wraps every page in the shell. |
-| [(app)/not-found.tsx](../client/app/(app)/not-found.tsx) | 404 inside the shell. |
-| [(app)/(private)/layout.tsx](../client/app/(app)/(private)/layout.tsx) | Guests see a sign-in prompt instead of the page. A convenience; the API is the real guard. |
+| [(app)/layout.tsx](<../client/app/(app)/layout.tsx>) | Wraps every page in the shell. |
+| [(app)/not-found.tsx](<../client/app/(app)/not-found.tsx>) | 404 inside the shell. |
+| [(app)/(private)/layout.tsx](<../client/app/(app)/(private)/layout.tsx>) | Guests see a sign-in prompt instead of the page. A convenience; the API is the real guard. |
 
 **search**
 
 | File | What it is |
 | :--- | :--- |
-| [page.tsx](../client/app/(app)/search/page.tsx) | Switches between filter mode and match mode; keeps the state in the URL. |
-| [_components/FilterModeView.tsx](../client/app/(app)/search/_components/FilterModeView.tsx) | The filtered catalog: fetches, lists `CatalogRow`s, paginates. |
-| [_components/FilterRail.tsx](../client/app/(app)/search/_components/FilterRail.tsx) | Filter sidebar: status, budget, deadline, tech, agency. |
-| [_components/MatchModeView.tsx](../client/app/(app)/search/_components/MatchModeView.tsx) | The catalog ranked by match score against the profile. |
-| [_components/MatchRail.tsx](../client/app/(app)/search/_components/MatchRail.tsx) | Match-mode sidebar: profile summary and score floor. |
-| [_components/Pagination.tsx](../client/app/(app)/search/_components/Pagination.tsx) | Page links. |
-| [_components/SearchCommon.tsx](../client/app/(app)/search/_components/SearchCommon.tsx) | Shared pieces: debounce, filter groups, checkboxes, facet list, error text. |
-| [_lib/search-params.ts](../client/app/(app)/search/_lib/search-params.ts) | URL ⇄ filter state; remembers the last search. |
-| [_lib/types.ts](../client/app/(app)/search/_lib/types.ts) | Filter types, budget and deadline bands, score floors. |
+| [page.tsx](<../client/app/(app)/search/page.tsx>) | Switches between filter mode and match mode; keeps the state in the URL. |
+| [_components/FilterModeView.tsx](<../client/app/(app)/search/_components/FilterModeView.tsx>) | The filtered catalog: fetches, lists `CatalogRow`s, paginates. |
+| [_components/FilterRail.tsx](<../client/app/(app)/search/_components/FilterRail.tsx>) | Filter sidebar: status, budget, deadline, tech, agency. |
+| [_components/MatchModeView.tsx](<../client/app/(app)/search/_components/MatchModeView.tsx>) | The catalog ranked by match score against the profile. |
+| [_components/MatchRail.tsx](<../client/app/(app)/search/_components/MatchRail.tsx>) | Match-mode sidebar: profile summary and score floor. |
+| [_components/Pagination.tsx](<../client/app/(app)/search/_components/Pagination.tsx>) | Page links. |
+| [_components/SearchCommon.tsx](<../client/app/(app)/search/_components/SearchCommon.tsx>) | Shared pieces: debounce, filter groups, checkboxes, facet list, error text. |
+| [_lib/search-params.ts](<../client/app/(app)/search/_lib/search-params.ts>) | URL ⇄ filter state; remembers the last search. |
+| [_lib/types.ts](<../client/app/(app)/search/_lib/types.ts>) | Filter types, budget and deadline bands, score floors. |
 
 **tor/[id]**
 
 | File | What it is |
 | :--- | :--- |
-| [page.tsx](../client/app/(app)/tor/[id]/page.tsx) | Server component: fetches the TOR, renders `TorDetail`. |
-| [error.tsx](../client/app/(app)/tor/[id]/error.tsx) | The API failed: says so and offers a retry. Never "not found". |
-| [not-found.tsx](../client/app/(app)/tor/[id]/not-found.tsx) | No such TOR, or none the public may see. |
+| [page.tsx](<../client/app/(app)/tor/[id]/page.tsx>) | Server component: fetches the TOR, renders `TorDetail`. |
+| [error.tsx](<../client/app/(app)/tor/[id]/error.tsx>) | The API failed: says so and offers a retry. Never "not found". |
+| [not-found.tsx](<../client/app/(app)/tor/[id]/not-found.tsx>) | No such TOR, or none the public may see. |
 
 **watchdog, profile, account, watchlist, notifications**
 
 | File | What it is |
 | :--- | :--- |
-| [watchdog/page.tsx](../client/app/(app)/watchdog/page.tsx) | Price reality check & lock-spec trends dashboard. Queries live API TORs, aggregates historical price distributions and Circular ว 214 signals across modular subcomponents in `_components/` and `_lib/`. |
-| [watchdog/_components/WatchdogFilterBar.tsx](../client/app/(app)/watchdog/_components/WatchdogFilterBar.tsx) | Multi-dimensional filter bar: continuous budget slider (฿0–฿50M+), month/year timeline dropdowns, agency popover, and multi-select pill filters. |
-| [watchdog/_components/PriceTrendLineChart.tsx](../client/app/(app)/watchdog/_components/PriceTrendLineChart.tsx) | Interactive SVG line chart of reference price median and average trends over time with dynamic Y-axis scaling. |
-| [watchdog/_components/PriceRealitySummary.tsx](../client/app/(app)/watchdog/_components/PriceRealitySummary.tsx) | Standardized 5-card summary row (Sample Size, Median, Average, Price Deviation with <5 sample guard, and Price Span). |
-| [watchdog/_components/LockSpecOverview.tsx](../client/app/(app)/watchdog/_components/LockSpecOverview.tsx) | Circular ว 214 breakdown with sample-relative progress bars and statutory legal citations. |
-| [watchdog/_components/WatchdogEvidenceTable.tsx](../client/app/(app)/watchdog/_components/WatchdogEvidenceTable.tsx) | 4-column compact evidence table with dropdown sorting options and client-side pagination. |
-| [profile/page.tsx](../client/app/(app)/(private)/profile/page.tsx) | Shows the capability profile, or edits it with `?edit=true`. Links to `/account`. |
-| [profile/_components/ProfileDisplay.tsx](../client/app/(app)/(private)/profile/_components/ProfileDisplay.tsx) | Read-only profile. |
-| [profile/_components/ProfileEditForm.tsx](../client/app/(app)/(private)/profile/_components/ProfileEditForm.tsx) | ~1,100 lines. Skills from the vocabulary, budget, certifications, entity type, archetypes. |
-| [account/page.tsx](../client/app/(app)/(private)/account/page.tsx) | Account and password: change the password, or, for an account that signs in only with Google, email a link to set one ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)). |
-| [watchlist/page.tsx](../client/app/(app)/(private)/watchlist/page.tsx) | Saved TORs, with a notice on those that changed since saving. |
-| [notifications/page.tsx](../client/app/(app)/(private)/notifications/page.tsx), [notifications/[id]/page.tsx](../client/app/(app)/(private)/notifications/[id]/page.tsx) | In-app notification feed, unread tracking, single notification view, and email alert settings. |
+| [watchdog/page.tsx](<../client/app/(app)/watchdog/page.tsx>) | Price reality check & lock-spec trends dashboard. Queries live API TORs, aggregates historical price distributions and Circular ว 214 signals across modular subcomponents in `_components/` and `_lib/`. |
+| [watchdog/_components/WatchdogFilterBar.tsx](<../client/app/(app)/watchdog/_components/WatchdogFilterBar.tsx>) | Multi-dimensional filter bar: continuous budget slider (฿0–฿50M+), month/year timeline dropdowns, agency popover, and multi-select pill filters. |
+| [watchdog/_components/PriceTrendLineChart.tsx](<../client/app/(app)/watchdog/_components/PriceTrendLineChart.tsx>) | Interactive SVG line chart of reference price median and average trends over time with dynamic Y-axis scaling. |
+| [watchdog/_components/PriceRealitySummary.tsx](<../client/app/(app)/watchdog/_components/PriceRealitySummary.tsx>) | Standardized 5-card summary row (Sample Size, Median, Average, Price Deviation with <5 sample guard, and Price Span). |
+| [watchdog/_components/LockSpecOverview.tsx](<../client/app/(app)/watchdog/_components/LockSpecOverview.tsx>) | Circular ว 214 breakdown with sample-relative progress bars and statutory legal citations. |
+| [watchdog/_components/WatchdogEvidenceTable.tsx](<../client/app/(app)/watchdog/_components/WatchdogEvidenceTable.tsx>) | 4-column compact evidence table with dropdown sorting options and client-side pagination. |
+| [watchdog/_lib/watchdog-helpers.ts](<../client/app/(app)/watchdog/_lib/watchdog-helpers.ts>) | Pure aggregation, filtering, and trend helpers for `/watchdog`. |
+| [profile/page.tsx](<../client/app/(app)/(private)/profile/page.tsx>) | Shows the capability profile, or edits it with `?edit=true`. Links to `/account`. |
+| [profile/_components/ProfileDisplay.tsx](<../client/app/(app)/(private)/profile/_components/ProfileDisplay.tsx>) | Read-only profile. |
+| [profile/_components/ProfileEditForm.tsx](<../client/app/(app)/(private)/profile/_components/ProfileEditForm.tsx>) | ~1,100 lines. Skills from the vocabulary, budget, certifications, entity type, archetypes. |
+| [profile/_components/profile-ui.tsx](<../client/app/(app)/(private)/profile/_components/profile-ui.tsx>) | Shared profile display UI helpers and technology/certification request modals. |
+| [account/page.tsx](<../client/app/(app)/(private)/account/page.tsx>) | Account and password: change the password, or, for an account that signs in only with Google, email a link to set one ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)). |
+| [watchlist/page.tsx](<../client/app/(app)/(private)/watchlist/page.tsx>) | Saved TORs, with a notice on those that changed since saving. |
+| [notifications/page.tsx](<../client/app/(app)/(private)/notifications/page.tsx>), [notifications/[id]/page.tsx](<../client/app/(app)/(private)/notifications/[id]/page.tsx>) | In-app notification feed, unread tracking, single notification view, and email alert settings. |
+| [notifications/_components/](<../client/app/(app)/(private)/notifications/_components/match-view.tsx>) | Polymorphic detail views for `/notifications/[id]`: `match-view.tsx`, [amendment-view.tsx](<../client/app/(app)/(private)/notifications/_components/amendment-view.tsx>), [status-change-view.tsx](<../client/app/(app)/(private)/notifications/_components/status-change-view.tsx>), [deadline-view.tsx](<../client/app/(app)/(private)/notifications/_components/deadline-view.tsx>). |
 
 **admin**
 
 | File | What it is |
 | :--- | :--- |
-| [page.tsx](../client/app/(app)/admin/page.tsx) | ~1,400 lines. Source health, pipeline monitoring, runs, failures, review queue, vocabulary, and sending a user a reset link. |
-| [_components/index.ts](../client/app/(app)/admin/_components/index.ts) | Re-exports the sections. |
-| [_components/PipelineMonitoringSection.tsx](../client/app/(app)/admin/_components/PipelineMonitoringSection.tsx) | Pipeline tasks by phase, with search and retry/skip. |
-| [_components/PipelineRunsSection.tsx](../client/app/(app)/admin/_components/PipelineRunsSection.tsx) | Scheduled job runs and their steps. |
-| [_components/PipelineFailuresSection.tsx](../client/app/(app)/admin/_components/PipelineFailuresSection.tsx) | Stuck TORs: retry or dismiss. |
-| [_components/PipelineStageFunnel.tsx](../client/app/(app)/admin/_components/PipelineStageFunnel.tsx) | How many TORs sit at each stage. |
-| [_components/RecordInspectorModal.tsx](../client/app/(app)/admin/_components/RecordInspectorModal.tsx) | One record's whole pipeline history and files. |
-| [_components/AddRecordModal.tsx](../client/app/(app)/admin/_components/AddRecordModal.tsx) | Add a project by its e-GP ID. |
-| [_components/ReviewItemCard.tsx](../client/app/(app)/admin/_components/ReviewItemCard.tsx) | One review-queue item, with quick approve and re-extract. |
-| [_components/ConfidenceBar.tsx](../client/app/(app)/admin/_components/ConfidenceBar.tsx) | The confidence score as a bar. |
-| [_components/TechnologiesSection.tsx](../client/app/(app)/admin/_components/TechnologiesSection.tsx) | Vocabulary table: confirm, merge, edit, delete. |
-| [_components/AddEditTechnologyModal.tsx](../client/app/(app)/admin/_components/AddEditTechnologyModal.tsx) | Add or edit one technology. |
-| [_components/PasswordResetCard.tsx](../client/app/(app)/admin/_components/PasswordResetCard.tsx) | Sends a user a reset link by address. No password field, and the link never comes back ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)). |
-| [review/[id]/page.tsx](../client/app/(app)/admin/review/[id]/page.tsx) | Review workspace shell (~450 lines): orchestrates fetch, approval, rollback, reclassify, re-extract, modals, and section navigation. |
-| [review/[id]/ReviewEditorComponents.tsx](../client/app/(app)/admin/review/[id]/ReviewEditorComponents.tsx) | Field editors, drawers, and confirmation modals for the workspace, including the numbered category picker. |
-| [review/[id]/_lib/review-form.ts](../client/app/(app)/admin/review/[id]/_lib/review-form.ts) | Pure review form state model, section list, parsers, validators, diff computation, revert helpers, and approval payload builder. |
-| [review/[id]/_lib/useReviewForm.ts](../client/app/(app)/admin/review/[id]/_lib/useReviewForm.ts) | Unified hook managing review form state, validation, diffs, revert/discard, and technology list mutations. |
-| [review/[id]/_components/ReviewFieldPrimitives.tsx](../client/app/(app)/admin/review/[id]/_components/ReviewFieldPrimitives.tsx) | Shared field header, AI confidence badge, modified-input styling, and section prop types. |
-| [review/[id]/_components/ReviewTopBar.tsx](../client/app/(app)/admin/review/[id]/_components/ReviewTopBar.tsx) | Sticky workspace header with confidence pill, version history, PDF preview, evidence grounding, re-extract, and publish actions. |
-| [review/[id]/_components/ReviewSectionNav.tsx](../client/app/(app)/admin/review/[id]/_components/ReviewSectionNav.tsx) | Sticky 10-section TOC sidebar with per-section edit counts and smooth-scroll navigation. |
-| [review/[id]/_components/ReclassifyModal.tsx](../client/app/(app)/admin/review/[id]/_components/ReclassifyModal.tsx) | Modal for reclassifying an out-of-scope TOR out of the IT review queue. |
-| [review/[id]/_components/sections/IdentificationSection.tsx](../client/app/(app)/admin/review/[id]/_components/sections/IdentificationSection.tsx) | Section 1: project title, agency, category picker, and announcement metadata. |
-| [review/[id]/_components/sections/KeyFactsSection.tsx](../client/app/(app)/admin/review/[id]/_components/sections/KeyFactsSection.tsx) | Section 2: budget, reference price, dates, contract duration, warranty, and penalty rate. |
-| [review/[id]/_components/sections/OverviewDeliverablesSection.tsx](../client/app/(app)/admin/review/[id]/_components/sections/OverviewDeliverablesSection.tsx) | Sections 3–4: project summary, scope items, and deliverable milestones. |
-| [review/[id]/_components/sections/TechnicalSpecsSection.tsx](../client/app/(app)/admin/review/[id]/_components/sections/TechnicalSpecsSection.tsx) | Section 5: technology vocabulary tags, custom tech input, and technical requirements. |
-| [review/[id]/_components/sections/IntegrationOpsSection.tsx](../client/app/(app)/admin/review/[id]/_components/sections/IntegrationOpsSection.tsx) | Sections 6–7: system integration requirements, SLA/support, and training/maintenance obligations. |
-| [review/[id]/_components/sections/EligibilityContractSection.tsx](../client/app/(app)/admin/review/[id]/_components/sections/EligibilityContractSection.tsx) | Sections 8–10: bidder eligibility, payment/evaluation conditions, and amendment notes. |
+| [page.tsx](<../client/app/(app)/admin/page.tsx>) | ~1,400 lines. Source health, pipeline monitoring, runs, failures, review queue, vocabulary, and sending a user a reset link. |
+| [_components/index.ts](<../client/app/(app)/admin/_components/index.ts>) | Re-exports the sections. |
+| [_components/PipelineMonitoringSection.tsx](<../client/app/(app)/admin/_components/PipelineMonitoringSection.tsx>) | Pipeline tasks by phase, with search and retry/skip. |
+| [_components/PipelineRunsSection.tsx](<../client/app/(app)/admin/_components/PipelineRunsSection.tsx>) | Scheduled job runs and their steps. |
+| [_components/PipelineFailuresSection.tsx](<../client/app/(app)/admin/_components/PipelineFailuresSection.tsx>) | Stuck TORs: retry or dismiss. |
+| [_components/PipelineStageFunnel.tsx](<../client/app/(app)/admin/_components/PipelineStageFunnel.tsx>) | How many TORs sit at each stage. |
+| [_components/RecordInspectorModal.tsx](<../client/app/(app)/admin/_components/RecordInspectorModal.tsx>) | One record's whole pipeline history and files. |
+| [_components/AddRecordModal.tsx](<../client/app/(app)/admin/_components/AddRecordModal.tsx>) | Add a project by its e-GP ID. |
+| [_components/ReviewItemCard.tsx](<../client/app/(app)/admin/_components/ReviewItemCard.tsx>) | One review-queue item, with quick approve and re-extract. |
+| [_components/ConfidenceBar.tsx](<../client/app/(app)/admin/_components/ConfidenceBar.tsx>) | The confidence score as a bar. |
+| [_components/TechnologiesSection.tsx](<../client/app/(app)/admin/_components/TechnologiesSection.tsx>) | Vocabulary table: confirm, merge, edit, delete. |
+| [_components/AddEditTechnologyModal.tsx](<../client/app/(app)/admin/_components/AddEditTechnologyModal.tsx>) | Add or edit one technology. |
+| [_components/PasswordResetCard.tsx](<../client/app/(app)/admin/_components/PasswordResetCard.tsx>) | Sends a user a reset link by address. No password field, and the link never comes back ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)). |
+| [review/[id]/page.tsx](<../client/app/(app)/admin/review/[id]/page.tsx>) | Review workspace shell (~450 lines): orchestrates fetch, approval, rollback, reclassify, re-extract, modals, and section navigation. |
+| [review/[id]/ReviewEditorComponents.tsx](<../client/app/(app)/admin/review/[id]/ReviewEditorComponents.tsx>) | Field editors, drawers, and confirmation modals for the workspace, including the numbered category picker. |
+| [review/[id]/_lib/review-form.ts](<../client/app/(app)/admin/review/[id]/_lib/review-form.ts>) | Pure review form state model, section list, parsers, validators, diff computation, revert helpers, and approval payload builder. |
+| [review/[id]/_lib/useReviewForm.ts](<../client/app/(app)/admin/review/[id]/_lib/useReviewForm.ts>) | Unified hook managing review form state, validation, diffs, revert/discard, and technology list mutations. |
+| [review/[id]/_components/ReviewFieldPrimitives.tsx](<../client/app/(app)/admin/review/[id]/_components/ReviewFieldPrimitives.tsx>) | Shared field header, AI confidence badge, modified-input styling, and section prop types. |
+| [review/[id]/_components/ReviewTopBar.tsx](<../client/app/(app)/admin/review/[id]/_components/ReviewTopBar.tsx>) | Sticky workspace header with confidence pill, version history, PDF preview, evidence grounding, re-extract, and publish actions. |
+| [review/[id]/_components/ReviewSectionNav.tsx](<../client/app/(app)/admin/review/[id]/_components/ReviewSectionNav.tsx>) | Sticky 10-section TOC sidebar with per-section edit counts and smooth-scroll navigation. |
+| [review/[id]/_components/ReclassifyModal.tsx](<../client/app/(app)/admin/review/[id]/_components/ReclassifyModal.tsx>) | Modal for reclassifying an out-of-scope TOR out of the IT review queue. |
+| [review/[id]/_components/sections/IdentificationSection.tsx](<../client/app/(app)/admin/review/[id]/_components/sections/IdentificationSection.tsx>) | Section 1: project title, agency, category picker, and announcement metadata. |
+| [review/[id]/_components/sections/KeyFactsSection.tsx](<../client/app/(app)/admin/review/[id]/_components/sections/KeyFactsSection.tsx>) | Section 2: budget, reference price, dates, contract duration, warranty, and penalty rate. |
+| [review/[id]/_components/sections/OverviewDeliverablesSection.tsx](<../client/app/(app)/admin/review/[id]/_components/sections/OverviewDeliverablesSection.tsx>) | Sections 3–4: project summary, scope items, and deliverable milestones. |
+| [review/[id]/_components/sections/TechnicalSpecsSection.tsx](<../client/app/(app)/admin/review/[id]/_components/sections/TechnicalSpecsSection.tsx>) | Section 5: technology vocabulary tags, custom tech input, and technical requirements. |
+| [review/[id]/_components/sections/IntegrationOpsSection.tsx](<../client/app/(app)/admin/review/[id]/_components/sections/IntegrationOpsSection.tsx>) | Sections 6–7: system integration requirements, SLA/support, and training/maintenance obligations. |
+| [review/[id]/_components/sections/EligibilityContractSection.tsx](<../client/app/(app)/admin/review/[id]/_components/sections/EligibilityContractSection.tsx>) | Sections 8–10: bidder eligibility, payment/evaluation conditions, and amendment notes. |
 
 ### client/_components
 
@@ -643,8 +646,6 @@ never appears in the URL.
 | [prefs.tsx](../client/app/_components/prefs.tsx) | Language (fixed to Thai) and the profile: the server's, or a guest's local one. |
 | [BeforeAfterSlider.tsx](../client/app/_components/BeforeAfterSlider.tsx) | Introduction-page illustration: a scanned government PDF against the GIPDP summary. |
 | [modules.tsx](../client/app/_components/modules.tsx) | Lock-spec, price, amendment and source modules. Only `AmendmentModule` is used, on `/watchdog`. |
-| [price-scale.tsx](../client/app/_components/price-scale.tsx) | Price dot plot for `PriceModule`. Unused while that is. |
-| [tor-row.tsx](../client/app/_components/tor-row.tsx) | Old fixture-era row. Imported by nothing. |
 
 ### client/_lib
 
@@ -661,6 +662,8 @@ never appears in the URL.
 | [breakpoints.ts](../client/app/_lib/breakpoints.ts) | `useBreakpoint` hook. |
 | [safe-next.ts](../client/app/_lib/safe-next.ts) | Checks `?next=` so sign-in can't redirect off-site. |
 | [_data/tors.ts](../client/app/_data/tors.ts) | ~1,400 lines. Fixture TORs, plus types and helpers many files import (`Lang`, `Bi`, `pick`, `formatTHB`, `Profile`). |
+| [_data/notifications.ts](../client/app/_data/notifications.ts) | Notification view types and helpers. |
+| [_data/watchdog.ts](../client/app/_data/watchdog.ts) | Watchdog dashboard types and helper mappings. |
 
 ### client/test
 
@@ -702,7 +705,7 @@ links down to the reference pages.
 | [server-features.md](overview/server-features.md) | How the server is put together: the layers in a feature, what each feature owns, how features and pipelines depend on each other, what's shared, where the layout's rules bend. |
 | [data-model.md](overview/data-model.md) | The 14 collections: an ER diagram of how they connect by `projectId`, the pipeline's bookkeeping, who writes and reads each. |
 | [what-the-public-sees.md](overview/what-the-public-sees.md) | The gate between the database and the public: what hides a TOR, pilot mode, what a visible TOR carries, what stays internal. |
-| [analysis-overview.md](overview/analysis-overview.md) | How the price check (FR-19) and lock-spec (FR-20, FR-21) reach their verdicts, when they run, and their known limits. |
+| [analysis-overview.md](overview/analysis-overview.md) | How comparable projects (FR-19), the price check (FR-20), and lock-spec (FR-21) reach their verdicts, when they run, and their known limits. |
 
 ### docs/data-sources
 
@@ -723,6 +726,7 @@ links down to the reference pages.
 | [email-token-schema.md](database/email-token-schema.md) | `EmailToken`: a registration held until its address is confirmed, or a reset link, as the token's hash. |
 | [technology-schema.md](database/technology-schema.md) | `Technology`: the vocabulary. |
 | [title-screen-schema.md](database/title-screen-schema.md) | `TitleScreen`: the title screen's verdicts. |
+| [notification-schema.md](database/notification-schema.md) | `Notification`: immutable in-app alert snapshots and email delivery state. |
 | [pipeline-run-schema.md](database/pipeline-run-schema.md) | The pipeline's bookkeeping: `PipelineLock`, `PipelineFailure`, `PipelineRun`, `FeedPoll`, `IngestionLog`, `RequestStreak`. |
 
 ### docs/features
@@ -734,7 +738,8 @@ links down to the reference pages.
 | [price-benchmark-calculations.md](features/price-benchmark-calculations.md) | The price benchmark maths: median, average, deviation, bands. |
 | [reality-check-and-benchmarking.md](features/reality-check-and-benchmarking.md) | The price reality check and lock-spec flag, end to end. |
 | [lock-spec-risk-detection.md](features/lock-spec-risk-detection.md) | Lock-spec criteria, scoring and wording. |
-| [watchlist-changes.md](features/watchlist-changes.md) | "Changed since you saved": rules, API, and what isn't built. |
+| [watchlist-changes.md](features/watchlist-changes.md) | "Changed since you saved": rules, API, and watchlist UI alerts. |
+| [notifications-and-alerts.md](features/notifications-and-alerts.md) | In-app notification feed, watchlist/match alerts, and PDPA email digests (`FR-14`, `FR-18`). |
 | [pipeline-administration.md](features/pipeline-administration.md) | Admin monitoring, retry, inspection and manual add. |
 
 ### docs/security

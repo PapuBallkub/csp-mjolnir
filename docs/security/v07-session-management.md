@@ -30,7 +30,7 @@ Session security must guarantee:
   - **Re-Authentication**: Once 24 hours have elapsed, `jwt.verify` rejects the token with `TokenExpiredError`, requiring re-authentication.
 
 - **Inactivity Timeout Policy (V7.3.1 Architectural Trade-off)**:
-  - **Design Decision**: In accordance with [ADR 0012](../decisions/0012-jwt-in-a-cookie-for-sessions.md), GIPDP does **not** implement an idle inactivity sliding window (e.g. terminating after 15 minutes of idle time).
+  - **Design Decision**: In accordance with [ADR 0012](../decisions/0012-how-the-browser-holds-a-session.md), GIPDP does **not** implement an idle inactivity sliding window (e.g. terminating after 15 minutes of idle time).
   - **Rationale**: GIPDP is an information discovery and reading platform where users frequently read lengthy, complex TOR specifications. An aggressive idle timeout creates user disruption without security benefit for a platform with no financial transaction capabilities. A strict, predictable 24-hour absolute TTL provides defense-in-depth while avoiding frequent database writes to update a `lastActiveAt` timestamp on every navigation.
 
 ### 2.2 Concurrent Session Policy (V7.1.2)
@@ -41,7 +41,7 @@ Session security must guarantee:
 
 ### 2.3 Federated Identity & Google OAuth 2.0 (V7.1.3, V7.6.1, V7.6.2)
 
-- **Architecture**: Implemented in `server/src/features/auth/google.js` following [ADR 0005](../decisions/0005-google-oauth-for-authentication.md).
+- **Architecture**: Implemented in `server/src/features/auth/google.js` following [ADR 0005](../decisions/0005-google-sign-in-links-by-verified-email.md).
 - **Single-Use Authorization Code Exchange**: The authorization code returned by Google identity services is immediately exchanged server-to-server for an ID token, verified with Google's public keys, and discarded.
 - **Decoupled Session Lifetime (V7.6.1)**: GIPDP does not inherit or maintain an ongoing session with Google Identity. Upon successful Google authentication, GIPDP mints its own internal 24-hour session JWT. Terminating a Google session does not automatically close GIPDP, and logging out of GIPDP does not alter the user's primary Google account.
 - **Explicit User Action (V7.6.2)**: Sessions are minted solely upon explicit, user-initiated action:

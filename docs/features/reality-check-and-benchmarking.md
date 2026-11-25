@@ -2,17 +2,17 @@
 
 **Feature:** Reality Check Dashboard & Lock-Spec Flagging  
 **Related Requirements:**  
-- `FR-19`: Show the historical median and average price of similar past IT projects, from data.go.th. Finding the similar projects (§4) is how it gets its sample.  
-- `FR-20`: Compare a TOR's technical and qualification requirements against normalized historical baselines. **Partly met:** lock-spec checks each TOR against fixed rules from Circular ว 214 (§6). Comparing its requirements with similar past projects isn't built yet; it waits until there are enough processed TORs of each type.  
-- `FR-21`: Visibly flag "high lock-spec risk" on TORs with statistically unusual or hyper-specific requirements.  
-
-The wording is the SRS's, as in [requirements.md](../requirements.md). An earlier version of this page gave its own wording, in which FR-19 was finding similar projects and FR-20 was the price check; code and decisions written from it have been brought back to the SRS's numbering.  
+- `FR-19`: Identify and group historical IT procurement projects similar to a given TOR based on relevant project characteristics (§4).  
+- `FR-20`: Analyze a TOR against similar historical IT procurement projects by calculating historical median and average price benchmarks and identifying price deviations (§5).  
+- `FR-21`: Assess technical and qualification requirement deviations against defined lock-specification risk criteria (Circular ว 214) and display a visual warning on TORs classified as high risk (§6).  
 **Related Decisions:**  
 - [`0021 · Match comparable projects in code, not with an LLM`](../decisions/0021-find-comparable-projects.md)  
 - [`0022 · Pre-compute benchmarks in the pipeline, refresh by batch`](../decisions/0022-precompute-benchmarks-in-the-pipeline.md)  
 - [`0024 · Price benchmark bands and sample size thresholds`](../decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md)  
-**Status:** Proposed  
-**Last Updated:** 2026-11-12  
+- [`0035 · Lock-spec risk criteria and scoring`](../decisions/0035-lock-spec-risk-criteria-and-scoring.md)  
+- [`0044 · Price benchmark order-of-magnitude scale guardrails`](../decisions/0044-price-benchmark-scale-guardrails.md)  
+**Status:** Implemented  
+**Last Updated:** 2026-11-25  
 
 ---
 
@@ -25,9 +25,9 @@ Small Thai tech companies and freelance developers often cannot tell if:
 2. **The procurement is locked / tailored** (are qualification conditions or technical specs rigged to favor an incumbent?)
 
 This feature addresses both questions by:
-- Finding comparable past projects and computing statistical price benchmarks from them (**FR-19**)
-- Checking requirements against the rules in Circular ว 214 (**FR-20**, partly: the comparison with past projects isn't built)
-- Scoring and visually flagging lock-spec risks with concrete evidence (**FR-21**)
+- Grouping comparable past projects by technical architecture, complexity, and scale (**FR-19**)
+- Computing statistical price benchmarks and deviations from comparable peers (**FR-20**)
+- Assessing requirements against Circular ว 214 criteria and visually flagging lock-spec risks with concrete evidence (**FR-21**)
 
 ---
 
@@ -37,11 +37,10 @@ This feature addresses both questions by:
 flowchart TD
     PDF["Raw TOR / scanned PDF"] --> AI["AI extraction<br/>categories and facts"]
     AI --> INS[("Normalized TorInsight")]
-    INS --> SIM["Find similar past projects (§4)<br/>candidate pool, composite score, top 5"]
-    SIM --> PRICE["FR-19 price reality check (§5)<br/>historical median and average,<br/>diffPercentage"]
-    SIM -.->|"not built yet"| REQ["FR-20: compare requirements<br/>with similar projects"]
-    INS --> LOCK["FR-20 rules, this TOR only (§6)<br/>MAF in a hire, past work over 50%,<br/>a named platform version"]
-    LOCK --> SCORE["FR-21 lock-spec score<br/>riskScore 0–100, verdict"]
+    INS --> SIM["FR-19: Find similar past projects (§4)<br/>candidate pool, 10x scale guardrail, top 5"]
+    SIM --> PRICE["FR-20: Price reality check (§5)<br/>historical median and average,<br/>diffPercentage"]
+    INS --> LOCK["Circular ว 214 rules, this TOR only (§6)<br/>MAF in a hire, past work over 50%,<br/>a named platform version"]
+    LOCK --> SCORE["FR-21: Lock-spec risk assessment & flag<br/>riskScore 0–100, verdict"]
     PRICE --> SAVE[("TorInsight.analytics")]
     SCORE --> SAVE
     SAVE --> UI["Detail page and watchdog view"]
@@ -65,12 +64,12 @@ All benchmarking and analysis rely on fields already normalized by the extractio
 | `facts` | `referencePriceTHB`, `budgetTHB` | **Benchmark Output Target.** Evaluated against the peer median *after* technical peers are selected to detect price anomalies. |
 | `facts` | `deliveryPeriodDays` | **Scope Scale Context.** Reflects expected project delivery timeframe (never a hard filter). |
 | `eligibility` | `previousExperienceMinTHB` | **Qualification Deviation Check.** Compares past experience requirement against project reference price. |
-| `eligibility` | `requiredCertifications` | **Not used by this analysis.** Neither the price check nor lock-spec reads certificates (the match score does). Comparing them with similar projects would be part of FR-20's unbuilt half. |
+| `eligibility` | `requiredCertifications` | **Not used by this analysis.** Neither the price check nor lock-spec reads certificates (the match score does). |
 | `eligibility` | `manufacturerAuthorizations` | **Lock-Spec Check.** Detects OEM authorization requirements (MAF) on pure software development services. |
 
 ---
 
-## 4. Grouping & Similarity Matching Algorithm (FR-19's sample)
+## 4. FR-19: Grouping & Similarity Matching Algorithm
 
 ### 4.1 Candidate Pool Query (Stage 1)
 Given a target TOR $T$, query MongoDB with:
@@ -79,7 +78,7 @@ $$C.\text{categories} \cap T.\text{categories} \neq \emptyset$$
 $$\text{Full Extraction} = \text{true}$$
 $$\text{projectId} \neq T.\text{projectId}$$
 
-*(Note: Candidate selection does NOT filter by price, completely eliminating circular reasoning in price deviation testing).*
+*(Note: Candidate selection scores purely on technical specs rather than narrow budget matching, while enforcing **ADR 0044**'s order-of-magnitude scale guardrail ($\text{Scale Ratio} = \min(T_{\text{price}}, C_{\text{price}}) / \max(T_{\text{price}}, C_{\text{price}}) \ge 0.10$) and strict `enterprise` tier isolation so mega-tenders are never benchmarked against minor maintenance contracts).*
 
 ### 4.2 Composite Similarity Scoring (Stage 2)
 For each candidate $C$ in the retrieved pool, calculate a composite similarity score $S \in [0, 1]$:
@@ -103,15 +102,17 @@ $$S = 0.35 \cdot S_{\text{archetype}} + 0.30 \cdot S_{\text{complexity}} + 0.20 
   $$S_{\text{tech}} = \frac{|\text{Tech}_T \cap \text{Tech}_C|}{|\text{Tech}_T \cup \text{Tech}_C|}$$
   Defaults to $0.50$ when neither project specifies technologies.
 
-The top 5 highest-scoring candidates populate `analytics.priceAnalysis.comparableProjects`.
-Once selected, their historical reference prices are gathered to compute the **Historical Median** (FR-19).
+The top 5 highest-scoring candidates populate `analytics.priceAnalysis.comparableProjects` (**FR-19**).
+Once selected, their historical reference prices are gathered to compute the **Historical Median** (**FR-20**).
 
 ---
 
-## 5. FR-19: Price Reality Check & Deviation Calculation
+## 5. FR-20: Price Reality Check & Deviation Calculation
+
+> **Single Source of Truth:** For the full worked mathematical formulas, procurement price lifecycle, sample-size bands, and JSON examples, see [price-benchmark-calculations.md](price-benchmark-calculations.md).
 
 ### 5.1 Purpose & Scope
-The Price Reality Check evaluates whether a target TOR's declared budget or reference price is in line with historical market reality for comparable IT procurements. It computes statistical benchmarks—both **Historical Median** and **Historical Average**—using the Top-$K$ comparable projects found in §4, and assesses price deviations.
+The Price Reality Check evaluates whether a target TOR's declared budget or reference price is in line with historical market reality for comparable IT procurements. It computes statistical benchmarks—both **Historical Median** and **Historical Average**—using the Top-$K$ comparable projects found in §4, and assesses price deviations (**FR-20**).
 
 ### 5.2 Price Field Selection Rules
 
@@ -278,14 +279,13 @@ export function calculatePriceBenchmarks(targetTor, comparableProjects = []) {
 
 ---
 
-## 6. FR-20 rules and FR-21 lock-spec flag
+## 6. FR-21: Lock-spec assessment and high-risk flag
 
 The full rules, scoring and examples are in
 [lock-spec-risk-detection.md](lock-spec-risk-detection.md). In short:
 
-- **This TOR only.** `analyzeLockSpec` in `lock-spec.service.js` reads the one
-  TOR. It doesn't use the similar projects from §4, so its baseline is the
-  rulebook (Circular ว 214), not history. That's the met half of FR-20.
+- **This TOR only.** `analyzeLockSpec` in `server/src/features/lock-spec/lock-spec.service.js` reads the one
+  TOR and evaluates its clauses against the statutory rules of Circular ว 214.
 - **Three rules, each a `high` finding (35 points):**
   1. A manufacturer authorization (MAF) required in a hire or development job,
      unless the main category is `software-licenses`

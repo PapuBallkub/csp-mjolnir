@@ -1,8 +1,7 @@
 # Requirements
 
 What GIPDP has to do, condensed from the team's Software Requirements
-Specification (SRS v0.3, 30 Sep 2026), plus FR-24, which the team has agreed
-to add in v0.4. The full SRS is kept out of this
+Specification (SRS v0.3, 24 Nov 2026). The full SRS is kept out of this
 repository on purpose; this file is the public stand-in, detailed enough to
 build against and to cite from code. **Where the two disagree, the SRS wins** —
 ask the team, then fix this file.
@@ -101,11 +100,9 @@ The stack is Next.js on the front, Node.js with Express on the back.
 ### Ingestion — 4.1
 
 - **FR-01** Poll the e-GP RSS feed for new TOR announcements automatically.
-- **FR-02** Parse the announcement codes that matter: draft TOR (`B0`),
-  invitation to bid (`D0`), amendment (`D1`/`D2`), reference price (`15`).
-  *Correction pending in the SRS:* e-GP defines `D1` as a cancelled
-  invitation and `D2` as a changed one, and adds the winner codes
-  `W0`/`W1`/`W2`. The system follows e-GP's definitions
+- **FR-02** Parse the e-GP announcement codes that matter: reference price
+  (`15`), draft TOR (`B0`), invitation to bid (`D0`), cancellation (`D1`),
+  amendment (`D2`), and award/winner codes (`W0`, `W1`, `W2`)
   ([0017](decisions/0017-read-the-egp-feed-as-egp-defines-it.md)).
 - **FR-03** Batch-fetch historical procurement data and agency codes from
   data.go.th.
@@ -117,12 +114,17 @@ The stack is Next.js on the front, Node.js with Express on the back.
 - **FR-05** OCR downloaded PDFs and images, tuned for Thai.
 - **FR-06** Classify documents and keep only software/IT projects.
 - **FR-07** Extract structured fields with an LLM: project title, agency,
-  maximum budget, submission deadline, required tech stack, penalty clauses.
+  maximum budget, reference price (ราคากลาง), submission deadline, required
+  tech stack, and penalty clauses.
 
 ### Accounts — 4.3
 
-- **FR-08** Sign up with email and password.
-- **FR-09** Sign in with Google.
+- **FR-08** Sign up with email and password
+  ([0039](decisions/0039-passwords-are-peppered-before-bcrypt.md),
+  [0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md),
+  [0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)).
+- **FR-09** Sign in with Google
+  ([0005](decisions/0005-google-sign-in-links-by-verified-email.md)).
 
 ### Search and discovery — 4.4
 
@@ -133,29 +135,39 @@ The stack is Next.js on the front, Node.js with Express on the back.
 
 ### Matchmaker — 4.5
 
-- **FR-12** Users save their technical skills, budget capacity and preferred
-  job size to their profile.
+- **FR-12** Users save their technical skills, budget capacity, preferred
+  project archetypes, legal entity type, past contract portfolio size, and
+  certifications to their profile
+  ([0033](decisions/0033-capability-profile-and-match-scoring.md)).
 - **FR-13** Score each newly posted TOR against a user's profile.
 - **FR-14** Email highly matched TORs to users who consented.
 
 ### Amendments and status — 4.6
 
-- **FR-15** Track and show each TOR's current status as the e-GP feeds report
-  it (e.g. open, amended, closed/awarded).
-- **FR-16** Hash each TOR file; when an amendment arrives, diff it and
-  summarize exactly which clauses changed.
+- **FR-15** Track and display each TOR's current lifecycle status (`Draft`,
+  `Open`, `Awarded`, `Closed`, `Cancelled`) along with a separate `Amended`
+  indicator as e-GP feeds report them.
+- **FR-16** Compare TOR document packages and fingerprints when an amendment
+  arrives, diff them, and summarize what changed
+  ([0032](decisions/0032-record-what-changed-in-a-tor.md)).
 - **FR-17** Users save TORs to a personal watchlist.
 - **FR-18** Alert users, in-app or by email, when a watchlisted TOR changes
-  status or is amended.
+  status, is amended, or approaches its deadline.
 
 ### Price and lock-spec — 4.7
 
-- **FR-19** Show the historical median and average price of similar past IT
-  projects, from data.go.th.
-- **FR-20** Compare a TOR's technical and qualification requirements against
-  normalized historical baselines.
-- **FR-21** Visibly flag "high lock-spec risk" on TORs with statistically
-  unusual or hyper-specific requirements.
+- **FR-19** Identify and group historical IT procurement projects similar to a
+  given TOR based on relevant project characteristics
+  ([0021](decisions/0021-find-comparable-projects.md),
+  [0044](decisions/0044-price-benchmark-scale-guardrails.md)).
+- **FR-20** Analyze a TOR against similar historical IT procurement projects by
+  calculating historical median and average price benchmarks and identifying
+  price deviations
+  ([0024](decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md)).
+- **FR-21** Assess technical and qualification requirement deviations against
+  defined lock-specification risk criteria and display a visual warning on
+  TORs classified as high risk
+  ([0035](decisions/0035-lock-spec-risk-criteria-and-scoring.md)).
 
 ### Admin — 4.8
 
@@ -190,7 +202,10 @@ One sequence, `NFR-01`–`NFR-17`, grouped the way the SRS groups them.
 - **NFR-09** Passwords hashed and salted.
 - **NFR-10** Role-based access: standard users and admins are strictly
   separated.
-- **NFR-11** Sessions are JWTs that expire within 24 hours.
+- **NFR-11** Sessions are JWTs that expire within 24 hours, held in signed
+  `HttpOnly`, `SameSite=Lax` cookies with token-version revocation
+  ([0004](decisions/0004-sessions-as-signed-cookies.md),
+  [0012](decisions/0012-how-the-browser-holds-a-session.md)).
 
 ### Quality — 5.4
 
@@ -199,7 +214,9 @@ One sequence, `NFR-01`–`NFR-17`, grouped the way the SRS groups them.
   work on mobile.
 - **NFR-14** The AI pipeline is separate from the web backend, so each can be
   updated and scaled alone.
-- **NFR-15** Thai is the primary locale — UI, notifications and AI summaries.
+- **NFR-15** Thai is the primary locale — UI, notifications and AI summaries
+  (implemented as Thai-only with no English toggle per
+  [0036](decisions/0036-thai-only-interface.md)).
 
 ### Business rules — 5.5
 
@@ -255,8 +272,8 @@ SRS's `FR-07` is field extraction. Translate before looking one up.
 | FR09 | FR-15 | Lifecycle status |
 | FR10 | FR-16 | Hash and diff |
 | FR11 | FR-17, FR-18 | Watchlist and alerts |
-| FR12 | FR-19 | Historical price |
-| FR13 | FR-20, FR-21 | Lock-spec flag |
+| FR12 | FR-19, FR-20 | Similar project grouping & historical price benchmarking |
+| FR13 | FR-21 | Lock-spec risk assessment and flag |
 | FR14 | FR-22 | Ingestion health dashboard |
 | FR15 | FR-23, NFR-17 | Confidence review, correction, reclassification |
 | — | FR-24 | Pipeline monitoring, retry, recovery, and manual ingestion |
@@ -268,8 +285,8 @@ SRS's `FR-07` is field extraction. Translate before looking one up.
 | US4 | FR-08 | Email and password |
 | US5 | FR-09 | Google sign-in |
 | US6 | FR-11 | Search and filter |
-| US7, US12 | FR-19 | Price history |
-| US8 | FR-20, FR-21 | Lock-spec flag |
+| US7, US12 | FR-19, FR-20 | Comparable projects & price history |
+| US8 | FR-21 | Lock-spec risk flag |
 | US9 | FR-15 | Status |
 | US10 | FR-17, FR-18 | Watchlist alerts |
 | US11 | FR-12 | Small-job preference — now a profile field, not a catalog filter |

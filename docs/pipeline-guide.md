@@ -1,5 +1,7 @@
 # The pipeline, in plain words
 
+> **Document Role:** Conceptual Pipeline Guide (Plain-Language Overview) — for exact CLI commands and flags, see [pipeline.md](pipeline.md).
+
 A guide for admins and developers who are new to the pipeline: what it does,
 how a project travels through it, and how to run and check it. Nothing here
 needs you to read code. When you need the exact commands and options, see

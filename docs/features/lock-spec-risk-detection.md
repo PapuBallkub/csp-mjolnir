@@ -2,15 +2,15 @@
 
 **Feature:** Lock-Specification Risk Scoring & Qualification Barrier Detection  
 **Related Requirements:**  
-- `FR-20`: Compare a TOR's technical and qualification requirements against normalized historical baselines. **Partly met:** this feature compares them with the fixed rules of Circular ว 214, not with similar past projects. The comparison with past projects isn't built yet; it needs enough processed TORs of each type to be meaningful.  
-- `FR-21`: Visibly flag "high lock-spec risk" on TORs with statistically unusual or hyper-specific requirements.  
+- `FR-21`: Assess technical and qualification requirement deviations against defined lock-specification risk criteria (Circular ว 214) and visibly flag "high lock-spec risk" on TORs classified as high risk.  
 - `NFR-15`: Thai primary locale with transparent, non-accusatory copy ("Describe, don't accuse").  
 **Related Decisions:**  
 - [`0010 · Normalized TOR Detail Information`](../decisions/0010-normalized-tor-detail-Information.md)  
 - [`0014 · Price names and data rules for TorInsight`](../decisions/0014-price-names-and-insight-data-rules.md)  
 - [`0021 · Define comparable projects by architecture and complexity`](../decisions/0021-find-comparable-projects.md)  
 - [`0035 · Lock-spec risk criteria and scoring algorithm`](../decisions/0035-lock-spec-risk-criteria-and-scoring.md)  
-**Status:** Approved  
+**Status:** Implemented  
+**Last Updated:** 2026-11-25  
 **Audience:** Product Owners, Developers, Domain Experts, SME Bidders, and Platform Users  
 
 ---

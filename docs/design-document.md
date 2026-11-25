@@ -6,10 +6,10 @@
 
 **Document Information**
 * **Project Name:** Government IT Procurement Discovery Platform (GIPDP / csp-mjolnir)
-* **Document Version:** 1.0
-* **Date:** 11 November 2026
-* **Status:** Final Architectural Baseline
-* **Baseline Requirements:** Software Requirements Specification (SRS) Version 0.3 (30 September 2026)
+* **Document Version:** 1.1
+* **Date:** 25 November 2026
+* **Status:** Synchronized Architectural Baseline
+* **Baseline Requirements:** Software Requirements Specification (SRS) Version 0.3 (24 November 2026)
 * **Authors & System Architects:**
   * Amornrit Sirikham
   * Sivapon Channual
@@ -28,6 +28,7 @@
 | `0.3` | 15 October 2026 | Added multi-part PDF package handling, title screening, and price reality check schemas | Sivapon |
 | `0.4` | 03 November 2026 | Added lock-spec scoring criteria, historical similarity engine, and capability profile matchmaking | Amornrit, Pannawit |
 | `1.0` | 11 November 2026 | Complete, consolidated Software Design Document with all 16 architectural, behavioral, and state diagrams aligned strictly with SRS v0.3 | Amornrit, Sivapon, Pannawit |
+| `1.1` | 25 November 2026 | Synced all 50 active REST endpoints, email verification & password-reset auth flows (`ADR 0039/0041/0042`), notifications, analytics folder split & 10× scale guardrails (`ADR 0044`), and finalized SRS v0.3 RTM (`FR-19`–`FR-21`, `FR-24`) | Amornrit, Sivapon, Pannawit |
 
 ---
 
@@ -65,8 +66,8 @@
    * 4.8 Post-Extraction Verification, Grounding & Confidence Checks (NFR-17)
    * 4.9 Sequence Diagram: Automated Ingestion & PDF Extraction Workflow
 5. [Section 5: Analytical & Decision Support Engines](#section-5-analytical--decision-support-engines)
-   * 5.1 Lock-Spec Risk Detection Subsystem (FR-20, FR-21)
-   * 5.2 Price Reality Check & Statistical Benchmarking Subsystem (FR-19)
+   * 5.1 Lock-Spec Risk Detection Subsystem (FR-21)
+   * 5.2 Price Reality Check & Statistical Benchmarking Subsystem (FR-19, FR-20)
    * 5.3 Smart Capability Profile Matchmaker Subsystem (FR-12, FR-13, FR-14)
 6. [Section 6: Web Application & API Subsystem Design](#section-6-web-application--api-subsystem-design)
    * 6.1 Server Feature Architecture & Modular Routing
@@ -232,7 +233,7 @@ flowchart LR
     subgraph System_Boundary["GIPDP Platform Boundary"]
         UC1["UC-01: Search / Browse TORs<br/>(FR-10, FR-11)"]
         UC2["UC-02: View Procurement Analysis<br/>(FR-19, FR-20, FR-21)"]
-        UC3["UC-03: View Historical Data<br/>(FR-03, FR-19)"]
+        UC3["UC-03: View Historical Data<br/>(FR-03, FR-19, FR-20)"]
         UC4["UC-04: Authenticate / Sign In<br/>(FR-08, FR-09)"]
         UC5["UC-05: Manage Profile & Preferences<br/>(FR-12)"]
         UC6["UC-06: Save TORs to Watchlist<br/>(FR-17)"]
@@ -406,10 +407,10 @@ flowchart LR
     APP --> CORS --> SEC --> COOKIE --> RL
 
     subgraph Feature_Controllers["Feature Routers & Controllers"]
-        F_AUTH["Auth Feature<br/>/api/auth<br/>(Password & Google OAuth)"]
+        F_AUTH["Auth Feature<br/>/api/auth<br/>(Verify, Login, Reset & OAuth)"]
         F_TORS["TOR Discovery Feature<br/>/api/tors<br/>(Search, Filter, Detail)"]
-        F_BENCH["Reality Check Feature<br/>/api/reality-check<br/>(Price Benchmarks & Similarity)"]
-        F_MATCH["Matchmaker Feature<br/>/api/match<br/>(Capability Profile Scoring)"]
+        F_TECH["Technologies Feature<br/>/api/technologies<br/>(Vocabulary & Requests)"]
+        F_NOTIF["Notifications Feature<br/>/api/notifications<br/>(Feed, Read State & Unsubscribe)"]
         F_WATCH["Watchlist Feature<br/>/api/watchlist<br/>(Saved Items & Alert Status)"]
         F_PROF["User Profile Feature<br/>/api/profile<br/>(Skills, Capacity Preferences)"]
         F_ADMIN["Admin Operations Feature<br/>/api/admin<br/>(Telemetry, Review Queue, Rollback)"]
@@ -417,8 +418,8 @@ flowchart LR
 
     RL --> F_AUTH
     RL --> F_TORS
-    RL --> F_BENCH
-    RL --> F_MATCH
+    RL --> F_TECH
+    RL --> F_NOTIF
     RL --> F_WATCH
     RL --> F_PROF
     RL --> F_ADMIN
@@ -426,31 +427,33 @@ flowchart LR
     subgraph Services_Layer["Business Logic & Service Layer"]
         S_AUTH["auth.service.js"]
         S_TOR["tor.service.js"]
-        S_BENCH["benchmark.service.js / lock-spec.service.js"]
+        S_BENCH["similarity / price-reality-check / lock-spec"]
         S_MATCH["matchmaker.js"]
+        S_NOTIF["notification-feed / match & watchlist creators"]
         S_WATCH["watchlist.service.js"]
         S_ADMIN["admin.service.js"]
     end
 
     F_AUTH --> S_AUTH
     F_TORS --> S_TOR
-    F_BENCH --> S_BENCH
-    F_MATCH --> S_MATCH
+    F_NOTIF --> S_NOTIF
+    S_NOTIF --> S_MATCH
     F_WATCH --> S_WATCH
     F_ADMIN --> S_ADMIN
 
     subgraph Data_Layer["Persistence Layer (Mongoose)"]
-        M_USER[("users")]
+        M_USER[("users & emailtokens")]
         M_TOR[("tors")]
         M_INSIGHT[("torinsights")]
         M_VER[("torinsightversions")]
-        M_RUN[("pipeline_runs")]
+        M_NOTIF[("notifications")]
+        M_RUN[("pipeline_runs & ingestionlogs")]
     end
 
     S_AUTH --> M_USER
     S_TOR --> M_TOR & M_INSIGHT
     S_BENCH --> M_INSIGHT & M_TOR
-    S_MATCH --> M_USER & M_INSIGHT
+    S_NOTIF --> M_NOTIF & M_USER & M_TOR
     S_WATCH --> M_USER & M_TOR
     S_ADMIN --> M_RUN & M_INSIGHT & M_VER
 ```
@@ -1095,6 +1098,9 @@ These supporting collections govern automated batch execution, idempotency, rate
 | `PipelineFailure` | `pipeline-failure.model.js` | `pipeline_failures` | Persistent quarantine log for individual tender processing exceptions (`projectId`, `step: 'download'\|'ocr'\|'extract'`, `inputKey`, `attempts`, `lastError`, `lastTransient`, `firstFailedAt`, `lastFailedAt`). |
 | `TorInsightVersion`| `tor-insight-version.model.js` | `torinsightversions` | Immutable point-in-time snapshots of `TorInsight` documents archived prior to amendments or admin edits (**NFR-07**) (`projectId`, `version`, `tor`, `insight`, `ocrTextHash`, `ocrText`, `reason: 'amendment'\|'manual_edit'\|'rollback'`, `supersededBy`, `supersededAt`). |
 | `Technology` | `technology.model.js` | `technologies` | Canonical IT technology dictionary (`name`, `key`, `aliases: [String]`, `category: 'database'\|'os'\|'language'\|'framework'\|'platform'`, `status: 'confirmed'\|'new'\|'rejected'`, `firstSeenIn`). |
+| `EmailToken` | `email-token.model.js` | `emailtokens` | Single-use SHA-256 hashed verification tokens holding pending registrations (`type: 'verify'`, 24h TTL, **ADR 0041**) and password resets (`type: 'reset'`, 1h TTL, **ADR 0042**). |
+| `Notification` | `notification.model.js` | `notifications` | Immutable in-app alert snapshots (`userId`, `type: 'match'\|'amendment'\|'deadline'\|'status_change'`, `snapshot`, `isRead`, `readAt`) and email digest dispatch flags (`emailSent`, `emailSkipped`, `emailSentAt`). |
+| `IngestionLog` | `ingestion-log.model.js` | `ingestionlogs` | Per-source ingestion and health-check execution logs surfaced on the `/admin` operational dashboard (**FR-22**; `source`, `status: 'ok'\|'degraded'\|'failed'`, counts, latency). |
 
 ---
 
@@ -1275,9 +1281,9 @@ sequenceDiagram
 
 # Section 5: Analytical & Decision Support Engines
 
-## 5.1 Lock-Spec Risk Detection Subsystem (FR-20, FR-21, ADR 0035)
+## 5.1 Lock-Spec Risk Detection Subsystem (FR-21, ADR 0035)
 
-The **Lock-Spec Risk Detection Engine** (`server/src/features/reality-check/lock-spec.service.js`) evaluates procurement requirements to identify "bid tailoring" (การล็อคสเปก) — where an agency crafts qualifications or technical specifications so narrowly that only a single favored vendor or incumbent can satisfy them.
+The **Lock-Spec Risk Detection Engine** (`server/src/features/lock-spec/lock-spec.service.js`) evaluates procurement requirements to identify "bid tailoring" (การล็อคสเปก) — where an agency crafts qualifications or technical specifications so narrowly that only a single favored vendor or incumbent can satisfy them.
 
 The engine is strictly grounded in the **Comptroller General's Circular ว 214** and **Public Procurement and Supplies Administration Act B.E. 2560 Section 9**, providing non-accusatory, evidence-backed findings (**AGENTS.md §7**).
 
@@ -1350,15 +1356,16 @@ sequenceDiagram
 
 ---
 
-## 5.2 Price Reality Check & Statistical Benchmarking Subsystem (FR-19, ADR 0021, 0022, 0024)
+## 5.2 Price Reality Check & Statistical Benchmarking Subsystem (FR-19, FR-20, ADR 0021, 0022, 0024, 0044)
 
-The **Price Reality Check Subsystem** (`server/src/features/reality-check/benchmark.service.js`) provides automated, objective market price intelligence. It compares a project's allocated reference price (ราคากลาง) against historical government contract awards from data.go.th to identify price outliers.
+The **Price Reality Check & Similarity Subsystems** (`server/src/features/similarity/` and `server/src/features/price-reality-check/price-reality-check.service.js`) provide automated, objective market price intelligence. They group comparable historical IT projects (**FR-19**) and compare a project's allocated reference price (ราคากลาง) against historical government contract benchmarks to identify price deviations (**FR-20**).
 
-### 5.2.1 Data Retrieval & Peer Candidate Selection (ADR 0021, ADR 0028)
-When a project is analyzed, the system retrieves peer historical contracts from the ingested data.go.th dataset (`CGDContract`):
-1. **Category Matching:** Filters by primary project category (`identification.categories`, e.g., `software-development`, `data-warehouse`, `cloud-infrastructure`).
-2. **Title & Scope Similarity:** Evaluates lexical overlap and category alignment against past completed projects.
-3. **Statutory Sample Quorum (ADR 0024):** In public procurement, an official price inquiry requires a 3-vendor quorum:
+### 5.2.1 Data Retrieval & Peer Candidate Selection (ADR 0021, ADR 0028, ADR 0044)
+When a project is analyzed, the system retrieves peer historical contracts from concluded e-GP and data.go.th (`CGDContract`) records:
+1. **Category Matching:** Filters by project categories (`identification.categories`, with primary-category ordering via **ADR 0034**).
+2. **Architecture, Complexity & Tech Similarity:** Evaluates `systemArchetype` (35%), `complexityTier` (30%), `requiredTechnologies` (20%), and `categories` (15%) without circular price filtering.
+3. **Order-of-Magnitude Scale Guardrail & Enterprise Isolation (ADR 0044):** Candidates must satisfy $\text{Scale Ratio} = \min(T_{\text{price}}, C_{\text{price}}) / \max(T_{\text{price}}, C_{\text{price}}) \ge 0.10$, and `enterprise` projects only compare against `enterprise` peers, preventing 100× scope mismatches while preserving real anomaly detection.
+4. **Statutory Sample Quorum (ADR 0024):** In public procurement, an official price inquiry requires a 3-vendor quorum:
    * $N = 0$: `reliability: 'none'` (No comparable projects found in database).
    * $1 \le N < 3$: `reliability: 'low'` (Below 3-vendor statutory quorum; advisory note attached).
    * $N \ge 3$: `reliability: 'sufficient'` (Meets or exceeds 3-vendor quorum).
@@ -1474,15 +1481,18 @@ The Express backend application (`server/src/app.js`) is organized into feature-
 
 ```
 server/src/features/
-├── admin/          # Review workspace, pipeline failure retry/skip, version rollback, tech vocabulary
-├── auth/           # User registration, bcrypt hashing (work factor 12), Google OAuth redirect flow, JWT cookies
-├── health/         # System liveness probe mounted at /health (outside /api on purpose)
-├── match/          # Isomorphic 6-dimension capability profile matchmaker service
-├── profile/        # User profile update endpoint (PATCH /api/profile)
-├── reality-check/  # Circular ว 214 lock-spec detectors, historical price benchmarks, similarity service
-├── technologies/   # Public canonical vocabulary and user suggestion requests
-├── tors/           # Catalog list, facets, normalized detail, and PDF stream preview/download
-└── watchlist/      # Watchlist bookmarking (list, save, delete)
+├── admin/                # Operations telemetry, review queue, rollback, pipeline recovery, tech vocabulary
+├── auth/                 # Pre-creation email verification (ADR 0041), peppered bcrypt (ADR 0039), password reset (ADR 0042), Google OAuth, 24h JWT cookies
+├── health/               # System liveness probe mounted at /health (outside /api on purpose)
+├── lock-spec/            # Circular ว 214 lock-spec detectors & scoring service
+├── match/                # Isomorphic 6-dimension capability profile matchmaker service
+├── notifications/        # In-app notification feed, match/watchlist creators, Gmail SMTP digest & HMAC unsubscribe
+├── price-reality-check/  # Historical price median/average benchmarks & deviation calculations
+├── profile/              # User capability profile update endpoint (PATCH /api/profile)
+├── similarity/           # Comparable candidate pool search (with ADR 0044 10x scale guardrails) & composite similarity scoring
+├── technologies/         # Public canonical vocabulary and user suggestion requests
+├── tors/                 # Catalog list, facets, normalized detail, and PDF stream preview/download
+└── watchlist/            # Watchlist bookmarking (list, save, delete)
 ```
 
 ---
@@ -1504,29 +1514,40 @@ All core business endpoints are served under the unversioned `/api/` prefix (**A
 | `GET` | `/api/tors/:projectId/pdf` | Public | Direct PDF download endpoint (alias to preview handler with attachment disposition). | `200/206` `application/pdf` stream | `404, 416` |
 | `GET` | `/api/technologies` | Public | Canonical list of IT technologies and standardized synonyms (**ADR 0014**). | `200 OK` `[{ name, category, aliases }]` | — |
 
-### 6.2.2 User Authentication & Private Profile Endpoints
+### 6.2.2 User Authentication, Profile, Watchlist & Notifications Endpoints
 
 | HTTP Method | Route Endpoint | Access Level | Description & Core Parameters | Success Response | Error Codes |
 |---|---|---|---|---|---|
-| `POST` | `/api/auth/register` | Public (Rate-limited) | Register account (**FR-08**). Rate limited to 5 attempts/15 min. Body: `{ email, password, name }`. Password hashed at Bcrypt cost 12 (**NFR-09**). | `201 Created` `{ user: { id, email, role, name } }` (Sets cookie) | `400, 409, 429` |
-| `POST` | `/api/auth/login` | Public (Rate-limited) | Authenticate with email and password. Sets signed HTTP-only session cookie. | `200 OK` `{ user: { id, email, role, name } }` | `400, 401, 429` |
-| `POST` | `/api/auth/logout` | Public | Clears session cookie (`mjolnir_session`). Succeeds whether caller was signed in or not. | `200 OK` `{ success: true }` | — |
-| `GET` | `/api/auth/google` | Public | Initiates Google OAuth 2.0 redirect flow (**FR-09**). Redirects client browser to Google accounts consent. | `302 Found` `Location: accounts.google.com/...` | — |
-| `GET` | `/api/auth/google/callback` | Public | Google OAuth 2.0 callback endpoint. Exchanges authorization code, links user by verified email (**ADR 0005**), and issues session cookie. | `302 Found` `Location: /search` (Sets cookie) | `400, 401` |
-| `GET` | `/api/auth/me` | Authenticated | Validates session cookie on app load and returns authenticated user identity, role, and profile. | `200 OK` `{ user: { id, email, role, profile, watchlist } }` | `401` |
-| `PATCH` | `/api/profile` | Authenticated | Update user capability profile (**FR-12**). Body: partial profile `{ skills, budgetMin, budgetMax, certifications, entityType, preferredArchetypes, maxPastPortfolioTHB, matchNotification }`. | `200 OK` `{ user: {...} }` | `400, 401` |
-| `POST` | `/api/technologies/request` | Authenticated | Suggest a new technology or standard for addition to the canonical vocabulary. | `201 Created` `{ success: true, request: {...} }` | `400, 401` |
-| `GET` | `/api/watchlist` | Authenticated | Retrieve user's bookmarked TOR projects with latest change metadata (**FR-17, FR-18**). | `200 OK` `{ watchlist: [{ projectId, savedAt, tor: {...} }] }` | `401` |
+| `POST` | `/api/auth/register` | Public (Rate-limited) | Initiate registration (**FR-08, ADR 0041**). Rate limited per IP & email. Stores hashed pending `EmailToken` and emails verification link (no session cookie or `User` row created yet). | `202 Accepted` `{ ok: true }` | `400, 429` |
+| `POST` | `/api/auth/verify-email` | Public (Rate-limited) | Confirm email verification token + password (**ADR 0041**). Creates `User`, hashes password with `PASSWORD_PEPPER` + bcrypt cost 12 (**ADR 0039**), and sets signed session cookie. | `201 Created` `{ user: { id, email, role, name, hasPassword } }` | `400, 409, 429` |
+| `POST` | `/api/auth/login` | Public (Rate-limited) | Authenticate with email and password (**FR-08**). Sets signed HTTP-only `mjolnir_session` cookie (24h TTL). | `200 OK` `{ user: { id, email, role, name, hasPassword } }` | `400, 401, 429` |
+| `POST` | `/api/auth/forgot-password` | Public (Rate-limited) | Request a 1-hour password reset email (**ADR 0042**). Returns uniform `202` response regardless of account existence to prevent email enumeration. | `202 Accepted` `{ ok: true }` | `400, 429` |
+| `POST` | `/api/auth/reset-password` | Public (Rate-limited) | Reset password using emailed token (**ADR 0042**). Validates password policy, updates hash, increments `tokenVersion` to revoke prior sessions, clears cookie. | `200 OK` `{ ok: true }` | `400, 429` |
+| `POST` | `/api/auth/password` | Authenticated (Rate-limited) | Change password for signed-in user (**ADR 0042**). Requires current password, validates policy, revokes old tokens, reissues session cookie. | `200 OK` `{ user: {...} }` | `400, 401, 429` |
+| `POST` | `/api/auth/logout` | Public | Clears session cookie (`mjolnir_session`). Increments `tokenVersion` when signed in so existing JWTs are invalidated immediately. | `200 OK` `{ success: true }` | — |
+| `GET` | `/api/auth/google` | Public | Initiates Google OAuth 2.0 redirect flow (**FR-09**) with HMAC-signed state/nonce/PKCE cookie. | `302 Found` `Location: accounts.google.com/...` | — |
+| `GET` | `/api/auth/google/callback` | Public | Google OAuth 2.0 callback endpoint. Verifies ID token, links user by verified email (**ADR 0005**), and issues 24h session cookie. | `302 Found` `Location: /search` (Sets cookie) | `400, 401` |
+| `GET` | `/api/auth/me` | Authenticated | Validates session cookie on app load and returns authenticated user identity, role, profile, and watchlist. | `200 OK` `{ user: { id, email, role, hasPassword, profile, watchlist } }` | `401` |
+| `PATCH` | `/api/profile` | Authenticated | Update user capability profile (**FR-12**). Body: partial profile `{ skills, budgetMin, budgetMax, certifications, entityType, preferredArchetypes, maxPastPortfolioTHB, matchNotification, deadlineNoticeDays }`. | `200 OK` `{ user: {...} }` | `400, 401` |
+| `POST` | `/api/technologies/request` | Authenticated (Rate-limited) | Suggest a new technology or certification for addition to the canonical vocabulary. | `201 Created` `{ success: true, request: {...} }` | `400, 401, 429` |
+| `GET` | `/api/watchlist` | Authenticated | Retrieve user's bookmarked TOR projects with latest change metadata (**FR-17, FR-18**). | `200 OK` `{ tors: [...], savedIds: [...] }` | `401` |
 | `PUT` | `/api/watchlist/:projectId` | Authenticated | Add a procurement project to user's watchlist (**FR-17**). Idempotent write. | `200 OK` `{ success: true, watchlist: [...] }` | `401, 404` |
 | `DELETE` | `/api/watchlist/:projectId` | Authenticated | Remove project from user's watchlist. | `200 OK` `{ success: true, watchlist: [...] }` | `401, 404` |
+| `GET` | `/api/notifications/unsubscribe` | Public (HMAC token) | Validate 1-click HKDF HMAC-signed unsubscribe token for PDPA email opt-out confirmation (**FR-14, FR-18**). | `200 OK` / HTML confirmation | `400` |
+| `POST` | `/api/notifications/unsubscribe` | Public (HMAC token) | Revoke `User.notificationConsent` via signed 1-click unsubscribe token without requiring login. | `200 OK` `{ ok: true }` | `400` |
+| `GET` | `/api/notifications` | Authenticated | List signed-in user's in-app notification feed (`match`, `amendment`, `status_change`, `deadline`) and unread badge count (**FR-18**). | `200 OK` `{ notifications: [...], unreadCount }` | `401` |
+| `PATCH` | `/api/notifications/read-all` | Authenticated | Mark all unread notifications for the signed-in user as read. | `200 OK` `{ modifiedCount }` | `401` |
+| `GET` | `/api/notifications/:id` | Authenticated | Retrieve immutable event snapshot detail for a single notification belonging to `req.user.id`. | `200 OK` `{ notification: {...} }` | `401, 404` |
+| `PATCH` | `/api/notifications/:id/read` | Authenticated | Mark a single notification as read for `req.user.id`. | `200 OK` `{ notification: {...} }` | `401, 404` |
 
 ### 6.2.3 Administrative Operations & Telemetry Endpoints
 
-All administrative endpoints are strictly guarded by `adminRoutes.use(requireAuth, requireRole('admin'))` (**NFR-10**). No rate limits apply to avoid obscuring failure alerts during maintenance.
+All administrative endpoints are strictly guarded by `adminRoutes.use(requireAuth, requireRole('admin'))` (**NFR-10**). Every state-changing admin write passes through `auditAdminAction` (**ADR 0043**). Five costly external/email operations (`re-extract`, `ingest`, `health-check`, `retry-all`, `users/password-reset`) share a per-admin rate limiter (`adminCostly`), while read routes remain unthrottled so failure alerts are never hidden during maintenance.
 
 | HTTP Method | Route Endpoint | Access Level | Description & Core Parameters | Success Response | Error Codes |
 |---|---|---|---|---|---|
 | `GET` | `/api/admin/operations` | Admin Only | Comprehensive operational telemetry dashboard (**FR-22**): feed polling uptime, consecutive 5xx error streaks, queue backlog funnels, and failure summaries. | `200 OK` `{ feeds: {...}, pipeline: {...}, failures: [...] }` | `401, 403` |
+| `GET` | `/api/admin/review-queue` | Admin Only | Paginated, filterable, searchable queue of low-confidence or review-pending TOR extractions (**FR-23, NFR-17**). | `200 OK` `{ items: [...], total, page, pages }` | `401, 403` |
 | `GET` | `/api/admin/review/:projectId` | Admin Only | Retrieve quarantined low-confidence TOR record for dedicated review workspace (**NFR-17**). | `200 OK` `{ rawTor: {...}, insight: {...}, failedChecks: [...] }` | `401, 403, 404` |
 | `PATCH` | `/api/admin/review/:projectId` | Admin Only | Manually correct extracted fields, approve quarantined record, or reclassify scope (**FR-23**). Archives previous snapshot to `torinsightversions`. | `200 OK` `{ success: true, insight: {...} }` | `400, 401, 403` |
 | `POST` | `/api/admin/review/:projectId/re-extract` | Admin Only | Trigger fresh LLM re-extraction on raw OCR text with latest extraction prompt version. | `200 OK` `{ success: true, message: "Queued" }` | `401, 403, 404` |
@@ -1534,6 +1555,7 @@ All administrative endpoints are strictly guarded by `adminRoutes.use(requireAut
 | `POST` | `/api/admin/review/:projectId/rollback` | Admin Only | Roll back active `TorInsight` to a previous version snapshot (**NFR-07**). Body: `{ targetVersion }`. | `200 OK` `{ success: true, activeVersion }` | `400, 401, 403, 404` |
 | `POST` | `/api/admin/ingest` | Admin Only | Trigger on-demand ingestion poll across e-GP feeds (**FR-24**). | `200 OK` `{ success: true, runId }` | `401, 403` |
 | `POST` | `/api/admin/health-check` | Admin Only | Test live connectivity, latency, and response status for e-GP and data.go.th endpoints (**FR-22**). | `200 OK` `{ sources: [{ name, reachable, latencyMs }] }` | `401, 403` |
+| `POST` | `/api/admin/users/password-reset` | Admin Only | Dispatch a password reset/set email to a named user address (**ADR 0042, ADR 0043**; admin never sees the token link; rate-limited under `adminCostly`). | `200 OK` `{ ok: true }` | `400, 401, 403, 429` |
 | `POST` | `/api/admin/pipeline/retry` | Admin Only | Retry a failed pipeline step for a specific project (**FR-24**). Body: `{ projectId, stage }`. | `200 OK` `{ success: true }` | `400, 401, 403` |
 | `POST` | `/api/admin/pipeline/retry-all` | Admin Only | Bulk retry all recoverable pipeline failures in the failure queue (**FR-24**). | `200 OK` `{ retriedCount: 14 }` | `401, 403` |
 | `POST` | `/api/admin/pipeline/skip` | Admin Only | Advance a permanently blocked or unparseable project past a stuck pipeline step (**FR-24**). | `200 OK` `{ success: true }` | `400, 401, 403` |
@@ -1551,27 +1573,29 @@ All administrative endpoints are strictly guarded by `adminRoutes.use(requireAut
 
 ## 6.3 Authentication & Session Security Architecture (FR-08, FR-09, NFR-08..11)
 
-In compliance with **NFR-08** (TLS 1.2+), **NFR-09** (Bcrypt Hashing), **NFR-10** (RBAC), and **NFR-11** (Session Security):
+In compliance with **NFR-08** (TLS 1.2+), **NFR-09** (Peppered Bcrypt Hashing), **NFR-10** (RBAC), and **NFR-11** (Session Security):
 
-1. **Password Hashing (NFR-09):**
-   Passwords are encrypted using **Bcrypt with a work factor of 12** (`server/src/features/auth/password.js`). Validation strictly enforces `MAX_PASSWORD_BYTES = 72` prior to hashing, because Bcrypt silently truncates passphrases beyond 72 bytes.
-2. **Google OAuth 2.0 Integration (FR-09, ADR 0005):**
-   Implemented as a secure **server-side redirect authorization code flow**:
+1. **Peppered Password Hashing & Password Policy (NFR-09, ADR 0039, ADR 0042):**
+   Passwords are pre-hashed with HMAC-SHA384 keyed by `PASSWORD_PEPPER` (`server/src/features/auth/password.js`) and then hashed with **Bcrypt at work factor 12** so passphrases up to `128` characters never hit Bcrypt's 72-byte silent truncation (**ADR 0039**). New passwords must pass `password-policy.js` (8–128 characters, not in the 46,945 breached password list, not matching user email/name/context words).
+2. **Pre-Creation Email Verification & Password Recovery (FR-08, ADR 0041, ADR 0042):**
+   `POST /api/auth/register` never creates a `User` document immediately; instead it stores a single-use SHA-256 hashed verification token in `EmailToken` (`emailtokens`, 24-hour TTL) and sends the confirmation link after the response (`202 Accepted`). Account creation happens only when `POST /api/auth/verify-email` verifies both the token and the user's sign-up password. Password resets use `POST /api/auth/forgot-password` and `POST /api/auth/reset-password` (1-hour reset token, revoking existing sessions).
+3. **Google OAuth 2.0 Integration (FR-09, ADR 0005):**
+   Implemented as a secure **server-side redirect authorization code flow** with PKCE, `state`, and `nonce` protected by an HMAC-signed cookie (`mjolnir_oauth_state`):
    * User navigates to `/api/auth/google`, which redirects to Google's OpenID Connect consent screen.
    * Google redirects back to `/api/auth/google/callback` with an authorization code.
-   * Backend exchanges the code for verified Google identity tokens, links the account by verified email (**ADR 0005**), and issues the signed session cookie.
-3. **Signed HTTP-Only Session Cookies (ADR 0004, ADR 0012):**
+   * Backend exchanges the code, verifies the Google ID token (`google-id-token.js`), links the account by verified email (**ADR 0005**), and issues the signed session cookie.
+4. **Signed HTTP-Only Session Cookies (ADR 0004, ADR 0012):**
    JWTs are stored in signed, HTTP-only cookies (`SESSION_COOKIE = 'mjolnir_session'`), protecting session tokens against client-side JavaScript theft (XSS):
    * `httpOnly: true` (unreadable from JavaScript).
-   * `secure: isProduction` (enforces HTTPS transmission).
-   * `sameSite: isProduction ? 'none' : 'lax'` (handles cross-domain deployment in production while ensuring security).
+   * `secure: isProduction` (enforces HTTPS transmission in production).
+   * `sameSite: 'lax'` (enforced unconditionally in `session.js` and `google.js` to block cross-site request forgery while allowing top-level OAuth redirects).
    * `path: '/'`.
-   * *NFR-11 Alignment:* The code sets `SESSION_TTL_HOURS = 24`, strictly matching SRS `NFR-11` (a session expires within 24 hours). Token versioning allows immediate revocation upon logout.
-4. **Role-Based Access Control Middleware (`server/src/features/auth/auth.middleware.js`):**
-   * `requireAuth`: Verifies token signature and attaches `req.user`.
+   * *NFR-11 Alignment:* `SESSION_TTL_HOURS = 24`, strictly matching SRS `NFR-11` (a session expires within 24 hours). Per-user `tokenVersion` allows immediate revocation upon logout or password change/reset.
+5. **Role-Based Access Control Middleware (`server/src/features/auth/auth.middleware.js`):**
+   * `requireAuth`: Verifies token signature and `tokenVersion`, and attaches `req.user`.
    * `requireRole('admin')`: Strict role boundary enforcing `req.user.role === 'admin'` (**NFR-10**). Non-admin users receive `403 Forbidden`.
-5. **Brute Force Rate Limiting (ADR 0007):**
-   Express auth routes (`/api/auth/login`, `/api/auth/register`) are guarded by `express-rate-limit` instances: maximum **5 failed attempts per IP address per 15-minute window**.
+6. **Brute Force Rate Limiting & Security Logging (ADR 0007, ADR 0043):**
+   Express auth routes (`register`, `verify-email`, `login`, `forgot-password`, `reset-password`, `password`) enforce per-IP and per-email/account limits via `express-rate-limit` and emit single-line structured JSON events via `security-log.js` (**ADR 0043**).
 
 ---
 
@@ -1585,18 +1609,24 @@ sequenceDiagram
     participant API as Express Auth Router (/api/auth)
     participant GAUTH as Google Identity Platform
     participant SVC as Auth Service
-    participant DB as MongoDB Atlas (users)
+    participant DB as MongoDB Atlas (emailtokens / users)
 
-    alt Scenario A: Email & Password Registration (FR-08)
-        USER->>CLIENT: Submit Email, Password, Name
+    alt Scenario A: Verified Email & Password Registration (FR-08, ADR 0041)
+        USER->>CLIENT: Submit Email, Password, Name (/auth)
         CLIENT->>API: POST /api/auth/register { email, password, name }
-        API->>SVC: registerUser(email, password, name)
-        SVC->>DB: Check if email already registered
-        SVC->>SVC: Hash password with Bcrypt (Work Factor 12, max 72 bytes) (NFR-09)
-        SVC->>DB: Insert new User (role: 'user', notificationConsent: false)
-        SVC->>SVC: Sign JWT Token (sub: user.id) (NFR-11)
+        API->>SVC: startRegistration(email, name)
+        SVC->>DB: Check if User email already exists
+        SVC->>DB: Store SHA-256 EmailToken (type: 'verify', 24h TTL)
+        SVC-->>API: 202 Accepted (email verification link sent)
+        API-->>CLIENT: Show "Check your inbox" screen
+        USER->>CLIENT: Open link (#token=...) on /auth/verify & re-enter password
+        CLIENT->>API: POST /api/auth/verify-email { token, password }
+        API->>SVC: confirmRegistration(token, password)
+        SVC->>SVC: Check password policy & hash via HMAC-SHA384 pepper + Bcrypt 12 (ADR 0039)
+        SVC->>DB: Consume EmailToken & Insert User (role: 'user', notificationConsent: false)
+        SVC->>SVC: Sign 24h JWT Token (sub: user.id, tv: tokenVersion) (NFR-11)
         SVC-->>API: Return User + Token
-        API-->>CLIENT: Set-Cookie: mjolnir_session (HttpOnly, Secure)
+        API-->>CLIENT: Set-Cookie: mjolnir_session (HttpOnly, SameSite=Lax)
         CLIENT-->>USER: Redirect to /profile or /search
     else Scenario B: Google OAuth 2.0 Server-Side Redirect Flow (FR-09)
         USER->>CLIENT: Click "Sign in with Google"
@@ -1630,7 +1660,10 @@ client/app/
 ├── page.tsx                       # Landing / Introduction page (Public, Disclaimer, Value prop)
 ├── globals.css                    # Tailwind utility classes and theme tokens
 ├── auth/                          # Standalone authentication routes
-│   └── page.tsx                   # Email/Password & Google Sign-in interface (FR-08, FR-09)
+│   ├── page.tsx                   # Email/Password & Google Sign-in interface (FR-08, FR-09)
+│   ├── verify/page.tsx            # Email confirmation endpoint (#token=..., ADR 0041)
+│   ├── forgot/page.tsx            # Password reset request page (ADR 0042)
+│   └── reset/page.tsx             # Set new password page (#token=..., ADR 0042)
 ├── (app)/                         # Shell-wrapped layout with Navigation Bar & Footer
 │   ├── layout.tsx                 # Site header, Navigation menu, User session drawer
 │   ├── search/                    # Catalog search & filter interface (FR-10, FR-11, FR-13)
@@ -1639,31 +1672,36 @@ client/app/
 │   ├── tor/[id]/                  # Normalized TOR detail & risk intelligence view (FR-10, FR-19..21)
 │   │   ├── error.tsx / not-found.tsx
 │   │   └── page.tsx               # Renders TorHeader, TorAside, and 4 modular tabs
-│   ├── watchdog/                  # Historical procurement dashboard & analysis (FR-19, FR-16)
+│   ├── watchdog/                  # Historical procurement dashboard & analysis (FR-19, FR-20, FR-21)
+│   │   ├── _components/ & _lib/   # WatchdogFilterBar, PriceTrendLineChart, PriceRealitySummary, LockSpecOverview, EvidenceTable
 │   │   └── page.tsx
 │   ├── (private)/                 # Signed-in authenticated route group (Protected by session guard)
 │   │   ├── layout.tsx             # Private auth guard redirector
+│   │   ├── account/page.tsx       # Password change & Google-only password setup (ADR 0042)
 │   │   ├── profile/               # Capability profile & notification preferences (FR-12, FR-14)
-│   │   │   ├── _components/       # ProfileDisplay, ProfileEditForm
+│   │   │   ├── _components/       # ProfileDisplay, ProfileEditForm, profile-ui
 │   │   │   └── page.tsx
 │   │   ├── watchlist/             # Saved opportunities & change alerts (FR-17, FR-18)
 │   │   │   └── page.tsx
-│   │   └── notifications/         # In-app alert history and amendment notices (FR-18)
+│   │   └── notifications/         # In-app alert history, single snapshot view & settings (FR-18)
+│   │       ├── _components/       # match-view, amendment-view, status-change-view, deadline-view
+│   │       ├── [id]/page.tsx      # Dedicated notification snapshot detail page
 │   │       └── page.tsx
 │   └── admin/                     # Administrative operations (Role-guarded: Admin only, NFR-10)
-│       ├── _components/           # PipelineMonitoringSection, PipelineRunsSection, PipelineFailuresSection, TechnologiesSection
-│       ├── review/[id]/           # Dedicated human-in-the-loop review workspace (NFR-17, FR-23)
+│       ├── _components/           # PipelineMonitoringSection, PipelineRunsSection, PipelineFailuresSection, TechnologiesSection, PasswordResetCard
+│       ├── review/[id]/           # Modular human-in-the-loop review workspace (NFR-17, FR-23)
+│       │   ├── _components/       # ReviewTopBar, ReviewSectionNav, ReclassifyModal, sections/*
+│       │   ├── _lib/              # review-form, useReviewForm
 │       │   ├── ReviewEditorComponents.tsx
 │       │   └── page.tsx
-│       └── page.tsx               # Administration operational telemetry dashboard (FR-22)
+│       └── page.tsx               # Administration operational telemetry dashboard (FR-22, FR-24)
 └── _components/                   # Shared UI component library
     ├── verdict.tsx                # Verdict badges (Status, Lock-Spec Level, Price Deviation)
-    ├── price-scale.tsx            # Historical benchmark scale & median comparison graphics
-    ├── BeforeAfterSlider.tsx      # Clause-by-clause amendment diff comparator (FR-16)
+    ├── BeforeAfterSlider.tsx      # Landing-page interactive scanned-PDF vs. normalized-summary showcase
     ├── deadline.tsx               # Localized Buddhist Era / Relative submission deadline counters
     ├── PdfPreviewModal.tsx        # High-performance in-browser PDF modal previewer
-    ├── catalog-row.tsx / tor-row.tsx # Dense, scan-optimized procurement cards
-    ├── shell.tsx                  # Global responsive application shell with PDPA disclaimer
+    ├── catalog-row.tsx            # Dense, scan-optimized procurement cards with skeletons
+    ├── shell.tsx                  # Global responsive application shell with PDPA disclaimer & bell badge
     └── tor-detail/tabs/           # 4 Modular TOR tabs: OverviewTab, TechnicalSpecsTab, DecisionSupportTab, EligibilityHistoryTab
 ```
 
@@ -1738,7 +1776,7 @@ sequenceDiagram
 
     ADMIN->>UI: Inspect Side-by-Side: Original PDF vs Extracted Facts
     ADMIN->>UI: Correct Misread Reference Price & Clear Flag
-    ADMIN->>API: PUT /api/admin/tors/:id { facts: { referencePriceTHB: 12500000 }, approve: true }
+    ADMIN->>API: PATCH /api/admin/review/:projectId { action: 'approve', facts: { referencePriceTHB: 12500000 } }
 
     API->>SVC: updateAndApproveInsight(projectId, corrections)
     activate SVC
@@ -1752,7 +1790,7 @@ sequenceDiagram
 
     opt Emergency Rollback Required (NFR-07)
         ADMIN->>UI: Click "Rollback to Previous Version"
-        UI->>API: POST /api/admin/tors/:id/rollback { targetVersion: 1 }
+        UI->>API: POST /api/admin/review/:projectId/rollback { version: 1 }
         API->>SVC: rollbackInsightVersion(projectId, 1)
         SVC->>VER: Retrieve Version 1 Snapshot
         SVC->>DB: Overwrite TorInsight with Snapshot Data
@@ -1866,7 +1904,7 @@ stateDiagram-v2
   * Ingestion worker traps network exceptions, socket timeouts, and 5xx errors from `process3.gprocurement.go.th` and `data.go.th`.
   * If an outage is detected, the job logs the incident into `FeedPoll` and `PipelineFailure` collections and halts gracefully without modifying or corrupting existing database records.
 * **NFR-07 (Silent Amendment Version Rollback):**
-  * Prior to overwriting any `TorInsight` document with amended data, an immutable copy is serialized into `torinsightversions`. Administrators can trigger instantaneous single-click rollbacks via `/api/admin/tors/:id/rollback`.
+  * Prior to overwriting any `TorInsight` document with amended data, an immutable copy is serialized into `torinsightversions`. Administrators can trigger instantaneous single-click rollbacks via `/api/admin/review/:projectId/rollback`.
 
 ---
 
@@ -1874,12 +1912,12 @@ stateDiagram-v2
 
 * **NFR-08 (TLS 1.2+ Encryption):**
   * All external browser traffic is terminated at Nginx / Cloudflare reverse proxy enforcing TLS 1.2 and TLS 1.3 with modern cipher suites. Internal container communications with MongoDB Atlas use TLS encryption.
-* **NFR-09 (Bcrypt Hashing with Salt):**
-  * Password registration uses Bcrypt with a salt work factor of 12 (`WORK_FACTOR = 12`) and enforces a 72-byte password length boundary (`server/src/features/auth/password.js`).
+* **NFR-09 (Peppered Bcrypt Hashing with Salt):**
+  * Password hashing uses HMAC-SHA384 with `PASSWORD_PEPPER` before Bcrypt at work factor 12 (`WORK_FACTOR = 12`, **ADR 0039**) and enforces an 8–128 character policy (`server/src/features/auth/password.js`, `password-policy.js`).
 * **NFR-10 (Strict Role-Based Access Control):**
-  * Separation between standard users (`role: 'user'`) and internal operators (`role: 'admin'`) is enforced at the router layer via `requireAdmin` middleware. Admin tokens cannot be obtained through self-service registration.
+  * Separation between standard users (`role: 'user'`) and internal operators (`role: 'admin'`) is enforced at the router layer via `requireAuth, requireRole('admin')`. Admin tokens cannot be obtained through self-service registration.
 * **NFR-11 (JWT Session Expiration ≤ 24 Hours):**
-  * Signed JWT session token is delivered in a secure, HTTP-only, SameSite=Lax cookie named `mjolnir_session` (`server/src/features/auth/session.js`). The session TTL is 24 hours (`SESSION_TTL_HOURS = 24`), matching NFR-11, with token versioning for immediate revocation on logout.
+  * Signed JWT session token is delivered in a secure, HTTP-only, `SameSite=Lax` cookie named `mjolnir_session` (`server/src/features/auth/session.js`). The session TTL is 24 hours (`SESSION_TTL_HOURS = 24`), matching NFR-11, with `tokenVersion` revocation on logout and password reset.
 
 ---
 
@@ -1956,33 +1994,34 @@ If an e-GP feed schema change occurs or an upstream service fails:
 
 # Section 10: Requirements Traceability Matrix (RTM)
 
-## 10.1 Functional Requirements Traceability Matrix (FR-01 to FR-23)
+## 10.1 Functional Requirements Traceability Matrix (FR-01 to FR-24)
 
 | Req ID | Requirement Summary | Architectural Subsystem | Database Models | API Route Endpoints | UI Client Surface | Primary Modeling Diagrams |
 |---|---|---|---|---|---|---|
 | **FR-01** | Poll live e-GP RSS XML feed | Ingestion Engine | `Tor`, `FeedPoll`, `PipelineRun` | CLI: `ingest:fetch` | `/admin` Telemetry | Diagram 1, 5, 8, 9, 16 |
-| **FR-02** | Parse announcement codes (B0, D0, D1/D2, 15) | Ingestion Engine | `Tor.status`, `Tor.isAmended`, `Tor.announcementHistory` | CLI: `ingest:fetch` | `/tor/[id]`, `/search` | Diagram 8, 9, 15 |
+| **FR-02** | Parse announcement codes (15, B0, D0, D1, D2, W0/W1/W2) | Ingestion Engine | `Tor.status`, `Tor.isAmended`, `Tor.announcementHistory` | CLI: `ingest:fetch` | `/tor/[id]`, `/search` | Diagram 8, 9, 15 |
 | **FR-03** | Batch-fetch data.go.th historical data | Ingestion Engine | `Tor.contract`, `CGDContract` | CLI: `npm run history:import` | `/watchdog` | Diagram 1, 8, 11 |
 | **FR-04** | Normalize into single database schema | AI Extraction Engine | `TorInsight` | Internal Assembler | `/tor/[id]`, `/search` | Diagram 7, 8, 9 |
 | **FR-05** | Thai OCR on PDFs & scanned images | Ingestion Engine | `Tor.ocr`, `Tor.document` | CLI: `npm run ingest:ocr` | `/tor/[id]` | Diagram 4, 8, 9, 16 |
 | **FR-06** | Classify & isolate software/IT projects | AI Extraction Engine | `Tor.pipelineStatus`, `TitleScreen` | CLI: `npm run screen` | `/search` Filter | Diagram 8, 9, 16 |
-| **FR-07** | LLM structured extraction (title, budget, stack, penalty) | AI Extraction Engine | `TorInsight.facts`, `TorInsight.deliverables` | CLI: `npm run extract` | `/tor/[id]` Detail | Diagram 1, 8, 9 |
-| **FR-08** | Sign up with email & password | Web API (Auth) | `User.email`, `User.passwordHash` | `POST /api/auth/register` | `/auth` | Diagram 7, 12 |
+| **FR-07** | LLM structured extraction (title, budget, ref price, stack, penalty) | AI Extraction Engine | `TorInsight.facts`, `TorInsight.deliverables` | CLI: `npm run extract` | `/tor/[id]` Detail | Diagram 1, 8, 9 |
+| **FR-08** | Sign up with verified email & password | Web API (Auth) | `User`, `EmailToken` | `POST /api/auth/register`, `POST /api/auth/verify-email` | `/auth`, `/auth/verify` | Diagram 7, 12 |
 | **FR-09** | Sign in with Google OAuth 2.0 | Web API (Auth) | `User.googleId`, `User.email` | `GET /api/auth/google`, `GET /api/auth/google/callback` | `/auth` | Diagram 1, 7, 12 |
 | **FR-10** | Normalized catalog display without PDF | Web API & Client | `TorInsight`, `Tor` | `GET /api/tors`, `GET /api/tors/:projectId` | `/search`, `/tor/[id]` | Diagram 2, 4, 8 |
 | **FR-11** | Search & filter by tech, budget, deadline, agency | Web API & Client | `TorInsight`, `Tor` | `GET /api/tors?q=&tech=&budget=&status=` | `/search` | Diagram 2, 4 |
-| **FR-12** | Save technical skills & budget in profile | Web API (Profile) | `User.profile.skills`, `User.profile.budgetMin`, `User.profile.budgetMax` | `PATCH /api/profile` | `/profile` | Diagram 2, 7 |
-| **FR-13** | Calculate match score against user profile | Matchmaker Engine | `User.profile`, `TorInsight` | `GET /api/tors?matched=true` | `/search?view=match` | Diagram 2, 4 |
-| **FR-14** | Email highly matched TORs (consent-based) | Notification Engine | `User.notificationConsent`, `User.profile.matchNotification` | Worker Dispatcher / Brevo SMTP | User Email Inbox | Diagram 2, 13 |
-| **FR-15** | Track & display current lifecycle status | Ingestion Engine | `Tor.status`, `Tor.isAmended` | `GET /api/tors/:projectId` | `/search`, `/tor/[id]` | Diagram 15 |
-| **FR-16** | Hash TOR files & diff amendment clauses | Ingestion Engine | `Tor.contentHash`, `Tor.amendments` | `GET /api/tors/:projectId` (amendments) | `/tor/[id]`, `/watchdog` | Diagram 8, 13, 15 |
-| **FR-17** | Save TORs to personal watchlist | Web API (Watchlist) | `User.watchlist` | `PUT /api/watchlist/:projectId`, `DELETE /api/watchlist/:projectId` | `/watchlist` | Diagram 2, 7 |
-| **FR-18** | In-app or email alerts on watchlist updates | Notification Engine | `User.watchlist`, `User.notificationConsent` | `GET /api/watchlist` | `/notifications`, Email | Diagram 2, 13 |
-| **FR-19** | Historical median & average price benchmarking | Reality Check Engine | `TorInsight.facts.referencePriceTHB`, `realityCheck.priceScale` | `GET /api/tors/:projectId` (realityCheck) | `/tor/[id]`, `/watchdog` | Diagram 2, 4, 11 |
-| **FR-20** | Compare requirements against historical baseline | Reality Check Engine | `realityCheck.lockSpec` | `GET /api/tors/:projectId` (realityCheck) | `/tor/[id]` | Diagram 2, 10 |
-| **FR-21** | Visual flag indicating "high lock-spec risk" | Reality Check Engine | `realityCheck.lockSpec.verdict` | `GET /api/tors/:projectId` (realityCheck) | `/tor/[id]`, `/search` | Diagram 10 |
-| **FR-22** | Admin dashboard of uptime & feed failures | Web API (Admin) | `FeedPoll`, `PipelineRun`, `RequestStreak` | `GET /api/admin/operations` | `/admin` | Diagram 2, 4 |
-| **FR-23** | Admin manual edit & reclassification | Web API (Admin) | `TorInsight.metadata.reviewStatus` | `PATCH /api/admin/review/:projectId` | `/admin` Review Queue | Diagram 2, 14 |
+| **FR-12** | Save skills, budget, archetypes, entity type, portfolio & certs | Web API (Profile) | `User.profile.*` | `PATCH /api/profile` | `/profile` | Diagram 2, 7 |
+| **FR-13** | Calculate match score against user profile | Matchmaker Engine | `User.profile`, `TorInsight` | Isomorphic `matchFor()` / `calculateMatchScore()` | `/search?sort=match-desc`, `/tor/[id]` | Diagram 2, 4 |
+| **FR-14** | Email highly matched TORs (consent-based) | Notification Engine | `Notification`, `User.notificationConsent`, `User.profile.matchNotification` | Worker Dispatcher / Nodemailer Gmail SMTP | `/notifications`, Email Inbox | Diagram 2, 13 |
+| **FR-15** | Track & display lifecycle status + separate Amended flag | Ingestion Engine | `Tor.status`, `Tor.isAmended` | `GET /api/tors`, `GET /api/tors/:projectId` | `/search`, `/tor/[id]` | Diagram 15 |
+| **FR-16** | Fingerprint TOR packages & diff amendment clauses | Ingestion Engine | `Tor.contentHash`, `Tor.amendments` | `GET /api/tors/:projectId` (amendments) | `/tor/[id]`, `/watchdog` | Diagram 8, 13, 15 |
+| **FR-17** | Save TORs to personal watchlist | Web API (Watchlist) | `User.watchlist` | `GET/PUT/DELETE /api/watchlist` | `/watchlist` | Diagram 2, 7 |
+| **FR-18** | In-app or email alerts on watchlist updates | Notification Engine | `Notification`, `User.watchlist`, `User.notificationConsent` | `GET /api/notifications`, `GET /api/notifications/:id`, `GET /api/watchlist` | `/notifications`, `/notifications/[id]`, Email | Diagram 2, 13 |
+| **FR-19** | Identify & group similar historical IT projects | Similarity Engine | `TorInsight.analytics.priceAnalysis.comparableProjects` | Pre-computed via `similarity/` (`findComparableProjects`) | `/tor/[id]`, `/watchdog` | Diagram 2, 4, 11 |
+| **FR-20** | Historical median & average price benchmarking & deviation analysis | Price Reality Check Engine | `TorInsight.facts.referencePriceTHB`, `TorInsight.analytics.priceAnalysis` | `GET /api/tors/:projectId` (`analytics.priceAnalysis`) | `/tor/[id]`, `/watchdog` | Diagram 2, 4, 11 |
+| **FR-21** | Assess lock-spec deviations (Circular ว 214) & flag high risk | Lock-Spec Engine | `TorInsight.analytics.lockSpec` | `GET /api/tors/:projectId` (`analytics.lockSpec`) | `/tor/[id]`, `/search`, `/watchdog` | Diagram 2, 10 |
+| **FR-22** | Admin dashboard of uptime & feed failures | Web API (Admin) | `IngestionLog`, `FeedPoll`, `PipelineRun`, `RequestStreak` | `GET /api/admin/operations`, `POST /api/admin/health-check` | `/admin` | Diagram 2, 4 |
+| **FR-23** | Admin manual edit, approval & reclassification | Web API (Admin) | `TorInsight.metadata.reviewStatus`, `TorInsightVersion` | `GET /api/admin/review-queue`, `PATCH /api/admin/review/:projectId` | `/admin`, `/admin/review/[id]` | Diagram 2, 14 |
+| **FR-24** | Investigate pipeline failures, inspect records, retry steps & add data | Web API (Admin) | `PipelineFailure`, `IngestionLog`, `PipelineLock` | `GET /api/admin/pipeline/record/:projectId`, `POST /api/admin/pipeline/*`, `POST /api/admin/ingest` | `/admin` Operations & Inspector | Diagram 2, 14 |
 
 ---
 
@@ -1996,15 +2035,15 @@ If an e-GP feed schema change occurs or an upstream service fails:
 | **NFR-04** | Support ≥ 500 concurrent sessions | Stateless Express API, JWT signed cookie sessions, MongoDB connection pooling. | Load testing using k6 / Artillery simulating 500 concurrent active users. |
 | **NFR-05** | Daily encrypted MongoDB backups | MongoDB Atlas automated daily snapshots with point-in-time recovery and AES-256 encryption. | Scheduled backup audit logs and simulated test restoration. |
 | **NFR-06** | Graceful failure on external downtime | Fail-safe try/catch blocks; circuit breaking streak counter; zero record corruption. | Fault injection testing (mocking 500/503 responses from e-GP). |
-| **NFR-07** | Rollback mechanism for bad amendments | Immutable historical snapshots in `torinsightversions` collection with rollback API. | Automated version archive test and single-click rollback verification. |
+| **NFR-07** | Rollback mechanism for bad amendments | Immutable historical snapshots in `torinsightversions` collection with rollback API (`/api/admin/review/:projectId/rollback`). | Automated version archive test and single-click rollback verification. |
 | **NFR-08** | TLS 1.2+ for all data in transit | Reverse proxy TLS termination with modern cipher suites; TLS 1.2+ to MongoDB Atlas. | SSL Labs SSL/TLS automated security assessment rating A+. |
-| **NFR-09** | Passwords hashed and salted | Bcrypt hashing with a salt work factor of 12 (`WORK_FACTOR = 12`) and 72-byte maximum length limit. | Automated authentication unit test verifying salted cryptographic format. |
-| **NFR-10** | Strict Role-Based Access Control | Express `requireAdmin` middleware enforcing binary role boundary; no self-service admin. | Penetration testing verifying 403 Forbidden on admin routes with user token. |
-| **NFR-11** | JWT sessions expiring in ≤ 24 hours | Signed JWT tokens delivered in `mjolnir_session` HTTP-only cookies (7-day TTL in the code; NFR-11's 24 hours undecided, pending the client). | Unit tests validating token signature and cookie expiration headers. |
+| **NFR-09** | Passwords hashed and salted | HMAC-SHA384 (`PASSWORD_PEPPER`) followed by Bcrypt with salt work factor 12 (**ADR 0039**) and 8–128 character policy (**ADR 0042**). | Automated authentication unit test verifying peppered hash format and policy rules. |
+| **NFR-10** | Strict Role-Based Access Control | Express `requireAuth, requireRole('admin')` middleware enforcing binary role boundary; no self-service admin. | Automated tests verifying `403 Forbidden` on admin routes with user token (`admin.test.js`). |
+| **NFR-11** | JWT sessions expiring in ≤ 24 hours | Signed JWT tokens delivered in `mjolnir_session` HTTP-only, `SameSite=Lax` cookies (`SESSION_TTL_HOURS = 24`, **ADR 0004, ADR 0012**) with `tokenVersion` revocation. | Unit and integration tests validating token signature, `Max-Age`, and revocation on logout/reset. |
 | **NFR-12** | 99.9% web application uptime | Stateless API architecture, isolated batch worker containers, redundant Atlas replica set. | Synthetic uptime monitoring probes on `/health`. |
 | **NFR-13** | Fully responsive UX/UI (mobile/desktop) | Tailwind CSS responsive utility breakpoints (`sm`, `md`, `lg`, `xl`) across all routes. | Cross-device testing on Chrome Mobile, Safari iOS, and Desktop viewports. |
 | **NFR-14** | Decouple AI pipeline from web backend | Standalone CLI/cron batch worker communicating with web API strictly through MongoDB. | Verification of zero in-memory dependencies between `server/src/pipeline` and `server/src/app.js`. |
-| **NFR-15** | Thai as primary system locale | Thai-first interface copy, natural-language Thai AI summaries, Buddhist Era date formatting. | Comprehensive linguistic and visual review across all public and private views. |
+| **NFR-15** | Thai as primary system locale | Thai-only interface copy (**ADR 0036**), natural-language Thai AI summaries, Buddhist Era date formatting. | Comprehensive linguistic and visual review across all public and private views. |
 | **NFR-16** | Discard non-IT projects at ingestion | Two-stage gatekeeping: Title Screener (`screen.js`) and Preview Classifier (`classify.js`). | Automated pipeline test with mixed sample of IT and non-IT tenders. |
 | **NFR-17** | Withhold summaries with confidence < 80% | Automated grounding and sanity checks; `metadata.reviewStatus: 'pending'` quarantine. | Verification that records with confidence < 80% do not appear on `/api/tors`. |
 
@@ -2016,7 +2055,7 @@ This Software Design Document has been reviewed and verified against the Softwar
 
 | Role | Name | Signature / Status | Date |
 |---|---|---|---|
-|  | Amornrit Sirikham | Approved | 11 November 2026 |
-|  | Sivapon Channual | Approved | 11 November 2026 |
-|  | Pannawit Mahacharoensiri | Approved | 11 November 2026 |
-|  | Department of Software Engineering, Kasetsart University | Submitted for Evaluation | 11 November 2026 |
+|  | Amornrit Sirikham | Approved | 25 November 2026 |
+|  | Sivapon Channual | Approved | 25 November 2026 |
+|  | Pannawit Mahacharoensiri | Approved | 25 November 2026 |
+|  | Department of Software Engineering, Kasetsart University | Synchronized Baseline (v1.1) | 25 November 2026 |

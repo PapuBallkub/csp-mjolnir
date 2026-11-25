@@ -83,6 +83,7 @@ In [overview/](overview/), except the last two: `pipeline-guide.md` and
 | [email-token-schema.md](database/email-token-schema.md) | `EmailToken`: a registration waiting for its confirm link |
 | [technology-schema.md](database/technology-schema.md) | `Technology`: the technology vocabulary |
 | [title-screen-schema.md](database/title-screen-schema.md) | `TitleScreen`: Gemini's verdict on a title, before anything is downloaded |
+| [notification-schema.md](database/notification-schema.md) | `Notification`: in-app alert snapshots and email digest delivery state |
 | [pipeline-run-schema.md](database/pipeline-run-schema.md) | `PipelineLock`, `PipelineFailure`, `PipelineRun`, `FeedPoll`, `IngestionLog` and `RequestStreak`: the pipeline's bookkeeping |
 
 **Features** (`features/`). Some were written to build from, some describe
@@ -91,13 +92,18 @@ what's built; the last column says which:
 | Page | What it covers | Kind |
 | :--- | :--- | :--- |
 | [tor-detail-page.md](features/tor-detail-page.md) | The detail page's sections and content | UI spec |
-| [reality-check-and-benchmarking.md](features/reality-check-and-benchmarking.md) | The analysis feature as a whole | Spec, mostly built (FR-20's comparison with past projects isn't) |
+| [reality-check-and-benchmarking.md](features/reality-check-and-benchmarking.md) | The analysis feature as a whole | Spec, built (`FR-19`, `FR-20`, `FR-21`) |
 | [comparable-projects-matching.md](features/comparable-projects-matching.md) | How similar past projects are found and ranked | Guide to what's built |
 | [price-benchmark-calculations.md](features/price-benchmark-calculations.md) | The price check's arithmetic | Spec, built |
 | [lock-spec-risk-detection.md](features/lock-spec-risk-detection.md) | The lock-spec rules and scoring | Spec, built |
 | [pipeline-administration.md](features/pipeline-administration.md) | Admin monitoring, failures and recovery | Spec, built |
-| [watchlist-changes.md](features/watchlist-changes.md) | "Changed since you saved" on the watchlist | Handoff: the data and API are ready; the UI isn't |
+| [watchlist-changes.md](features/watchlist-changes.md) | "Changed since you saved" on the watchlist | Spec, built |
 | [notifications-and-alerts.md](features/notifications-and-alerts.md) | In-app notification feed and email match digest | Guide to what's built |
+
+Other core user-facing features are documented directly in the overviews, ADRs, and security guides:
+- **Capability profile & match scoring (`FR-12`, `FR-13`)**: [0033-capability-profile-and-match-scoring.md](decisions/0033-capability-profile-and-match-scoring.md)
+- **Catalog & search (`FR-10`, `FR-11`)**: [what-the-public-sees.md](overview/what-the-public-sees.md)
+- **Authentication & account security (`FR-08`, `FR-09`)**: [v07-session-management.md](security/v07-session-management.md), [0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md), and [0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)
 
 **Security & verification** (`security/`):
 

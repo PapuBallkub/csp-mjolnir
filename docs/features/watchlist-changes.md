@@ -9,8 +9,8 @@
 **Related Decisions:**  
 - [`0031 · Keep the summary a change replaces`](../decisions/0031-keep-the-summary-a-change-replaces.md)  
 - [`0032 · Record what changed in a TOR`](../decisions/0032-record-what-changed-in-a-tor.md)  
-**Status:** Ready to build. The data, the API fields and the helpers are in place; the watchlist UI is not.  
-**Last Updated:** 2026-10-26  
+**Status:** Implemented — watchlist change alerts and `FR-18` in-app/email notifications are live (`client/app/(app)/(private)/watchlist/page.tsx`, [notifications-and-alerts.md](notifications-and-alerts.md)).  
+**Last Updated:** 2026-11-25
 
 ---
 
@@ -26,20 +26,15 @@ the reader hasn't seen, that is, changes found **after** they saved it.
 | `GET /api/watchlist` returns `savedAt`, `lastChangeAt` and `latestChange` | Done |
 | The change marker on every catalog row, watchlist rows included (`ChangeMarker`) | Done |
 | The detail page's banner and change history (`/tor/{id}#changes`) | Done |
-| Helpers `changedSinceSaved()` and `changedFields()` | Done and tested, not used yet |
-| **The watchlist alert, "changed since you saved"** | **To build** (§5) |
-| A dismissal that survives a reload | To build; needs one stored field (§7.1) |
-| In-app and email notices | Later, FR-18 (§8) |
+| Helpers `changedSinceSaved()` and `changedFields()` | Done, tested, and wired into `watchlist/page.tsx` |
+| **The watchlist alert, "changed since you saved"** | **Done** (`watchlist/page.tsx`) |
+| Persistent dismissal across reloads | Session-only today (`dismissed` state in `watchlist/page.tsx`); server-side field optional (§7.1) |
+| In-app and email notices (`FR-18`) | Done ([notifications-and-alerts.md](notifications-and-alerts.md)) |
 
-**Replace the current alert.** `client/app/(app)/(private)/watchlist/page.tsx`
-shows "TOR มีการออกเอกสารแก้ไขประกาศหรือเงื่อนไข" whenever
-`amendmentInfo.isAmended` is true. That misses most changes and repeats old ones:
-
-1. `isAmended` only knows changes the agency announced (e-GP code `D2`). The
-   feed has not sent one `D2` in over a thousand polls; the changes we do see
-   are found by the platform (§2).
-2. It ignores when the reader saved the TOR, so a TOR amended long before it
-   was saved alerts forever.
+Previously, `client/app/(app)/(private)/watchlist/page.tsx` only checked
+`amendmentInfo.isAmended` (e-GP code `D2`), which missed silent package updates
+(`§2`) and ignored `savedAt`. The current watchlist UI uses `changedSinceSaved()`
+and `changedFields()` so only changes found after saving are highlighted.
 
 ---
 

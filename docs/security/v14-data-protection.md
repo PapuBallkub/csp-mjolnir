@@ -75,11 +75,11 @@ To prevent web caches, proxies, or shared workstations from caching sensitive us
 GIPDP enforces a structured data retention and archival classification:
 
 1. **TOR Insight Versions (`torinsightversions` collection)**:
-   - In accordance with [ADR 0031](../decisions/0031-retrying-failed-pipeline-steps.md) and **NFR-07**, when a procurement notice is amended by an agency or re-extracted by an administrator, the prior extraction summary is not overwritten destructively.
+   - In accordance with [ADR 0031](../decisions/0031-keep-the-summary-a-change-replaces.md) and **NFR-07**, when a procurement notice is amended by an agency or re-extracted by an administrator, the prior extraction summary is not overwritten destructively.
    - The prior summary is immutably archived in `torinsightversions`, capturing the complete snapshot, timestamp, and amendment code (`D2`).
    - Enables full administrative rollback in `/admin/review/[id]` if an amendment was processed erroneously.
 2. **Ingestion & Audit Logs (`ingestionlogs` collection)**:
-   - All automated scraper events,Gemini token usages, and failure traces are recorded for auditing and pipeline health monitoring.
+   - All automated scraper events, Gemini token usages, and failure traces are recorded for auditing and pipeline health monitoring.
 3. **User Account Deletion**:
    - When an account is deleted, the user document and associated watchlist references are purged, and active sessions are terminated immediately (`auth.middleware.js`).
 

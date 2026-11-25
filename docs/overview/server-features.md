@@ -54,9 +54,9 @@ flowchart LR
 | `admin` | `/api/admin` | The admin dashboard (FR-22), the review workspace (FR-23), pipeline controls: retry, skip, dismiss, add a project, run a fetch | `TorInsight` (corrections), `Technology`, `TitleScreen`, `PipelineFailure`, `IngestionLog` |
 | `health` | `/health` | Liveness and the database's connection state, outside `/api` on purpose ([0009](../decisions/0009-api-prefix-without-a-version.md)) | nothing |
 | `similarity` | no routes | A library: candidate pooling and composite similarity scoring for comparable projects (FR-19) | nothing itself |
-| `price-reality-check` | no routes | A library: historical price median, mean, and deviation calculations (FR-19, FR-20) | nothing itself |
+| `price-reality-check` | no routes | A library: historical price median, mean, and deviation calculations (FR-20) | nothing itself |
 | `lock-spec` | no routes | A library: Circular ว 214 lock-spec risk detection and findings (FR-21) | nothing itself |
-| `match` | no routes | A server-side match score. **Only its test calls it**; the score users see is computed in the browser by `client/app/_lib/match.ts` | nothing |
+| `match` | no routes | A server-side match score ([0033](../decisions/0033-capability-profile-and-match-scoring.md)). Called on the backend by `notifications` (`match-notification.service.js`) for match digests; live scores in the browser use the isomorphic copy in `client/app/_lib/match.ts` | nothing |
 
 ## How the features depend on each other
 
@@ -69,11 +69,11 @@ flowchart LR
     watchlist --> auth
     technologies --> auth
     notifications --> auth
+    notifications -.-> match
     admin --> auth
     watchlist --> tors
     admin --> SIM["similarity"]
     health
-    match
 ```
 
 Solid arrows go through the other feature's `index.js`. The two dotted ones
