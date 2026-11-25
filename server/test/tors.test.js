@@ -6,7 +6,7 @@ import { after, before, test } from 'node:test';
 
 import { connectDatabase, disconnectDatabase } from '#common/db/connect.js';
 import { Tor, TorInsight } from '#models/index.js';
-import { getTorByProjectId, listTors, torFacets } from '../src/features/tors/tor.service.js';
+import { getTorByProjectId, listTors, toPublic, torFacets } from '../src/features/tors/tor.service.js';
 import { createApp } from '../src/app.js';
 
 const TEST_DB = 'mjolnir_test';
@@ -329,6 +329,29 @@ test('public responses carry no confidence score: list and detail', async () => 
 test('analysis nobody ran comes back as null, never as a measured-looking 0', async () => {
   const { analytics } = await getTorByProjectId('99999000002', { showUnreviewed: true });
   assert.deepEqual(analytics, { lockSpec: null, priceAnalysis: null });
+});
+
+test('priceAnalysis with comparableProjects but historicalMedianTHB 0 comes back as null', () => {
+  const result = toPublic({
+    projectId: '99999000099',
+    identification: { titleTh: 'ทดสอบ', agency: 'หน่วยงาน', status: 'Draft' },
+    facts: { referencePriceTHB: 3_000_000 },
+    analytics: {
+      lockSpec: { riskScore: 0, verdictText: '', findings: [] },
+      priceAnalysis: {
+        referencePriceTHB: 0,
+        historicalMedianTHB: 0,
+        diffPercentage: 0,
+        interpretation: '',
+        comparableProjects: [
+          { title: 'โครงการเทียบ 1', year: 2569, referencePriceTHB: 1_500_000 },
+          { title: 'โครงการเทียบ 2', year: 2569, referencePriceTHB: 950_000 },
+        ],
+      },
+    },
+    metadata: { origin: 'pipeline', reviewStatus: 'pending' },
+  });
+  assert.deepEqual(result.analytics, { lockSpec: null, priceAnalysis: null });
 });
 
 test('an Open TOR past its deadline reads as Closed, and filters as Closed', async () => {

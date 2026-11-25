@@ -240,3 +240,42 @@ test("calcPriceDeltaPct: returns null for 0 or negative peer medians", () => {
   assert.equal(calcPriceDeltaPct({ ...dummy, referencePriceTHB: 6_000_000, peerMedianTHB: 5_000_000 }), 20.0);
   assert.equal(calcPriceDeltaPct({ ...dummy, referencePriceTHB: 4_000_000, peerMedianTHB: 5_000_000 }), -20.0);
 });
+
+test("mapApiTorToWatchdog: marks null lockSpec as unanalyzed instead of low risk (0)", () => {
+  const unanalyzedTor = {
+    projectId: "PRJ-003",
+    identification: {
+      titleTh: "โครงการยังไม่ได้วิเคราะห์ล็อกสเปก",
+      titleEn: null,
+      agency: "กรมทดสอบ",
+      department: null,
+      categories: ["software-development"],
+      status: "Draft",
+    },
+    facts: {
+      budgetTHB: 3_000_000,
+      referencePriceTHB: 3_000_000,
+      agreedPriceTHB: null,
+      submissionDeadline: null,
+      procurementMethod: null,
+      penaltyClause: null,
+      postedDate: "2026-10-27T00:00:00Z",
+      webUrl: null,
+    },
+    overview: {
+      systemArchetype: "other",
+      complexityTier: "standard",
+    },
+    analytics: {
+      lockSpec: null,
+      priceAnalysis: null,
+    },
+  } as unknown as TorInsightSummary;
+
+  const record = mapApiTorToWatchdog(unanalyzedTor);
+  assert.ok(record);
+  assert.equal(record.lockSpecAnalyzed, false);
+  assert.equal(record.lockSpecScore, null);
+  assert.equal(record.lockSpecLevel, "unanalyzed");
+  assert.deepEqual(record.triggers, []);
+});

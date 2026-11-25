@@ -1144,7 +1144,13 @@ export function matchScore(tor: Tor, profile: Profile): number {
 /* ---------------------------------- utils --------------------------------- */
 
 export function formatTHB(amount: number): string {
-  return `฿${amount.toLocaleString("en-US")}`;
+  const formatted = Number.isInteger(amount)
+    ? amount.toLocaleString("en-US")
+    : amount.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+  return `฿${formatted}`;
 }
 
 export { daysUntil, formatDate, formatTHBCompact, getFiscalYear } from "../_lib/format";

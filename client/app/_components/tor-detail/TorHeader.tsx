@@ -25,7 +25,7 @@ function ReviewNotice({
 }) {
   if (review.origin === "demo") {
     return (
-      <p className="mt-3 max-w-4xl rounded-[3px] border border-amend-line bg-amend-bg px-3 py-2 text-[12.5px] leading-thai text-amend">
+      <p className="mt-3 rounded-[3px] border border-amend-line bg-amend-bg px-3 py-2 text-[12.5px] leading-thai text-amend">
         ข้อมูลตัวอย่างสำหรับทดสอบหน้าจอ — เนื้อหาและผลวิเคราะห์ในหน้านี้สร้างขึ้นเอง ไม่ได้อ่านจากเอกสาร TOR จริง
       </p>
     );
@@ -35,7 +35,7 @@ function ReviewNotice({
   // warning (AGENTS.md §6), so no warning colour. Only a checked summary gets
   // a first line saying so.
   return (
-    <div className="mt-3 max-w-4xl rounded-[3px] border border-line bg-surface-2 px-3 py-2 text-[12.5px] leading-thai text-ink-2">
+    <div className="mt-3 rounded-[3px] border border-line bg-surface-2 px-3 py-2 text-[12.5px] leading-thai text-ink-2">
       {review.checked ? (
         <p className="font-medium text-ink">สรุปโดย AI จากเอกสาร TOR · เจ้าหน้าที่ตรวจแล้ว</p>
       ) : null}

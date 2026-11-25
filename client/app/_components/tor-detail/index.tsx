@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { TorInsightDetail } from "../../_lib/api";
 import { type RiskLevel } from "../../_data/tors";
 import { markerSource, pendingChange } from "../../_lib/changes";
@@ -72,7 +72,7 @@ export function TorDetail({
 
       if (window.location.hash === "#profile-match") {
         e.preventDefault();
-        router.push("/search?mode=match");
+        router.push("/search?sort=match-desc");
         return;
       }
     }
@@ -101,6 +101,15 @@ export function TorDetail({
     }
     return "overview";
   });
+  const tabRefs = useRef<Partial<Record<TabKey, HTMLButtonElement | null>>>({});
+
+  useEffect(() => {
+    tabRefs.current[activeTab]?.scrollIntoView({
+      behavior: "smooth",
+      inline: "nearest",
+      block: "nearest",
+    });
+  }, [activeTab]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -234,6 +243,9 @@ export function TorDetail({
               return (
                 <button
                   key={tab.key}
+                  ref={(el) => {
+                    tabRefs.current[tab.key] = el;
+                  }}
                   role="tab"
                   aria-selected={isActive}
                   aria-controls={`tab-panel-${tab.key}`}
@@ -370,48 +382,6 @@ export function TorDetail({
           </div>
         </div>
       ) : null}
-
-      {/* 4. FLOATING ACTION BUTTON (BOTTOM-RIGHT FAB — OPTION 2) */}
-      <div className="fixed bottom-6 right-6 z-40 group">
-        {/* Tooltip on Hover */}
-        <div className="pointer-events-none absolute bottom-full right-0 mb-2.5 whitespace-nowrap rounded-[4px] bg-ink px-3 py-1.5 text-[12px] font-medium text-surface shadow-lg opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-          {isSaved ? "✓ ติดตามประกาศนี้แล้ว (คลิกเพื่อยกเลิก)" : "★ บันทึกติดตามประกาศนี้"}
-          <div className="absolute top-full right-5 h-0 w-0 border-x-4 border-t-4 border-x-transparent border-t-ink" />
-        </div>
-
-        <button
-          type="button"
-          onClick={handleWatchlistClick}
-          disabled={toggleLoading}
-          aria-pressed={isSaved}
-          aria-label={isSaved ? "ติดตามประกาศนี้แล้ว คลิกเพื่อยกเลิก" : "บันทึกติดตามประกาศนี้"}
-          className={`relative flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full border shadow-xl transition-all duration-300 cursor-pointer hover:scale-105 active:scale-90 focus:outline-none focus:ring-2 focus:ring-focus ${
-            isSaved
-              ? "border-open-line bg-open text-white shadow-open/30"
-              : "border-line bg-ink text-surface shadow-ink/30 hover:opacity-90"
-          } ${isPopping ? "animate-bookmark-pop" : ""}`}
-        >
-          {/* Radial Pulse Ring during state change */}
-          {isPopping ? (
-            <span className="pointer-events-none absolute inset-0 rounded-full bg-open/40 animate-pulse-ring" />
-          ) : null}
-
-          {/* Smooth Icon Spring Transition */}
-          <span
-            className={`inline-flex items-center justify-center transition-all duration-300 ${
-              isPopping ? "scale-125 rotate-12" : "scale-100 rotate-0"
-            }`}
-          >
-            {isSaved ? (
-              <svg viewBox="0 0 24 24" className="h-6 w-6 stroke-current fill-none stroke-[2.8]" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            ) : (
-              <span className="text-[22px] leading-none text-surface">★</span>
-            )}
-          </span>
-        </button>
-      </div>
 
       {/* Original Document PDF Preview Modal */}
       <PdfPreviewModal

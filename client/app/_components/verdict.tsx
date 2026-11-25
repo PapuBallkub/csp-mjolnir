@@ -253,10 +253,21 @@ function PriceVerdictBadge({ verdict, delta }: { verdict: PriceVerdict; delta: n
 export function InsightPriceBadge({
   diffPercentage,
   sampleSize,
+  historicalMedianTHB,
 }: {
   diffPercentage?: number | null;
   sampleSize?: number | null;
+  historicalMedianTHB?: number | null;
 }) {
+  if (historicalMedianTHB != null && historicalMedianTHB <= 0) {
+    return (
+      <span className={`${badgeBase} border-line bg-surface-2 text-ink-3`}>
+        <span>—</span>
+        <span>ไม่มีราคาเปรียบเทียบ</span>
+      </span>
+    );
+  }
+
   if (sampleSize != null && sampleSize < 5) {
     return (
       <span className={`${badgeBase} border-line bg-surface-2 text-ink-3`}>

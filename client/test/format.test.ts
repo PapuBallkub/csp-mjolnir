@@ -36,6 +36,8 @@ test("getFiscalYear: calculates Thai Buddhist fiscal year correctly (Oct 1 start
 test("formatTHB: formats currency with Thai Baht sign and comma separators", () => {
   assert.equal(formatTHB(1_796_185), "฿1,796,185");
   assert.equal(formatTHB(36_000_000), "฿36,000,000");
+  assert.equal(formatTHB(7_966_207.2), "฿7,966,207.20");
+  assert.equal(formatTHB(1_652_333.34), "฿1,652,333.34");
   assert.equal(formatTHB(null), "ไม่ระบุงบประมาณ");
   assert.equal(formatTHB(undefined), "ไม่ระบุงบประมาณ");
 });

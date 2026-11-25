@@ -51,13 +51,17 @@ export function WatchdogEvidenceTable({
     switch (sort) {
       case "lockspec-desc":
         return list.sort((a, b) => {
-          const diff = b.lockSpecScore - a.lockSpecScore;
+          const scoreA = a.lockSpecScore ?? -1;
+          const scoreB = b.lockSpecScore ?? -1;
+          const diff = scoreB - scoreA;
           if (diff !== 0) return diff;
           return Math.abs(calcPriceDeltaPct(b) ?? 0) - Math.abs(calcPriceDeltaPct(a) ?? 0);
         });
       case "lockspec-asc":
         return list.sort((a, b) => {
-          const diff = a.lockSpecScore - b.lockSpecScore;
+          const scoreA = a.lockSpecScore ?? Number.POSITIVE_INFINITY;
+          const scoreB = b.lockSpecScore ?? Number.POSITIVE_INFINITY;
+          const diff = scoreA - scoreB;
           if (diff !== 0) return diff;
           return Math.abs(calcPriceDeltaPct(a) ?? 0) - Math.abs(calcPriceDeltaPct(b) ?? 0);
         });
@@ -65,13 +69,13 @@ export function WatchdogEvidenceTable({
         return list.sort((a, b) => {
           const diff = Math.abs(calcPriceDeltaPct(b) ?? 0) - Math.abs(calcPriceDeltaPct(a) ?? 0);
           if (diff !== 0) return diff;
-          return b.lockSpecScore - a.lockSpecScore;
+          return (b.lockSpecScore ?? -1) - (a.lockSpecScore ?? -1);
         });
       case "price-delta-asc":
         return list.sort((a, b) => {
           const diff = Math.abs(calcPriceDeltaPct(a) ?? 0) - Math.abs(calcPriceDeltaPct(b) ?? 0);
           if (diff !== 0) return diff;
-          return a.lockSpecScore - b.lockSpecScore;
+          return (a.lockSpecScore ?? Number.POSITIVE_INFINITY) - (b.lockSpecScore ?? Number.POSITIVE_INFINITY);
         });
       case "price-desc":
         return list.sort((a, b) => b.referencePriceTHB - a.referencePriceTHB);
@@ -231,26 +235,40 @@ export function WatchdogEvidenceTable({
                     {/* Col 4: Lock-Spec Risk Badge & Violated Rule Names */}
                     <td className="max-w-[300px] px-3.5 py-3">
                       <div className="flex flex-col items-start gap-1.5">
-                        <LockSpecBadge
-                          level={proj.lockSpecLevel}
-                          score={proj.lockSpecScore}
-                          outOf100={false}
-                        />
-                        {proj.triggers.length > 0 ? (
-                          <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                            {proj.triggers.map((t) => (
-                              <span
-                                key={t.category}
-                                className="inline-flex items-center rounded-[3px] border border-risk/30 bg-risk/5 px-2 py-0.5 font-mono text-[11px] font-medium text-risk"
-                              >
-                                {TRIGGER_NAMES_TH[t.category] ?? t.category}
-                              </span>
-                            ))}
-                          </div>
+                        {proj.lockSpecLevel === "unanalyzed" || proj.lockSpecScore === null ? (
+                          <>
+                            <span className="inline-flex items-center gap-1.5 rounded-[3px] border border-dashed border-line-2 bg-surface-2 px-2 py-0.5 text-[11.5px] font-medium text-ink-3 whitespace-nowrap">
+                              <span>—</span>
+                              <span>ยังไม่ได้วิเคราะห์</span>
+                            </span>
+                            <span className="text-[11.5px] text-ink-3">
+                              รอผลตรวจวิเคราะห์ตามเกณฑ์ ว 214
+                            </span>
+                          </>
                         ) : (
-                          <span className="text-[11.5px] text-ink-3">
-                            ไม่พบข้อกำหนดที่เข้าข่าย ว 214
-                          </span>
+                          <>
+                            <LockSpecBadge
+                              level={proj.lockSpecLevel}
+                              score={proj.lockSpecScore}
+                              outOf100={false}
+                            />
+                            {proj.triggers.length > 0 ? (
+                              <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                                {proj.triggers.map((t) => (
+                                  <span
+                                    key={t.category}
+                                    className="inline-flex items-center rounded-[3px] border border-risk/30 bg-risk/5 px-2 py-0.5 font-mono text-[11px] font-medium text-risk"
+                                  >
+                                    {TRIGGER_NAMES_TH[t.category] ?? t.category}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-[11.5px] text-ink-3">
+                                ไม่พบข้อกำหนดที่เข้าข่าย ว 214
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>

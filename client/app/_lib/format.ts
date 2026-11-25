@@ -66,7 +66,13 @@ export function getFiscalYear(dateStr?: string | Date | null, projectId?: string
 
 export function formatTHB(amount?: number | null): string {
   if (amount == null || Number.isNaN(amount)) return "ไม่ระบุงบประมาณ";
-  return `฿${amount.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  const formatted = Number.isInteger(amount)
+    ? amount.toLocaleString("en-US")
+    : amount.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+  return `฿${formatted}`;
 }
 
 /** Compact form for dense rows: ฿12.4M, ฿890K. */

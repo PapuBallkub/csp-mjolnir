@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bell, LogOut, User, X } from "lucide-react";
+import { Bell, LogOut, Menu, User, X } from "lucide-react";
 import { displayName, useAuth } from "./auth";
 import { ThemeToggle } from "./prefs";
 import { fetchNotifications } from "../_lib/api";
@@ -161,9 +161,9 @@ export function HeaderControls({ className = "" }: { className?: string }) {
               : "การแจ้งเตือน"
           }
           title="การแจ้งเตือน"
-          className="relative flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
+          className="relative flex h-9 w-9 sm:h-[26px] sm:w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
         >
-          <Bell className="h-3.5 w-3.5" />
+          <Bell className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           {activeUnreadCount > 0 ? (
             <span
               className={`absolute -top-1.5 -right-1.5 z-10 flex h-4 min-w-[16px] items-center justify-center rounded-full ${badgeColor} px-1 text-[10px] font-bold text-white shadow-xs pointer-events-none transition-colors duration-150`}
@@ -224,21 +224,21 @@ export function HeaderControls({ className = "" }: { className?: string }) {
         // resolving it moves nothing.
         <span
           aria-hidden="true"
-          className="h-[26px] w-[26px] sm:w-[92px] rounded-[3px] border border-line bg-surface-2"
+          className="h-9 w-9 sm:h-[26px] sm:w-[92px] rounded-[3px] border border-line bg-surface-2"
         />
       ) : status === "authenticated" ? (
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1.5 sm:gap-1">
           <Link
             href="/profile"
             title={user.email}
             aria-label={`โปรไฟล์ของ ${displayName(user)}`}
-            className={`flex h-[26px] items-center rounded-[3px] border px-2 text-[12px] transition-colors ${
+            className={`flex h-9 w-9 sm:h-[26px] sm:w-auto items-center justify-center rounded-[3px] border sm:px-2 text-[12px] transition-colors ${
               pathname?.startsWith("/profile")
                 ? "border-line-2 bg-surface-3 text-ink"
                 : "border-line bg-surface-2 text-ink-2 hover:text-ink"
             }`}
           >
-            <User className="sm:hidden h-3.5 w-3.5 text-ink shrink-0" />
+            <User className="sm:hidden h-4 w-4 text-ink shrink-0" />
             <span className="hidden sm:inline max-w-[130px] truncate">
               {displayName(user)}
             </span>
@@ -248,15 +248,15 @@ export function HeaderControls({ className = "" }: { className?: string }) {
             onClick={() => signOut()}
             aria-label="ออกจากระบบ"
             title="ออกจากระบบ"
-            className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-3 transition-colors hover:text-ink cursor-pointer shrink-0"
+            className="flex h-9 w-9 sm:h-[26px] sm:w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink cursor-pointer shrink-0"
           >
-            <LogOut className="h-3.5 w-3.5" />
+            <LogOut className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           </button>
         </span>
       ) : (
         <Link
           href={signInHref}
-          className="flex h-[26px] items-center rounded-[3px] border border-line-2 bg-surface px-2.5 text-[12px] font-medium text-ink transition-colors hover:bg-surface-2"
+          className="flex h-9 sm:h-[26px] items-center rounded-[3px] border border-line-2 bg-surface px-3 sm:px-2.5 text-[12.5px] sm:text-[12px] font-medium text-ink transition-colors hover:bg-surface-2"
         >
           เข้าสู่ระบบ
         </Link>
@@ -268,20 +268,40 @@ export function HeaderControls({ className = "" }: { className?: string }) {
 export function SiteHeader() {
   const pathname = usePathname();
   const { status, user } = useAuth();
+  const [menuOpenPath, setMenuOpenPath] = useState<string | null>(null);
+  const mobileMenuOpen = menuOpenPath === pathname;
+  const isAdmin = status === "authenticated" && user.role === "admin";
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
-      <div className="mx-auto flex min-h-[52px] max-w-[1240px] items-center gap-2.5 sm:gap-4 px-3 sm:px-4 py-2.5">
+      <div className="mx-auto flex min-h-[52px] max-w-[1240px] items-center gap-2 sm:gap-4 px-3 sm:px-4 py-2">
+        {/* Mobile Hamburger Toggle (< md) */}
+        <button
+          type="button"
+          onClick={() => setMenuOpenPath(mobileMenuOpen ? null : pathname)}
+          aria-expanded={mobileMenuOpen}
+          aria-controls="mobile-site-nav"
+          aria-label={mobileMenuOpen ? "ปิดเมนูนำทาง" : "เปิดเมนูนำทาง"}
+          className="md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink cursor-pointer"
+        >
+          {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        </button>
+
         <Link
           href="/"
-          className="flex h-[26px] items-center text-ink transition-opacity hover:opacity-75 shrink-0"
+          onClick={() => setMenuOpenPath(null)}
+          className="flex h-9 sm:h-[26px] items-center text-ink transition-opacity hover:opacity-75 shrink-0"
           title="หน้าแรก GIPDP"
           aria-label="หน้าแรก GIPDP"
         >
           <Wordmark />
         </Link>
 
-        <nav className="-mx-1 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-1 [mask-image:linear-gradient(to_right,black_calc(100%-18px),transparent_100%)] sm:[mask-image:none]">
+        {/* Desktop Navigation (md+) */}
+        <nav
+          aria-label="เมนูหลัก"
+          className="hidden md:flex min-w-0 flex-1 items-center gap-0.5"
+        >
           {NAV.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
@@ -291,7 +311,7 @@ export function SiteHeader() {
                 className={`rounded-[3px] px-2.5 py-1.5 text-[13px] whitespace-nowrap transition-colors ${
                   active
                     ? "bg-surface-3 font-medium text-ink"
-                    : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                    : "text-ink/80 hover:bg-surface-2 hover:text-ink"
                 }`}
               >
                 {item.label}
@@ -299,11 +319,7 @@ export function SiteHeader() {
             );
           })}
 
-          {/* The divider goes with the link, or an orphan hairline is left
-              floating in the nav. This takes the admin surface off the public
-              page; it does not make /admin private, since that page reads
-              fixtures that ship in the bundle. See 0011. */}
-          {status === "authenticated" && user.role === "admin" ? (
+          {isAdmin ? (
             <>
               <span className="mx-1 h-4 w-px shrink-0 bg-line" />
               <Link
@@ -311,7 +327,7 @@ export function SiteHeader() {
                 className={`rounded-[3px] px-2.5 py-1.5 text-[13px] whitespace-nowrap transition-colors ${
                   pathname.startsWith("/admin")
                     ? "bg-surface-3 font-medium text-ink"
-                    : "text-ink-3 hover:bg-surface-2 hover:text-ink"
+                    : "text-ink/75 hover:bg-surface-2 hover:text-ink"
                 }`}
               >
                 ผู้ดูแลระบบ
@@ -320,8 +336,56 @@ export function SiteHeader() {
           ) : null}
         </nav>
 
-        <HeaderControls />
+        <div className="ml-auto md:ml-0">
+          <HeaderControls />
+        </div>
       </div>
+
+      {/* Mobile Navigation Drawer (< md) */}
+      {mobileMenuOpen ? (
+        <nav
+          id="mobile-site-nav"
+          aria-label="เมนูหลักบนมือถือ"
+          className="md:hidden border-t border-line bg-surface px-3 py-2.5 shadow-md"
+        >
+          <div className="flex flex-col gap-1">
+            {NAV.map((item) => {
+              const active = pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMenuOpenPath(null)}
+                  className={`flex items-center rounded-[3px] px-3 py-2.5 text-[14px] transition-colors ${
+                    active
+                      ? "bg-surface-3 font-semibold text-ink"
+                      : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+
+            {isAdmin ? (
+              <>
+                <div className="my-1 border-t border-line" />
+                <Link
+                  href="/admin"
+                  onClick={() => setMenuOpenPath(null)}
+                  className={`flex items-center rounded-[3px] px-3 py-2.5 text-[14px] transition-colors ${
+                    pathname.startsWith("/admin")
+                      ? "bg-surface-3 font-semibold text-ink"
+                      : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                  }`}
+                >
+                  ผู้ดูแลระบบ
+                </Link>
+              </>
+            ) : null}
+          </div>
+        </nav>
+      ) : null}
     </header>
   );
 }

@@ -225,7 +225,7 @@ export default function NotificationDetailPage() {
       </header>
 
       {/* Project Cards (Polymorphic Snapshot Body) */}
-      <main className="space-y-4">
+      <section aria-label="รายละเอียดรายการแจ้งเตือน" className="space-y-4">
         {notification.type === "amendment" ? (
           <AmendmentView snapshot={snapshot as unknown as Parameters<typeof AmendmentView>[0]["snapshot"]} />
         ) : notification.type === "status_change" ? (
@@ -235,7 +235,7 @@ export default function NotificationDetailPage() {
         ) : (
           <MatchView snapshot={snapshot as unknown as Parameters<typeof MatchView>[0]["snapshot"]} />
         )}
-      </main>
+      </section>
 
       {/* Bottom Back Button: Only shown when there are 10 or more projects */}
       {itemCount >= 10 ? (

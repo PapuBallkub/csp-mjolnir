@@ -1146,7 +1146,7 @@ function AdminDashboard({
         </aside>
 
         {/* Main Content Area */}
-        <main className="w-full min-w-0 min-h-[640px]">
+        <section aria-label="เนื้อหาหลักผู้ดูแลระบบ" className="w-full min-w-0 min-h-[640px]">
           {/* Job 1: Overview & Scrapers */}
           <div className={activeJob === "overview" ? "block w-full" : "hidden"}>
             {!ops ? (
@@ -1671,7 +1671,7 @@ function AdminDashboard({
               onOpenEdit={handleOpenEditTech}
             />
           </div>
-        </main>
+        </section>
       </div>
 
       {/* Record Inspector Modal (FR-24) */}

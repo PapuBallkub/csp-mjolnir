@@ -25,7 +25,9 @@ export function parseFilterParams(sp: SearchParamReader): FilterState {
   const sort: Sort =
     sortParam && SORTS.some((s) => s.id === sortParam)
       ? (sortParam as Sort)
-      : "newest";
+      : sp.get("mode") === "match"
+        ? "match-desc"
+        : "newest";
 
   const bParam = sp.get("budget");
   const budgetBand = BUDGET_BANDS.some((b) => b.id === bParam) ? (bParam as string) : "any";

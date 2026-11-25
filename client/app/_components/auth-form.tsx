@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { googleSignInUrl, type ApiError } from "../_lib/api";
 import { useAuth } from "./auth";
 import { ThemeToggle } from "./prefs";
@@ -75,6 +76,7 @@ export function AuthForm({ next }: { next: string | null }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [consent, setConsent] = useState(false);
   const [pending, setPending] = useState(false);
   const [formError, setFormError] = useState<ApiError | null>(null);
@@ -98,6 +100,7 @@ export function AuthForm({ next }: { next: string | null }) {
     // The password rarely survives a mode switch usefully, and an error about
     // the other form is just noise. The address is worth keeping.
     setPassword("");
+    setShowPassword(false);
     setFormError(null);
   }
 
@@ -256,15 +259,26 @@ export function AuthForm({ next }: { next: string | null }) {
                     </Link>
                   ) : null}
                 </div>
-                <input
-                  id="auth-password"
-                  name="password"
-                  type="password"
-                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={input}
-                />
+                <div className="relative">
+                  <input
+                    id="auth-password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`${input} pr-9`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                    title={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded text-ink-3 transition-colors hover:text-ink cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
                 <FieldError message={fieldErrors.password} />
                 {mode === "signup" ? (
                   <p className="text-[11px] text-ink-3">
@@ -337,7 +351,8 @@ export function AuthForm({ next }: { next: string | null }) {
 
         <div className="flex flex-col gap-4 lg:pt-4">
           <h1 className="text-[24px] leading-thai font-semibold tracking-tight text-ink">
-            ค้นหางานไอทีภาครัฐได้โดยไม่ต้องเปิด PDF สักไฟล์
+            ค้นหางานไอทีภาครัฐได้โดยไม่ต้องเปิด PDF{" "}
+            <span className="whitespace-nowrap">สักไฟล์</span>
           </h1>
           <p className="text-[14px] leading-thai text-ink-2">
             ดูประกาศทั้งหมดได้โดยไม่ต้องสมัคร สมัครเมื่อคุณอยากให้เราคอยดูให้ว่า TOR ถูกแก้ไขเมื่อไหร่ และมีงานใหม่ที่เหมาะสมกับคุณเมื่อไหร่

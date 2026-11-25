@@ -28,7 +28,11 @@ import { failureText, useDebounced } from "./SearchCommon";
 import { FilterRail } from "./FilterRail";
 import { Pagination } from "./Pagination";
 
-export function FilterModeView() {
+export function FilterModeView({
+  onLastUpdated,
+}: {
+  onLastUpdated?: (iso: string | null) => void;
+} = {}) {
   const { profile } = useProfile();
   const { status: authStatus } = useAuth();
   const searchParams = useSearchParams();
@@ -162,12 +166,14 @@ export function FilterModeView() {
   useEffect(() => {
     let cancelled = false;
     torFacets().then((result) => {
-      if (!cancelled) setFacets(result);
+      if (cancelled) return;
+      setFacets(result);
+      if (result.ok) onLastUpdated?.(result.data.lastUpdated);
     });
     return () => {
       cancelled = true;
     };
-  }, [facetsTry]);
+  }, [facetsTry, onLastUpdated]);
 
   /* ------------------------------ search list ----------------------------- */
 
@@ -478,8 +484,8 @@ export function FilterModeView() {
 
       {/* Main Content Column */}
       <div className="w-full min-w-0 min-h-[550px]">
-        <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-2">
-          <div className="relative min-w-0 flex-1">
+        <div className="mb-3 flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="relative w-full min-w-0 sm:flex-1">
             <svg
               viewBox="0 0 16 16"
               className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-3"
@@ -489,6 +495,8 @@ export function FilterModeView() {
               <path d="M10.5 10.5 14 14" stroke="currentColor" strokeWidth="1.4" />
             </svg>
             <input
+              id="catalog-search"
+              name="q"
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -497,12 +505,14 @@ export function FilterModeView() {
               aria-label="ค้นหาประกาศ"
             />
           </div>
-          <label className="flex items-center gap-2 whitespace-nowrap shrink-0">
+          <label htmlFor="catalog-sort" className="flex items-center justify-between sm:justify-start gap-2 whitespace-nowrap shrink-0">
             <Label>เรียงตาม</Label>
             <select
+              id="catalog-sort"
+              name="sort"
               value={sort}
               onChange={(e) => setSort(e.target.value as Sort)}
-              className={`${input} w-auto pr-6`}
+              className={`${input} w-auto pr-8 cursor-pointer`}
             >
               {SORTS.filter((option) =>
                 authStatus === "authenticated"

@@ -151,14 +151,21 @@ export default function NotificationsPage() {
             </p>
           </div>
 
-          {/* Link to Profile Settings */}
-          <div className="shrink-0">
+          {/* Link to Notification & Profile Settings */}
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <Link
+              href="/profile?edit=true"
+              className="inline-flex items-center gap-1.5 rounded-[3px] border border-line bg-surface px-2.5 py-1.5 text-[12px] font-medium text-ink-2 hover:border-line-2 hover:text-ink transition-colors"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              <span>ตั้งค่าการแจ้งเตือนและอีเมล</span>
+            </Link>
             <Link
               href="/profile"
               className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2 hover:text-ink transition-colors"
             >
               <Wrench className="h-3.5 w-3.5" />
-              <span>ตั้งค่าโปรไฟล์และทักษะ</span>
+              <span>โปรไฟล์และทักษะ</span>
             </Link>
           </div>
         </header>
@@ -353,7 +360,7 @@ export default function NotificationsPage() {
                                     {allSkills.length > 0 ? (
                                       <p className="mt-1 line-clamp-1 text-[13px] text-ink-2">
                                         <span className="font-medium text-ink">
-                                          ตรงกับทักษะของคุณ: 
+                                          ตรงกับทักษะของคุณ:{" "}
                                         </span>
                                         {allSkills.join(", ")}
                                       </p>

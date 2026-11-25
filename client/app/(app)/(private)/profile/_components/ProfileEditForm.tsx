@@ -1022,10 +1022,13 @@ export function ProfileEditForm({
                       </div>
                       <div className="flex items-center gap-2.5 w-full max-w-xs">
                         <input
+                          id="match-score-threshold"
+                          name="matchMinScore"
                           type="range"
                           min={50}
                           max={95}
                           step={5}
+                          aria-label="เกณฑ์คะแนนความเหมาะสมขั้นต่ำ"
                           value={draft.matchNotification?.minScore ?? 75}
                           onChange={(e) => {
                             const val = Number(e.target.value);
@@ -1100,10 +1103,13 @@ export function ProfileEditForm({
                       </div>
                       <div className="flex items-center gap-2.5 w-full max-w-xs">
                         <input
+                          id="deadline-notice-days"
+                          name="deadlineNoticeDays"
                           type="range"
                           min={1}
                           max={30}
                           step={1}
+                          aria-label="ระยะเวลาแจ้งเตือนล่วงหน้าก่อนปิดรับข้อเสนอ (วัน)"
                           value={draft.deadlineNoticeDays ?? 3}
                           onChange={(e) => {
                             const val = Number(e.target.value);

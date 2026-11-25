@@ -143,20 +143,20 @@ export function ProfileDisplay({
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 shrink-0 w-full sm:w-auto">
             <button
               type="button"
               onClick={onEdit}
-              className={`${btn.primary} inline-flex items-center gap-1.5 text-[13px]`}
+              className={`${btn.primary} inline-flex items-center justify-center gap-1.5 text-[13px] whitespace-nowrap`}
             >
-              <Pencil className="h-3.5 w-3.5" />
+              <Pencil className="h-3.5 w-3.5 shrink-0" />
               <span>แก้ไขข้อมูลโปรไฟล์</span>
             </button>
             <Link
-              href="/search?mode=match"
-              className={`${btn.secondary} inline-flex items-center gap-1.5 text-[13px]`}
+              href="/search?sort=match-desc"
+              className={`${btn.secondary} inline-flex items-center justify-center gap-1.5 text-[13px] whitespace-nowrap`}
             >
-              <Search className="h-3.5 w-3.5" />
+              <Search className="h-3.5 w-3.5 shrink-0" />
               <span>ดูประกาศที่เหมาะสมกับฉัน</span>
             </Link>
           </div>
@@ -164,11 +164,11 @@ export function ProfileDisplay({
 
         {/* Profile Completeness Bar */}
         <div className="mt-6 rounded-[4px] border border-line bg-surface-2/40 p-4">
-          <div className="flex items-center justify-between text-[13px]">
+          <div className="flex items-center justify-between gap-2 text-[13px]">
             <span className="font-semibold text-ink">
               ความสมบูรณ์ของโปรไฟล์ (Profile Completeness)
             </span>
-            <span className="font-mono font-bold text-ink">
+            <span className="font-mono font-bold text-ink whitespace-nowrap shrink-0 tnum">
               {completeness.score}%
             </span>
           </div>

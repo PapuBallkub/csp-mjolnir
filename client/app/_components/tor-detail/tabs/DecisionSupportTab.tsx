@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { TorInsightDetail } from "../../../_lib/api";
 import { formatTHB, type RiskLevel } from "../../../_data/tors";
+import { getArchetypeLabel, type SystemArchetype } from "../../../_data/watchdog";
 import {
   InsightPriceBadge,
   LockSpecBadge,
@@ -177,7 +178,7 @@ export function DecisionSupportTab({
                 </div>
                 <p className="mt-1 text-[11px] leading-thai text-ink-3">
                   {match.breakdown.archetype.torArchetype
-                    ? `ประเภทระบบ: ${match.breakdown.archetype.torArchetype}${match.breakdown.archetype.isPreferred ? " (ตรงกับงานที่คุณถนัด)" : ""}`
+                    ? `ประเภทระบบ: ${getArchetypeLabel(match.breakdown.archetype.torArchetype as SystemArchetype)}${match.breakdown.archetype.isPreferred ? " (ตรงกับงานที่คุณถนัด)" : ""}`
                     : "TOR ไม่ระบุสถาปัตยกรรมเจาะจง (คิดคะแนนพื้นฐาน)"}
                 </p>
               </div>
@@ -550,7 +551,13 @@ export function DecisionSupportTab({
         <AccentPanel tone={priceTone} className="px-4 py-5 sm:px-6 sm:py-6">
           <SectionHeading
             sub="เปรียบเทียบราคากลางกับค่ามัธยฐานและค่าเฉลี่ยของโครงการที่ใกล้เคียงกันในอดีต"
-            right={<InsightPriceBadge diffPercentage={price.diffPercentage} sampleSize={sampleCount} />}
+            right={
+              <InsightPriceBadge
+                diffPercentage={price.diffPercentage}
+                sampleSize={sampleCount}
+                historicalMedianTHB={price.historicalMedianTHB}
+              />
+            }
           >
             ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)
           </SectionHeading>

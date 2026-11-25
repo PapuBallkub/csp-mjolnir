@@ -96,6 +96,7 @@ export type TimePoint = {
 
 export type PriceRealityMetrics = {
   torCount: number;
+  comparedCount: number;
   overallMedian: number;
   overallAverage: number;
   avgDeltaPct: number;
