@@ -52,7 +52,7 @@ export function Pagination({
     <nav
       role="navigation"
       aria-label="การแบ่งหน้า"
-      className="mt-6 flex flex-col gap-3 rounded-[4px] border border-line bg-surface p-3 sm:flex-row sm:items-center sm:justify-between"
+      className="mt-6 flex flex-col gap-3 rounded-2xl border border-line bg-surface p-3 shadow-xs sm:flex-row sm:items-center sm:justify-between"
     >
       {/* Items Range Summary & Page Size Controls */}
       <div className="flex flex-wrap items-center gap-3 text-[12.5px] text-ink-2">
@@ -65,14 +65,14 @@ export function Pagination({
         {onPageSizeChange && (
           <div className="flex items-center gap-1.5 border-l border-line pl-3">
             <span className="text-ink-3 text-[12px]">แสดงหน้าละ:</span>
-            <div className="inline-flex rounded-[3px] border border-line bg-surface-2 p-[2px]">
+            <div className="inline-flex rounded-full border border-line bg-surface-2 p-[2px]">
               {pageSizeOptions.map((opt) => (
                 <button
                   key={opt}
                   type="button"
                   onClick={() => onPageSizeChange(opt)}
                   disabled={disabled}
-                  className={`flex h-5 items-center justify-center rounded-[2px] px-2 text-[11px] font-medium transition-colors cursor-pointer ${
+                  className={`flex h-5 items-center justify-center rounded-full px-2.5 text-[11px] font-medium transition-colors cursor-pointer ${
                     pageSize === opt
                       ? "bg-surface text-ink font-semibold shadow-xs"
                       : "text-ink-3 hover:text-ink"
@@ -96,7 +96,7 @@ export function Pagination({
             type="button"
             onClick={() => onPageChange(currentPage - 1)}
             disabled={disabled || currentPage <= 1}
-            className={`flex h-7 items-center justify-center rounded-[3px] border px-2.5 text-[12px] font-medium transition-colors cursor-pointer ${
+            className={`flex h-7 items-center justify-center rounded-full border px-3 text-[12px] font-medium transition-colors cursor-pointer ${
               currentPage <= 1 || disabled
                 ? "border-line/60 text-ink-4 cursor-not-allowed opacity-40"
                 : "border-line bg-surface-2 text-ink hover:bg-surface-3"
@@ -127,7 +127,7 @@ export function Pagination({
                   type="button"
                   onClick={() => onPageChange(item)}
                   disabled={disabled || isCurrent}
-                  className={`flex h-7 min-w-[28px] items-center justify-center rounded-[3px] px-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                  className={`flex h-7 min-w-[28px] items-center justify-center rounded-full px-1.5 text-[12px] font-medium transition-colors cursor-pointer ${
                     isCurrent
                       ? "border border-line bg-ink text-surface font-semibold shadow-xs"
                       : disabled
@@ -153,7 +153,7 @@ export function Pagination({
             type="button"
             onClick={() => onPageChange(currentPage + 1)}
             disabled={disabled || currentPage >= safePages}
-            className={`flex h-7 items-center justify-center rounded-[3px] border px-2.5 text-[12px] font-medium transition-colors cursor-pointer ${
+            className={`flex h-7 items-center justify-center rounded-full border px-3 text-[12px] font-medium transition-colors cursor-pointer ${
               currentPage >= safePages || disabled
                 ? "border-line/60 text-ink-4 cursor-not-allowed opacity-40"
                 : "border-line bg-surface-2 text-ink hover:bg-surface-3"

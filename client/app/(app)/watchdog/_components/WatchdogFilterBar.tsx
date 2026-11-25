@@ -265,7 +265,7 @@ export function WatchdogFilterBar({
               setRiskOpen(false);
               setCompOpen(false);
             }}
-            className={`flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 px-2.5 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
+            className={`flex h-9 w-full items-center justify-between rounded-[10px] border border-line-2 px-3 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
               isCatFiltered || catOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
             }`}
           >
@@ -288,7 +288,7 @@ export function WatchdogFilterBar({
           </button>
 
           {catOpen ? (
-            <div className="absolute top-[62px] left-0 z-30 w-full min-w-[280px] rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
+            <div className="absolute top-[62px] left-0 z-30 w-full min-w-[280px] rounded-xl border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
                 <span className="text-ink-3 font-normal">
                   เลือกเจาะจง...
@@ -317,7 +317,7 @@ export function WatchdogFilterBar({
                   return (
                     <label
                       key={opt.id}
-                      className="flex items-center gap-2 rounded px-2 py-1.5 text-[12px] text-ink hover:bg-surface-2 cursor-pointer"
+                      className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] text-ink hover:bg-surface-2 cursor-pointer"
                     >
                       <input
                         type="checkbox"
@@ -350,7 +350,7 @@ export function WatchdogFilterBar({
               setRiskOpen(false);
               setCompOpen(false);
             }}
-            className={`flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 px-2.5 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
+            className={`flex h-9 w-full items-center justify-between rounded-[10px] border border-line-2 px-3 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
               isArchFiltered || archOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
             }`}
           >
@@ -373,7 +373,7 @@ export function WatchdogFilterBar({
           </button>
 
           {archOpen ? (
-            <div className="absolute top-[62px] left-0 z-30 w-full min-w-[280px] rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
+            <div className="absolute top-[62px] left-0 z-30 w-full min-w-[280px] rounded-xl border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
                 <span className="text-ink-3 font-normal">
                   เลือกเจาะจง...
@@ -402,7 +402,7 @@ export function WatchdogFilterBar({
                   return (
                     <label
                       key={opt.id}
-                      className="flex items-center gap-2 rounded px-2 py-1.5 text-[12px] text-ink hover:bg-surface-2 cursor-pointer"
+                      className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] text-ink hover:bg-surface-2 cursor-pointer"
                     >
                       <input
                         type="checkbox"
@@ -435,7 +435,7 @@ export function WatchdogFilterBar({
               setRiskOpen(false);
               setCompOpen(false);
             }}
-            className={`flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 px-2.5 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
+            className={`flex h-9 w-full items-center justify-between rounded-[10px] border border-line-2 px-3 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
               isAgencyFiltered || agencyOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
             }`}
           >
@@ -456,13 +456,13 @@ export function WatchdogFilterBar({
           </button>
 
           {agencyOpen ? (
-            <div className="absolute top-[62px] left-0 z-30 w-full min-w-[320px] rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
+            <div className="absolute top-[62px] left-0 z-30 w-full min-w-[320px] rounded-xl border border-line-2 bg-surface p-2 shadow-lg">
               <input
                 type="text"
                 placeholder="ค้นหาหน่วยงาน..."
                 value={agencySearch}
                 onChange={(e) => setAgencySearch(e.target.value)}
-                className="mb-1.5 w-full rounded border border-line-2 bg-surface px-2 py-1 text-[11.5px] text-ink focus:outline-none focus:border-ink"
+                className="mb-1.5 w-full rounded-lg border border-line-2 bg-surface px-2.5 py-1 text-[11.5px] text-ink focus:outline-none focus:border-ink"
               />
               <div className="mb-1.5 flex items-center justify-between border-b border-line pb-1 text-[11px]">
                 <span className="text-ink-3 font-normal">
@@ -490,7 +490,7 @@ export function WatchdogFilterBar({
                 {filteredAgencies.map((agency) => (
                   <label
                     key={agency.th}
-                    className="flex items-center justify-between gap-2 rounded px-2 py-1 text-[11.5px] text-ink hover:bg-surface-2 cursor-pointer"
+                    className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-[11.5px] text-ink hover:bg-surface-2 cursor-pointer"
                   >
                     <div className="flex items-center gap-2 truncate">
                       <input
@@ -520,7 +520,7 @@ export function WatchdogFilterBar({
       {/* Row 2: Price Range Box (~78%) on Left + Time Period (~22%) on Right */}
       <div className="mt-3.5 flex flex-col lg:flex-row items-stretch lg:items-end gap-3.5">
         {/* Left: Dedicated Price Range Bar Box */}
-        <div className="flex-1 rounded-[3px] border border-line bg-surface-2/60 p-2.5">
+        <div className="flex-1 rounded-xl border border-line bg-surface-2/60 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[12px]">
             <Label>
               ช่วงราคากลางที่เลือก:
@@ -660,7 +660,7 @@ export function WatchdogFilterBar({
                   setLastEditedField("start");
                   onStartMonthChange(`${startYearNum}-${e.target.value}`);
                 }}
-                className={`h-9 rounded-[3px] border bg-surface px-1.5 text-[11.5px] cursor-pointer focus:outline-none flex-1 min-w-0 ${
+                className={`h-9 rounded-[10px] border bg-surface px-1.5 text-[11.5px] cursor-pointer focus:outline-none flex-1 min-w-0 ${
                   isStartInvalid
                     ? "border-risk text-risk bg-risk/5 focus:border-risk ring-1 ring-risk/40 font-semibold"
                     : "border-line-2 text-ink hover:border-ink"
@@ -681,7 +681,7 @@ export function WatchdogFilterBar({
                   setLastEditedField("start");
                   onStartMonthChange(`${e.target.value}-${startMonthVal}`);
                 }}
-                className={`h-9 rounded-[3px] border bg-surface px-1.5 text-[11.5px] cursor-pointer focus:outline-none w-[68px] shrink-0 font-mono ${
+                className={`h-9 rounded-[10px] border bg-surface px-1.5 text-[11.5px] cursor-pointer focus:outline-none w-[68px] shrink-0 font-mono ${
                   isStartInvalid
                     ? "border-risk text-risk bg-risk/5 focus:border-risk ring-1 ring-risk/40 font-semibold"
                     : "border-line-2 text-ink hover:border-ink"
@@ -713,7 +713,7 @@ export function WatchdogFilterBar({
                   setLastEditedField("end");
                   onEndMonthChange(`${endYearNum}-${e.target.value}`);
                 }}
-                className={`h-9 rounded-[3px] border bg-surface px-1.5 text-[11.5px] cursor-pointer focus:outline-none flex-1 min-w-0 ${
+                className={`h-9 rounded-[10px] border bg-surface px-1.5 text-[11.5px] cursor-pointer focus:outline-none flex-1 min-w-0 ${
                   isEndInvalid
                     ? "border-risk text-risk bg-risk/5 focus:border-risk ring-1 ring-risk/40 font-semibold"
                     : "border-line-2 text-ink hover:border-ink"
@@ -734,7 +734,7 @@ export function WatchdogFilterBar({
                   setLastEditedField("end");
                   onEndMonthChange(`${e.target.value}-${endMonthVal}`);
                 }}
-                className={`h-9 rounded-[3px] border bg-surface px-1.5 text-[11.5px] cursor-pointer focus:outline-none w-[68px] shrink-0 font-mono ${
+                className={`h-9 rounded-[10px] border bg-surface px-1.5 text-[11.5px] cursor-pointer focus:outline-none w-[68px] shrink-0 font-mono ${
                   isEndInvalid
                     ? "border-risk text-risk bg-risk/5 focus:border-risk ring-1 ring-risk/40 font-semibold"
                     : "border-line-2 text-ink hover:border-ink"
@@ -769,7 +769,7 @@ export function WatchdogFilterBar({
               setArchOpen(false);
               setAgencyOpen(false);
             }}
-            className={`flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 px-2.5 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
+            className={`flex h-9 w-full items-center justify-between rounded-[10px] border border-line-2 px-3 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
               isStatusFiltered || statusOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
             }`}
           >
@@ -792,7 +792,7 @@ export function WatchdogFilterBar({
           </button>
 
           {statusOpen ? (
-            <div className="absolute top-[62px] left-0 z-30 w-full rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
+            <div className="absolute top-[62px] left-0 z-30 w-full rounded-xl border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
                 <span className="text-ink-3 font-normal">
                   เลือกเจาะจง...
@@ -819,7 +819,7 @@ export function WatchdogFilterBar({
                 {STATUS_ITEMS.map((item) => (
                   <label
                     key={item.id}
-                    className="flex items-center gap-2 rounded px-2 py-1.5 text-[12px] text-ink hover:bg-surface-2 cursor-pointer"
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] text-ink hover:bg-surface-2 cursor-pointer"
                   >
                     <input
                       type="checkbox"
@@ -851,7 +851,7 @@ export function WatchdogFilterBar({
               setArchOpen(false);
               setAgencyOpen(false);
             }}
-            className={`flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 px-2.5 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
+            className={`flex h-9 w-full items-center justify-between rounded-[10px] border border-line-2 px-3 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
               isRiskFiltered || riskOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
             }`}
           >
@@ -874,7 +874,7 @@ export function WatchdogFilterBar({
           </button>
 
           {riskOpen ? (
-            <div className="absolute top-[62px] left-0 z-30 w-full rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
+            <div className="absolute top-[62px] left-0 z-30 w-full rounded-xl border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
                 <span className="text-ink-3 font-normal">
                   เลือกเจาะจง...
@@ -901,7 +901,7 @@ export function WatchdogFilterBar({
                 {RISK_ITEMS.map((item) => (
                   <label
                     key={item.id}
-                    className="flex items-center gap-2 rounded px-2 py-1.5 text-[12px] text-ink hover:bg-surface-2 cursor-pointer"
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] text-ink hover:bg-surface-2 cursor-pointer"
                   >
                     <input
                       type="checkbox"
@@ -935,7 +935,7 @@ export function WatchdogFilterBar({
               setArchOpen(false);
               setAgencyOpen(false);
             }}
-            className={`flex h-9 w-full items-center justify-between rounded-[3px] border border-line-2 px-2.5 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
+            className={`flex h-9 w-full items-center justify-between rounded-[10px] border border-line-2 px-3 text-[12.5px] hover:border-ink cursor-pointer transition-colors ${
               isCompFiltered || compOpen ? "bg-surface-2/80 text-ink font-medium" : "bg-surface text-ink"
             }`}
           >
@@ -958,7 +958,7 @@ export function WatchdogFilterBar({
           </button>
 
           {compOpen ? (
-            <div className="absolute top-[62px] left-0 z-30 w-full rounded-[4px] border border-line-2 bg-surface p-2 shadow-lg">
+            <div className="absolute top-[62px] left-0 z-30 w-full rounded-xl border border-line-2 bg-surface p-2 shadow-lg">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5 text-[11px]">
                 <span className="text-ink-3 font-normal">
                   เลือกเจาะจง...
@@ -985,7 +985,7 @@ export function WatchdogFilterBar({
                 {COMPLEXITY_ITEMS.map((item) => (
                   <label
                     key={item.id}
-                    className="flex items-center gap-2 rounded px-2 py-1.5 text-[12px] text-ink hover:bg-surface-2 cursor-pointer"
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] text-ink hover:bg-surface-2 cursor-pointer"
                   >
                     <input
                       type="checkbox"

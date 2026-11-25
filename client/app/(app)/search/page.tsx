@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { torFacets } from "../../_lib/api";
 import { saveLastSearchUrl } from "./_lib/search-params";
 import { formatUpdated } from "./_components/SearchCommon";
 import { FilterModeView } from "./_components/FilterModeView";
@@ -12,9 +11,6 @@ function BrowsePageContent() {
   // Save current search location in sessionStorage on mount
   useEffect(() => {
     saveLastSearchUrl();
-    torFacets().then((result) => {
-      if (result.ok) setLastUpdated(result.data.lastUpdated);
-    });
   }, []);
 
   return (
@@ -38,7 +34,7 @@ function BrowsePageContent() {
       </header>
 
       {/* Main Filter & Match Catalog View */}
-      <FilterModeView />
+      <FilterModeView onLastUpdated={setLastUpdated} />
     </div>
   );
 }

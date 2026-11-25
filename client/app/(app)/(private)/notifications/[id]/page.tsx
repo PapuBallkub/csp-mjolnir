@@ -102,12 +102,12 @@ export default function NotificationDetailPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-[900px] px-4 py-8">
-        <div className="mb-4 h-6 w-32 animate-pulse rounded bg-surface-2" />
-        <div className="mb-6 h-28 animate-pulse rounded-md border border-line bg-surface-2" />
+      <div className="mx-auto w-full max-w-[900px] px-4 py-8">
+        <div className="mb-4 h-6 w-32 animate-pulse rounded-full bg-surface-2" />
+        <div className="mb-6 h-28 animate-pulse rounded-2xl border border-line bg-surface-2" />
         <div className="space-y-4">
-          <div className="h-44 animate-pulse rounded border border-line bg-surface-2" />
-          <div className="h-44 animate-pulse rounded border border-line bg-surface-2" />
+          <div className="h-44 animate-pulse rounded-2xl border border-line bg-surface-2" />
+          <div className="h-44 animate-pulse rounded-2xl border border-line bg-surface-2" />
         </div>
       </div>
     );
@@ -115,7 +115,7 @@ export default function NotificationDetailPage() {
 
   if (error || !notification) {
     return (
-      <div className="mx-auto max-w-[900px] px-4 py-8">
+      <div className="mx-auto w-full max-w-[900px] px-4 py-8">
         <Link
           href="/notifications"
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-2 hover:text-ink"
@@ -150,7 +150,7 @@ export default function NotificationDetailPage() {
   const headerContent = getHeaderContent(notification.type, itemCount);
 
   return (
-    <div className="mx-auto max-w-[900px] px-4 py-8">
+    <div className="mx-auto w-full max-w-[900px] px-4 py-8">
       {/* Top back navigation */}
       <div className="mb-4">
         <Link
@@ -163,32 +163,32 @@ export default function NotificationDetailPage() {
       </div>
 
       {/* Header Container Panel */}
-      <header className="mb-6 rounded-md border border-line bg-surface p-5 shadow-xs">
+      <header className="mb-6 rounded-2xl border border-line bg-surface p-5 shadow-xs">
         {/* Row 1: Type badge on left, timestamp & email status on right */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
           <div className="flex items-center gap-2">
             {notification.type === "match" ? (
-              <span className="inline-flex items-center gap-1.5 rounded bg-open-bg px-2.5 py-0.5 text-[11.5px] font-semibold text-open border border-open-line">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-open-bg px-2.5 py-0.5 text-[11.5px] font-semibold text-open border border-open-line">
                 <BowArrow className="h-3.5 w-3.5" />
                 <span>{headerContent.badgeText}</span>
               </span>
             ) : notification.type === "amendment" ? (
-              <span className="inline-flex items-center gap-1.5 rounded bg-amber-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-amber-800 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-amber-800 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
                 <FileEdit className="h-3.5 w-3.5" />
                 <span>{headerContent.badgeText}</span>
               </span>
             ) : notification.type === "status_change" ? (
-              <span className="inline-flex items-center gap-1.5 rounded bg-blue-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-blue-800 border border-blue-300 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-blue-800 border border-blue-300 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
                 <ArrowRightLeft className="h-3.5 w-3.5" />
                 <span>{headerContent.badgeText}</span>
               </span>
             ) : notification.type === "deadline" ? (
-              <span className="inline-flex items-center gap-1.5 rounded bg-orange-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-orange-800 border border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-orange-800 border border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800">
                 <Clock className="h-3.5 w-3.5" />
                 <span>{headerContent.badgeText}</span>
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded bg-surface-3 px-2.5 py-0.5 text-[11.5px] font-semibold text-ink border border-line">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-3 px-2.5 py-0.5 text-[11.5px] font-semibold text-ink border border-line">
                 <span>{notification.type}</span>
               </span>
             )}
@@ -217,7 +217,7 @@ export default function NotificationDetailPage() {
             </p>
           </div>
           <div className="shrink-0 self-start sm:self-center">
-            <span className="inline-flex items-center rounded-md border border-line bg-surface-2 px-3 py-1 text-[12.5px] font-medium text-ink-2">
+            <span className="inline-flex items-center rounded-full border border-line bg-surface-2 px-3 py-1 text-[12.5px] font-medium text-ink-2">
               {`${itemCount} โครงการ`}
             </span>
           </div>
@@ -225,7 +225,7 @@ export default function NotificationDetailPage() {
       </header>
 
       {/* Project Cards (Polymorphic Snapshot Body) */}
-      <main className="space-y-4">
+      <section aria-label="รายละเอียดรายการแจ้งเตือน" className="space-y-4">
         {notification.type === "amendment" ? (
           <AmendmentView snapshot={snapshot as unknown as Parameters<typeof AmendmentView>[0]["snapshot"]} />
         ) : notification.type === "status_change" ? (
@@ -235,7 +235,7 @@ export default function NotificationDetailPage() {
         ) : (
           <MatchView snapshot={snapshot as unknown as Parameters<typeof MatchView>[0]["snapshot"]} />
         )}
-      </main>
+      </section>
 
       {/* Bottom Back Button: Only shown when there are 10 or more projects */}
       {itemCount >= 10 ? (

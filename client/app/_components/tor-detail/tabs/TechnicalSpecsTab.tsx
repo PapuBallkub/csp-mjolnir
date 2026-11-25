@@ -80,7 +80,7 @@ export function TechnicalSpecsTab({
         {tech.infrastructureSpecifications && tech.infrastructureSpecifications.length > 0 ? (
           <div className="mt-5 border-t border-line/60 pt-4">
             <Label>ข้อกำหนดโครงสร้างพื้นฐานและฮาร์ดแวร์</Label>
-            <div className="mt-2 divide-y divide-line rounded-[3px] border border-line bg-surface-2/30">
+            <div className="mt-2 divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface-2/30">
               {tech.infrastructureSpecifications.map((spec, idx) => (
                 <div
                   key={idx}

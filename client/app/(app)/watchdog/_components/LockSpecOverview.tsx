@@ -10,6 +10,7 @@ import { RiskMeter, TONE } from "../../../_components/verdict";
 
 export type LockSpecOverviewProps = {
   extractedCount: number;
+  unanalyzedCount?: number;
   lowCount: number;
   medCount: number;
   highCount: number;
@@ -18,6 +19,7 @@ export type LockSpecOverviewProps = {
 
 export function LockSpecOverview({
   extractedCount,
+  unanalyzedCount = 0,
   lowCount,
   medCount,
   highCount,
@@ -44,14 +46,14 @@ export function LockSpecOverview({
                 สัดส่วนระดับความเสี่ยงในกลุ่มนี้
               </h3>
               <span className="font-mono text-[11px] text-ink-3">
-                {extractedCount}{" "}
-                โครงการที่วิเคราะห์
+                {extractedCount.toLocaleString()}{" "}
+                โครงการที่วิเคราะห์แล้ว
               </span>
             </div>
 
-            {/* Stacked Proportional Bar */}
+            {/* Stacked Proportional Bar or Unanalyzed Notice */}
             {extractedCount > 0 ? (
-              <div className="mt-3 flex h-3.5 w-full overflow-hidden rounded-[2px] border border-line bg-surface-2">
+              <div className="mt-3 flex h-3.5 w-full overflow-hidden rounded-full border border-line bg-surface-2">
                 {highCount > 0 ? (
                   <div
                     style={{ width: `${(highCount / extractedCount) * 100}%` }}
@@ -73,6 +75,10 @@ export function LockSpecOverview({
                     title={`Low Risk: ${lowCount} (${lowPct}%)`}
                   />
                 ) : null}
+              </div>
+            ) : unanalyzedCount > 0 ? (
+              <div className="mt-3 rounded-xl border border-dashed border-line-2 bg-surface-2 px-3 py-2.5 text-[12px] leading-thai text-ink-2">
+                โครงการทั้ง {unanalyzedCount.toLocaleString()} รายการในตัวกรองนี้ยังไม่ได้ผ่านการวิเคราะห์ล็อกสเปก — ระบบจะไม่แสดงคะแนนหรือระดับความเสี่ยงจนกว่าจะวิเคราะห์เสร็จ
               </div>
             ) : null}
 
@@ -120,12 +126,31 @@ export function LockSpecOverview({
                   </div>
                   <div className="shrink-0 text-right font-mono tnum">
                     <span className="text-[14px] font-semibold text-ink">
-                      {row.count}
+                      {extractedCount > 0 ? row.count : "—"}
                     </span>
-                    <span className="ml-1.5 text-[11.5px] text-ink-3">({row.pct}%)</span>
+                    {extractedCount > 0 ? (
+                      <span className="ml-1.5 text-[11.5px] text-ink-3">({row.pct}%)</span>
+                    ) : null}
                   </div>
                 </div>
               ))}
+              {unanalyzedCount > 0 ? (
+                <div className="flex w-full items-center justify-between gap-3 px-2 py-2.5 text-left">
+                  <div className="min-w-0">
+                    <span className="text-[12.5px] font-medium text-ink-2">
+                      ยังไม่ได้วิเคราะห์ล็อกสเปก
+                    </span>
+                    <p className="mt-0.5 text-[11.5px] leading-thai text-ink-3">
+                      รอการประเมินจากระบบตรวจวิเคราะห์ ว 214 (ไม่นำมานับเป็นความเสี่ยงต่ำ)
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right font-mono tnum">
+                    <span className="text-[13.5px] font-semibold text-ink-2">
+                      {unanalyzedCount.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -152,12 +177,12 @@ export function LockSpecOverview({
                 return (
                   <div
                     key={trig.id}
-                    className="flex flex-col gap-1.5 rounded-[3px] border border-line bg-surface-2 p-3 text-left"
+                    className="flex flex-col gap-1.5 rounded-xl border border-line bg-surface-2 p-3 text-left"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-start gap-2">
                         <span
-                          className={`mt-0.5 shrink-0 rounded-[2px] border px-1.5 py-0.5 font-mono text-[10.5px] font-medium ${TONE.risk.bg} ${TONE.risk.border} ${TONE.risk.text}`}
+                          className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10.5px] font-medium ${TONE.risk.bg} ${TONE.risk.border} ${TONE.risk.text}`}
                         >
                           {trig.code}
                         </span>

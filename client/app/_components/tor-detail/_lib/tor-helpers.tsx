@@ -10,14 +10,23 @@ import {
 import { formatDate, getEgpPackageUrl } from "../../../_lib/format";
 import { Panel, SectionHeading } from "../../ui";
 
+function formatBahtNumber(amount: number): string {
+  return Number.isInteger(amount)
+    ? amount.toLocaleString("en-US")
+    : amount.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+}
+
 export function formatMoney(amount: number | null | undefined): string {
   if (amount == null) return "ไม่ระบุใน TOR";
-  return `฿${amount.toLocaleString("en-US")}`;
+  return `฿${formatBahtNumber(amount)}`;
 }
 
 export function formatBenchmarkMoney(amount: number | null | undefined): string {
-  if (amount == null) return "ไม่มีข้อมูลอ้างอิง";
-  return `฿${amount.toLocaleString("en-US")}`;
+  if (amount == null || amount <= 0) return "ไม่มีข้อมูลอ้างอิง";
+  return `฿${formatBahtNumber(amount)}`;
 }
 
 export function formatSignedDiff(
@@ -31,7 +40,7 @@ export function formatSignedDiff(
   const pctStr = `${sign}${percentage}%`;
   if (amount != null && !Number.isNaN(amount)) {
     const amtSign = amount > 0 ? "+" : amount < 0 ? "-" : "";
-    const amtStr = `${amtSign}฿${Math.abs(amount).toLocaleString("en-US")}`;
+    const amtStr = `${amtSign}฿${formatBahtNumber(Math.abs(amount))}`;
     return {
       text: `${pctStr} (${amtStr})`,
       hasValue: true,
@@ -156,7 +165,7 @@ export function ChangeSourceLine({ change }: { change: TorChange }) {
 
 export function FoundNote() {
   return (
-    <p className="mt-2 rounded-[2px] border border-dashed border-closed-line bg-surface px-2.5 py-1.5 text-[12.5px] leading-thai text-ink-2">
+    <p className="mt-2 rounded-lg border border-dashed border-closed-line bg-surface px-3 py-1.5 text-[12.5px] leading-thai text-ink-2">
       {FOUND_NOTE}
     </p>
   );
@@ -170,7 +179,7 @@ export function FoundNote() {
 export function ChangeNotice({ change }: { change: TorChange }) {
   const { title, body } = pendingNotice(change);
   return (
-    <div className="mt-3 max-w-4xl rounded-[3px] border border-l-[4px] border-amend-line border-l-amend bg-amend-bg px-3.5 py-3">
+    <div className="mt-3 rounded-xl border border-l-[4px] border-amend-line border-l-amend bg-amend-bg px-3.5 py-3">
       <p className="text-[14px] font-semibold leading-thai text-amend">{title}</p>
       <ChangeSourceLine change={change} />
       <p className="mt-1 text-[12.5px] leading-thai text-ink-2">{body}</p>

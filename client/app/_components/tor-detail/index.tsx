@@ -3,7 +3,8 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ClipboardList, FileText, Search, Settings, type LucideIcon } from "lucide-react";
 import type { TorInsightDetail } from "../../_lib/api";
 import { type RiskLevel } from "../../_data/tors";
 import { markerSource, pendingChange } from "../../_lib/changes";
@@ -32,7 +33,7 @@ export type TabKey = "overview" | "specs" | "analysis" | "eligibility";
 interface TabItem {
   key: TabKey;
   label: string;
-  icon: string;
+  icon: LucideIcon;
 }
 
 export function TorDetail({
@@ -72,7 +73,7 @@ export function TorDetail({
 
       if (window.location.hash === "#profile-match") {
         e.preventDefault();
-        router.push("/search?mode=match");
+        router.push("/search?sort=match-desc");
         return;
       }
     }
@@ -101,6 +102,15 @@ export function TorDetail({
     }
     return "overview";
   });
+  const tabRefs = useRef<Partial<Record<TabKey, HTMLButtonElement | null>>>({});
+
+  useEffect(() => {
+    tabRefs.current[activeTab]?.scrollIntoView({
+      behavior: "smooth",
+      inline: "nearest",
+      block: "nearest",
+    });
+  }, [activeTab]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -182,22 +192,22 @@ export function TorDetail({
     {
       key: "overview",
       label: "ภาพรวม & ขอบเขตงาน",
-      icon: "📋",
+      icon: ClipboardList,
     },
     {
       key: "specs",
       label: "ข้อกำหนดทางเทคนิค",
-      icon: "⚙️",
+      icon: Settings,
     },
     {
       key: "analysis",
       label: "การวิเคราะห์ & ความเหมาะสม",
-      icon: "🔍",
+      icon: Search,
     },
     {
       key: "eligibility",
       label: "คุณสมบัติ & เอกสาร",
-      icon: "📑",
+      icon: FileText,
     },
   ];
 
@@ -231,9 +241,13 @@ export function TorDetail({
           >
             {tabs.map((tab) => {
               const isActive = activeTab === tab.key;
+              const TabIcon = tab.icon;
               return (
                 <button
                   key={tab.key}
+                  ref={(el) => {
+                    tabRefs.current[tab.key] = el;
+                  }}
                   role="tab"
                   aria-selected={isActive}
                   aria-controls={`tab-panel-${tab.key}`}
@@ -243,13 +257,13 @@ export function TorDetail({
                       window.history.replaceState(null, "", `#${tab.key}`);
                     }
                   }}
-                  className={`inline-flex shrink-0 items-center gap-2 rounded-[4px] px-3.5 py-2 text-[13px] font-medium transition-all cursor-pointer ${
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-all cursor-pointer ${
                     isActive
                       ? "bg-ink text-surface shadow-sm"
                       : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                   }`}
                 >
-                  <span className="text-[14px]">{tab.icon}</span>
+                  <TabIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -279,7 +293,7 @@ export function TorDetail({
         <div className="order-2 lg:order-1 flex min-w-0 flex-col gap-6">
           {/* Status Alert if Closed or Cancelled */}
           {iden.status === "Closed" || iden.status === "Cancelled" ? (
-            <div className="rounded-[3px] border border-l-[4px] border-line border-l-closed bg-closed-bg px-4 py-3.5">
+            <div className="rounded-xl border border-l-[4px] border-line border-l-closed bg-closed-bg px-4 py-3.5">
               <p className="text-[15px] font-semibold text-ink">
                 โครงการนี้สิ้นสุดการรับข้อเสนอแล้ว
               </p>
@@ -326,19 +340,19 @@ export function TorDetail({
           onClick={() => setShowAuthModal(false)}
         >
           <div
-            className="relative w-full max-w-md rounded-[4px] border border-line bg-surface p-6 shadow-xl"
+            className="relative w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setShowAuthModal(false)}
-              className="absolute right-3.5 top-3.5 flex h-7 w-7 items-center justify-center rounded-[3px] text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink cursor-pointer"
+              className="absolute right-3.5 top-3.5 flex h-7 w-7 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink cursor-pointer"
               aria-label="ปิดหน้าต่าง"
             >
               ✕
             </button>
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-surface-2 text-ink">
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
               </svg>
@@ -370,48 +384,6 @@ export function TorDetail({
           </div>
         </div>
       ) : null}
-
-      {/* 4. FLOATING ACTION BUTTON (BOTTOM-RIGHT FAB — OPTION 2) */}
-      <div className="fixed bottom-6 right-6 z-40 group">
-        {/* Tooltip on Hover */}
-        <div className="pointer-events-none absolute bottom-full right-0 mb-2.5 whitespace-nowrap rounded-[4px] bg-ink px-3 py-1.5 text-[12px] font-medium text-surface shadow-lg opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-          {isSaved ? "✓ ติดตามประกาศนี้แล้ว (คลิกเพื่อยกเลิก)" : "★ บันทึกติดตามประกาศนี้"}
-          <div className="absolute top-full right-5 h-0 w-0 border-x-4 border-t-4 border-x-transparent border-t-ink" />
-        </div>
-
-        <button
-          type="button"
-          onClick={handleWatchlistClick}
-          disabled={toggleLoading}
-          aria-pressed={isSaved}
-          aria-label={isSaved ? "ติดตามประกาศนี้แล้ว คลิกเพื่อยกเลิก" : "บันทึกติดตามประกาศนี้"}
-          className={`relative flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full border shadow-xl transition-all duration-300 cursor-pointer hover:scale-105 active:scale-90 focus:outline-none focus:ring-2 focus:ring-focus ${
-            isSaved
-              ? "border-open-line bg-open text-white shadow-open/30"
-              : "border-line bg-ink text-surface shadow-ink/30 hover:opacity-90"
-          } ${isPopping ? "animate-bookmark-pop" : ""}`}
-        >
-          {/* Radial Pulse Ring during state change */}
-          {isPopping ? (
-            <span className="pointer-events-none absolute inset-0 rounded-full bg-open/40 animate-pulse-ring" />
-          ) : null}
-
-          {/* Smooth Icon Spring Transition */}
-          <span
-            className={`inline-flex items-center justify-center transition-all duration-300 ${
-              isPopping ? "scale-125 rotate-12" : "scale-100 rotate-0"
-            }`}
-          >
-            {isSaved ? (
-              <svg viewBox="0 0 24 24" className="h-6 w-6 stroke-current fill-none stroke-[2.8]" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            ) : (
-              <span className="text-[22px] leading-none text-surface">★</span>
-            )}
-          </span>
-        </button>
-      </div>
 
       {/* Original Document PDF Preview Modal */}
       <PdfPreviewModal

@@ -27,13 +27,13 @@ export default function PrivateLayout({ children }: { children: React.ReactNode 
   // Children never mount until we know, so there is no flash of a page the
   // guest is about to lose.
   if (status === "loading") {
-    return <div className="mx-auto min-h-[60vh] max-w-[1240px] px-4 py-10" aria-busy="true" />;
+    return <div className="mx-auto w-full min-h-[60vh] max-w-[1240px] px-4 py-10" aria-busy="true" />;
   }
 
   if (status === "anonymous") {
     const copy = PROMPTS[promptKeyFor(pathname)];
     return (
-      <div className="mx-auto max-w-[1240px] px-4 py-10">
+      <div className="mx-auto w-full max-w-[1240px] px-4 py-10">
         <SignInPrompt
           headline={copy.headline}
           body={copy.body}

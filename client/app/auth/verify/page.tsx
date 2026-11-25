@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { VerifyEmailForm } from "../../_components/verify-email-form";
 
 export const metadata: Metadata = {
-  title: "ยืนยันอีเมล",
+  title: "ยืนยันอีเมล — GIPDP",
   // A link from one person's inbox, never a page to find by search
   robots: { index: false, follow: false },
 };

@@ -8,7 +8,7 @@ import { btn, EmptyState } from "../../../_components/ui";
 
 function TorDetailSkeleton() {
   return (
-    <article className="mx-auto max-w-[1240px] px-4 py-6 animate-pulse">
+    <article className="mx-auto w-full max-w-[1240px] px-4 py-6 animate-pulse">
       {/* Back button placeholder */}
       <div className="h-6 w-28 rounded bg-surface-2 mb-4" />
 
@@ -108,7 +108,7 @@ export default function TorDetailPage({
 
   if (error?.status === 404) {
     return (
-      <div className="mx-auto max-w-[1240px] px-4 py-10">
+      <div className="mx-auto w-full max-w-[1240px] px-4 py-10">
         <EmptyState
           headline="ไม่พบประกาศจัดซื้อจัดจ้างนี้"
           body={`ไม่พบข้อมูล TOR สำหรับรหัสโครงการ ${id} ในระบบ หรือประกาศนี้อาจถูกยกเลิกแล้ว`}
@@ -123,7 +123,7 @@ export default function TorDetailPage({
   }
 
   return (
-    <div className="mx-auto max-w-[1240px] px-4 py-10">
+    <div className="mx-auto w-full max-w-[1240px] px-4 py-10">
       <EmptyState
         headline="เปิดประกาศนี้ไม่ได้ในตอนนี้"
         body="ระบบดึงข้อมูลประกาศไม่สำเร็จ น่าจะเป็นเพราะเซิร์ฟเวอร์ขัดข้องชั่วคราว ตัวประกาศยังอยู่ ลองอีกครั้งในอีกสักครู่"

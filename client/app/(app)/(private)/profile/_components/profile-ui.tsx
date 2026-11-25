@@ -15,14 +15,17 @@ export function Card({
   className = "",
   as: Tag = "section",
   labelledBy,
+  id,
 }: {
   children: ReactNode;
   className?: string;
   as?: "section" | "div" | "header";
   labelledBy?: string;
+  id?: string;
 }) {
   return (
     <Tag
+      id={id}
       aria-labelledby={labelledBy}
       className={`rounded-2xl border border-line bg-surface shadow-xs ${className}`}
     >
@@ -150,8 +153,11 @@ export const pbtn = {
   primary: `${btnBase} bg-ink text-surface hover:opacity-85`,
   secondary: `${btnBase} border border-line-2 bg-surface text-ink hover:bg-surface-2`,
   danger: `${btnBase} bg-red-600 text-white hover:bg-red-700`,
-  /** Small text action inside a card header ("clear all"). */
+  /** Small neutral action inside a card ("show all", "collapse"). */
   quiet:
+    "cursor-pointer rounded-full px-2.5 py-1 text-[11.5px] text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink",
+  /** Destructive text action inside a card header ("clear all"). */
+  quietDanger:
     "cursor-pointer rounded-full px-2.5 py-1 text-[11.5px] text-ink-3 transition-colors hover:bg-surface-2 hover:text-red-600",
 };
 

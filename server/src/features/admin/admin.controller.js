@@ -10,6 +10,7 @@ import {
   getPipelineTasks,
   getTorReviewItem,
   getTorVersions,
+  listReviewQueue,
   reExtractTor,
   retryAllPipelineFailures,
   retryPipelineStep,
@@ -35,6 +36,20 @@ export async function readOperations(req, res, next) {
   try {
     const data = await getOperations();
     res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function handleListReviewQueue(req, res, next) {
+  try {
+    const q = searchParam(req.query, 'q');
+    const tab = searchParam(req.query, 'tab') || 'ready';
+    const sort = searchParam(req.query, 'sort') || 'newest';
+    const page = searchParam(req.query, 'page') || '1';
+    const limit = searchParam(req.query, 'limit') || '25';
+    const result = await listReviewQueue({ tab, sort, q, page, limit });
+    res.json(result);
   } catch (err) {
     next(err);
   }

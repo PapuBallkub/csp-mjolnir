@@ -488,6 +488,44 @@ export function adminOperations() {
   return request<AdminOperations>("/api/admin/operations", { cache: "no-store" });
 }
 
+export type ReviewQueueTab = "ready" | "low-confidence" | "misclassified" | "reviewed" | "all" | "pending";
+export type ReviewQueueSort = "confidence-asc" | "confidence-desc" | "newest" | "budget-desc";
+
+export type ReviewQueuePageResult = {
+  items: ReviewItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  counts: {
+    all: number;
+    pending: number;
+    ready: number;
+    lowConfidence: number;
+    misclassified: number;
+    reviewed: number;
+  };
+};
+
+export function adminListReviewQueue(params: {
+  tab?: ReviewQueueTab;
+  sort?: ReviewQueueSort;
+  q?: string;
+  page?: number;
+  limit?: number;
+} = {}) {
+  const sp = new URLSearchParams();
+  if (params.tab) sp.set("tab", params.tab);
+  if (params.sort) sp.set("sort", params.sort);
+  if (params.q && params.q.trim()) sp.set("q", params.q.trim());
+  if (params.page) sp.set("page", String(params.page));
+  if (params.limit) sp.set("limit", String(params.limit));
+  const qs = sp.toString();
+  return request<ReviewQueuePageResult>(`/api/admin/review-queue${qs ? `?${qs}` : ""}`, {
+    cache: "no-store",
+  });
+}
+
 export type UpdateReviewPayload = {
   action: "approve" | "reclassify" | "confirm_classification";
   reclassifyReason?: string;
@@ -942,12 +980,22 @@ export type AdminTechnology = {
   updatedAt: string;
 };
 
+export type AdminTechnologiesCounts = {
+  all: number;
+  confirmed: number;
+  aiNew: number;
+  userRequests: number;
+  rejected: number;
+};
+
 export type AdminTechnologiesResponse = {
   items: AdminTechnology[];
+  userRequestItems?: AdminTechnology[];
   total: number;
   page: number;
   totalPages: number;
   pendingRequestsCount: number;
+  counts?: AdminTechnologiesCounts;
 };
 
 export type CreateAdminTechnologyPayload = {

@@ -32,7 +32,7 @@ export function AddRecordModal({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md rounded-[4px] border border-line bg-surface p-6 shadow-2xl"
+        className="relative w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-line pb-3">
@@ -42,7 +42,7 @@ export function AddRecordModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-[3px] border border-line-2 bg-surface px-2 py-0.5 text-[12px] text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
+            className="rounded-full border border-line-2 bg-surface px-2.5 py-0.5 text-[12px] text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
           >
             ✕
           </button>
@@ -77,7 +77,7 @@ export function AddRecordModal({
           </div>
 
           {error ? (
-            <div className="rounded-[3px] border border-risk-line bg-risk-bg p-2.5 text-[12px] text-risk">
+            <div className="rounded-xl border border-risk-line bg-risk-bg p-3 text-[12px] text-risk">
               {error}
             </div>
           ) : null}

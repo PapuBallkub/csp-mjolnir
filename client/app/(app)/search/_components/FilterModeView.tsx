@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { Lightbulb } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { listTors, torFacets, type ApiError, type ApiResult, type TorFacets, type TorListParams, type TorStatus } from "../../../_lib/api";
 import { isProfileBaseline, matchFor } from "../../../_lib/match";
@@ -28,7 +29,11 @@ import { failureText, useDebounced } from "./SearchCommon";
 import { FilterRail } from "./FilterRail";
 import { Pagination } from "./Pagination";
 
-export function FilterModeView() {
+export function FilterModeView({
+  onLastUpdated,
+}: {
+  onLastUpdated?: (iso: string | null) => void;
+} = {}) {
   const { profile } = useProfile();
   const { status: authStatus } = useAuth();
   const searchParams = useSearchParams();
@@ -162,12 +167,14 @@ export function FilterModeView() {
   useEffect(() => {
     let cancelled = false;
     torFacets().then((result) => {
-      if (!cancelled) setFacets(result);
+      if (cancelled) return;
+      setFacets(result);
+      if (result.ok) onLastUpdated?.(result.data.lastUpdated);
     });
     return () => {
       cancelled = true;
     };
-  }, [facetsTry]);
+  }, [facetsTry, onLastUpdated]);
 
   /* ------------------------------ search list ----------------------------- */
 
@@ -350,9 +357,10 @@ export function FilterModeView() {
 
     const noSkillsBanner =
       canMatch && isProfileBaseline(profile) && debouncedMinScore > 0 ? (
-        <div className="mb-2.5 flex items-center justify-between rounded-[3px] border border-amber-300 bg-amber-50 px-3.5 py-2 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          <span>
-            💡 คุณยังไม่ได้ตั้งค่าโปรไฟล์ — ตั้งค่าทักษะและเงื่อนไขการรับงานเพื่อจัดอันดับประกาศที่เหมาะสมกับคุณ
+        <div className="mb-2.5 flex items-center justify-between rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          <span className="flex items-start gap-2">
+            <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>คุณยังไม่ได้ตั้งค่าโปรไฟล์ — ตั้งค่าทักษะและเงื่อนไขการรับงานเพื่อจัดอันดับประกาศที่เหมาะสมกับคุณ</span>
           </span>
           <Link href="/profile" className="ml-2 shrink-0 font-semibold underline hover:opacity-80">
             ตั้งค่าโปรไฟล์ →
@@ -447,13 +455,13 @@ export function FilterModeView() {
   })();
 
   return (
-    <div className="w-full grid grid-cols-1 gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
+    <div className="w-full grid grid-cols-1 gap-6 lg:grid-cols-[276px_minmax(0,1fr)]">
       {/* Mobile Filters Toggle & Drawer */}
       <div className="w-full lg:hidden">
         <button
           type="button"
           onClick={() => setFiltersOpen((o) => !o)}
-          className={`flex w-full items-center justify-between rounded-[3px] border border-line bg-surface px-3 py-2 text-[13px] font-medium text-ink cursor-pointer`}
+          className={`flex w-full items-center justify-between rounded-xl border border-line bg-surface px-3.5 py-2.5 text-[13px] font-medium text-ink cursor-pointer`}
           aria-expanded={filtersOpen}
         >
           <span className="flex items-center gap-2">
@@ -470,16 +478,16 @@ export function FilterModeView() {
       </div>
 
       {/* Desktop Sticky Rail */}
-      <aside className="hidden lg:block w-[250px] shrink-0">
-        <div className="sticky top-[76px] max-h-[calc(100vh-90px)] overflow-y-auto overscroll-contain pr-1.5 [scrollbar-width:thin] [scrollbar-color:var(--line)_transparent]">
+      <aside className="hidden lg:block w-[276px] shrink-0">
+        <div className="sticky top-[76px]">
           {rail}
         </div>
       </aside>
 
       {/* Main Content Column */}
       <div className="w-full min-w-0 min-h-[550px]">
-        <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-2">
-          <div className="relative min-w-0 flex-1">
+        <div className="mb-3 flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="relative w-full min-w-0 sm:flex-1">
             <svg
               viewBox="0 0 16 16"
               className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-3"
@@ -489,6 +497,8 @@ export function FilterModeView() {
               <path d="M10.5 10.5 14 14" stroke="currentColor" strokeWidth="1.4" />
             </svg>
             <input
+              id="catalog-search"
+              name="q"
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -497,23 +507,41 @@ export function FilterModeView() {
               aria-label="ค้นหาประกาศ"
             />
           </div>
-          <label className="flex items-center gap-2 whitespace-nowrap shrink-0">
+          <label htmlFor="catalog-sort" className="flex items-center justify-between sm:justify-start gap-2 whitespace-nowrap shrink-0">
             <Label>เรียงตาม</Label>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as Sort)}
-              className={`${input} w-auto pr-6`}
-            >
-              {SORTS.filter((option) =>
-                authStatus === "authenticated"
-                  ? true
-                  : option.id !== "match-desc" && option.id !== "match-asc"
-              ).map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                id="catalog-sort"
+                name="sort"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as Sort)}
+                className="h-9 rounded-[10px] border border-line-2 bg-surface pl-3 pr-9 text-[13px] text-ink focus:border-ink focus:outline-none appearance-none cursor-pointer"
+              >
+                {SORTS.filter((option) =>
+                  authStatus === "authenticated"
+                    ? true
+                    : option.id !== "match-desc" && option.id !== "match-asc"
+                ).map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <svg
+                viewBox="0 0 16 16"
+                className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-3"
+                aria-hidden="true"
+              >
+                <path
+                  d="M4 6l4 4 4-4"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </svg>
+            </div>
           </label>
         </div>
 

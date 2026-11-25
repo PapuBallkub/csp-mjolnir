@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { Lightbulb } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { listTors, type ApiResult, type TorInsightSummary } from "../../../_lib/api";
 import { isProfileBaseline, matchFor } from "../../../_lib/match";
@@ -235,9 +236,10 @@ export function MatchModeView({
 
     const noSkillsBanner =
       isProfileBaseline(profile) ? (
-        <div className="mb-2.5 flex items-center justify-between rounded-[3px] border border-amber-300 bg-amber-50 px-3.5 py-2 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          <span>
-            💡 คุณยังไม่ได้ตั้งค่าโปรไฟล์ — ตั้งค่าทักษะและเงื่อนไขการรับงานเพื่อจัดอันดับประกาศที่เหมาะสมกับคุณ
+        <div className="mb-2.5 flex items-center justify-between rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          <span className="flex items-start gap-2">
+            <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>คุณยังไม่ได้ตั้งค่าโปรไฟล์ — ตั้งค่าทักษะและเงื่อนไขการรับงานเพื่อจัดอันดับประกาศที่เหมาะสมกับคุณ</span>
           </span>
           <Link href="/profile" className="ml-2 shrink-0 font-semibold underline hover:opacity-80">
             ตั้งค่าโปรไฟล์ →

@@ -74,9 +74,9 @@ export function ResetPasswordForm() {
           ) : token === undefined ? (
             // A moment, while the browser reads the link: shaped like what follows
             <div aria-hidden="true" className="flex flex-col gap-3">
-              <div className="h-5 w-32 rounded-[3px] bg-line" />
-              <div className="h-4 w-full rounded-[3px] bg-line" />
-              <div className="h-9 w-full rounded-[3px] bg-line" />
+              <div className="h-5 w-32 rounded-lg bg-line" />
+              <div className="h-4 w-full rounded-lg bg-line" />
+              <div className="h-9 w-full rounded-[10px] bg-line" />
             </div>
           ) : (
             <form method="post" className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
@@ -108,7 +108,7 @@ export function ResetPasswordForm() {
               {formMessage ? (
                 <p
                   role="alert"
-                  className="rounded-[3px] border border-risk-line bg-risk-bg px-2.5 py-2 text-[12px] leading-thai text-risk"
+                  className="rounded-xl border border-risk-line bg-risk-bg px-3 py-2 text-[12px] leading-thai text-risk"
                 >
                   {formMessage}
                 </p>

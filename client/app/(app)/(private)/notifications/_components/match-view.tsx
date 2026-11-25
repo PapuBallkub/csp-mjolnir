@@ -64,7 +64,7 @@ export function MatchView({
             </h3>
 
             {/* Match Details Callout Box */}
-            <div className="mt-4 rounded-md border border-open-line bg-open-bg/40 p-4">
+            <div className="mt-4 rounded-xl border border-open-line bg-open-bg/40 p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-2">
                   {item.matchScore != null ? (
@@ -103,7 +103,7 @@ export function MatchView({
                   {item.matchedSkills.map((skill: string) => (
                     <span
                       key={skill}
-                      className="rounded bg-surface px-2 py-0.5 text-[11px] font-medium text-ink border border-line"
+                      className="rounded-full bg-surface px-2.5 py-0.5 text-[11px] font-medium text-ink border border-line"
                     >
                       {skill}
                     </span>

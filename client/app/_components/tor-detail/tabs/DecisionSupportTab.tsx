@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { useState } from "react";
+import { AlertTriangle, Info, Lightbulb } from "lucide-react";
 import type { TorInsightDetail } from "../../../_lib/api";
 import { formatTHB, type RiskLevel } from "../../../_data/tors";
+import { getArchetypeLabel, type SystemArchetype } from "../../../_data/watchdog";
 import {
   InsightPriceBadge,
   LockSpecBadge,
@@ -77,7 +79,7 @@ export function DecisionSupportTab({
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span
-              className={`inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 text-[11.5px] font-semibold ${
+              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11.5px] font-semibold ${
                 match.score >= 85
                   ? "border-open-line bg-open-bg text-open"
                   : match.score >= 70
@@ -98,14 +100,14 @@ export function DecisionSupportTab({
             </span>
 
             {match.disqualifiedDirectBid ? (
-              <span className="inline-flex items-center rounded-[2px] border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11.5px] font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+              <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
                 เฉพาะนิติบุคคล
               </span>
             ) : null}
           </div>
 
           {/* 6-Dimension Evaluation Bars */}
-          <div className="mt-4 rounded-md border border-line bg-surface p-4 shadow-2xs">
+          <div className="mt-4 rounded-xl border border-line bg-surface p-4 shadow-2xs">
             <div className="mb-3 flex items-center justify-between border-b border-line/60 pb-2.5">
               <h4 className="text-[13px] font-semibold text-ink">
                 วิเคราะห์ความเหมาะสมกับโปรไฟล์ 6 มิติ
@@ -177,7 +179,7 @@ export function DecisionSupportTab({
                 </div>
                 <p className="mt-1 text-[11px] leading-thai text-ink-3">
                   {match.breakdown.archetype.torArchetype
-                    ? `ประเภทระบบ: ${match.breakdown.archetype.torArchetype}${match.breakdown.archetype.isPreferred ? " (ตรงกับงานที่คุณถนัด)" : ""}`
+                    ? `ประเภทระบบ: ${getArchetypeLabel(match.breakdown.archetype.torArchetype as SystemArchetype)}${match.breakdown.archetype.isPreferred ? " (ตรงกับงานที่คุณถนัด)" : ""}`
                     : "TOR ไม่ระบุสถาปัตยกรรมเจาะจง (คิดคะแนนพื้นฐาน)"}
                 </p>
               </div>
@@ -269,10 +271,15 @@ export function DecisionSupportTab({
                     style={{ width: `${match.breakdown.entity.score}%` }}
                   />
                 </div>
-                <p className="mt-1 text-[11px] leading-thai text-ink-3">
-                  {match.breakdown.entity.disqualifiedDirectBid
-                    ? "⚠️ TOR กำหนดเฉพาะนิติบุคคล แต่โปรไฟล์ลงทะเบียนเป็นบุคคลธรรมดา (แนะนำเข้าร่วมแบบ Joint Venture หรือ Subcontract)"
-                    : "✓ สถานะนิติบุคคล/บุคคลธรรมดาตรงตามเงื่อนไขที่กำหนด"}
+                <p className="mt-1 flex items-start gap-1.5 text-[11px] leading-thai text-ink-3">
+                  {match.breakdown.entity.disqualifiedDirectBid ? (
+                    <>
+                      <AlertTriangle className="mt-[2px] h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                      <span>TOR กำหนดเฉพาะนิติบุคคล แต่โปรไฟล์ลงทะเบียนเป็นบุคคลธรรมดา (แนะนำเข้าร่วมแบบ Joint Venture หรือ Subcontract)</span>
+                    </>
+                  ) : (
+                    <span>✓ สถานะนิติบุคคล/บุคคลธรรมดาตรงตามเงื่อนไขที่กำหนด</span>
+                  )}
                 </p>
               </div>
 
@@ -333,7 +340,7 @@ export function DecisionSupportTab({
                   key={idx}
                   className="flex items-start gap-2 text-[12.5px] leading-thai text-ink-2"
                 >
-                  <span className="text-amber-600 dark:text-amber-400 font-semibold">⚠️</span>
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                   <span>{wn}</span>
                 </div>
               ))}
@@ -347,7 +354,7 @@ export function DecisionSupportTab({
               {match.missing.map((techName) => (
                 <span
                   key={techName}
-                  className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-ink-3"
+                  className="rounded-full border border-line bg-surface-2 px-2.5 py-0.5 font-mono text-[11px] text-ink-3"
                 >
                   ○ {techName}
                 </span>
@@ -359,9 +366,9 @@ export function DecisionSupportTab({
           {(match.disqualifiedDirectBid ||
             match.breakdown.portfolio.score < 80 ||
             match.breakdown.certifications.score < 70) ? (
-            <div className="mt-4 rounded-md border border-line bg-surface-2/40 p-3.5">
+            <div className="mt-4 rounded-xl border border-line bg-surface-2/40 p-3.5">
               <h4 className="text-[12px] font-semibold text-ink flex items-center gap-1.5">
-                <span>💡</span>
+                <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                 <span>แนวทางและคำแนะนำเชิงกลยุทธ์สำหรับคุณ</span>
               </h4>
               <ul className="mt-2 space-y-2 text-[12px] leading-thai text-ink-2">
@@ -426,7 +433,7 @@ export function DecisionSupportTab({
           <SectionHeading sub="ประเมินความเข้ากันได้ของทักษะ สถาปัตยกรรมระบบ ช่วงงบประมาณ และเกณฑ์คุณสมบัติ">
             ความเหมาะสมกับทักษะของคุณ (Profile Match)
           </SectionHeading>
-          <div className="mt-3 rounded-[3px] border border-line bg-surface-2/60 p-4">
+          <div className="mt-3 rounded-xl border border-line bg-surface-2/60 p-4">
             <p className="text-[13px] leading-thai text-ink-2">
               คุณยังไม่ได้ตั้งค่าโปรไฟล์ ระบุทักษะเทคโนโลยีและช่วงงบประมาณในโปรไฟล์เพื่อเทียบความเหมาะสมระหว่างสเปกงานกับทักษะของคุณ
             </p>
@@ -442,7 +449,7 @@ export function DecisionSupportTab({
           <SectionHeading sub="ประเมินความเข้ากันได้ของทักษะ สถาปัตยกรรมระบบ ช่วงงบประมาณ และเกณฑ์คุณสมบัติ">
             ความเหมาะสมกับทักษะของคุณ (Profile Match)
           </SectionHeading>
-          <div className="mt-3 rounded-[3px] border border-line bg-surface-2/60 p-4">
+          <div className="mt-3 rounded-xl border border-line bg-surface-2/60 p-4">
             <p className="text-[13px] leading-thai text-ink-2">
               ลงชื่อเข้าใช้เพื่อเทียบความเหมาะสมระหว่างสเปกงานกับทักษะและงบประมาณของคุณ พร้อมแจ้งเตือนเกณฑ์เฉพาะนิติบุคคล
             </p>
@@ -480,20 +487,20 @@ export function DecisionSupportTab({
               {lockSpec.findings.map((finding, idx) => (
                 <div
                   key={finding.id || idx}
-                  className="rounded-[3px] border border-line bg-surface p-4 shadow-sm"
+                  className="rounded-xl border border-line bg-surface p-4 shadow-xs"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-[12px] font-bold text-ink-3">
                         #{String(idx + 1).padStart(2, "0")}
                       </span>
-                      <span className="rounded bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink-2 border border-line">
+                      <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-ink-2 border border-line">
                         {formatCategoryLabel(finding.category)}
                       </span>
                     </div>
 
                     <span
-                      className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
+                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                         finding.severity === "high"
                           ? "bg-risk-bg text-risk border border-risk-line"
                           : "bg-amend-bg text-amend border border-amend-line"
@@ -510,7 +517,7 @@ export function DecisionSupportTab({
                   </h4>
 
                   {finding.normalBenchmark ? (
-                    <div className="mt-3 rounded-[3px] border border-line bg-surface-2/80 p-3 text-[13px] leading-thai">
+                    <div className="mt-3 rounded-lg border border-line bg-surface-2/80 p-3 text-[13px] leading-thai">
                       <div className="font-semibold text-ink-2">
                         กฎหมายและระเบียบที่เกี่ยวข้อง:
                       </div>
@@ -536,7 +543,7 @@ export function DecisionSupportTab({
               ))}
             </div>
           ) : (
-            <div className="mt-4 rounded-[3px] border border-open-line bg-open-bg/40 p-4 text-[13.5px] leading-thai text-open">
+            <div className="mt-4 rounded-xl border border-open-line bg-open-bg/40 p-4 text-[13.5px] leading-thai text-open">
               ✓ ไม่พบเงื่อนไขล็อกสเปกหรือข้อกำหนดที่เบี่ยงเบนจากมาตรฐาน ข้อกำหนดเปิดกว้างสำหรับผู้ยื่นข้อเสนอทั่วไป
             </div>
           )}
@@ -550,15 +557,21 @@ export function DecisionSupportTab({
         <AccentPanel tone={priceTone} className="px-4 py-5 sm:px-6 sm:py-6">
           <SectionHeading
             sub="เปรียบเทียบราคากลางกับค่ามัธยฐานและค่าเฉลี่ยของโครงการที่ใกล้เคียงกันในอดีต"
-            right={<InsightPriceBadge diffPercentage={price.diffPercentage} sampleSize={sampleCount} />}
+            right={
+              <InsightPriceBadge
+                diffPercentage={price.diffPercentage}
+                sampleSize={sampleCount}
+                historicalMedianTHB={price.historicalMedianTHB}
+              />
+            }
           >
             ตรวจสอบความสมเหตุสมผลของราคา (Price Reality Check)
           </SectionHeading>
 
           {!hasSufficientPeers ? (
-            <div className="mt-3 rounded-[3px] border border-line bg-surface-2/70 p-3.5 text-[13px] leading-thai text-ink-2">
+            <div className="mt-3 rounded-xl border border-line bg-surface-2/70 p-3.5 text-[13px] leading-thai text-ink-2">
               <div className="flex items-start gap-2.5">
-                <span className="text-[16px] leading-none pt-0.5">ℹ️</span>
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-ink-2" aria-hidden="true" />
                 <div>
                   <p className="font-semibold text-ink">
                     ข้อมูลโครงการเปรียบเทียบในอดีตยังไม่เพียงพอ (พบ {sampleCount} โครงการ)
@@ -576,11 +589,11 @@ export function DecisionSupportTab({
           )}
 
           {/* Benchmarks & Deviations Grid */}
-          <div className={`mt-4 grid grid-cols-1 gap-3.5 rounded-[3px] border border-line bg-surface p-4 sm:grid-cols-2 lg:grid-cols-3 ${
+          <div className={`mt-4 grid grid-cols-1 gap-3.5 rounded-xl border border-line bg-surface p-4 sm:grid-cols-2 lg:grid-cols-3 ${
             !hasSufficientPeers ? "opacity-60 grayscale-[40%] select-none" : ""
           }`}>
             {/* 1. Target Evaluated Price / Budget */}
-            <div className="rounded-[3px] border border-line/60 bg-surface-2/40 p-3">
+            <div className="rounded-lg border border-line/60 bg-surface-2/40 p-3">
               <Label>ราคากลางโครงการนี้ (Target Price)</Label>
               <p className="mt-1 font-mono text-[17px] font-semibold text-ink">
                 {formatMoney(price.referencePriceTHB || facts.referencePriceTHB || facts.budgetTHB)}
@@ -599,7 +612,7 @@ export function DecisionSupportTab({
             </div>
 
             {/* 2. Historical Median (Primary Benchmark) */}
-            <div className="rounded-[3px] border border-line/60 bg-surface-2/40 p-3">
+            <div className="rounded-lg border border-line/60 bg-surface-2/40 p-3">
               <div className="flex items-center justify-between">
                 <Label>ค่ามัธยฐานในอดีต (เกณฑ์หลัก)</Label>
               </div>
@@ -612,7 +625,7 @@ export function DecisionSupportTab({
             </div>
 
             {/* 3. Historical Average (Secondary Benchmark) */}
-            <div className="rounded-[3px] border border-line/60 bg-surface-2/40 p-3">
+            <div className="rounded-lg border border-line/60 bg-surface-2/40 p-3">
               <div className="flex items-center justify-between">
                 <Label>ค่าเฉลี่ยในอดีต (เกณฑ์รอง)</Label>
               </div>
@@ -625,7 +638,7 @@ export function DecisionSupportTab({
             </div>
 
             {/* 4. Deviation vs Historical Median */}
-            <div className="rounded-[3px] border border-line/60 bg-surface-2/40 p-3">
+            <div className="rounded-lg border border-line/60 bg-surface-2/40 p-3">
               <Label>ส่วนต่างเทียบมัธยฐาน (vs Median)</Label>
               {!hasSufficientPeers ? (
                 <>
@@ -650,7 +663,7 @@ export function DecisionSupportTab({
                         {diff.text}
                       </p>
                       {price.diffPercentage != null && (
-                        <span className={`rounded px-1.5 py-0.5 text-[10.5px] font-semibold ${
+                        <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${
                           price.diffPercentage < -15
                             ? "bg-risk-bg text-risk border border-risk-line"
                             : price.diffPercentage > 15
@@ -666,13 +679,18 @@ export function DecisionSupportTab({
                       )}
                     </div>
                     <p className="mt-1 text-[11px] text-ink-3">
-                      {!diff.hasValue
-                        ? "ไม่สามารถคำนวณส่วนต่างได้"
-                        : Math.abs(price.diffPercentage ?? 0) <= 15
-                        ? "อยู่ในช่วงมาตรฐานปกติ (±15%)"
-                        : (price.diffPercentage ?? 0) > 15
-                        ? "งบประมาณสูงกว่าเกณฑ์มัธยฐานในอดีต (มีกรอบงบประมาณเปิดกว้าง)"
-                        : "⚠️ ระวัง: งบต่ำกว่าเกณฑ์ตลาดมาก ผู้รับจ้างอาจเสี่ยงทำงานขาดทุน"}
+                      {!diff.hasValue ? (
+                        "ไม่สามารถคำนวณส่วนต่างได้"
+                      ) : Math.abs(price.diffPercentage ?? 0) <= 15 ? (
+                        "อยู่ในช่วงมาตรฐานปกติ (±15%)"
+                      ) : (price.diffPercentage ?? 0) > 15 ? (
+                        "งบประมาณสูงกว่าเกณฑ์มัธยฐานในอดีต (มีกรอบงบประมาณเปิดกว้าง)"
+                      ) : (
+                        <span className="inline-flex items-start gap-1 text-risk">
+                          <AlertTriangle className="mt-[2px] h-3 w-3 shrink-0" aria-hidden="true" />
+                          <span>ระวัง: งบต่ำกว่าเกณฑ์ตลาดมาก ผู้รับจ้างอาจเสี่ยงทำงานขาดทุน</span>
+                        </span>
+                      )}
                     </p>
                   </>
                 );
@@ -680,7 +698,7 @@ export function DecisionSupportTab({
             </div>
 
             {/* 5. Deviation vs Historical Average */}
-            <div className="rounded-[3px] border border-line/60 bg-surface-2/40 p-3">
+            <div className="rounded-lg border border-line/60 bg-surface-2/40 p-3">
               <Label>ส่วนต่างเทียบค่าเฉลี่ย (vs Average)</Label>
               {!hasSufficientPeers ? (
                 <>
@@ -710,7 +728,7 @@ export function DecisionSupportTab({
             </div>
 
             {/* 6. Comparable Projects Count & Reliability */}
-            <div className="rounded-[3px] border border-line/60 bg-surface-2/40 p-3">
+            <div className="rounded-lg border border-line/60 bg-surface-2/40 p-3">
               <Label>โครงการเปรียบเทียบ & ความน่าเชื่อถือ</Label>
               <div className="mt-1 flex items-center gap-2">
                 <span className="font-mono text-[17px] font-semibold text-ink">
@@ -718,11 +736,11 @@ export function DecisionSupportTab({
                   <span className="text-[13px] font-normal text-ink-3">โครงการ</span>
                 </span>
                 {hasSufficientPeers ? (
-                  <span className="rounded bg-open-bg px-2 py-0.5 text-[11px] font-medium text-open border border-open-line">
+                  <span className="rounded-full bg-open-bg px-2.5 py-0.5 text-[11px] font-medium text-open border border-open-line">
                     ข้อมูลเพียงพอ (≥5)
                   </span>
                 ) : (
-                  <span className="rounded bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink-3 border border-line">
+                  <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-ink-3 border border-line">
                     ข้อมูลไม่เพียงพอ (&lt;5)
                   </span>
                 )}
@@ -746,7 +764,7 @@ export function DecisionSupportTab({
                   แสดง {Math.min(visiblePeersCount, price.comparableProjects.length)} จากทั้งหมด {price.comparableProjects.length} โครงการ
                 </span>
               </div>
-              <div className="mt-2 overflow-x-auto rounded-[3px] border border-line">
+              <div className="mt-2 overflow-x-auto rounded-xl border border-line">
                 <table className="w-full text-left text-[12.5px]">
                   <thead className="border-b border-line bg-surface-2/60 text-ink-3">
                     <tr>
@@ -780,7 +798,7 @@ export function DecisionSupportTab({
                   <button
                     type="button"
                     onClick={() => setVisiblePeersCount((prev) => prev + 10)}
-                    className="inline-flex items-center gap-1.5 rounded-[3px] border border-line bg-surface-2 px-3 py-1.5 text-[12px] font-medium text-ink hover:bg-surface-3 transition-colors shadow-sm cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-3.5 py-1.5 text-[12px] font-medium text-ink hover:bg-surface-3 transition-colors shadow-xs cursor-pointer"
                   >
                     <span>+</span>
                     <span>

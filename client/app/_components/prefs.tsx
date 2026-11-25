@@ -150,15 +150,16 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={() => apply(theme === "dark" ? "light" : "dark")}
-      className="flex h-[26px] w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
-      aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+      className="flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded-full border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
+      aria-label={theme === "dark" ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด"}
+      title={theme === "dark" ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด"}
     >
       {theme === "dark" ? (
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
+        <svg viewBox="0 0 16 16" className="h-4 w-4 sm:h-3.5 sm:w-3.5" aria-hidden="true">
           <path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5Z" fill="currentColor" />
         </svg>
       ) : (
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
+        <svg viewBox="0 0 16 16" className="h-4 w-4 sm:h-3.5 sm:w-3.5" aria-hidden="true">
           <circle cx="8" cy="8" r="3" fill="currentColor" />
           <path
             d="M8 1v1.6M8 13.4V15M15 8h-1.6M2.6 8H1M12.9 3.1l-1.1 1.1M4.2 11.8l-1.1 1.1M12.9 12.9l-1.1-1.1M4.2 4.2 3.1 3.1"

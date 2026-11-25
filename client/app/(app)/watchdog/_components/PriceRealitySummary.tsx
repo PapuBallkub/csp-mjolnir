@@ -120,7 +120,7 @@ export function PriceRealitySummary({ metrics }: PriceRealitySummaryProps) {
                 อัตราราคาเบี่ยงเบน (Price Deviation)
               </Label>
             </div>
-            {metrics.torCount >= 5 ? (
+            {metrics.comparedCount >= 5 ? (
               <>
                 <div className="mt-1.5 h-8 flex items-baseline">
                   <span
@@ -133,7 +133,7 @@ export function PriceRealitySummary({ metrics }: PriceRealitySummaryProps) {
                 </div>
                 <div className="mt-2 h-5 flex items-center">
                   <span className="text-[11.5px] leading-none text-ink-2 font-medium">
-                    {`ราคาสูงเกินกรอบ ${metrics.highOutlierCount} · ต่ำผิดปกติ ${metrics.lowOutlierCount}`}
+                    {`ราคาสูงเกินกรอบ ${metrics.highOutlierCount} · ต่ำผิดปกติ ${metrics.lowOutlierCount} (จาก ${metrics.comparedCount} โครงการที่มีราคาเทียบ)`}
                   </span>
                 </div>
               </>
@@ -145,10 +145,12 @@ export function PriceRealitySummary({ metrics }: PriceRealitySummaryProps) {
                   </span>
                 </div>
                 <div className="mt-2 h-5 flex items-center">
-                  <span className="inline-flex items-center gap-1 rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-3">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-ink-3">
                     <span>ℹ</span>
                     <span>
-                      ข้อมูลไม่เพียงพอ (&lt; 5 โครงการ)
+                      {metrics.comparedCount === 0
+                        ? "ยังไม่มีโครงการที่คำนวณราคาเปรียบเทียบ"
+                        : `ข้อมูลเปรียบเทียบไม่เพียงพอ (${metrics.comparedCount}/5 โครงการ)`}
                     </span>
                   </span>
                 </div>
@@ -156,9 +158,9 @@ export function PriceRealitySummary({ metrics }: PriceRealitySummaryProps) {
             )}
             <div className="mt-3.5 pt-3 border-t border-line/60 flex-1">
               <p className="text-[11.5px] leading-thai text-ink-3">
-                {metrics.torCount >= 5
+                {metrics.comparedCount >= 5
                   ? "สัดส่วนโครงการที่ราคากลางเบี่ยงเบนเกิน ±15% จากมัธยฐาน ช่วยตรวจจับโครงการที่ตั้งราคาสูงหรือต่ำผิดปกติ เพื่อเฝ้าระวังความเสี่ยงด้านงบประมาณ"
-                  : "ต้องมีขนาดกลุ่มตัวอย่างอย่างน้อย 5 โครงการเพื่อคำนวณสัดส่วนความเบี่ยงเบนทางสถิติที่น่าเชื่อถือ"}
+                  : "ต้องมีโครงการที่มีค่ามัธยฐานเปรียบเทียบอย่างน้อย 5 โครงการเพื่อคำนวณสัดส่วนความเบี่ยงเบนทางสถิติที่น่าเชื่อถือ"}
               </p>
             </div>
           </Panel>

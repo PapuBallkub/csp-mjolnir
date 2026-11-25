@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AlertTriangle, Copy, FileText } from "lucide-react";
 import type { PipelineRecordDiagnostics } from "../../../_lib/api";
 import { btn, Label, Panel } from "../../../_components/ui";
 import { PdfPreviewModal } from "../../../_components/PdfPreviewModal";
@@ -56,7 +57,7 @@ export function RecordInspectorModal({
       onClick={onClose}
     >
       <div
-        className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[4px] border border-line bg-surface p-5 sm:p-6 shadow-2xl flex flex-col"
+        className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-line bg-surface p-5 sm:p-6 shadow-2xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -70,18 +71,25 @@ export function RecordInspectorModal({
                 <button
                   type="button"
                   onClick={handleCopyId}
-                  className="rounded-[2px] border border-line-2 bg-surface-2 px-1.5 py-0.5 text-[10px] text-ink-3 hover:text-ink cursor-pointer"
+                  className="inline-flex items-center gap-1 rounded-full border border-line-2 bg-surface-2 px-2 py-0.5 text-[10px] text-ink-3 hover:text-ink cursor-pointer"
                   title="Copy Project ID"
                 >
-                  {copiedId ? "✓ Copied" : "📋 Copy"}
+                  {copiedId ? (
+                    "✓ Copied"
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      <span>Copy</span>
+                    </>
+                  )}
                 </button>
                 {record ? (
                   <>
-                    <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase font-medium text-ink-2">
+                    <span className="rounded-full border border-line bg-surface-2 px-2 py-0.5 text-[10px] uppercase font-medium text-ink-2">
                       {record.source}
                     </span>
                     <span
-                      className={`rounded-[2px] border px-1.5 py-0.5 text-[10px] font-medium ${
+                      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
                         record.status === "Open"
                           ? "border-open-line bg-open-bg text-open"
                           : "border-line bg-surface-2 text-ink"
@@ -89,11 +97,11 @@ export function RecordInspectorModal({
                     >
                       {record.status}
                     </span>
-                    <span className="rounded-[2px] border border-line-2 bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-ink">
+                    <span className="rounded-full border border-line-2 bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-ink">
                       Stage: {record.pipelineStatus}
                     </span>
                     {record.wavePriority ? (
-                      <span className="rounded-[2px] border border-line-2 bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-ink">
+                      <span className="rounded-full border border-line-2 bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-ink">
                         {record.wavePriority}
                       </span>
                     ) : null}
@@ -110,7 +118,7 @@ export function RecordInspectorModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-[3px] border border-line-2 bg-surface px-2.5 py-1 text-[12px] text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
+              className="rounded-full border border-line-2 bg-surface px-2.5 py-1 text-[12px] text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
               aria-label="Close"
             >
               ✕
@@ -161,7 +169,7 @@ export function RecordInspectorModal({
               </p>
             </div>
           ) : error ? (
-            <div className="rounded-[3px] border border-risk-line bg-risk-bg p-4 text-center">
+            <div className="rounded-xl border border-risk-line bg-risk-bg p-4 text-center">
               <p className="font-semibold text-risk text-[14px]">
                 ไม่พบข้อมูลโครงการ
               </p>
@@ -174,11 +182,13 @@ export function RecordInspectorModal({
                 <div className="space-y-4">
                   {/* Active Failure Callout */}
                   {record.activeFailure ? (
-                    <div className="rounded-[3px] border border-risk-line bg-risk-bg/50 p-4">
+                    <div className="rounded-xl border border-risk-line bg-risk-bg/50 p-4">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[12px] font-bold text-risk uppercase">
-                          ⚠️ พบข้อผิดพลาดในขั้นตอน:{" "}
-                          {record.activeFailure.step}
+                        <span className="inline-flex items-center gap-1.5 text-[12px] font-bold text-risk uppercase">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          <span>
+                            พบข้อผิดพลาดในขั้นตอน: {record.activeFailure.step}
+                          </span>
                         </span>
                         <span className="font-mono tnum text-[11px] text-risk">
                           {`ครั้งที่ ${record.activeFailure.attempts} / 3`}
@@ -226,10 +236,13 @@ export function RecordInspectorModal({
 
                   {/* Truncation Warning Callout (FR-24, NFR-17) */}
                   {record.stages?.ocr?.truncated ? (
-                    <div className="rounded-[3px] border border-amend-line bg-amend-bg/40 p-4">
+                    <div className="rounded-xl border border-amend-line bg-amend-bg/40 p-4">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[12px] font-bold text-amend uppercase">
-                          ⚠️ เอกสารถูกตัดทอนเนื่องจากเกินขีดจำกัดหน้า (Truncated)
+                        <span className="inline-flex items-center gap-1.5 text-[12px] font-bold text-amend uppercase">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          <span>
+                            เอกสารถูกตัดทอนเนื่องจากเกินขีดจำกัดหน้า (Truncated)
+                          </span>
                         </span>
                         <span className="font-mono tnum text-[11px] text-amend">
                           {record.stages.ocr.pagesRead ?? 150} / {record.stages.ocr.totalPages ?? record.document?.pages ?? "150+"} หน้า
@@ -292,7 +305,7 @@ export function RecordInspectorModal({
                       ].map(({ key, title, stage }) => (
                         <div
                           key={key}
-                          className={`rounded-[3px] border p-2.5 text-center ${
+                          className={`rounded-xl border p-2.5 text-center ${
                             stage.done
                               ? "border-open-line bg-open-bg/40 text-ink"
                               : stage.error
@@ -333,7 +346,7 @@ export function RecordInspectorModal({
                           การคัดกรองหัวข้อ (Title Screen)
                         </Label>
                         <span
-                          className={`rounded-[2px] px-1.5 py-0.5 text-[10px] font-semibold ${
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                             record.titleScreen.isItRelated
                               ? "bg-open-bg text-open border border-open-line"
                               : "bg-risk-bg text-risk border border-risk-line"
@@ -389,7 +402,7 @@ export function RecordInspectorModal({
                           {extPercent != null ? `${extPercent}%` : "—"}
                         </span>
                         <span
-                          className={`rounded-[2px] px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
                             record.insight?.lockSpecRisk === "high"
                               ? "bg-risk-bg text-risk border border-risk-line"
                               : record.insight?.lockSpecRisk === "medium"
@@ -449,7 +462,7 @@ export function RecordInspectorModal({
                         onClick={() => setShowPdfPreview(true)}
                         className={`${btn.secondary} text-[11px] h-7 px-2.5 flex items-center gap-1 cursor-pointer`}
                       >
-                        <span>📄</span>
+                        <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                         <span>พรีวิว PDF</span>
                       </button>
                     </div>
@@ -478,8 +491,9 @@ export function RecordInspectorModal({
                         {record.stages?.ocr?.truncated ? (
                           <div className="flex justify-between border-b border-line pb-1.5 text-amend">
                             <span className="text-[12px] font-medium">OCR Truncation:</span>
-                            <span className="font-semibold text-[11px]">
-                              {`⚠️ ตัดทอนที่ ${record.stages.ocr.pagesRead ?? 150} หน้า`}
+                            <span className="inline-flex items-center gap-1 font-semibold text-[11px]">
+                              <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                              <span>{`ตัดทอนที่ ${record.stages.ocr.pagesRead ?? 150} หน้า`}</span>
                             </span>
                           </div>
                         ) : null}
@@ -545,7 +559,7 @@ export function RecordInspectorModal({
                   onClick={() => setShowPdfPreview(true)}
                   className={`${btn.secondary} h-8 px-3 text-[12px] flex items-center gap-1 cursor-pointer`}
                 >
-                  <span>📄</span>
+                  <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>พรีวิว PDF</span>
                 </button>
                 <a

@@ -3,6 +3,17 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
+  AlertTriangle,
+  BarChart3,
+  ClipboardCheck,
+  Clock,
+  Landmark,
+  Search,
+  Settings,
+  Tags,
+  type LucideIcon,
+} from "lucide-react";
+import {
   adminAddPipelineRecord,
   adminCheckSourceHealth,
   adminCreateTechnology,
@@ -10,6 +21,7 @@ import {
   adminDismissPipelineFailure,
   adminGetPipelineRecord,
   adminGetTechnologies,
+  adminListReviewQueue,
   adminOperations,
   adminReExtract,
   adminRetryAllPipelineFailures,
@@ -17,9 +29,13 @@ import {
   adminSuggestProjects,
   adminUpdateTechnology,
   type AdminOperations,
+  type AdminTechnologiesCounts,
   type AdminTechnology,
   type ApiError,
   type PipelineRecordDiagnostics,
+  type ReviewQueuePageResult,
+  type ReviewQueueSort,
+  type ReviewQueueTab,
   type SuggestedProject,
 } from "../../_lib/api";
 import {
@@ -50,8 +66,8 @@ function OverviewTabSkeleton() {
       <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {[1, 2, 3, 4, 5].map((i) => (
           <Panel key={i} className="px-3 py-2.5 h-[68px]">
-            <div className="h-6 w-16 rounded-[2px] bg-surface-3 mb-1.5" />
-            <div className="h-3 w-24 rounded-[2px] bg-surface-2" />
+            <div className="h-6 w-16 rounded-full bg-surface-3 mb-1.5" />
+            <div className="h-3 w-24 rounded-full bg-surface-2" />
           </Panel>
         ))}
       </div>
@@ -60,7 +76,7 @@ function OverviewTabSkeleton() {
       <Panel className="w-full p-4">
         <div className="grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-36 rounded-[2px] bg-surface-2" />
+            <div key={i} className="h-36 rounded-xl bg-surface-2" />
           ))}
         </div>
       </Panel>
@@ -103,22 +119,22 @@ function OverviewTabSkeleton() {
 
 function ReviewTabSkeleton() {
   return (
-    <div className="w-full space-y-4 animate-pulse" aria-busy="true">
+    <div className="min-h-[720px] w-full space-y-4 animate-pulse" aria-busy="true">
       <div className="flex items-center justify-between pb-2">
-        <div className="h-5 w-48 rounded-[2px] bg-surface-3" />
-        <div className="h-4 w-20 rounded-[2px] bg-surface-2" />
+        <div className="h-5 w-48 rounded-full bg-surface-3" />
+        <div className="h-4 w-20 rounded-full bg-surface-2" />
       </div>
       <div className="flex gap-2">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-8 w-24 rounded-[3px] bg-surface-2" />
+          <div key={i} className="h-8 w-24 rounded-full bg-surface-2" />
         ))}
       </div>
       <div className="space-y-3">
         {[1, 2, 3, 4].map((i) => (
           <Panel key={i} className="p-4 space-y-3">
-            <div className="h-5 w-3/4 rounded-[2px] bg-surface-3" />
-            <div className="h-3.5 w-1/2 rounded-[2px] bg-surface-2" />
-            <div className="h-3 w-1/3 rounded-[2px] bg-surface-2" />
+            <div className="h-5 w-3/4 rounded-full bg-surface-3" />
+            <div className="h-3.5 w-1/2 rounded-full bg-surface-2" />
+            <div className="h-3 w-1/3 rounded-full bg-surface-2" />
           </Panel>
         ))}
       </div>
@@ -133,8 +149,8 @@ function HistoryTabSkeleton() {
       <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
           <Panel key={i} className="px-3 py-2.5 h-[68px]">
-            <div className="h-6 w-16 rounded-[2px] bg-surface-3 mb-1.5" />
-            <div className="h-3 w-28 rounded-[2px] bg-surface-2" />
+            <div className="h-6 w-16 rounded-full bg-surface-3 mb-1.5" />
+            <div className="h-3 w-28 rounded-full bg-surface-2" />
           </Panel>
         ))}
       </div>
@@ -288,6 +304,7 @@ function AdminDashboard({
   }
 
   const setActiveJob = (nextJob: AdminJob) => {
+    setPrevJobParam(nextJob === "overview" ? null : nextJob);
     setActiveJobState(nextJob);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
@@ -335,9 +352,20 @@ function AdminDashboard({
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Tech & Standards State
+  const TECH_PAGE_SIZE = 50;
   const [techList, setTechList] = useState<AdminTechnology[]>([]);
+  const [techUserRequests, setTechUserRequests] = useState<AdminTechnology[]>([]);
   const [techPendingCount, setTechPendingCount] = useState(0);
+  const [techCounts, setTechCounts] = useState<AdminTechnologiesCounts>({
+    all: 0,
+    confirmed: 0,
+    aiNew: 0,
+    userRequests: 0,
+    rejected: 0,
+  });
   const [techTotal, setTechTotal] = useState(0);
+  const [techPage, setTechPage] = useState(1);
+  const [techTotalPages, setTechTotalPages] = useState(1);
   const [isTechLoading, setIsTechLoading] = useState(true);
   const [techSearch, setTechSearch] = useState("");
   const [techStatusFilter, setTechStatusFilter] = useState<string>("all");
@@ -391,41 +419,49 @@ function AdminDashboard({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch technologies when filters or search change
+  // Fetch technologies when filters, search, or page change
   const refreshTechnologies = useCallback(async () => {
     setIsTechLoading(true);
     const res = await adminGetTechnologies({
       status: techStatusFilter,
       search: techSearch,
-      limit: 100,
+      page: techPage,
+      limit: TECH_PAGE_SIZE,
     });
     setIsTechLoading(false);
     if (res.ok) {
       setTechList(res.data.items);
+      setTechUserRequests(res.data.userRequestItems ?? []);
       setTechPendingCount(res.data.pendingRequestsCount);
       setTechTotal(res.data.total);
+      setTechTotalPages(res.data.totalPages || 1);
+      if (res.data.counts) setTechCounts(res.data.counts);
     }
-  }, [techStatusFilter, techSearch]);
+  }, [techStatusFilter, techSearch, techPage]);
 
   useEffect(() => {
     let cancelled = false;
     adminGetTechnologies({
       status: techStatusFilter,
       search: techSearch,
-      limit: 100,
+      page: techPage,
+      limit: TECH_PAGE_SIZE,
     }).then((res) => {
       if (cancelled) return;
       setIsTechLoading(false);
       if (res.ok) {
         setTechList(res.data.items);
+        setTechUserRequests(res.data.userRequestItems ?? []);
         setTechPendingCount(res.data.pendingRequestsCount);
         setTechTotal(res.data.total);
+        setTechTotalPages(res.data.totalPages || 1);
+        if (res.data.counts) setTechCounts(res.data.counts);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [techStatusFilter, techSearch]);
+  }, [techStatusFilter, techSearch, techPage]);
 
   const handleApproveTech = async (id: string, name: string) => {
     setTechActionMsg(null);
@@ -672,59 +708,92 @@ function AdminDashboard({
     }
   };
 
-  // Review Queue Search, Filter & Sort
-  const [filterTab, setFilterTab] = useState<"all" | "pending" | "misclassified" | "low-confidence" | "reviewed">("all");
-  const [sortOption, setSortOption] = useState<"confidence-asc" | "confidence-desc" | "newest" | "budget-desc">("confidence-asc");
+  // Review Queue Search, Filter, Sort & Server-side Pagination (FR-23, NFR-17)
+  const REVIEW_PAGE_SIZE = 25;
+  const [filterTab, setFilterTab] = useState<ReviewQueueTab>("ready");
+  const [sortOption, setSortOption] = useState<ReviewQueueSort>("newest");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedReviewQuery, setDebouncedReviewQuery] = useState("");
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewState, setReviewState] = useState<{
+    key: string;
+    data: ReviewQueuePageResult;
+  } | null>(null);
+  const [reviewRefreshTick, setReviewRefreshTick] = useState(0);
 
-  const pendingCount = reviewQueue.filter(
-    (item) => !handled[item.docId] && item.reviewStatus !== "approved",
-  ).length;
-  const misclassifiedCount = reviewQueue.filter((item) => item.misclassified).length;
-  const lowConfidenceCount = reviewQueue.filter(
-    (item) => (item.ocr != null && item.ocr < 0.8) || item.extraction < 0.8,
-  ).length;
-  const reviewedCount = reviewQueue.filter(
-    (item) => Boolean(handled[item.docId]) || item.reviewStatus === "approved",
-  ).length;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedReviewQuery(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  const filteredQueue = reviewQueue.filter((item) => {
-    const isHandled = Boolean(handled[item.docId]) || item.reviewStatus === "approved";
-    if (filterTab === "pending" && isHandled) return false;
-    if (filterTab === "misclassified" && !item.misclassified) return false;
-    if (filterTab === "low-confidence" && !((item.ocr != null && item.ocr < 0.8) || item.extraction < 0.8)) return false;
-    if (filterTab === "reviewed" && !isHandled) return false;
+  const reviewQueryKey = `${filterTab}|${sortOption}|${debouncedReviewQuery}|${reviewPage}|${reviewRefreshTick}`;
+  const reviewData = reviewState?.data ?? null;
+  const reviewLoading = activeJob === "review" && reviewState?.key !== reviewQueryKey;
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      const matchId = item.docId.toLowerCase().includes(q);
-      const matchTitle = item.title.toLowerCase().includes(q);
-      const matchAgency = item.agency.toLowerCase().includes(q);
-      if (!matchId && !matchTitle && !matchAgency) return false;
-    }
-    return true;
-  });
+  useEffect(() => {
+    if (activeJob !== "review") return;
+    let cancelled = false;
 
-  const sortedQueue = [...filteredQueue].sort((a, b) => {
-    if (sortOption === "confidence-asc") {
-      const aScore = Math.min(a.extraction, a.ocr ?? a.extraction);
-      const bScore = Math.min(b.extraction, b.ocr ?? b.extraction);
-      return aScore - bScore;
-    }
-    if (sortOption === "confidence-desc") {
-      const aScore = Math.min(a.extraction, a.ocr ?? a.extraction);
-      const bScore = Math.min(b.extraction, b.ocr ?? b.extraction);
-      return bScore - aScore;
-    }
-    if (sortOption === "budget-desc") {
-      const aBudget = a.details?.budgetTHB ?? 0;
-      const bBudget = b.details?.budgetTHB ?? 0;
-      return bBudget - aBudget;
-    }
-    const aDate = a.ingestedAt ? new Date(a.ingestedAt.replace(" ", "T")).getTime() : 0;
-    const bDate = b.ingestedAt ? new Date(b.ingestedAt.replace(" ", "T")).getTime() : 0;
-    return bDate - aDate;
-  });
+    adminListReviewQueue({
+      tab: filterTab,
+      sort: sortOption,
+      q: debouncedReviewQuery,
+      page: reviewPage,
+      limit: REVIEW_PAGE_SIZE,
+    }).then((res) => {
+      if (cancelled) return;
+      if (res.ok) {
+        setReviewState({ key: reviewQueryKey, data: res.data });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeJob, filterTab, sortOption, debouncedReviewQuery, reviewPage, reviewQueryKey]);
+
+  const handleReviewSuccess = useCallback(() => {
+    setReviewRefreshTick((t) => t + 1);
+    onRefresh();
+  }, [onRefresh]);
+
+  const pendingCount =
+    reviewData?.counts.pending ??
+    reviewQueue.filter((item) => !handled[item.docId] && item.reviewStatus !== "approved").length;
+  const readyCount =
+    reviewData?.counts.ready ??
+    reviewQueue.filter(
+      (item) =>
+        !handled[item.docId] &&
+        item.reviewStatus !== "approved" &&
+        !item.misclassified &&
+        item.extraction >= 0.8,
+    ).length;
+  const misclassifiedCount =
+    reviewData?.counts.misclassified ??
+    reviewQueue.filter(
+      (item) => !handled[item.docId] && item.reviewStatus !== "approved" && item.misclassified,
+    ).length;
+  const lowConfidenceCount =
+    reviewData?.counts.lowConfidence ??
+    reviewQueue.filter(
+      (item) =>
+        !handled[item.docId] &&
+        item.reviewStatus !== "approved" &&
+        !item.misclassified &&
+        item.extraction < 0.8,
+    ).length;
+  const reviewedCount =
+    reviewData?.counts.reviewed ??
+    reviewQueue.filter((item) => Boolean(handled[item.docId]) || item.reviewStatus === "approved").length;
+
+  const displayedReviewItems = reviewData ? reviewData.items : reviewQueue;
+  const reviewTotal = reviewData ? reviewData.total : displayedReviewItems.length;
+  const reviewTotalPages = reviewData ? reviewData.totalPages : 1;
+  const reviewStart = reviewTotal === 0 ? 0 : (reviewPage - 1) * REVIEW_PAGE_SIZE + 1;
+  const reviewEnd = Math.min(reviewPage * REVIEW_PAGE_SIZE, reviewTotal);
 
   const handleHealthCheck = async (sourceId: string = "all") => {
     const targets = sourceId === "all" ? scraperSources.map((s) => s.id) : [sourceId];
@@ -792,7 +861,7 @@ function AdminDashboard({
 
   const ADMIN_JOBS: {
     id: AdminJob;
-    icon: string;
+    icon: LucideIcon;
     label: string;
     description: string;
     badge?: number;
@@ -800,13 +869,13 @@ function AdminDashboard({
   }[] = [
     {
       id: "overview",
-      icon: "📊",
+      icon: BarChart3,
       label: "ภาพรวม & สแครปเปอร์",
       description: "ตัวชี้วัด, Funnel และสุขภาพแหล่งข้อมูล",
     },
     {
       id: "review",
-      icon: "📋",
+      icon: ClipboardCheck,
       label: "คิวตรวจทานเอกสาร",
       description: "ความมั่นใจ < 80% หรือจัดประเภทผิด",
       badge:
@@ -817,7 +886,7 @@ function AdminDashboard({
     },
     {
       id: "failures",
-      icon: "⚙️",
+      icon: Settings,
       label: "เฝ้าระวัง Pipeline",
       description: "ตัวกรองทุกขั้นตอน & จัดการรายโครงการ",
       badge: (ops?.pipelineFailures?.length ?? 0) > 0 ? ops?.pipelineFailures?.length : undefined,
@@ -825,7 +894,7 @@ function AdminDashboard({
     },
     {
       id: "history",
-      icon: "⏱️",
+      icon: Clock,
       label: "ประวัติงาน & บันทึก",
       description: "รอบประมวลผลและ Audit Log",
       badge: (ops?.pipelineRuns?.length ?? 0) > 0 ? ops?.pipelineRuns?.length : undefined,
@@ -833,7 +902,7 @@ function AdminDashboard({
     },
     {
       id: "technologies",
-      icon: "🏷️",
+      icon: Tags,
       label: "คลังเทคโนโลยี & มาตรฐาน",
       description: "จัดการคำขอและคลังคำศัพท์ระบบ",
       badge: techPendingCount > 0 ? techPendingCount : undefined,
@@ -843,6 +912,7 @@ function AdminDashboard({
 
   const activeJobObj = ADMIN_JOBS.find((j) => j.id === activeJob) ?? ADMIN_JOBS[0];
   const currentJobLabel = activeJobObj.label;
+  const ActiveJobIcon = activeJobObj.icon;
 
   const adminRail = (
     <div className="flex flex-col gap-4">
@@ -857,6 +927,7 @@ function AdminDashboard({
         <nav className="flex flex-col p-1.5 gap-1" aria-label="Admin Navigation">
           {ADMIN_JOBS.map((job) => {
             const isActive = activeJob === job.id;
+            const JobIcon = job.icon;
             return (
               <button
                 key={job.id}
@@ -866,21 +937,21 @@ function AdminDashboard({
                   setJobNavOpen(false);
                 }}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex w-full items-start justify-between rounded-[3px] px-3 py-2.5 text-left transition-all duration-150 cursor-pointer ${
+                className={`flex w-full items-start justify-between rounded-xl px-3 py-2.5 text-left transition-colors duration-150 cursor-pointer ${
                   isActive
-                    ? "bg-ink text-surface shadow-xs font-semibold"
+                    ? "bg-ink text-surface shadow-xs"
                     : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                 }`}
               >
                 <div className="min-w-0 pr-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[13px]">{job.icon}</span>
+                    <JobIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                     <span className="text-[13px] leading-tight font-medium">
                       {job.label}
                     </span>
                   </div>
                   <p
-                    className={`mt-0.5 text-[11px] leading-thai ${
+                    className={`mt-0.5 text-[11px] font-normal leading-thai ${
                       isActive ? "text-surface/80" : "text-ink-3"
                     }`}
                   >
@@ -890,14 +961,14 @@ function AdminDashboard({
 
                 {job.badge !== undefined && (
                   <span
-                    className={`shrink-0 rounded-[2px] px-1.5 py-0.5 font-mono tnum text-[11px] font-medium ${
+                    className={`shrink-0 rounded-full border px-2 py-0.5 font-mono tnum text-[11px] font-medium ${
                       isActive
-                        ? "bg-surface/20 text-surface"
+                        ? "border-transparent bg-surface/20 text-surface"
                         : job.badgeTone === "risk"
-                          ? "bg-risk-bg text-risk border border-risk-line"
+                          ? "border-risk-line bg-risk-bg text-risk"
                           : job.badgeTone === "amend"
-                            ? "bg-amend-bg text-amend border border-amend-line"
-                            : "bg-surface-3 text-ink-3"
+                            ? "border-amend-line bg-amend-bg text-amend"
+                            : "border-transparent bg-surface-3 text-ink-3"
                     }`}
                   >
                     {job.badge}
@@ -916,7 +987,7 @@ function AdminDashboard({
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-line pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="rounded-[2px] bg-ink text-surface px-1.5 py-0.5 text-[10px] uppercase font-semibold tracking-wider font-mono">
+            <span className="rounded-full bg-ink text-surface px-2.5 py-0.5 text-[10px] uppercase font-semibold tracking-wider font-mono">
               ADMIN OPS
             </span>
             <span className="text-[11px] text-ink-3">
@@ -979,14 +1050,14 @@ function AdminDashboard({
                 {isSuggesting ? (
                   <span className="animate-spin inline-block text-[11px]">↻</span>
                 ) : (
-                  "🔍"
+                  <Search className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
               </button>
             </div>
 
             {/* Suggestions Dropdown Popover */}
             {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute left-0 right-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-[3px] border border-line bg-surface shadow-2xl text-[12px]">
+              <div className="absolute left-0 right-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-xl border border-line bg-surface shadow-2xl text-[12px]">
                 <div className="px-2.5 py-1.5 text-[10px] uppercase font-semibold text-ink-3 bg-surface-2 border-b border-line flex justify-between items-center">
                   <span>{"โครงการที่พบ"}</span>
                   <span className="font-mono">{suggestions.length}</span>
@@ -1007,7 +1078,7 @@ function AdminDashboard({
                           <span className="font-mono font-bold text-[11px] text-ink">
                             {p.projectId}
                           </span>
-                          <span className="text-[10px] px-1 py-0.2 rounded border border-line bg-surface-2 text-ink-3 font-mono">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full border border-line bg-surface-2 text-ink-3 font-mono">
                             {p.status}
                           </span>
                         </div>
@@ -1015,8 +1086,9 @@ function AdminDashboard({
                           {p.title}
                         </p>
                         {p.agency && (
-                          <span className="text-[10px] text-ink-3 truncate">
-                            🏛️ {p.agency}
+                          <span className="inline-flex items-center gap-1 text-[10px] text-ink-3 truncate">
+                            <Landmark className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            <span className="truncate">{p.agency}</span>
                           </span>
                         )}
                       </button>
@@ -1072,7 +1144,7 @@ function AdminDashboard({
             <span className="flex items-center gap-2">
               <span className="text-ink-3">{"หน้าที่งาน:"}</span>
               <span className="font-semibold text-ink flex items-center gap-1.5">
-                <span>{activeJobObj.icon}</span>
+                <ActiveJobIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>{currentJobLabel}</span>
               </span>
             </span>
@@ -1089,7 +1161,7 @@ function AdminDashboard({
         </aside>
 
         {/* Main Content Area */}
-        <main className="w-full min-w-0 min-h-[640px]">
+        <section aria-label="เนื้อหาหลักผู้ดูแลระบบ" className="w-full min-w-0 min-h-[640px]">
           {/* Job 1: Overview & Scrapers */}
           <div className={activeJob === "overview" ? "block w-full" : "hidden"}>
             {!ops ? (
@@ -1097,7 +1169,7 @@ function AdminDashboard({
             ) : (
             <div className="w-full">
               {/* KPI Stats Strip */}
-              <div className="mb-6 grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              <div className={`mb-6 grid w-full grid-cols-2 gap-2 sm:grid-cols-3 ${stats.length >= 6 ? "lg:grid-cols-6" : "lg:grid-cols-5"}`}>
                 {stats.map((stat) => (
                   <Panel key={stat.label} className="px-3 py-2.5">
                     <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
@@ -1131,7 +1203,7 @@ function AdminDashboard({
         </SectionHeading>
 
         {checkMessage ? (
-          <div className="mb-3 flex items-center justify-between rounded-[3px] border border-open-line bg-open-bg px-3 py-2 text-[12px] text-ink">
+          <div className="mb-3 flex items-center justify-between rounded-xl border border-open-line bg-open-bg px-3.5 py-2 text-[12px] text-ink">
             <span className="flex items-center gap-2">
               <span className="text-open">●</span>
               {checkMessage}
@@ -1186,14 +1258,14 @@ function AdminDashboard({
                       {source.portal} · {source.format}
                     </span>
                     {source.error ? (
-                      <p className="mt-1.5 max-w-[420px] rounded-[3px] border border-risk-line bg-risk-bg px-2 py-1.5 text-[11px] leading-relaxed text-risk">
+                      <p className="mt-1.5 max-w-[420px] rounded-lg border border-risk-line bg-risk-bg px-2.5 py-1.5 text-[11px] leading-relaxed text-risk">
                         {source.error}
                       </p>
                     ) : null}
                   </td>
                   <td className="px-3 py-2.5">
                     <span
-                      className={`inline-flex rounded-[2px] border px-1.5 py-[3px] text-[11px] font-medium ${
+                      className={`inline-flex rounded-full border px-2 py-[3px] text-[11px] font-medium ${
                         HEALTH[source.health]?.chip ?? "border-line bg-surface-2 text-ink-2"
                       }`}
                     >
@@ -1205,7 +1277,7 @@ function AdminDashboard({
                       {source.history.map((succeeded, index) => (
                         <span
                           key={index}
-                          className={`w-[4px] rounded-[1px] transition-all ${
+                          className={`w-[4px] rounded-full transition-all ${
                             succeeded === null
                               ? "h-[5px] bg-line/60"
                               : succeeded
@@ -1279,23 +1351,26 @@ function AdminDashboard({
               {/* Row 1: Filter Tabs */}
               <div className="mb-3 flex flex-wrap gap-1.5 border-b border-line pb-3">
                 {[
-                  { id: "all", label: `ทั้งหมด (${reviewQueue.length})` },
-                  { id: "pending", label: `รอตรวจทาน (${pendingCount})` },
-                  { id: "low-confidence", label: `⚠️ มั่นใจต่ำ (< 80%) (${lowConfidenceCount})` },
-                  { id: "misclassified", label: `ตรวจประเภท (${misclassifiedCount})` },
-                  { id: "reviewed", label: `ตรวจทานแล้ว (${reviewedCount})` },
+                  { id: "ready", label: `✓ พร้อมอนุมัติ (≥ 80%) (${readyCount.toLocaleString()})`, warn: false },
+                  { id: "low-confidence", label: `มั่นใจต่ำ (< 80%) (${lowConfidenceCount.toLocaleString()})`, warn: true },
+                  { id: "misclassified", label: `ตรวจประเภท (${misclassifiedCount.toLocaleString()})`, warn: false },
+                  { id: "reviewed", label: `ตรวจทานแล้ว (${reviewedCount.toLocaleString()})`, warn: false },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setFilterTab(tab.id as typeof filterTab)}
-                    className={`rounded-[3px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                    onClick={() => {
+                      setFilterTab(tab.id as ReviewQueueTab);
+                      setReviewPage(1);
+                    }}
+                    className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
                       filterTab === tab.id
                         ? "bg-ink text-surface"
                         : "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
                     }`}
                   >
-                    {tab.label}
+                    {tab.warn ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
+                    <span>{tab.label}</span>
                   </button>
                 ))}
               </div>
@@ -1303,20 +1378,26 @@ function AdminDashboard({
               {/* Row 2: Search Input & Sort Selector */}
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="relative w-full sm:w-72">
-                  <span className="absolute inset-y-0 left-2.5 flex items-center text-ink-3 pointer-events-none text-[12px]">
-                    🔍
+                  <span className="absolute inset-y-0 left-2.5 flex items-center text-ink-3 pointer-events-none">
+                    <Search className="h-3.5 w-3.5" aria-hidden="true" />
                   </span>
                   <input
                     type="text"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={"ค้นหาด้วยเลขโครงการ / ชื่อ..."}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setReviewPage(1);
+                    }}
+                    placeholder={"ค้นหาด้วยเลขโครงการ / ชื่อ / หน่วยงาน..."}
                     className={`${input} text-[12px] h-8 pl-8 pr-7 w-full`}
                   />
                   {searchQuery && (
                     <button
                       type="button"
-                      onClick={() => setSearchQuery("")}
+                      onClick={() => {
+                        setSearchQuery("");
+                        setReviewPage(1);
+                      }}
                       className="absolute inset-y-0 right-2 flex items-center text-ink-3 hover:text-ink text-[12px] cursor-pointer"
                       title={"ล้างคำค้นหา"}
                     >
@@ -1325,49 +1406,89 @@ function AdminDashboard({
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] text-ink-3 whitespace-nowrap">
-                    {"เรียงตาม:"}
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-mono text-[11.5px] text-ink-3">
+                    {reviewTotal > 0
+                      ? `แสดง ${reviewStart.toLocaleString()}–${reviewEnd.toLocaleString()} จาก ${reviewTotal.toLocaleString()} รายการ`
+                      : "0 รายการ"}
                   </span>
-                  <select
-                    value={sortOption}
-                    onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
-                    className="h-8 rounded-[3px] border border-line bg-surface px-2.5 text-[12px] text-ink focus:border-ink-2 focus:outline-none cursor-pointer"
-                  >
-                    <option value="confidence-asc">
-                      {"คะแนนความมั่นใจต่ำสุดก่อน"}
-                    </option>
-                    <option value="confidence-desc">
-                      {"คะแนนความมั่นใจสูงสุดก่อน"}
-                    </option>
-                    <option value="newest">
-                      {"อัปเดตล่าสุด"}
-                    </option>
-                    <option value="budget-desc">
-                      {"งบประมาณสูงสุด"}
-                    </option>
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] text-ink-3 whitespace-nowrap">
+                      {"เรียงตาม:"}
+                    </span>
+                    <select
+                      value={sortOption}
+                      onChange={(e) => {
+                        setSortOption(e.target.value as ReviewQueueSort);
+                        setReviewPage(1);
+                      }}
+                      className="h-8 rounded-[10px] border border-line bg-surface px-2.5 text-[12px] text-ink focus:border-ink-2 focus:outline-none cursor-pointer"
+                    >
+                      <option value="confidence-asc">
+                        {"คะแนนความมั่นใจต่ำสุดก่อน"}
+                      </option>
+                      <option value="confidence-desc">
+                        {"คะแนนความมั่นใจสูงสุดก่อน"}
+                      </option>
+                      <option value="newest">
+                        {"อัปเดตล่าสุด"}
+                      </option>
+                      <option value="budget-desc">
+                        {"งบประมาณสูงสุด"}
+                      </option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {sortedQueue.length === 0 ? (
+              {reviewLoading && !reviewData ? (
+                <ReviewTabSkeleton />
+              ) : displayedReviewItems.length === 0 ? (
                 <Panel className="p-6 text-center text-[13px] text-ink-3">
                   {"ไม่พบรายการในเงื่อนไขที่เลือก"}
                 </Panel>
               ) : (
-                <div className="flex flex-col gap-2">
-                  {sortedQueue.map((item) => (
-                    <ReviewItemCard
-                      key={item.docId}
-                      item={item}
-                      isOpen={expanded === item.docId}
-                      onToggle={() => setExpanded(expanded === item.docId ? null : item.docId)}
-                      resolution={handled[item.docId] || null}
-                      onResolution={(text) => setHandled((prev) => ({ ...prev, [item.docId]: text }))}
-                      onSuccess={onRefresh}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className={`flex flex-col gap-2 transition-opacity ${reviewLoading ? "opacity-60" : ""}`}>
+                    {displayedReviewItems.map((item) => (
+                      <ReviewItemCard
+                        key={item.docId}
+                        item={item}
+                        isOpen={expanded === item.docId}
+                        onToggle={() => setExpanded(expanded === item.docId ? null : item.docId)}
+                        resolution={handled[item.docId] || null}
+                        onResolution={(text) => setHandled((prev) => ({ ...prev, [item.docId]: text }))}
+                        onSuccess={handleReviewSuccess}
+                      />
+                    ))}
+                  </div>
+
+                  {reviewTotalPages > 1 ? (
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+                      <span className="font-mono text-[12px] text-ink-3">
+                        {`หน้า ${reviewPage} จาก ${reviewTotalPages}`}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={reviewPage <= 1 || reviewLoading}
+                          onClick={() => setReviewPage((p) => Math.max(1, p - 1))}
+                          className={`${btn.secondary} h-8 px-3 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed`}
+                        >
+                          ← ก่อนหน้า
+                        </button>
+                        <button
+                          type="button"
+                          disabled={reviewPage >= reviewTotalPages || reviewLoading}
+                          onClick={() => setReviewPage((p) => Math.min(reviewTotalPages, p + 1))}
+                          className={`${btn.secondary} h-8 px-3 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed`}
+                        >
+                          ถัดไป →
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
               )}
             </section>
             )}
@@ -1463,7 +1584,7 @@ function AdminDashboard({
                           ].map((column) => (
                             <th
                               key={column.text}
-                              className={`px-3.5 py-2.5 text-[11px] font-medium text-ink-3 ${
+                              className={`px-3.5 py-2.5 text-[11px] font-medium text-ink-3 whitespace-nowrap ${
                                 column.right ? "text-right" : ""
                               }`}
                             >
@@ -1481,26 +1602,26 @@ function AdminDashboard({
                             <td className="px-3.5 py-2.5 font-mono tnum text-[12px] text-ink-2 whitespace-nowrap">
                               {log.startedAt}
                             </td>
-                            <td className="px-3.5 py-2.5">
-                              <span className="rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] text-ink font-medium">
+                            <td className="px-3.5 py-2.5 whitespace-nowrap">
+                              <span className="inline-flex whitespace-nowrap rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-[11px] text-ink font-medium">
                                 {log.source === "process3" ? "process3 (e-GP)" : "datago (data.go.th)"}
                               </span>
                             </td>
-                            <td className="px-3.5 py-2.5">
+                            <td className="px-3.5 py-2.5 whitespace-nowrap">
                               <span
-                                className={`inline-flex rounded-[2px] border px-2 py-0.5 text-[11px] font-medium ${
+                                className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
                                   HEALTH[log.status]?.chip ?? "border-line bg-surface-2 text-ink-2"
                                 }`}
                               >
                                 {HEALTH[log.status]?.label ?? log.status}
                               </span>
                             </td>
-                            <td className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink-2">
+                            <td className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink-2 whitespace-nowrap">
                               {log.durationMs > 1000
                                 ? `${(log.durationMs / 1000).toFixed(1)}s`
                                 : `${log.durationMs}ms`}
                             </td>
-                            <td className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink font-semibold">
+                            <td className="px-3.5 py-2.5 text-right font-mono tnum text-[12px] text-ink font-semibold whitespace-nowrap">
                               {log.itemsDiscovered} / {log.itemsIngested}
                             </td>
                             <td className="px-3.5 py-2.5 text-[12px]">
@@ -1533,18 +1654,28 @@ function AdminDashboard({
           <div className={activeJob === "technologies" ? "block w-full" : "hidden"}>
             <TechnologiesSection
               technologies={techList}
+              userRequestItems={techUserRequests}
               isLoading={isTechLoading}
               pendingCount={techPendingCount}
+              counts={techCounts}
               totalCount={techTotal}
+              page={techPage}
+              totalPages={techTotalPages}
+              onPageChange={(nextPage) => {
+                setIsTechLoading(true);
+                setTechPage(nextPage);
+              }}
               search={techSearch}
               onSearchChange={(val) => {
                 setIsTechLoading(true);
                 setTechSearch(val);
+                setTechPage(1);
               }}
               statusFilter={techStatusFilter}
               onStatusFilterChange={(val) => {
                 setIsTechLoading(true);
                 setTechStatusFilter(val);
+                setTechPage(1);
               }}
               categoryFilter={techCategoryFilter}
               onCategoryFilterChange={setTechCategoryFilter}
@@ -1556,7 +1687,7 @@ function AdminDashboard({
               onOpenEdit={handleOpenEditTech}
             />
           </div>
-        </main>
+        </section>
       </div>
 
       {/* Record Inspector Modal (FR-24) */}

@@ -101,9 +101,9 @@ export function Check({
         className={`h-3.5 w-3.5 shrink-0 accent-ink ${wrap ? "mt-[4px]" : ""}`}
       />
       <span className={`min-w-0 flex-1 ${wrap ? "" : "truncate"}`}>{label}</span>
-      {trailing}
+      {trailing ? <span className="shrink-0">{trailing}</span> : null}
       {count !== undefined ? (
-        <span className={`font-mono tnum text-[11px] text-ink-3 ${wrap ? "mt-[3px]" : ""}`}>
+        <span className={`shrink-0 font-mono tnum text-[11px] text-ink-3 ${wrap ? "mt-[3px]" : ""}`}>
           {count}
         </span>
       ) : null}
@@ -123,15 +123,15 @@ export function Radio({
   name: string;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 text-[13px] text-ink-2 hover:text-ink">
+    <label className="flex cursor-pointer items-start gap-2 text-[13px] leading-thai text-ink-2 hover:text-ink">
       <input
         type="radio"
         name={name}
         checked={checked}
         onChange={onChange}
-        className="h-3.5 w-3.5 shrink-0 accent-ink"
+        className="mt-[4px] h-3.5 w-3.5 shrink-0 accent-ink"
       />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="min-w-0 flex-1">{label}</span>
     </label>
   );
 }
@@ -149,9 +149,9 @@ export function FacetList({
   if (!facets) {
     return (
       <div className="flex animate-pulse flex-col gap-2.5 py-0.5" aria-hidden="true">
-        <div className="h-3 w-4/5 rounded-[2px] bg-surface-3" />
-        <div className="h-3 w-3/5 rounded-[2px] bg-surface-3" />
-        <div className="h-3 w-2/3 rounded-[2px] bg-surface-3" />
+        <div className="h-3 w-4/5 rounded-full bg-surface-3" />
+        <div className="h-3 w-3/5 rounded-full bg-surface-3" />
+        <div className="h-3 w-2/3 rounded-full bg-surface-3" />
       </div>
     );
   }

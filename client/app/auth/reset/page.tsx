@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ResetPasswordForm } from "../../_components/reset-password-form";
 
 export const metadata: Metadata = {
-  title: "ตั้งรหัสผ่านใหม่",
+  title: "ตั้งรหัสผ่านใหม่ — GIPDP",
   // A link from one person's inbox, never a page to find by search
   robots: { index: false, follow: false },
 };

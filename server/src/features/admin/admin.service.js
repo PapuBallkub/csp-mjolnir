@@ -152,6 +152,16 @@ export async function getDynamicSources() {
 }
 
 /**
+ * Only full TOR extractions belong in the admin review queue (FR-23, NFR-17).
+ * Historical data.go.th title-only stubs (ADR 0028) and preview-only placeholders
+ * (ADR 0018) have no extracted TOR document to inspect or approve.
+ */
+const REVIEWABLE_INSIGHT_FILTER = {
+  'metadata.titleOnly': { $ne: true },
+  'metadata.awaitingFullText': { $ne: true },
+};
+
+/**
  * Calculates rolling KPIs for the admin dashboard summary strip (FR-22).
  */
 export async function getDynamicStats() {
@@ -164,11 +174,8 @@ export async function getDynamicStats() {
         Tor.countDocuments({ createdAt: { $gte: startOfToday } }),
         Tor.countDocuments(),
         TorInsight.countDocuments({
-          $or: [
-            { 'metadata.reviewStatus': 'pending' },
-            { 'metadata.confidenceScore': { $lt: 80 } },
-            { 'metadata.excluded': { $ne: null } },
-          ],
+          ...REVIEWABLE_INSIGHT_FILTER,
+          'metadata.reviewStatus': { $ne: 'approved' },
         }),
         Tor.countDocuments({
           isAmended: true,
@@ -185,7 +192,7 @@ export async function getDynamicStats() {
       ocrAgg[0]?.avg != null ? Number(ocrAgg[0].avg.toFixed(2)) : 0;
 
     const extAgg = await TorInsight.aggregate([
-      { $match: { 'metadata.confidenceScore': { $gt: 0 } } },
+      { $match: { ...REVIEWABLE_INSIGHT_FILTER, 'metadata.confidenceScore': { $gt: 0 } } },
       { $group: { _id: null, avg: { $avg: '$metadata.confidenceScore' } } },
     ]);
     const avgExt =
@@ -233,13 +240,98 @@ export async function getDynamicStats() {
 }
 
 /**
- * Builds the extraction review queue of unverified, low-confidence, or
- * misclassified documents awaiting administrative clearance (FR-23, NFR-17),
- * as well as recently reviewed documents for auditability.
+ * Formats TorInsight documents into admin review queue cards, batch-fetching
+ * matching Tor records in a single query.
+ */
+async function formatReviewQueueItems(insights) {
+  if (!insights || insights.length === 0) return [];
+
+  const projectIds = insights.map((i) => i.projectId);
+  const tors = await Tor.find({ projectId: { $in: projectIds } })
+    .select('projectId title agency budgetTHB referencePriceTHB ocr.processedAt ocr.confidence pipelineStatus')
+    .lean();
+  const torMap = new Map(tors.map((t) => [t.projectId, t]));
+
+  return insights.map((insight) => {
+    const tor = torMap.get(insight.projectId);
+
+    const score =
+      insight.metadata?.confidenceScore != null
+        ? insight.metadata.confidenceScore / 100
+        : 0.85;
+
+    const lowFields = (insight.metadata?.checks || []).map((c) => ({
+      field: c.field || c.check,
+      value:
+        typeof c.detail === 'object' && c.detail !== null
+          ? JSON.stringify(c.detail)
+          : String(c.detail || c.check),
+      confidence: c.severity === 'critical' ? 0.5 : 0.75,
+    }));
+
+    let misclassified = undefined;
+    if (insight.metadata?.excluded) {
+      misclassified = {
+        predicted: insight.identification?.categories?.join(', ') || 'IT / software',
+        likely: insight.metadata.excluded.reason || 'Civil works — out of scope',
+      };
+    }
+
+    const hasOcr =
+      Boolean(tor?.ocr?.processedAt) ||
+      tor?.pipelineStatus === 'ocr_done' ||
+      (tor?.ocr?.confidence != null && tor.ocr.confidence > 0);
+    const ocrScore = hasOcr
+      ? (tor?.ocr?.confidence != null && tor.ocr.confidence > 0
+          ? Number(tor.ocr.confidence.toFixed(2))
+          : 1.0)
+      : null;
+
+    const details = {
+      budgetTHB: tor?.budgetTHB ?? insight.facts?.budgetTHB ?? null,
+      referencePriceTHB: tor?.referencePriceTHB ?? insight.facts?.referencePriceTHB ?? null,
+      objective: insight.overview?.objective || null,
+      systemArchetype: insight.overview?.systemArchetype || null,
+      complexityTier: insight.overview?.complexityTier || null,
+      contractDurationDays: insight.facts?.contractDurationDays ?? null,
+      warrantyYears: insight.facts?.warrantyYears ?? null,
+      penaltyClause: insight.facts?.penaltyClause || null,
+      companyRequirements: insight.eligibility?.companyRequirements || [],
+      previousExperience: insight.eligibility?.previousExperience || null,
+      previousExperienceMinTHB: insight.eligibility?.previousExperienceMinTHB ?? null,
+      paymentTerms: insight.contractConditions?.paymentTerms || null,
+      requiredTechnologies: insight.technicalRequirements?.requiredTechnologies?.length
+        ? insight.technicalRequirements.requiredTechnologies
+            .map((t) => t.name + (t.version ? ` ${t.version}` : ''))
+            .join(', ')
+        : '',
+    };
+
+    return {
+      docId: insight.projectId,
+      title: insight.identification?.titleTh || tor?.title || `Project ${insight.projectId}`,
+      agency: insight.identification?.agency || tor?.agency || 'สำนักการระบายน้ำ',
+      ingestedAt: insight.metadata?.processedAt
+        ? new Date(insight.metadata.processedAt).toISOString().slice(0, 16).replace('T', ' ')
+        : new Date().toISOString().slice(0, 16).replace('T', ' '),
+      ocr: ocrScore,
+      extraction: score,
+      reviewStatus: insight.metadata?.reviewStatus || 'pending',
+      lowFields,
+      details,
+      ...(misclassified ? { misclassified } : {}),
+    };
+  });
+}
+
+/**
+ * Builds the extraction review queue snapshot for GET /api/admin/operations
+ * (FR-23, NFR-17), excluding title-only history stubs and preview placeholders.
  */
 export async function getDynamicReviewQueue() {
   try {
     const pendingInsights = await TorInsight.find({
+      ...REVIEWABLE_INSIGHT_FILTER,
       $or: [
         { 'metadata.reviewStatus': 'pending' },
         { 'metadata.confidenceScore': { $lt: 80 } },
@@ -247,16 +339,19 @@ export async function getDynamicReviewQueue() {
       ],
     })
       .sort({ updatedAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean();
 
     const reviewedInsights = await TorInsight.find({
+      ...REVIEWABLE_INSIGHT_FILTER,
       $or: [
         { 'metadata.reviewStatus': 'approved' },
         { 'metadata.reviewedAt': { $ne: null } },
       ],
     })
       .sort({ 'metadata.reviewedAt': -1, updatedAt: -1 })
-      .limit(30);
+      .limit(30)
+      .lean();
 
     // Merge pending first, then reviewed (deduplicating by projectId)
     const seen = new Set();
@@ -268,85 +363,136 @@ export async function getDynamicReviewQueue() {
       }
     }
 
-    if (candidateInsights.length === 0) {
-      return [];
-    }
-
-    const items = [];
-    for (const insight of candidateInsights) {
-      const tor = await Tor.findOne({ projectId: insight.projectId });
-
-      const score = insight.metadata?.confidenceScore
-        ? insight.metadata.confidenceScore / 100
-        : 0.85;
-
-      const lowFields = (insight.metadata?.checks || []).map((c) => ({
-        field: c.field || c.check,
-        value:
-          typeof c.detail === 'object' && c.detail !== null
-            ? JSON.stringify(c.detail)
-            : String(c.detail || c.check),
-        confidence: c.severity === 'critical' ? 0.5 : 0.75,
-      }));
-
-      let misclassified = undefined;
-      if (insight.metadata?.excluded) {
-        misclassified = {
-          predicted: insight.identification?.categories?.join(', ') || 'IT / software',
-          likely: insight.metadata.excluded.reason || 'Civil works — out of scope',
-        };
-      }
-
-      const hasOcr =
-        Boolean(tor?.ocr?.processedAt) ||
-        tor?.pipelineStatus === 'ocr_done' ||
-        (tor?.ocr?.confidence != null && tor.ocr.confidence > 0);
-      const ocrScore = hasOcr
-        ? (tor?.ocr?.confidence != null && tor.ocr.confidence > 0
-            ? Number(tor.ocr.confidence.toFixed(2))
-            : 1.0)
-        : null;
-
-      const details = {
-        budgetTHB: tor?.budgetTHB ?? insight.facts?.budgetTHB ?? null,
-        referencePriceTHB: tor?.referencePriceTHB ?? insight.facts?.referencePriceTHB ?? null,
-        objective: insight.overview?.objective || null,
-        systemArchetype: insight.overview?.systemArchetype || null,
-        complexityTier: insight.overview?.complexityTier || null,
-        contractDurationDays: insight.facts?.contractDurationDays ?? null,
-        warrantyYears: insight.facts?.warrantyYears ?? null,
-        penaltyClause: insight.facts?.penaltyClause || null,
-        companyRequirements: insight.eligibility?.companyRequirements || [],
-        previousExperience: insight.eligibility?.previousExperience || null,
-        previousExperienceMinTHB: insight.eligibility?.previousExperienceMinTHB ?? null,
-        paymentTerms: insight.contractConditions?.paymentTerms || null,
-        requiredTechnologies: insight.technicalRequirements?.requiredTechnologies?.length
-          ? insight.technicalRequirements.requiredTechnologies
-              .map((t) => t.name + (t.version ? ` ${t.version}` : ''))
-              .join(', ')
-          : '',
-      };
-
-      items.push({
-        docId: insight.projectId,
-        title: insight.identification?.titleTh || tor?.title || `Project ${insight.projectId}`,
-        agency: insight.identification?.agency || tor?.agency || 'สำนักการระบายน้ำ',
-        ingestedAt: insight.metadata?.processedAt
-          ? new Date(insight.metadata.processedAt).toISOString().slice(0, 16).replace('T', ' ')
-          : new Date().toISOString().slice(0, 16).replace('T', ' '),
-        ocr: ocrScore,
-        extraction: score,
-        reviewStatus: insight.metadata?.reviewStatus || 'pending',
-        lowFields,
-        details,
-        ...(misclassified ? { misclassified } : {}),
-      });
-    }
-
-    return items;
+    return await formatReviewQueueItems(candidateInsights);
   } catch {
     return [];
   }
+}
+
+const VALID_REVIEW_TABS = new Set(['all', 'pending', 'ready', 'low-confidence', 'misclassified', 'reviewed']);
+const VALID_REVIEW_SORTS = new Set(['confidence-asc', 'confidence-desc', 'newest', 'budget-desc']);
+
+/**
+ * Paginated, filterable, searchable admin review queue (FR-23, NFR-17).
+ * Allows admins to inspect every extracted TOR without the 50-row cap, while
+ * excluding historical title-only stubs (ADR 0028) and preview placeholders.
+ */
+export async function listReviewQueue({
+  tab = 'ready',
+  sort = 'newest',
+  q = '',
+  page = 1,
+  limit = 25,
+} = {}) {
+  const safeTab = VALID_REVIEW_TABS.has(tab) ? tab : 'ready';
+  const safeSort = VALID_REVIEW_SORTS.has(sort) ? sort : 'newest';
+  const safePage = Math.max(1, Number.parseInt(String(page), 10) || 1);
+  const safeLimit = Math.min(100, Math.max(1, Number.parseInt(String(limit), 10) || 25));
+
+  const readyFilter = {
+    ...REVIEWABLE_INSIGHT_FILTER,
+    'metadata.reviewStatus': { $ne: 'approved' },
+    'metadata.excluded': null,
+    'metadata.confidenceScore': { $gte: 80 },
+  };
+  const lowConfidenceFilter = {
+    ...REVIEWABLE_INSIGHT_FILTER,
+    'metadata.reviewStatus': { $ne: 'approved' },
+    'metadata.excluded': null,
+    'metadata.confidenceScore': { $lt: 80 },
+  };
+  const misclassifiedFilter = {
+    ...REVIEWABLE_INSIGHT_FILTER,
+    'metadata.reviewStatus': { $ne: 'approved' },
+    'metadata.excluded': { $ne: null },
+  };
+  const reviewedFilter = {
+    ...REVIEWABLE_INSIGHT_FILTER,
+    'metadata.reviewStatus': 'approved',
+  };
+
+  const baseFilter =
+    safeTab === 'ready'
+      ? readyFilter
+      : safeTab === 'low-confidence'
+        ? lowConfidenceFilter
+        : safeTab === 'misclassified'
+          ? misclassifiedFilter
+          : safeTab === 'reviewed'
+            ? reviewedFilter
+            : safeTab === 'pending'
+              ? { ...REVIEWABLE_INSIGHT_FILTER, 'metadata.reviewStatus': { $ne: 'approved' } }
+              : REVIEWABLE_INSIGHT_FILTER;
+
+  const queryFilter = { ...baseFilter };
+
+  const trimmed = typeof q === 'string' ? q.trim() : '';
+  if (trimmed) {
+    const rx = new RegExp(escapeRegex(trimmed), 'i');
+    queryFilter.$or = [
+      { projectId: rx },
+      { 'identification.titleTh': rx },
+      { 'identification.agency': rx },
+    ];
+  }
+
+  const sortSpec =
+    safeSort === 'confidence-asc'
+      ? { 'metadata.confidenceScore': 1, updatedAt: -1 }
+      : safeSort === 'confidence-desc'
+        ? { 'metadata.confidenceScore': -1, updatedAt: -1 }
+        : safeSort === 'budget-desc'
+          ? { 'facts.budgetTHB': -1, 'facts.referencePriceTHB': -1, updatedAt: -1 }
+          : { 'metadata.processedAt': -1, updatedAt: -1 };
+
+  const [
+    total,
+    allCount,
+    pendingCount,
+    readyCount,
+    lowConfidenceCount,
+    misclassifiedCount,
+    reviewedCount,
+  ] = await Promise.all([
+    TorInsight.countDocuments(queryFilter),
+    TorInsight.countDocuments(REVIEWABLE_INSIGHT_FILTER),
+    TorInsight.countDocuments({
+      ...REVIEWABLE_INSIGHT_FILTER,
+      'metadata.reviewStatus': { $ne: 'approved' },
+    }),
+    TorInsight.countDocuments(readyFilter),
+    TorInsight.countDocuments(lowConfidenceFilter),
+    TorInsight.countDocuments(misclassifiedFilter),
+    TorInsight.countDocuments(reviewedFilter),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+  const clampedPage = Math.min(safePage, totalPages);
+  const skip = (clampedPage - 1) * safeLimit;
+
+  const pageInsights = await TorInsight.find(queryFilter)
+    .sort(sortSpec)
+    .skip(skip)
+    .limit(safeLimit)
+    .lean();
+
+  const items = await formatReviewQueueItems(pageInsights);
+
+  return {
+    items,
+    total,
+    page: clampedPage,
+    limit: safeLimit,
+    totalPages,
+    counts: {
+      all: allCount,
+      pending: pendingCount,
+      ready: readyCount,
+      lowConfidence: lowConfidenceCount,
+      misclassified: misclassifiedCount,
+      reviewed: reviewedCount,
+    },
+  };
 }
 
 const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -1819,7 +1965,13 @@ export async function getAdminTechnologies({ status, search, page = 1, limit = 5
     }
 
     const query = {};
-    if (status && status !== 'all') {
+    if (status === 'user-request') {
+      query.status = 'new';
+      query.firstSeenIn = /^user-request/;
+    } else if (status === 'ai-new') {
+      query.status = 'new';
+      query.firstSeenIn = { $not: /^user-request/ };
+    } else if (status && status !== 'all') {
       query.status = status;
     }
     if (search && search.trim()) {
@@ -1833,42 +1985,82 @@ export async function getAdminTechnologies({ status, search, page = 1, limit = 5
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
-    const skip = (pageNum - 1) * limitNum;
 
-    const [items, total, pendingRequestsCount] = await Promise.all([
-      Technology.find(query)
-        .sort({ status: 1, updatedAt: -1, createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .lean(),
+    const userRequestQuery = { status: 'new', firstSeenIn: /^user-request/ };
+    const aiNewQuery = { status: 'new', firstSeenIn: { $not: /^user-request/ } };
+
+    const [
+      total,
+      allCount,
+      confirmedCount,
+      pendingRequestsCount,
+      userRequestsCount,
+      aiNewCount,
+      rejectedCount,
+      userRequestDocs,
+    ] = await Promise.all([
       Technology.countDocuments(query),
+      Technology.countDocuments(),
+      Technology.countDocuments({ status: 'confirmed' }),
       Technology.countDocuments({ status: 'new' }),
+      Technology.countDocuments(userRequestQuery),
+      Technology.countDocuments(aiNewQuery),
+      Technology.countDocuments({ status: 'rejected' }),
+      Technology.find(userRequestQuery).sort({ createdAt: -1 }).limit(50).lean(),
     ]);
 
+    const totalPages = Math.max(1, Math.ceil(total / limitNum));
+    const clampedPage = Math.min(pageNum, totalPages);
+    const skip = (clampedPage - 1) * limitNum;
+
+    const items = await Technology.find(query)
+      .sort({ status: 1, updatedAt: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    const mapTech = (t) => ({
+      id: t._id.toString(),
+      name: t.name,
+      key: t.key,
+      category: t.category,
+      aliases: t.aliases || [],
+      status: t.status,
+      firstSeenIn: t.firstSeenIn,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+    });
+
     return {
-      items: items.map((t) => ({
-        id: t._id.toString(),
-        name: t.name,
-        key: t.key,
-        category: t.category,
-        aliases: t.aliases || [],
-        status: t.status,
-        firstSeenIn: t.firstSeenIn,
-        createdAt: t.createdAt,
-        updatedAt: t.updatedAt,
-      })),
+      items: items.map(mapTech),
+      userRequestItems: userRequestDocs.map(mapTech),
       total,
-      page: pageNum,
-      totalPages: Math.ceil(total / limitNum) || 1,
+      page: clampedPage,
+      totalPages,
       pendingRequestsCount,
+      counts: {
+        all: allCount,
+        confirmed: confirmedCount,
+        aiNew: aiNewCount,
+        userRequests: userRequestsCount,
+        rejected: rejectedCount,
+      },
     };
   } catch {
     return {
       items: [],
+      userRequestItems: [],
       total: 0,
       page: 1,
       totalPages: 1,
       pendingRequestsCount: 0,
+      counts: {
+        all: 0,
+        confirmed: 0,
+        aiNew: 0,
+        userRequests: 0,
+        rejected: 0,
+      },
     };
   }
 }

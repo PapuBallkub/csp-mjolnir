@@ -599,8 +599,20 @@ never appears in the URL.
 | [_components/TechnologiesSection.tsx](../client/app/(app)/admin/_components/TechnologiesSection.tsx) | Vocabulary table: confirm, merge, edit, delete. |
 | [_components/AddEditTechnologyModal.tsx](../client/app/(app)/admin/_components/AddEditTechnologyModal.tsx) | Add or edit one technology. |
 | [_components/PasswordResetCard.tsx](../client/app/(app)/admin/_components/PasswordResetCard.tsx) | Sends a user a reset link by address. No password field, and the link never comes back ([0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md)). |
-| [review/[id]/page.tsx](../client/app/(app)/admin/review/[id]/page.tsx) | ~2,600 lines. The review workspace: edit any extracted field, approve, reclassify, re-extract, see and roll back versions, with the PDF alongside. |
-| [review/[id]/ReviewEditorComponents.tsx](../client/app/(app)/admin/review/[id]/ReviewEditorComponents.tsx) | Field editors for the workspace, including the numbered category picker. |
+| [review/[id]/page.tsx](../client/app/(app)/admin/review/[id]/page.tsx) | Review workspace shell (~450 lines): orchestrates fetch, approval, rollback, reclassify, re-extract, modals, and section navigation. |
+| [review/[id]/ReviewEditorComponents.tsx](../client/app/(app)/admin/review/[id]/ReviewEditorComponents.tsx) | Field editors, drawers, and confirmation modals for the workspace, including the numbered category picker. |
+| [review/[id]/_lib/review-form.ts](../client/app/(app)/admin/review/[id]/_lib/review-form.ts) | Pure review form state model, section list, parsers, validators, diff computation, revert helpers, and approval payload builder. |
+| [review/[id]/_lib/useReviewForm.ts](../client/app/(app)/admin/review/[id]/_lib/useReviewForm.ts) | Unified hook managing review form state, validation, diffs, revert/discard, and technology list mutations. |
+| [review/[id]/_components/ReviewFieldPrimitives.tsx](../client/app/(app)/admin/review/[id]/_components/ReviewFieldPrimitives.tsx) | Shared field header, AI confidence badge, modified-input styling, and section prop types. |
+| [review/[id]/_components/ReviewTopBar.tsx](../client/app/(app)/admin/review/[id]/_components/ReviewTopBar.tsx) | Sticky workspace header with confidence pill, version history, PDF preview, evidence grounding, re-extract, and publish actions. |
+| [review/[id]/_components/ReviewSectionNav.tsx](../client/app/(app)/admin/review/[id]/_components/ReviewSectionNav.tsx) | Sticky 10-section TOC sidebar with per-section edit counts and smooth-scroll navigation. |
+| [review/[id]/_components/ReclassifyModal.tsx](../client/app/(app)/admin/review/[id]/_components/ReclassifyModal.tsx) | Modal for reclassifying an out-of-scope TOR out of the IT review queue. |
+| [review/[id]/_components/sections/IdentificationSection.tsx](../client/app/(app)/admin/review/[id]/_components/sections/IdentificationSection.tsx) | Section 1: project title, agency, category picker, and announcement metadata. |
+| [review/[id]/_components/sections/KeyFactsSection.tsx](../client/app/(app)/admin/review/[id]/_components/sections/KeyFactsSection.tsx) | Section 2: budget, reference price, dates, contract duration, warranty, and penalty rate. |
+| [review/[id]/_components/sections/OverviewDeliverablesSection.tsx](../client/app/(app)/admin/review/[id]/_components/sections/OverviewDeliverablesSection.tsx) | Sections 3–4: project summary, scope items, and deliverable milestones. |
+| [review/[id]/_components/sections/TechnicalSpecsSection.tsx](../client/app/(app)/admin/review/[id]/_components/sections/TechnicalSpecsSection.tsx) | Section 5: technology vocabulary tags, custom tech input, and technical requirements. |
+| [review/[id]/_components/sections/IntegrationOpsSection.tsx](../client/app/(app)/admin/review/[id]/_components/sections/IntegrationOpsSection.tsx) | Sections 6–7: system integration requirements, SLA/support, and training/maintenance obligations. |
+| [review/[id]/_components/sections/EligibilityContractSection.tsx](../client/app/(app)/admin/review/[id]/_components/sections/EligibilityContractSection.tsx) | Sections 8–10: bidder eligibility, payment/evaluation conditions, and amendment notes. |
 
 ### client/_components
 
@@ -655,8 +667,9 @@ never appears in the URL.
 `npm test` runs them with `node:test`; Node strips the types, so nothing tested
 here may contain JSX or path aliases. One file per `_lib` module: `api`,
 `catalog`, `categories`, `changes`, `deadline`, `format`, `match`, `safe-next`,
-`stage`. Also `admin-pipeline` (the admin calls in `api.ts`) and `slider` (the
-`BeforeAfterSlider` maths).
+`stage`, `watchdog`. Also `admin-pipeline` (the admin calls in `api.ts`),
+`review-form` (review workspace state, diffs, validation, and payload builders),
+`security-headers`, and `slider` (the `BeforeAfterSlider` maths).
 
 ---
 

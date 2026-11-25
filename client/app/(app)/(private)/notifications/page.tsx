@@ -14,7 +14,6 @@ import {
   Clock,
   FileEdit,
   Mail,
-  Wrench,
 } from "lucide-react";
 import { useProfile } from "../../../_components/prefs";
 import { StatusBadge } from "../../../_components/verdict";
@@ -151,14 +150,14 @@ export default function NotificationsPage() {
             </p>
           </div>
 
-          {/* Link to Profile Settings */}
-          <div className="shrink-0">
+          {/* Link to Notification Settings */}
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
             <Link
-              href="/profile"
-              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2 hover:text-ink transition-colors"
+              href="/profile?edit=true#notification-settings"
+              className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[12px] font-medium text-ink-2 hover:border-line-2 hover:text-ink transition-colors"
             >
-              <Wrench className="h-3.5 w-3.5" />
-              <span>ตั้งค่าโปรไฟล์และทักษะ</span>
+              <Mail className="h-3.5 w-3.5" />
+              <span>ตั้งค่าการแจ้งเตือนและอีเมล</span>
             </Link>
           </div>
         </header>
@@ -166,11 +165,11 @@ export default function NotificationsPage() {
         {/* Subheader Filters: Read Status on Left, Type Dropdown & Actions on Right */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
           {/* Read Status Tabs (All vs Unread) */}
-          <div className="flex items-center gap-1.5 rounded-md border border-line bg-surface p-1 shadow-2xs">
+          <div className="flex items-center gap-1 rounded-full border border-line bg-surface p-1 shadow-2xs">
             <button
               type="button"
               onClick={() => setStatusFilter("all")}
-              className={`rounded px-3 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+              className={`rounded-full px-3.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
                 statusFilter === "all"
                   ? "bg-surface-3 text-ink font-semibold shadow-xs"
                   : "text-ink-3 hover:text-ink"
@@ -181,7 +180,7 @@ export default function NotificationsPage() {
             <button
               type="button"
               onClick={() => setStatusFilter("unread")}
-              className={`rounded px-3 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+              className={`rounded-full px-3.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
                 statusFilter === "unread"
                   ? "bg-surface-3 text-ink font-semibold shadow-xs"
                   : "text-ink-3 hover:text-ink"
@@ -224,7 +223,7 @@ export default function NotificationsPage() {
                       e.target.value as "all" | "match" | "status_change" | "amendment" | "deadline"
                     )
                   }
-                  className="h-8 rounded-md border border-line bg-surface pl-2.5 pr-8 text-[12px] font-medium text-ink transition-colors hover:border-line-2 focus:border-ink focus:outline-none cursor-pointer appearance-none shadow-xs"
+                  className="h-8 rounded-[10px] border border-line bg-surface pl-3 pr-8 text-[12px] font-medium text-ink transition-colors hover:border-line-2 focus:border-ink focus:outline-none cursor-pointer appearance-none shadow-xs"
                 >
                   <option value="all">
                     ทุกประเภท
@@ -251,9 +250,9 @@ export default function NotificationsPage() {
         {/* Feed Content */}
         {feedLoading ? (
           <div className="space-y-3">
-            <div className="h-24 animate-pulse rounded border border-line bg-surface-2" />
-            <div className="h-24 animate-pulse rounded border border-line bg-surface-2" />
-            <div className="h-24 animate-pulse rounded border border-line bg-surface-2" />
+            <div className="h-24 animate-pulse rounded-2xl border border-line bg-surface-2" />
+            <div className="h-24 animate-pulse rounded-2xl border border-line bg-surface-2" />
+            <div className="h-24 animate-pulse rounded-2xl border border-line bg-surface-2" />
           </div>
         ) : filteredNotifications.length === 0 ? (
           <Panel className="p-12 text-center">
@@ -284,7 +283,7 @@ export default function NotificationsPage() {
                 <Link
                   key={item._id}
                   href={`/notifications/${item._id}`}
-                  className={`group relative block rounded-md border p-4 transition-all hover:border-line-2 hover:shadow-xs ${
+                  className={`group relative block rounded-2xl border p-4 transition-all hover:border-line-2 hover:shadow-xs ${
                     !item.isRead
                       ? "border-line-2 bg-surface shadow-xs"
                       : "border-line/70 bg-surface-2/60 opacity-85 hover:opacity-100"
@@ -328,7 +327,7 @@ export default function NotificationsPage() {
                             return (
                               <div>
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <span className="inline-flex items-center gap-1 rounded bg-open-bg px-2 py-0.5 text-[11px] font-semibold text-open border border-open-line">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-open-bg px-2.5 py-0.5 text-[11px] font-semibold text-open border border-open-line">
                                     เหมาะสมกับโปรไฟล์
                                   </span>
                                   <span className="text-[14px] font-semibold text-ink group-hover:underline transition-colors">
@@ -353,7 +352,7 @@ export default function NotificationsPage() {
                                     {allSkills.length > 0 ? (
                                       <p className="mt-1 line-clamp-1 text-[13px] text-ink-2">
                                         <span className="font-medium text-ink">
-                                          ตรงกับทักษะของคุณ: 
+                                          ตรงกับทักษะของคุณ:{" "}
                                         </span>
                                         {allSkills.join(", ")}
                                       </p>
@@ -389,7 +388,7 @@ export default function NotificationsPage() {
                             return (
                               <div>
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
                                     แก้ไข TOR
                                   </span>
                                   <span className="text-[14px] font-semibold text-ink group-hover:underline transition-colors">
@@ -415,7 +414,7 @@ export default function NotificationsPage() {
                                         first.changedFieldsTh.map((f: string, idx: number) => (
                                           <span
                                             key={idx}
-                                            className="rounded bg-surface-3 px-1.5 py-0.5 text-[10.5px] font-medium text-ink-2 border border-line"
+                                            className="rounded-full bg-surface-3 px-2 py-0.5 text-[10.5px] font-medium text-ink-2 border border-line"
                                           >
                                             {f}
                                           </span>
@@ -480,7 +479,7 @@ export default function NotificationsPage() {
                             return (
                               <div>
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-800 border border-blue-300 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-800 border border-blue-300 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
                                     เปลี่ยนสถานะ
                                   </span>
                                   <span className="text-[14px] font-semibold text-ink group-hover:underline transition-colors">
@@ -540,7 +539,7 @@ export default function NotificationsPage() {
                             return (
                               <div>
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <span className="inline-flex items-center gap-1 rounded bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-800 border border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2.5 py-0.5 text-[11px] font-semibold text-orange-800 border border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800">
                                     ใกล้ปิดรับข้อเสนอ
                                   </span>
                                   <span className="text-[14px] font-semibold text-ink group-hover:underline transition-colors">
@@ -632,7 +631,7 @@ export default function NotificationsPage() {
       {/* Profile unconfigured callout */}
       {isProfileEmpty ? (
         <div className="mx-auto w-full max-w-[1000px] px-4">
-          <div className="rounded-t-[6px] border-t border-x border-amber-300 bg-amber-50 p-4 shadow-xs dark:border-amber-800/80 dark:bg-amber-950/40">
+          <div className="rounded-t-2xl border-t border-x border-amber-300 bg-amber-50 p-4 shadow-xs dark:border-amber-800/80 dark:bg-amber-950/40">
             <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="flex items-center gap-1.5">
@@ -647,7 +646,7 @@ export default function NotificationsPage() {
               </div>
               <Link
                 href="/profile"
-                className="inline-flex shrink-0 items-center justify-center rounded-[3px] border border-amber-400/90 bg-amber-100/90 px-3.5 py-1.5 text-[12.5px] font-medium text-amber-950 transition-colors hover:bg-amber-200/90 cursor-pointer dark:border-amber-700 dark:bg-amber-900/60 dark:text-amber-100 dark:hover:bg-amber-900"
+                className="inline-flex shrink-0 items-center justify-center rounded-full border border-amber-400/90 bg-amber-100/90 px-4 py-1.5 text-[12.5px] font-medium text-amber-950 transition-colors hover:bg-amber-200/90 cursor-pointer dark:border-amber-700 dark:bg-amber-900/60 dark:text-amber-100 dark:hover:bg-amber-900"
               >
                 ไปที่หน้าตั้งค่าโปรไฟล์และทักษะ →
               </Link>
@@ -666,7 +665,7 @@ export default function NotificationsPage() {
           onClick={() => setShowConfirmModal(false)}
         >
           <div
-            className="relative w-full max-w-sm rounded-[4px] border border-line bg-surface p-5 shadow-xl transition-all"
+            className="relative w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-xl transition-all"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="confirm-modal-title" className="text-[15px] font-semibold text-ink">

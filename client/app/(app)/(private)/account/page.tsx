@@ -41,9 +41,9 @@ export default function AccountPage() {
       <Panel className="mt-6 flex flex-col gap-3 p-5">
         {hasPassword === null ? (
           <div aria-hidden="true" className="flex flex-col gap-3">
-            <div className="h-5 w-40 rounded-[3px] bg-line" />
-            <div className="h-9 w-full rounded-[3px] bg-line" />
-            <div className="h-9 w-full rounded-[3px] bg-line" />
+            <div className="h-5 w-40 rounded-lg bg-line" />
+            <div className="h-9 w-full rounded-[10px] bg-line" />
+            <div className="h-9 w-full rounded-[10px] bg-line" />
           </div>
         ) : hasPassword ? (
           <ChangePasswordForm onNoPassword={() => setHasPassword(false)} changePassword={changePassword} />
@@ -144,7 +144,7 @@ function ChangePasswordForm({
       {formMessage ? (
         <p
           role="alert"
-          className="rounded-[3px] border border-risk-line bg-risk-bg px-2.5 py-2 text-[12px] leading-thai text-risk"
+          className="rounded-xl border border-risk-line bg-risk-bg px-3 py-2 text-[12px] leading-thai text-risk"
         >
           {formMessage}
         </p>
@@ -200,7 +200,7 @@ function SetPasswordByEmail({ email }: { email: string }) {
       {error ? (
         <p
           role="alert"
-          className="rounded-[3px] border border-risk-line bg-risk-bg px-2.5 py-2 text-[12px] leading-thai text-risk"
+          className="rounded-xl border border-risk-line bg-risk-bg px-3 py-2 text-[12px] leading-thai text-risk"
         >
           {error.message}
         </p>

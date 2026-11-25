@@ -20,7 +20,7 @@ export default function TorDetailError({
   }, [error]);
 
   return (
-    <div className="mx-auto max-w-[1240px] px-4 py-10">
+    <div className="mx-auto w-full max-w-[1240px] px-4 py-10">
       <EmptyState
         headline="เปิดประกาศนี้ไม่ได้ในตอนนี้"
         body="ระบบดึงข้อมูลประกาศไม่สำเร็จ น่าจะเป็นเพราะเซิร์ฟเวอร์ขัดข้องชั่วคราว ตัวประกาศยังอยู่ ลองอีกครั้งในอีกสักครู่"

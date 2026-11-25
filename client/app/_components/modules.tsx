@@ -64,10 +64,10 @@ export function AmendmentModule({ tor }: { tor: Tor }) {
                     {amendment.changes.map((change) => (
                       <li
                         key={`${change.kind}-${change.field}`}
-                        className="rounded-[3px] border border-line bg-surface-2 px-3 py-2.5"
+                        className="rounded-xl border border-line bg-surface-2 px-3 py-2.5"
                       >
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-[2px] text-[11px] font-medium text-amend">
+                          <span className="rounded-full border border-amend-line bg-amend-bg px-2 py-[2px] text-[11px] font-medium text-amend">
                             {KIND_LABEL[change.kind]}
                           </span>
                           <span className="text-[13px] font-medium text-ink">

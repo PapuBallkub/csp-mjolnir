@@ -215,8 +215,12 @@ export default function WatchdogPage() {
     return allProjects.filter((p) => {
       // Status
       if (!selectedStatuses.includes(p.status)) return false;
-      // Lock-Spec Risk Level
-      if (!selectedRiskLevels.includes(p.lockSpecLevel)) return false;
+      // Lock-Spec Risk Level (keep unanalyzed records visible when all risk levels are selected)
+      if (p.lockSpecLevel === "unanalyzed") {
+        if (selectedRiskLevels.length < ALL_RISK_LEVELS.length) return false;
+      } else if (!selectedRiskLevels.includes(p.lockSpecLevel)) {
+        return false;
+      }
       // Complexity Tier
       if (!selectedComplexities.includes(p.complexity)) return false;
       // Category
@@ -345,6 +349,7 @@ export default function WatchdogPage() {
     if (torCount === 0) {
       return {
         torCount: 0,
+        comparedCount: 0,
         overallMedian: 0,
         overallAverage: 0,
         avgDeltaPct: 0,
@@ -365,21 +370,24 @@ export default function WatchdogPage() {
       ? Number((((overallAverage - overallMedian) / overallMedian) * 100).toFixed(1))
       : 0;
 
+    let comparedCount = 0;
     let highOutlierCount = 0;
     let lowOutlierCount = 0;
     for (const p of filteredByTopBar) {
       const delta = calcPriceDeltaPct(p);
       if (delta != null) {
+        comparedCount += 1;
         if (delta > NORMAL_BAND_PCT) highOutlierCount += 1;
         else if (delta < -NORMAL_BAND_PCT) lowOutlierCount += 1;
       }
     }
 
     const outlierCount = highOutlierCount + lowOutlierCount;
-    const outlierRatePct = Math.round((outlierCount / torCount) * 100);
+    const outlierRatePct = comparedCount > 0 ? Math.round((outlierCount / comparedCount) * 100) : 0;
 
     return {
       torCount,
+      comparedCount,
       overallMedian,
       overallAverage,
       avgDeltaPct,
@@ -394,17 +402,19 @@ export default function WatchdogPage() {
 
   // 4. Compliance and Statutory Metrics for Section 4 (Lock-Spec Overview)
   const lockSpecMetrics = useMemo(() => {
-    const extractedCount = filteredByTopBar.length;
-    const lowCount = filteredByTopBar.filter((p) => p.lockSpecLevel === "low").length;
-    const medCount = filteredByTopBar.filter((p) => p.lockSpecLevel === "medium").length;
-    const highCount = filteredByTopBar.filter((p) => p.lockSpecLevel === "high").length;
+    const analyzedProjects = filteredByTopBar.filter((p) => p.lockSpecLevel !== "unanalyzed");
+    const extractedCount = analyzedProjects.length;
+    const unanalyzedCount = filteredByTopBar.length - extractedCount;
+    const lowCount = analyzedProjects.filter((p) => p.lockSpecLevel === "low").length;
+    const medCount = analyzedProjects.filter((p) => p.lockSpecLevel === "medium").length;
+    const highCount = analyzedProjects.filter((p) => p.lockSpecLevel === "high").length;
 
     const triggerCounts: Record<LockSpecTriggerId, number> = {
       "Specification Tailoring": 0,
       "Qualification Barrier": 0,
       "Vendor Lock-in": 0,
     };
-    for (const p of filteredByTopBar) {
+    for (const p of analyzedProjects) {
       for (const t of p.triggers) {
         triggerCounts[t.category] += 1;
       }
@@ -412,6 +422,7 @@ export default function WatchdogPage() {
 
     return {
       extractedCount,
+      unanalyzedCount,
       lowCount,
       medCount,
       highCount,
@@ -446,7 +457,7 @@ export default function WatchdogPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 sm:px-6 py-6">
+    <div className="mx-auto w-full max-w-[1100px] px-4 sm:px-6 py-6">
       {/* Page Header */}
       <header className="mb-5">
         <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-ink">
@@ -543,11 +554,11 @@ export default function WatchdogPage() {
             <SectionHeading
               sub="เปรียบเทียบแนวโน้มราคากลางผ่านค่ามัธยฐาน (เส้นทึบ) และค่าเฉลี่ย (เส้นประ) ตามตัวกรองข้อมูล พร้อมจุดแสดงโครงการจริงในแต่ละช่วงเวลา"
               right={
-                <div className="inline-flex rounded-[3px] border border-line bg-surface-2 p-0.5">
+                <div className="inline-flex rounded-full border border-line bg-surface-2 p-0.5">
                   <button
                     type="button"
                     onClick={() => setTimeGrain("monthly")}
-                    className={`rounded-[2px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                    className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
                       timeGrain === "monthly"
                         ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
                         : "text-ink-3 hover:text-ink"
@@ -558,7 +569,7 @@ export default function WatchdogPage() {
                   <button
                     type="button"
                     onClick={() => setTimeGrain("quarterly")}
-                    className={`rounded-[2px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                    className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
                       timeGrain === "quarterly"
                         ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
                         : "text-ink-3 hover:text-ink"
@@ -591,6 +602,7 @@ export default function WatchdogPage() {
           {/* SECTION 4: Lock-Spec Statutory Overview (Read-Only Status Gauge) */}
           <LockSpecOverview
             extractedCount={lockSpecMetrics.extractedCount}
+            unanalyzedCount={lockSpecMetrics.unanalyzedCount}
             lowCount={lockSpecMetrics.lowCount}
             medCount={lockSpecMetrics.medCount}
             highCount={lockSpecMetrics.highCount}

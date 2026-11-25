@@ -1,10 +1,11 @@
-import type { RiskLevel, Status } from "../../../_data/tors";
+import type { Status } from "../../../_data/tors";
 import type {
   ComplexityTier,
   LockSpecTriggerId,
   ProjectCategory,
   SystemArchetype,
   WatchdogProjectRecord,
+  WatchdogRiskLevel,
 } from "../../../_data/watchdog";
 import type { TorInsightSummary } from "../../../_lib/api";
 import { getBangkokDateParts } from "../../../_lib/format.ts";
@@ -211,11 +212,17 @@ export function mapApiTorToWatchdog(tor: TorInsightSummary): WatchdogProjectReco
       ? Math.round(tor.analytics.priceAnalysis.historicalAverageTHB)
       : undefined;
 
-  const lockSpecScore = tor.analytics.lockSpec?.riskScore ?? 0;
-  const lockSpecLevel: RiskLevel =
-    lockSpecScore >= 70 ? "high" : lockSpecScore >= 35 ? "medium" : "low";
+  const lockSpecAnalyzed = tor.analytics.lockSpec != null;
+  const lockSpecScore = lockSpecAnalyzed ? (tor.analytics.lockSpec?.riskScore ?? 0) : null;
+  const lockSpecLevel: WatchdogRiskLevel = !lockSpecAnalyzed
+    ? "unanalyzed"
+    : lockSpecScore! >= 70
+      ? "high"
+      : lockSpecScore! >= 35
+        ? "medium"
+        : "low";
 
-  const apiFindings = tor.analytics.lockSpec?.findings ?? [];
+  const apiFindings = lockSpecAnalyzed ? (tor.analytics.lockSpec?.findings ?? []) : [];
   const triggers: WatchdogProjectRecord["triggers"] = [];
 
   if (apiFindings.length > 0) {
@@ -230,7 +237,7 @@ export function mapApiTorToWatchdog(tor: TorInsightSummary): WatchdogProjectReco
         clauseExcerpt: f.sourceExcerpt || f.requirementText || "",
       });
     }
-  } else if (lockSpecScore > 0) {
+  } else if (lockSpecAnalyzed && lockSpecScore !== null && lockSpecScore > 0) {
     // Fallback when `/api/tors` summary projection omits `findings` array
     const primaryCat = inferTriggerFromTechAndVerdict(tor);
     triggers.push({
@@ -269,6 +276,7 @@ export function mapApiTorToWatchdog(tor: TorInsightSummary): WatchdogProjectReco
       tor.facts.agreedPriceTHB && tor.facts.agreedPriceTHB > 0
         ? Math.round(tor.facts.agreedPriceTHB)
         : undefined,
+    lockSpecAnalyzed,
     lockSpecScore,
     lockSpecLevel,
     triggers,

@@ -219,9 +219,12 @@ function withLiveStatus(insight, tor) {
 }
 
 // The pipeline doesn't fill analytics yet, and its defaults are 0: shown as
-// they are, a real TOR would read "lock-spec risk 0" as if measured (ADR 0014)
+// they are, a real TOR would read "lock-spec risk 0" or "0% normal price" as
+// if measured (ADR 0014). Require a positive historical median so a record with
+// peer rows but uncomputed stats (historicalMedianTHB: 0, diffPercentage: 0)
+// never renders as a green "normal price" badge.
 const lockSpecDone = (lockSpec) => Boolean(lockSpec?.verdictText || lockSpec?.findings?.length);
-const priceDone = (price) => Boolean(price?.historicalMedianTHB > 0 || price?.comparableProjects?.length);
+const priceDone = (price) => Boolean(price?.historicalMedianTHB > 0);
 
 /**
  * Shapes a stored insight for the public: the status as of now, analysis that

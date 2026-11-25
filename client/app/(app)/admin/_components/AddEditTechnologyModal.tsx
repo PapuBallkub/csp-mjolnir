@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Hourglass } from "lucide-react";
 import type { AdminTechnology } from "../../../_lib/api";
 import { btn, input } from "../../../_components/ui";
 
@@ -57,7 +58,7 @@ export function AddEditTechnologyModal({
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-150"
     >
-      <div className="w-full max-w-md rounded-[4px] border border-line bg-surface p-6 shadow-2xl animate-in zoom-in-95 duration-150">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl animate-in zoom-in-95 duration-150">
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-[16px] font-bold text-ink">
@@ -136,33 +137,37 @@ export function AddEditTechnologyModal({
             </label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: "confirmed", label: "✓ ยืนยันแล้ว" },
-                { id: "new", label: "⏳ รอตรวจทาน" },
-                { id: "rejected", label: "✕ ปฏิเสธ" },
-              ].map((st) => (
-                <button
-                  key={st.id}
-                  type="button"
-                  onClick={() =>
-                    onChangeForm((prev) => ({
-                      ...prev,
-                      status: st.id as "confirmed" | "new" | "rejected",
-                    }))
-                  }
-                  className={`cursor-pointer rounded-[3px] border py-1.5 px-2 text-[11px] font-medium transition-colors ${
-                    form.status === st.id
-                      ? "border-ink bg-ink text-surface"
-                      : "border-line bg-surface text-ink-2 hover:border-ink"
-                  }`}
-                >
-                  {st.label}
-                </button>
-              ))}
+                { id: "confirmed", label: "✓ ยืนยันแล้ว", icon: null },
+                { id: "new", label: "รอตรวจทาน", icon: Hourglass },
+                { id: "rejected", label: "✕ ปฏิเสธ", icon: null },
+              ].map((st) => {
+                const Icon = st.icon;
+                return (
+                  <button
+                    key={st.id}
+                    type="button"
+                    onClick={() =>
+                      onChangeForm((prev) => ({
+                        ...prev,
+                        status: st.id as "confirmed" | "new" | "rejected",
+                      }))
+                    }
+                    className={`inline-flex items-center justify-center gap-1 cursor-pointer rounded-full border py-1.5 px-2.5 text-[11px] font-medium transition-colors ${
+                      form.status === st.id
+                        ? "border-ink bg-ink text-surface"
+                        : "border-line bg-surface text-ink-2 hover:border-ink"
+                    }`}
+                  >
+                    {Icon ? <Icon className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
+                    <span>{st.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {error && (
-            <div className="rounded-[3px] border border-risk-line bg-risk-bg p-2.5 text-[12px] text-risk">
+            <div className="rounded-xl border border-risk-line bg-risk-bg p-3 text-[12px] text-risk">
               {error}
             </div>
           )}

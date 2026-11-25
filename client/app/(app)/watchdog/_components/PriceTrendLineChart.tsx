@@ -215,6 +215,7 @@ export function PriceTrendLineChart({
       : "";
 
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((t) => Math.round(yMin + yDomain * t));
+  const clippedAboveCount = allProjectPrices.filter((p) => p > yMax).length;
 
   // If hovering or filtered to a bucket, show that bucket; otherwise show the aggregate "All Data" summary.
   const inspectedKey = hoveredKey ?? activeBucket ?? null;
@@ -241,7 +242,7 @@ export function PriceTrendLineChart({
             </span>
           </span>
           <span className="inline-flex items-center gap-2">
-            <span className="h-3 w-5 rounded-[2px] border border-line-2 bg-surface-3" />
+            <span className="h-3 w-5 rounded-sm border border-line-2 bg-surface-3" />
             <span>
               {`กรอบราคาปกติ (±${NORMAL_BAND_PCT}% จากค่ามัธยฐาน)`}
             </span>
@@ -254,7 +255,7 @@ export function PriceTrendLineChart({
             <button
               type="button"
               onClick={() => onSelectBucket(null)}
-              className="inline-flex items-center gap-1.5 rounded-[2px] border border-line-2 bg-surface-2 px-2 py-0.5 font-medium text-ink hover:bg-surface-3 cursor-pointer mr-1"
+              className="inline-flex items-center gap-1.5 rounded-full border border-line-2 bg-surface-2 px-2.5 py-0.5 font-medium text-ink hover:bg-surface-3 cursor-pointer mr-1"
             >
               <span>
                 {`กรองเฉพาะช่วง: ${series.find((s) => s.key === activeBucket)?.label}`}
@@ -278,8 +279,18 @@ export function PriceTrendLineChart({
             <span className="h-2.5 w-2.5 rounded-full bg-risk" />
             <span>เสี่ยงสูง (High)</span>
           </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-ink-3" />
+            <span>ยังไม่วิเคราะห์</span>
+          </span>
         </div>
       </div>
+
+      {clippedAboveCount > 0 ? (
+        <p className="text-[11.5px] leading-thai text-ink-3">
+          หมายเหตุ: มี {clippedAboveCount.toLocaleString()} โครงการที่มีราคากลางสูงกว่าเพดานแกน Y ({formatTHBCompact(yMax)}) แสดงชิดขอบบนของกราฟเพื่อให้เห็นแนวโน้มกลุ่มหลักชัดเจน
+        </p>
+      ) : null}
 
       {/* SVG Line Chart */}
       <div className="relative overflow-x-auto">
@@ -432,17 +443,21 @@ export function PriceTrendLineChart({
                 {/* Individual TOR price dots in this time bucket */}
                 {plottedProjects.map((proj, pIdx) => {
                   const dotColor =
-                    proj.lockSpecLevel === "high"
-                      ? "var(--color-risk)"
-                      : proj.lockSpecLevel === "medium"
-                        ? "var(--color-amend)"
-                        : "var(--color-open)";
+                    proj.lockSpecLevel === "unanalyzed"
+                      ? "var(--color-ink-3)"
+                      : proj.lockSpecLevel === "high"
+                        ? "var(--color-risk)"
+                        : proj.lockSpecLevel === "medium"
+                          ? "var(--color-amend)"
+                          : "var(--color-open)";
                   const riskLabel =
-                    proj.lockSpecLevel === "high"
-                      ? "เสี่ยงสูง (High Risk)"
-                      : proj.lockSpecLevel === "medium"
-                        ? "ปานกลาง (Medium Risk)"
-                        : "เปิดกว้าง (Low Risk)";
+                    proj.lockSpecLevel === "unanalyzed"
+                      ? "ยังไม่ได้วิเคราะห์ล็อกสเปก"
+                      : proj.lockSpecLevel === "high"
+                        ? "เสี่ยงสูง (High Risk)"
+                        : proj.lockSpecLevel === "medium"
+                          ? "ปานกลาง (Medium Risk)"
+                          : "เปิดกว้าง (Low Risk)";
                   // Slight horizontal jitter when multiple projects share the same bucket
                   const spread = Math.min(24, plottedProjects.length * 4);
                   const offset =

@@ -1,6 +1,7 @@
 "use client";
 
-import type { AdminTechnology } from "../../../_lib/api";
+import { Hourglass, Pencil } from "lucide-react";
+import type { AdminTechnologiesCounts, AdminTechnology } from "../../../_lib/api";
 import { btn, input, Panel, SectionHeading } from "../../../_components/ui";
 
 function TechnologiesTableSkeleton() {
@@ -9,20 +10,20 @@ function TechnologiesTableSkeleton() {
       {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
         <tr key={i} className="animate-pulse">
           <td className="px-3.5 py-3">
-            <div className="h-4 w-32 rounded-[2px] bg-surface-3 mb-1" />
-            <div className="h-2.5 w-20 rounded-[2px] bg-surface-2" />
+            <div className="h-4 w-32 rounded-full bg-surface-3 mb-1" />
+            <div className="h-2.5 w-20 rounded-full bg-surface-2" />
           </td>
           <td className="px-3 py-3">
-            <div className="h-5 w-24 rounded-[2px] bg-surface-3" />
+            <div className="h-5 w-24 rounded-full bg-surface-3" />
           </td>
           <td className="px-3 py-3">
-            <div className="h-4 w-36 rounded-[2px] bg-surface-2" />
+            <div className="h-4 w-36 rounded-full bg-surface-2" />
           </td>
           <td className="px-3 py-3">
-            <div className="h-5 w-20 rounded-[2px] bg-surface-3" />
+            <div className="h-5 w-20 rounded-full bg-surface-3" />
           </td>
           <td className="px-3 py-3 text-right">
-            <div className="h-6 w-16 rounded-[2px] bg-surface-3 ml-auto" />
+            <div className="h-6 w-16 rounded-full bg-surface-3 ml-auto" />
           </td>
         </tr>
       ))}
@@ -32,9 +33,14 @@ function TechnologiesTableSkeleton() {
 
 export function TechnologiesSection({
   technologies,
+  userRequestItems,
   isLoading,
   pendingCount,
+  counts,
   totalCount,
+  page,
+  totalPages,
+  onPageChange,
   search,
   onSearchChange,
   statusFilter,
@@ -49,9 +55,14 @@ export function TechnologiesSection({
   onOpenEdit,
 }: {
   technologies: AdminTechnology[];
+  userRequestItems: AdminTechnology[];
   isLoading: boolean;
   pendingCount: number;
+  counts: AdminTechnologiesCounts;
   totalCount: number;
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
   search: string;
   onSearchChange: (val: string) => void;
   statusFilter: string;
@@ -78,7 +89,7 @@ export function TechnologiesSection({
     { id: "Other", label: "อื่น ๆ" },
   ];
 
-  const pendingItems = technologies.filter((t) => t.status === "new");
+  const pendingItems = userRequestItems;
 
   const filteredTech = technologies.filter((t) => {
     if (categoryFilter !== "all") {
@@ -108,18 +119,18 @@ export function TechnologiesSection({
         <div className="flex items-center gap-2">
           <span>คลังเทคโนโลยีและมาตรฐาน</span>
           {pendingCount > 0 && (
-            <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-0.5 text-[11px] font-semibold text-amend">
-              {`รออนุมัติ ${pendingCount} รายการ`}
+            <span className="rounded-full border border-amend-line bg-amend-bg px-2.5 py-0.5 text-[11px] font-semibold text-amend">
+              {`รอตรวจยืนยัน ${pendingCount.toLocaleString()} รายการ`}
             </span>
           )}
         </div>
       </SectionHeading>
 
-      {/* KPI Stats Strip matching Overview scale */}
+      {/* KPI Stats Strip (DB-wide counts) */}
       <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
         <Panel className="px-3 py-2.5">
           <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
-            {totalCount || technologies.length}
+            {counts.all.toLocaleString()}
           </p>
           <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
             คำศัพท์ทั้งหมดในระบบ
@@ -127,26 +138,26 @@ export function TechnologiesSection({
         </Panel>
         <Panel className="px-3 py-2.5">
           <p className="font-mono tnum text-[24px] leading-none font-medium text-open">
-            {technologies.filter((t) => t.status === "confirmed").length || (totalCount - pendingCount)}
+            {counts.confirmed.toLocaleString()}
           </p>
           <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
             ยืนยันแล้ว (ใช้งานในระบบ)
           </p>
         </Panel>
         <Panel className="px-3 py-2.5">
-          <p className={`font-mono tnum text-[24px] leading-none font-medium ${pendingCount > 0 ? "text-amend" : "text-ink"}`}>
-            {pendingCount}
+          <p className={`font-mono tnum text-[24px] leading-none font-medium ${counts.aiNew > 0 ? "text-amend" : "text-ink"}`}>
+            {counts.aiNew.toLocaleString()}
           </p>
           <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
-            รออนุมัติจากผู้ใช้
+            คำศัพท์ใหม่จาก AI (รอตรวจ)
           </p>
         </Panel>
         <Panel className="px-3 py-2.5">
-          <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
-            {CATEGORIES.length - 1}
+          <p className={`font-mono tnum text-[24px] leading-none font-medium ${counts.userRequests > 0 ? "text-amend" : "text-ink"}`}>
+            {counts.userRequests.toLocaleString()}
           </p>
           <p className="mt-1.5 text-[11px] leading-thai text-ink-3">
-            หมวดหมู่เทคโนโลยี
+            คำขอใหม่จากผู้ใช้
           </p>
         </Panel>
       </div>
@@ -154,7 +165,7 @@ export function TechnologiesSection({
       {/* Action Notification Banner */}
       {actionMsg && (
         <div
-          className={`rounded-[3px] border p-3 text-[12px] animate-in fade-in flex items-center justify-between ${
+          className={`rounded-xl border p-3 text-[12px] animate-in fade-in flex items-center justify-between ${
             actionMsg.type === "success"
               ? "border-open-line bg-open-bg text-open"
               : "border-risk-line bg-risk-bg text-risk"
@@ -169,7 +180,7 @@ export function TechnologiesSection({
         <Panel className="w-full border-amend-line bg-amend-bg/10 overflow-hidden">
           <div className="border-b border-amend-line/40 bg-amend-bg/30 px-4 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-[14px]">⏳</span>
+              <Hourglass className="h-3.5 w-3.5 shrink-0 text-amend" aria-hidden="true" />
               <h3 className="text-[13px] font-bold text-ink">
                 คำขอใหม่รอการอนุมัติจากผู้ใช้
               </h3>
@@ -192,11 +203,11 @@ export function TechnologiesSection({
                   <div className="flex items-center gap-2">
                     <span className="text-[14px] font-bold text-ink">{tech.name}</span>
                     {tech.category && (
-                      <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-ink-2">
+                      <span className="rounded-full border border-line bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink-2">
                         {tech.category}
                       </span>
                     )}
-                    <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-0.5 text-[10px] font-medium text-amend">
+                    <span className="rounded-full border border-amend-line bg-amend-bg px-2 py-0.5 text-[10px] font-medium text-amend">
                       รออนุมัติ
                     </span>
                   </div>
@@ -224,21 +235,22 @@ export function TechnologiesSection({
                   <button
                     type="button"
                     onClick={() => onApprove(tech.id, tech.name)}
-                    className="cursor-pointer rounded-[3px] border border-open-line bg-open-bg px-2.5 py-1 text-[11px] font-medium text-open hover:bg-open hover:text-white transition-colors"
+                    className="cursor-pointer rounded-full border border-open-line bg-open-bg px-3 py-1 text-[11px] font-medium text-open hover:bg-open hover:text-white transition-colors"
                   >
                     ✓ อนุมัติ
                   </button>
                   <button
                     type="button"
                     onClick={() => onOpenEdit(tech)}
-                    className="cursor-pointer rounded-[3px] border border-line bg-surface px-2.5 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
+                    className="inline-flex items-center gap-1 cursor-pointer rounded-full border border-line bg-surface px-3 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
                   >
-                    ✏️ แก้ไขก่อนอนุมัติ
+                    <Pencil className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    <span>แก้ไขก่อนอนุมัติ</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => onReject(tech.id, tech.name)}
-                    className="cursor-pointer rounded-[3px] border border-risk-line bg-risk-bg px-2.5 py-1 text-[11px] font-medium text-risk hover:bg-risk hover:text-white transition-colors"
+                    className="cursor-pointer rounded-full border border-risk-line bg-risk-bg px-3 py-1 text-[11px] font-medium text-risk hover:bg-risk hover:text-white transition-colors"
                   >
                     ✕ ปฏิเสธ
                   </button>
@@ -251,9 +263,33 @@ export function TechnologiesSection({
 
       {/* Section 2: All Technologies Directory */}
       <section className="w-full">
-        {/* Filter Toolbar */}
-        <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
+        {/* Row 1: Status Filter Tabs (single-line full-width bar, matching Review Queue) */}
+        <div className="mb-3 flex flex-wrap gap-1.5 border-b border-line pb-3">
+          {[
+            { id: "all", label: `ทั้งหมด (${counts.all.toLocaleString()})` },
+            { id: "confirmed", label: `ยืนยันแล้ว (${counts.confirmed.toLocaleString()})` },
+            { id: "ai-new", label: `AI เจอใหม่ (${counts.aiNew.toLocaleString()})` },
+            { id: "user-request", label: `คำขอผู้ใช้ (${counts.userRequests.toLocaleString()})` },
+            { id: "rejected", label: `ปฏิเสธ (${counts.rejected.toLocaleString()})` },
+          ].map((st) => (
+            <button
+              key={st.id}
+              type="button"
+              onClick={() => onStatusFilterChange(st.id)}
+              className={`cursor-pointer rounded-full px-3 py-1 text-[12px] font-medium whitespace-nowrap transition-colors ${
+                statusFilter === st.id
+                  ? "bg-ink text-surface"
+                  : "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
+              }`}
+            >
+              {st.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Row 2: Search Input, Category Select & Result Summary */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-1 flex-wrap items-center gap-2 min-w-0">
             {/* Search Input */}
             <div className="relative w-full sm:w-64">
               <input
@@ -278,7 +314,7 @@ export function TechnologiesSection({
             <select
               value={categoryFilter}
               onChange={(e) => onCategoryFilterChange(e.target.value)}
-              className={`${input} h-8 text-[12px] cursor-pointer w-auto`}
+              className={`${input} h-8 text-[12px] cursor-pointer w-full sm:w-52`}
             >
               {CATEGORIES.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -288,28 +324,11 @@ export function TechnologiesSection({
             </select>
           </div>
 
-          {/* Status Filter Pills */}
-          <div className="flex items-center gap-1.5 self-start md:self-auto">
-            {[
-              { id: "all", label: "ทั้งหมด" },
-              { id: "confirmed", label: "ยืนยันแล้ว" },
-              { id: "new", label: "รออนุมัติ" },
-              { id: "rejected", label: "ปฏิเสธ" },
-            ].map((st) => (
-              <button
-                key={st.id}
-                type="button"
-                onClick={() => onStatusFilterChange(st.id)}
-                className={`cursor-pointer rounded-[3px] border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  statusFilter === st.id
-                    ? "border-ink bg-ink text-surface"
-                    : "border-line bg-surface text-ink-2 hover:border-ink hover:text-ink"
-                }`}
-              >
-                {st.label}
-              </button>
-            ))}
-          </div>
+          <span className="font-mono text-[11.5px] text-ink-3 whitespace-nowrap">
+            {totalCount > 0
+              ? `หน้า ${page}/${totalPages} · ${totalCount.toLocaleString()} รายการ`
+              : "0 รายการ"}
+          </span>
         </div>
 
         {/* Vocabulary Table */}
@@ -318,13 +337,11 @@ export function TechnologiesSection({
             <table className="w-full min-w-[820px] border-collapse text-left text-[12px]">
             <thead>
               <tr className="border-b border-line bg-surface-2 text-[10px] uppercase font-semibold text-ink-3 tracking-wider">
-                <th className="px-3.5 py-2.5">ชื่อที่แสดง (Name)</th>
-                <th className="px-3 py-2.5">หมวดหมู่</th>
-                <th className="px-3 py-2.5">
-                  คำพ้อง / คำที่เขียนคล้ายกัน (Aliases)
-                </th>
-                <th className="px-3 py-2.5">สถานะ</th>
-                <th className="px-3 py-2.5 text-right">การจัดการ</th>
+                <th className="px-3.5 py-2.5 whitespace-nowrap">ชื่อที่แสดง (Name)</th>
+                <th className="px-3 py-2.5 whitespace-nowrap">หมวดหมู่</th>
+                <th className="px-3 py-2.5 whitespace-nowrap">คำพ้อง (Aliases)</th>
+                <th className="px-3 py-2.5 whitespace-nowrap">สถานะ</th>
+                <th className="px-3 py-2.5 text-right whitespace-nowrap">การจัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line/60">
@@ -343,9 +360,9 @@ export function TechnologiesSection({
                       <div className="font-semibold text-ink">{tech.name}</div>
                       <div className="font-mono text-[10px] text-ink-3">{tech.key}</div>
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-2.5 whitespace-nowrap">
                       {tech.category ? (
-                        <span className="inline-block rounded-[2px] border border-line bg-surface px-1.5 py-0.5 text-[11px] text-ink-2">
+                        <span className="inline-block whitespace-nowrap rounded-full border border-line bg-surface px-2 py-0.5 text-[11px] text-ink-2">
                           {tech.category}
                         </span>
                       ) : (
@@ -358,7 +375,7 @@ export function TechnologiesSection({
                           {tech.aliases.map((alias) => (
                             <span
                               key={alias}
-                              className="inline-block rounded-[2px] bg-surface-2 border border-line/60 px-1.5 py-0.2 font-mono text-[10px] text-ink-2"
+                              className="inline-block rounded-full bg-surface-2 border border-line/60 px-2 py-0.5 font-mono text-[10px] text-ink-2"
                             >
                               {alias}
                             </span>
@@ -368,27 +385,38 @@ export function TechnologiesSection({
                         <span className="text-ink-3 text-[11px]">-</span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-2.5 whitespace-nowrap">
                       {tech.status === "confirmed" ? (
-                        <span className="inline-flex items-center gap-1 rounded-[2px] border border-open-line bg-open-bg px-1.5 py-0.5 text-[10px] font-medium text-open">
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-open-line bg-open-bg px-2 py-0.5 text-[10px] font-medium text-open">
                           ✓ ยืนยันแล้ว
                         </span>
                       ) : tech.status === "rejected" ? (
-                        <span className="inline-flex items-center gap-1 rounded-[2px] border border-risk-line bg-risk-bg px-1.5 py-0.5 text-[10px] font-medium text-risk">
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-risk-line bg-risk-bg px-2 py-0.5 text-[10px] font-medium text-risk">
                           ✕ ปฏิเสธ
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-0.5 text-[10px] font-medium text-amend">
-                          ⏳ รออนุมัติ
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-amend-line bg-amend-bg px-2 py-0.5 text-[10px] font-medium text-amend">
+                          <Hourglass className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          <span>{tech.firstSeenIn?.startsWith("user-request") ? "คำขอผู้ใช้" : "AI เจอใหม่"}</span>
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 text-right">
+                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
+                        {tech.status === "new" ? (
+                          <button
+                            type="button"
+                            onClick={() => onApprove(tech.id, tech.name)}
+                            className="cursor-pointer rounded-full border border-open-line bg-open-bg px-2.5 py-1 text-[11px] font-medium text-open hover:bg-open hover:text-white transition-colors"
+                            title="ยืนยันเข้าคลังทางการ"
+                          >
+                            ✓ อนุมัติ
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => onOpenEdit(tech)}
-                          className="cursor-pointer rounded-[2px] border border-line bg-surface px-2 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
+                          className="cursor-pointer rounded-full border border-line bg-surface px-2.5 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
                           title="แก้ไขข้อมูล"
                         >
                           แก้ไข
@@ -396,7 +424,7 @@ export function TechnologiesSection({
                         <button
                           type="button"
                           onClick={() => onDelete(tech.id, tech.name)}
-                          className="cursor-pointer rounded-[2px] border border-line bg-surface px-2 py-1 text-[11px] font-medium text-risk hover:border-risk hover:bg-risk-bg transition-colors"
+                          className="cursor-pointer rounded-full border border-line bg-surface px-2.5 py-1 text-[11px] font-medium text-risk hover:border-risk hover:bg-risk-bg transition-colors"
                           title="ลบรายการนี้"
                         >
                           ลบ
@@ -410,12 +438,33 @@ export function TechnologiesSection({
           </table>
         </div>
 
-        {/* Footer info */}
-        <div className="border-t border-line bg-surface-2 px-3.5 py-2 text-[11px] text-ink-3 flex justify-between items-center">
+        {/* Footer info & Pagination */}
+        <div className="border-t border-line bg-surface-2 px-3.5 py-2.5 text-[11px] text-ink-3 flex flex-wrap justify-between items-center gap-2">
           <span>
-            {`แสดงผล ${filteredTech.length} รายการ (จากทั้งหมด ${totalCount})`}
+            {`แสดงผล ${filteredTech.length} รายการ (หน้า ${page}/${totalPages} · ตรงเงื่อนไข ${totalCount.toLocaleString()} รายการ)`}
           </span>
-          <span className="font-mono text-[10px]">ADR 0014 Vocabulary</span>
+          {totalPages > 1 ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={page <= 1 || isLoading}
+                onClick={() => onPageChange(Math.max(1, page - 1))}
+                className={`${btn.secondary} h-7 px-2.5 text-[11px] disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                ← ก่อนหน้า
+              </button>
+              <button
+                type="button"
+                disabled={page >= totalPages || isLoading}
+                onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+                className={`${btn.secondary} h-7 px-2.5 text-[11px] disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                ถัดไป →
+              </button>
+            </div>
+          ) : (
+            <span className="font-mono text-[10px]">ADR 0014 Vocabulary</span>
+          )}
         </div>
       </Panel>
       </section>

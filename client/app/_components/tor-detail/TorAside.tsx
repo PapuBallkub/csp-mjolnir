@@ -1,3 +1,4 @@
+import { FileText } from "lucide-react";
 import type { TorInsightDetail } from "../../_lib/api";
 import type { DeadlineInfo } from "../../_lib/stage";
 import { isDead } from "../verdict";
@@ -63,7 +64,7 @@ export function TorAside({
                   </span>
                 )
               ) : (
-                <span className="text-[13px] text-ink-3">{deadline.missing}</span>
+                <span className="text-[13px] text-ink-3 whitespace-nowrap">{deadline.missing}</span>
               )}
             </Fact>
           ) : (
@@ -84,7 +85,7 @@ export function TorAside({
                   </span>
                 )
               ) : (
-                <span className="text-[13px] text-ink-3">{deadline.missing}</span>
+                <span className="text-[13px] text-ink-3 whitespace-nowrap">{deadline.missing}</span>
               )}
             </Fact>
           )}
@@ -141,7 +142,7 @@ export function TorAside({
             onClick={onPreviewPdf}
             className={`${btn.primary} flex w-full items-center justify-center gap-1.5 text-[12.5px] cursor-pointer`}
           >
-            <span>📄</span>
+            <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span>พรีวิวเอกสารต้นฉบับ (PDF)</span>
           </button>
 
@@ -151,14 +152,14 @@ export function TorAside({
               onClick={onWatchlistClick}
               disabled={toggleLoading}
               aria-pressed={isSaved}
-              className={`relative flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-[3px] px-3.5 text-[12.5px] font-medium transition-colors duration-200 cursor-pointer select-none ${
+              className={`relative flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-full px-4 text-[12.5px] font-medium transition-colors duration-200 cursor-pointer select-none ${
                 isSaved
                   ? "border border-open-line bg-open-bg text-open hover:opacity-90"
                   : "border border-line-2 bg-surface text-ink hover:bg-surface-2"
               }`}
             >
               {isPopping ? (
-                <span className="pointer-events-none absolute inset-0 rounded-[3px] bg-open/15 animate-pulse-ring" />
+                <span className="pointer-events-none absolute inset-0 rounded-full bg-open/15 animate-pulse-ring" />
               ) : null}
 
               <span
@@ -184,7 +185,7 @@ export function TorAside({
               href={officialEgpUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-[3px] border border-line bg-surface text-[12px] font-medium text-ink-2 transition-colors hover:border-line-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
+              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-line bg-surface text-[12px] font-medium text-ink-2 transition-colors hover:border-line-2 hover:bg-surface-2 hover:text-ink cursor-pointer"
             >
               <span>เปิดดูบนระบบ e-GP ทางการ</span>
               <span className="text-[11px] text-ink-2">↗</span>

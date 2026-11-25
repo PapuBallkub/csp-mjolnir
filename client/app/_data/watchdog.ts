@@ -40,6 +40,8 @@ export type LockSpecTriggerId =
   | "Qualification Barrier"
   | "Vendor Lock-in";
 
+export type WatchdogRiskLevel = RiskLevel | "unanalyzed";
+
 export type WatchdogProjectRecord = {
   id: string;
   egpRef: string;
@@ -60,9 +62,10 @@ export type WatchdogProjectRecord = {
   peerAverageTHB?: number;
   /** ราคาตามสัญญาที่ชนะ (THB) — มีเฉพาะโครงการที่ประกาศผู้ชนะแล้ว */
   agreedPriceTHB?: number;
-  /** คะแนนความเสี่ยงล็อกสเปก 0–100 (ADR 0030) */
-  lockSpecScore: number;
-  lockSpecLevel: RiskLevel;
+  /** คะแนนความเสี่ยงล็อกสเปก 0–100 (ADR 0030) หรือ null หากยังไม่ได้วิเคราะห์ */
+  lockSpecAnalyzed?: boolean;
+  lockSpecScore: number | null;
+  lockSpecLevel: WatchdogRiskLevel;
   /** หมวดความเสี่ยงที่ตรวจพบตาม ว 214 */
   triggers: {
     category: LockSpecTriggerId;

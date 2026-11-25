@@ -1,9 +1,33 @@
-import { useCallback, useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import * as api from "../../../../_lib/api";
 import type { ApiError, AuthUser, TechnologyItem, UserProfile } from "../../../../_lib/api";
 import { formatTHB } from "../../../../_data/tors";
 import { Building2, User as UserIcon } from "lucide-react";
 import { Label } from "../../../../_components/ui";
 import { Card, CardHeader, Inset, Tile, field, pbtn, toggleChip } from "./profile-ui";
+
+const REQUEST_TECH_CATEGORIES = [
+  { value: "", label: "ไม่ระบุหมวดหมู่" },
+  { value: "framework", label: "เฟรมเวิร์ก / ไลบรารี (Framework)" },
+  { value: "language", label: "ภาษาโปรแกรม (Language)" },
+  { value: "mobile", label: "โมบายแอปพลิเคชัน (Mobile)" },
+  { value: "database", label: "ฐานข้อมูล (Database)" },
+  { value: "bi-analytics", label: "BI และ Data Analytics" },
+  { value: "cloud", label: "คลาวด์ (Cloud)" },
+  { value: "container", label: "คอนเทนเนอร์ / Orchestration" },
+  { value: "virtualization", label: "Virtualization" },
+  { value: "os", label: "ระบบปฏิบัติการ (OS)" },
+  { value: "web-server", label: "Web Server" },
+  { value: "monitoring", label: "Monitoring / Observability" },
+  { value: "security", label: "ความปลอดภัย (Security)" },
+  { value: "network", label: "เครือข่าย (Network)" },
+  { value: "erp", label: "ระบบองค์กร (ERP)" },
+  { value: "gis", label: "ระบบแผนที่ (GIS)" },
+  { value: "collaboration", label: "การทำงานร่วมกัน (Collaboration)" },
+  { value: "messaging", label: "ระบบส่งข้อความ / คิว (Messaging)" },
+  { value: "standard", label: "มาตรฐานและโปรโตคอล (Standard)" },
+] as const;
 
 const CERTIFICATION_CATEGORIES = [
   {
@@ -152,15 +176,19 @@ const TECH_CATEGORY_GROUPS: TechCategoryGroup[] = [
 
 export function ProfileEditForm({
   user,
+  hasPassword,
   initialDraft,
   techList,
+  onTechnologyAdded,
   onSave,
   onCancel,
 }: {
   user: AuthUser;
+  hasPassword: boolean;
   initialDraft: UserProfile;
   techList: TechnologyItem[];
   techsLoading: boolean;
+  onTechnologyAdded: (tech: TechnologyItem) => void;
   onSave: (draft: UserProfile, consent: boolean) => Promise<ApiError | null>;
   onCancel: () => void;
 }) {
@@ -180,9 +208,33 @@ export function ProfileEditForm({
   const [isCertSearchFocused, setIsCertSearchFocused] = useState(false);
   const [isCertsSelectedExpanded, setIsCertsSelectedExpanded] = useState(false);
 
+  // Request new technology / certification modal state
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [requestType, setRequestType] = useState<"technology" | "certification">("technology");
+  const [requestName, setRequestName] = useState("");
+  const [requestCategory, setRequestCategory] = useState("framework");
+  const [requestReason, setRequestReason] = useState("");
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [requestStatus, setRequestStatus] = useState<
+    { kind: "idle" } | { kind: "success"; message: string } | { kind: "error"; message: string }
+  >({ kind: "idle" });
+
   // Clear modal state
   const [clearConfirmTarget, setClearConfirmTarget] = useState<"skills" | "certifications" | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || window.location.hash !== "#notification-settings") return;
+    const raf = window.requestAnimationFrame(() => {
+      const target = document.getElementById("notification-settings");
+      if (!target) return;
+      const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth";
+      target.scrollIntoView({ behavior, block: "start" });
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, []);
 
   const isDirty = useMemo(() => {
     return (
@@ -241,6 +293,91 @@ export function ProfileEditForm({
     return displaySkills.filter((t) => t.toLowerCase().includes(q)).slice(0, 8);
   }, [searchSkill, displaySkills]);
 
+  const hasExactSkillMatch = useMemo(() => {
+    const q = searchSkill.trim().toLowerCase();
+    if (!q) return false;
+    return displaySkills.some((t) => t.toLowerCase() === q);
+  }, [searchSkill, displaySkills]);
+
+  const openRequestModal = useCallback(
+    (initialName = "", type: "technology" | "certification" = "technology") => {
+      setRequestType(type);
+      setRequestName(initialName);
+      setRequestCategory(type === "technology" ? "framework" : "standard");
+      setRequestReason("");
+      setRequestStatus({ kind: "idle" });
+      setIsSkillSearchFocused(false);
+      setIsCertSearchFocused(false);
+      setIsRequestModalOpen(true);
+    },
+    []
+  );
+
+  const handleRequestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = requestName.trim();
+    if (!trimmed || requestSubmitting) return;
+
+    setRequestSubmitting(true);
+    setRequestStatus({ kind: "idle" });
+
+    const res = await api.requestTechnology({
+      name: trimmed,
+      category:
+        requestType === "certification" ? "standard" : requestCategory || undefined,
+      reason: requestReason.trim() || undefined,
+    });
+
+    setRequestSubmitting(false);
+    if (res.ok) {
+      const addedName = res.data.technology?.name || trimmed;
+      if (requestType === "technology") {
+        const addedTech = res.data.technology?.name
+          ? { name: res.data.technology.name, category: res.data.technology.category }
+          : { name: trimmed, category: requestCategory || undefined };
+        onTechnologyAdded(addedTech);
+        setDraft((prev) =>
+          prev.skills.includes(addedTech.name) || prev.skills.length >= 150
+            ? prev
+            : { ...prev, skills: [...prev.skills, addedTech.name] }
+        );
+        setSearchSkill("");
+        setRequestStatus({
+          kind: "success",
+          message: res.data.alreadyExists
+            ? `พบ "${addedName}" ในระบบแล้ว และเพิ่มเข้าทักษะของคุณเรียบร้อย`
+            : `ส่งคำขอเพิ่ม "${addedName}" ไปยังผู้ดูแลระบบ และเพิ่มเข้าทักษะของคุณแล้ว`,
+        });
+      } else {
+        setDraft((prev) =>
+          prev.certifications.includes(addedName) || prev.certifications.length >= 50
+            ? prev
+            : { ...prev, certifications: [...prev.certifications, addedName] }
+        );
+        setSearchCert("");
+        setRequestStatus({
+          kind: "success",
+          message: res.data.alreadyExists
+            ? `พบ "${addedName}" ในระบบแล้ว และเพิ่มเข้าใบรับรองของคุณเรียบร้อย`
+            : `ส่งคำขอเพิ่มมาตรฐาน "${addedName}" ไปยังผู้ดูแลระบบ และเพิ่มเข้าใบรับรองของคุณแล้ว`,
+        });
+      }
+      setTimeout(() => {
+        setIsRequestModalOpen(false);
+        setRequestStatus({ kind: "idle" });
+      }, 1400);
+    } else {
+      setRequestStatus({
+        kind: "error",
+        message:
+          res.error?.message ||
+          (requestType === "certification"
+            ? "ส่งคำขอเพิ่มมาตรฐานไม่สำเร็จ กรุณาลองอีกครั้ง"
+            : "ส่งคำขอเพิ่มเทคโนโลยีไม่สำเร็จ กรุณาลองอีกครั้ง"),
+      });
+    }
+  };
+
   const displayCertifications = useMemo(() => {
     return Array.from(new Set([...ALL_STANDARD_CERTS, ...draft.certifications]));
   }, [draft.certifications]);
@@ -249,6 +386,12 @@ export function ProfileEditForm({
     const q = searchCert.trim().toLowerCase();
     if (!q) return [];
     return displayCertifications.filter((c) => c.toLowerCase().includes(q)).slice(0, 8);
+  }, [searchCert, displayCertifications]);
+
+  const hasExactCertMatch = useMemo(() => {
+    const q = searchCert.trim().toLowerCase();
+    if (!q) return false;
+    return displayCertifications.some((c) => c.toLowerCase() === q);
   }, [searchCert, displayCertifications]);
 
   const handleToggleSkill = useCallback((skillName: string) => {
@@ -298,7 +441,16 @@ export function ProfileEditForm({
   ];
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <>
+    <form
+      onSubmit={handleSubmit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && e.target instanceof HTMLInputElement) {
+          e.preventDefault();
+        }
+      }}
+      className="flex flex-col gap-5"
+    >
       {/* Top action bar */}
       <Card as="div" className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center sm:px-5">
         <div className="min-w-0">
@@ -329,7 +481,17 @@ export function ProfileEditForm({
 
       {/* 1. Account info (read-only) */}
       <Card className="p-5 sm:p-6">
-        <CardHeader title="บัญชีผู้ใช้" sub="ข้อมูลพื้นฐานสำหรับแสดงในระบบและส่งการแจ้งเตือน" />
+        <CardHeader
+          title="บัญชีผู้ใช้"
+          sub="ข้อมูลพื้นฐานสำหรับแสดงในระบบและส่งการแจ้งเตือน"
+          right={
+            hasPassword ? (
+              <Link href="/account" className={`${pbtn.secondary} h-8 px-3.5 text-[12px]`}>
+                เปลี่ยนรหัสผ่าน
+              </Link>
+            ) : undefined
+          }
+        />
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5">
             <Label>ชื่อที่แสดง</Label>
@@ -534,7 +696,7 @@ export function ProfileEditForm({
               <button
                 type="button"
                 onClick={() => setDraft((prev) => ({ ...prev, preferredArchetypes: [] }))}
-                className={pbtn.quiet}
+                className={pbtn.quietDanger}
               >
                 ล้างทั้งหมด
               </button>
@@ -575,10 +737,10 @@ export function ProfileEditForm({
       <Card className="p-5 sm:p-6">
         <CardHeader
           title="ทักษะและเทคโนโลยี"
-          sub="เลือกเทคโนโลยีที่คุณเชี่ยวชาญเพื่อใช้จับคู่งานจัดซื้อจัดจ้างภาครัฐ (น้ำหนัก 40%)"
+          sub="เลือกเทคโนโลยีที่คุณเชี่ยวชาญเพื่อใช้จับคู่งานจัดซื้อจัดจ้างภาครัฐ"
           right={
             draft.skills.length > 0 ? (
-              <button type="button" onClick={() => setClearConfirmTarget("skills")} className={pbtn.quiet}>
+              <button type="button" onClick={() => setClearConfirmTarget("skills")} className={pbtn.quietDanger}>
                 ล้างทั้งหมด
               </button>
             ) : null
@@ -622,29 +784,54 @@ export function ProfileEditForm({
           </Inset>
         )}
 
-        {/* Search */}
-        <div className="relative mt-4 max-w-md">
-          <input
-            type="text"
-            value={searchSkill}
-            onChange={(e) => setSearchSkill(e.target.value)}
-            onFocus={() => setIsSkillSearchFocused(true)}
-            onBlur={() => setTimeout(() => setIsSkillSearchFocused(false), 200)}
-            placeholder="ค้นหาเทคโนโลยี (เช่น React, Python, Docker, PostgreSQL)..."
-            aria-label="ค้นหาเทคโนโลยี"
-            className={`${field} rounded-full px-4 text-[12px]`}
-          />
-
-          {isSkillSearchFocused && skillSuggestions.length > 0 && (
-            <SuggestionList
-              items={skillSuggestions}
-              isOn={(s) => draft.skills.includes(s)}
-              onPick={(s) => {
-                handleToggleSkill(s);
-                setSearchSkill("");
+        {/* Search & request technology */}
+        <div className="mt-4 flex flex-wrap items-center gap-2.5">
+          <div className="relative min-w-[240px] flex-1 max-w-md">
+            <input
+              type="text"
+              value={searchSkill}
+              onChange={(e) => setSearchSkill(e.target.value)}
+              onFocus={() => setIsSkillSearchFocused(true)}
+              onBlur={() => setTimeout(() => setIsSkillSearchFocused(false), 200)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (skillSuggestions.length > 0) {
+                    handleToggleSkill(skillSuggestions[0]);
+                    setSearchSkill("");
+                  } else if (searchSkill.trim()) {
+                    openRequestModal(searchSkill.trim());
+                  }
+                } else if (e.key === "Escape") {
+                  setIsSkillSearchFocused(false);
+                }
               }}
+              placeholder="ค้นหาเทคโนโลยี (เช่น React, Python, Docker, PostgreSQL)..."
+              aria-label="ค้นหาเทคโนโลยี"
+              className={`${field} rounded-full px-4 text-[12px]`}
             />
-          )}
+
+            {isSkillSearchFocused && searchSkill.trim().length > 0 && (
+              <SuggestionList
+                items={skillSuggestions}
+                isOn={(s) => draft.skills.includes(s)}
+                onPick={(s) => {
+                  handleToggleSkill(s);
+                  setSearchSkill("");
+                }}
+                requestTerm={!hasExactSkillMatch ? searchSkill.trim() : undefined}
+                onRequestTerm={(term) => openRequestModal(term)}
+              />
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => openRequestModal(searchSkill.trim())}
+            className={`${pbtn.secondary} h-9 shrink-0 px-3.5 text-[12px]`}
+          >
+            + ขอเพิ่มเทคโนโลยี
+          </button>
         </div>
 
         {/* Category tabs & skill bank */}
@@ -704,13 +891,13 @@ export function ProfileEditForm({
       <Card className="p-5 sm:p-6">
         <CardHeader
           title="ใบรับรองและมาตรฐาน"
-          sub="ใบรับรองมาตรฐานสากล เช่น ISO 29110, ISO 27001, CMMI (น้ำหนัก 5%)"
+          sub="ใบรับรองมาตรฐานสากล เช่น ISO 29110, ISO 27001, CMMI"
           right={
             draft.certifications.length > 0 ? (
               <button
                 type="button"
                 onClick={() => setClearConfirmTarget("certifications")}
-                className={pbtn.quiet}
+                className={pbtn.quietDanger}
               >
                 ล้างทั้งหมด
               </button>
@@ -756,29 +943,55 @@ export function ProfileEditForm({
           </Inset>
         )}
 
-        {/* Search certs */}
-        <div className="relative mt-4 max-w-md">
-          <input
-            type="text"
-            value={searchCert}
-            onChange={(e) => setSearchCert(e.target.value)}
-            onFocus={() => setIsCertSearchFocused(true)}
-            onBlur={() => setTimeout(() => setIsCertSearchFocused(false), 200)}
-            placeholder="ค้นหามาตรฐาน (เช่น ISO 29110, ISO 27001, CMMI)..."
-            aria-label="ค้นหามาตรฐาน"
-            className={`${field} rounded-full px-4 text-[12px]`}
-          />
-
-          {isCertSearchFocused && certSuggestions.length > 0 && (
-            <SuggestionList
-              items={certSuggestions}
-              isOn={(c) => draft.certifications.includes(c)}
-              onPick={(c) => {
-                handleToggleCert(c);
-                setSearchCert("");
+        {/* Search & request cert */}
+        <div className="mt-4 flex flex-wrap items-center gap-2.5">
+          <div className="relative min-w-[240px] flex-1 max-w-md">
+            <input
+              type="text"
+              value={searchCert}
+              onChange={(e) => setSearchCert(e.target.value)}
+              onFocus={() => setIsCertSearchFocused(true)}
+              onBlur={() => setTimeout(() => setIsCertSearchFocused(false), 200)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (certSuggestions.length > 0) {
+                    handleToggleCert(certSuggestions[0]);
+                    setSearchCert("");
+                  } else if (searchCert.trim()) {
+                    openRequestModal(searchCert.trim(), "certification");
+                  }
+                } else if (e.key === "Escape") {
+                  setIsCertSearchFocused(false);
+                }
               }}
+              placeholder="ค้นหามาตรฐาน (เช่น ISO 29110, ISO 27001, CMMI)..."
+              aria-label="ค้นหามาตรฐาน"
+              className={`${field} rounded-full px-4 text-[12px]`}
             />
-          )}
+
+            {isCertSearchFocused && searchCert.trim().length > 0 && (
+              <SuggestionList
+                items={certSuggestions}
+                isOn={(c) => draft.certifications.includes(c)}
+                onPick={(c) => {
+                  handleToggleCert(c);
+                  setSearchCert("");
+                }}
+                requestTerm={!hasExactCertMatch ? searchCert.trim() : undefined}
+                onRequestTerm={(term) => openRequestModal(term, "certification")}
+                emptyNoun="รายการมาตรฐาน"
+              />
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => openRequestModal(searchCert.trim(), "certification")}
+            className={`${pbtn.secondary} h-9 shrink-0 px-3.5 text-[12px]`}
+          >
+            + ขอเพิ่มมาตรฐาน
+          </button>
         </div>
 
         {/* Category groups */}
@@ -809,7 +1022,7 @@ export function ProfileEditForm({
       </Card>
 
       {/* 7. Notification preferences */}
-      <Card className="p-5 sm:p-6">
+      <Card id="notification-settings" className="scroll-mt-24 p-5 sm:p-6">
         <CardHeader
           title="การตั้งค่าการแจ้งเตือน"
           sub="จัดการช่องทางและเกณฑ์การแจ้งเตือนโครงการที่เหมาะสมกับคุณ"
@@ -1150,6 +1363,23 @@ export function ProfileEditForm({
         />
       )}
     </form>
+
+    {isRequestModalOpen && (
+      <RequestTechnologyModal
+        type={requestType}
+        name={requestName}
+        category={requestCategory}
+        reason={requestReason}
+        submitting={requestSubmitting}
+        status={requestStatus}
+        onChangeName={setRequestName}
+        onChangeCategory={setRequestCategory}
+        onChangeReason={setRequestReason}
+        onDismiss={() => setIsRequestModalOpen(false)}
+        onSubmit={handleRequestSubmit}
+      />
+    )}
+    </>
   );
 }
 
@@ -1157,35 +1387,224 @@ function SuggestionList({
   items,
   isOn,
   onPick,
+  requestTerm,
+  onRequestTerm,
+  emptyNoun = "คลังเทคโนโลยี",
 }: {
   items: string[];
   isOn: (item: string) => boolean;
   onPick: (item: string) => void;
+  requestTerm?: string;
+  onRequestTerm?: (term: string) => void;
+  emptyNoun?: string;
 }) {
+  if (items.length === 0 && !requestTerm) return null;
+
   return (
-    <div className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-56 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lg">
-      <ul>
-        {items.map((item) => {
-          const on = isOn(item);
-          return (
-            <li key={item}>
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onPick(item);
-                }}
-                className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-1.5 text-left text-[12px] hover:bg-surface-2"
+    <div className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lg">
+      {items.length > 0 ? (
+        <ul>
+          {items.map((item) => {
+            const on = isOn(item);
+            return (
+              <li key={item}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onPick(item);
+                  }}
+                  className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-1.5 text-left text-[12px] hover:bg-surface-2"
+                >
+                  <span className={on ? "font-semibold text-ink" : "text-ink-2"}>{item}</span>
+                  <span className={`shrink-0 text-[10.5px] ${on ? "font-semibold text-open" : "text-ink-3"}`}>
+                    {on ? "✓ เลือกแล้ว" : "+ เพิ่ม"}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="px-3 py-2 text-[12px] text-ink-3">
+          ไม่พบ &ldquo;{requestTerm}&rdquo; ใน{emptyNoun}
+        </p>
+      )}
+
+      {requestTerm && onRequestTerm && (
+        <div className={items.length > 0 ? "mt-1 border-t border-line pt-1" : "pt-0.5"}>
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              onRequestTerm(requestTerm);
+            }}
+            className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-2 text-left text-[12px] font-medium text-ink transition-colors hover:bg-surface-3"
+          >
+            <span className="truncate">ขอเพิ่ม &ldquo;{requestTerm}&rdquo; ไปยังผู้ดูแลระบบ</span>
+            <span className="shrink-0 text-[11px] text-ink-3">↗</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RequestTechnologyModal({
+  type,
+  name,
+  category,
+  reason,
+  submitting,
+  status,
+  onChangeName,
+  onChangeCategory,
+  onChangeReason,
+  onDismiss,
+  onSubmit,
+}: {
+  type: "technology" | "certification";
+  name: string;
+  category: string;
+  reason: string;
+  submitting: boolean;
+  status: { kind: "idle" } | { kind: "success"; message: string } | { kind: "error"; message: string };
+  onChangeName: (v: string) => void;
+  onChangeCategory: (v: string) => void;
+  onChangeReason: (v: string) => void;
+  onDismiss: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+}) {
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onDismiss();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onDismiss]);
+
+  const isCert = type === "certification";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
+      onClick={onDismiss}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="request-tech-title"
+        className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 id="request-tech-title" className="text-[16px] font-semibold text-ink">
+              {isCert ? "ขอเพิ่มใบรับรองหรือมาตรฐานเข้าคลังระบบ" : "ขอเพิ่มเทคโนโลยีเข้าคลังระบบ"}
+            </h3>
+            <p className="mt-1 text-[12px] leading-thai text-ink-3">
+              {isCert
+                ? "ส่งคำขอเพิ่มใบรับรองหรือมาตรฐานสากลใหม่ให้ผู้ดูแลระบบตรวจสอบ"
+                : "ส่งคำขอเพิ่มเครื่องมือ เฟรมเวิร์ก หรือเทคโนโลยีใหม่ให้ผู้ดูแลระบบตรวจสอบ"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="ปิดหน้าต่าง"
+            className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-[16px] text-ink-3 hover:bg-surface-2 hover:text-ink"
+          >
+            &times;
+          </button>
+        </div>
+
+        <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-3.5">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="request-tech-name">
+              {isCert ? "ชื่อใบรับรอง / มาตรฐาน" : "ชื่อเทคโนโลยี"}
+            </Label>
+            <input
+              id="request-tech-name"
+              type="text"
+              required
+              maxLength={100}
+              value={name}
+              onChange={(e) => onChangeName(e.target.value)}
+              placeholder={
+                isCert
+                  ? "เช่น ISO/IEC 42001, CMMI Level 4, SOC 2 Type II"
+                  : "เช่น Next.js, Go, Apache Kafka, Fortinet"
+              }
+              className={field}
+            />
+          </div>
+
+          {!isCert && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="request-tech-category">หมวดหมู่ที่เกี่ยวข้อง</Label>
+              <select
+                id="request-tech-category"
+                value={category}
+                onChange={(e) => onChangeCategory(e.target.value)}
+                className={`${field} cursor-pointer`}
               >
-                <span className={on ? "font-semibold text-ink" : "text-ink-2"}>{item}</span>
-                <span className={`shrink-0 text-[10.5px] ${on ? "font-semibold text-open" : "text-ink-3"}`}>
-                  {on ? "✓ เลือกแล้ว" : "+ เพิ่ม"}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                {REQUEST_TECH_CATEGORIES.map((cat) => (
+                  <option key={cat.value || "none"} value={cat.value}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="request-tech-reason">รายละเอียดเพิ่มเติมหรือลิงก์อ้างอิง (ถ้ามี)</Label>
+            <textarea
+              id="request-tech-reason"
+              rows={3}
+              maxLength={500}
+              value={reason}
+              onChange={(e) => onChangeReason(e.target.value)}
+              placeholder="ระบุรายละเอียดการใช้งานหรือลิงก์เว็บไซต์ทางการ เพื่อช่วยให้ผู้ดูแลตรวจสอบได้เร็วขึ้น"
+              className="w-full rounded-xl border border-line-2 bg-surface p-3 text-[13px] leading-relaxed text-ink placeholder:text-ink-3 transition-colors focus:border-ink focus:outline-none resize-y"
+            />
+          </div>
+
+          {status.kind === "success" && (
+            <p
+              role="status"
+              className="rounded-xl border border-open-line bg-open-bg px-3.5 py-2.5 text-[12px] font-medium text-open"
+            >
+              ✓ {status.message}
+            </p>
+          )}
+          {status.kind === "error" && (
+            <p
+              role="alert"
+              className="rounded-xl border border-risk-line bg-risk-bg px-3.5 py-2.5 text-[12px] text-risk"
+            >
+              {status.message}
+            </p>
+          )}
+
+          <div className="mt-1 flex items-center justify-end gap-2">
+            <button type="button" onClick={onDismiss} disabled={submitting} className={pbtn.secondary}>
+              ยกเลิก
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || !name.trim() || status.kind === "success"}
+              className={pbtn.primary}
+            >
+              {submitting
+                ? "กำลังส่งคำขอ…"
+                : isCert
+                ? "ส่งคำขอเพิ่มมาตรฐาน"
+                : "ส่งคำขอเพิ่มเทคโนโลยี"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

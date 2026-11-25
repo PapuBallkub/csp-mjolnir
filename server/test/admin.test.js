@@ -676,3 +676,81 @@ test('FR-22: POST /api/admin/health-check tests external sources connectivity an
   assert.ok(['ok', 'degraded', 'failed'].includes(data.results.datago.status));
 });
 
+test('FR-23 / NFR-17: GET /api/admin/review-queue excludes titleOnly stubs and paginates + searches cleanly', async () => {
+  const adminCookie = await signUp('review-queue-admin', { role: 'admin' });
+  const titleOnlyId = `TEST-${runId}-TITLEONLY-01`;
+  const lowConfId = `TEST-${runId}-LOWCONF-01`;
+  const highConfId = `TEST-${runId}-HIGHCONF-01`;
+
+  await TorInsight.insertMany([
+    {
+      projectId: titleOnlyId,
+      identification: { titleTh: 'โครงการเก่า titleOnly', agency: 'หน่วยงานทดสอบ', status: 'Awarded' },
+      metadata: { origin: 'pipeline', reviewStatus: 'pending', titleOnly: true, confidenceScore: 55 },
+    },
+    {
+      projectId: lowConfId,
+      identification: { titleTh: 'โครงการสกัดความมั่นใจต่ำ ZQ99', agency: 'กรมทดสอบ A', status: 'Open' },
+      metadata: { origin: 'pipeline', reviewStatus: 'pending', titleOnly: false, confidenceScore: 62 },
+    },
+    {
+      projectId: highConfId,
+      identification: { titleTh: 'โครงการสกัดความมั่นใจสูง ZQ99', agency: 'กรมทดสอบ B', status: 'Open' },
+      metadata: { origin: 'pipeline', reviewStatus: 'pending', titleOnly: false, confidenceScore: 92 },
+    },
+  ]);
+
+  // Search for ZQ99 across tab=all with limit=1 to verify pagination and exclusion of titleOnly
+  const page1Res = await fetch(
+    `${baseUrl}/api/admin/review-queue?tab=all&q=ZQ99&sort=confidence-asc&page=1&limit=1`,
+    { headers: { cookie: adminCookie } },
+  );
+  assert.equal(page1Res.status, 200);
+  const page1 = await page1Res.json();
+  assert.equal(page1.total, 2);
+  assert.equal(page1.totalPages, 2);
+  assert.equal(page1.items.length, 1);
+  assert.equal(page1.items[0].docId, lowConfId);
+
+  const page2Res = await fetch(
+    `${baseUrl}/api/admin/review-queue?tab=all&q=ZQ99&sort=confidence-asc&page=2&limit=1`,
+    { headers: { cookie: adminCookie } },
+  );
+  assert.equal(page2Res.status, 200);
+  const page2 = await page2Res.json();
+  assert.equal(page2.items.length, 1);
+  assert.equal(page2.items[0].docId, highConfId);
+
+  // tab=ready returns only >= 80% non-excluded pending IT docs
+  const readyRes = await fetch(
+    `${baseUrl}/api/admin/review-queue?tab=ready&q=ZQ99`,
+    { headers: { cookie: adminCookie } },
+  );
+  assert.equal(readyRes.status, 200);
+  const readyData = await readyRes.json();
+  assert.equal(readyData.total, 1);
+  assert.equal(readyData.items[0].docId, highConfId);
+  assert.ok(readyData.counts.ready >= 1);
+
+  // tab=low-confidence returns only < 80% non-excluded pending IT docs
+  const lowRes = await fetch(
+    `${baseUrl}/api/admin/review-queue?tab=low-confidence&q=ZQ99`,
+    { headers: { cookie: adminCookie } },
+  );
+  assert.equal(lowRes.status, 200);
+  const lowData = await lowRes.json();
+  assert.equal(lowData.total, 1);
+  assert.equal(lowData.items[0].docId, lowConfId);
+
+  // titleOnly stub must never appear in review queue search
+  const titleOnlyRes = await fetch(
+    `${baseUrl}/api/admin/review-queue?tab=all&q=${encodeURIComponent(titleOnlyId)}`,
+    { headers: { cookie: adminCookie } },
+  );
+  assert.equal(titleOnlyRes.status, 200);
+  const titleOnlyData = await titleOnlyRes.json();
+  assert.equal(titleOnlyData.total, 0);
+  assert.deepEqual(titleOnlyData.items, []);
+});
+
+

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ClipboardList, FileText, Info, Mail, Tag } from "lucide-react";
 import { getTorPdfPreviewUrl } from "../_lib/api";
 import { btn } from "./ui";
 
@@ -233,7 +234,7 @@ function PdfPreviewModalContent({
       }}
     >
       <div
-        className={`relative flex flex-col w-full bg-surface border-0 sm:border border-line rounded-none sm:rounded-[4px] shadow-2xl transition-all duration-200 overflow-hidden ${
+        className={`relative flex flex-col w-full bg-surface border-0 sm:border border-line rounded-none sm:rounded-2xl shadow-2xl transition-all duration-200 overflow-hidden ${
           isFullscreen
             ? "h-[100dvh] sm:h-[98vh] max-w-[100vw] sm:max-w-[98vw]"
             : "h-[100dvh] sm:h-[88vh] max-w-5xl"
@@ -243,7 +244,7 @@ function PdfPreviewModalContent({
         {/* Modal Header */}
         <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-line bg-surface-2 shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="flex items-center justify-center h-5 px-1.5 rounded-[2px] bg-ink text-surface font-mono text-[10px] font-bold shrink-0">
+            <span className="flex items-center justify-center h-5 px-2 rounded-full bg-ink text-surface font-mono text-[10px] font-bold shrink-0">
               PDF
             </span>
             <div className="min-w-0">
@@ -268,7 +269,7 @@ function PdfPreviewModalContent({
                 href={officialEgpUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-[11.5px] font-medium text-ink-2 hover:text-ink hover:bg-surface rounded-[2px] border border-transparent hover:border-line transition-colors"
+                className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-[11.5px] font-medium text-ink-2 hover:text-ink hover:bg-surface rounded-full border border-transparent hover:border-line transition-colors"
                 title="เปิดดูบนเว็บ e-GP ทางการ"
               >
                 <span>เปิดใน e-GP</span>
@@ -280,7 +281,7 @@ function PdfPreviewModalContent({
               href={previewUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11.5px] font-medium text-ink bg-surface-2 sm:bg-transparent sm:text-ink-2 hover:text-ink hover:bg-surface rounded-[2px] border border-line sm:border-transparent sm:hover:border-line transition-colors"
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11.5px] font-medium text-ink bg-surface-2 sm:bg-transparent sm:text-ink-2 hover:text-ink hover:bg-surface rounded-full border border-line sm:border-transparent sm:hover:border-line transition-colors"
               title="เปิดไฟล์ PDF ในแท็บใหม่"
             >
               <span>เปิดในแท็บใหม่</span>
@@ -294,7 +295,7 @@ function PdfPreviewModalContent({
                 e.stopPropagation();
                 setIsFullscreen((prev) => !prev);
               }}
-              className="hidden md:inline-flex items-center justify-center w-7 h-7 text-ink-2 hover:text-ink hover:bg-surface rounded-[2px] border border-transparent hover:border-line transition-colors cursor-pointer"
+              className="hidden md:inline-flex items-center justify-center w-7 h-7 text-ink-2 hover:text-ink hover:bg-surface rounded-full border border-transparent hover:border-line transition-colors cursor-pointer"
               title={isFullscreen ? "ย่อหน้าต่างกลับขนาดเดิม" : "ขยายเต็มจอ"}
               aria-label={isFullscreen ? "Restore size" : "Fullscreen"}
             >
@@ -339,7 +340,7 @@ function PdfPreviewModalContent({
             <button
               type="button"
               onClick={onClose}
-              className="flex items-center justify-center w-7 h-7 rounded-[2px] text-ink hover:bg-surface border border-transparent hover:border-line text-[13px] font-semibold transition-colors cursor-pointer"
+              className="flex items-center justify-center w-7 h-7 rounded-full text-ink hover:bg-surface border border-transparent hover:border-line text-[13px] font-semibold transition-colors cursor-pointer"
               aria-label="Close modal"
               title="ปิด (Esc)"
             >
@@ -356,35 +357,38 @@ function PdfPreviewModalContent({
           <button
             type="button"
             onClick={() => selectPart(0)}
-            className={`px-2.5 py-0.5 rounded-[2px] text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
               part === 0
                 ? "bg-ink text-surface"
                 : "text-ink-2 hover:text-ink hover:bg-surface-2"
             }`}
           >
-            📄 ขอบเขตงาน (TOR หลัก)
+            <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>ขอบเขตงาน (TOR หลัก)</span>
           </button>
           <button
             type="button"
             onClick={() => selectPart(1)}
-            className={`px-2.5 py-0.5 rounded-[2px] text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
               part === 1
                 ? "bg-ink text-surface"
                 : "text-ink-2 hover:text-ink hover:bg-surface-2"
             }`}
           >
-            📋 เอกสารประกวดราคา
+            <ClipboardList className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>เอกสารประกวดราคา</span>
           </button>
           <button
             type="button"
             onClick={() => selectPart(2)}
-            className={`px-2.5 py-0.5 rounded-[2px] text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
               part === 2
                 ? "bg-ink text-surface"
                 : "text-ink-2 hover:text-ink hover:bg-surface-2"
             }`}
           >
-            ✉️ ประกาศเชิญชวน
+            <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>ประกาศเชิญชวน</span>
           </button>
         </div>
 
@@ -403,8 +407,8 @@ function PdfPreviewModalContent({
             failure === "not-stored" && isNonBidding ? (
               /* Method-Aware Explanation State (Direct / Selective Procurement) */
               <div className="flex flex-col items-center justify-center h-full p-6 sm:p-10 text-center bg-surface text-ink overflow-y-auto">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[3px] bg-surface-2 border border-line text-[11.5px] font-semibold tracking-wide text-ink mb-2">
-                  <span>🏷️</span>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-2 border border-line text-[11.5px] font-semibold tracking-wide text-ink mb-2">
+                  <Tag className="h-3 w-3 shrink-0" aria-hidden="true" />
                   <span>
                     {isDirectProcurement
                       ? "โครงการจัดหาโดยวิธีเฉพาะเจาะจง (Direct Contracting)"
@@ -422,19 +426,22 @@ function PdfPreviewModalContent({
                     : "ไม่มีเอกสารประกาศเชิญชวนทั่วไปในระบบ"}
                 </h3>
 
-                <div className="max-w-xl mt-3 p-4 rounded-[4px] bg-surface-2 border border-line text-left text-[12px] leading-relaxed text-ink-2 space-y-2">
+                <div className="max-w-xl mt-3 p-4 rounded-xl bg-surface-2 border border-line text-left text-[12px] leading-relaxed text-ink-2 space-y-2">
                   <p>
                     <strong className="text-ink font-semibold">ตาม พ.ร.บ. การจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560:</strong>{" "}
                     {isDirectProcurement
                       ? "การจัดหาโดยวิธีเฉพาะเจาะจงเป็นการติดต่อเจรจาตกลงราคากับผู้ประกอบการโดยตรง (เช่น วงเงินไม่เกิน 500,000 บาท หรือเป็นงานจ้างบำรุงรักษาต่อเนื่องจากระบบเดิมที่มีผู้เชี่ยวชาญตรงเพียงรายเดียว) จึงไม่มีการออกร่างขอบเขตของงาน (TOR) หรือประกาศเชิญชวนสาธารณะเพื่อรับฟังความคิดเห็น (B0/D0) บนระบบ e-GP เหมือนวิธี e-bidding"
                       : "การจัดหาโดยวิธีคัดเลือกเป็นการส่งหนังสือเชิญชวนไปยังผู้ประกอบการที่มีคุณสมบัติตรงไม่น้อยกว่า 3 รายโดยตรง ไม่ใช่การเปิดประมูลสาธารณะทั่วไป จึงไม่มีการเผยแพร่ไฟล์แพ็กเกจประกาศสาธารณะบนระบบ e-GP"}
                   </p>
-                  <p className="text-ink-3 text-[11px] pt-2 border-t border-line">
-                    ℹ️ ข้อมูลโครงการที่แสดงบนแพลตฟอร์มนี้ (งบประมาณ, ราคากลาง, รายชื่อผู้ชนะ และสัญญา) ถูกนำเข้าจากฐานข้อมูลเปิดภาครัฐ (data.go.th) ท่านสามารถตรวจสอบบันทึกผลการจัดซื้อจัดจ้างและสาระสำคัญของสัญญาทางการได้โดยตรงที่หน้าเว็บ e-GP
+                  <p className="flex items-start gap-1.5 text-ink-3 text-[11px] pt-2 border-t border-line">
+                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      ข้อมูลโครงการที่แสดงบนแพลตฟอร์มนี้ (งบประมาณ, ราคากลาง, รายชื่อผู้ชนะ และสัญญา) ถูกนำเข้าจากฐานข้อมูลเปิดภาครัฐ (data.go.th) ท่านสามารถตรวจสอบบันทึกผลการจัดซื้อจัดจ้างและสาระสำคัญของสัญญาทางการได้โดยตรงที่หน้าเว็บ e-GP
+                    </span>
                   </p>
                 </div>
 
-                <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono text-ink-3 bg-surface-2 border border-line rounded-[2px] px-2.5 py-1">
+                <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono text-ink-3 bg-surface-2 border border-line rounded-full px-3 py-1">
                   <span>Project #{projectId}</span>
                   {agency ? <span>· {agency}</span> : null}
                 </div>
@@ -483,7 +490,7 @@ function PdfPreviewModalContent({
 
                 <p className="max-w-md mt-1.5 text-[12.5px] text-ink-2 leading-relaxed">{missingCard.body}</p>
 
-                <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono text-ink-3 bg-surface-2 border border-line rounded-[2px] px-2.5 py-1">
+                <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono text-ink-3 bg-surface-2 border border-line rounded-full px-3 py-1">
                   <span>Project #{projectId}</span>
                   {agency ? <span>· {agency}</span> : null}
                 </div>
@@ -502,9 +509,10 @@ function PdfPreviewModalContent({
                     <button
                       type="button"
                       onClick={() => selectPart(0)}
-                      className={`${retryable ? btn.secondary : btn.primary} h-8 px-3.5 text-[12px]`}
+                      className={`${retryable ? btn.secondary : btn.primary} h-8 px-3.5 text-[12px] inline-flex items-center gap-1.5`}
                     >
-                      📄 กลับไปดูเอกสาร TOR หลัก
+                      <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span>กลับไปดูเอกสาร TOR หลัก</span>
                     </button>
                   ) : null}
                   {officialEgpUrl ? (
