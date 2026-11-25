@@ -22,7 +22,7 @@ export function ReviewSectionNav({
           type="button"
           onClick={onToggleMobileToc}
           aria-expanded={mobileTocOpen}
-          className="lg:hidden flex w-full items-center justify-between px-2.5 py-2 text-left text-[12.5px] font-semibold text-ink cursor-pointer"
+          className="lg:hidden flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-[12.5px] font-semibold text-ink cursor-pointer"
         >
           <span className="truncate">
             หัวข้อข้อมูล TOR ทั้ง 10 ส่วน

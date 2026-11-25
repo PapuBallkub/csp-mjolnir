@@ -227,7 +227,7 @@ export default function LandingPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="พิมพ์ชื่อโครงการ, หน่วยงาน หรือเทคโนโลยี เช่น Cloud, PostgreSQL, Docker..."
-                    className="w-full py-2 pl-10 pr-3 text-[13.5px] bg-transparent text-ink placeholder:text-ink-3 focus:outline-none"
+                    className="w-full rounded-xl py-2 pl-10 pr-3 text-[13.5px] bg-transparent text-ink placeholder:text-ink-3 focus:outline-none"
                     aria-label="ค้นหาประกาศจัดซื้อจัดจ้าง IT"
                   />
                 </div>
