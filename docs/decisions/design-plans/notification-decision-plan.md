@@ -168,7 +168,7 @@ sequenceDiagram
     
     opt Score >= minScore (default 70)
         Creator->>DB: Notification.create({ userId, type: 'match', snapshot, emailSent: false, isRead: false })
-        Note over Creator,DB: Saves immutable snapshot; in-app feed is ready immediately!
+        Note over Creator,DB: Saves immutable snapshot — in-app feed is ready immediately!
     end
 
     Note over Trig,Gmail: PHASE 2: SCHEDULED EMAIL DISPATCH (Runs at 08:00 AM)
