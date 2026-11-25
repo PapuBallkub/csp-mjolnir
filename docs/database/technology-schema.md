@@ -36,7 +36,7 @@ The version (for example `2019` in "Windows Server 2019") isn't part of the name
 | `key` | `String` | Required, Unique | — | The name in matching form: lower-cased, trimmed | `"postgresql"` |
 | `aliases` | `[String]` | Indexed | `[]` | Other ways TORs write it, in matching form | `["postgres", "pgsql"]` |
 | `category` | `String` | No | `null` | Kind of technology | `"database"`, `"os"`, `"language"`, `"framework"`, `"platform"` |
-| `status` | `String` | Indexed | `'new'` | `'confirmed'` once a person has checked it | `'confirmed'`, `'new'` |
+| `status` | `String` | Indexed | `'new'` | `'confirmed'` once a person has checked it; `'rejected'` if dismissed | `'confirmed'`, `'new'`, `'rejected'` |
 | `firstSeenIn` | `String` | No | `null` | The `projectId` a `new` entry first came from | `"68039469567"` |
 | `createdAt`, `updatedAt` | `Date` | — | automatic | Mongoose timestamps | |
 
