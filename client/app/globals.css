@@ -141,8 +141,10 @@
   --color-closed-bg: var(--closed-bg);
   --color-closed-line: var(--closed-line);
 
-  --font-sans: var(--font-plex-sans), var(--font-plex-thai), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-sans: var(--font-kanit), ui-sans-serif, system-ui, sans-serif;
+  /* Plex Mono has no Thai glyphs; Thai inside mono text falls to Kanit
+     (already loaded) instead of whatever system monospace the OS picks. */
+  --font-mono: var(--font-plex-mono), var(--font-kanit), ui-monospace, monospace;
 
   --radius-card: 3px;
 }
