@@ -787,3 +787,4 @@ write a new one that supersedes it ([CONTRIBUTING](../CONTRIBUTING.md#decisions)
 | [0041](decisions/0041-an-address-is-confirmed-before-the-account-exists.md) | An address is confirmed before the account exists |
 | [0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md) | Passwords can be changed, reset and checked |
 | [0043](decisions/0043-one-line-per-security-event.md) | One line per security event |
+| [0044](decisions/0044-price-benchmark-scale-guardrails.md) | Price benchmark order-of-magnitude scale guardrails |
