@@ -311,7 +311,7 @@ export function ProfileDisplay({
                       <li key={id}>
                         <Pill>
                           <Check className="h-3 w-3 shrink-0 text-open" aria-hidden="true" />
-                          <span>{ARCHETYPE_LABELS[id] || id}</span>
+                          <span className="text-ink-3">{ARCHETYPE_LABELS[id] || id}</span>
                         </Pill>
                       </li>
                     ))}
@@ -338,7 +338,7 @@ export function ProfileDisplay({
                       <li key={cert}>
                         <Pill>
                           <Award className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                          <span>{cert}</span>
+                          <span className="text-ink-3">{cert}</span>
                         </Pill>
                       </li>
                     ))}
@@ -362,7 +362,7 @@ export function ProfileDisplay({
             <ul className="mt-4 flex flex-wrap gap-1.5">
               {profile.skills.map((skill) => (
                 <li key={skill}>
-                  <Pill className="text-ink-2">{skill}</Pill>
+                  <Pill className="text-ink-3">{skill}</Pill>
                 </li>
               ))}
             </ul>
