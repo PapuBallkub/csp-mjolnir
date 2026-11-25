@@ -62,7 +62,7 @@ The main folders only. Each has its own section below, with a row per file.
 │
 └── docs/                   start at docs/README.md; pages opened often sit here
     ├── overview/           read to understand: system, server, data model, analysis
-    ├── decisions/          why things are built the way they are (ADRs)
+    ├── decisions/          why things are built the way they are (ADRs + `design-plans/`)
     ├── features/           specs and guides, one per feature
     ├── database/           every field, one page per collection
     └── data-sources/       e-GP and data.go.th: what each source gives
@@ -788,3 +788,14 @@ write a new one that supersedes it ([CONTRIBUTING](../CONTRIBUTING.md#decisions)
 | [0042](decisions/0042-passwords-can-be-changed-reset-and-checked.md) | Passwords can be changed, reset and checked |
 | [0043](decisions/0043-one-line-per-security-event.md) | One line per security event |
 | [0044](decisions/0044-price-benchmark-scale-guardrails.md) | Price benchmark order-of-magnitude scale guardrails |
+
+#### docs/decisions/design-plans
+
+Feature-level decision & design plans (architecture, use cases, and inline Mermaid diagrams).
+
+| Plan | What it covers |
+| :--- | :--- |
+| [notification-decision-plan.md](decisions/design-plans/notification-decision-plan.md) | Notification System (Part 1): core architecture & match alerts (`FR-13`, `FR-14`) |
+| [watchlist-notification-decision-plan.md](decisions/design-plans/watchlist-notification-decision-plan.md) | Notification System (Part 2): watchlist amendment, status & deadline alerts (`FR-17`, `FR-18`) |
+| [watchdog-decision-plan.md](decisions/design-plans/watchdog-decision-plan.md) | Watchdog page & reality-check/lock-spec design (`FR-19`, `FR-20`, `FR-21`) |
+
