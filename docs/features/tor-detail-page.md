@@ -3,8 +3,8 @@
 **Feature:** TOR Detail Page  
 **Related Decision:** `0010 · Normalized TOR Detail Information`, `0020 · Read the whole e-GP package`, `0029 · Admin review workspace`  
 **Related Functional Requirement:** `FR-04: The system shall normalize data ingested from all sources into a single database schema`, `FR-10: Explore TOR details without opening PDF`  
-**Status:** Accepted  
-**Last Updated:** 2026-10-27
+**Status:** Implemented  
+**Last Updated:** 2026-11-25
 
 ## 1. Purpose
 

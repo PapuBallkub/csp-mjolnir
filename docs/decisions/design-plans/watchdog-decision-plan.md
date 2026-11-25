@@ -9,7 +9,7 @@
 > - **What stayed:** The 5-section `/watchdog` layout, global top-bar filtering, client-side `useMemo` drill-downs, and pipeline pre-computation were implemented in `client/app/(app)/watchdog/`.
 > - **What changed in the final code:**
 >   - The backend modules listed below under `server/src/features/reality-check/` (`similarity.service.js`, `benchmark.service.js`, `lock-spec.service.js`) were split into three separate feature folders (`0003`): `server/src/features/similarity/`, `server/src/features/price-reality-check/`, and `server/src/features/lock-spec/`.
->   - Under `FR-20`, Circular ว 214 rule-based lock-spec checks are live, while automated comparison of requirements against similar past projects is still deferred (see [reality-check-and-benchmarking.md](../../features/reality-check-and-benchmarking.md)).
+>   - Under the finalized SRS v0.3, `FR-19` covers comparable project grouping, `FR-20` covers historical price benchmarking & deviation analysis, and `FR-21` covers Circular ว 214 rule-based lock-spec checks and high-risk flagging (all implemented, with 10× scale guardrails and `enterprise` tier isolation added in [ADR 0044](../0044-price-benchmark-scale-guardrails.md)).
 > - **2026-11-25:** Moved to `docs/decisions/design-plans/` and replaced external `.svg` links with inline Mermaid diagrams.
 
 This document explains how the **Watchdog Page (`/watchdog`)** and its underlying **Reality Check & Lock-Spec Analysis Engine (`FR-19`, `FR-20`, `FR-21`)** 
@@ -21,7 +21,7 @@ This document explains how the **Watchdog Page (`/watchdog`)** and its underlyin
 ## Overview & How the 5 Sections of `/watchdog` Connect
 The **Watchdog Page** (`/watchdog`) is GIPDP's public **Historical Procurement Dashboard & Analysis** screen. It enables SME owners, freelance developers, civic watchdogs, and journalists to:
 1. **Compare historical reference price trends** (*ราคากลาง*) across similar government IT projects over time (Monthly or Quarterly) against a $\pm 15\%$ normal market band (**FR-19**, **FR-20**).
-2. **Inspect Lock-Spec risk distributions** and statutory competition barriers under Comptroller General's Circular ว 214 (*หนังสือเวียน กวจ. ด่วนที่สุด ที่ กค (กวจ) 0405.2/ว 214*) (**FR-20**, **FR-21**).
+2. **Inspect Lock-Spec risk distributions** and statutory competition barriers under Comptroller General's Circular ว 214 (*หนังสือเวียน กวจ. ด่วนที่สุด ที่ กค (กวจ) 0405.2/ว 214*) (**FR-21**).
 3. **Drill down into flagged or notable TORs** in the bottom table (*"โครงการที่ควรจับตาในกลุ่มนี้"* / *"Notable & flagged projects in this slice"*) to examine price deviations ($\Delta\%$) and verbatim lock-spec clauses before clicking into the full TOR detail page (`/tor/[id]`).
 
 ### Visual Map of How Filters, Charts, and the Bottom Table Work Together
@@ -92,7 +92,7 @@ The **Watchdog Page** (`/watchdog`) is GIPDP's public **Historical Procurement D
 | :--- | :--- |
 | **Use Case ID** | `UC-02` |
 | **Use Case Name** | Inspect Lock-Spec Risk Signals, Circular (ว 214) Triggers & Quick-Jump to Flagged Projects |
-| **Related Requirements** |  <ul><li> `FR-20` (Identify technical/qualification deviations)</li><li> `FR-21` (Flag high lock-spec risk with evidence)</li><li> `NFR-15` ("Describe, don't accuse" copy principle)</li> </ul>|
+| **Related Requirements** |  <ul><li> `FR-21` (Assess technical/qualification deviations against Circular ว 214 and flag high lock-spec risk with evidence)</li><li> `NFR-15` ("Describe, don't accuse" copy principle)</li> </ul>|
 | **Primary Actor** | Unauthenticated or Authenticated User (Watchdog / Journalist / SME Bidder / Freelancer) |
 | **Preconditions** | `WatchdogPage` has loaded project records with lock-spec scores (`0–100`), risk tiers (`low`, `medium`, `high`), and statutory trigger categories (`Specification Tailoring`, `Qualification Barrier`, `Vendor Lock-in`). |
 | **Trigger** | User filters the slice using the Top Global Filter Bar (e.g., selecting a specific Agency or Category), clicks a Risk Tier row (`high`, `medium`, `low`), clicks one of the 3 Circular ว 214 Trigger cards, or switches tabs in the bottom `"Notable & flagged projects in this slice"` table (`flagged`, `price`, `lockspec`, `all`). |

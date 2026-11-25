@@ -1,8 +1,9 @@
-# Feature Specification: Price Benchmark Calculations (FR-19)
+# Feature Specification: Price Benchmark Calculations (FR-20)
 
 **Feature:** Price Benchmark Calculations & Reality Check  
 **Related Requirements:**  
-- `FR-19`: Show the historical median and average price of similar past IT projects, from data.go.th ([requirements.md](../requirements.md)). How the similar projects are found is in [comparable-projects-matching.md](comparable-projects-matching.md).  
+- `FR-19`: Identify and group comparable historical IT projects ([comparable-projects-matching.md](comparable-projects-matching.md)).  
+- `FR-20`: Calculate historical median and average price benchmarks and identify price deviations against those comparable past projects ([requirements.md](../requirements.md)).  
 - `NFR-15`: Thai primary locale with transparent, non-accusing copy ("Describe, don't accuse").  
 **Related Decisions:**  
 - [`0010 · Normalized TOR Detail Information`](../decisions/0010-normalized-tor-detail-Information.md)  
@@ -10,7 +11,9 @@
 - [`0021 · Define comparable projects by architecture and complexity`](../decisions/0021-find-comparable-projects.md)  
 - [`0022 · Pre-compute benchmarks in the pipeline, refresh by batch`](../decisions/0022-precompute-benchmarks-in-the-pipeline.md)  
 - [`0024 · Price benchmark bands and sample size thresholds`](../decisions/0024-price-benchmark-bands-and-sample-size-thresholds.md)  
-**Status:** Approved  
+- [`0044 · Price benchmark order-of-magnitude scale guardrails`](../decisions/0044-price-benchmark-scale-guardrails.md)  
+**Status:** Implemented  
+**Last Updated:** 2026-11-25  
 **Audience:** Product Owners, Developers, Domain Experts, SME Bidders, and Platform Users  
 
 ---

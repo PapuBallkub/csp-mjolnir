@@ -9,7 +9,7 @@ feature docs it links to.
 | Verdict | Requirement | Code | Stored in |
 | :--- | :--- | :--- | :--- |
 | Price check | FR-19, FR-20 | `features/similarity/`, `features/price-reality-check/` | `TorInsight.analytics.priceAnalysis` |
-| Lock-spec | FR-20 (partly), FR-21 | `features/lock-spec/` | `TorInsight.analytics.lockSpec` |
+| Lock-spec | FR-21 | `features/lock-spec/` | `TorInsight.analytics.lockSpec` |
 
 The analysis features live across three focused feature folders with no routes ([server-features.md](server-features.md#the-features)): `similarity`, `price-reality-check`, and `lock-spec`.
 
@@ -47,7 +47,7 @@ flowchart LR
 - **Every fully read summary is analysed.** Title-only records, preview-only
   records and excluded ones are skipped (`FULL_EXTRACTION`).
 
-## The price check (FR-19)
+## The price check (FR-19, FR-20)
 
 ```mermaid
 flowchart TD
@@ -66,7 +66,8 @@ flowchart TD
    - concluded: stored status Closed or Awarded;
    - in at least one of this TOR's categories
      ([0034](../decisions/0034-a-tor-can-have-several-categories.md));
-   - priced.
+   - priced, within a 10× order-of-magnitude scale window ($\text{Ratio} \ge 0.10$) and matching `enterprise` tier when the target is `enterprise`
+     ([0044](../decisions/0044-price-benchmark-scale-guardrails.md)).
 3. **Each candidate gets a similarity score** from 0 to 1:
 
    | Part | Weight | Compares |
@@ -122,7 +123,7 @@ How the candidates are scored:
 
 *(Note: TORs followed from open to award now become candidates as intended: ingestion keeps `TorInsight.identification.status` in sync with `Tor` updates like winner announcements W0 and signed contracts, and Open TORs past their submission deadline are recognized as concluded peers).*
 
-## Lock-spec (FR-20 rules, FR-21 flag)
+## Lock-spec (FR-21 rules and flag)
 
 Lock-spec reads **this TOR only**. It checks three rules from the
 Comptroller General's Circular ว 214, each a `high` finding worth 35 points:
@@ -144,12 +145,6 @@ The score is the sum of the findings' points, capped at 100:
 Each finding carries the clause as the TOR states it, the rule it was
 compared with, and the page it's on, so a reader can check it against the
 original. The catalog's "hide high risk" filter uses the same line of 70.
-
-**FR-20 is partly met.** The requirement asks for a TOR's requirements to be
-compared with similar past projects too: for example, a certificate that
-similar projects never asked for. That comparison isn't built; it waits until
-there are enough fully read projects of each type. Until then the baseline
-is the rulebook, not history.
 
 The full rules, and why each one matters to a small bidder:
 [lock-spec-risk-detection.md](../features/lock-spec-risk-detection.md).

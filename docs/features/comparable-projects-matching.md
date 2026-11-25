@@ -3,9 +3,11 @@
 This document provides the operational and mathematical reference for finding and ranking **comparable historical IT procurement projects** in GIPDP.
 
 **Related Requirements & Decisions:**
-- Requirements: `FR-19` (the historical median and average price of similar past projects: this guide covers how those projects are found). `FR-20`'s comparison of requirements with similar projects would use them too, but isn't built yet. Lock-spec (`FR-21`) doesn't use them.
-- Architectural Decisions: [`ADR 0021 · Define comparable projects by architecture and complexity`](../decisions/0021-find-comparable-projects.md), [`ADR 0034 · A TOR can have several categories, main one first`](../decisions/0034-a-tor-can-have-several-categories.md)
-- Schema Specification: [`tor-insight-schema.md`](../database/tor-insight-schema.md)
+- Requirements: `FR-19` (identify and group historical IT procurement projects similar to a given TOR), feeding `FR-20` (historical median/average price benchmarks and deviations). Lock-spec (`FR-21`) evaluates Circular ว 214 rules on the target TOR directly.
+- Architectural Decisions: [`ADR 0021 · Define comparable projects by architecture and complexity`](../decisions/0021-find-comparable-projects.md), [`ADR 0034 · A TOR can have several categories, main one first`](../decisions/0034-a-tor-can-have-several-categories.md), [`ADR 0044 · Price benchmark order-of-magnitude scale guardrails`](../decisions/0044-price-benchmark-scale-guardrails.md)
+- Schema Specification: [`tor-insight-schema.md`](../database/tor-insight-schema.md)  
+**Status:** Implemented  
+**Last Updated:** 2026-11-25
 
 ---
 
@@ -14,13 +16,13 @@ This document provides the operational and mathematical reference for finding an
 1. **"The AI picks the label; code does the comparing":** During ingestion, Gemini classifies unstructured TOR text into structured labels (categories, archetype, complexity tier, tech stack). At query time, fast deterministic backend code compares these labels in < 10ms with zero runtime LLM calls or token costs.
 2. **Deterministic & Repeatable:** Two runs always produce identical similarity scores and benchmarks.
 3. **No "Zero-Match" Traps:** Tech stacks in Thai government TORs are often unstated or use varied naming. Matching anchors on **categories, deliverable archetype, and complexity tier**, using the tech stack only as a soft scoring bonus.
-4. **Zero Circular Price Bias:** Candidate selection relies 100% on technical specifications. Price is never an input filter; historical prices are only evaluated *after* peers are selected to establish an independent benchmark.
+4. **Zero Circular Price Bias with Order-of-Magnitude Guardrails (ADR 0021 & ADR 0044):** Candidate selection scores purely on technical specifications rather than narrow price matching. To prevent pathological 100× scope mismatches (e.g., comparing a ฿495M national platform against ฿1M maintenance contracts), **ADR 0044** enforces an order-of-magnitude scale sanity window ($\text{Scale Ratio} = \min(T_{\text{price}}, C_{\text{price}}) / \max(T_{\text{price}}, C_{\text{price}}) \ge 0.10$) and strict `enterprise` tier isolation while preserving full visibility into +20% to +200% price anomalies.
 
 ---
 
 ## 2. Data Fields Used for Similarity Matching
 
-The matching service (`server/src/features/reality-check/similarity.service.js`) filters and scores candidate peers using these **normalized technical fields** from `TorInsight` (`server/src/models/tor-insight.model.js`):
+The matching service (`server/src/features/similarity/candidate-search.js` and `similarity-scoring.js`) filters and scores candidate peers using these **normalized technical fields** from `TorInsight` (`server/src/models/tor-insight.model.js`):
 
 | Data Field | Data Type | Role in Matching | Operational Purpose |
 |---|---|---|---|
@@ -89,7 +91,8 @@ Target TOR
    ├── High extraction confidence: metadata.confidenceScore >= 80 (NFR-17)
    ├── Full document extraction: isFullExtraction = true (ADR 0028)
    ├── Exclude target projectId
-   └── (No price filter applied!)
+   ├── Order-of-magnitude scale ratio >= 0.10 (ADR 0044)
+   └── Enterprise tier isolation when target is enterprise (ADR 0044)
    │
    ▼ (Candidates Pool)
 [ Stage 2: In-Memory Composite Scoring ]
@@ -243,7 +246,7 @@ Below is an illustrative schema snippet (assuming we take the top 2 peers from t
 
 ```javascript
 "priceAnalysis": {
-  // --- Fields evaluated by the price reality check (FR-19) using these peers ---
+  // --- Fields evaluated by the price reality check (FR-20) using these peers ---
   "referencePriceTHB": 4000000,
   "historicalMedianTHB": 4000000,    // Median of [3,800,000, 4,200,000]
   "historicalAverageTHB": 4000000,   // Mean of [3,800,000, 4,200,000]
