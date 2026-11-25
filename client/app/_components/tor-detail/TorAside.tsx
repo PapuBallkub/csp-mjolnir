@@ -1,3 +1,4 @@
+import { FileText } from "lucide-react";
 import type { TorInsightDetail } from "../../_lib/api";
 import type { DeadlineInfo } from "../../_lib/stage";
 import { isDead } from "../verdict";
@@ -141,7 +142,7 @@ export function TorAside({
             onClick={onPreviewPdf}
             className={`${btn.primary} flex w-full items-center justify-center gap-1.5 text-[12.5px] cursor-pointer`}
           >
-            <span>📄</span>
+            <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span>พรีวิวเอกสารต้นฉบับ (PDF)</span>
           </button>
 

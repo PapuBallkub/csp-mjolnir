@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FileText, Search } from "lucide-react";
 import { btn } from "../../../../../_components/ui";
 import { confidenceTone } from "./ReviewFieldPrimitives";
 
@@ -71,7 +72,7 @@ export function ReviewTopBar({
           className={`${btn.secondary} text-[11px] h-7 px-2 flex items-center gap-1 shrink-0`}
           title={"พรีวิวเอกสาร PDF ต้นฉบับ"}
         >
-          <span>📄</span>
+          <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span>{"พรีวิว PDF"}</span>
         </button>
         {hasEvidence ? (
@@ -80,7 +81,7 @@ export function ReviewTopBar({
             onClick={onOpenEvidence}
             className={`${btn.secondary} text-[11px] h-7 px-2 flex items-center gap-1 shrink-0`}
           >
-            <span>🔍</span>
+            <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span>{"หลักฐาน TOR"}</span>
           </button>
         ) : null}

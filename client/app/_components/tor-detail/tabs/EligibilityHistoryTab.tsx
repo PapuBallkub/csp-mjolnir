@@ -1,3 +1,4 @@
+import { AlertTriangle } from "lucide-react";
 import type { TorInsightDetail } from "../../../_lib/api";
 import { AccentPanel, Label, Panel, SectionHeading } from "../../ui";
 import { ChangeEntry, formatDateString, formatMoney } from "../_lib/tor-helpers";
@@ -69,7 +70,7 @@ export function EligibilityHistoryTab({
           {elig.manufacturerAuthorizations && elig.manufacturerAuthorizations.length > 0 ? (
             <div className="rounded-xl border border-amend-line bg-amend-bg/40 p-3">
               <div className="flex items-center gap-1.5 text-[12px] font-semibold text-amend">
-                <span>⚠️</span>
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>หนังสือแต่งตั้งตัวแทนจำหน่าย (Manufacturer Authorization)</span>
               </div>
               <ul className="mt-1.5 flex flex-col gap-1">

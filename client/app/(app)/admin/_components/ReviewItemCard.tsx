@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { AlertTriangle, Search } from "lucide-react";
 import {
   adminReExtract,
   adminUpdateReview,
@@ -119,18 +120,21 @@ export function ReviewItemCard({
               </span>
             )}
             {item.misclassified ? (
-              <span className="rounded-full border border-risk-line bg-risk-bg px-2.5 py-0.5 text-[11px] font-medium text-risk">
-                ⚠️ อาจจัดประเภทผิด
+              <span className="inline-flex items-center gap-1 rounded-full border border-risk-line bg-risk-bg px-2.5 py-0.5 text-[11px] font-medium text-risk">
+                <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span>อาจจัดประเภทผิด</span>
               </span>
             ) : null}
             {item.ocr != null && item.ocr < 0.8 ? (
-              <span className="rounded-full border border-risk-line bg-risk-bg px-2.5 py-0.5 text-[11px] font-medium text-risk">
-                ⚠️ OCR ต่ำ (&lt; 80%)
+              <span className="inline-flex items-center gap-1 rounded-full border border-risk-line bg-risk-bg px-2.5 py-0.5 text-[11px] font-medium text-risk">
+                <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span>OCR ต่ำ (&lt; 80%)</span>
               </span>
             ) : null}
             {item.extraction < 0.8 ? (
-              <span className="rounded-full border border-risk-line bg-risk-bg px-2.5 py-0.5 text-[11px] font-medium text-risk">
-                ⚠️ AI สกัดต่ำ (&lt; 80%)
+              <span className="inline-flex items-center gap-1 rounded-full border border-risk-line bg-risk-bg px-2.5 py-0.5 text-[11px] font-medium text-risk">
+                <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span>AI สกัดต่ำ (&lt; 80%)</span>
               </span>
             ) : null}
             {resolution ? (
@@ -230,7 +234,8 @@ export function ReviewItemCard({
           href={`/admin/review/${item.docId}`}
           className={`${btn.primary} text-[12px] h-8 px-3.5 flex items-center gap-1.5 shadow-2xs`}
         >
-          <span>🔍 ตรวจทานและแก้ไขข้อมูล</span>
+          <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>ตรวจทานและแก้ไขข้อมูล</span>
           <span className="text-[10px] opacity-75">↗</span>
         </Link>
       </div>

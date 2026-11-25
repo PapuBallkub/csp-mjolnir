@@ -180,39 +180,41 @@ export function HeaderControls({ className = "" }: { className?: string }) {
             aria-live="polite"
             onMouseEnter={handlePauseTimer}
             onMouseLeave={handleResumeTimer}
-            className="absolute right-0 top-full z-50 mt-2 w-max max-w-[280px] rounded-xl border border-line-2 bg-surface-2 p-2.5 pb-3.5 shadow-lg animate-in fade-in slide-in-from-top-1"
+            className="absolute right-0 top-full z-50 mt-2 w-max max-w-[280px] animate-in fade-in slide-in-from-top-1"
           >
             {/* The little upward arrow pointing to the bell */}
             <div
-              className="absolute -top-1.5 right-2 h-2.5 w-2.5 rotate-45 border-l border-t border-line-2 bg-surface-2"
+              className="absolute -top-1.5 right-3.5 sm:right-2.5 z-10 h-2.5 w-2.5 rotate-45 border-l border-t border-line-2 bg-surface-2"
               aria-hidden="true"
             />
 
-            <div className="relative flex items-center justify-between gap-3">
-              <Link
-                href="/notifications"
-                onClick={handleDismissCallout}
-                className="text-[12px] font-medium leading-tight text-ink hover:underline"
-              >
-                {`คุณมี ${activeUnreadCount} การแจ้งเตือนที่ยังไม่ได้อ่าน`}
-              </Link>
-              <button
-                type="button"
-                onClick={handleDismissCallout}
-                aria-label="ปิด"
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink cursor-pointer"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
+            <div className="relative overflow-hidden rounded-xl border border-line-2 bg-surface-2 p-2.5 pb-3.5 shadow-lg">
+              <div className="relative flex items-center justify-between gap-3">
+                <Link
+                  href="/notifications"
+                  onClick={handleDismissCallout}
+                  className="text-[12px] font-medium leading-tight text-ink hover:underline"
+                >
+                  {`คุณมี ${activeUnreadCount} การแจ้งเตือนที่ยังไม่ได้อ่าน`}
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleDismissCallout}
+                  aria-label="ปิด"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink cursor-pointer"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
 
-            {/* Countdown bar at bottom: drains from right to left */}
-            <div className="absolute bottom-0 left-0 right-0 h-[2.5px] overflow-hidden rounded-b-md bg-line">
-              <div
-                onAnimationEnd={handleDismissCallout}
-                className={`h-full w-full ${toastProgressColor} animate-toast-progress origin-left`}
-                style={{ animationPlayState: isPaused ? "paused" : "running" }}
-              />
+              {/* Countdown bar at bottom: clipped cleanly to inner rounded-xl shell */}
+              <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-[3px] bg-line/70">
+                <div
+                  onAnimationEnd={handleDismissCallout}
+                  className={`h-full w-full ${toastProgressColor} animate-toast-progress origin-left`}
+                  style={{ animationPlayState: isPaused ? "paused" : "running" }}
+                />
+              </div>
             </div>
           </div>
         ) : null}
@@ -398,7 +400,6 @@ export function SiteFooter() {
         <span className="leading-thai">
           แพลตฟอร์มค้นหาและวิเคราะห์ประกาศจัดซื้อจัดจ้างภาครัฐด้าน IT (เครื่องมืออิสระบุคคลที่สาม — การยื่นข้อเสนอและการประมูลทางการทั้งหมดทำผ่านระบบ e-GP ของกรมบัญชีกลาง)
         </span>
-        <span className="ml-auto font-mono">01219346 · Kasetsart University</span>
       </div>
     </footer>
   );

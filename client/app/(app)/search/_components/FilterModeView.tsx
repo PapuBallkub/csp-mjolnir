@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { Lightbulb } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { listTors, torFacets, type ApiError, type ApiResult, type TorFacets, type TorListParams, type TorStatus } from "../../../_lib/api";
 import { isProfileBaseline, matchFor } from "../../../_lib/match";
@@ -357,8 +358,9 @@ export function FilterModeView({
     const noSkillsBanner =
       canMatch && isProfileBaseline(profile) && debouncedMinScore > 0 ? (
         <div className="mb-2.5 flex items-center justify-between rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          <span>
-            💡 คุณยังไม่ได้ตั้งค่าโปรไฟล์ — ตั้งค่าทักษะและเงื่อนไขการรับงานเพื่อจัดอันดับประกาศที่เหมาะสมกับคุณ
+          <span className="flex items-start gap-2">
+            <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>คุณยังไม่ได้ตั้งค่าโปรไฟล์ — ตั้งค่าทักษะและเงื่อนไขการรับงานเพื่อจัดอันดับประกาศที่เหมาะสมกับคุณ</span>
           </span>
           <Link href="/profile" className="ml-2 shrink-0 font-semibold underline hover:opacity-80">
             ตั้งค่าโปรไฟล์ →
@@ -453,7 +455,7 @@ export function FilterModeView({
   })();
 
   return (
-    <div className="w-full grid grid-cols-1 gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
+    <div className="w-full grid grid-cols-1 gap-6 lg:grid-cols-[276px_minmax(0,1fr)]">
       {/* Mobile Filters Toggle & Drawer */}
       <div className="w-full lg:hidden">
         <button
@@ -476,8 +478,8 @@ export function FilterModeView({
       </div>
 
       {/* Desktop Sticky Rail */}
-      <aside className="hidden lg:block w-[250px] shrink-0">
-        <div className="sticky top-[76px] max-h-[calc(100vh-90px)] overflow-y-auto overscroll-contain pr-1.5 [scrollbar-width:thin] [scrollbar-color:var(--line)_transparent]">
+      <aside className="hidden lg:block w-[276px] shrink-0">
+        <div className="sticky top-[76px]">
           {rail}
         </div>
       </aside>
@@ -507,23 +509,39 @@ export function FilterModeView({
           </div>
           <label htmlFor="catalog-sort" className="flex items-center justify-between sm:justify-start gap-2 whitespace-nowrap shrink-0">
             <Label>เรียงตาม</Label>
-            <select
-              id="catalog-sort"
-              name="sort"
-              value={sort}
-              onChange={(e) => setSort(e.target.value as Sort)}
-              className={`${input} w-auto pr-8 cursor-pointer`}
-            >
-              {SORTS.filter((option) =>
-                authStatus === "authenticated"
-                  ? true
-                  : option.id !== "match-desc" && option.id !== "match-asc"
-              ).map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                id="catalog-sort"
+                name="sort"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as Sort)}
+                className="h-9 rounded-[10px] border border-line-2 bg-surface pl-3 pr-9 text-[13px] text-ink focus:border-ink focus:outline-none appearance-none cursor-pointer"
+              >
+                {SORTS.filter((option) =>
+                  authStatus === "authenticated"
+                    ? true
+                    : option.id !== "match-desc" && option.id !== "match-asc"
+                ).map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <svg
+                viewBox="0 0 16 16"
+                className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-3"
+                aria-hidden="true"
+              >
+                <path
+                  d="M4 6l4 4 4-4"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </svg>
+            </div>
           </label>
         </div>
 

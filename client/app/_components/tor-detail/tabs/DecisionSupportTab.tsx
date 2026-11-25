@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useState } from "react";
+import { AlertTriangle, Info, Lightbulb } from "lucide-react";
 import type { TorInsightDetail } from "../../../_lib/api";
 import { formatTHB, type RiskLevel } from "../../../_data/tors";
 import { getArchetypeLabel, type SystemArchetype } from "../../../_data/watchdog";
@@ -270,10 +271,15 @@ export function DecisionSupportTab({
                     style={{ width: `${match.breakdown.entity.score}%` }}
                   />
                 </div>
-                <p className="mt-1 text-[11px] leading-thai text-ink-3">
-                  {match.breakdown.entity.disqualifiedDirectBid
-                    ? "⚠️ TOR กำหนดเฉพาะนิติบุคคล แต่โปรไฟล์ลงทะเบียนเป็นบุคคลธรรมดา (แนะนำเข้าร่วมแบบ Joint Venture หรือ Subcontract)"
-                    : "✓ สถานะนิติบุคคล/บุคคลธรรมดาตรงตามเงื่อนไขที่กำหนด"}
+                <p className="mt-1 flex items-start gap-1.5 text-[11px] leading-thai text-ink-3">
+                  {match.breakdown.entity.disqualifiedDirectBid ? (
+                    <>
+                      <AlertTriangle className="mt-[2px] h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                      <span>TOR กำหนดเฉพาะนิติบุคคล แต่โปรไฟล์ลงทะเบียนเป็นบุคคลธรรมดา (แนะนำเข้าร่วมแบบ Joint Venture หรือ Subcontract)</span>
+                    </>
+                  ) : (
+                    <span>✓ สถานะนิติบุคคล/บุคคลธรรมดาตรงตามเงื่อนไขที่กำหนด</span>
+                  )}
                 </p>
               </div>
 
@@ -334,7 +340,7 @@ export function DecisionSupportTab({
                   key={idx}
                   className="flex items-start gap-2 text-[12.5px] leading-thai text-ink-2"
                 >
-                  <span className="text-amber-600 dark:text-amber-400 font-semibold">⚠️</span>
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                   <span>{wn}</span>
                 </div>
               ))}
@@ -362,7 +368,7 @@ export function DecisionSupportTab({
             match.breakdown.certifications.score < 70) ? (
             <div className="mt-4 rounded-xl border border-line bg-surface-2/40 p-3.5">
               <h4 className="text-[12px] font-semibold text-ink flex items-center gap-1.5">
-                <span>💡</span>
+                <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                 <span>แนวทางและคำแนะนำเชิงกลยุทธ์สำหรับคุณ</span>
               </h4>
               <ul className="mt-2 space-y-2 text-[12px] leading-thai text-ink-2">
@@ -565,7 +571,7 @@ export function DecisionSupportTab({
           {!hasSufficientPeers ? (
             <div className="mt-3 rounded-xl border border-line bg-surface-2/70 p-3.5 text-[13px] leading-thai text-ink-2">
               <div className="flex items-start gap-2.5">
-                <span className="text-[16px] leading-none pt-0.5">ℹ️</span>
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-ink-2" aria-hidden="true" />
                 <div>
                   <p className="font-semibold text-ink">
                     ข้อมูลโครงการเปรียบเทียบในอดีตยังไม่เพียงพอ (พบ {sampleCount} โครงการ)
@@ -673,13 +679,18 @@ export function DecisionSupportTab({
                       )}
                     </div>
                     <p className="mt-1 text-[11px] text-ink-3">
-                      {!diff.hasValue
-                        ? "ไม่สามารถคำนวณส่วนต่างได้"
-                        : Math.abs(price.diffPercentage ?? 0) <= 15
-                        ? "อยู่ในช่วงมาตรฐานปกติ (±15%)"
-                        : (price.diffPercentage ?? 0) > 15
-                        ? "งบประมาณสูงกว่าเกณฑ์มัธยฐานในอดีต (มีกรอบงบประมาณเปิดกว้าง)"
-                        : "⚠️ ระวัง: งบต่ำกว่าเกณฑ์ตลาดมาก ผู้รับจ้างอาจเสี่ยงทำงานขาดทุน"}
+                      {!diff.hasValue ? (
+                        "ไม่สามารถคำนวณส่วนต่างได้"
+                      ) : Math.abs(price.diffPercentage ?? 0) <= 15 ? (
+                        "อยู่ในช่วงมาตรฐานปกติ (±15%)"
+                      ) : (price.diffPercentage ?? 0) > 15 ? (
+                        "งบประมาณสูงกว่าเกณฑ์มัธยฐานในอดีต (มีกรอบงบประมาณเปิดกว้าง)"
+                      ) : (
+                        <span className="inline-flex items-start gap-1 text-risk">
+                          <AlertTriangle className="mt-[2px] h-3 w-3 shrink-0" aria-hidden="true" />
+                          <span>ระวัง: งบต่ำกว่าเกณฑ์ตลาดมาก ผู้รับจ้างอาจเสี่ยงทำงานขาดทุน</span>
+                        </span>
+                      )}
                     </p>
                   </>
                 );

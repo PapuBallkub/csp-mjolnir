@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AlertTriangle, Copy, Search, XCircle } from "lucide-react";
 import type { PipelineFailureItem } from "../../../_lib/api";
 import { btn, Panel, SectionHeading } from "../../../_components/ui";
 
@@ -157,10 +158,11 @@ export function PipelineFailureRow({
         <button
           type="button"
           onClick={() => onInspect(failure.projectId)}
-          className="font-mono text-[12px] font-bold text-ink hover:text-open hover:underline cursor-pointer text-left block"
+          className="inline-flex items-center gap-1 font-mono text-[12px] font-bold text-ink hover:text-open hover:underline cursor-pointer text-left"
           title="คลิกเพื่อตรวจสอบสถานะรายโครงการ"
         >
-          {failure.projectId} 🔍
+          <span>{failure.projectId}</span>
+          <Search className="h-3 w-3 shrink-0 text-ink-3" aria-hidden="true" />
         </button>
         <p className="text-[12px] leading-thai text-ink font-medium line-clamp-1 mt-0.5">
           {failure.projectTitle}
@@ -174,12 +176,14 @@ export function PipelineFailureRow({
       </td>
       <td className="px-3 py-2.5">
         {failure.lastTransient ? (
-          <span className="inline-flex rounded-full border border-amend-line bg-amend-bg px-2 py-[2px] text-[10px] font-medium text-amend">
-            ⚠️ ขัดข้องชั่วคราว
+          <span className="inline-flex items-center gap-1 rounded-full border border-amend-line bg-amend-bg px-2 py-[2px] text-[10px] font-medium text-amend">
+            <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span>ขัดข้องชั่วคราว</span>
           </span>
         ) : (
-          <span className="inline-flex rounded-full border border-risk-line bg-risk-bg px-2 py-[2px] text-[10px] font-medium text-risk">
-            ❌ ผิดพลาดถาวร
+          <span className="inline-flex items-center gap-1 rounded-full border border-risk-line bg-risk-bg px-2 py-[2px] text-[10px] font-medium text-risk">
+            <XCircle className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span>ผิดพลาดถาวร</span>
           </span>
         )}
       </td>
@@ -205,9 +209,16 @@ export function PipelineFailureRow({
           <button
             type="button"
             onClick={handleCopy}
-            className="text-[10px] text-ink-3 hover:text-ink cursor-pointer"
+            className="inline-flex items-center gap-1 text-[10px] text-ink-3 hover:text-ink cursor-pointer"
           >
-            {isCopied ? "✓ คัดลอกแล้ว" : "📋 คัดลอก"}
+            {isCopied ? (
+              "✓ คัดลอกแล้ว"
+            ) : (
+              <>
+                <Copy className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span>คัดลอก</span>
+              </>
+            )}
           </button>
         </div>
         {isExpanded && (

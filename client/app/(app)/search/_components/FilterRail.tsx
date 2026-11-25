@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
 import type { ApiResult, TorFacets, TorStatus } from "../../../_lib/api";
 import { STATUS_GROUPS, announcementLabel } from "../../../_lib/stage";
 import { STATUSES, showsEveryStatus } from "../../../_lib/catalog";
-import { input, Panel } from "../../../_components/ui";
+import { Panel } from "../../../_components/ui";
 import { RiskMeter } from "../../../_components/verdict";
 import { BUDGET_BANDS, DEADLINE_BANDS, toggle } from "../_lib/types";
 import { Check, FacetList, FilterGroup, GroupLabel, Radio } from "./SearchCommon";
@@ -55,12 +55,13 @@ export function FilterRail({
   facets: ApiResult<TorFacets> | null;
   onRetryFacets: () => void;
 }) {
+  const idPrefix = useId();
   const [techQuery, setTechQuery] = useState("");
   const [agencyQuery, setAgencyQuery] = useState("");
 
   return (
-    <Panel className="overflow-hidden">
-      <div className="flex items-center justify-between border-b border-line bg-surface-2 px-3 py-2.5">
+    <Panel className="flex flex-col overflow-hidden lg:max-h-[calc(100vh-96px)]">
+      <div className="flex shrink-0 items-center justify-between border-b border-line bg-surface-2 px-3 py-2.5">
         <h2 className="text-[12px] font-semibold text-ink">
           ตัวกรอง
         </h2>
@@ -74,6 +75,8 @@ export function FilterRail({
           </button>
         ) : null}
       </div>
+
+      <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:[scrollbar-width:thin] lg:[scrollbar-color:var(--line)_transparent]">
 
       <FilterGroup title="สถานะ">
         {STATUSES.map((status) => (
@@ -175,6 +178,7 @@ export function FilterRail({
         <Check
           checked={hideHighRisk}
           onChange={() => setHideHighRisk(!hideHighRisk)}
+          wrap
           label="ซ่อนงานเสี่ยงล็อกสเปกสูง"
           trailing={<RiskMeter level="high" />}
         />
@@ -184,7 +188,7 @@ export function FilterRail({
         {BUDGET_BANDS.map((b) => (
           <Radio
             key={b.id}
-            name="budget"
+            name={`${idPrefix}-budget`}
             checked={budgetBand === b.id}
             onChange={() => setBudgetBand(b.id)}
             label={b.label}
@@ -196,7 +200,7 @@ export function FilterRail({
         {DEADLINE_BANDS.map((b) => (
           <Radio
             key={b.id}
-            name="deadline"
+            name={`${idPrefix}-deadline`}
             checked={deadlineBand === b.id}
             onChange={() => setDeadlineBand(b.id)}
             label={b.label}
@@ -218,26 +222,27 @@ export function FilterRail({
               <div className="flex flex-col gap-2">
                 {data.technologies.length > 8 ? (
                   <input
-                    id="filter-tech-search"
+                    id={`${idPrefix}-tech-search`}
                     name="techSearch"
                     type="search"
                     value={techQuery}
                     onChange={(e) => setTechQuery(e.target.value)}
                     placeholder="กรองชื่อเทคโนโลยี..."
                     aria-label="กรองรายการเทคโนโลยี"
-                    className={`${input} h-7 text-[11.5px]`}
+                    className="h-8 w-full rounded-[10px] border border-line-2 bg-surface px-2.5 text-[12px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none"
                   />
                 ) : null}
                 {filtered.length === 0 ? (
                   <p className="text-[11.5px] text-ink-3">ไม่พบเทคโนโลยีที่ตรงกับ &ldquo;{techQuery}&rdquo;</p>
                 ) : (
-                  <div className="-mr-1 flex max-h-52 flex-col gap-2 overflow-y-auto pr-1">
+                  <div className="-mx-1.5 flex max-h-52 flex-col gap-2 overflow-y-auto px-1.5 py-1 pr-3 [scrollbar-width:thin] [scrollbar-color:var(--line)_transparent]">
                     {filtered.map((term) => (
                       <Check
                         key={term.name}
                         checked={techFilter.includes(term.name)}
                         onChange={() => setTechFilter(toggle(techFilter, term.name))}
                         label={<span className="font-mono text-[12px]">{term.name}</span>}
+                        title={term.name}
                         count={term.count}
                       />
                     ))}
@@ -263,20 +268,20 @@ export function FilterRail({
               <div className="flex flex-col gap-2">
                 {data.agencies.length > 8 ? (
                   <input
-                    id="filter-agency-search"
+                    id={`${idPrefix}-agency-search`}
                     name="agencySearch"
                     type="search"
                     value={agencyQuery}
                     onChange={(e) => setAgencyQuery(e.target.value)}
                     placeholder="กรองชื่อหน่วยงาน..."
                     aria-label="กรองรายการหน่วยงาน"
-                    className={`${input} h-7 text-[11.5px]`}
+                    className="h-8 w-full rounded-[10px] border border-line-2 bg-surface px-2.5 text-[12px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none"
                   />
                 ) : null}
                 {filtered.length === 0 ? (
                   <p className="text-[11.5px] text-ink-3">ไม่พบหน่วยงานที่ตรงกับ &ldquo;{agencyQuery}&rdquo;</p>
                 ) : (
-                  <div className="-mr-1 flex max-h-52 flex-col gap-2 overflow-y-auto pr-1">
+                  <div className="-mx-1.5 flex max-h-52 flex-col gap-2 overflow-y-auto px-1.5 py-1 pr-3 [scrollbar-width:thin] [scrollbar-color:var(--line)_transparent]">
                     {filtered.map((agency) => (
                       <Check
                         key={agency.name}
@@ -294,6 +299,7 @@ export function FilterRail({
           }}
         </FacetList>
       </FilterGroup>
+      </div>
     </Panel>
   );
 }

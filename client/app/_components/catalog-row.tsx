@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { AlertTriangle } from "lucide-react";
 import { formatTHB } from "../_data/tors";
 import type { TorInsightSummary, TorReview } from "../_lib/api";
 import type { Match } from "../_lib/match";
@@ -223,7 +224,7 @@ export function CatalogRow({
                 title="TOR กำหนดเฉพาะนิติบุคคล แต่คุณลงทะเบียนเป็นบุคคลธรรมดา (แนะนำเข้าร่วมในรูปแบบกิจการร่วมค้า หรือรับงานช่วง)"
                 className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10.5px] font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
               >
-                <span aria-hidden="true">⚠️</span>
+                <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
                 <span>เฉพาะนิติบุคคล</span>
               </span>
             ) : tor.companiesOnly ? (

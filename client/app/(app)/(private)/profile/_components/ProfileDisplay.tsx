@@ -27,24 +27,26 @@ const ARCHETYPE_LABELS: Record<string, string> = {
   other: "ระบบเฉพาะด้านอื่นๆ",
 };
 
-/** What an unconfigured profile is missing, in the order the match score weighs it. */
+/** What an unconfigured profile is missing. */
 const SETUP_STEPS = [
-  { title: "ทักษะเทคโนโลยี", weight: "40%", body: "ภาษาโปรแกรม เฟรมเวิร์ก และเครื่องมือพัฒนาซอฟต์แวร์" },
-  { title: "ช่วงงบประมาณที่รับงาน", weight: "20%", body: "วงเงินขั้นต่ำและเพดานราคากลางโครงการที่พร้อมรับ" },
-  { title: "สถาปัตยกรรมระบบ", weight: "15%", body: "รูปแบบและประเภทสถาปัตยกรรมระบบงานที่ถนัด" },
-  { title: "มูลค่าผลงานสัญญาเดิม", weight: "10%", body: "มูลค่าสัญญาเดียวสูงสุดในอดีตเทียบกับเกณฑ์คุณสมบัติ" },
-  { title: "สถานะนิติบุคคล / ฟรีแลนซ์", weight: "10%", body: "ความเข้ากันได้กับเงื่อนไขเฉพาะนิติบุคคลของโครงการ" },
-  { title: "ใบรับรองและมาตรฐานสากล", weight: "5%", body: "มาตรฐานคุณภาพและกระบวนการทำงานที่ได้รับการรับรอง" },
+  { title: "ทักษะเทคโนโลยี", body: "ภาษาโปรแกรม เฟรมเวิร์ก และเครื่องมือพัฒนาซอฟต์แวร์" },
+  { title: "ช่วงงบประมาณที่รับงาน", body: "วงเงินขั้นต่ำและเพดานราคากลางโครงการที่พร้อมรับ" },
+  { title: "สถาปัตยกรรมระบบ", body: "รูปแบบและประเภทสถาปัตยกรรมระบบงานที่ถนัด" },
+  { title: "มูลค่าผลงานสัญญาเดิม", body: "มูลค่าสัญญาเดียวสูงสุดในอดีตเทียบกับเกณฑ์คุณสมบัติ" },
+  { title: "สถานะนิติบุคคล / ฟรีแลนซ์", body: "ความเข้ากันได้กับเงื่อนไขเฉพาะนิติบุคคลของโครงการ" },
+  { title: "ใบรับรองและมาตรฐานสากล", body: "มาตรฐานคุณภาพและกระบวนการทำงานที่ได้รับการรับรอง" },
 ] as const;
 
 export function ProfileDisplay({
   user,
   profile,
   onEdit,
+  onEditNotifications,
 }: {
   user: AuthUser;
   profile: UserProfile;
   onEdit: () => void;
+  onEditNotifications?: () => void;
 }) {
   const isJuristic = (profile.entityType ?? "juristic") === "juristic";
 
@@ -85,7 +87,7 @@ export function ProfileDisplay({
     } else {
       missingItems.push({
         id: "portfolio",
-        th: "ระบุมูลค่าสัญญาผลงานเดิมเพื่อคำนวณเกณฑ์ 40%",
+        th: "ระบุมูลค่าสัญญาผลงานเดิมสูงสุด",
       });
     }
 
@@ -245,7 +247,7 @@ export function ProfileDisplay({
                   </span>
                   <div className="min-w-0">
                     <p className="text-[12px] font-semibold text-ink-2">
-                      {step.title} <span className="font-normal text-ink-3">({step.weight})</span>
+                      {step.title}
                     </p>
                     <p className="mt-1 text-[11.5px] leading-thai text-ink-3">{step.body}</p>
                   </div>
@@ -272,7 +274,7 @@ export function ProfileDisplay({
                     : `${formatTHB(profile.budgetMin)} – ${formatTHB(profile.budgetMax)}`}
                 </p>
                 <p className="mt-1.5 text-[11.5px] leading-thai text-ink-3">
-                  ใช้คำนวณคะแนน Financial Budget Fit (น้ำหนัก 20%) เทียบกับราคากลางโครงการ
+                  ใช้คำนวณเพื่อช่วยในการจัดหาโครงการที่เหมาะสม
                 </p>
               </Inset>
             </Card>
@@ -281,7 +283,7 @@ export function ProfileDisplay({
             <Card className="flex flex-col p-5">
               <CardHeader
                 title="มูลค่าผลงานสัญญาเดิมสูงสุด"
-                sub="ผลงานสัญญาเดียวสูงสุดในอดีต (เพื่อประเมินเกณฑ์ ~40%)"
+                sub="ผลงานสัญญาเดียวสูงสุดในอดีต"
               />
               <Inset className="mt-4 flex-1 p-4">
                 <p
@@ -358,7 +360,7 @@ export function ProfileDisplay({
           <Card className="p-5 sm:p-6">
             <CardHeader
               title="ทักษะและเทคโนโลยีที่คุณเชี่ยวชาญ"
-              sub="เทคโนโลยี เครื่องมือ และภาษาโปรแกรมที่คุณและทีมเชี่ยวชาญ (น้ำหนัก 40%)"
+              sub="เทคโนโลยี เครื่องมือ และภาษาโปรแกรมที่คุณและทีมเชี่ยวชาญ"
               right={<CountBadge>{profile.skills.length} ทักษะ</CountBadge>}
             />
             <ul className="mt-4 flex flex-wrap gap-1.5">
@@ -373,12 +375,16 @@ export function ProfileDisplay({
       )}
 
       {/* 3. NOTIFICATION PREFERENCES */}
-      <Card className="p-5 sm:p-6">
+      <Card id="notification-settings" className="scroll-mt-24 p-5 sm:p-6">
         <CardHeader
           title="การตั้งค่าการแจ้งเตือน"
           sub="สถานะการแจ้งเตือนงานใหม่ในระบบและช่องทางอีเมล"
           right={
-            <button type="button" onClick={onEdit} className={`${pbtn.secondary} h-8 px-3.5 text-[12px]`}>
+            <button
+              type="button"
+              onClick={onEditNotifications ?? onEdit}
+              className={`${pbtn.secondary} h-8 px-3.5 text-[12px]`}
+            >
               แก้ไขการตั้งค่า
             </button>
           }

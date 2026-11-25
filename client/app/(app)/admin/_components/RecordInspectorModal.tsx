@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AlertTriangle, Copy, FileText } from "lucide-react";
 import type { PipelineRecordDiagnostics } from "../../../_lib/api";
 import { btn, Label, Panel } from "../../../_components/ui";
 import { PdfPreviewModal } from "../../../_components/PdfPreviewModal";
@@ -70,10 +71,17 @@ export function RecordInspectorModal({
                 <button
                   type="button"
                   onClick={handleCopyId}
-                  className="rounded-full border border-line-2 bg-surface-2 px-2 py-0.5 text-[10px] text-ink-3 hover:text-ink cursor-pointer"
+                  className="inline-flex items-center gap-1 rounded-full border border-line-2 bg-surface-2 px-2 py-0.5 text-[10px] text-ink-3 hover:text-ink cursor-pointer"
                   title="Copy Project ID"
                 >
-                  {copiedId ? "✓ Copied" : "📋 Copy"}
+                  {copiedId ? (
+                    "✓ Copied"
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      <span>Copy</span>
+                    </>
+                  )}
                 </button>
                 {record ? (
                   <>
@@ -176,9 +184,11 @@ export function RecordInspectorModal({
                   {record.activeFailure ? (
                     <div className="rounded-xl border border-risk-line bg-risk-bg/50 p-4">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[12px] font-bold text-risk uppercase">
-                          ⚠️ พบข้อผิดพลาดในขั้นตอน:{" "}
-                          {record.activeFailure.step}
+                        <span className="inline-flex items-center gap-1.5 text-[12px] font-bold text-risk uppercase">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          <span>
+                            พบข้อผิดพลาดในขั้นตอน: {record.activeFailure.step}
+                          </span>
                         </span>
                         <span className="font-mono tnum text-[11px] text-risk">
                           {`ครั้งที่ ${record.activeFailure.attempts} / 3`}
@@ -228,8 +238,11 @@ export function RecordInspectorModal({
                   {record.stages?.ocr?.truncated ? (
                     <div className="rounded-xl border border-amend-line bg-amend-bg/40 p-4">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[12px] font-bold text-amend uppercase">
-                          ⚠️ เอกสารถูกตัดทอนเนื่องจากเกินขีดจำกัดหน้า (Truncated)
+                        <span className="inline-flex items-center gap-1.5 text-[12px] font-bold text-amend uppercase">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          <span>
+                            เอกสารถูกตัดทอนเนื่องจากเกินขีดจำกัดหน้า (Truncated)
+                          </span>
                         </span>
                         <span className="font-mono tnum text-[11px] text-amend">
                           {record.stages.ocr.pagesRead ?? 150} / {record.stages.ocr.totalPages ?? record.document?.pages ?? "150+"} หน้า
@@ -449,7 +462,7 @@ export function RecordInspectorModal({
                         onClick={() => setShowPdfPreview(true)}
                         className={`${btn.secondary} text-[11px] h-7 px-2.5 flex items-center gap-1 cursor-pointer`}
                       >
-                        <span>📄</span>
+                        <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                         <span>พรีวิว PDF</span>
                       </button>
                     </div>
@@ -478,8 +491,9 @@ export function RecordInspectorModal({
                         {record.stages?.ocr?.truncated ? (
                           <div className="flex justify-between border-b border-line pb-1.5 text-amend">
                             <span className="text-[12px] font-medium">OCR Truncation:</span>
-                            <span className="font-semibold text-[11px]">
-                              {`⚠️ ตัดทอนที่ ${record.stages.ocr.pagesRead ?? 150} หน้า`}
+                            <span className="inline-flex items-center gap-1 font-semibold text-[11px]">
+                              <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                              <span>{`ตัดทอนที่ ${record.stages.ocr.pagesRead ?? 150} หน้า`}</span>
                             </span>
                           </div>
                         ) : null}
@@ -545,7 +559,7 @@ export function RecordInspectorModal({
                   onClick={() => setShowPdfPreview(true)}
                   className={`${btn.secondary} h-8 px-3 text-[12px] flex items-center gap-1 cursor-pointer`}
                 >
-                  <span>📄</span>
+                  <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>พรีวิว PDF</span>
                 </button>
                 <a

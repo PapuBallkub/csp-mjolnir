@@ -1,5 +1,6 @@
 "use client";
 
+import { Hourglass, Pencil } from "lucide-react";
 import type { AdminTechnologiesCounts, AdminTechnology } from "../../../_lib/api";
 import { btn, input, Panel, SectionHeading } from "../../../_components/ui";
 
@@ -179,7 +180,7 @@ export function TechnologiesSection({
         <Panel className="w-full border-amend-line bg-amend-bg/10 overflow-hidden">
           <div className="border-b border-amend-line/40 bg-amend-bg/30 px-4 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-[14px]">⏳</span>
+              <Hourglass className="h-3.5 w-3.5 shrink-0 text-amend" aria-hidden="true" />
               <h3 className="text-[13px] font-bold text-ink">
                 คำขอใหม่รอการอนุมัติจากผู้ใช้
               </h3>
@@ -241,9 +242,10 @@ export function TechnologiesSection({
                   <button
                     type="button"
                     onClick={() => onOpenEdit(tech)}
-                    className="cursor-pointer rounded-full border border-line bg-surface px-3 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
+                    className="inline-flex items-center gap-1 cursor-pointer rounded-full border border-line bg-surface px-3 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
                   >
-                    ✏️ แก้ไขก่อนอนุมัติ
+                    <Pencil className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    <span>แก้ไขก่อนอนุมัติ</span>
                   </button>
                   <button
                     type="button"
@@ -394,7 +396,8 @@ export function TechnologiesSection({
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-amend-line bg-amend-bg px-2 py-0.5 text-[10px] font-medium text-amend">
-                          {tech.firstSeenIn?.startsWith("user-request") ? "⏳ คำขอผู้ใช้" : "⏳ AI เจอใหม่"}
+                          <Hourglass className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          <span>{tech.firstSeenIn?.startsWith("user-request") ? "คำขอผู้ใช้" : "AI เจอใหม่"}</span>
                         </span>
                       )}
                     </td>

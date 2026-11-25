@@ -3,6 +3,17 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
+  AlertTriangle,
+  BarChart3,
+  ClipboardCheck,
+  Clock,
+  Landmark,
+  Search,
+  Settings,
+  Tags,
+  type LucideIcon,
+} from "lucide-react";
+import {
   adminAddPipelineRecord,
   adminCheckSourceHealth,
   adminCreateTechnology,
@@ -850,7 +861,7 @@ function AdminDashboard({
 
   const ADMIN_JOBS: {
     id: AdminJob;
-    icon: string;
+    icon: LucideIcon;
     label: string;
     description: string;
     badge?: number;
@@ -858,13 +869,13 @@ function AdminDashboard({
   }[] = [
     {
       id: "overview",
-      icon: "📊",
+      icon: BarChart3,
       label: "ภาพรวม & สแครปเปอร์",
       description: "ตัวชี้วัด, Funnel และสุขภาพแหล่งข้อมูล",
     },
     {
       id: "review",
-      icon: "📋",
+      icon: ClipboardCheck,
       label: "คิวตรวจทานเอกสาร",
       description: "ความมั่นใจ < 80% หรือจัดประเภทผิด",
       badge:
@@ -875,7 +886,7 @@ function AdminDashboard({
     },
     {
       id: "failures",
-      icon: "⚙️",
+      icon: Settings,
       label: "เฝ้าระวัง Pipeline",
       description: "ตัวกรองทุกขั้นตอน & จัดการรายโครงการ",
       badge: (ops?.pipelineFailures?.length ?? 0) > 0 ? ops?.pipelineFailures?.length : undefined,
@@ -883,7 +894,7 @@ function AdminDashboard({
     },
     {
       id: "history",
-      icon: "⏱️",
+      icon: Clock,
       label: "ประวัติงาน & บันทึก",
       description: "รอบประมวลผลและ Audit Log",
       badge: (ops?.pipelineRuns?.length ?? 0) > 0 ? ops?.pipelineRuns?.length : undefined,
@@ -891,7 +902,7 @@ function AdminDashboard({
     },
     {
       id: "technologies",
-      icon: "🏷️",
+      icon: Tags,
       label: "คลังเทคโนโลยี & มาตรฐาน",
       description: "จัดการคำขอและคลังคำศัพท์ระบบ",
       badge: techPendingCount > 0 ? techPendingCount : undefined,
@@ -901,6 +912,7 @@ function AdminDashboard({
 
   const activeJobObj = ADMIN_JOBS.find((j) => j.id === activeJob) ?? ADMIN_JOBS[0];
   const currentJobLabel = activeJobObj.label;
+  const ActiveJobIcon = activeJobObj.icon;
 
   const adminRail = (
     <div className="flex flex-col gap-4">
@@ -915,6 +927,7 @@ function AdminDashboard({
         <nav className="flex flex-col p-1.5 gap-1" aria-label="Admin Navigation">
           {ADMIN_JOBS.map((job) => {
             const isActive = activeJob === job.id;
+            const JobIcon = job.icon;
             return (
               <button
                 key={job.id}
@@ -932,7 +945,7 @@ function AdminDashboard({
               >
                 <div className="min-w-0 pr-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[13px]">{job.icon}</span>
+                    <JobIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                     <span className="text-[13px] leading-tight font-medium">
                       {job.label}
                     </span>
@@ -1037,7 +1050,7 @@ function AdminDashboard({
                 {isSuggesting ? (
                   <span className="animate-spin inline-block text-[11px]">↻</span>
                 ) : (
-                  "🔍"
+                  <Search className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
               </button>
             </div>
@@ -1073,8 +1086,9 @@ function AdminDashboard({
                           {p.title}
                         </p>
                         {p.agency && (
-                          <span className="text-[10px] text-ink-3 truncate">
-                            🏛️ {p.agency}
+                          <span className="inline-flex items-center gap-1 text-[10px] text-ink-3 truncate">
+                            <Landmark className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            <span className="truncate">{p.agency}</span>
                           </span>
                         )}
                       </button>
@@ -1130,7 +1144,7 @@ function AdminDashboard({
             <span className="flex items-center gap-2">
               <span className="text-ink-3">{"หน้าที่งาน:"}</span>
               <span className="font-semibold text-ink flex items-center gap-1.5">
-                <span>{activeJobObj.icon}</span>
+                <ActiveJobIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>{currentJobLabel}</span>
               </span>
             </span>
@@ -1337,10 +1351,10 @@ function AdminDashboard({
               {/* Row 1: Filter Tabs */}
               <div className="mb-3 flex flex-wrap gap-1.5 border-b border-line pb-3">
                 {[
-                  { id: "ready", label: `✓ พร้อมอนุมัติ (≥ 80%) (${readyCount.toLocaleString()})` },
-                  { id: "low-confidence", label: `⚠️ มั่นใจต่ำ (< 80%) (${lowConfidenceCount.toLocaleString()})` },
-                  { id: "misclassified", label: `ตรวจประเภท (${misclassifiedCount.toLocaleString()})` },
-                  { id: "reviewed", label: `ตรวจทานแล้ว (${reviewedCount.toLocaleString()})` },
+                  { id: "ready", label: `✓ พร้อมอนุมัติ (≥ 80%) (${readyCount.toLocaleString()})`, warn: false },
+                  { id: "low-confidence", label: `มั่นใจต่ำ (< 80%) (${lowConfidenceCount.toLocaleString()})`, warn: true },
+                  { id: "misclassified", label: `ตรวจประเภท (${misclassifiedCount.toLocaleString()})`, warn: false },
+                  { id: "reviewed", label: `ตรวจทานแล้ว (${reviewedCount.toLocaleString()})`, warn: false },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -1349,13 +1363,14 @@ function AdminDashboard({
                       setFilterTab(tab.id as ReviewQueueTab);
                       setReviewPage(1);
                     }}
-                    className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                    className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
                       filterTab === tab.id
                         ? "bg-ink text-surface"
                         : "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
                     }`}
                   >
-                    {tab.label}
+                    {tab.warn ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
+                    <span>{tab.label}</span>
                   </button>
                 ))}
               </div>
@@ -1363,8 +1378,8 @@ function AdminDashboard({
               {/* Row 2: Search Input & Sort Selector */}
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="relative w-full sm:w-72">
-                  <span className="absolute inset-y-0 left-2.5 flex items-center text-ink-3 pointer-events-none text-[12px]">
-                    🔍
+                  <span className="absolute inset-y-0 left-2.5 flex items-center text-ink-3 pointer-events-none">
+                    <Search className="h-3.5 w-3.5" aria-hidden="true" />
                   </span>
                   <input
                     type="text"

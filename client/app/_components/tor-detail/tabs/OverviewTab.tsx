@@ -1,3 +1,4 @@
+import { GraduationCap, Package, Search, Settings } from "lucide-react";
 import type { TorInsightDetail } from "../../../_lib/api";
 import { Label, Panel, SectionHeading } from "../../ui";
 
@@ -73,8 +74,9 @@ export function OverviewTab({
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
             {deliverables.system && deliverables.system.length > 0 ? (
               <div className="rounded-xl border border-line bg-surface-2/40 p-3.5">
-                <h3 className="text-[13px] font-semibold text-ink">
-                  📦 ระบบซอฟต์แวร์และเอกสารระบบ
+                <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
+                  <Package className="h-3.5 w-3.5 shrink-0 text-ink-2" aria-hidden="true" />
+                  <span>ระบบซอฟต์แวร์และเอกสารระบบ</span>
                 </h3>
                 <ul className="mt-2 flex flex-col gap-1.5">
                   {deliverables.system.map((item, idx) => (
@@ -89,8 +91,9 @@ export function OverviewTab({
 
             {deliverables.implementation && deliverables.implementation.length > 0 ? (
               <div className="rounded-xl border border-line bg-surface-2/40 p-3.5">
-                <h3 className="text-[13px] font-semibold text-ink">
-                  ⚙️ การติดตั้งและย้ายข้อมูล
+                <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
+                  <Settings className="h-3.5 w-3.5 shrink-0 text-ink-2" aria-hidden="true" />
+                  <span>การติดตั้งและย้ายข้อมูล</span>
                 </h3>
                 <ul className="mt-2 flex flex-col gap-1.5">
                   {deliverables.implementation.map((item, idx) => (
@@ -105,8 +108,9 @@ export function OverviewTab({
 
             {deliverables.validation && deliverables.validation.length > 0 ? (
               <div className="rounded-xl border border-line bg-surface-2/40 p-3.5">
-                <h3 className="text-[13px] font-semibold text-ink">
-                  🔍 การทดสอบระบบและการตรวจรับ
+                <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
+                  <Search className="h-3.5 w-3.5 shrink-0 text-ink-2" aria-hidden="true" />
+                  <span>การทดสอบระบบและการตรวจรับ</span>
                 </h3>
                 <ul className="mt-2 flex flex-col gap-1.5">
                   {deliverables.validation.map((item, idx) => (
@@ -121,8 +125,9 @@ export function OverviewTab({
 
             {deliverables.supportingWork && deliverables.supportingWork.length > 0 ? (
               <div className="rounded-xl border border-line bg-surface-2/40 p-3.5">
-                <h3 className="text-[13px] font-semibold text-ink">
-                  🎓 การฝึกอบรมและการสนับสนุน
+                <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
+                  <GraduationCap className="h-3.5 w-3.5 shrink-0 text-ink-2" aria-hidden="true" />
+                  <span>การฝึกอบรมและการสนับสนุน</span>
                 </h3>
                 <ul className="mt-2 flex flex-col gap-1.5">
                   {deliverables.supportingWork.map((item, idx) => (

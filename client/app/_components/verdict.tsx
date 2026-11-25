@@ -1,3 +1,4 @@
+import { Building2 } from "lucide-react";
 import type { PriceVerdict, RiskLevel, ScopeSize, Status, Tor } from "../_data/tors";
 import { priceDeltaPct } from "../_data/tors";
 import type { ChangeSource, TorInsightSummary, TorStatus } from "../_lib/api";
@@ -478,7 +479,7 @@ export function CompaniesOnlyBadge({ className = "" }: { className?: string }) {
       className={`inline-flex items-center gap-1 rounded-full border border-line-2/70 bg-surface-3 px-2.5 py-0.5 text-[11px] font-medium text-ink-2 whitespace-nowrap leading-tight ${className}`}
       title="TOR กำหนดให้ผู้ยื่นเป็นนิติบุคคล"
     >
-      <span className="text-[10px] opacity-75" aria-hidden="true">🏢</span>
+      <Building2 className="h-3 w-3 shrink-0 opacity-75" aria-hidden="true" />
       <span>เฉพาะนิติบุคคล</span>
     </span>
   );

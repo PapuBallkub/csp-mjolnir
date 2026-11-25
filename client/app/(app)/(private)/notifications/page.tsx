@@ -14,7 +14,6 @@ import {
   Clock,
   FileEdit,
   Mail,
-  Wrench,
 } from "lucide-react";
 import { useProfile } from "../../../_components/prefs";
 import { StatusBadge } from "../../../_components/verdict";
@@ -151,21 +150,14 @@ export default function NotificationsPage() {
             </p>
           </div>
 
-          {/* Link to Notification & Profile Settings */}
+          {/* Link to Notification Settings */}
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <Link
-              href="/profile?edit=true"
+              href="/profile?edit=true#notification-settings"
               className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[12px] font-medium text-ink-2 hover:border-line-2 hover:text-ink transition-colors"
             >
               <Mail className="h-3.5 w-3.5" />
               <span>ตั้งค่าการแจ้งเตือนและอีเมล</span>
-            </Link>
-            <Link
-              href="/profile"
-              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2 hover:text-ink transition-colors"
-            >
-              <Wrench className="h-3.5 w-3.5" />
-              <span>โปรไฟล์และทักษะ</span>
             </Link>
           </div>
         </header>

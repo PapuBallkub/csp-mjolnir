@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AlertTriangle, ClipboardList } from "lucide-react";
 import { btn, input, Label } from "../../../../_components/ui";
 import type { TorVersionItem } from "../../../../_lib/api";
 import { MAX_CATEGORIES, PROJECT_CATEGORIES, toggleCategory } from "../../../../_lib/categories";
@@ -393,7 +394,7 @@ export function VersionHistoryDrawer({
                     {confirmRollbackVersion === ver.version && (
                       <div className="rounded-lg border border-amend-line bg-amend-bg/30 p-3 mt-3 space-y-2 animate-in fade-in duration-100">
                         <div className="text-[12px] font-semibold text-ink flex items-center gap-1.5">
-                          <span>⚠️</span>
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amend" aria-hidden="true" />
                           <span>
                             ยืนยันการย้อนกลับเนื้อหาเป็นเวอร์ชัน v{ver.version}?
                           </span>
@@ -721,8 +722,8 @@ export function EditSummaryConfirmModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-line bg-surface-2 px-5 py-3.5">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-ink text-surface text-[13px]">
-              📋
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-ink text-surface">
+              <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
             </span>
             <div>
               <h2 className="text-[14px] font-semibold text-ink leading-tight">
@@ -872,8 +873,8 @@ export function EditSummaryConfirmModal({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-risk-bg text-risk text-[18px]">
-                ⚠️
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-risk-bg text-risk">
+                <AlertTriangle className="h-4 w-4" aria-hidden="true" />
               </span>
               <div className="space-y-1">
                 <h3 className="text-[15px] font-semibold text-ink">

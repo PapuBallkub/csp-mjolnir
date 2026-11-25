@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ClipboardList, FileText, Info, Mail, Tag } from "lucide-react";
 import { getTorPdfPreviewUrl } from "../_lib/api";
 import { btn } from "./ui";
 
@@ -356,35 +357,38 @@ function PdfPreviewModalContent({
           <button
             type="button"
             onClick={() => selectPart(0)}
-            className={`px-3 py-0.5 rounded-full text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
               part === 0
                 ? "bg-ink text-surface"
                 : "text-ink-2 hover:text-ink hover:bg-surface-2"
             }`}
           >
-            📄 ขอบเขตงาน (TOR หลัก)
+            <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>ขอบเขตงาน (TOR หลัก)</span>
           </button>
           <button
             type="button"
             onClick={() => selectPart(1)}
-            className={`px-3 py-0.5 rounded-full text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
               part === 1
                 ? "bg-ink text-surface"
                 : "text-ink-2 hover:text-ink hover:bg-surface-2"
             }`}
           >
-            📋 เอกสารประกวดราคา
+            <ClipboardList className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>เอกสารประกวดราคา</span>
           </button>
           <button
             type="button"
             onClick={() => selectPart(2)}
-            className={`px-3 py-0.5 rounded-full text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11.5px] font-medium transition-colors shrink-0 cursor-pointer ${
               part === 2
                 ? "bg-ink text-surface"
                 : "text-ink-2 hover:text-ink hover:bg-surface-2"
             }`}
           >
-            ✉️ ประกาศเชิญชวน
+            <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>ประกาศเชิญชวน</span>
           </button>
         </div>
 
@@ -404,7 +408,7 @@ function PdfPreviewModalContent({
               /* Method-Aware Explanation State (Direct / Selective Procurement) */
               <div className="flex flex-col items-center justify-center h-full p-6 sm:p-10 text-center bg-surface text-ink overflow-y-auto">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-2 border border-line text-[11.5px] font-semibold tracking-wide text-ink mb-2">
-                  <span>🏷️</span>
+                  <Tag className="h-3 w-3 shrink-0" aria-hidden="true" />
                   <span>
                     {isDirectProcurement
                       ? "โครงการจัดหาโดยวิธีเฉพาะเจาะจง (Direct Contracting)"
@@ -429,8 +433,11 @@ function PdfPreviewModalContent({
                       ? "การจัดหาโดยวิธีเฉพาะเจาะจงเป็นการติดต่อเจรจาตกลงราคากับผู้ประกอบการโดยตรง (เช่น วงเงินไม่เกิน 500,000 บาท หรือเป็นงานจ้างบำรุงรักษาต่อเนื่องจากระบบเดิมที่มีผู้เชี่ยวชาญตรงเพียงรายเดียว) จึงไม่มีการออกร่างขอบเขตของงาน (TOR) หรือประกาศเชิญชวนสาธารณะเพื่อรับฟังความคิดเห็น (B0/D0) บนระบบ e-GP เหมือนวิธี e-bidding"
                       : "การจัดหาโดยวิธีคัดเลือกเป็นการส่งหนังสือเชิญชวนไปยังผู้ประกอบการที่มีคุณสมบัติตรงไม่น้อยกว่า 3 รายโดยตรง ไม่ใช่การเปิดประมูลสาธารณะทั่วไป จึงไม่มีการเผยแพร่ไฟล์แพ็กเกจประกาศสาธารณะบนระบบ e-GP"}
                   </p>
-                  <p className="text-ink-3 text-[11px] pt-2 border-t border-line">
-                    ℹ️ ข้อมูลโครงการที่แสดงบนแพลตฟอร์มนี้ (งบประมาณ, ราคากลาง, รายชื่อผู้ชนะ และสัญญา) ถูกนำเข้าจากฐานข้อมูลเปิดภาครัฐ (data.go.th) ท่านสามารถตรวจสอบบันทึกผลการจัดซื้อจัดจ้างและสาระสำคัญของสัญญาทางการได้โดยตรงที่หน้าเว็บ e-GP
+                  <p className="flex items-start gap-1.5 text-ink-3 text-[11px] pt-2 border-t border-line">
+                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      ข้อมูลโครงการที่แสดงบนแพลตฟอร์มนี้ (งบประมาณ, ราคากลาง, รายชื่อผู้ชนะ และสัญญา) ถูกนำเข้าจากฐานข้อมูลเปิดภาครัฐ (data.go.th) ท่านสามารถตรวจสอบบันทึกผลการจัดซื้อจัดจ้างและสาระสำคัญของสัญญาทางการได้โดยตรงที่หน้าเว็บ e-GP
+                    </span>
                   </p>
                 </div>
 
@@ -502,9 +509,10 @@ function PdfPreviewModalContent({
                     <button
                       type="button"
                       onClick={() => selectPart(0)}
-                      className={`${retryable ? btn.secondary : btn.primary} h-8 px-3.5 text-[12px]`}
+                      className={`${retryable ? btn.secondary : btn.primary} h-8 px-3.5 text-[12px] inline-flex items-center gap-1.5`}
                     >
-                      📄 กลับไปดูเอกสาร TOR หลัก
+                      <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span>กลับไปดูเอกสาร TOR หลัก</span>
                     </button>
                   ) : null}
                   {officialEgpUrl ? (

@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { ClipboardList, FileText, Search, Settings, type LucideIcon } from "lucide-react";
 import type { TorInsightDetail } from "../../_lib/api";
 import { type RiskLevel } from "../../_data/tors";
 import { markerSource, pendingChange } from "../../_lib/changes";
@@ -32,7 +33,7 @@ export type TabKey = "overview" | "specs" | "analysis" | "eligibility";
 interface TabItem {
   key: TabKey;
   label: string;
-  icon: string;
+  icon: LucideIcon;
 }
 
 export function TorDetail({
@@ -191,22 +192,22 @@ export function TorDetail({
     {
       key: "overview",
       label: "ภาพรวม & ขอบเขตงาน",
-      icon: "📋",
+      icon: ClipboardList,
     },
     {
       key: "specs",
       label: "ข้อกำหนดทางเทคนิค",
-      icon: "⚙️",
+      icon: Settings,
     },
     {
       key: "analysis",
       label: "การวิเคราะห์ & ความเหมาะสม",
-      icon: "🔍",
+      icon: Search,
     },
     {
       key: "eligibility",
       label: "คุณสมบัติ & เอกสาร",
-      icon: "📑",
+      icon: FileText,
     },
   ];
 
@@ -240,6 +241,7 @@ export function TorDetail({
           >
             {tabs.map((tab) => {
               const isActive = activeTab === tab.key;
+              const TabIcon = tab.icon;
               return (
                 <button
                   key={tab.key}
@@ -261,7 +263,7 @@ export function TorDetail({
                       : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                   }`}
                 >
-                  <span className="text-[14px]">{tab.icon}</span>
+                  <TabIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>{tab.label}</span>
                 </button>
               );

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Hourglass } from "lucide-react";
 import type { AdminTechnology } from "../../../_lib/api";
 import { btn, input } from "../../../_components/ui";
 
@@ -136,28 +137,32 @@ export function AddEditTechnologyModal({
             </label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: "confirmed", label: "✓ ยืนยันแล้ว" },
-                { id: "new", label: "⏳ รอตรวจทาน" },
-                { id: "rejected", label: "✕ ปฏิเสธ" },
-              ].map((st) => (
-                <button
-                  key={st.id}
-                  type="button"
-                  onClick={() =>
-                    onChangeForm((prev) => ({
-                      ...prev,
-                      status: st.id as "confirmed" | "new" | "rejected",
-                    }))
-                  }
-                  className={`cursor-pointer rounded-full border py-1.5 px-2.5 text-[11px] font-medium transition-colors ${
-                    form.status === st.id
-                      ? "border-ink bg-ink text-surface"
-                      : "border-line bg-surface text-ink-2 hover:border-ink"
-                  }`}
-                >
-                  {st.label}
-                </button>
-              ))}
+                { id: "confirmed", label: "✓ ยืนยันแล้ว", icon: null },
+                { id: "new", label: "รอตรวจทาน", icon: Hourglass },
+                { id: "rejected", label: "✕ ปฏิเสธ", icon: null },
+              ].map((st) => {
+                const Icon = st.icon;
+                return (
+                  <button
+                    key={st.id}
+                    type="button"
+                    onClick={() =>
+                      onChangeForm((prev) => ({
+                        ...prev,
+                        status: st.id as "confirmed" | "new" | "rejected",
+                      }))
+                    }
+                    className={`inline-flex items-center justify-center gap-1 cursor-pointer rounded-full border py-1.5 px-2.5 text-[11px] font-medium transition-colors ${
+                      form.status === st.id
+                        ? "border-ink bg-ink text-surface"
+                        : "border-line bg-surface text-ink-2 hover:border-ink"
+                    }`}
+                  >
+                    {Icon ? <Icon className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
+                    <span>{st.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

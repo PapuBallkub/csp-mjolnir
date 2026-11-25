@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth, useAuthedUser } from "../../../_components/auth";
 import * as api from "../../../_lib/api";
 import type { ApiError, TechnologyItem, UserProfile } from "../../../_lib/api";
@@ -17,6 +16,24 @@ export default function ProfilePage() {
   const [mode, setMode] = useState<"view" | "edit">(() => {
     return searchParams.get("edit") === "true" ? "edit" : "view";
   });
+
+  // Whether the account has a local password (false for Google-only accounts)
+  const [fetchedHasPassword, setFetchedHasPassword] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (typeof user.hasPassword === "boolean") return;
+    let cancelled = false;
+    api.me().then((res) => {
+      if (!cancelled) {
+        setFetchedHasPassword(res.ok ? res.data.user.hasPassword === true : false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user.hasPassword]);
+
+  const hasPassword =
+    typeof user.hasPassword === "boolean" ? user.hasPassword : fetchedHasPassword === true;
 
   // Technologies vocabulary loaded from API
   const [techList, setTechList] = useState<TechnologyItem[]>([]);
@@ -44,6 +61,23 @@ export default function ProfilePage() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  const handleTechnologyAdded = useCallback((tech: TechnologyItem) => {
+    setTechList((prev) => {
+      if (prev.some((t) => t.name.toLowerCase() === tech.name.toLowerCase())) {
+        return prev;
+      }
+      return [...prev, tech].sort((a, b) => a.name.localeCompare(b.name));
+    });
+  }, []);
+
+  const handleEnterEdit = useCallback((hash?: string) => {
+    if (typeof window !== "undefined") {
+      const nextUrl = `/profile?edit=true${hash || ""}`;
+      window.history.replaceState(null, "", nextUrl);
+    }
+    setMode("edit");
   }, []);
 
   const handleSave = async (
@@ -104,13 +138,6 @@ export default function ProfilePage() {
               ✓ บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว
             </div>
           )}
-          {/* How the person signs in lives on its own page (0042) */}
-          <Link
-            href="/account"
-            className="inline-flex h-8 items-center rounded-full border border-line px-3.5 text-[12px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
-          >
-            บัญชีและรหัสผ่าน
-          </Link>
         </div>
       </header>
 
@@ -119,16 +146,24 @@ export default function ProfilePage() {
         <ProfileDisplay
           user={user}
           profile={currentProfile}
-          onEdit={() => setMode("edit")}
+          onEdit={() => handleEnterEdit()}
+          onEditNotifications={() => handleEnterEdit("#notification-settings")}
         />
       ) : (
         <ProfileEditForm
           user={user}
+          hasPassword={hasPassword}
           initialDraft={currentProfile}
           techList={techList}
           techsLoading={techsLoading}
+          onTechnologyAdded={handleTechnologyAdded}
           onSave={handleSave}
-          onCancel={() => setMode("view")}
+          onCancel={() => {
+            if (typeof window !== "undefined") {
+              window.history.replaceState(null, "", "/profile");
+            }
+            setMode("view");
+          }}
         />
       )}
     </div>

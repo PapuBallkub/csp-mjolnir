@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { AlertTriangle, Copy, FileText, Search, XCircle } from "lucide-react";
 import {
   adminGetPipelineTasks,
   type PipelineTaskItem,
@@ -252,8 +253,8 @@ export function PipelineMonitoringSection({
       {/* Search & Utility Bar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="relative w-full sm:w-72">
-          <span className="absolute inset-y-0 left-2.5 flex items-center text-ink-3 pointer-events-none text-[12px]">
-            🔍
+          <span className="absolute inset-y-0 left-2.5 flex items-center text-ink-3 pointer-events-none">
+            <Search className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
           <input
             type="text"
@@ -430,10 +431,11 @@ function PipelineTaskRow({
         <button
           type="button"
           onClick={() => onInspect(task.projectId)}
-          className="font-mono text-[12px] font-bold text-ink hover:text-open hover:underline cursor-pointer text-left block"
+          className="inline-flex items-center gap-1 font-mono text-[12px] font-bold text-ink hover:text-open hover:underline cursor-pointer text-left"
           title="คลิกเพื่อตรวจสอบสถานะรายโครงการ"
         >
-          {task.projectId} 🔍
+          <span>{task.projectId}</span>
+          <Search className="h-3 w-3 shrink-0 text-ink-3" aria-hidden="true" />
         </button>
         <p className="text-[12px] leading-thai text-ink font-medium line-clamp-1 mt-0.5">
           {task.title}
@@ -445,7 +447,7 @@ function PipelineTaskRow({
       <td className="px-3 py-2.5 whitespace-nowrap">
         {task.phase === "failed" ? (
           <span className="inline-flex items-center gap-1 rounded-full border border-risk-line bg-risk-bg px-2.5 py-[2px] text-[10px] font-semibold text-risk">
-            <span>⚠️</span>
+            <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
             <span>{task.step ? `${task.step}` : "Failed"}</span>
           </span>
         ) : task.phase === "download" ? (
@@ -476,12 +478,14 @@ function PipelineTaskRow({
           <div>
             <div className="flex items-center gap-1.5 mb-1">
               {task.lastTransient ? (
-                <span className="inline-flex rounded-full border border-amend-line bg-amend-bg px-2 py-[1px] text-[10px] font-medium text-amend">
-                  ⚠️ ขัดข้องชั่วคราว
+                <span className="inline-flex items-center gap-1 rounded-full border border-amend-line bg-amend-bg px-2 py-[1px] text-[10px] font-medium text-amend">
+                  <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  <span>ขัดข้องชั่วคราว</span>
                 </span>
               ) : (
-                <span className="inline-flex rounded-full border border-risk-line bg-risk-bg px-2 py-[1px] text-[10px] font-medium text-risk">
-                  ❌ ผิดพลาดถาวร
+                <span className="inline-flex items-center gap-1 rounded-full border border-risk-line bg-risk-bg px-2 py-[1px] text-[10px] font-medium text-risk">
+                  <XCircle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  <span>ผิดพลาดถาวร</span>
                 </span>
               )}
             </div>
@@ -502,9 +506,16 @@ function PipelineTaskRow({
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="text-[10px] text-ink-3 hover:text-ink cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[10px] text-ink-3 hover:text-ink cursor-pointer"
                 >
-                  {isCopied ? "✓ คัดลอกแล้ว" : "📋 คัดลอก"}
+                  {isCopied ? (
+                    "✓ คัดลอกแล้ว"
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      <span>คัดลอก</span>
+                    </>
+                  )}
                 </button>
               </div>
             )}
@@ -611,8 +622,9 @@ function PipelineTaskRow({
                 onClick={() => onInspect(task.projectId)}
                 className={`${btn.ghost} text-[11px] h-7.5 w-7.5 flex items-center justify-center p-0 text-ink-3 hover:text-ink cursor-pointer shrink-0`}
                 title="ตรวจสอบสถานะรายโครงการ"
+                aria-label="ตรวจสอบสถานะรายโครงการ"
               >
-                🔍
+                <Search className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </>
           ) : (
@@ -624,7 +636,7 @@ function PipelineTaskRow({
                   className={`${btn.secondary} text-[11px] h-7.5 px-2.5 inline-flex items-center gap-1 shrink-0 text-ink-2 hover:text-ink`}
                   title="เปิดดูหน้าประกาศและผลวิเคราะห์ TOR"
                 >
-                  <span>📄</span>
+                  <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>ดูประกาศ</span>
                 </Link>
               )}
@@ -636,7 +648,7 @@ function PipelineTaskRow({
                 className={`${btn.secondary} text-[11px] h-7.5 px-2.5 inline-flex items-center gap-1 shrink-0 text-ink hover:text-open cursor-pointer`}
                 title="ตรวจสอบสถานะและข้อมูลดิบรายโครงการ"
               >
-                <span>🔍</span>
+                <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>ตรวจสอบ</span>
               </button>
             </>
