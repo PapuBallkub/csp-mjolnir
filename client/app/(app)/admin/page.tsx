@@ -108,7 +108,7 @@ function OverviewTabSkeleton() {
 
 function ReviewTabSkeleton() {
   return (
-    <div className="w-full space-y-4 animate-pulse" aria-busy="true">
+    <div className="min-h-[720px] w-full space-y-4 animate-pulse" aria-busy="true">
       <div className="flex items-center justify-between pb-2">
         <div className="h-5 w-48 rounded-full bg-surface-3" />
         <div className="h-4 w-20 rounded-full bg-surface-2" />
@@ -293,6 +293,7 @@ function AdminDashboard({
   }
 
   const setActiveJob = (nextJob: AdminJob) => {
+    setPrevJobParam(nextJob === "overview" ? null : nextJob);
     setActiveJobState(nextJob);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
@@ -923,9 +924,9 @@ function AdminDashboard({
                   setJobNavOpen(false);
                 }}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex w-full items-start justify-between rounded-xl px-3 py-2.5 text-left transition-all duration-150 cursor-pointer ${
+                className={`flex w-full items-start justify-between rounded-xl px-3 py-2.5 text-left transition-colors duration-150 cursor-pointer ${
                   isActive
-                    ? "bg-ink text-surface shadow-xs font-semibold"
+                    ? "bg-ink text-surface shadow-xs"
                     : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                 }`}
               >
@@ -937,7 +938,7 @@ function AdminDashboard({
                     </span>
                   </div>
                   <p
-                    className={`mt-0.5 text-[11px] leading-thai ${
+                    className={`mt-0.5 text-[11px] font-normal leading-thai ${
                       isActive ? "text-surface/80" : "text-ink-3"
                     }`}
                   >
@@ -947,14 +948,14 @@ function AdminDashboard({
 
                 {job.badge !== undefined && (
                   <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 font-mono tnum text-[11px] font-medium ${
+                    className={`shrink-0 rounded-full border px-2 py-0.5 font-mono tnum text-[11px] font-medium ${
                       isActive
-                        ? "bg-surface/20 text-surface"
+                        ? "border-transparent bg-surface/20 text-surface"
                         : job.badgeTone === "risk"
-                          ? "bg-risk-bg text-risk border border-risk-line"
+                          ? "border-risk-line bg-risk-bg text-risk"
                           : job.badgeTone === "amend"
-                            ? "bg-amend-bg text-amend border border-amend-line"
-                            : "bg-surface-3 text-ink-3"
+                            ? "border-amend-line bg-amend-bg text-amend"
+                            : "border-transparent bg-surface-3 text-ink-3"
                     }`}
                   >
                     {job.badge}
