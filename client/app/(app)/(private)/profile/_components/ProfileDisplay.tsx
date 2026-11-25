@@ -111,9 +111,6 @@ export function ProfileDisplay({
       <Panel className="px-5 py-6 sm:px-8 sm:py-7">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-line pb-6">
           <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-line bg-surface-2 font-mono text-[20px] font-bold text-ink">
-              {user.name ? user.name.slice(0, 1).toUpperCase() : "U"}
-            </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-[20px] font-semibold text-ink leading-tight">
