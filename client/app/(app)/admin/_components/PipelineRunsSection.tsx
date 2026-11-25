@@ -80,13 +80,13 @@ export function PipelineRunRow({
         {run.startedAt}
       </td>
       <td className="px-3.5 py-2.5 whitespace-nowrap">
-        <span className="inline-flex whitespace-nowrap rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] text-ink font-semibold uppercase">
+        <span className="inline-flex whitespace-nowrap rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-[11px] text-ink font-semibold uppercase">
           {run.job}
         </span>
       </td>
       <td className="px-3.5 py-2.5 whitespace-nowrap">
         <span
-          className={`inline-flex whitespace-nowrap rounded-[2px] border px-2 py-0.5 text-[11px] uppercase font-medium ${
+          className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] uppercase font-medium ${
             run.outcome === "done"
               ? "border-open-line bg-open-bg text-open"
               : run.outcome === "timed-out"
@@ -111,7 +111,7 @@ export function PipelineRunRow({
             run.steps.map((step, idx) => (
               <span
                 key={idx}
-                className={`inline-flex items-center gap-1 whitespace-nowrap rounded-[2px] border px-1.5 py-[1px] text-[10px] ${
+                className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-[1px] text-[10px] ${
                   step.exitCode === 0
                     ? "border-line bg-surface text-ink-2"
                     : step.exitCode === null

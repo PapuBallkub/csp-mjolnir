@@ -131,7 +131,7 @@ export function WatchdogEvidenceTable({
               setSort(e.target.value as TableSort);
               setPage(1);
             }}
-            className="h-8.5 rounded-[3px] border border-line-2 bg-surface px-2.5 pr-8 text-[12.5px] font-medium text-ink focus:border-ink focus:outline-none cursor-pointer"
+            className="h-8.5 rounded-[10px] border border-line-2 bg-surface px-2.5 pr-8 text-[12.5px] font-medium text-ink focus:border-ink focus:outline-none cursor-pointer"
           >
             {TABLE_SORT_OPTIONS.map((opt) => (
               <option key={opt.id} value={opt.id}>
@@ -237,7 +237,7 @@ export function WatchdogEvidenceTable({
                       <div className="flex flex-col items-start gap-1.5">
                         {proj.lockSpecLevel === "unanalyzed" || proj.lockSpecScore === null ? (
                           <>
-                            <span className="inline-flex items-center gap-1.5 rounded-[3px] border border-dashed border-line-2 bg-surface-2 px-2 py-0.5 text-[11.5px] font-medium text-ink-3 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-line-2 bg-surface-2 px-2.5 py-0.5 text-[11.5px] font-medium text-ink-3 whitespace-nowrap">
                               <span>—</span>
                               <span>ยังไม่ได้วิเคราะห์</span>
                             </span>
@@ -257,7 +257,7 @@ export function WatchdogEvidenceTable({
                                 {proj.triggers.map((t) => (
                                   <span
                                     key={t.category}
-                                    className="inline-flex items-center rounded-[3px] border border-risk/30 bg-risk/5 px-2 py-0.5 font-mono text-[11px] font-medium text-risk"
+                                    className="inline-flex items-center rounded-full border border-risk/30 bg-risk/5 px-2.5 py-0.5 font-mono text-[11px] font-medium text-risk"
                                   >
                                     {TRIGGER_NAMES_TH[t.category] ?? t.category}
                                   </span>

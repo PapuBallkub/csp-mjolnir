@@ -9,20 +9,20 @@ function TechnologiesTableSkeleton() {
       {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
         <tr key={i} className="animate-pulse">
           <td className="px-3.5 py-3">
-            <div className="h-4 w-32 rounded-[2px] bg-surface-3 mb-1" />
-            <div className="h-2.5 w-20 rounded-[2px] bg-surface-2" />
+            <div className="h-4 w-32 rounded-full bg-surface-3 mb-1" />
+            <div className="h-2.5 w-20 rounded-full bg-surface-2" />
           </td>
           <td className="px-3 py-3">
-            <div className="h-5 w-24 rounded-[2px] bg-surface-3" />
+            <div className="h-5 w-24 rounded-full bg-surface-3" />
           </td>
           <td className="px-3 py-3">
-            <div className="h-4 w-36 rounded-[2px] bg-surface-2" />
+            <div className="h-4 w-36 rounded-full bg-surface-2" />
           </td>
           <td className="px-3 py-3">
-            <div className="h-5 w-20 rounded-[2px] bg-surface-3" />
+            <div className="h-5 w-20 rounded-full bg-surface-3" />
           </td>
           <td className="px-3 py-3 text-right">
-            <div className="h-6 w-16 rounded-[2px] bg-surface-3 ml-auto" />
+            <div className="h-6 w-16 rounded-full bg-surface-3 ml-auto" />
           </td>
         </tr>
       ))}
@@ -118,7 +118,7 @@ export function TechnologiesSection({
         <div className="flex items-center gap-2">
           <span>คลังเทคโนโลยีและมาตรฐาน</span>
           {pendingCount > 0 && (
-            <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-0.5 text-[11px] font-semibold text-amend">
+            <span className="rounded-full border border-amend-line bg-amend-bg px-2.5 py-0.5 text-[11px] font-semibold text-amend">
               {`รอตรวจยืนยัน ${pendingCount.toLocaleString()} รายการ`}
             </span>
           )}
@@ -164,7 +164,7 @@ export function TechnologiesSection({
       {/* Action Notification Banner */}
       {actionMsg && (
         <div
-          className={`rounded-[3px] border p-3 text-[12px] animate-in fade-in flex items-center justify-between ${
+          className={`rounded-xl border p-3 text-[12px] animate-in fade-in flex items-center justify-between ${
             actionMsg.type === "success"
               ? "border-open-line bg-open-bg text-open"
               : "border-risk-line bg-risk-bg text-risk"
@@ -202,11 +202,11 @@ export function TechnologiesSection({
                   <div className="flex items-center gap-2">
                     <span className="text-[14px] font-bold text-ink">{tech.name}</span>
                     {tech.category && (
-                      <span className="rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-ink-2">
+                      <span className="rounded-full border border-line bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink-2">
                         {tech.category}
                       </span>
                     )}
-                    <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-0.5 text-[10px] font-medium text-amend">
+                    <span className="rounded-full border border-amend-line bg-amend-bg px-2 py-0.5 text-[10px] font-medium text-amend">
                       รออนุมัติ
                     </span>
                   </div>
@@ -234,21 +234,21 @@ export function TechnologiesSection({
                   <button
                     type="button"
                     onClick={() => onApprove(tech.id, tech.name)}
-                    className="cursor-pointer rounded-[3px] border border-open-line bg-open-bg px-2.5 py-1 text-[11px] font-medium text-open hover:bg-open hover:text-white transition-colors"
+                    className="cursor-pointer rounded-full border border-open-line bg-open-bg px-3 py-1 text-[11px] font-medium text-open hover:bg-open hover:text-white transition-colors"
                   >
                     ✓ อนุมัติ
                   </button>
                   <button
                     type="button"
                     onClick={() => onOpenEdit(tech)}
-                    className="cursor-pointer rounded-[3px] border border-line bg-surface px-2.5 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
+                    className="cursor-pointer rounded-full border border-line bg-surface px-3 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
                   >
                     ✏️ แก้ไขก่อนอนุมัติ
                   </button>
                   <button
                     type="button"
                     onClick={() => onReject(tech.id, tech.name)}
-                    className="cursor-pointer rounded-[3px] border border-risk-line bg-risk-bg px-2.5 py-1 text-[11px] font-medium text-risk hover:bg-risk hover:text-white transition-colors"
+                    className="cursor-pointer rounded-full border border-risk-line bg-risk-bg px-3 py-1 text-[11px] font-medium text-risk hover:bg-risk hover:text-white transition-colors"
                   >
                     ✕ ปฏิเสธ
                   </button>
@@ -274,7 +274,7 @@ export function TechnologiesSection({
               key={st.id}
               type="button"
               onClick={() => onStatusFilterChange(st.id)}
-              className={`cursor-pointer rounded-[3px] px-2.5 py-1 text-[12px] font-medium whitespace-nowrap transition-colors ${
+              className={`cursor-pointer rounded-full px-3 py-1 text-[12px] font-medium whitespace-nowrap transition-colors ${
                 statusFilter === st.id
                   ? "bg-ink text-surface"
                   : "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
@@ -360,7 +360,7 @@ export function TechnologiesSection({
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap">
                       {tech.category ? (
-                        <span className="inline-block whitespace-nowrap rounded-[2px] border border-line bg-surface px-1.5 py-0.5 text-[11px] text-ink-2">
+                        <span className="inline-block whitespace-nowrap rounded-full border border-line bg-surface px-2 py-0.5 text-[11px] text-ink-2">
                           {tech.category}
                         </span>
                       ) : (
@@ -373,7 +373,7 @@ export function TechnologiesSection({
                           {tech.aliases.map((alias) => (
                             <span
                               key={alias}
-                              className="inline-block rounded-[2px] bg-surface-2 border border-line/60 px-1.5 py-0.2 font-mono text-[10px] text-ink-2"
+                              className="inline-block rounded-full bg-surface-2 border border-line/60 px-2 py-0.5 font-mono text-[10px] text-ink-2"
                             >
                               {alias}
                             </span>
@@ -385,15 +385,15 @@ export function TechnologiesSection({
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap">
                       {tech.status === "confirmed" ? (
-                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-[2px] border border-open-line bg-open-bg px-1.5 py-0.5 text-[10px] font-medium text-open">
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-open-line bg-open-bg px-2 py-0.5 text-[10px] font-medium text-open">
                           ✓ ยืนยันแล้ว
                         </span>
                       ) : tech.status === "rejected" ? (
-                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-[2px] border border-risk-line bg-risk-bg px-1.5 py-0.5 text-[10px] font-medium text-risk">
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-risk-line bg-risk-bg px-2 py-0.5 text-[10px] font-medium text-risk">
                           ✕ ปฏิเสธ
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-0.5 text-[10px] font-medium text-amend">
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-amend-line bg-amend-bg px-2 py-0.5 text-[10px] font-medium text-amend">
                           {tech.firstSeenIn?.startsWith("user-request") ? "⏳ คำขอผู้ใช้" : "⏳ AI เจอใหม่"}
                         </span>
                       )}
@@ -404,7 +404,7 @@ export function TechnologiesSection({
                           <button
                             type="button"
                             onClick={() => onApprove(tech.id, tech.name)}
-                            className="cursor-pointer rounded-[2px] border border-open-line bg-open-bg px-2 py-1 text-[11px] font-medium text-open hover:bg-open hover:text-white transition-colors"
+                            className="cursor-pointer rounded-full border border-open-line bg-open-bg px-2.5 py-1 text-[11px] font-medium text-open hover:bg-open hover:text-white transition-colors"
                             title="ยืนยันเข้าคลังทางการ"
                           >
                             ✓ อนุมัติ
@@ -413,7 +413,7 @@ export function TechnologiesSection({
                         <button
                           type="button"
                           onClick={() => onOpenEdit(tech)}
-                          className="cursor-pointer rounded-[2px] border border-line bg-surface px-2 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
+                          className="cursor-pointer rounded-full border border-line bg-surface px-2.5 py-1 text-[11px] font-medium text-ink hover:border-ink transition-colors"
                           title="แก้ไขข้อมูล"
                         >
                           แก้ไข
@@ -421,7 +421,7 @@ export function TechnologiesSection({
                         <button
                           type="button"
                           onClick={() => onDelete(tech.id, tech.name)}
-                          className="cursor-pointer rounded-[2px] border border-line bg-surface px-2 py-1 text-[11px] font-medium text-risk hover:border-risk hover:bg-risk-bg transition-colors"
+                          className="cursor-pointer rounded-full border border-line bg-surface px-2.5 py-1 text-[11px] font-medium text-risk hover:border-risk hover:bg-risk-bg transition-colors"
                           title="ลบรายการนี้"
                         >
                           ลบ

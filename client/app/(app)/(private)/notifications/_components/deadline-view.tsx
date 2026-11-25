@@ -75,7 +75,7 @@ export function DeadlineView({
           </h3>
 
           {/* Countdown Callout Box */}
-          <div className="mt-4 rounded-md border border-orange-300 bg-orange-50/60 p-4 dark:border-orange-800/80 dark:bg-orange-950/20">
+          <div className="mt-4 rounded-xl border border-orange-300 bg-orange-50/60 p-4 dark:border-orange-800/80 dark:bg-orange-950/20">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <span className="text-[12px] font-medium text-orange-900 dark:text-orange-300">
@@ -93,7 +93,7 @@ export function DeadlineView({
                 </div>
               </div>
               {item.deadlineDate ? (
-                <div className="rounded border border-orange-200 bg-surface/80 p-2.5 text-left sm:text-right dark:border-orange-900/40">
+                <div className="rounded-lg border border-orange-200 bg-surface/80 p-2.5 text-left sm:text-right dark:border-orange-900/40">
                   <span className="text-[11px] text-ink-3">
                     วันและเวลาปิดรับข้อเสนอ
                   </span>

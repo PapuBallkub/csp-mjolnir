@@ -164,13 +164,13 @@ export function RiskMeter({ level }: { level: RiskLevel }) {
 /* --------------------------------- badges --------------------------------- */
 
 const badgeBase =
-  "inline-flex items-center gap-1.5 rounded-[3px] border px-2 py-0.5 text-[12px] font-medium whitespace-nowrap leading-tight transition-colors duration-150";
+  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] font-medium whitespace-nowrap leading-tight transition-colors duration-150";
 
 const statusBadgeBase =
-  "inline-flex items-center gap-1.5 rounded-[3px] border px-2 py-0.5 text-[12px] font-semibold whitespace-nowrap leading-tight transition-all duration-150";
+  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] font-semibold whitespace-nowrap leading-tight transition-all duration-150";
 
 const largeStatusBadgeBase =
-  "inline-flex items-center gap-2 rounded-[3px] border px-3 py-1 text-[13px] font-semibold whitespace-nowrap leading-tight transition-all duration-150";
+  "inline-flex items-center gap-2 rounded-full border px-3.5 py-1 text-[13px] font-semibold whitespace-nowrap leading-tight transition-all duration-150";
 
 export function StatusBadge({
   status,
@@ -191,7 +191,7 @@ export function StatusBadge({
   const label = STATUS_LABEL[status] || String(status);
   const base =
     size === "large"
-      ? "inline-flex items-center gap-2 rounded-[3px] border px-3 py-1.5 text-[13px] font-semibold leading-none whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-150"
+      ? "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold leading-none whitespace-nowrap shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-150"
       : statusBadgeBase;
   const iconClass = size === "large" ? "h-3.5 w-3.5" : "h-3 w-3";
 
@@ -475,7 +475,7 @@ export function ChangeMarker({ source }: { source: ChangeSource }) {
 export function CompaniesOnlyBadge({ className = "" }: { className?: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-[3px] border border-line-2/70 bg-surface-3 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 whitespace-nowrap leading-tight ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full border border-line-2/70 bg-surface-3 px-2.5 py-0.5 text-[11px] font-medium text-ink-2 whitespace-nowrap leading-tight ${className}`}
       title="TOR กำหนดให้ผู้ยื่นเป็นนิติบุคคล"
     >
       <span className="text-[10px] opacity-75" aria-hidden="true">🏢</span>
@@ -578,7 +578,7 @@ export function VerdictStrip({
     ];
 
     return (
-      <div className="grid grid-cols-1 divide-y divide-line rounded-[3px] border border-line bg-surface-2 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+      <div className="grid grid-cols-1 divide-y divide-line rounded-xl border border-line bg-surface-2 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         {cells.map((cell) => (
           <div key={cell.label} className="flex flex-col gap-2 px-3.5 py-3">
             <Label>{cell.label}</Label>
@@ -622,7 +622,7 @@ export function VerdictStrip({
   ];
 
   return (
-    <div className="grid grid-cols-1 divide-y divide-line rounded-[3px] border border-line bg-surface-2 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+    <div className="grid grid-cols-1 divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface-2 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
       {cells.map((cell) => (
         <div key={cell.label} className="flex flex-col gap-2 px-3.5 py-3">
           <Label>{cell.label}</Label>

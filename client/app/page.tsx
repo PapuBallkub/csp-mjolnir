@@ -210,11 +210,11 @@ export default function LandingPage() {
 
             {/* Primary Search Bar (Above the Fold) */}
             <form onSubmit={handleSearchSubmit} className="mx-auto mt-6 max-w-[780px]">
-              <div className="flex flex-col gap-2 sm:flex-row rounded-[4px] border border-line-2 bg-surface p-1.5 shadow-sm focus-within:border-ink">
+              <div className="flex flex-col gap-2 sm:flex-row rounded-2xl border border-line-2 bg-surface p-1.5 shadow-sm focus-within:border-ink">
                 <div className="relative flex flex-1 items-center">
                   <svg
                     viewBox="0 0 16 16"
-                    className="pointer-events-none absolute left-3 h-4 w-4 text-ink-3"
+                    className="pointer-events-none absolute left-3.5 h-4 w-4 text-ink-3"
                     aria-hidden="true"
                   >
                     <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
@@ -227,13 +227,13 @@ export default function LandingPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="พิมพ์ชื่อโครงการ, หน่วยงาน หรือเทคโนโลยี เช่น Cloud, PostgreSQL, Docker..."
-                    className="w-full py-2 pl-9 pr-3 text-[13.5px] bg-transparent text-ink placeholder:text-ink-3 focus:outline-none"
+                    className="w-full py-2 pl-10 pr-3 text-[13.5px] bg-transparent text-ink placeholder:text-ink-3 focus:outline-none"
                     aria-label="ค้นหาประกาศจัดซื้อจัดจ้าง IT"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="rounded-[3px] bg-ink px-5 py-2.5 sm:py-2 text-[13.5px] font-medium text-surface transition-opacity hover:opacity-85 cursor-pointer shrink-0"
+                  className="rounded-full bg-ink px-6 py-2.5 sm:py-2 text-[13.5px] font-medium text-surface transition-opacity hover:opacity-85 cursor-pointer shrink-0"
                 >
                   ค้นหาประกาศ
                 </button>
@@ -244,35 +244,35 @@ export default function LandingPage() {
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5 text-[13px]">
               <Link
                 href="/search"
-                className="inline-flex h-9 items-center justify-center rounded-[3px] border border-line-2 bg-surface px-4 font-medium text-ink transition-colors hover:bg-surface-2"
+                className="inline-flex h-9 items-center justify-center rounded-full border border-line-2 bg-surface px-4.5 font-medium text-ink transition-colors hover:bg-surface-2"
               >
                 ดูประกาศทั้งหมดในระบบ →
               </Link>
               {isAuthed ? (
                 <Link
                   href={hasProfile ? "/search?sort=match-desc" : "/profile"}
-                  className="inline-flex h-9 items-center justify-center rounded-[3px] border border-open-line bg-open-bg px-4 font-medium text-open transition-opacity hover:opacity-90"
+                  className="inline-flex h-9 items-center justify-center rounded-full border border-open-line bg-open-bg px-4.5 font-medium text-open transition-opacity hover:opacity-90"
                 >
                   {hasProfile ? "ดูประกาศที่เหมาะกับโปรไฟล์ของฉัน" : "ตั้งค่าโปรไฟล์และทักษะ"}
                 </Link>
               ) : (
                 <Link
                   href="/auth"
-                  className="inline-flex h-9 items-center justify-center rounded-[3px] border border-line bg-surface-2 px-4 font-medium text-ink-2 transition-colors hover:border-line-2 hover:text-ink"
+                  className="inline-flex h-9 items-center justify-center rounded-full border border-line bg-surface-2 px-4.5 font-medium text-ink-2 transition-colors hover:border-line-2 hover:text-ink"
                 >
                   เข้าสู่ระบบเพื่อจับคู่ทักษะ
                 </Link>
               )}
               <Link
                 href="/watchdog"
-                className="inline-flex h-9 items-center justify-center rounded-[3px] px-3 text-ink-2 underline underline-offset-2 transition-colors hover:text-ink"
+                className="inline-flex h-9 items-center justify-center rounded-full px-3.5 text-ink-2 underline underline-offset-2 transition-colors hover:text-ink"
               >
                 ภาพรวมราคากลางและความเสี่ยง
               </Link>
             </div>
 
             {/* Live Catalog Metrics Strip (backed by real /api/tors/facets) */}
-            <div className="mx-auto mt-7 grid max-w-[780px] grid-cols-3 divide-x divide-line rounded-[4px] border border-line bg-surface-2/80 text-center">
+            <div className="mx-auto mt-7 grid max-w-[780px] grid-cols-3 divide-x divide-line rounded-2xl border border-line bg-surface-2/80 text-center">
               <div className="px-2 py-2.5 sm:px-4">
                 <div className="font-mono tnum text-[17px] sm:text-[20px] font-bold text-ink">
                   {facets ? facets.total.toLocaleString() : "—"}
@@ -290,7 +290,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <div className="px-2 py-2.5 sm:px-4">
-                <div className="font-mono tnum text-[17px] sm:text-[20px] font-bold text-ink">
+                <div className="font-mono tnum text-[15px] sm:text-[20px] font-bold text-ink whitespace-nowrap">
                   {updatedLabel ?? (facets ? `${facets.agencies.length}+` : "—")}
                 </div>
                 <div className="mt-0.5 text-[11px] sm:text-[11.5px] text-ink-3">
@@ -355,7 +355,7 @@ export default function LandingPage() {
                   ))}
                 </div>
               ) : loadError ? (
-                <div className="rounded-[4px] border border-line bg-surface-2 p-6 text-center text-[13px] text-ink-2">
+                <div className="rounded-2xl border border-line bg-surface-2 p-6 text-center text-[13px] text-ink-2">
                   <p className="font-medium text-ink">โหลดรายการประกาศล่าสุดไม่สำเร็จชั่วคราว</p>
                   <p className="mt-1 text-ink-3">
                     เซิร์ฟเวอร์อาจขัดข้องชั่วคราว ลองโหลดใหม่อีกครั้ง หรือเข้าดูที่หน้าค้นหาหลัก
@@ -364,13 +364,13 @@ export default function LandingPage() {
                     <button
                       type="button"
                       onClick={handleRetry}
-                      className="inline-flex h-8 items-center rounded-[3px] border border-line-2 bg-surface px-3.5 text-[12.5px] font-medium text-ink hover:bg-surface-3 cursor-pointer"
+                      className="inline-flex h-8 items-center rounded-full border border-line-2 bg-surface px-4 text-[12.5px] font-medium text-ink hover:bg-surface-3 cursor-pointer"
                     >
                       ลองโหลดใหม่
                     </button>
                     <Link
                       href="/search"
-                      className="inline-flex h-8 items-center rounded-[3px] px-3 text-[12.5px] font-medium text-ink-2 underline underline-offset-2 hover:text-ink"
+                      className="inline-flex h-8 items-center rounded-full px-3 text-[12.5px] font-medium text-ink-2 underline underline-offset-2 hover:text-ink"
                     >
                       ไปที่หน้าค้นหาหลัก
                     </Link>
@@ -382,7 +382,7 @@ export default function LandingPage() {
                   return <CatalogRow key={tor.projectId} tor={tor} now={fetchedAt} match={match} />;
                 })
               ) : (
-                <div className="rounded-[4px] border border-line bg-surface-2 p-6 text-center text-[13px] text-ink-2">
+                <div className="rounded-2xl border border-line bg-surface-2 p-6 text-center text-[13px] text-ink-2">
                   ขณะนี้ยังไม่มีประกาศสถานะเปิดรับข้อเสนอหรือร่างรับฟังความเห็น คุณสามารถดูโครงการในอดีตทั้งหมดได้ที่{" "}
                   <Link href="/search" className="font-semibold text-ink underline underline-offset-2">
                     หน้าค้นหาประกาศทั้งหมด
@@ -394,7 +394,7 @@ export default function LandingPage() {
             <div className="mt-6 text-center">
               <Link
                 href="/search"
-                className="inline-flex h-10 items-center justify-center rounded-[3px] border border-line-2 bg-surface px-6 text-[13.5px] font-medium text-ink transition-colors hover:bg-surface-2"
+                className="inline-flex h-10 items-center justify-center rounded-full border border-line-2 bg-surface px-6 text-[13.5px] font-medium text-ink transition-colors hover:bg-surface-2"
               >
                 ดูประกาศจัดซื้อจัดจ้างทั้งหมดในระบบ →
               </Link>
@@ -420,11 +420,11 @@ export default function LandingPage() {
               {SHIELDS.map((s) => (
                 <div
                   key={s.title}
-                  className="flex flex-col rounded-[4px] border border-line bg-surface p-5 transition-colors hover:border-line-2"
+                  className="flex flex-col rounded-2xl border border-line bg-surface p-5 shadow-xs transition-colors hover:border-line-2"
                 >
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <div className="rounded p-1.5 bg-surface-2 border border-line shrink-0">{s.icon}</div>
-                    <span className="text-[10.5px] font-mono text-ink-3 bg-surface-2 px-2 py-0.5 rounded border border-line truncate">
+                    <div className="rounded-xl p-2 bg-surface-2 border border-line shrink-0">{s.icon}</div>
+                    <span className="text-[10.5px] font-mono text-ink-3 bg-surface-2 px-2.5 py-0.5 rounded-full border border-line truncate">
                       {s.tag}
                     </span>
                   </div>
@@ -452,7 +452,7 @@ export default function LandingPage() {
 
             <div className="grid gap-5 sm:grid-cols-3">
               {PERSONAS.map((p, idx) => (
-                <div key={p.role} className="flex flex-col rounded-[4px] border border-line bg-surface-2/60 p-5">
+                <div key={p.role} className="flex flex-col rounded-2xl border border-line bg-surface-2/60 p-5">
                   <span className="text-[11px] font-bold tracking-wider text-open">
                     กลุ่มผู้ใช้งาน #{idx + 1}
                   </span>
@@ -488,21 +488,21 @@ export default function LandingPage() {
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="/search"
-                className="inline-flex h-10 min-w-[170px] items-center justify-center rounded-[3px] bg-ink px-5 text-[14px] font-medium text-surface transition-opacity hover:opacity-85"
+                className="inline-flex h-10 min-w-[170px] items-center justify-center rounded-full bg-ink px-6 text-[14px] font-medium text-surface transition-opacity hover:opacity-85"
               >
                 เริ่มค้นหาประกาศ TOR
               </Link>
               {isAuthed ? (
                 <Link
                   href="/profile"
-                  className="inline-flex h-10 min-w-[160px] items-center justify-center rounded-[3px] border border-line-2 bg-surface px-5 text-[14px] font-medium text-ink transition-colors hover:bg-surface-3"
+                  className="inline-flex h-10 min-w-[160px] items-center justify-center rounded-full border border-line-2 bg-surface px-6 text-[14px] font-medium text-ink transition-colors hover:bg-surface-3"
                 >
                   จัดการโปรไฟล์และทักษะ
                 </Link>
               ) : (
                 <Link
                   href="/auth"
-                  className="inline-flex h-10 min-w-[150px] items-center justify-center rounded-[3px] border border-line-2 bg-surface px-5 text-[14px] font-medium text-ink transition-colors hover:bg-surface-3"
+                  className="inline-flex h-10 min-w-[150px] items-center justify-center rounded-full border border-line-2 bg-surface px-6 text-[14px] font-medium text-ink transition-colors hover:bg-surface-3"
                 >
                   สมัครใช้งานฟรี
                 </Link>

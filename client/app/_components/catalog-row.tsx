@@ -32,7 +32,7 @@ import { Chip } from "./ui";
 function ReviewTag({ review }: { review: TorReview }) {
   if (review.origin !== "demo") return null;
   return (
-    <span className="rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-px text-[10.5px] font-medium text-amend">
+    <span className="rounded-full border border-amend-line bg-amend-bg px-2 py-px text-[10.5px] font-medium text-amend">
       ข้อมูลตัวอย่าง
     </span>
   );
@@ -85,7 +85,7 @@ export function CatalogRow({
 
   return (
     <article
-      className={`group relative flex gap-2.5 sm:gap-3 rounded-lg border border-line p-2.5 sm:p-3 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm ${
+      className={`group relative flex gap-2.5 sm:gap-3 rounded-2xl border border-line p-3 sm:p-4 shadow-xs transition-all duration-150 hover:border-line-2 hover:shadow-sm ${
         isClosed ? "bg-surface-closed grayscale" : "bg-surface"
       }`}
     >
@@ -95,7 +95,7 @@ export function CatalogRow({
         {/* Tier 1: Metadata Bar */}
         <div className="flex items-center gap-1.5 text-[11px] text-ink-3 overflow-hidden whitespace-nowrap min-w-0">
           {fiscalYear ? (
-            <span className="shrink-0 font-medium text-ink-2 bg-surface-2 px-1.5 py-0.5 rounded-[2px] border border-line">
+            <span className="shrink-0 font-medium text-ink-2 bg-surface-2 px-2 py-0.5 rounded-full border border-line">
               ปีงบฯ {fiscalYear}
             </span>
           ) : null}
@@ -153,7 +153,7 @@ export function CatalogRow({
         </h3>
 
         {/* Tier 3: Core Facts Grid (Budget, Deadline, Match) */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 rounded-[4px] bg-surface-2/60 border border-line/50 p-2 text-[12px]">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 rounded-xl bg-surface-2/60 border border-line/50 p-2.5 text-[12px]">
           {/* 1. Price */}
           <div className="flex flex-col justify-between min-h-[44px]">
             <span className="text-[10px] font-medium text-ink-3 uppercase tracking-wider">{priceLabel}</span>
@@ -221,7 +221,7 @@ export function CatalogRow({
             {match?.disqualifiedDirectBid ? (
               <span
                 title="TOR กำหนดเฉพาะนิติบุคคล แต่คุณลงทะเบียนเป็นบุคคลธรรมดา (แนะนำเข้าร่วมในรูปแบบกิจการร่วมค้า หรือรับงานช่วง)"
-                className="inline-flex shrink-0 items-center gap-1 rounded-[3px] border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10.5px] font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
               >
                 <span aria-hidden="true">⚠️</span>
                 <span>เฉพาะนิติบุคคล</span>
@@ -263,9 +263,9 @@ export function CatalogRow({
 
 /** Shaped like a row, so the page doesn't jump when the real ones arrive. */
 export function CatalogRowSkeleton() {
-  const bar = "rounded-[2px] bg-surface-3";
+  const bar = "rounded-full bg-surface-3";
   return (
-    <div className="flex gap-2.5 sm:gap-3 rounded-lg border border-line bg-surface p-2.5 sm:p-3" aria-hidden="true">
+    <div className="flex gap-2.5 sm:gap-3 rounded-2xl border border-line bg-surface p-3 sm:p-4" aria-hidden="true">
       <span className="w-[4px] shrink-0 rounded-full bg-line" />
       <div className="flex min-w-0 flex-1 animate-pulse flex-col gap-1.5 sm:gap-2">
         <div className={`h-3 w-48 ${bar}`} />
@@ -273,8 +273,8 @@ export function CatalogRowSkeleton() {
           <div className={`h-4.5 w-20 ${bar}`} />
           <div className={`h-4.5 w-28 ${bar}`} />
         </div>
-        <div className={`h-[2.5rem] sm:h-[2.75rem] w-3/4 rounded-[2px] ${bar}`} />
-        <div className={`h-[58px] w-full rounded-[4px] ${bar}`} />
+        <div className={`h-[2.5rem] sm:h-[2.75rem] w-3/4 rounded-lg ${bar}`} />
+        <div className={`h-[58px] w-full rounded-xl ${bar}`} />
         <div className="flex h-6 items-center gap-2 pt-0.5">
           <div className={`h-3 w-16 ${bar}`} />
           <div className={`h-3 w-20 ${bar}`} />

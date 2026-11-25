@@ -149,9 +149,9 @@ export function FacetList({
   if (!facets) {
     return (
       <div className="flex animate-pulse flex-col gap-2.5 py-0.5" aria-hidden="true">
-        <div className="h-3 w-4/5 rounded-[2px] bg-surface-3" />
-        <div className="h-3 w-3/5 rounded-[2px] bg-surface-3" />
-        <div className="h-3 w-2/3 rounded-[2px] bg-surface-3" />
+        <div className="h-3 w-4/5 rounded-full bg-surface-3" />
+        <div className="h-3 w-3/5 rounded-full bg-surface-3" />
+        <div className="h-3 w-2/3 rounded-full bg-surface-3" />
       </div>
     );
   }

@@ -242,7 +242,7 @@ export function PriceTrendLineChart({
             </span>
           </span>
           <span className="inline-flex items-center gap-2">
-            <span className="h-3 w-5 rounded-[2px] border border-line-2 bg-surface-3" />
+            <span className="h-3 w-5 rounded-sm border border-line-2 bg-surface-3" />
             <span>
               {`กรอบราคาปกติ (±${NORMAL_BAND_PCT}% จากค่ามัธยฐาน)`}
             </span>
@@ -255,7 +255,7 @@ export function PriceTrendLineChart({
             <button
               type="button"
               onClick={() => onSelectBucket(null)}
-              className="inline-flex items-center gap-1.5 rounded-[2px] border border-line-2 bg-surface-2 px-2 py-0.5 font-medium text-ink hover:bg-surface-3 cursor-pointer mr-1"
+              className="inline-flex items-center gap-1.5 rounded-full border border-line-2 bg-surface-2 px-2.5 py-0.5 font-medium text-ink hover:bg-surface-3 cursor-pointer mr-1"
             >
               <span>
                 {`กรองเฉพาะช่วง: ${series.find((s) => s.key === activeBucket)?.label}`}

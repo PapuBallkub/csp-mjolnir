@@ -31,7 +31,7 @@ export function CategoryPicker({
           return (
             <label
               key={key}
-              className={`flex min-h-9 items-center gap-2 rounded-[3px] border px-2.5 py-1.5 text-[13px] leading-thai ${
+              className={`flex min-h-9 items-center gap-2 rounded-xl border px-3 py-1.5 text-[13px] leading-thai ${
                 rank > 0
                   ? `bg-surface-2 text-ink ${isModified ? "border-amend/80" : "border-ink-3"}`
                   : "border-line-2 bg-surface text-ink-2"
@@ -46,7 +46,7 @@ export function CategoryPicker({
               />
               <span
                 aria-hidden="true"
-                className={`flex h-5 w-5 flex-none items-center justify-center rounded-[3px] border text-[11px] font-semibold tnum peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink ${
+                className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border text-[11px] font-semibold tnum peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink ${
                   rank > 0 ? "border-ink bg-ink text-surface" : "border-line-2"
                 }`}
               >
@@ -111,12 +111,12 @@ export function DynamicListEditor({
   };
 
   return (
-    <div className={`flex flex-col gap-2 rounded-[3px] transition-colors ${isModified ? "p-2 bg-amend-bg/15 border border-amend-line/80" : ""}`}>
+    <div className={`flex flex-col gap-2 rounded-xl transition-colors ${isModified ? "p-2.5 bg-amend-bg/15 border border-amend-line/80" : ""}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Label>{label}</Label>
           {isModified && (
-            <span className="inline-flex items-center gap-1 rounded-[2px] bg-amend-bg border border-amend-line px-1.5 py-0.2 text-[10.5px] font-semibold text-amend">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amend-bg border border-amend-line px-2 py-0.5 text-[10.5px] font-semibold text-amend">
               <span>●</span>
               <span>แก้ไขแล้ว</span>
               {onRevert && (
@@ -152,7 +152,7 @@ export function DynamicListEditor({
               type="button"
               onClick={() => handleRemove(idx)}
               title="ลบรายการนี้"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] text-ink-3 hover:bg-risk-bg hover:text-risk transition-colors cursor-pointer"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-3 hover:bg-risk-bg hover:text-risk transition-colors cursor-pointer"
             >
               ✕
             </button>
@@ -214,12 +214,12 @@ export function KeyValueListEditor({
   };
 
   return (
-    <div className={`flex flex-col gap-2 rounded-[3px] transition-colors ${isModified ? "p-2 bg-amend-bg/15 border border-amend-line/80" : ""}`}>
+    <div className={`flex flex-col gap-2 rounded-xl transition-colors ${isModified ? "p-2.5 bg-amend-bg/15 border border-amend-line/80" : ""}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Label>{label}</Label>
           {isModified && (
-            <span className="inline-flex items-center gap-1 rounded-[2px] bg-amend-bg border border-amend-line px-1.5 py-0.2 text-[10.5px] font-semibold text-amend">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amend-bg border border-amend-line px-2 py-0.5 text-[10.5px] font-semibold text-amend">
               <span>●</span>
               <span>แก้ไขแล้ว</span>
               {onRevert && (
@@ -240,7 +240,7 @@ export function KeyValueListEditor({
 
       <div className="flex flex-col gap-2">
         {items.map((row, idx) => (
-          <div key={idx} className="flex flex-col gap-2 rounded-[3px] border border-line bg-surface-2 p-2 sm:flex-row sm:items-center">
+          <div key={idx} className="flex flex-col gap-2 rounded-xl border border-line bg-surface-2 p-2.5 sm:flex-row sm:items-center">
             <span className="flex h-8 w-6 shrink-0 items-center justify-center font-mono text-[11px] font-semibold text-ink-3">
               {idx + 1}.
             </span>
@@ -262,7 +262,7 @@ export function KeyValueListEditor({
               type="button"
               onClick={() => handleRemove(idx)}
               title="ลบรายการนี้"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] text-ink-3 hover:bg-risk-bg hover:text-risk transition-colors cursor-pointer self-end sm:self-auto"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-3 hover:bg-risk-bg hover:text-risk transition-colors cursor-pointer self-end sm:self-auto"
             >
               ✕
             </button>
@@ -322,7 +322,7 @@ export function VersionHistoryDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-[3px] text-ink-3 hover:bg-surface-2 hover:text-ink cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-3 hover:bg-surface-2 hover:text-ink cursor-pointer"
           >
             ✕
           </button>
@@ -331,7 +331,7 @@ export function VersionHistoryDrawer({
         {/* Drawer Content */}
         <div className="flex-1 overflow-y-auto p-5">
           {versions.length === 0 ? (
-            <div className="rounded-[3px] border border-line bg-surface-2 p-6 text-center text-[13px] text-ink-3">
+            <div className="rounded-xl border border-line bg-surface-2 p-6 text-center text-[13px] text-ink-3">
               ยังไม่มีประวัติเวอร์ชันก่อนหน้า — บันทึกนี้เป็นเวอร์ชันเริ่มต้น v1
             </div>
           ) : (
@@ -339,14 +339,14 @@ export function VersionHistoryDrawer({
               {versions.map((ver) => (
                 <div
                   key={ver.version}
-                  className="rounded-[3px] border border-line bg-surface-2 p-4 transition-all"
+                  className="rounded-xl border border-line bg-surface-2 p-4 transition-all"
                 >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-[13px] font-bold text-ink">
                           v{ver.version}
                         </span>
-                        <span className="rounded-[2px] border border-line px-1.5 py-0.5 text-[10px] font-mono text-ink-2">
+                        <span className="rounded-full border border-line px-2 py-0.5 text-[10px] font-mono text-ink-2">
                           {ver.reason}
                         </span>
                       </div>
@@ -391,7 +391,7 @@ export function VersionHistoryDrawer({
                     </div>
 
                     {confirmRollbackVersion === ver.version && (
-                      <div className="rounded-[3px] border border-amend-line bg-amend-bg/30 p-3 mt-3 space-y-2 animate-in fade-in duration-100">
+                      <div className="rounded-lg border border-amend-line bg-amend-bg/30 p-3 mt-3 space-y-2 animate-in fade-in duration-100">
                         <div className="text-[12px] font-semibold text-ink flex items-center gap-1.5">
                           <span>⚠️</span>
                           <span>
@@ -469,7 +469,7 @@ export function EvidenceGroundingDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-[3px] text-ink-3 hover:bg-surface-2 hover:text-ink cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-3 hover:bg-surface-2 hover:text-ink cursor-pointer"
           >
             ✕
           </button>
@@ -477,17 +477,17 @@ export function EvidenceGroundingDrawer({
 
         <div className="flex-1 overflow-y-auto p-5">
           {entries.length === 0 ? (
-            <div className="rounded-[3px] border border-line bg-surface-2 p-6 text-center text-[13px] text-ink-3">
+            <div className="rounded-xl border border-line bg-surface-2 p-6 text-center text-[13px] text-ink-3">
               ไม่มีข้อมูลข้อความอ้างอิง (Evidence) ที่บันทึกไว้สำหรับโครงการนี้
             </div>
           ) : (
             <div className="flex flex-col gap-4">
               {entries.map(([key, value]) => (
-                <div key={key} className="rounded-[3px] border border-line bg-surface-2 p-3">
+                <div key={key} className="rounded-xl border border-line bg-surface-2 p-3">
                   <div className="font-mono text-[11px] font-semibold text-ink-2 uppercase tracking-wider mb-1.5">
                     {key}
                   </div>
-                  <blockquote className="border-l-2 border-open pl-3 text-[12.5px] leading-relaxed text-ink font-serif italic bg-surface p-2 rounded-[2px]">
+                  <blockquote className="border-l-2 border-open pl-3 text-[12.5px] leading-relaxed text-ink font-serif italic bg-surface p-2.5 rounded-lg">
                     {typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}
                   </blockquote>
                 </div>
@@ -551,7 +551,7 @@ function SmartDiffContent({
                 {removed.map((it, idx) => (
                   <span
                     key={idx}
-                    className="rounded-[2px] bg-risk-bg text-risk border border-risk-line px-1.5 py-0.5 font-mono line-through"
+                    className="rounded-full bg-risk-bg text-risk border border-risk-line px-2 py-0.5 font-mono line-through"
                   >
                     {it}
                   </span>
@@ -570,7 +570,7 @@ function SmartDiffContent({
                 {added.map((it, idx) => (
                   <span
                     key={idx}
-                    className="rounded-[2px] bg-open-bg text-open border border-open-line px-1.5 py-0.5 font-semibold font-mono"
+                    className="rounded-full bg-open-bg text-open border border-open-line px-2 py-0.5 font-semibold font-mono"
                   >
                     {it}
                   </span>
@@ -598,7 +598,7 @@ function SmartDiffContent({
     const toSet = new Set(toWords);
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[12px] pt-1">
-        <div className="rounded-[2px] bg-surface p-2 border border-line">
+        <div className="rounded-lg bg-surface p-2.5 border border-line">
           <div className="text-[10px] uppercase font-mono text-ink-3 mb-0.5">
             ค่าเดิม (Before)
           </div>
@@ -608,7 +608,7 @@ function SmartDiffContent({
                 key={i}
                 className={
                   !toSet.has(w)
-                    ? "bg-risk-bg text-risk line-through px-0.5 rounded-[1px] mr-1"
+                    ? "bg-risk-bg text-risk line-through px-1 rounded-sm mr-1"
                     : "text-ink-2 mr-1"
                 }
               >
@@ -618,7 +618,7 @@ function SmartDiffContent({
           </div>
         </div>
 
-        <div className="rounded-[2px] bg-open-bg/30 p-2 border border-open-line">
+        <div className="rounded-lg bg-open-bg/30 p-2.5 border border-open-line">
           <div className="text-[10px] uppercase font-mono text-open font-semibold mb-0.5">
             ค่าใหม่ (After)
           </div>
@@ -628,7 +628,7 @@ function SmartDiffContent({
                 key={i}
                 className={
                   !fromSet.has(w)
-                    ? "bg-open-bg text-open font-semibold px-0.5 rounded-[1px] border border-open-line mr-1"
+                    ? "bg-open-bg text-open font-semibold px-1 rounded-sm border border-open-line mr-1"
                     : "text-ink mr-1"
                 }
               >
@@ -644,7 +644,7 @@ function SmartDiffContent({
   // Standard side-by-side Before/After for scalar/short values
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[12px] pt-1">
-      <div className="rounded-[2px] bg-surface p-2 border border-line">
+      <div className="rounded-lg bg-surface p-2.5 border border-line">
         <div className="text-[10px] uppercase font-mono text-ink-3 mb-0.5">
           ค่าเดิม (Before)
         </div>
@@ -653,7 +653,7 @@ function SmartDiffContent({
         </div>
       </div>
 
-      <div className="rounded-[2px] bg-open-bg/40 p-2 border border-open-line">
+      <div className="rounded-lg bg-open-bg/40 p-2.5 border border-open-line">
         <div className="text-[10px] uppercase font-mono text-open font-semibold mb-0.5">
           ค่าใหม่ (After)
         </div>
@@ -715,13 +715,13 @@ export function EditSummaryConfirmModal({
       }}
     >
       <div
-        className="relative flex flex-col w-full max-w-2xl max-h-[85vh] bg-surface border border-line rounded-[4px] shadow-2xl overflow-hidden"
+        className="relative flex flex-col w-full max-w-2xl max-h-[85vh] bg-surface border border-line rounded-2xl shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-line bg-surface-2 px-5 py-3.5">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-6 w-6 items-center justify-center rounded-[3px] bg-ink text-surface text-[13px]">
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-ink text-surface text-[13px]">
               📋
             </span>
             <div>
@@ -737,7 +737,7 @@ export function EditSummaryConfirmModal({
             type="button"
             disabled={isSaving}
             onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-[2px] text-ink-3 hover:bg-surface hover:text-ink transition-colors cursor-pointer"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-ink-3 hover:bg-surface hover:text-ink transition-colors cursor-pointer"
           >
             ✕
           </button>
@@ -747,7 +747,7 @@ export function EditSummaryConfirmModal({
         <div className="px-5 py-2.5 border-b border-line bg-surface flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span
-              className={`rounded-[2px] px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+              className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                 diffs.length > 0
                   ? "border border-amend-line bg-amend-bg text-amend"
                   : "bg-surface-2 text-ink-3 border border-line"
@@ -766,7 +766,7 @@ export function EditSummaryConfirmModal({
         {/* Body / Diff List */}
         <div className="flex-1 overflow-y-auto p-5">
           {diffs.length === 0 ? (
-            <div className="rounded-[3px] border border-line bg-surface-2/60 p-6 text-center space-y-1.5">
+            <div className="rounded-xl border border-line bg-surface-2/60 p-6 text-center space-y-1.5">
               <p className="text-[13px] font-medium text-ink">
                 ไม่มีการแก้ไขข้อมูลในฟอร์ม
               </p>
@@ -779,11 +779,11 @@ export function EditSummaryConfirmModal({
               {diffs.map((d, idx) => (
                 <div
                   key={`${d.field}-${idx}`}
-                  className="rounded-[3px] border border-line bg-surface-2/40 p-3 space-y-1.5"
+                  className="rounded-xl border border-line bg-surface-2/40 p-3 space-y-1.5"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="rounded-[2px] border border-line bg-surface px-1.5 py-0.5 text-[10.5px] font-mono text-ink-3">
+                      <span className="rounded-full border border-line bg-surface px-2 py-0.5 text-[10.5px] font-mono text-ink-3">
                         {d.section}
                       </span>
                       <span className="text-[12.5px] font-semibold text-ink">
@@ -795,7 +795,7 @@ export function EditSummaryConfirmModal({
                         <button
                           type="button"
                           onClick={() => onRevertField(d.field)}
-                          className="text-[10.5px] text-ink-3 hover:text-ink hover:underline flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] border border-line bg-surface hover:bg-surface-2 transition-colors cursor-pointer"
+                          className="text-[10.5px] text-ink-3 hover:text-ink hover:underline flex items-center gap-1 px-2 py-0.5 rounded-full border border-line bg-surface hover:bg-surface-2 transition-colors cursor-pointer"
                           title="คืนค่าฟิลด์นี้กลับเป็นค่าเดิม"
                         >
                           <span>↺</span>
@@ -832,7 +832,7 @@ export function EditSummaryConfirmModal({
                 type="button"
                 disabled={isSaving}
                 onClick={() => setShowDiscardConfirm(true)}
-                className="text-[11.5px] text-risk hover:underline px-2.5 py-1 rounded-[2px] hover:bg-risk-bg transition-colors cursor-pointer"
+                className="text-[11.5px] text-risk hover:underline px-3 py-1 rounded-full hover:bg-risk-bg transition-colors cursor-pointer"
               >
                 ยกเลิกการแก้ไขทั้งหมด
               </button>
@@ -868,7 +868,7 @@ export function EditSummaryConfirmModal({
           }}
         >
           <div
-            className="relative flex flex-col w-full max-w-md bg-surface border border-line rounded-[4px] shadow-2xl p-5 space-y-4"
+            className="relative flex flex-col w-full max-w-md bg-surface border border-line rounded-2xl shadow-2xl p-5 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3">
@@ -902,7 +902,7 @@ export function EditSummaryConfirmModal({
                   }
                   onClose();
                 }}
-                className="rounded-[3px] bg-risk px-4 h-8 text-[12px] font-semibold text-white hover:opacity-90 transition-opacity cursor-pointer"
+                className="rounded-full bg-risk px-4 h-8 text-[12px] font-semibold text-white hover:opacity-90 transition-opacity cursor-pointer"
               >
                 ยืนยันคืนค่าทั้งหมด
               </button>

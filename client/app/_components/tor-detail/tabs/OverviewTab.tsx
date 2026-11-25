@@ -66,13 +66,13 @@ export function OverviewTab({
         (!deliverables.implementation || deliverables.implementation.length === 0) &&
         (!deliverables.validation || deliverables.validation.length === 0) &&
         (!deliverables.supportingWork || deliverables.supportingWork.length === 0) ? (
-          <div className="mt-3 rounded-[3px] border border-line bg-surface-2/40 p-4 text-[13px] leading-thai text-ink-3">
+          <div className="mt-3 rounded-xl border border-line bg-surface-2/40 p-4 text-[13px] leading-thai text-ink-3">
             ไม่มีการแจกแจงรายการสิ่งส่งมอบเฉพาะในเอกสาร TOR ฉบับนี้
           </div>
         ) : (
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
             {deliverables.system && deliverables.system.length > 0 ? (
-              <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+              <div className="rounded-xl border border-line bg-surface-2/40 p-3.5">
                 <h3 className="text-[13px] font-semibold text-ink">
                   📦 ระบบซอฟต์แวร์และเอกสารระบบ
                 </h3>
@@ -88,7 +88,7 @@ export function OverviewTab({
             ) : null}
 
             {deliverables.implementation && deliverables.implementation.length > 0 ? (
-              <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+              <div className="rounded-xl border border-line bg-surface-2/40 p-3.5">
                 <h3 className="text-[13px] font-semibold text-ink">
                   ⚙️ การติดตั้งและย้ายข้อมูล
                 </h3>
@@ -104,7 +104,7 @@ export function OverviewTab({
             ) : null}
 
             {deliverables.validation && deliverables.validation.length > 0 ? (
-              <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+              <div className="rounded-xl border border-line bg-surface-2/40 p-3.5">
                 <h3 className="text-[13px] font-semibold text-ink">
                   🔍 การทดสอบระบบและการตรวจรับ
                 </h3>
@@ -120,7 +120,7 @@ export function OverviewTab({
             ) : null}
 
             {deliverables.supportingWork && deliverables.supportingWork.length > 0 ? (
-              <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+              <div className="rounded-xl border border-line bg-surface-2/40 p-3.5">
                 <h3 className="text-[13px] font-semibold text-ink">
                   🎓 การฝึกอบรมและการสนับสนุน
                 </h3>

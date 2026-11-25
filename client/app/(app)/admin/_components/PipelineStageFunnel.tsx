@@ -74,7 +74,7 @@ export function PipelineStageFunnel({
                   STAGE {item.num}
                 </span>
                 <span
-                  className={`rounded-[2px] border px-1.5 py-[1px] text-[10px] ${
+                  className={`rounded-full border px-2 py-[1px] text-[10px] ${
                     item.highlight
                       ? "border-open-line bg-open-bg text-open font-semibold"
                       : "border-line bg-surface-2 text-ink-2"

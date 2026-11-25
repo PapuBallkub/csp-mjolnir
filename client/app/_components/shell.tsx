@@ -161,7 +161,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
               : "การแจ้งเตือน"
           }
           title="การแจ้งเตือน"
-          className="relative flex h-9 w-9 sm:h-[26px] sm:w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
+          className="relative flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded-full border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink"
         >
           <Bell className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           {activeUnreadCount > 0 ? (
@@ -180,7 +180,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
             aria-live="polite"
             onMouseEnter={handlePauseTimer}
             onMouseLeave={handleResumeTimer}
-            className="absolute right-0 top-full z-50 mt-2 w-max max-w-[280px] rounded-md border border-line-2 bg-surface-2 p-2.5 pb-3.5 shadow-lg animate-in fade-in slide-in-from-top-1"
+            className="absolute right-0 top-full z-50 mt-2 w-max max-w-[280px] rounded-xl border border-line-2 bg-surface-2 p-2.5 pb-3.5 shadow-lg animate-in fade-in slide-in-from-top-1"
           >
             {/* The little upward arrow pointing to the bell */}
             <div
@@ -224,7 +224,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
         // resolving it moves nothing.
         <span
           aria-hidden="true"
-          className="h-9 w-9 sm:h-[26px] sm:w-[92px] rounded-[3px] border border-line bg-surface-2"
+          className="h-9 w-9 sm:h-7 sm:w-[92px] rounded-full border border-line bg-surface-2"
         />
       ) : status === "authenticated" ? (
         <span className="flex items-center gap-1.5 sm:gap-1">
@@ -232,7 +232,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
             href="/profile"
             title={user.email}
             aria-label={`โปรไฟล์ของ ${displayName(user)}`}
-            className={`flex h-9 w-9 sm:h-[26px] sm:w-auto items-center justify-center rounded-[3px] border sm:px-2 text-[12px] transition-colors ${
+            className={`flex h-9 w-9 sm:h-7 sm:w-auto items-center justify-center rounded-full border sm:px-3 text-[12px] transition-colors ${
               pathname?.startsWith("/profile")
                 ? "border-line-2 bg-surface-3 text-ink"
                 : "border-line bg-surface-2 text-ink-2 hover:text-ink"
@@ -248,7 +248,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
             onClick={() => signOut()}
             aria-label="ออกจากระบบ"
             title="ออกจากระบบ"
-            className="flex h-9 w-9 sm:h-[26px] sm:w-[26px] items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink cursor-pointer shrink-0"
+            className="flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded-full border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink cursor-pointer shrink-0"
           >
             <LogOut className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           </button>
@@ -256,7 +256,7 @@ export function HeaderControls({ className = "" }: { className?: string }) {
       ) : (
         <Link
           href={signInHref}
-          className="flex h-9 sm:h-[26px] items-center rounded-[3px] border border-line-2 bg-surface px-3 sm:px-2.5 text-[12.5px] sm:text-[12px] font-medium text-ink transition-colors hover:bg-surface-2"
+          className="flex h-9 sm:h-7 items-center rounded-full border border-line-2 bg-surface px-3.5 sm:px-3 text-[12.5px] sm:text-[12px] font-medium text-ink transition-colors hover:bg-surface-2"
         >
           เข้าสู่ระบบ
         </Link>
@@ -282,7 +282,7 @@ export function SiteHeader() {
           aria-expanded={mobileMenuOpen}
           aria-controls="mobile-site-nav"
           aria-label={mobileMenuOpen ? "ปิดเมนูนำทาง" : "เปิดเมนูนำทาง"}
-          className="md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink cursor-pointer"
+          className="md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink cursor-pointer"
         >
           {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </button>
@@ -308,7 +308,7 @@ export function SiteHeader() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`rounded-[3px] px-2.5 py-1.5 text-[13px] whitespace-nowrap transition-colors ${
+                className={`rounded-full px-3 py-1.5 text-[13px] whitespace-nowrap transition-colors ${
                   active
                     ? "bg-surface-3 font-medium text-ink"
                     : "text-ink/80 hover:bg-surface-2 hover:text-ink"
@@ -324,7 +324,7 @@ export function SiteHeader() {
               <span className="mx-1 h-4 w-px shrink-0 bg-line" />
               <Link
                 href="/admin"
-                className={`rounded-[3px] px-2.5 py-1.5 text-[13px] whitespace-nowrap transition-colors ${
+                className={`rounded-full px-3 py-1.5 text-[13px] whitespace-nowrap transition-colors ${
                   pathname.startsWith("/admin")
                     ? "bg-surface-3 font-medium text-ink"
                     : "text-ink/75 hover:bg-surface-2 hover:text-ink"
@@ -356,7 +356,7 @@ export function SiteHeader() {
                   key={item.href}
                   href={item.href}
                   onClick={() => setMenuOpenPath(null)}
-                  className={`flex items-center rounded-[3px] px-3 py-2.5 text-[14px] transition-colors ${
+                  className={`flex items-center rounded-xl px-3.5 py-2.5 text-[14px] transition-colors ${
                     active
                       ? "bg-surface-3 font-semibold text-ink"
                       : "text-ink-2 hover:bg-surface-2 hover:text-ink"
@@ -373,7 +373,7 @@ export function SiteHeader() {
                 <Link
                   href="/admin"
                   onClick={() => setMenuOpenPath(null)}
-                  className={`flex items-center rounded-[3px] px-3 py-2.5 text-[14px] transition-colors ${
+                  className={`flex items-center rounded-xl px-3.5 py-2.5 text-[14px] transition-colors ${
                     pathname.startsWith("/admin")
                       ? "bg-surface-3 font-semibold text-ink"
                       : "text-ink-2 hover:bg-surface-2 hover:text-ink"

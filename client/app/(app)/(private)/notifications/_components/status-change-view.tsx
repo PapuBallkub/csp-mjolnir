@@ -80,7 +80,7 @@ export function StatusChangeView({
             </h3>
 
             {/* Status Transition Callout Box */}
-            <div className="mt-4 rounded-md border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900/60 dark:bg-blue-950/20">
+            <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900/60 dark:bg-blue-950/20">
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex flex-col items-start gap-1">
                   <span className="text-[11px] text-ink-3">

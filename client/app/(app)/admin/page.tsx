@@ -55,8 +55,8 @@ function OverviewTabSkeleton() {
       <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {[1, 2, 3, 4, 5].map((i) => (
           <Panel key={i} className="px-3 py-2.5 h-[68px]">
-            <div className="h-6 w-16 rounded-[2px] bg-surface-3 mb-1.5" />
-            <div className="h-3 w-24 rounded-[2px] bg-surface-2" />
+            <div className="h-6 w-16 rounded-full bg-surface-3 mb-1.5" />
+            <div className="h-3 w-24 rounded-full bg-surface-2" />
           </Panel>
         ))}
       </div>
@@ -65,7 +65,7 @@ function OverviewTabSkeleton() {
       <Panel className="w-full p-4">
         <div className="grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-36 rounded-[2px] bg-surface-2" />
+            <div key={i} className="h-36 rounded-xl bg-surface-2" />
           ))}
         </div>
       </Panel>
@@ -110,20 +110,20 @@ function ReviewTabSkeleton() {
   return (
     <div className="w-full space-y-4 animate-pulse" aria-busy="true">
       <div className="flex items-center justify-between pb-2">
-        <div className="h-5 w-48 rounded-[2px] bg-surface-3" />
-        <div className="h-4 w-20 rounded-[2px] bg-surface-2" />
+        <div className="h-5 w-48 rounded-full bg-surface-3" />
+        <div className="h-4 w-20 rounded-full bg-surface-2" />
       </div>
       <div className="flex gap-2">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-8 w-24 rounded-[3px] bg-surface-2" />
+          <div key={i} className="h-8 w-24 rounded-full bg-surface-2" />
         ))}
       </div>
       <div className="space-y-3">
         {[1, 2, 3, 4].map((i) => (
           <Panel key={i} className="p-4 space-y-3">
-            <div className="h-5 w-3/4 rounded-[2px] bg-surface-3" />
-            <div className="h-3.5 w-1/2 rounded-[2px] bg-surface-2" />
-            <div className="h-3 w-1/3 rounded-[2px] bg-surface-2" />
+            <div className="h-5 w-3/4 rounded-full bg-surface-3" />
+            <div className="h-3.5 w-1/2 rounded-full bg-surface-2" />
+            <div className="h-3 w-1/3 rounded-full bg-surface-2" />
           </Panel>
         ))}
       </div>
@@ -138,8 +138,8 @@ function HistoryTabSkeleton() {
       <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
           <Panel key={i} className="px-3 py-2.5 h-[68px]">
-            <div className="h-6 w-16 rounded-[2px] bg-surface-3 mb-1.5" />
-            <div className="h-3 w-28 rounded-[2px] bg-surface-2" />
+            <div className="h-6 w-16 rounded-full bg-surface-3 mb-1.5" />
+            <div className="h-3 w-28 rounded-full bg-surface-2" />
           </Panel>
         ))}
       </div>
@@ -923,7 +923,7 @@ function AdminDashboard({
                   setJobNavOpen(false);
                 }}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex w-full items-start justify-between rounded-[3px] px-3 py-2.5 text-left transition-all duration-150 cursor-pointer ${
+                className={`flex w-full items-start justify-between rounded-xl px-3 py-2.5 text-left transition-all duration-150 cursor-pointer ${
                   isActive
                     ? "bg-ink text-surface shadow-xs font-semibold"
                     : "text-ink-2 hover:bg-surface-2 hover:text-ink"
@@ -947,7 +947,7 @@ function AdminDashboard({
 
                 {job.badge !== undefined && (
                   <span
-                    className={`shrink-0 rounded-[2px] px-1.5 py-0.5 font-mono tnum text-[11px] font-medium ${
+                    className={`shrink-0 rounded-full px-2 py-0.5 font-mono tnum text-[11px] font-medium ${
                       isActive
                         ? "bg-surface/20 text-surface"
                         : job.badgeTone === "risk"
@@ -973,7 +973,7 @@ function AdminDashboard({
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-line pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="rounded-[2px] bg-ink text-surface px-1.5 py-0.5 text-[10px] uppercase font-semibold tracking-wider font-mono">
+            <span className="rounded-full bg-ink text-surface px-2.5 py-0.5 text-[10px] uppercase font-semibold tracking-wider font-mono">
               ADMIN OPS
             </span>
             <span className="text-[11px] text-ink-3">
@@ -1043,7 +1043,7 @@ function AdminDashboard({
 
             {/* Suggestions Dropdown Popover */}
             {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute left-0 right-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-[3px] border border-line bg-surface shadow-2xl text-[12px]">
+              <div className="absolute left-0 right-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-xl border border-line bg-surface shadow-2xl text-[12px]">
                 <div className="px-2.5 py-1.5 text-[10px] uppercase font-semibold text-ink-3 bg-surface-2 border-b border-line flex justify-between items-center">
                   <span>{"โครงการที่พบ"}</span>
                   <span className="font-mono">{suggestions.length}</span>
@@ -1064,7 +1064,7 @@ function AdminDashboard({
                           <span className="font-mono font-bold text-[11px] text-ink">
                             {p.projectId}
                           </span>
-                          <span className="text-[10px] px-1 py-0.2 rounded border border-line bg-surface-2 text-ink-3 font-mono">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full border border-line bg-surface-2 text-ink-3 font-mono">
                             {p.status}
                           </span>
                         </div>
@@ -1154,7 +1154,7 @@ function AdminDashboard({
             ) : (
             <div className="w-full">
               {/* KPI Stats Strip */}
-              <div className="mb-6 grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              <div className={`mb-6 grid w-full grid-cols-2 gap-2 sm:grid-cols-3 ${stats.length >= 6 ? "lg:grid-cols-6" : "lg:grid-cols-5"}`}>
                 {stats.map((stat) => (
                   <Panel key={stat.label} className="px-3 py-2.5">
                     <p className="font-mono tnum text-[24px] leading-none font-medium text-ink">
@@ -1188,7 +1188,7 @@ function AdminDashboard({
         </SectionHeading>
 
         {checkMessage ? (
-          <div className="mb-3 flex items-center justify-between rounded-[3px] border border-open-line bg-open-bg px-3 py-2 text-[12px] text-ink">
+          <div className="mb-3 flex items-center justify-between rounded-xl border border-open-line bg-open-bg px-3.5 py-2 text-[12px] text-ink">
             <span className="flex items-center gap-2">
               <span className="text-open">●</span>
               {checkMessage}
@@ -1243,14 +1243,14 @@ function AdminDashboard({
                       {source.portal} · {source.format}
                     </span>
                     {source.error ? (
-                      <p className="mt-1.5 max-w-[420px] rounded-[3px] border border-risk-line bg-risk-bg px-2 py-1.5 text-[11px] leading-relaxed text-risk">
+                      <p className="mt-1.5 max-w-[420px] rounded-lg border border-risk-line bg-risk-bg px-2.5 py-1.5 text-[11px] leading-relaxed text-risk">
                         {source.error}
                       </p>
                     ) : null}
                   </td>
                   <td className="px-3 py-2.5">
                     <span
-                      className={`inline-flex rounded-[2px] border px-1.5 py-[3px] text-[11px] font-medium ${
+                      className={`inline-flex rounded-full border px-2 py-[3px] text-[11px] font-medium ${
                         HEALTH[source.health]?.chip ?? "border-line bg-surface-2 text-ink-2"
                       }`}
                     >
@@ -1262,7 +1262,7 @@ function AdminDashboard({
                       {source.history.map((succeeded, index) => (
                         <span
                           key={index}
-                          className={`w-[4px] rounded-[1px] transition-all ${
+                          className={`w-[4px] rounded-full transition-all ${
                             succeeded === null
                               ? "h-[5px] bg-line/60"
                               : succeeded
@@ -1348,7 +1348,7 @@ function AdminDashboard({
                       setFilterTab(tab.id as ReviewQueueTab);
                       setReviewPage(1);
                     }}
-                    className={`rounded-[3px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                    className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
                       filterTab === tab.id
                         ? "bg-ink text-surface"
                         : "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink"
@@ -1406,7 +1406,7 @@ function AdminDashboard({
                         setSortOption(e.target.value as ReviewQueueSort);
                         setReviewPage(1);
                       }}
-                      className="h-8 rounded-[3px] border border-line bg-surface px-2.5 text-[12px] text-ink focus:border-ink-2 focus:outline-none cursor-pointer"
+                      className="h-8 rounded-[10px] border border-line bg-surface px-2.5 text-[12px] text-ink focus:border-ink-2 focus:outline-none cursor-pointer"
                     >
                       <option value="confidence-asc">
                         {"คะแนนความมั่นใจต่ำสุดก่อน"}
@@ -1587,13 +1587,13 @@ function AdminDashboard({
                               {log.startedAt}
                             </td>
                             <td className="px-3.5 py-2.5 whitespace-nowrap">
-                              <span className="inline-flex whitespace-nowrap rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] text-ink font-medium">
+                              <span className="inline-flex whitespace-nowrap rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-[11px] text-ink font-medium">
                                 {log.source === "process3" ? "process3 (e-GP)" : "datago (data.go.th)"}
                               </span>
                             </td>
                             <td className="px-3.5 py-2.5 whitespace-nowrap">
                               <span
-                                className={`inline-flex whitespace-nowrap rounded-[2px] border px-2 py-0.5 text-[11px] font-medium ${
+                                className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
                                   HEALTH[log.status]?.chip ?? "border-line bg-surface-2 text-ink-2"
                                 }`}
                               >

@@ -145,7 +145,7 @@ export function PriceRealitySummary({ metrics }: PriceRealitySummaryProps) {
                   </span>
                 </div>
                 <div className="mt-2 h-5 flex items-center">
-                  <span className="inline-flex items-center gap-1 rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-3">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-ink-3">
                     <span>ℹ</span>
                     <span>
                       {metrics.comparedCount === 0

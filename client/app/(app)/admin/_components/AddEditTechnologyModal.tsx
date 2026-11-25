@@ -57,7 +57,7 @@ export function AddEditTechnologyModal({
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-150"
     >
-      <div className="w-full max-w-md rounded-[4px] border border-line bg-surface p-6 shadow-2xl animate-in zoom-in-95 duration-150">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl animate-in zoom-in-95 duration-150">
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-[16px] font-bold text-ink">
@@ -149,7 +149,7 @@ export function AddEditTechnologyModal({
                       status: st.id as "confirmed" | "new" | "rejected",
                     }))
                   }
-                  className={`cursor-pointer rounded-[3px] border py-1.5 px-2 text-[11px] font-medium transition-colors ${
+                  className={`cursor-pointer rounded-full border py-1.5 px-2.5 text-[11px] font-medium transition-colors ${
                     form.status === st.id
                       ? "border-ink bg-ink text-surface"
                       : "border-line bg-surface text-ink-2 hover:border-ink"
@@ -162,7 +162,7 @@ export function AddEditTechnologyModal({
           </div>
 
           {error && (
-            <div className="rounded-[3px] border border-risk-line bg-risk-bg p-2.5 text-[12px] text-risk">
+            <div className="rounded-xl border border-risk-line bg-risk-bg p-3 text-[12px] text-risk">
               {error}
             </div>
           )}

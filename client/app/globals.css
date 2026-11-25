@@ -146,7 +146,7 @@
      (already loaded) instead of whatever system monospace the OS picks. */
   --font-mono: var(--font-plex-mono), var(--font-kanit), ui-monospace, monospace;
 
-  --radius-card: 3px;
+  --radius-card: 16px;
 }
 
 html {

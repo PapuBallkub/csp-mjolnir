@@ -33,32 +33,32 @@ function PipelineTaskTableSkeleton() {
         <tr key={i} className="animate-pulse border-b border-line align-top last:border-b-0">
           {/* Project ID & Info */}
           <td className="px-3 py-2.5 max-w-[260px]">
-            <div className="h-4 w-32 rounded-[2px] bg-surface-3 mb-1.5" />
-            <div className="h-3 w-48 max-w-full rounded-[2px] bg-surface-2 mb-1" />
-            <div className="h-2.5 w-28 max-w-full rounded-[2px] bg-surface-2" />
+            <div className="h-4 w-32 rounded-full bg-surface-3 mb-1.5" />
+            <div className="h-3 w-48 max-w-full rounded-full bg-surface-2 mb-1" />
+            <div className="h-2.5 w-28 max-w-full rounded-full bg-surface-2" />
           </td>
           {/* Stage / Phase */}
           <td className="px-3 py-2.5">
-            <div className="h-5 w-20 rounded-[2px] bg-surface-3" />
+            <div className="h-5 w-20 rounded-full bg-surface-3" />
           </td>
           {/* Status & Diagnostics */}
           <td className="px-3 py-2.5">
-            <div className="h-4 w-24 rounded-[2px] bg-surface-3 mb-1.5" />
-            <div className="h-3 w-40 max-w-full rounded-[2px] bg-surface-2" />
+            <div className="h-4 w-24 rounded-full bg-surface-3 mb-1.5" />
+            <div className="h-3 w-40 max-w-full rounded-full bg-surface-2" />
           </td>
           {/* Attempts */}
           <td className="px-3 py-2.5 text-right">
-            <div className="h-4 w-8 rounded-[2px] bg-surface-3 ml-auto" />
+            <div className="h-4 w-8 rounded-full bg-surface-3 ml-auto" />
           </td>
           {/* Updated */}
           <td className="px-3 py-2.5 text-right">
-            <div className="h-3.5 w-20 rounded-[2px] bg-surface-3 ml-auto" />
+            <div className="h-3.5 w-20 rounded-full bg-surface-3 ml-auto" />
           </td>
           {/* Actions */}
           <td className="px-3 py-2.5 text-right">
             <div className="flex items-center justify-end gap-1.5">
-              <div className="h-7 w-20 rounded-[2px] bg-surface-3" />
-              <div className="h-7 w-7 rounded-[2px] bg-surface-2" />
+              <div className="h-7 w-20 rounded-full bg-surface-3" />
+              <div className="h-7 w-7 rounded-full bg-surface-2" />
             </div>
           </td>
         </tr>
@@ -206,7 +206,7 @@ export function PipelineMonitoringSection({
       {/* Action Notification Alert */}
       {actionMsg && (
         <div
-          className={`mb-3 rounded-[3px] border px-3 py-2 text-[12px] ${
+          className={`mb-3 rounded-xl border px-3.5 py-2 text-[12px] ${
             actionMsg.type === "success"
               ? "border-open-line bg-open-bg text-open"
               : "border-risk-line bg-risk-bg text-risk"
@@ -217,7 +217,7 @@ export function PipelineMonitoringSection({
       )}
 
       {/* Phase Filter Tabs */}
-      <div className="mb-4 flex flex-wrap items-center gap-1.5 border-b border-line pb-2">
+      <div className="mb-4 flex flex-wrap items-center gap-1.5 border-b border-line pb-3">
         {PHASE_TABS.map((tab) => {
           const isActive = activePhase === tab.key;
           const count = counts[tab.key] ?? 0;
@@ -226,20 +226,20 @@ export function PipelineMonitoringSection({
               key={tab.key}
               type="button"
               onClick={() => handlePhaseChange(tab.key)}
-              className={`flex items-center gap-2 px-3 py-1.5 text-[12px] font-medium transition-colors cursor-pointer rounded-t-[3px] border ${
+              className={`flex items-center gap-2 px-3 py-1.5 text-[12px] font-medium transition-colors cursor-pointer rounded-full border ${
                 isActive
-                  ? "border-b-transparent border-line bg-surface text-ink font-semibold shadow-xs"
-                  : "border-transparent text-ink-3 hover:text-ink hover:bg-surface-2/60"
+                  ? "border-ink bg-ink text-surface font-semibold shadow-xs"
+                  : "border-line bg-surface text-ink-2 hover:text-ink hover:bg-surface-2"
               }`}
             >
               <span>{tab.label}</span>
               <span
-                className={`rounded-[2px] px-1.5 py-[1px] font-mono text-[10px] ${
+                className={`rounded-full px-1.5 py-[1px] font-mono text-[10px] ${
                   tab.key === "failed" && count > 0
                     ? "bg-risk-bg text-risk border border-risk-line"
                     : isActive
-                      ? "bg-surface-2 text-ink"
-                      : "bg-surface-2/60 text-ink-3"
+                      ? "bg-surface/20 text-surface"
+                      : "bg-surface-2 text-ink-3"
                 }`}
               >
                 {count}
@@ -444,24 +444,24 @@ function PipelineTaskRow({
       {/* Stage / Phase Badge */}
       <td className="px-3 py-2.5 whitespace-nowrap">
         {task.phase === "failed" ? (
-          <span className="inline-flex items-center gap-1 rounded-[2px] border border-risk-line bg-risk-bg px-2 py-[2px] text-[10px] font-semibold text-risk">
+          <span className="inline-flex items-center gap-1 rounded-full border border-risk-line bg-risk-bg px-2.5 py-[2px] text-[10px] font-semibold text-risk">
             <span>⚠️</span>
             <span>{task.step ? `${task.step}` : "Failed"}</span>
           </span>
         ) : task.phase === "download" ? (
-          <span className="inline-flex rounded-[2px] border border-line bg-surface-2 px-2 py-[2px] text-[10px] font-medium text-ink">
+          <span className="inline-flex rounded-full border border-line bg-surface-2 px-2.5 py-[2px] text-[10px] font-medium text-ink">
             1. รอโหลด
           </span>
         ) : task.phase === "ocr" ? (
-          <span className="inline-flex rounded-[2px] border border-line bg-surface-2 px-2 py-[2px] text-[10px] font-medium text-ink">
+          <span className="inline-flex rounded-full border border-line bg-surface-2 px-2.5 py-[2px] text-[10px] font-medium text-ink">
             2. รอ OCR
           </span>
         ) : task.phase === "extract" ? (
-          <span className="inline-flex rounded-[2px] border border-amend-line bg-amend-bg px-2 py-[2px] text-[10px] font-medium text-amend">
+          <span className="inline-flex rounded-full border border-amend-line bg-amend-bg px-2.5 py-[2px] text-[10px] font-medium text-amend">
             3. รอสกัด AI
           </span>
         ) : (
-          <span className="inline-flex rounded-[2px] border border-open-line bg-open-bg px-2 py-[2px] text-[10px] font-medium text-open">
+          <span className="inline-flex rounded-full border border-open-line bg-open-bg px-2.5 py-[2px] text-[10px] font-medium text-open">
             ✓ สกัดสำเร็จ
           </span>
         )}
@@ -476,11 +476,11 @@ function PipelineTaskRow({
           <div>
             <div className="flex items-center gap-1.5 mb-1">
               {task.lastTransient ? (
-                <span className="inline-flex rounded-[2px] border border-amend-line bg-amend-bg px-1.5 py-[1px] text-[10px] font-medium text-amend">
+                <span className="inline-flex rounded-full border border-amend-line bg-amend-bg px-2 py-[1px] text-[10px] font-medium text-amend">
                   ⚠️ ขัดข้องชั่วคราว
                 </span>
               ) : (
-                <span className="inline-flex rounded-[2px] border border-risk-line bg-risk-bg px-1.5 py-[1px] text-[10px] font-medium text-risk">
+                <span className="inline-flex rounded-full border border-risk-line bg-risk-bg px-2 py-[1px] text-[10px] font-medium text-risk">
                   ❌ ผิดพลาดถาวร
                 </span>
               )}
@@ -509,7 +509,7 @@ function PipelineTaskRow({
               </div>
             )}
             {isExpanded && task.lastError && (
-              <pre className="mt-2 p-2 rounded-[2px] border border-line bg-surface font-mono text-[10px] text-ink-2 whitespace-pre-wrap max-h-48 overflow-y-auto">
+              <pre className="mt-2 p-2.5 rounded-lg border border-line bg-surface font-mono text-[10px] text-ink-2 whitespace-pre-wrap max-h-48 overflow-y-auto">
                 {task.lastError}
               </pre>
             )}

@@ -356,7 +356,7 @@ export function FilterModeView({
 
     const noSkillsBanner =
       canMatch && isProfileBaseline(profile) && debouncedMinScore > 0 ? (
-        <div className="mb-2.5 flex items-center justify-between rounded-[3px] border border-amber-300 bg-amber-50 px-3.5 py-2 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+        <div className="mb-2.5 flex items-center justify-between rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-[12.5px] leading-thai text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           <span>
             💡 คุณยังไม่ได้ตั้งค่าโปรไฟล์ — ตั้งค่าทักษะและเงื่อนไขการรับงานเพื่อจัดอันดับประกาศที่เหมาะสมกับคุณ
           </span>
@@ -459,7 +459,7 @@ export function FilterModeView({
         <button
           type="button"
           onClick={() => setFiltersOpen((o) => !o)}
-          className={`flex w-full items-center justify-between rounded-[3px] border border-line bg-surface px-3 py-2 text-[13px] font-medium text-ink cursor-pointer`}
+          className={`flex w-full items-center justify-between rounded-xl border border-line bg-surface px-3.5 py-2.5 text-[13px] font-medium text-ink cursor-pointer`}
           aria-expanded={filtersOpen}
         >
           <span className="flex items-center gap-2">

@@ -126,7 +126,7 @@ export function FilterRail({
           </div>
         ) : !hasSkills ? (
           <div className="space-y-1.5">
-            <span className="inline-block rounded-[3px] border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            <span className="inline-block rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
               ยังไม่ได้ตั้งค่าโปรไฟล์
             </span>
             <p className="text-[11.5px] leading-thai text-ink-3">

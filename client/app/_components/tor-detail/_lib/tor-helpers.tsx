@@ -165,7 +165,7 @@ export function ChangeSourceLine({ change }: { change: TorChange }) {
 
 export function FoundNote() {
   return (
-    <p className="mt-2 rounded-[2px] border border-dashed border-closed-line bg-surface px-2.5 py-1.5 text-[12.5px] leading-thai text-ink-2">
+    <p className="mt-2 rounded-lg border border-dashed border-closed-line bg-surface px-3 py-1.5 text-[12.5px] leading-thai text-ink-2">
       {FOUND_NOTE}
     </p>
   );
@@ -179,7 +179,7 @@ export function FoundNote() {
 export function ChangeNotice({ change }: { change: TorChange }) {
   const { title, body } = pendingNotice(change);
   return (
-    <div className="mt-3 max-w-4xl rounded-[3px] border border-l-[4px] border-amend-line border-l-amend bg-amend-bg px-3.5 py-3">
+    <div className="mt-3 rounded-xl border border-l-[4px] border-amend-line border-l-amend bg-amend-bg px-3.5 py-3">
       <p className="text-[14px] font-semibold leading-thai text-amend">{title}</p>
       <ChangeSourceLine change={change} />
       <p className="mt-1 text-[12.5px] leading-thai text-ink-2">{body}</p>

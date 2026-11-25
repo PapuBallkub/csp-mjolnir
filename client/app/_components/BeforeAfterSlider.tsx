@@ -44,13 +44,13 @@ function GarudaSeal({ className = "" }: { className?: string }) {
 function DecodedCardView({ compact = false }: { compact?: boolean }) {
   return (
     <div
-      className={`mx-auto w-full max-w-[840px] rounded-[4px] border border-line bg-surface shadow-sm ${
+      className={`mx-auto w-full max-w-[840px] rounded-2xl border border-line bg-surface shadow-sm ${
         compact ? "p-3.5" : "p-5"
       }`}
     >
       {/* Top Tier: Agency Metadata & Project ID */}
       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-3">
-        <span className="font-medium text-ink-2 bg-surface-2 px-1.5 py-0.5 rounded-[2px] border border-line">
+        <span className="font-medium text-ink-2 bg-surface-2 px-2 py-0.5 rounded-full border border-line">
           ปีงบฯ 2569
         </span>
         <span className="font-mono tnum">#68049322058</span>
@@ -62,14 +62,14 @@ function DecodedCardView({ compact = false }: { compact?: boolean }) {
 
       {/* Tier 2: Verdict Badges */}
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-b border-line pb-2.5">
-        <span className="inline-flex items-center gap-1.5 rounded-[3px] border border-open-line bg-open-bg px-2 py-0.5 text-[11px] font-semibold text-open">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-open-line bg-open-bg px-2.5 py-0.5 text-[11px] font-semibold text-open">
           <span className="h-1.5 w-1.5 rounded-full bg-open" />
           เปิดรับข้อเสนอ
         </span>
-        <span className="inline-flex items-center gap-1 rounded-[3px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-semibold text-risk font-mono">
+        <span className="inline-flex items-center gap-1 rounded-full border border-risk-line bg-risk-bg px-2.5 py-0.5 text-[11px] font-semibold text-risk font-mono">
           <span>ความเสี่ยงล็อกสเปกสูง 81/100</span>
         </span>
-        <span className="inline-flex items-center gap-1 rounded-[3px] border border-amend-line bg-amend-bg px-2 py-0.5 text-[11px] font-semibold text-amend font-mono">
+        <span className="inline-flex items-center gap-1 rounded-full border border-amend-line bg-amend-bg px-2.5 py-0.5 text-[11px] font-semibold text-amend font-mono">
           <span>▲ สูงกว่าค่ากลาง 19%</span>
         </span>
       </div>
@@ -80,7 +80,7 @@ function DecodedCardView({ compact = false }: { compact?: boolean }) {
       </h3>
 
       {/* Tier 4: 3-Column Fact Grid */}
-      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 rounded-[4px] bg-surface-2 border border-line p-2.5 text-[12px]">
+      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 rounded-xl bg-surface-2 border border-line p-2.5 text-[12px]">
         <div>
           <span className="text-[10px] font-medium text-ink-3 uppercase">ราคากลาง</span>
           <div className="font-mono font-bold text-ink text-[14.5px] tnum">฿4,916,650</div>
@@ -100,33 +100,33 @@ function DecodedCardView({ compact = false }: { compact?: boolean }) {
 
       {/* Tier 5: Tech Stack Chips (flex-wrap prevents overflow on narrow viewports) */}
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-        <span className="inline-flex items-center gap-1 rounded-[3px] border border-amend-line bg-amend-bg px-1.5 py-0.5 text-[10.5px] font-medium text-amend">
+        <span className="inline-flex items-center gap-1 rounded-full border border-amend-line bg-amend-bg px-2.5 py-0.5 text-[10.5px] font-medium text-amend">
           เฉพาะนิติบุคคล
         </span>
-        <span className="rounded-[3px] border border-open-line bg-open-bg px-2 py-0.5 text-open font-medium">
+        <span className="rounded-full border border-open-line bg-open-bg px-2.5 py-0.5 text-open font-medium">
           ✓ Linux
         </span>
-        <span className="rounded-[3px] border border-open-line bg-open-bg px-2 py-0.5 text-open font-medium">
+        <span className="rounded-full border border-open-line bg-open-bg px-2.5 py-0.5 text-open font-medium">
           ✓ Docker
         </span>
-        <span className="rounded-[3px] border border-line bg-surface-2 px-2 py-0.5 text-ink-2">
+        <span className="rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-ink-2">
           PostgreSQL 15
         </span>
-        <span className="rounded-[3px] border border-line bg-surface-2 px-2 py-0.5 text-ink-2">
+        <span className="rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-ink-2">
           Node.js 20
         </span>
       </div>
 
       {/* Tier 6: Structured Insights & Evidence (Source vs. Analysis clearly separated) */}
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 text-[11.5px] leading-thai">
-        <div className="rounded-[3px] border border-line bg-surface-2/70 p-2.5">
+        <div className="rounded-xl border border-line bg-surface-2/70 p-2.5">
           <div className="text-[10.5px] font-semibold text-ink-3">สรุปสาระจากเอกสาร TOR</div>
           <p className="mt-1 text-ink-2">
             พัฒนาระบบบริการประชาชน 9 ระบบ ส่งมอบ 4 งวด ภายใน 180 วัน อัตราค่าปรับความล่าช้า{" "}
             <span className="font-mono text-ink">0.20%/วัน</span>
           </p>
         </div>
-        <div className="rounded-[3px] border border-risk-line bg-risk-bg/60 p-2.5">
+        <div className="rounded-xl border border-risk-line bg-risk-bg/60 p-2.5">
           <div className="text-[10.5px] font-semibold text-risk">
             ผลวิเคราะห์ความเสี่ยงล็อกสเปก (GIPDP)
           </div>
@@ -288,14 +288,14 @@ export function BeforeAfterSlider({
         <div
           role="tablist"
           aria-label="สลับมุมมองตัวอย่างเอกสาร TOR ก่อนและหลังถอดรหัส"
-          className="mb-3 grid grid-cols-2 gap-1 rounded-md border border-line bg-surface p-1"
+          className="mb-3 grid grid-cols-2 gap-1 rounded-full border border-line bg-surface p-1"
         >
           <button
             type="button"
             role="tab"
             aria-selected={mobileTab === "before"}
             onClick={() => setMobileTab("before")}
-            className={`rounded px-2.5 py-2 text-[12px] font-medium transition-colors ${
+            className={`rounded-full px-2.5 py-2 text-[12px] font-medium transition-colors ${
               mobileTab === "before"
                 ? "bg-ink text-surface shadow-xs"
                 : "text-ink-2 hover:text-ink"
@@ -308,7 +308,7 @@ export function BeforeAfterSlider({
             role="tab"
             aria-selected={mobileTab === "after"}
             onClick={() => setMobileTab("after")}
-            className={`rounded px-2.5 py-2 text-[12px] font-medium transition-colors ${
+            className={`rounded-full px-2.5 py-2 text-[12px] font-medium transition-colors ${
               mobileTab === "after"
                 ? "bg-ink text-surface shadow-xs"
                 : "text-ink-2 hover:text-ink"
@@ -319,11 +319,11 @@ export function BeforeAfterSlider({
         </div>
 
         {mobileTab === "before" ? (
-          <div className="rounded-lg border border-line bg-[#f4efe3] p-3 scanlines">
+          <div className="rounded-2xl border border-line bg-[#f4efe3] p-3 scanlines">
             <ScannedPdfView compact />
           </div>
         ) : (
-          <div className="rounded-lg border border-line bg-canvas p-3">
+          <div className="rounded-2xl border border-line bg-canvas p-3">
             <DecodedCardView compact />
           </div>
         )}
@@ -338,7 +338,7 @@ export function BeforeAfterSlider({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        className="relative hidden sm:block w-full overflow-hidden rounded-lg border border-line shadow-sm select-none cursor-ew-resize min-h-[500px] bg-canvas"
+        className="relative hidden sm:block w-full overflow-hidden rounded-2xl border border-line shadow-sm select-none cursor-ew-resize min-h-[500px] bg-canvas"
         style={{ touchAction: "none" }}
       >
         {/* LAYER 1: AFTER (BASE) — GIPDP Decoded Card */}
@@ -387,10 +387,10 @@ export function BeforeAfterSlider({
         </div>
 
         {/* Corner Indicator Pills */}
-        <div className="pointer-events-none absolute top-3 left-3 z-10 rounded bg-stone-900/90 text-stone-100 backdrop-blur px-2.5 py-1 text-[11px] font-medium shadow">
+        <div className="pointer-events-none absolute top-3 left-3 z-10 rounded-full bg-stone-900/90 text-stone-100 backdrop-blur px-3 py-1 text-[11px] font-medium shadow">
           ◄ ก่อน: PDF สแกน 42 หน้า
         </div>
-        <div className="pointer-events-none absolute top-3 right-3 z-10 rounded bg-ink/90 text-surface backdrop-blur px-2.5 py-1 text-[11px] font-medium shadow">
+        <div className="pointer-events-none absolute top-3 right-3 z-10 rounded-full bg-ink/90 text-surface backdrop-blur px-3 py-1 text-[11px] font-medium shadow">
           หลัง: GIPDP ถอดรหัส ►
         </div>
       </div>

@@ -178,7 +178,7 @@ export function AuthForm({ next }: { next: string | null }) {
             {formMessage ? (
               <p
                 role="alert"
-                className="rounded-[3px] border border-risk-line bg-risk-bg px-2.5 py-2 text-[12px] leading-thai text-risk"
+                className="rounded-xl border border-risk-line bg-risk-bg px-3 py-2 text-[12px] leading-thai text-risk"
               >
                 {formMessage}
               </p>
@@ -274,7 +274,7 @@ export function AuthForm({ next }: { next: string | null }) {
                     onClick={() => setShowPassword((prev) => !prev)}
                     aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
                     title={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded text-ink-3 transition-colors hover:text-ink cursor-pointer"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full text-ink-3 transition-colors hover:text-ink cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -304,7 +304,7 @@ export function AuthForm({ next }: { next: string | null }) {
               {formMessage ? (
                 <div
                   role="alert"
-                  className="flex flex-col gap-2 rounded-[3px] border border-risk-line bg-risk-bg px-2.5 py-2 text-[12px] leading-thai text-risk"
+                  className="flex flex-col gap-2 rounded-xl border border-risk-line bg-risk-bg px-3 py-2 text-[12px] leading-thai text-risk"
                 >
                   <p>{formMessage}</p>
                   {/* The right password on an address never confirmed: signing

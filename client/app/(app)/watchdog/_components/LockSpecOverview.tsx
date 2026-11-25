@@ -53,7 +53,7 @@ export function LockSpecOverview({
 
             {/* Stacked Proportional Bar or Unanalyzed Notice */}
             {extractedCount > 0 ? (
-              <div className="mt-3 flex h-3.5 w-full overflow-hidden rounded-[2px] border border-line bg-surface-2">
+              <div className="mt-3 flex h-3.5 w-full overflow-hidden rounded-full border border-line bg-surface-2">
                 {highCount > 0 ? (
                   <div
                     style={{ width: `${(highCount / extractedCount) * 100}%` }}
@@ -77,7 +77,7 @@ export function LockSpecOverview({
                 ) : null}
               </div>
             ) : unanalyzedCount > 0 ? (
-              <div className="mt-3 rounded-[3px] border border-dashed border-line-2 bg-surface-2 px-3 py-2.5 text-[12px] leading-thai text-ink-2">
+              <div className="mt-3 rounded-xl border border-dashed border-line-2 bg-surface-2 px-3 py-2.5 text-[12px] leading-thai text-ink-2">
                 โครงการทั้ง {unanalyzedCount.toLocaleString()} รายการในตัวกรองนี้ยังไม่ได้ผ่านการวิเคราะห์ล็อกสเปก — ระบบจะไม่แสดงคะแนนหรือระดับความเสี่ยงจนกว่าจะวิเคราะห์เสร็จ
               </div>
             ) : null}
@@ -177,12 +177,12 @@ export function LockSpecOverview({
                 return (
                   <div
                     key={trig.id}
-                    className="flex flex-col gap-1.5 rounded-[3px] border border-line bg-surface-2 p-3 text-left"
+                    className="flex flex-col gap-1.5 rounded-xl border border-line bg-surface-2 p-3 text-left"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-start gap-2">
                         <span
-                          className={`mt-0.5 shrink-0 rounded-[2px] border px-1.5 py-0.5 font-mono text-[10.5px] font-medium ${TONE.risk.bg} ${TONE.risk.border} ${TONE.risk.text}`}
+                          className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10.5px] font-medium ${TONE.risk.bg} ${TONE.risk.border} ${TONE.risk.text}`}
                         >
                           {trig.code}
                         </span>

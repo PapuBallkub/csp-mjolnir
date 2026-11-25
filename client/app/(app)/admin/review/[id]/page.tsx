@@ -50,7 +50,7 @@ function FieldConfidenceBadge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[10px] font-mono font-medium ${tone}`}
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-mono font-medium ${tone}`}
       title={`ความมั่นใจ AI: ${pct}%`}
     >
       <span>LLM</span>
@@ -79,7 +79,7 @@ function FieldHeader({
       <div className="flex items-center gap-2">
         <Label htmlFor={htmlFor}>{label}</Label>
         {diffItem && fieldKey && (
-          <span className="inline-flex items-center gap-1 rounded-[2px] bg-amend-bg border border-amend-line px-1.5 py-0.2 text-[10.5px] font-semibold text-amend">
+          <span className="inline-flex items-center gap-1 rounded-full bg-amend-bg border border-amend-line px-2 py-0.5 text-[10.5px] font-semibold text-amend">
             <span>●</span>
             <span>แก้ไขแล้ว</span>
             {onRevert && (
@@ -1168,7 +1168,7 @@ export default function DedicatedReviewPage({
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       {/* Top Bar Header (offset below App Shell header at 53px) */}
-      <div className="sticky top-[53px] z-20 mb-6 flex flex-col gap-2.5 rounded-[3px] border border-line bg-surface/95 px-4 py-2.5 backdrop-blur shadow-sm xl:flex-row xl:items-center xl:justify-between">
+      <div className="sticky top-[53px] z-20 mb-6 flex flex-col gap-2.5 rounded-2xl border border-line bg-surface/95 px-4 py-2.5 backdrop-blur shadow-sm xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-wrap items-center gap-2 text-[12px]">
           <Link
             href="/admin?job=review"
@@ -1179,21 +1179,21 @@ export default function DedicatedReviewPage({
           </Link>
           <span className="text-line-2">|</span>
           <span className="font-mono text-[12px] font-bold text-ink shrink-0">{projectId}</span>
-          <span className={`rounded-[2px] px-2 py-0.5 text-[11px] font-medium font-mono shrink-0 ${confidenceTone(data.extraction)}`}>
+          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium font-mono shrink-0 ${confidenceTone(data.extraction)}`}>
             {Math.round(data.extraction * 100)}%
           </span>
           {currentVersion ? (
             <button
               type="button"
               onClick={() => setShowVersionDrawer(true)}
-              className="rounded-[2px] border border-line bg-surface-2 px-2 py-0.5 text-[11px] font-mono text-ink-2 hover:border-ink hover:text-ink transition-colors cursor-pointer shrink-0"
+              className="rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-[11px] font-mono text-ink-2 hover:border-ink hover:text-ink transition-colors cursor-pointer shrink-0"
               title={"ดูประวัติเวอร์ชันและย้อนกลับ"}
             >
               v{currentVersion} ↗
             </button>
           ) : null}
           {diffs.length > 0 && (
-            <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-0.5 text-[11px] font-medium text-amend shrink-0 flex items-center gap-1">
+            <span className="rounded-full border border-amend-line bg-amend-bg px-2.5 py-0.5 text-[11px] font-medium text-amend shrink-0 flex items-center gap-1">
               <span>●</span>
               <span>{`แก้ไข ${diffs.length} รายการ`}</span>
             </span>
@@ -1242,7 +1242,7 @@ export default function DedicatedReviewPage({
           <button
             type="button"
             onClick={() => setShowReclassifyModal(true)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-[3px] border border-risk-line bg-risk-bg px-3.5 h-9 text-[13px] font-medium text-risk hover:opacity-85 transition-opacity cursor-pointer shrink-0"
+            className="inline-flex items-center justify-center gap-1.5 rounded-full border border-risk-line bg-risk-bg px-4 h-9 text-[13px] font-medium text-risk hover:opacity-85 transition-opacity cursor-pointer shrink-0"
           >
             {"คัดออก"}
           </button>
@@ -1261,17 +1261,17 @@ export default function DedicatedReviewPage({
 
       {/* Notifications */}
       {errorMessage && (
-        <div className="mb-4 rounded-[3px] border border-risk-line bg-risk-bg p-3 text-[13px] text-risk">
+        <div className="mb-4 rounded-xl border border-risk-line bg-risk-bg p-3 text-[13px] text-risk">
           {errorMessage}
         </div>
       )}
       {saveSuccess && (
-        <div className="mb-4 rounded-[3px] border border-open-line bg-open-bg p-3 text-[13px] text-open">
+        <div className="mb-4 rounded-xl border border-open-line bg-open-bg p-3 text-[13px] text-open">
           {"✓ บันทึกการแก้ไขและอนุมัติข้อมูลเรียบร้อยแล้ว ข้อมูลจะแสดงผลบนหน้า TOR ทันที"}
         </div>
       )}
       {reExtractNotice && (
-        <div className="mb-4 rounded-[3px] border border-amend-line bg-amend-bg p-3 text-[13px] text-amend">
+        <div className="mb-4 rounded-xl border border-amend-line bg-amend-bg p-3 text-[13px] text-amend">
           {reExtractNotice}
         </div>
       )}
@@ -1280,7 +1280,7 @@ export default function DedicatedReviewPage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
         {/* Sticky Sidebar Navigation (10 Sections — collapsible on mobile) */}
         <div className="lg:col-span-1">
-          <div className="lg:sticky lg:top-[125px] flex flex-col gap-1 rounded-[3px] border border-line bg-surface p-2 shadow-xs">
+          <div className="lg:sticky lg:top-[125px] flex flex-col gap-1 rounded-2xl border border-line bg-surface p-2 shadow-xs">
             <button
               type="button"
               onClick={() => setMobileTocOpen((prev) => !prev)}
@@ -1309,9 +1309,9 @@ export default function DedicatedReviewPage({
                       setMobileTocOpen(false);
                       scrollToSection(sec.id);
                     }}
-                    className={`flex items-center justify-between text-left px-3 py-2 text-[12px] rounded-[2px] transition-colors cursor-pointer ${
+                    className={`flex items-center justify-between text-left px-3 py-2 text-[12px] rounded-xl transition-colors cursor-pointer ${
                       activeSection === sec.id
-                        ? "bg-surface-2 font-semibold text-ink border-l-2 border-ink"
+                        ? "bg-ink font-semibold text-surface shadow-xs"
                         : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                     }`}
                   >
@@ -1853,7 +1853,7 @@ export default function DedicatedReviewPage({
 
               <div className="mt-4 flex flex-col gap-5">
                 {/* Tech Stack Selector */}
-                <div className={`rounded-[3px] transition-colors ${diffsByField["requiredTechnologies"] ? "p-3 bg-amend-bg/15 border border-amend-line/80" : ""}`}>
+                <div className={`rounded-xl transition-colors ${diffsByField["requiredTechnologies"] ? "p-3 bg-amend-bg/15 border border-amend-line/80" : ""}`}>
                   <FieldHeader
                     label={"เทคโนโลยีที่กำหนดใน TOR"}
                     fieldKey="requiredTechnologies"
@@ -1871,11 +1871,11 @@ export default function DedicatedReviewPage({
                       return (
                         <div
                           key={name}
-                          className="inline-flex items-center gap-1.5 rounded-[3px] border border-line bg-surface-2 px-2.5 py-1 text-[12px]"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-3 py-1 text-[12px]"
                         >
                           <span className="font-medium text-ink">{name}</span>
                           {ver ? (
-                            <span className="rounded-[2px] bg-ink/10 px-1 py-0.2 text-[10px] font-mono text-ink-2">
+                            <span className="rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-mono text-ink-2">
                               {ver}
                             </span>
                           ) : null}
@@ -1905,7 +1905,7 @@ export default function DedicatedReviewPage({
                     />
 
                     {isTechSearchFocused && (
-                      <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-[3px] border border-line bg-surface shadow-lg">
+                      <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-line bg-surface shadow-lg">
                         {availableTechs
                           .filter((t) =>
                             !searchTech.trim() ||
@@ -2317,7 +2317,7 @@ export default function DedicatedReviewPage({
                     </span>
                   </label>
                   {diffsByField["isAmended"] && (
-                    <span className="inline-flex items-center gap-1 rounded-[2px] bg-amend-bg border border-amend-line px-1.5 py-0.2 text-[10.5px] font-semibold text-amend">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amend-bg border border-amend-line px-2 py-0.5 text-[10.5px] font-semibold text-amend">
                       <span>●</span>
                       <span>แก้ไขแล้ว</span>
                       <button
@@ -2333,7 +2333,7 @@ export default function DedicatedReviewPage({
                 </div>
 
                 {isAmended ? (
-                  <div className="flex flex-col gap-4 rounded-[3px] border border-amend-line bg-amend-bg/15 p-4 animate-in fade-in duration-200">
+                  <div className="flex flex-col gap-4 rounded-xl border border-amend-line bg-amend-bg/15 p-4 animate-in fade-in duration-200">
                     <div>
                       <FieldHeader
                         label={"สรุปสาระสำคัญที่มีการแก้ไข"}
@@ -2406,7 +2406,7 @@ export default function DedicatedReviewPage({
       {/* Reclassify Modal */}
       {showReclassifyModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[1px] p-4">
-          <div className="w-full max-w-md rounded-[3px] border border-line bg-surface p-5 shadow-xl animate-in zoom-in-95 duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-5 shadow-xl animate-in zoom-in-95 duration-150">
             <h3 className="text-[15px] font-semibold text-ink">
               {"ยืนยันการจัดประเภทใหม่เป็นงานนอกขอบเขต"}
             </h3>
@@ -2439,7 +2439,7 @@ export default function DedicatedReviewPage({
                 <button
                   type="submit"
                   disabled={isReclassifying}
-                  className="rounded-[3px] border border-risk-line bg-risk px-3.5 h-9 text-[13px] font-medium text-white hover:opacity-85 transition-opacity cursor-pointer disabled:opacity-50"
+                  className="rounded-full border border-risk-line bg-risk px-4 h-9 text-[13px] font-medium text-white hover:opacity-85 transition-opacity cursor-pointer disabled:opacity-50"
                 >
                   {isReclassifying
                     ? "กำลังบันทึก..."

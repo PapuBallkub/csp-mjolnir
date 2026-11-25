@@ -82,7 +82,7 @@ export function ForgotPasswordForm() {
               {formMessage ? (
                 <p
                   role="alert"
-                  className="rounded-[3px] border border-risk-line bg-risk-bg px-2.5 py-2 text-[12px] leading-thai text-risk"
+                  className="rounded-xl border border-risk-line bg-risk-bg px-3 py-2 text-[12px] leading-thai text-risk"
                 >
                   {formMessage}
                 </p>

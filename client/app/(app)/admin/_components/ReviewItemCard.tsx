@@ -106,35 +106,35 @@ export function ReviewItemCard({
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono tnum text-[11px] font-semibold text-ink-3">{item.docId}</span>
             {isReviewed ? (
-              <span className="rounded-[2px] border border-open-line bg-open-bg px-2 py-0.5 text-[11px] font-medium text-open">
+              <span className="rounded-full border border-open-line bg-open-bg px-2.5 py-0.5 text-[11px] font-medium text-open">
                 ✓ ตรวจทานแล้ว
               </span>
             ) : isExcluded ? (
-              <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-medium text-risk">
+              <span className="rounded-full border border-risk-line bg-risk-bg px-2.5 py-0.5 text-[11px] font-medium text-risk">
                 คัดออกนอกขอบเขต
               </span>
             ) : (
-              <span className="rounded-[2px] border border-amend-line bg-amend-bg px-2 py-0.5 text-[11px] font-medium text-amend">
+              <span className="rounded-full border border-amend-line bg-amend-bg px-2.5 py-0.5 text-[11px] font-medium text-amend">
                 รอตรวจทาน
               </span>
             )}
             {item.misclassified ? (
-              <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-medium text-risk">
+              <span className="rounded-full border border-risk-line bg-risk-bg px-2.5 py-0.5 text-[11px] font-medium text-risk">
                 ⚠️ อาจจัดประเภทผิด
               </span>
             ) : null}
             {item.ocr != null && item.ocr < 0.8 ? (
-              <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-medium text-risk">
+              <span className="rounded-full border border-risk-line bg-risk-bg px-2.5 py-0.5 text-[11px] font-medium text-risk">
                 ⚠️ OCR ต่ำ (&lt; 80%)
               </span>
             ) : null}
             {item.extraction < 0.8 ? (
-              <span className="rounded-[2px] border border-risk-line bg-risk-bg px-2 py-0.5 text-[11px] font-medium text-risk">
+              <span className="rounded-full border border-risk-line bg-risk-bg px-2.5 py-0.5 text-[11px] font-medium text-risk">
                 ⚠️ AI สกัดต่ำ (&lt; 80%)
               </span>
             ) : null}
             {resolution ? (
-              <span className="rounded-[2px] border border-open-line bg-open-bg px-2 py-0.5 text-[11px] font-medium text-open">
+              <span className="rounded-full border border-open-line bg-open-bg px-2.5 py-0.5 text-[11px] font-medium text-open">
                 {resolution}
               </span>
             ) : null}
@@ -146,7 +146,7 @@ export function ReviewItemCard({
           </p>
 
           {item.misclassified ? (
-            <div className="mt-3 rounded-[3px] border border-line bg-surface-2 p-3 text-[12px]">
+            <div className="mt-3 rounded-xl border border-line bg-surface-2 p-3 text-[12px]">
               <p className="font-medium text-ink-2">
                 {`ระบบจัดเป็น “${item.misclassified.predicted}” แต่เนื้อหาน่าจะเป็น “${item.misclassified.likely}”`}
               </p>
@@ -172,13 +172,13 @@ export function ReviewItemCard({
           ) : null}
 
           {errorMsg ? (
-            <div className="mt-3 rounded-[3px] border border-risk-line bg-risk-bg p-2 text-[12px] text-risk">
+            <div className="mt-3 rounded-xl border border-risk-line bg-risk-bg p-2.5 text-[12px] text-risk">
               {errorMsg}
             </div>
           ) : null}
 
           {savedSuccess ? (
-            <div className="mt-3 rounded-[3px] border border-open-line bg-open-bg p-2 text-[12px] text-open">
+            <div className="mt-3 rounded-xl border border-open-line bg-open-bg p-2.5 text-[12px] text-open">
               {savedSuccess}
             </div>
           ) : null}

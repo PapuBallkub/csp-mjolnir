@@ -179,7 +179,7 @@ export default function WatchlistPage() {
       type="button"
       disabled={removingId === projectId}
       onClick={() => handleRemove(projectId)}
-      className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-transparent px-2 py-0.5 text-[11.5px] font-medium text-ink-3 transition-colors hover:border-risk-line hover:bg-risk-bg hover:text-risk disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-transparent px-2.5 py-0.5 text-[11.5px] font-medium text-ink-3 transition-colors hover:border-risk-line hover:bg-risk-bg hover:text-risk disabled:cursor-not-allowed disabled:opacity-50"
       title="เอาออกจากรายการที่ติดตาม"
     >
       <svg
@@ -215,7 +215,7 @@ export default function WatchlistPage() {
       {error ? (
         <div
           role="alert"
-          className="mb-6 rounded-md border border-risk-line bg-risk-bg p-4 text-[13px] text-risk"
+          className="mb-6 rounded-xl border border-risk-line bg-risk-bg p-4 text-[13px] text-risk"
         >
           <p>{error}</p>
           <button
@@ -246,7 +246,7 @@ export default function WatchlistPage() {
             {alerts.map((alert) => (
               <li
                 key={`${alert.projectId}-${alert.kind}`}
-                className={`flex flex-wrap items-start gap-x-3 gap-y-2 rounded-[3px] border px-3.5 py-3 ${ALERT_TONE[alert.kind]}`}
+                className={`flex flex-wrap items-start gap-x-3 gap-y-2 rounded-xl border px-3.5 py-3 ${ALERT_TONE[alert.kind]}`}
               >
                 <div className="min-w-0 flex-1">
                   <p className="font-mono text-[11px] opacity-80">{alert.projectId}</p>

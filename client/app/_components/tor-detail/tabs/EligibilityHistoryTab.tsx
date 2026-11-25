@@ -23,7 +23,7 @@ export function EligibilityHistoryTab({
         <div className="mt-3 flex flex-col gap-4">
           {/* Previous Experience */}
           {elig.previousExperience || elig.previousExperienceMinTHB ? (
-            <div className="rounded-[3px] border border-line bg-surface-2/40 p-3.5">
+            <div className="rounded-xl border border-line bg-surface-2/40 p-3.5">
               <Label>ผลงานในอดีตขั้นต่ำ (Previous Experience)</Label>
               <p className="mt-1 text-[14px] font-medium leading-thai text-ink">
                 {elig.previousExperience || (
@@ -56,7 +56,7 @@ export function EligibilityHistoryTab({
                 {elig.requiredCertifications.map((cert, idx) => (
                   <span
                     key={idx}
-                    className="rounded border border-line bg-surface px-2 py-1 text-[12px] font-medium text-ink"
+                    className="rounded-full border border-line bg-surface px-2.5 py-1 text-[12px] font-medium text-ink"
                   >
                     {cert}
                   </span>
@@ -67,7 +67,7 @@ export function EligibilityHistoryTab({
 
           {/* Manufacturer Authorization */}
           {elig.manufacturerAuthorizations && elig.manufacturerAuthorizations.length > 0 ? (
-            <div className="rounded-[3px] border border-amend-line bg-amend-bg/40 p-3">
+            <div className="rounded-xl border border-amend-line bg-amend-bg/40 p-3">
               <div className="flex items-center gap-1.5 text-[12px] font-semibold text-amend">
                 <span>⚠️</span>
                 <span>หนังสือแต่งตั้งตัวแทนจำหน่าย (Manufacturer Authorization)</span>

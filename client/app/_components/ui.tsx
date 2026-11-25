@@ -24,7 +24,7 @@ export function Panel({
   id?: string;
 }) {
   return (
-    <Tag id={id} className={`rounded-[3px] border border-line bg-surface ${className}`}>{children}</Tag>
+    <Tag id={id} className={`rounded-2xl border border-line bg-surface shadow-xs ${className}`}>{children}</Tag>
   );
 }
 
@@ -55,7 +55,7 @@ export function AccentPanel({
   return (
     <section
       id={id}
-      className={`rounded-[3px] border border-l-[3px] border-line bg-surface ${ACCENT[tone]} ${className}`}
+      className={`rounded-2xl border border-l-[4px] border-line bg-surface shadow-xs ${ACCENT[tone]} ${className}`}
     >
       {children}
     </section>
@@ -77,7 +77,7 @@ export function Well({
 }) {
   return (
     <div
-      className={`rounded-[3px] bg-surface-2 ${bordered ? "border border-line" : ""} ${className}`}
+      className={`rounded-xl bg-surface-2 ${bordered ? "border border-line" : ""} ${className}`}
     >
       {children}
     </div>
@@ -160,7 +160,7 @@ export function Chip({
   return (
     <span
       title={title}
-      className={`inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-ink-2 ${className}`}
+      className={`inline-flex items-center rounded-full border border-line bg-surface-2 px-2.5 py-0.5 font-mono text-[11px] text-ink-2 ${className}`}
     >
       {children}
     </span>
@@ -169,18 +169,18 @@ export function Chip({
 
 export const btn = {
   primary:
-    "inline-flex items-center justify-center gap-2 rounded-[3px] bg-ink px-3.5 h-9 text-[13px] font-medium text-surface transition-opacity hover:opacity-85 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed",
+    "inline-flex items-center justify-center gap-2 rounded-full bg-ink px-4 h-9 text-[13px] font-medium text-surface transition-opacity hover:opacity-85 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed",
   secondary:
-    "inline-flex items-center justify-center gap-2 rounded-[3px] border border-line-2 bg-surface px-3.5 h-9 text-[13px] font-medium text-ink transition-colors hover:bg-surface-2 cursor-pointer disabled:cursor-not-allowed",
+    "inline-flex items-center justify-center gap-2 rounded-full border border-line-2 bg-surface px-4 h-9 text-[13px] font-medium text-ink transition-colors hover:bg-surface-2 cursor-pointer disabled:cursor-not-allowed",
   ghost:
-    "inline-flex items-center justify-center gap-2 rounded-[3px] px-2.5 h-9 text-[13px] font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink cursor-pointer disabled:cursor-not-allowed",
+    "inline-flex items-center justify-center gap-2 rounded-full px-3 h-9 text-[13px] font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink cursor-pointer disabled:cursor-not-allowed",
 };
 
 export const input =
-  "h-9 w-full rounded-[3px] border border-line-2 bg-surface px-2.5 text-[13px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none";
+  "h-9 w-full rounded-[10px] border border-line-2 bg-surface px-3 text-[13px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none";
 
 export const textarea =
-  "w-full rounded-[3px] border border-line-2 bg-surface p-2.5 text-[13px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none resize-y leading-relaxed transition-colors";
+  "w-full rounded-xl border border-line-2 bg-surface p-3 text-[13px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none resize-y leading-relaxed transition-colors";
 
 /** Key-value row used in the detail sidebar and admin tables. */
 export function Fact({
@@ -221,7 +221,7 @@ export function EmptyState({
 }) {
   return (
     <div
-      className={`w-full flex flex-col items-center justify-center gap-3 rounded-[3px] border border-dashed border-line-2 bg-surface-2 px-6 py-8 text-center ${
+      className={`w-full flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-line-2 bg-surface-2 px-6 py-8 text-center ${
         className ?? ""
       }`}
     >

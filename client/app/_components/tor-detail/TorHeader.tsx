@@ -25,7 +25,7 @@ function ReviewNotice({
 }) {
   if (review.origin === "demo") {
     return (
-      <p className="mt-3 rounded-[3px] border border-amend-line bg-amend-bg px-3 py-2 text-[12.5px] leading-thai text-amend">
+      <p className="mt-3 rounded-xl border border-amend-line bg-amend-bg px-3.5 py-2 text-[12.5px] leading-thai text-amend">
         ข้อมูลตัวอย่างสำหรับทดสอบหน้าจอ — เนื้อหาและผลวิเคราะห์ในหน้านี้สร้างขึ้นเอง ไม่ได้อ่านจากเอกสาร TOR จริง
       </p>
     );
@@ -35,7 +35,7 @@ function ReviewNotice({
   // warning (AGENTS.md §6), so no warning colour. Only a checked summary gets
   // a first line saying so.
   return (
-    <div className="mt-3 rounded-[3px] border border-line bg-surface-2 px-3 py-2 text-[12.5px] leading-thai text-ink-2">
+    <div className="mt-3 rounded-xl border border-line bg-surface-2 px-3.5 py-2 text-[12.5px] leading-thai text-ink-2">
       {review.checked ? (
         <p className="font-medium text-ink">สรุปโดย AI จากเอกสาร TOR · เจ้าหน้าที่ตรวจแล้ว</p>
       ) : null}
@@ -140,7 +140,7 @@ export function TorHeader({
           {(iden.categories ?? []).map((category, index) => (
             <Fragment key={category}>
               {index === 0 ? <span className="h-3 w-px bg-line" /> : null}
-              <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-ink-3">
+              <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] text-ink-3">
                 {categoryLabel(category)}
               </span>
             </Fragment>
@@ -173,7 +173,7 @@ export function TorHeader({
                 ? "border-amend-line bg-amend-bg text-amend"
                 : "border-line bg-surface-2 text-ink";
             return (
-              <span className={`inline-flex items-center gap-1.5 rounded-[2px] border px-2.5 py-[3px] text-[11.5px] font-semibold tnum ${pillStyle}`}>
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-[3px] text-[11.5px] font-semibold tnum ${pillStyle}`}>
                 <span>{cd.text}</span>
                 <span className="font-normal opacity-75">· {formatDateString(deadline.date)}</span>
               </span>
@@ -182,13 +182,13 @@ export function TorHeader({
 
           {/* Fiscal Year Badge */}
           {fiscalYear ? (
-            <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 font-mono leading-normal">
+            <span className="inline-flex items-center rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-ink-2 font-mono leading-normal">
               ปีงบประมาณ {fiscalYear}
             </span>
           ) : null}
 
           {/* Scope Badge */}
-          <span className="inline-flex items-center rounded-[2px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-2 leading-normal">
+          <span className="inline-flex items-center rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-ink-2 leading-normal">
             {scope}
           </span>
 
@@ -204,7 +204,7 @@ export function TorHeader({
         {pending ? <ChangeNotice change={pending} /> : null}
 
         {/* Verdict Strip */}
-        <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[3px] border border-line bg-surface-2/60 p-2.5 sm:gap-6 sm:px-4">
+        <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-2/60 p-3 sm:gap-6 sm:px-4">
           <div className="flex items-center gap-2">
             <span className="text-[12px] text-ink-3">วิเคราะห์ล็อกสเปก:</span>
             {lockScore === null ? (

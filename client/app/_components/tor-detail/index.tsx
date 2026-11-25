@@ -255,7 +255,7 @@ export function TorDetail({
                       window.history.replaceState(null, "", `#${tab.key}`);
                     }
                   }}
-                  className={`inline-flex shrink-0 items-center gap-2 rounded-[4px] px-3.5 py-2 text-[13px] font-medium transition-all cursor-pointer ${
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-all cursor-pointer ${
                     isActive
                       ? "bg-ink text-surface shadow-sm"
                       : "text-ink-2 hover:bg-surface-2 hover:text-ink"
@@ -291,7 +291,7 @@ export function TorDetail({
         <div className="order-2 lg:order-1 flex min-w-0 flex-col gap-6">
           {/* Status Alert if Closed or Cancelled */}
           {iden.status === "Closed" || iden.status === "Cancelled" ? (
-            <div className="rounded-[3px] border border-l-[4px] border-line border-l-closed bg-closed-bg px-4 py-3.5">
+            <div className="rounded-xl border border-l-[4px] border-line border-l-closed bg-closed-bg px-4 py-3.5">
               <p className="text-[15px] font-semibold text-ink">
                 โครงการนี้สิ้นสุดการรับข้อเสนอแล้ว
               </p>
@@ -338,19 +338,19 @@ export function TorDetail({
           onClick={() => setShowAuthModal(false)}
         >
           <div
-            className="relative w-full max-w-md rounded-[4px] border border-line bg-surface p-6 shadow-xl"
+            className="relative w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setShowAuthModal(false)}
-              className="absolute right-3.5 top-3.5 flex h-7 w-7 items-center justify-center rounded-[3px] text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink cursor-pointer"
+              className="absolute right-3.5 top-3.5 flex h-7 w-7 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink cursor-pointer"
               aria-label="ปิดหน้าต่าง"
             >
               ✕
             </button>
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-[3px] border border-line bg-surface-2 text-ink">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-surface-2 text-ink">
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
               </svg>

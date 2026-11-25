@@ -554,11 +554,11 @@ export default function WatchdogPage() {
             <SectionHeading
               sub="เปรียบเทียบแนวโน้มราคากลางผ่านค่ามัธยฐาน (เส้นทึบ) และค่าเฉลี่ย (เส้นประ) ตามตัวกรองข้อมูล พร้อมจุดแสดงโครงการจริงในแต่ละช่วงเวลา"
               right={
-                <div className="inline-flex rounded-[3px] border border-line bg-surface-2 p-0.5">
+                <div className="inline-flex rounded-full border border-line bg-surface-2 p-0.5">
                   <button
                     type="button"
                     onClick={() => setTimeGrain("monthly")}
-                    className={`rounded-[2px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                    className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
                       timeGrain === "monthly"
                         ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
                         : "text-ink-3 hover:text-ink"
@@ -569,7 +569,7 @@ export default function WatchdogPage() {
                   <button
                     type="button"
                     onClick={() => setTimeGrain("quarterly")}
-                    className={`rounded-[2px] px-2.5 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                    className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
                       timeGrain === "quarterly"
                         ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
                         : "text-ink-3 hover:text-ink"
