@@ -134,7 +134,11 @@ export function CatalogRow({
           ) : null}
           {analytics.priceAnalysis ? (
             <div className="shrink-0">
-              <PriceDeltaBadge delta={analytics.priceAnalysis.diffPercentage} />
+              <PriceDeltaBadge
+                delta={analytics.priceAnalysis.diffPercentage}
+                sampleSize={analytics.priceAnalysis.sampleSize}
+                historicalMedianTHB={analytics.priceAnalysis.historicalMedianTHB}
+              />
             </div>
           ) : null}
           {missing ? <span className="truncate text-[10.5px] text-ink-3">{missing}</span> : null}
