@@ -2,7 +2,17 @@
 
 GIPDP (working title: *Mjölnir*) is a web platform that collects Thai government software and IT procurement notices from e-GP and open-data sources, extracts and normalizes their Terms of Reference (TOR) documents into plain-language summaries, and surfaces risk signals — **Price Reality Check** against historical contracts, **Lock-spec Risk** detection, and **Amendment History / Diffs** — alongside capability-based matching and watchlists for small Thai tech companies and freelance developers.
 
-> **Disclaimer:** GIPDP is a third-party discovery and analysis tool. All official procurement announcements and bidding take place on the Comptroller General's Department e-GP portal ([gprocurement.go.th](https://www.gprocurement.go.th)).
+> **Disclaimer:** GIPDP is a third-party discovery and analysis tool. It never drafts or submits bids, and it never offers legal advice. All official procurement announcements and bidding take place on the Comptroller General's Department e-GP portal ([gprocurement.go.th](https://www.gprocurement.go.th)).
+
+---
+
+## Key Capabilities
+
+- **Automated Ingestion & AI Normalization (`FR-01`–`FR-07`, `NFR-16`–`NFR-17`):** Polls e-GP RSS feeds (`15`, `B0`, `D0`, `D1`, `D2`, `W0`/`W1`/`W2`) and imports historical `data.go.th` contracts (`CGDContract`), screens IT scope, runs Thai+English OCR + ClamAV scanning, extracts structured TOR facts with Vertex AI Gemini (`gemini-3.7-flash`), and quarantines records under 80% confidence for human review.
+- **Price Reality Check & Lock-Spec Analysis (`FR-19`–`FR-21`):** Groups comparable historical projects using deterministic similarity scoring + 10× order-of-magnitude scale guardrails (`ADR-0044`), benchmarks ราคากลาง against historical medians/averages (`±15%` normal band), and flags competition barriers under Circular ว 214.
+- **Capability Profile & Matchmaker (`FR-12`–`FR-14`):** Evaluates a 6-factor match score (tech stack, system archetype, budget range, past contract portfolio, legal entity type, certifications) across `/search` and `/tor/[id]`.
+- **Amendment Diffs, Watchlist & PDPA Alerts (`FR-15`–`FR-18`):** Detects silent document package changes as well as `D2` amendments, diffs historical versions, and dispatches in-app feeds + opt-in email digests with 1-click HMAC unsubscribe.
+- **Admin Operations & Security (`FR-22`–`FR-24`, `NFR-08`–`NFR-11`):** Live feed telemetry, review/approval/rollback workspace (`/admin/review/[id]`), pipeline recovery, peppered bcrypt auth (`ADR-0039`), pre-creation email verification (`ADR-0041`), Google OAuth 2.0, CodeQL SAST, and OWASP ZAP DAST.
 
 ---
 
@@ -141,7 +151,9 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ## How to Install and Run the Application
 
-### Step 1: Start Local MongoDB (if using Setting Option 1)
+### Option A: Native Development (Recommended for Active Coding)
+
+#### Step 1: Start Local MongoDB (if using Setting Option 1)
 
 If `MONGO_URI` points to `mongodb://localhost:27017`, make sure MongoDB is running before starting the backend:
 
@@ -152,7 +164,7 @@ docker compose up -d mongo
 
 *(Skip this step if `MONGO_URI` in `server/.env` points to MongoDB Atlas, or if you already have a native MongoDB service running on port `27017`.)*
 
-### Step 2: Install and Start the Backend API (`http://localhost:8000`)
+#### Step 2: Install and Start the Backend API (`http://localhost:8000`)
 
 Open two terminals — one for the Backend API (`server/`) and one for the Frontend Web App (`client/`):
 
@@ -162,15 +174,16 @@ npm install
 npm run dev
 ```
 
-*(Optional — if using an empty local MongoDB database)* Seed the technology vocabulary and demo TOR records in a separate terminal:
+*(Optional — if using an empty local MongoDB database)* Seed the technology vocabulary and demo TOR records in a separate terminal, and optionally promote a registered user to `admin`:
 
 ```bash
 cd server
 npm run technologies:seed
 npm run seed
+npm run role -- your_email@example.com admin
 ```
 
-### Step 3: Install and Start the Frontend (`http://localhost:3000`)
+#### Step 3: Install and Start the Frontend (`http://localhost:3000`)
 
 ```bash
 cd client
@@ -178,25 +191,43 @@ npm install
 npm run dev
 ```
 
-### Step 4: Access the Application
+#### Step 4: Access the Application
 
 - **Web Application:** [http://localhost:3000](http://localhost:3000)
-- **Backend API Health Check:** [http://localhost:8000/api/health](http://localhost:8000/api/health)
+- **Backend API Health Check:** [http://localhost:8000/health](http://localhost:8000/health)
+
+### Option B: One-Command Full Stack with Docker Compose
+
+After creating `server/.env` and `client/.env.local`, build and start MongoDB, the Express API, and the Next.js frontend together:
+
+```bash
+docker compose up -d --build
+```
+
+To also run the ClamAV virus-scanning daemon (`clamd`, requires 3–4 GiB free RAM for malware signatures):
+
+```bash
+docker compose --profile scan up -d --build
+```
+
+For production deployment configuration (`NODE_ENV=production`, TLS, `TRUST_PROXY_HOPS`, same-site cookie requirements), see [docs/deployment-checklist.md](docs/deployment-checklist.md) and the [Docker & Production Deployment (Wiki)](https://github.com/PapuBallkub/csp-mjolnir/wiki/Docker-and-Production-Deployment).
 
 ---
 
-## Running Tests & Linting
+## Running Tests, Linting & Security Checks
 
 ```bash
 # Backend unit & integration tests (requires local MongoDB running on localhost:27017)
-cd server
-npm test
+# 76 test suites (777 tests covering API, pipeline, auth, lock-spec, price benchmarks & ASVS)
+npm --prefix server test
 
 # Frontend unit tests and ESLint
-cd client
-npm test
-npm run lint
+# 14 test suites (102 tests passing)
+npm --prefix client test
+npm --prefix client run lint
 ```
+
+GitHub Actions workflows in `.github/workflows/` also run the full test matrix, **CodeQL SAST** analysis (`fullstack-ci-setup.yml`), and **OWASP ZAP DAST** baseline scans (`dast-zap.yml`).
 
 ---
 
@@ -205,16 +236,33 @@ npm run lint
 ```text
 .
 ├── client/                 Next.js 16 frontend application (App Router)
-├── server/                 Node.js + Express 5 API and ingestion/extraction pipeline
-├── docs/                   Architecture overviews, SRS summary, database schemas, and ADRs
+├── server/                 Node.js + Express 5 API (50 routes, 14 Mongoose models) and pipelines
+├── docs/                   Architecture overviews, SRS summary, DB schemas, and 44 ADRs
+├── .github/workflows/      CI test matrix, CodeQL SAST, and OWASP ZAP DAST
 ├── README.md               Project overview, setup options, and run instructions
 ├── AGENTS.md               Engineering rules and frontend design guide
 └── CONTRIBUTING.md         Developer onboarding, workflow, and commit conventions
 ```
 
-For full documentation, start at **[docs/README.md](docs/README.md)**:
+### GitHub Wiki Guides
+
+| Guide | What It Covers |
+| :--- | :--- |
+| **[Wiki Home](https://github.com/PapuBallkub/csp-mjolnir/wiki)** | Role-based entry point, official project documents, and platform snapshot |
+| **[Local Development Setup](https://github.com/PapuBallkub/csp-mjolnir/wiki/Local-Development-Setup)** | End-to-end local setup, secret generation, seeding, admin promotion, and tests |
+| **[Setting Up Google OAuth 2.0 Credentials](https://github.com/PapuBallkub/csp-mjolnir/wiki/Setting-Up-Google-OAuth-2.0-Credentials)** | Google Cloud Console OAuth client and callback configuration |
+| **[Setting Up Gmail SMTP](https://github.com/PapuBallkub/csp-mjolnir/wiki/Setting-Up-Gmail-SMTP)** | 2-Step Verification and Gmail App Password configuration for notifications |
+| **[Setting Up Google Cloud & Vertex AI Gemini](https://github.com/PapuBallkub/csp-mjolnir/wiki/Setting-Up-Google-Cloud-&-Vertex-AI-Gemini)** | GCP Vertex AI API, ADC login via `gcloud`, and `npm run gemini:check` |
+| **[Docker & Production Deployment](https://github.com/PapuBallkub/csp-mjolnir/wiki/Docker-and-Production-Deployment)** | Full-stack containers, volumes, ClamAV daemon, and production checklists |
+| **[User Guide](https://github.com/PapuBallkub/csp-mjolnir/wiki/User-Guide)** | Using search, TOR detail analysis, Watchdog, profile matchmaker, and alerts |
+| **[Admin & Pipeline Handbook](https://github.com/PapuBallkub/csp-mjolnir/wiki/Admin-and-Pipeline-Handbook)** | Telemetry, review workspace, rollbacks, pipeline recovery, and CLI scripts |
+| **[Troubleshooting & FAQ](https://github.com/PapuBallkub/csp-mjolnir/wiki/Troubleshooting-and-FAQ)** | Fixes for `127.0.0.1` cookies, missing secrets, e-GP hours, ClamAV, and OAuth skips |
+| **[Architecture & Handover Index](https://github.com/PapuBallkub/csp-mjolnir/wiki/Architecture-and-Handover-Index)** | Evaluator and maintainer portal linking all 88 docs, SDD, SRS, and QA suites |
+
+For versioned technical specifications stored in this repository, start at **[docs/README.md](docs/README.md)**:
 - **System Overview:** [docs/overview/system-overview.md](docs/overview/system-overview.md)
 - **Requirements (SRS Summary):** [docs/requirements.md](docs/requirements.md)
+- **Software Design Document:** [docs/design-document.md](docs/design-document.md)
 - **Pipeline Guide:** [docs/pipeline-guide.md](docs/pipeline-guide.md)
 - **Project Map (every file explained):** [docs/project-map.md](docs/project-map.md)
 - **Deployment Checklist:** [docs/deployment-checklist.md](docs/deployment-checklist.md)
