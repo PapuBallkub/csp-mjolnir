@@ -251,15 +251,11 @@ function PriceVerdictBadge({ verdict, delta }: { verdict: PriceVerdict; delta: n
   );
 }
 
-export function InsightPriceBadge({
-  diffPercentage,
-  sampleSize,
-  historicalMedianTHB,
-}: {
-  diffPercentage?: number | null;
-  sampleSize?: number | null;
-  historicalMedianTHB?: number | null;
-}) {
+function unavailablePriceBadge(
+  value: number | null | undefined,
+  sampleSize?: number | null,
+  historicalMedianTHB?: number | null,
+): React.ReactNode | null {
   if (historicalMedianTHB != null && historicalMedianTHB <= 0) {
     return (
       <span className={`${badgeBase} border-line bg-surface-2 text-ink-3`}>
@@ -278,7 +274,7 @@ export function InsightPriceBadge({
     );
   }
 
-  if (diffPercentage == null || Number.isNaN(diffPercentage)) {
+  if (value == null || Number.isNaN(value)) {
     return (
       <span className={`${badgeBase} border-line bg-surface-2 text-ink-3`}>
         <span>—</span>
@@ -287,10 +283,26 @@ export function InsightPriceBadge({
     );
   }
 
+  return null;
+}
+
+export function InsightPriceBadge({
+  diffPercentage,
+  sampleSize,
+  historicalMedianTHB,
+}: {
+  diffPercentage?: number | null;
+  sampleSize?: number | null;
+  historicalMedianTHB?: number | null;
+}) {
+  const unavailable = unavailablePriceBadge(diffPercentage, sampleSize, historicalMedianTHB);
+  if (unavailable) return unavailable;
+
+  const pct = diffPercentage as number;
   const verdict: PriceVerdict =
-    diffPercentage > 15 ? "over" : diffPercentage < -15 ? "under" : "fair";
+    pct > 15 ? "over" : pct < -15 ? "under" : "fair";
   const tone = TONE[PRICE_TONE[verdict]];
-  const abs = Math.abs(Math.round(diffPercentage * 10) / 10);
+  const abs = Math.abs(Math.round(pct * 10) / 10);
   const label: Record<PriceVerdict, string> = {
     fair: "ราคาอยู่ในเกณฑ์ปกติ",
     over: `สูงกว่าค่ากลาง ${abs}%`,
@@ -312,19 +324,19 @@ export function PriceBadge({ tor }: { tor: Tor }) {
 /** The API's price check: % from the historical median, read with the detail page's ±15% line. */
 export function PriceDeltaBadge({
   delta,
+  sampleSize,
+  historicalMedianTHB,
 }: {
   delta: number | null | undefined;
+  sampleSize?: number | null;
+  historicalMedianTHB?: number | null;
 }) {
-  if (delta == null || Number.isNaN(delta)) {
-    return (
-      <span className={`${badgeBase} border-line bg-surface-2 text-ink-3`}>
-        <span>—</span>
-        <span>ไม่มีราคาเปรียบเทียบ</span>
-      </span>
-    );
-  }
-  const verdict: PriceVerdict = delta > 15 ? "over" : delta < -15 ? "under" : "fair";
-  return <PriceVerdictBadge verdict={verdict} delta={delta} />;
+  const unavailable = unavailablePriceBadge(delta, sampleSize, historicalMedianTHB);
+  if (unavailable) return unavailable;
+
+  const pct = delta as number;
+  const verdict: PriceVerdict = pct > 15 ? "over" : pct < -15 ? "under" : "fair";
+  return <PriceVerdictBadge verdict={verdict} delta={pct} />;
 }
 
 /** The API's 0–100 lock-spec score, on the detail page's 35/70 lines. */
@@ -552,13 +564,19 @@ export function VerdictStrip({
     const lockScore = insight.analytics?.lockSpec?.riskScore ?? 0;
     const lockLevel: RiskLevel = lockScore >= 70 ? "high" : lockScore >= 35 ? "medium" : "low";
     const diffPct = insight.analytics?.priceAnalysis?.diffPercentage;
+    const sampleSize = insight.analytics?.priceAnalysis?.sampleSize;
+    const historicalMedianTHB = insight.analytics?.priceAnalysis?.historicalMedianTHB;
 
     if (size === "compact") {
       return (
         <div className="flex flex-wrap items-center gap-1.5">
           <StatusBadge status={status} isAmended={isAmended} />
           <LockSpecBadge level={lockLevel} score={lockScore} />
-          <InsightPriceBadge diffPercentage={diffPct} />
+          <InsightPriceBadge
+            diffPercentage={diffPct}
+            sampleSize={sampleSize}
+            historicalMedianTHB={historicalMedianTHB}
+          />
         </div>
       );
     }
@@ -574,7 +592,13 @@ export function VerdictStrip({
       },
       {
         label: "ตรวจสอบราคา",
-        node: <InsightPriceBadge diffPercentage={diffPct} />,
+        node: (
+          <InsightPriceBadge
+            diffPercentage={diffPct}
+            sampleSize={sampleSize}
+            historicalMedianTHB={historicalMedianTHB}
+          />
+        ),
       },
     ];
 
